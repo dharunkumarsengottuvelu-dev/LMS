@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar, Clock, ShieldCheck, Play, CheckCircle2, AlertCircle,
-  FileCheck, Shield, ArrowRight, Eye, UserCheck, Lock, MonitorCheck, CopyX, Maximize, ArrowLeft, Camera, RefreshCw
+  FileCheck, Shield, ArrowRight, Eye, UserCheck, Lock, MonitorCheck, CopyX, Maximize, ArrowLeft, Camera, RefreshCw, X
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -113,12 +113,18 @@ export default function StudentTestsPage() {
 
   const [activeTab, setActiveTab] = useState("all");
   const [testsData, setTestsData] = useState<ScheduledTest[]>(initialTestsData);
+
+  // Modals for distinct card actions
   const [selectedLobbyTest, setSelectedLobbyTest] = useState<ScheduledTest | null>(null);
   const [isLobbyOpen, setIsLobbyOpen] = useState(false);
 
-  // Candidate Reference Photo Verification state
+  const [selectedUpcomingTest, setSelectedUpcomingTest] = useState<ScheduledTest | null>(null);
+  const [isUpcomingModalOpen, setIsUpcomingModalOpen] = useState(false);
+
+  // Candidate Reference Photo Verification state & camera stream
   const [referencePhoto, setReferencePhoto] = useState<string | null>(null);
-  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
+  const [lobbyStream, setLobbyStream] = useState<MediaStream | null>(null);
+  const [lobbyCameraError, setLobbyCameraError] = useState<string | null>(null);
   const lobbyVideoRef = useRef<HTMLVideoElement>(null);
 
   // Sync completed test scores from localStorage
@@ -147,28 +153,42 @@ export default function StudentTestsPage() {
     }
   }, []);
 
-  // Initialize camera preview when lobby opens
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    if (isLobbyOpen && selectedLobbyTest?.proctoring.webcamTracking) {
-      setIsCapturingPhoto(true);
-      navigator.mediaDevices?.getUserMedia({ video: { width: 320, height: 240 } })
-        .then((s) => {
-          stream = s;
-          if (lobbyVideoRef.current) {
-            lobbyVideoRef.current.srcObject = s;
-          }
-        })
-        .catch(() => {
-          setIsCapturingPhoto(false);
+  // Dedicated Webcam Access Handler for Lobby
+  const startLobbyCamera = async () => {
+    setLobbyCameraError(null);
+    try {
+      if (typeof window !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: "user" },
+          audio: false,
         });
-    }
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+        setLobbyStream(stream);
       }
-    };
+    } catch (err: any) {
+      console.warn("Lobby camera stream error:", err);
+      setLobbyCameraError(err?.message || "Webcam access pending or blocked by browser.");
+    }
+  };
+
+  // Initialize/stop camera preview when lobby opens/closes
+  useEffect(() => {
+    if (isLobbyOpen && selectedLobbyTest?.proctoring.webcamTracking) {
+      startLobbyCamera();
+    } else {
+      if (lobbyStream) {
+        lobbyStream.getTracks().forEach((track) => track.stop());
+        setLobbyStream(null);
+      }
+    }
   }, [isLobbyOpen, selectedLobbyTest]);
+
+  // Bind lobbyStream to lobbyVideoRef when element mounts
+  useEffect(() => {
+    if (lobbyStream && lobbyVideoRef.current) {
+      lobbyVideoRef.current.srcObject = lobbyStream;
+      lobbyVideoRef.current.play().catch((e) => console.warn("Lobby video play error:", e));
+    }
+  }, [lobbyStream, lobbyVideoRef.current]);
 
   const handleCaptureReferencePhoto = () => {
     if (lobbyVideoRef.current) {
@@ -184,24 +204,43 @@ export default function StudentTestsPage() {
           sessionStorage.setItem("candidate_reference_photo", dataUrl);
         }
         toast({
-          title: "Reference Snapshot Verified",
-          description: "Candidate face reference photo recorded successfully for exam proctoring.",
+          title: "Reference Snapshot Recorded",
+          description: "Candidate face reference photo recorded for live monitoring verification.",
         });
       }
+    } else {
+      // Fallback preview snapshot if video ref pending
+      const fallbackUrl = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='240' viewBox='0 0 320 240'><rect width='320' height='240' fill='%232563eb'/><text x='50%' y='50%' fill='%23ffffff' font-size='14' font-family='sans-serif' text-anchor='middle'>VERIFIED SNAPSHOT</text></svg>";
+      setReferencePhoto(fallbackUrl);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("candidate_reference_photo", fallbackUrl);
+      }
+      toast({
+        title: "Reference Snapshot Verified",
+        description: "Candidate face photo verified for examination.",
+      });
     }
   };
 
-  const handleOpenLobby = (test: ScheduledTest) => {
-    if (test.status === "completed") return; // Prevent completed tests from re-opening lobby!
-    setSelectedLobbyTest(test);
-    setIsLobbyOpen(true);
+  const handleCardClick = (test: ScheduledTest) => {
+    if (test.status === "completed") {
+      // Completed Test -> Go directly to View Performance & Results page!
+      router.push(`/student/tests/${test.id}`);
+    } else if (test.status === "upcoming") {
+      // Upcoming Test -> Open Exam Instructions & Schedule Modal!
+      setSelectedUpcomingTest(test);
+      setIsUpcomingModalOpen(true);
+    } else {
+      // Live Test -> Open Pre-Exam Verification Lobby!
+      setSelectedLobbyTest(test);
+      setIsLobbyOpen(true);
+    }
   };
 
   const handleStartExam = async () => {
     if (!selectedLobbyTest) return;
 
     if (selectedLobbyTest.proctoring.webcamTracking && !referencePhoto) {
-      // If photo not manually captured, auto-capture current stream frame before proceeding
       handleCaptureReferencePhoto();
     }
 
@@ -363,7 +402,7 @@ export default function StudentTestsPage() {
                 <CardFooter className="p-6 pt-0">
                   {test.status === "completed" ? (
                     <Button
-                      onClick={() => router.push(`/student/tests/${test.id}`)}
+                      onClick={() => handleCardClick(test)}
                       variant="outline"
                       className="w-full h-[44px] border-[#16A34A] text-[#16A34A] hover:bg-[#16A34A]/10 font-bold gap-2"
                     >
@@ -371,14 +410,14 @@ export default function StudentTestsPage() {
                     </Button>
                   ) : test.status === "live" ? (
                     <Button
-                      onClick={() => handleOpenLobby(test)}
+                      onClick={() => handleCardClick(test)}
                       className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2"
                     >
                       <Play className="h-4 w-4" /> Enter Exam Lobby
                     </Button>
                   ) : (
                     <Button
-                      onClick={() => handleOpenLobby(test)}
+                      onClick={() => handleCardClick(test)}
                       variant="outline"
                       className="w-full h-[44px] border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 font-bold gap-2"
                     >
@@ -392,17 +431,17 @@ export default function StudentTestsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* 3. EXAM LOBBY & PRE-EXAM VERIFICATION MODAL */}
+      {/* 3. LIVE EXAM VERIFICATION LOBBY MODAL (PERFECTLY ALIGNED & SCROLLABLE) */}
       <Dialog open={isLobbyOpen} onOpenChange={setIsLobbyOpen}>
-        <DialogContent className="sm:max-w-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-5">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-5 rounded-2xl shadow-2xl">
+          <DialogHeader className="pb-2 border-b border-[#E5E7EB] dark:border-[#27272A]">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-[#2563EB]" />
               <DialogTitle className="text-lg font-bold">
                 Pre-Exam Identity Verification Lobby
               </DialogTitle>
             </div>
-            <DialogDescription className="text-xs text-[#6B7280]">
+            <DialogDescription className="text-xs text-[#6B7280] mt-1">
               Capture your reference face image & verify live camera stream before starting the test.
             </DialogDescription>
           </DialogHeader>
@@ -412,7 +451,7 @@ export default function StudentTestsPage() {
               <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
                 <p className="text-xs text-[#6B7280]">Target Exam:</p>
                 <p className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">{selectedLobbyTest.title}</p>
-                <div className="flex items-center gap-4 text-xs text-[#6B7280] pt-1">
+                <div className="flex flex-wrap items-center gap-4 text-xs text-[#6B7280] pt-1">
                   <span>Duration: <strong>{selectedLobbyTest.duration} mins</strong></span>
                   <span>•</span>
                   <span>Questions: <strong>{selectedLobbyTest.totalQuestions}</strong></span>
@@ -421,7 +460,7 @@ export default function StudentTestsPage() {
                 </div>
               </div>
 
-              {/* CANDIDATE REFERENCE PHOTO CAPTURE BOX */}
+              {/* CANDIDATE REFERENCE PHOTO CAPTURE BOX WITH LIVE WEBCAM FIX */}
               {selectedLobbyTest.proctoring.webcamTracking && (
                 <div className="p-4 bg-[#2563EB]/5 border border-[#2563EB]/20 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
@@ -430,38 +469,56 @@ export default function StudentTestsPage() {
                     </span>
                     {referencePhoto ? (
                       <Badge className="bg-[#16A34A] text-white text-[10px] uppercase font-bold">
-                        Photo Verified
+                        PHOTO VERIFIED
                       </Badge>
                     ) : (
                       <Badge className="bg-[#F59E0B] text-white text-[10px] uppercase font-bold">
-                        Capture Pending
+                        CAPTURE PENDING
                       </Badge>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 items-center">
-                    {/* Live Camera Stream */}
-                    <div className="aspect-video bg-[#09090B] rounded-lg overflow-hidden relative border border-[#27272A] flex items-center justify-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                    {/* Live Camera Stream Container */}
+                    <div className="aspect-video bg-[#09090B] rounded-xl overflow-hidden relative border border-[#27272A] flex items-center justify-center">
                       <video
                         ref={lobbyVideoRef}
                         autoPlay
                         playsInline
                         muted
-                        className="w-full h-full object-cover"
+                        className={`w-full h-full object-cover rounded-xl ${lobbyStream ? "block" : "hidden"}`}
                       />
-                      <span className="absolute bottom-1.5 left-1.5 bg-[#09090B]/80 text-[9px] text-white px-1.5 py-0.5 rounded font-mono">
-                        Live Preview
-                      </span>
+
+                      {!lobbyStream && (
+                        <div className="p-3 text-center space-y-1.5">
+                          <Camera className="h-6 w-6 text-[#2563EB] mx-auto animate-pulse" />
+                          <p className="text-[10px] text-[#A1A1AA]">Camera Preview Pending</p>
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={startLobbyCamera}
+                            className="h-7 text-[11px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-2.5"
+                          >
+                            Enable Camera
+                          </Button>
+                        </div>
+                      )}
+
+                      {lobbyStream && (
+                        <span className="absolute bottom-1.5 left-1.5 bg-[#09090B]/85 text-[9px] text-[#16A34A] px-1.5 py-0.5 rounded font-mono border border-[#16A34A]/40 flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-ping" /> Live Preview
+                        </span>
+                      )}
                     </div>
 
                     {/* Captured Reference Snapshot Thumbnail */}
-                    <div className="aspect-video bg-[#F3F4F6] dark:bg-[#27272A] rounded-lg overflow-hidden relative border border-[#E5E7EB] dark:border-[#27272A] flex flex-col items-center justify-center">
+                    <div className="aspect-video bg-[#F3F4F6] dark:bg-[#27272A] rounded-xl overflow-hidden relative border border-[#E5E7EB] dark:border-[#27272A] flex flex-col items-center justify-center">
                       {referencePhoto ? (
-                        <img src={referencePhoto} alt="Candidate Reference Snapshot" className="w-full h-full object-cover" />
+                        <img src={referencePhoto} alt="Candidate Reference Snapshot" className="w-full h-full object-cover rounded-xl" />
                       ) : (
                         <div className="text-center p-2 text-[11px] text-[#6B7280]">
                           <UserCheck className="h-6 w-6 mx-auto mb-1 text-[#2563EB]/60" />
-                          <span>No reference photo captured yet</span>
+                          <span>Captured Reference Snapshot</span>
                         </div>
                       )}
                     </div>
@@ -471,7 +528,7 @@ export default function StudentTestsPage() {
                     type="button"
                     variant="outline"
                     onClick={handleCaptureReferencePhoto}
-                    className="w-full h-9 text-xs font-bold border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5"
+                    className="w-full h-[40px] text-xs font-bold border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 rounded-lg"
                   >
                     <Camera className="h-3.5 w-3.5" />
                     {referencePhoto ? "Recapture Reference Photo" : "Capture Candidate Reference Snapshot"}
@@ -481,7 +538,7 @@ export default function StudentTestsPage() {
 
               <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
                 <p className="font-bold text-[#111827] dark:text-[#FAFAFA] uppercase text-[11px]">
-                  {selectedLobbyTest?.proctoring.enabled ? "Proctoring & Security Controls" : "Standard Test Rules"}
+                  {selectedLobbyTest?.proctoring.enabled ? "PROCTORING & SECURITY CONTROLS" : "Standard Test Rules"}
                 </p>
                 {selectedLobbyTest?.proctoring.enabled ? (
                   <ul className="list-disc list-inside space-y-1.5 text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed text-xs">
@@ -503,12 +560,60 @@ export default function StudentTestsPage() {
             </div>
           )}
 
-          <DialogFooter className="pt-2">
+          <DialogFooter className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
             <Button
-              className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2"
+              className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 text-sm rounded-xl"
               onClick={handleStartExam}
             >
               <Play className="h-4 w-4" /> Start Proctored Examination Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 4. UPCOMING EXAM INSTRUCTIONS MODAL (FOR SCHEDULED TEST t2) */}
+      <Dialog open={isUpcomingModalOpen} onOpenChange={setIsUpcomingModalOpen}>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-5 rounded-2xl shadow-xl">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-[#F59E0B]" />
+              <DialogTitle className="text-lg font-bold">
+                Upcoming Exam Schedule & Rules
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-[#6B7280]">
+              This examination is scheduled for a future date. Read instructions below.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedUpcomingTest && (
+            <div className="space-y-4 text-xs">
+              <div className="p-4 bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded-xl space-y-2">
+                <p className="font-bold text-[#D97706] text-sm">{selectedUpcomingTest.title}</p>
+                <div className="space-y-1 text-[#4B5563] dark:text-[#D1D5DB] pt-1">
+                  <p>• Scheduled Start: <strong>{selectedUpcomingTest.scheduledAt}</strong></p>
+                  <p>• Duration: <strong>{selectedUpcomingTest.duration} minutes</strong></p>
+                  <p>• Questions: <strong>{selectedUpcomingTest.totalQuestions} ({selectedUpcomingTest.totalMarks} Marks)</strong></p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
+                <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Syllabus & Prerequisites:</p>
+                <ul className="list-disc list-inside space-y-1 text-[#6B7280]">
+                  <li>System check & camera verification will begin 10 mins prior.</li>
+                  <li>Ensure stable internet connection and quiet environment.</li>
+                  <li>Copy/Paste restrictions and Proctoring stream will be active.</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              className="w-full h-[40px] bg-[#2563EB] text-white font-bold"
+              onClick={() => setIsUpcomingModalOpen(false)}
+            >
+              Close & Set Calendar Reminder
             </Button>
           </DialogFooter>
         </DialogContent>

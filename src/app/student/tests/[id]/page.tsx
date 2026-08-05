@@ -193,9 +193,31 @@ export default function StudentTestRunnerPage() {
   const [timeLeft, setTimeLeft] = useState(currentTest.duration * 60);
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
-  const [isExamSubmitted, setIsExamSubmitted] = useState(false);
+  const [isExamSubmitted, setIsExamSubmitted] = useState<boolean>(() => {
+    if (testId === "t3") return true;
+    if (typeof window !== "undefined") {
+      try {
+        const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");
+        return !!completedMap[testId];
+      } catch (e) {
+        return false;
+      }
+    }
+    return false;
+  });
   const [autoSubmittedReason, setAutoSubmittedReason] = useState<string | null>(null);
-  const [scoreResult, setScoreResult] = useState<number | null>(null);
+  const [scoreResult, setScoreResult] = useState<number | null>(() => {
+    if (testId === "t3") return 92;
+    if (typeof window !== "undefined") {
+      try {
+        const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");
+        return completedMap[testId]?.score ?? 92;
+      } catch (e) {
+        return 92;
+      }
+    }
+    return 92;
+  });
 
   // Dynamic Security & Enforcement States based on Trainer/Admin settings
   const isCopyPasteBlocked = currentTest.proctoring.copyPasteRestricted;
