@@ -407,52 +407,66 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
       {/* CREATE NEW COURSE MODAL */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Author New Course</DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
-              Create and publish a new interactive training module.
-            </DialogDescription>
+        <DialogContent className="sm:max-w-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-5 rounded-3xl shadow-2xl">
+          <DialogHeader className="pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center font-bold shrink-0 border border-[#2563EB]/20">
+                <BookOpen className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">
+                  Author New Course
+                </DialogTitle>
+                <DialogDescription className="text-xs text-[#6B7280]">
+                  Create and publish a new interactive training module for enterprise learners.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
           <form onSubmit={handleCreateCourse} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Course Title</label>
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
+                <span>Course Title</span>
+                <span className="text-[10px] font-semibold text-[#2563EB]">Required</span>
+              </label>
               <Input
                 placeholder="e.g. React 19 & Next.js 16 Production Blueprint"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 required
-                className="h-[44px] text-xs"
+                className="h-[46px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Domain Category</label>
-              <Select value={newCategory} onValueChange={(val) => setNewCategory(val || "Web Development")}>
-                <SelectTrigger className="h-[44px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Web Development">Web Development</SelectItem>
-                  <SelectItem value="AI & Machine Learning">AI & Machine Learning</SelectItem>
-                  <SelectItem value="Database Architecture">Database Architecture</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Domain Category</label>
+                <Select value={newCategory} onValueChange={(val) => setNewCategory(val || "Web Development")}>
+                  <SelectTrigger className="h-[46px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Web Development">Web Development</SelectItem>
+                    <SelectItem value="AI & Machine Learning">AI & Machine Learning</SelectItem>
+                    <SelectItem value="Database Architecture">Database Architecture</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Difficulty Level</label>
-              <Select value={newLevel} onValueChange={(val) => setNewLevel((val as any) || "Intermediate")}>
-                <SelectTrigger className="h-[44px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Beginner">Beginner</SelectItem>
-                  <SelectItem value="Intermediate">Intermediate</SelectItem>
-                  <SelectItem value="Advanced">Advanced</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Difficulty Level</label>
+                <Select value={newLevel} onValueChange={(val) => setNewLevel((val as any) || "Intermediate")}>
+                  <SelectTrigger className="h-[46px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Beginner">Beginner</SelectItem>
+                    <SelectItem value="Intermediate">Intermediate</SelectItem>
+                    <SelectItem value="Advanced">Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -462,7 +476,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 value={newDuration}
                 onChange={(e) => setNewDuration(e.target.value)}
                 required
-                className="h-[44px] text-xs"
+                className="h-[46px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
               />
             </div>
 
@@ -473,13 +487,16 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
                 rows={3}
-                className="text-xs"
+                className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
               />
             </div>
 
-            <DialogFooter>
-              <Button type="submit" className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold">
-                Publish Course Now
+            <DialogFooter className="pt-2">
+              <Button
+                type="submit"
+                className="w-full h-[48px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20 transition-all"
+              >
+                <Sparkles className="h-4 w-4" /> Publish Course Now
               </Button>
             </DialogFooter>
           </form>
