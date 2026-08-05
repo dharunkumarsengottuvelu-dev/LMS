@@ -1,100 +1,76 @@
 "use client";
 
-import { MCQAssessmentEngine } from "@/components/quiz/mcq-engine";
+import { PracticeRunnerEngine, PracticeQuestion } from "@/components/quiz/practice-runner";
 import { useParams } from "next/navigation";
-import type { Assessment, AssessmentAttempt, Question } from "@/types";
 
-const mockAssessment: Assessment = {
-  id: "a1",
-  title: "React 19 & Next.js App Router Evaluation",
-  description: "Comprehensive React 19 evaluation",
-  type: "mcq",
-  instructions: "Complete all questions within the 30-minute time limit. Each question has positive marking.",
-  duration_minutes: 30,
-  total_marks: 100,
-  passing_marks: 70,
-  max_attempts: 3,
-  shuffle_questions: false,
-  negative_marking: false,
-  negative_marks_per_wrong: 0,
-  available_from: null,
-  expires_at: null,
-  status: "active",
-  course_id: null,
-  created_by: "u1",
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
+const mockModule = {
+  id: "p3",
+  title: "Fullstack Architecture & Mixed Coding Practice",
+  type: "mixed" as const, // MCQ + Coding Mixed format assigned by Trainer/Admin
+  assignedBy: "Admin (Dharun)",
+  durationMinutes: 45,
+  totalMarks: 150,
+  passingMarks: 100,
 };
 
-const mockAttempt: AssessmentAttempt = {
-  id: "att1",
-  assessment_id: "a1",
-  student_id: "s1",
-  answers: {},
-  score: null,
-  total_marks: 100,
-  percentage: null,
-  passed: null,
-  status: "in_progress",
-  started_at: new Date().toISOString(),
-  submitted_at: null,
-  expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-  time_taken_seconds: 0,
-  created_at: new Date().toISOString(),
-};
-
-const mockQuestions: Question[] = [
+const mockMixedQuestions: PracticeQuestion[] = [
   {
     id: "q1",
-    assessment_id: "a1",
-    text: "What is the primary role of Server Components in Next.js 16 App Router?",
     type: "single_choice",
-    marks: 50,
-    negative_marks: 0,
+    title: "1. Next.js 16 Server Components Architecture",
+    text: "What is the primary role of Server Components in Next.js 16 App Router?",
+    marks: 25,
+    order: 1,
     options: [
-      { id: "o1", text: "To execute exclusively on the server and reduce client bundle size" },
+      { id: "o1", text: "To execute exclusively on the server and reduce client JS bundle size" },
       { id: "o2", text: "To handle client-side onClick event listeners" },
       { id: "o3", text: "To manage local React state with useState" },
       { id: "o4", text: "To replace CSS styling rules" }
     ],
-    correct_answers: ["o1"],
-    explanation: "Server components run on the server and send pre-rendered HTML/payload to the client without adding JavaScript bundle size.",
-    order: 1,
-    created_at: new Date().toISOString(),
   },
   {
     id: "q2",
-    assessment_id: "a1",
-    text: "Which directory in Next.js 16 App Router maps to root routing?",
-    type: "single_choice",
-    marks: 50,
-    negative_marks: 0,
-    options: [
-      { id: "o1", text: "src/app/" },
-      { id: "o2", text: "src/pages/" },
-      { id: "o3", text: "src/routes/" },
-      { id: "o4", text: "public/" }
-    ],
-    correct_answers: ["o1"],
-    explanation: "The app directory inside src/ or root maps directly to routes in Next.js App Router.",
+    type: "coding",
+    title: "2. Algorithm Challenge: Two Sum Target Index Pair",
+    text: "Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`. Write an efficient solution in O(N) time complexity.",
+    marks: 75,
     order: 2,
-    created_at: new Date().toISOString(),
+    starterCode: {
+      python: `# Write your solution in Python 3\ndef two_sum(nums, target):\n    hashmap = {}\n    for i, num in enumerate(nums):\n        diff = target - num\n        if diff in hashmap:\n            return [hashmap[diff], i]\n        hashmap[num] = i\n    return []\n\n# Test call\nprint(two_sum([2, 7, 11, 15], 9))`,
+      javascript: `// Write your solution in JavaScript\nfunction twoSum(nums, target) {\n  const map = new Map();\n  for (let i = 0; i < nums.length; i++) {\n    const diff = target - nums[i];\n    if (map.has(diff)) return [map.get(diff), i];\n    map.set(nums[i], i);\n  }\n  return [];\n}\nconsole.log(twoSum([2, 7, 11, 15], 9));`,
+    },
+    testCases: [
+      { input: "nums = [2,7,11,15], target = 9", expectedOutput: "[0, 1]" }
+    ],
+  },
+  {
+    id: "q3",
+    type: "multiple_choice",
+    title: "3. PostgreSQL Row Level Security (RLS)",
+    text: "Which of the following statements are correct regarding Supabase PostgreSQL Row Level Security (RLS)?",
+    marks: 50,
+    order: 3,
+    options: [
+      { id: "o1", text: "RLS policies run directly at the database engine layer" },
+      { id: "o2", text: "auth.uid() retrieves the authenticated Supabase user ID" },
+      { id: "o3", text: "RLS policies can only be written in JavaScript" },
+      { id: "o4", text: "Service role key bypasses RLS policies for administrative tasks" }
+    ],
   }
 ];
 
 export default function AssessmentTakePage() {
   const params = useParams();
 
-  const handleSubmit = async (answers: Record<string, string[]>) => {
-    console.log("Submitted answers:", answers);
+  const handleSubmit = async (answers: Record<string, any>) => {
+    console.log("Practice module submitted:", answers);
   };
 
   return (
     <div className="py-4">
-      <MCQAssessmentEngine
-        assessment={mockAssessment}
-        attempt={mockAttempt}
-        questions={mockQuestions}
+      <PracticeRunnerEngine
+        module={mockModule}
+        questions={mockMixedQuestions}
         onSubmit={handleSubmit}
       />
     </div>
