@@ -224,33 +224,46 @@ export default function StudentTestRunnerPage() {
     }
   }, []);
 
+  const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
   // Attempt Hardware Webcam Access
   const requestWebcamAccess = async () => {
+    setCameraError(null);
     try {
       if (typeof window !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480, facingMode: "user" }
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+          audio: false,
         });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          setCameraMode("hardware");
-          toast({
-            title: "Hardware Camera Active",
-            description: "Live camera stream connected with AI Face Proctoring overlay.",
-          });
-          return;
-        }
+        setWebcamStream(stream);
+        setCameraMode("hardware");
+        toast({
+          title: "Webcam Connected",
+          description: "Live camera stream active for real-time face monitoring.",
+        });
       }
     } catch (err: any) {
-      console.warn("Hardware webcam not accessible, activating AI Simulation Engine:", err);
+      console.warn("Hardware webcam access error:", err);
+      setCameraError(err?.message || "Webcam access denied or unavailable.");
+      toast({
+        variant: "destructive",
+        title: "Webcam Access Required",
+        description: "Please click 'Enable Camera' to grant camera permission for face monitoring.",
+      });
     }
-    setCameraMode("ai_simulation");
   };
 
   useEffect(() => {
     requestWebcamAccess();
   }, []);
+
+  useEffect(() => {
+    if (webcamStream && videoRef.current) {
+      videoRef.current.srcObject = webcamStream;
+      videoRef.current.play().catch((e) => console.warn("Video element play error:", e));
+    }
+  }, [webcamStream, videoRef.current]);
 
   // HTML5 Canvas AI Bounding Reticle Animation
   useEffect(() => {
@@ -907,14 +920,20 @@ export default function StudentTestRunnerPage() {
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover rounded-xl ${cameraMode === "hardware" ? "block" : "hidden"}`}
+                  className={`w-full h-full object-cover rounded-xl ${webcamStream ? "block" : "hidden"}`}
                 />
 
-                {cameraMode === "ai_simulation" && (
-                  <div className="w-full h-full bg-[#09090B] flex flex-col items-center justify-center text-center p-4 relative">
-                    <div className="w-20 h-20 rounded-full bg-[#2563EB]/20 border-2 border-[#2563EB] flex items-center justify-center text-[#2563EB] relative">
-                      <User className="h-10 w-10 text-white" />
-                    </div>
+                {!webcamStream && (
+                  <div className="w-full h-full bg-[#09090B] flex flex-col items-center justify-center text-center p-4 relative space-y-2">
+                    <Camera className="h-8 w-8 text-[#2563EB] animate-bounce" />
+                    <p className="text-xs text-[#D1D5DB] font-medium">Camera Stream Permission Pending</p>
+                    <Button
+                      size="sm"
+                      onClick={requestWebcamAccess}
+                      className="h-8 text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-1.5 px-3"
+                    >
+                      <Camera className="h-3.5 w-3.5" /> Enable Live Camera Stream
+                    </Button>
                   </div>
                 )}
 
@@ -925,10 +944,12 @@ export default function StudentTestRunnerPage() {
                   className="absolute inset-0 w-full h-full pointer-events-none z-10"
                 />
 
-                <div className="absolute top-2 left-2 z-20 bg-[#09090B]/85 backdrop-blur-xs text-[10px] font-mono text-[#16A34A] px-2 py-0.5 rounded border border-[#16A34A]/40 flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
-                  LIVE CAMERA STREAM ACTIVE
-                </div>
+                {webcamStream && (
+                  <div className="absolute top-2 left-2 z-20 bg-[#09090B]/85 backdrop-blur-xs text-[10px] font-mono text-[#16A34A] px-2 py-0.5 rounded border border-[#16A34A]/40 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
+                    LIVE CAMERA STREAM ACTIVE
+                  </div>
+                )}
               </div>
 
               <div className="p-2.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-lg border border-[#E5E7EB] dark:border-[#27272A] text-[11px] text-[#6B7280] space-y-1">
