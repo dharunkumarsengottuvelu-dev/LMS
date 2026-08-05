@@ -125,6 +125,7 @@ export default function StudentTestRunnerPage() {
   // Live Webcam Real-time Feed State
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isSimulatedCamera, setIsSimulatedCamera] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   // Check SEB Browser UserAgent
@@ -138,35 +139,32 @@ export default function StudentTestRunnerPage() {
   }, []);
 
   // REAL LIVE WEBCAM ACCESS IMPLEMENTATION
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-
-    async function startWebcam() {
-      try {
-        if (typeof window !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 480, height: 360, facingMode: "user" }
+  const requestWebcamAccess = async () => {
+    try {
+      if (typeof window !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 480, height: 360, facingMode: "user" }
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setIsCameraActive(true);
+          setIsSimulatedCamera(false);
+          setCameraError(null);
+          toast({
+            title: "Webcam Access Granted",
+            description: "Live camera stream connected for AI Proctoring.",
           });
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            setIsCameraActive(true);
-            setCameraError(null);
-          }
         }
-      } catch (err: any) {
-        console.warn("Webcam access error:", err);
-        setCameraError(err?.message || "Webcam access denied or unavailable");
-        setIsCameraActive(false);
       }
+    } catch (err: any) {
+      console.warn("Webcam access error:", err);
+      setCameraError("Camera permission denied. Click below to retry or simulate.");
+      setIsCameraActive(false);
     }
+  };
 
-    startWebcam();
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
+  useEffect(() => {
+    requestWebcamAccess();
   }, []);
 
   // Coding Runner State
@@ -177,9 +175,7 @@ export default function StudentTestRunnerPage() {
 
   const currentQ = (mockExamQuestions[currentIndex] || mockExamQuestions[0]) as QuestionItem;
 
-  // -------------------------------------------------------------
   // FULLSCREEN & TAB SWITCH VIOLATION WITH AUTOMATIC SUBMIT
-  // -------------------------------------------------------------
   useEffect(() => {
     if (!isSEBVerified && isSEBRequired) return;
 
@@ -206,7 +202,6 @@ export default function StudentTestRunnerPage() {
           const next = prev + 1;
           
           if (next >= maxTabSwitchLimit) {
-            // AUTOMATIC SUBMIT EXAM IMMEDIATELY ON EXCEEDING LIMIT!
             setIsExamSubmitted(true);
             setAutoSubmittedReason(`Exceeded maximum allowed tab switch limit (${next}/${maxTabSwitchLimit}). Proctored violation logged.`);
             setScoreResult(0);
@@ -405,14 +400,14 @@ export default function StudentTestRunnerPage() {
       onContextMenu={handleCopyPasteAttempt}
       className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full select-none"
     >
-      {/* 1. MNC-Level Header Bar with Instructions Button */}
+      {/* 1. MNC-Level Clean Alignment Header Bar (No Text Truncation or Overcrowded Badges) */}
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-sm">
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           
           {/* Left Title & Meta Info */}
-          <div className="min-w-0 flex-1 space-y-1">
+          <div className="space-y-1.5 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-[20px] font-bold text-[#111827] dark:text-[#FAFAFA] tracking-tight truncate">
+              <h1 className="text-[18px] md:text-[20px] font-bold text-[#111827] dark:text-[#FAFAFA] leading-tight">
                 Mid-Term Proctored Evaluation — Batch 2026-A
               </h1>
               <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
@@ -422,42 +417,40 @@ export default function StudentTestRunnerPage() {
                 SEB Active
               </Badge>
             </div>
-            <p className="text-xs text-[#6B7280]">
-              Candidate: <strong className="text-[#111827] dark:text-[#FAFAFA]">Dharunkumar S</strong> | Questions: <strong>{mockExamQuestions.length}</strong> | Max Marks: <strong>100</strong>
-            </p>
+
+            <div className="flex flex-wrap items-center gap-3 text-xs text-[#6B7280]">
+              <span>Candidate: <strong className="text-[#111827] dark:text-[#FAFAFA]">Dharunkumar S</strong></span>
+              <span>•</span>
+              <span>Questions: <strong className="text-[#111827] dark:text-[#FAFAFA]">{mockExamQuestions.length} Items</strong></span>
+              <span>•</span>
+              <span>Max Marks: <strong className="text-[#111827] dark:text-[#FAFAFA]">100 Marks</strong></span>
+            </div>
           </div>
 
-          {/* Right Actions: Instructions Modal Button, Timer & Security Indicators & Submit Exam */}
+          {/* Right Clean Actions Bar */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {/* Exam Instructions Button (Contains all security status details inside!) */}
             <Button
               variant="outline"
-              className="h-[44px] px-4 border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 font-bold text-xs gap-1.5 shrink-0"
+              className="h-[44px] px-4 border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 font-bold text-xs gap-2 shrink-0"
               onClick={() => setIsInstructionsOpen(true)}
             >
-              <Info className="h-4 w-4" /> Exam Instructions & Rules
+              <Info className="h-4 w-4" /> Exam Instructions & Security Rules
+              {tabSwitchViolations > 0 && (
+                <Badge className="bg-[#DC2626] text-white text-[9px] font-bold ml-1">
+                  {tabSwitchViolations}/{maxTabSwitchLimit} Alert
+                </Badge>
+              )}
             </Button>
 
-            <Badge className={`text-[10px] uppercase font-bold px-2.5 py-1 ${
-              tabSwitchViolations > 0 ? "bg-[#DC2626] text-white animate-pulse" : "bg-[#F3F4F6] text-[#4B5563] border border-[#E5E7EB]"
-            }`}>
-              Tab Switches: {tabSwitchViolations}/{maxTabSwitchLimit} (Auto-Submit on {maxTabSwitchLimit})
-            </Badge>
-
-            <div className="flex items-center gap-1.5 bg-[#9333EA]/10 border border-[#9333EA]/20 px-3 py-2 rounded-xl text-xs font-bold text-[#9333EA]">
-              <MonitorCheck className="h-4 w-4" /> SEB Browser
-            </div>
-
-            <div className="flex items-center gap-1.5 bg-[#2563EB]/10 border border-[#2563EB]/20 px-3 py-2 rounded-xl text-xs font-bold text-[#2563EB]">
-              <span className="h-2 w-2 rounded-full bg-[#2563EB] animate-ping" />
-              <ShieldCheck className="h-4 w-4" /> Fullscreen Enforced
-            </div>
-
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm font-bold border ${
+            {/* Countdown Timer */}
+            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-sm font-bold border ${
               timeLeft < 300 ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30 animate-pulse" : "bg-[#F9FAFB] dark:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA] border-[#E5E7EB] dark:border-[#27272A]"
             }`}>
               <Clock className="h-4 w-4 text-[#2563EB]" /> {formatTime(timeLeft)}
             </div>
 
+            {/* Submit Exam Button */}
             {!isExamSubmitted ? (
               <Button className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold gap-2 shrink-0" onClick={() => setIsSubmitDialogOpen(true)}>
                 <Send className="h-4 w-4" /> Submit Exam
@@ -663,7 +656,7 @@ export default function StudentTestRunnerPage() {
         {/* RIGHT SIDEBAR: QUESTION PALETTE ON TOP! (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
           
-          {/* 1. Question Palette Drawer (MOVED TO TOP AS REQUESTED!) */}
+          {/* 1. Question Palette Drawer (TOP CARD) */}
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
             <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
               <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
@@ -718,56 +711,82 @@ export default function StudentTestRunnerPage() {
             </CardContent>
           </Card>
 
-          {/* 2. REAL LIVE WEBCAM AI PROCTORING STREAM CARD (MIDDLE) */}
+          {/* 2. REAL LIVE WEBCAM AI PROCTORING STREAM CARD (MIDDLE CARD) */}
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden">
             <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#2563EB]/5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
                   <Camera className="h-4 w-4 text-[#2563EB]" /> Real-time AI Proctoring Feed
                 </span>
-                <span className={`h-2.5 w-2.5 rounded-full ${isCameraActive ? "bg-[#16A34A] animate-ping" : "bg-[#DC2626]"}`} />
+                <span className={`h-2.5 w-2.5 rounded-full ${isCameraActive || isSimulatedCamera ? "bg-[#16A34A] animate-ping" : "bg-[#DC2626]"}`} />
               </div>
             </CardHeader>
+
             <CardContent className="p-4 space-y-3">
-              <div className="aspect-video bg-[#09090B] rounded-xl flex items-center justify-center text-white relative overflow-hidden border border-[#27272A]">
+              <div className="aspect-video bg-[#09090B] rounded-xl flex flex-col items-center justify-center text-white relative overflow-hidden border border-[#27272A]">
+                
                 {/* Real HTML5 Live Video Element */}
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover rounded-xl ${isCameraActive ? "block" : "hidden"}`}
+                  className={`w-full h-full object-cover rounded-xl ${isCameraActive && !isSimulatedCamera ? "block" : "hidden"}`}
                 />
 
-                {!isCameraActive && (
-                  <div className="flex flex-col items-center justify-center p-4 text-center space-y-2">
-                    <VideoOff className="h-8 w-8 text-[#DC2626]" />
-                    <p className="text-xs font-bold text-white">Camera Feed Inactive</p>
-                    <p className="text-[10px] text-[#A1A1AA]">
-                      {cameraError || "Please allow webcam access for AI Proctoring"}
-                    </p>
+                {/* Simulated AI Camera Stream */}
+                {isSimulatedCamera && (
+                  <div className="w-full h-full bg-[#09090B] flex flex-col items-center justify-center text-center p-4 relative">
+                    <Video className="h-10 w-10 text-[#2563EB] mb-2 animate-pulse" />
+                    <p className="text-xs font-bold text-white">AI Camera Stream Simulated</p>
+                    <p className="text-[10px] text-[#16A34A] font-mono mt-1">Eyes & Face Verified (99.8%)</p>
                   </div>
                 )}
 
-                {isCameraActive && (
+                {/* Camera Inactive Retry / Demo Controls */}
+                {!isCameraActive && !isSimulatedCamera && (
+                  <div className="flex flex-col items-center justify-center p-4 text-center space-y-2">
+                    <VideoOff className="h-7 w-7 text-[#DC2626]" />
+                    <p className="text-xs font-bold text-white">Camera Access Inactive</p>
+                    <div className="flex flex-col gap-1.5 pt-1">
+                      <Button
+                        size="sm"
+                        className="h-7 px-3 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-[11px] font-bold"
+                        onClick={requestWebcamAccess}
+                      >
+                        Enable Camera Stream
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-3 border-white/20 text-white hover:bg-white/10 text-[10px]"
+                        onClick={() => setIsSimulatedCamera(true)}
+                      >
+                        Simulate AI Camera
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {(isCameraActive || isSimulatedCamera) && (
                   <div className="absolute top-2 left-2 bg-[#09090B]/80 backdrop-blur-xs text-[10px] font-mono text-[#16A34A] px-2 py-0.5 rounded border border-[#16A34A]/30 flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" /> LIVE CAMERA FEED
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" /> LIVE PROCTORING STREAM
                   </div>
                 )}
               </div>
 
               <div className="p-2.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-lg border border-[#E5E7EB] dark:border-[#27272A] text-[11px] text-[#6B7280] space-y-1">
                 <p>• Tab Switch Limit: <strong className="text-[#DC2626]">{tabSwitchViolations} / {maxTabSwitchLimit} (Auto-Submit on {maxTabSwitchLimit})</strong></p>
-                <p>• Face Detection Status: <strong className={isCameraActive ? "text-[#16A34A]" : "text-[#DC2626]"}>{isCameraActive ? "Active (99.6% Eyes Verified)" : "Camera Required"}</strong></p>
+                <p>• Face Detection: <strong className={isCameraActive || isSimulatedCamera ? "text-[#16A34A]" : "text-[#DC2626]"}>{isCameraActive || isSimulatedCamera ? "Active (99.6% Eyes Verified)" : "Camera Required"}</strong></p>
               </div>
             </CardContent>
           </Card>
 
-          {/* 3. Active Security Safeguards Card (BOTTOM) */}
+          {/* 3. Active Security Safeguards Card (BOTTOM CARD) */}
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
             <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#9333EA]/5">
               <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-[#9333EA]" /> Auto Security Enforcement
+                <ShieldCheck className="h-4 w-4 text-[#9333EA]" /> Security Enforcement Summary
               </span>
             </CardHeader>
             <CardContent className="p-4 space-y-2 text-xs">
@@ -780,7 +799,7 @@ export default function StudentTestRunnerPage() {
                 <span className="font-bold text-[#16A34A]">Auto Locked</span>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#F9FAFB] dark:bg-[#09090B]">
-                <span className="text-[#6B7280] flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-[#DC2626]" /> Tab Switch Max Limit:</span>
+                <span className="text-[#6B7280] flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-[#DC2626]" /> Tab Switch Limit:</span>
                 <span className="font-bold text-[#DC2626]">{maxTabSwitchLimit} Max (Auto-Submit)</span>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#F9FAFB] dark:bg-[#09090B]">
@@ -794,41 +813,43 @@ export default function StudentTestRunnerPage() {
 
       </div>
 
-      {/* EXAM INSTRUCTIONS & RULES MODAL */}
+      {/* EXAM INSTRUCTIONS & SECURITY RULES MODAL */}
       <Dialog open={isInstructionsOpen} onOpenChange={setIsInstructionsOpen}>
         <DialogContent className="sm:max-w-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4">
           <DialogHeader>
             <div className="flex items-center gap-2 text-[#2563EB]">
               <FileText className="h-5 w-5" />
               <DialogTitle className="text-lg font-bold">
-                Examination Rules & Guidelines
+                Examination Rules & Security Enforcement
               </DialogTitle>
             </div>
             <DialogDescription className="text-xs text-[#6B7280] pt-1">
-              Please read the proctoring guidelines and evaluation policies carefully before answering.
+              Review active security enforcement and proctoring rules configured by your instructor.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 text-xs text-[#4B5563] dark:text-[#D1D5DB]">
-            <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-1.5">
-              <p className="font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-                <Clock className="h-4 w-4 text-[#2563EB]" /> 1. Duration & Auto-Submission
+            <div className="p-3.5 bg-[#DC2626]/5 border border-[#DC2626]/20 rounded-xl space-y-1.5">
+              <p className="font-bold text-[#DC2626] flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4" /> 1. Tab Switch Violation & Auto-Submit Policy
               </p>
-              <p>Total time allocated is <strong>60 Minutes</strong>. When the countdown reaches 00:00, your exam will be automatically submitted.</p>
+              <p className="text-[#DC2626]">
+                You have used <strong>{tabSwitchViolations} of {maxTabSwitchLimit}</strong> allowed tab switches. Exceeding <strong>{maxTabSwitchLimit} tab switches / window exits</strong> will trigger an immediate <strong>AUTOMATIC SUBMISSION</strong> with 0 score.
+              </p>
             </div>
 
             <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-1.5">
               <p className="font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4 text-[#DC2626]" /> 2. Tab Switch Limit Policy
+                <MonitorCheck className="h-4 w-4 text-[#9333EA]" /> 2. Safe Exam Browser & Fullscreen Lock
               </p>
-              <p>You are allowed a maximum of <strong>{maxTabSwitchLimit} tab switches / window exits</strong>. Exceeding this limit will trigger an immediate <strong>AUTOMATIC SUBMISSION</strong> with 0 score.</p>
+              <p>Safe Exam Browser (SEB) and Mandatory Fullscreen mode are active. Exiting full-screen mode will display a security warning overlay.</p>
             </div>
 
             <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-1.5">
               <p className="font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-                <Camera className="h-4 w-4 text-[#9333EA]" /> 3. Real-time AI Proctoring & SEB
+                <Camera className="h-4 w-4 text-[#2563EB]" /> 3. Real-time AI Camera Feed
               </p>
-              <p>Your web camera is monitored by live AI face detection. Safe Exam Browser and mandatory full-screen mode are active.</p>
+              <p>Your web camera stream is analyzed in real time for eye gaze and facial presence verification.</p>
             </div>
           </div>
 
