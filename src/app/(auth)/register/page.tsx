@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { motion } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, User, Loader2, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -15,14 +14,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 const registerSchema = z.object({
-  first_name: z.string().min(2, "First name must be at least 2 characters"),
-  last_name: z.string().min(2, "Last name must be at least 2 characters"),
+  first_name: z.string().min(1, "First name is required"),
+  last_name: z.string().min(1, "Last name is required"),
   email: z.string().email("Please enter a valid email"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[A-Z]/, "Must contain at least one uppercase letter")
-    .regex(/[0-9]/, "Must contain at least one number"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
   confirm_password: z.string(),
 }).refine((d) => d.password === d.confirm_password, {
   message: "Passwords do not match",
@@ -36,6 +31,7 @@ export default function RegisterPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const router = useRouter();
   const { toast } = useToast();
   const supabase = createClient();
 
@@ -50,7 +46,7 @@ export default function RegisterPage() {
   async function onSubmit(data: RegisterFormData) {
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data: authData, error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
@@ -59,18 +55,28 @@ export default function RegisterPage() {
             last_name: data.last_name,
             role: "student",
           },
-          emailRedirectTo: `${window.location.origin}/auth/verify-email`,
         },
       });
 
-      if (error) throw error;
-      setSuccess(true);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Registration failed";
-      const userMessage = message.includes("Failed to fetch") || message.includes("fetch")
-        ? "Supabase URL is not connected. Please add your NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local"
-        : message;
-      toast({ title: "Registration failed", description: userMessage, variant: "destructive" });
+      if (error) {
+        toast({
+          title: "Registration failed",
+          description: error.message || "Could not complete registration.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (authData.session) {
+        toast({ title: "Account created", description: "Redirecting to dashboard..." });
+        router.push("/student/dashboard");
+        router.refresh();
+      } else {
+        setSuccess(true);
+      }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "An unexpected error occurred.";
+      toast({ title: "Registration error", description: errMsg, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -83,13 +89,13 @@ export default function RegisterPage() {
           <CheckCircle2 className="h-6 w-6" />
         </div>
         <h2 className="text-[24px] font-semibold text-[#111827] dark:text-[#FAFAFA]">
-          Verification Email Sent
+          Account Created!
         </h2>
         <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] max-w-xs mx-auto leading-relaxed">
-          We&apos;ve sent an activation link to your email. Please check your inbox to complete setup.
+          Your account has been registered successfully. You can now sign in.
         </p>
         <Button className="mt-4 h-[44px] bg-[#2563EB] text-white hover:bg-[#1D4ED8]" asChild>
-          <Link href="/login">Return to Sign In</Link>
+          <Link href="/login">Sign In Now</Link>
         </Button>
       </div>
     );
@@ -109,7 +115,7 @@ export default function RegisterPage() {
 
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* First Name & Last Name Grid */}
+        {/* First Name & Last Name Grid (Accepts 1+ character) */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="first_name" className="text-xs font-medium text-[#111827] dark:text-[#FAFAFA]">First name</Label>

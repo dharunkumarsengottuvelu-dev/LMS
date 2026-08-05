@@ -52,37 +52,42 @@ export default function LoginPage() {
         password: data.password,
       });
 
-      if (error) throw error;
+      if (error) {
+        toast({
+          title: "Login failed",
+          description: error.message === "Invalid login credentials"
+            ? "Incorrect email or password. Please check your credentials."
+            : error.message || "Failed to sign in.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("user_id", authData.user.id)
-        .single();
+      if (authData.user) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("user_id", authData.user.id)
+          .maybeSingle();
 
-      const profile = profileData as { role?: string } | null;
+        const profile = profileData as { role?: string } | null;
+        toast({ title: "Welcome back", description: "Logged in successfully." });
 
-      toast({ title: "Welcome back", description: "Logged in successfully." });
-
-      const role = profile?.role ?? "student";
-      router.push(
-        role === "admin"
-          ? "/admin/dashboard"
-          : role === "trainer"
-          ? "/trainer/dashboard"
-          : "/student/dashboard"
-      );
-      router.refresh();
+        const role = profile?.role ?? "student";
+        router.push(
+          role === "admin"
+            ? "/admin/dashboard"
+            : role === "trainer"
+            ? "/trainer/dashboard"
+            : "/student/dashboard"
+        );
+        router.refresh();
+      }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Login failed";
-      const userMessage = message.includes("Failed to fetch") || message.includes("fetch")
-        ? "Supabase URL is not connected. Please add your NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local"
-        : message === "Invalid login credentials"
-        ? "Incorrect email or password. Please try again."
-        : message;
+      const message = error instanceof Error ? error.message : "An unexpected login error occurred.";
       toast({
         title: "Login failed",
-        description: userMessage,
+        description: message,
         variant: "destructive",
       });
     } finally {
