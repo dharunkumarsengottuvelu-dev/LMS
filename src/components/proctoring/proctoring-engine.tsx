@@ -245,29 +245,33 @@ export function ProctoringEngine({
   // COMPACT TOP HEADER WIDGET VARIANT (Embedded inside Top Header Bar)
   if (variant === "compact") {
     return (
-      <div className="w-[140px] h-[44px] bg-[#09090B] rounded-xl overflow-hidden relative border border-[#2563EB]/40 shrink-0 shadow-xs">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className={`w-full h-full object-cover ${webcamStream ? "block" : "hidden"}`}
-        />
-        {!webcamStream && (
-          <button
-            type="button"
-            onClick={requestWebcamAccess}
-            className="w-full h-full flex items-center justify-center bg-[#2563EB]/10 text-[#2563EB] text-[10px] font-bold gap-1 px-2"
-          >
-            <Camera className="h-3 w-3" /> Enable Cam
-          </button>
-        )}
-        {webcamStream && (
-          <div className="absolute bottom-1 left-1 bg-[#09090B]/85 text-[8px] font-mono text-[#16A34A] px-1.5 py-0.5 rounded flex items-center gap-1 border border-[#16A34A]/40">
+      <div className="h-[44px] px-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center gap-2.5 shrink-0 shadow-xs">
+        <div className="w-[52px] h-[32px] bg-[#09090B] rounded-lg overflow-hidden relative border border-[#2563EB]/40 shrink-0">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className={`w-full h-full object-cover ${webcamStream ? "block" : "hidden"}`}
+          />
+          {!webcamStream && (
+            <button
+              type="button"
+              onClick={requestWebcamAccess}
+              className="w-full h-full flex items-center justify-center bg-[#2563EB]/10 text-[#2563EB]"
+              title="Click to Enable Camera"
+            >
+              <Camera className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <div className="flex flex-col text-[10px] leading-tight font-medium pr-0.5">
+          <span className="text-[#16A34A] font-bold flex items-center gap-1 text-[10px]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
             LIVE CAM
-          </div>
-        )}
+          </span>
+          <span className="text-[#6B7280] text-[9px] font-mono">PROCTORED</span>
+        </div>
       </div>
     );
   }
