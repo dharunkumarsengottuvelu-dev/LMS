@@ -245,8 +245,8 @@ export function ProctoringEngine({
   // COMPACT TOP HEADER WIDGET VARIANT (Embedded inside Top Header Bar)
   if (variant === "compact") {
     return (
-      <div className="h-[44px] bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center pr-3 overflow-hidden shrink-0 shadow-xs">
-        <div className="w-[64px] h-full bg-[#09090B] relative overflow-hidden shrink-0 border-r border-[#E5E7EB] dark:border-[#27272A]">
+      <div className="h-[80px] bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center pr-3.5 overflow-hidden shrink-0 shadow-sm">
+        <div className="w-[110px] h-full bg-[#09090B] relative overflow-hidden shrink-0 border-r border-[#E5E7EB] dark:border-[#27272A]">
           <video
             ref={videoRef}
             autoPlay
@@ -258,19 +258,27 @@ export function ProctoringEngine({
             <button
               type="button"
               onClick={requestWebcamAccess}
-              className="w-full h-full flex items-center justify-center bg-[#2563EB]/10 text-[#2563EB]"
+              className="w-full h-full flex flex-col items-center justify-center bg-[#2563EB]/10 text-[#2563EB] text-[10px] font-bold gap-1"
               title="Click to Enable Camera"
             >
-              <Camera className="h-4 w-4" />
+              <Camera className="h-5 w-5" />
+              <span>Enable Cam</span>
             </button>
           )}
+          {webcamStream && (
+            <div className="absolute top-1.5 left-1.5 bg-[#09090B]/85 backdrop-blur-xs text-[9px] font-mono text-[#16A34A] px-1.5 py-0.5 rounded border border-[#16A34A]/40 flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
+              LIVE
+            </div>
+          )}
         </div>
-        <div className="flex flex-col text-[10px] leading-tight font-medium pl-2.5">
-          <span className="text-[#16A34A] font-bold flex items-center gap-1 text-[10px]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
-            LIVE CAM
+        <div className="flex flex-col text-[11px] leading-tight font-medium pl-3 space-y-1">
+          <span className="text-[#16A34A] font-bold flex items-center gap-1.5 text-xs">
+            <span className="h-2 w-2 rounded-full bg-[#16A34A] animate-ping" />
+            LIVE PROCTORING
           </span>
-          <span className="text-[#6B7280] text-[9px] font-mono">PROCTORED</span>
+          <span className="text-[#111827] dark:text-[#FAFAFA] font-bold text-[10px]">30 FPS ACTIVE</span>
+          <span className="text-[#6B7280] text-[9px] font-mono uppercase">Face Verified</span>
         </div>
       </div>
     );
