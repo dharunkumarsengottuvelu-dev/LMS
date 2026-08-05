@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, User, LogOut, ShieldCheck, LayoutDashboard, Users, BookOpen, ClipboardList, FileText, Settings, Layers } from "lucide-react";
+import { Bell, User, LogOut, ShieldCheck, LayoutDashboard, Users, BookOpen, ClipboardList, FileText, Settings, Dumbbell } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -21,7 +21,7 @@ const adminNavItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/students", label: "Student Analytics", icon: Users },
   { href: "/admin/courses", label: "Courses", icon: BookOpen },
-  { href: "/admin/modules", label: "Modules", icon: Layers },
+  { href: "/admin/practices", label: "Practices", icon: Dumbbell },
   { href: "/admin/tests", label: "Proctored Exams", icon: ClipboardList },
   { href: "/admin/assignments", label: "Assignments", icon: FileText },
   { href: "/admin/users", label: "User Control", icon: ShieldCheck },

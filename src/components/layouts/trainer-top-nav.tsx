@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, User, LogOut, LayoutDashboard, Users, BookOpen, ClipboardList, FileText, Layers } from "lucide-react";
+import { Bell, User, LogOut, LayoutDashboard, Users, BookOpen, ClipboardList, FileText, Dumbbell } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,7 +20,7 @@ const trainerNavItems = [
   { href: "/trainer/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/trainer/students", label: "Cohort Students", icon: Users },
   { href: "/trainer/courses", label: "Assigned Courses", icon: BookOpen },
-  { href: "/trainer/modules", label: "Modules", icon: Layers },
+  { href: "/trainer/practices", label: "Practices", icon: Dumbbell },
   { href: "/trainer/assessments", label: "Assessments", icon: ClipboardList },
   { href: "/trainer/assignments", label: "Submissions", icon: FileText },
 ];
