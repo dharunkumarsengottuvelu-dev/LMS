@@ -186,44 +186,50 @@ export default function StudentTestRunnerPage() {
   return (
     <div className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full">
       
-      {/* 1. MNC-Level Sticky Header Bar */}
-      <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 md:p-6 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-[20px] md:text-[22px] font-bold text-[#111827] dark:text-[#FAFAFA] truncate">
-              Mid-Term Proctored Evaluation — Batch 2026-A
-            </h1>
-            <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
-              Live Test
-            </Badge>
+      {/* 1. MNC-Level Clean Non-Overflowing Header Bar */}
+      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-sm">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          
+          {/* Left Title & Meta Info */}
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-[20px] font-bold text-[#111827] dark:text-[#FAFAFA] tracking-tight truncate">
+                Mid-Term Proctored Evaluation — Batch 2026-A
+              </h1>
+              <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
+                Live Test
+              </Badge>
+            </div>
+            <p className="text-xs text-[#6B7280]">
+              Candidate: <strong className="text-[#111827] dark:text-[#FAFAFA]">Dharunkumar S</strong> | Questions: <strong>{mockExamQuestions.length}</strong> | Max Marks: <strong>100</strong>
+            </p>
           </div>
-          <p className="text-xs text-[#6B7280]">Candidate: Dharunkumar S | Total Questions: {mockExamQuestions.length} | Max Marks: 100</p>
+
+          {/* Right Info: Timer & Submit Exam (Strict non-overflow flex line) */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 bg-[#2563EB]/10 border border-[#2563EB]/20 px-3.5 py-2 rounded-xl text-xs font-bold text-[#2563EB]">
+              <span className="h-2 w-2 rounded-full bg-[#2563EB] animate-ping" />
+              <ShieldCheck className="h-4 w-4" /> AI Proctoring Active
+            </div>
+
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm font-bold border ${
+              timeLeft < 300 ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30 animate-pulse" : "bg-[#F9FAFB] dark:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA] border-[#E5E7EB] dark:border-[#27272A]"
+            }`}>
+              <Clock className="h-4 w-4 text-[#2563EB]" /> {formatTime(timeLeft)}
+            </div>
+
+            {!isExamSubmitted ? (
+              <Button className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold gap-2 shrink-0" onClick={() => setIsSubmitDialogOpen(true)}>
+                <Send className="h-4 w-4" /> Submit Exam
+              </Button>
+            ) : (
+              <Button variant="outline" className="h-[44px] px-5 text-xs font-bold shrink-0" onClick={() => router.push("/student/tests")}>
+                Back to Tests Hub
+              </Button>
+            )}
+          </div>
         </div>
-
-        {/* Right Info: Timer & Submit Exam */}
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <div className="flex items-center gap-2 bg-[#2563EB]/10 border border-[#2563EB]/20 px-3.5 py-2 rounded-xl text-xs font-bold text-[#2563EB]">
-            <span className="h-2 w-2 rounded-full bg-[#2563EB] animate-ping" />
-            <ShieldCheck className="h-4 w-4" /> AI Proctoring Active
-          </div>
-
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm font-bold border ${
-            timeLeft < 300 ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30 animate-pulse" : "bg-[#F9FAFB] dark:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA] border-[#E5E7EB] dark:border-[#27272A]"
-          }`}>
-            <Clock className="h-4 w-4 text-[#2563EB]" /> {formatTime(timeLeft)}
-          </div>
-
-          {!isExamSubmitted ? (
-            <Button className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold gap-2" onClick={() => setIsSubmitDialogOpen(true)}>
-              <Send className="h-4 w-4" /> Submit Exam
-            </Button>
-          ) : (
-            <Button variant="outline" className="h-[44px] px-5 text-xs font-bold" onClick={() => router.push("/student/tests")}>
-              Back to Tests Hub
-            </Button>
-          )}
-        </div>
-      </div>
+      </Card>
 
       {/* RESULT SCORE BANNER IF SUBMITTED */}
       {isExamSubmitted && scoreResult !== null && (
@@ -243,7 +249,7 @@ export default function StudentTestRunnerPage() {
       )}
 
       {/* 2. Main Workspace Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
         
         {/* LEFT QUESTION PANEL (8 cols) */}
         <div className="lg:col-span-8 space-y-6">
