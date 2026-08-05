@@ -666,6 +666,42 @@ export default function StudentTestRunnerPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {/* Live Camera Stream Embedded directly in Top Header Bar */}
+            {!isExamSubmitted && (
+              <ProctoringEngine
+                variant="compact"
+                testId={testId}
+                config={{
+                  enableFaceMonitoring: currentTest.proctoring.webcamTracking,
+                  cameraRequired: currentTest.proctoring.webcamTracking,
+                  fullscreenRequired: currentTest.proctoring.fullscreenLock,
+                  enableTabSwitchDetection: true,
+                  enableMultipleFaceDetection: true,
+                  enableFaceVisibilityDetection: true,
+                  maxAllowedViolations: maxTabSwitchLimit,
+                  autoSubmit: true,
+                }}
+                isExamSubmitted={isExamSubmitted}
+                onAutoSubmit={(reason) => {
+                  setIsExamSubmitted(true);
+                  setAutoSubmittedReason(reason);
+                  setScoreResult(0);
+                }}
+                onViolationOccurred={(log) => {
+                  setTabSwitchViolations((prev) => prev + 1);
+                  setActiveWarningMessage(log.message);
+                }}
+                onWarningMessage={(msg) => setActiveWarningMessage(msg)}
+                onAutoSave={() => {
+                  if (typeof window !== "undefined") {
+                    try {
+                      localStorage.setItem(`draft_answers_${testId}`, JSON.stringify(answers));
+                    } catch (e) {}
+                  }
+                }}
+              />
+            )}
+
             <Button
               variant="outline"
               className="h-[44px] px-4 border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 font-bold text-xs gap-2 shrink-0"
@@ -949,40 +985,7 @@ export default function StudentTestRunnerPage() {
             </CardContent>
           </Card>
 
-          {/* Production-Ready Enterprise Proctoring Engine (Hidden upon exam completion) */}
-          {!isExamSubmitted && (
-            <ProctoringEngine
-              testId={testId}
-              config={{
-                enableFaceMonitoring: currentTest.proctoring.webcamTracking,
-                cameraRequired: currentTest.proctoring.webcamTracking,
-                fullscreenRequired: currentTest.proctoring.fullscreenLock,
-                enableTabSwitchDetection: true,
-                enableMultipleFaceDetection: true,
-                enableFaceVisibilityDetection: true,
-                maxAllowedViolations: maxTabSwitchLimit,
-                autoSubmit: true,
-              }}
-              isExamSubmitted={isExamSubmitted}
-              onAutoSubmit={(reason) => {
-                setIsExamSubmitted(true);
-                setAutoSubmittedReason(reason);
-                setScoreResult(0);
-              }}
-              onViolationOccurred={(log) => {
-                setTabSwitchViolations((prev) => prev + 1);
-                setActiveWarningMessage(log.message);
-              }}
-              onWarningMessage={(msg) => setActiveWarningMessage(msg)}
-              onAutoSave={() => {
-                if (typeof window !== "undefined") {
-                  try {
-                    localStorage.setItem(`draft_answers_${testId}`, JSON.stringify(answers));
-                  } catch (e) {}
-                }
-              }}
-            />
-          )}
+
         </div>
 
       </div>

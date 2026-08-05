@@ -42,6 +42,7 @@ export interface ProctoringConfig {
 }
 
 interface ProctoringEngineProps {
+  variant?: "compact" | "default";
   testId: string;
   studentId?: string;
   config: ProctoringConfig;
@@ -53,6 +54,7 @@ interface ProctoringEngineProps {
 }
 
 export function ProctoringEngine({
+  variant = "default",
   testId,
   studentId = "STUDENT_DEFAULT",
   config,
@@ -240,6 +242,37 @@ export function ProctoringEngine({
   // Do not render camera UI card upon exam submission
   if (isExamSubmitted) return null;
 
+  // COMPACT TOP HEADER WIDGET VARIANT (Embedded inside Top Header Bar)
+  if (variant === "compact") {
+    return (
+      <div className="w-[140px] h-[44px] bg-[#09090B] rounded-xl overflow-hidden relative border border-[#2563EB]/40 shrink-0 shadow-xs">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`w-full h-full object-cover ${webcamStream ? "block" : "hidden"}`}
+        />
+        {!webcamStream && (
+          <button
+            type="button"
+            onClick={requestWebcamAccess}
+            className="w-full h-full flex items-center justify-center bg-[#2563EB]/10 text-[#2563EB] text-[10px] font-bold gap-1 px-2"
+          >
+            <Camera className="h-3 w-3" /> Enable Cam
+          </button>
+        )}
+        {webcamStream && (
+          <div className="absolute bottom-1 left-1 bg-[#09090B]/85 text-[8px] font-mono text-[#16A34A] px-1.5 py-0.5 rounded flex items-center gap-1 border border-[#16A34A]/40">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
+            LIVE CAM
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // DEFAULT FULL CARD VARIANT
   return (
     <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden">
       <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#2563EB]/5 flex flex-row items-center justify-between">
@@ -253,7 +286,6 @@ export function ProctoringEngine({
       </CardHeader>
 
       <CardContent className="p-4 space-y-3">
-        {/* Network Connectivity Status Banner if Offline */}
         {!isOnline && (
           <div className="p-2.5 bg-[#DC2626]/10 border border-[#DC2626]/30 text-[#DC2626] rounded-lg text-xs flex items-center gap-2">
             <WifiOff className="h-4 w-4 shrink-0" />
@@ -261,7 +293,6 @@ export function ProctoringEngine({
           </div>
         )}
 
-        {/* MNC Clean HD Video Stream Container (No Sci-Fi Canvas Animations) */}
         <div className="aspect-video bg-[#09090B] rounded-xl flex items-center justify-center text-white relative overflow-hidden border border-[#27272A]">
           <video
             ref={videoRef}
@@ -293,7 +324,6 @@ export function ProctoringEngine({
           )}
         </div>
 
-        {/* Status Indicators Table */}
         <div className="p-2.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-lg border border-[#E5E7EB] dark:border-[#27272A] text-[11px] text-[#6B7280] space-y-1.5">
           <div className="flex items-center justify-between">
             <span>Candidate Photo Verification:</span>
