@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar, Clock, ShieldCheck, Play, CheckCircle2, AlertCircle,
-  FileCheck, Shield, ArrowRight, Eye
+  FileCheck, Shield, ArrowRight, Eye, UserCheck, Lock
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,15 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
+interface ProctoringConfig {
+  enabled: boolean;
+  webcamTracking: boolean;
+  tabSwitchLock: boolean;
+  fullscreenLock: boolean;
+  assignedBy: "Admin" | "Trainer";
+  assignedByName: string;
+}
+
 interface ScheduledTest {
   id: string;
   title: string;
@@ -24,6 +33,7 @@ interface ScheduledTest {
   totalQuestions: number;
   totalMarks: number;
   status: "live" | "upcoming" | "completed";
+  proctoring: ProctoringConfig;
   score?: number;
   maxScore?: number;
   passed?: boolean;
@@ -39,6 +49,14 @@ const mockTestsData: ScheduledTest[] = [
     totalQuestions: 5,
     totalMarks: 100,
     status: "live",
+    proctoring: {
+      enabled: true,
+      webcamTracking: true,
+      tabSwitchLock: true,
+      fullscreenLock: true,
+      assignedBy: "Trainer",
+      assignedByName: "Dr. Arunkumar (Lead Technical Trainer)",
+    },
   },
   {
     id: "t2",
@@ -49,6 +67,14 @@ const mockTestsData: ScheduledTest[] = [
     totalQuestions: 8,
     totalMarks: 150,
     status: "upcoming",
+    proctoring: {
+      enabled: true,
+      webcamTracking: true,
+      tabSwitchLock: true,
+      fullscreenLock: false,
+      assignedBy: "Admin",
+      assignedByName: "System Admin",
+    },
   },
   {
     id: "t3",
@@ -62,6 +88,14 @@ const mockTestsData: ScheduledTest[] = [
     score: 88,
     maxScore: 100,
     passed: true,
+    proctoring: {
+      enabled: false,
+      webcamTracking: false,
+      tabSwitchLock: false,
+      fullscreenLock: false,
+      assignedBy: "Trainer",
+      assignedByName: "Karthik Raja (Fullstack Instructor)",
+    },
   },
 ];
 
@@ -83,7 +117,9 @@ export default function StudentTestsPage() {
     setIsLobbyOpen(false);
     toast({
       title: "Entering Exam Environment",
-      description: `Starting ${selectedLobbyTest.title}... Proctored mode enabled.`,
+      description: `Starting ${selectedLobbyTest.title}... ${
+        selectedLobbyTest.proctoring.enabled ? "AI Proctoring Active." : "Standard Mode."
+      }`,
     });
     router.push(`/student/tests/${selectedLobbyTest.id}`);
   };
@@ -105,12 +141,12 @@ export default function StudentTestsPage() {
           </h1>
         </div>
 
-        {/* Live Proctoring Compliance Pill */}
+        {/* Admin/Trainer Proctoring Config Info Pill */}
         <div className="flex items-center gap-2.5 bg-[#2563EB]/10 border border-[#2563EB]/20 px-4 py-2.5 rounded-xl shrink-0">
-          <ShieldCheck className="h-5 w-5 text-[#2563EB]" />
+          <UserCheck className="h-5 w-5 text-[#2563EB]" />
           <div className="text-xs">
-            <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">AI Proctoring Active</p>
-            <p className="text-[#6B7280]">Webcam & Fullscreen Verification Ready</p>
+            <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">Instructor Proctoring Control Enabled</p>
+            <p className="text-[#6B7280]">Proctoring rules are configured when test is assigned</p>
           </div>
         </div>
       </div>
@@ -187,6 +223,10 @@ export default function StudentTestsPage() {
                       </span>
                       <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{test.totalQuestions} ({test.totalMarks} Marks)</span>
                     </div>
+                    <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between text-[11px]">
+                      <span className="text-[#6B7280]">Assigned By:</span>
+                      <span className="font-bold text-[#2563EB]">{test.proctoring.assignedBy}: {test.proctoring.assignedByName}</span>
+                    </div>
                   </div>
                 </CardContent>
 
@@ -229,11 +269,11 @@ export default function StudentTestsPage() {
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-[#2563EB]" />
               <DialogTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Exam Lobby Verification
+                Exam Lobby & Instructor Rules
               </DialogTitle>
             </div>
             <DialogDescription className="text-xs text-[#6B7280] pt-1">
-              Please review instructions before starting {selectedLobbyTest?.title}
+              Review rules configured by {selectedLobbyTest?.proctoring.assignedBy} ({selectedLobbyTest?.proctoring.assignedByName})
             </DialogDescription>
           </DialogHeader>
 
@@ -247,13 +287,23 @@ export default function StudentTestsPage() {
               </div>
             </div>
 
+            {/* Configured Proctoring Options Box */}
             <div className="p-4 bg-[#2563EB]/5 border border-[#2563EB]/20 rounded-xl space-y-2">
-              <p className="font-bold text-[#2563EB] uppercase text-[11px]">Proctoring & Rules</p>
-              <ul className="list-disc list-inside space-y-1 text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed">
-                <li>Webcam and screen monitoring will be active during the test.</li>
-                <li>Do not switch browser tabs or minimize the window.</li>
-                <li>The test will auto-submit when the timer reaches 00:00.</li>
-              </ul>
+              <p className="font-bold text-[#2563EB] uppercase text-[11px]">
+                {selectedLobbyTest?.proctoring.enabled ? "🔒 Proctoring Rules (Enabled by Instructor)" : "ℹ️ Standard Test Rules"}
+              </p>
+              {selectedLobbyTest?.proctoring.enabled ? (
+                <ul className="list-disc list-inside space-y-1 text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed">
+                  {selectedLobbyTest.proctoring.webcamTracking && <li>Webcam AI Face & Eye Tracking: <strong>Enabled</strong></li>}
+                  {selectedLobbyTest.proctoring.tabSwitchLock && <li>Tab Switch & Window Blur Prevention: <strong>Enabled</strong></li>}
+                  {selectedLobbyTest.proctoring.fullscreenLock && <li>Fullscreen Security Mode: <strong>Enforced</strong></li>}
+                  <li>Auto-submission enabled when timer reaches 00:00.</li>
+                </ul>
+              ) : (
+                <p className="text-[#4B5563] dark:text-[#D1D5DB]">
+                  This exam was configured as a standard practice evaluation. Webcam proctoring is disabled.
+                </p>
+              )}
             </div>
           </div>
 
