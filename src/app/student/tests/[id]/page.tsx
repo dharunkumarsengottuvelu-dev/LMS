@@ -6,7 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Clock, ShieldCheck, CheckCircle2, HelpCircle, Code2,
   Terminal, AlertTriangle, Send, RefreshCw, ChevronLeft, ChevronRight, Award,
-  Camera, Eye, Flag, RotateCcw, Video, CopyX, Maximize2, ShieldAlert, MonitorCheck
+  Camera, Eye, Flag, RotateCcw, Video, CopyX, Maximize2, ShieldAlert, MonitorCheck,
+  AlertOctagon, Lock
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -108,10 +109,12 @@ export default function StudentTestRunnerPage() {
   const [isExamSubmitted, setIsExamSubmitted] = useState(false);
   const [scoreResult, setScoreResult] = useState<number | null>(null);
 
-  // Admin / Trainer Security Controls
+  // Security & Enforcement States
   const [isCopyPasteBlocked] = useState(true);
   const [isSafeExamBrowserActive] = useState(true);
-  const [isFullscreenActive, setIsFullscreenActive] = useState(true);
+  const [isFullscreenRequired] = useState(true);
+  const [isFullscreenModalOpen, setIsFullscreenModalOpen] = useState(false);
+  const [tabSwitchViolations, setTabSwitchViolations] = useState(0);
 
   // Coding Runner State
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
@@ -120,6 +123,64 @@ export default function StudentTestRunnerPage() {
   const [isRunningCode, setIsRunningCode] = useState(false);
 
   const currentQ = (mockExamQuestions[currentIndex] || mockExamQuestions[0]) as QuestionItem;
+
+  // 1. AUTOMATIC FULLSCREEN & SEB ENFORCEMENT ON PAGE MOUNT
+  useEffect(() => {
+    // Attempt Automatic Fullscreen Trigger
+    const enterFullscreen = async () => {
+      try {
+        if (isFullscreenRequired && !document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (err) {
+        // Browser requires direct user click for fullscreen
+        setIsFullscreenModalOpen(true);
+      }
+    };
+    enterFullscreen();
+
+    // Listen for Fullscreen Exit Changes
+    const handleFullscreenChange = () => {
+      if (isFullscreenRequired && !document.fullscreenElement && !isExamSubmitted) {
+        setIsFullscreenModalOpen(true);
+      }
+    };
+
+    // Listen for Window Blur / Tab Switch Violations
+    const handleVisibilityChange = () => {
+      if (document.hidden && !isExamSubmitted) {
+        setTabSwitchViolations((prev) => {
+          const next = prev + 1;
+          toast({
+            variant: "destructive",
+            title: `Proctoring Violation Alert (${next}/3)`,
+            description: "Tab switching is forbidden. Your action has been flagged to the instructor.",
+          });
+          return next;
+        });
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isFullscreenRequired, isExamSubmitted, toast]);
+
+  // Request Fullscreen Helper on Button Click
+  const requestFullscreenExplicit = async () => {
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+      setIsFullscreenModalOpen(false);
+    } catch (e) {
+      setIsFullscreenModalOpen(false);
+    }
+  };
 
   // Countdown Timer Effect
   useEffect(() => {
@@ -223,7 +284,7 @@ export default function StudentTestRunnerPage() {
               </Badge>
               {isSafeExamBrowserActive && (
                 <Badge className="bg-[#9333EA] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
-                  SEB Mode Active
+                  Auto SEB Active
                 </Badge>
               )}
             </div>
@@ -234,13 +295,19 @@ export default function StudentTestRunnerPage() {
 
           {/* Right Info: Timer & Security Indicators & Submit Exam */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {tabSwitchViolations > 0 && (
+              <Badge className="bg-[#DC2626] text-white text-[10px] uppercase font-bold px-2 py-1">
+                Violations: {tabSwitchViolations}/3
+              </Badge>
+            )}
+
             <div className="flex items-center gap-1.5 bg-[#9333EA]/10 border border-[#9333EA]/20 px-3 py-2 rounded-xl text-xs font-bold text-[#9333EA]">
-              <MonitorCheck className="h-4 w-4" /> SEB Browser
+              <MonitorCheck className="h-4 w-4" /> Auto SEB Mode
             </div>
 
             <div className="flex items-center gap-1.5 bg-[#2563EB]/10 border border-[#2563EB]/20 px-3 py-2 rounded-xl text-xs font-bold text-[#2563EB]">
               <span className="h-2 w-2 rounded-full bg-[#2563EB] animate-ping" />
-              <ShieldCheck className="h-4 w-4" /> Fullscreen & Proctoring
+              <ShieldCheck className="h-4 w-4" /> Fullscreen Enforced
             </div>
 
             <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm font-bold border ${
@@ -450,17 +517,17 @@ export default function StudentTestRunnerPage() {
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
             <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#9333EA]/5">
               <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-[#9333EA]" /> Instructor Security Rules
+                <ShieldCheck className="h-4 w-4 text-[#9333EA]" /> Auto Security Enforcement
               </span>
             </CardHeader>
             <CardContent className="p-4 space-y-2 text-xs">
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#F9FAFB] dark:bg-[#09090B]">
                 <span className="text-[#6B7280] flex items-center gap-1.5"><MonitorCheck className="h-3.5 w-3.5 text-[#9333EA]" /> Safe Exam Browser:</span>
-                <span className="font-bold text-[#16A34A]">Enforced</span>
+                <span className="font-bold text-[#16A34A]">Auto Active</span>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#F9FAFB] dark:bg-[#09090B]">
                 <span className="text-[#6B7280] flex items-center gap-1.5"><Maximize2 className="h-3.5 w-3.5 text-[#2563EB]" /> Mandatory Fullscreen:</span>
-                <span className="font-bold text-[#16A34A]">Active</span>
+                <span className="font-bold text-[#16A34A]">Auto Locked</span>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-[#F9FAFB] dark:bg-[#09090B]">
                 <span className="text-[#6B7280] flex items-center gap-1.5"><CopyX className="h-3.5 w-3.5 text-[#DC2626]" /> Copy / Paste Clipboard:</span>
@@ -549,6 +616,34 @@ export default function StudentTestRunnerPage() {
         </div>
 
       </div>
+
+      {/* MANDATORY FULLSCREEN VIOLATION OVERLAY MODAL */}
+      <Dialog open={isFullscreenModalOpen} onOpenChange={setIsFullscreenModalOpen}>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border-2 border-[#DC2626] p-6 space-y-4">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-[#DC2626]">
+              <AlertOctagon className="h-6 w-6" />
+              <DialogTitle className="text-lg font-bold">
+                Mandatory Fullscreen Mode Required
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-[#6B7280] pt-1">
+              Your instructor has enabled mandatory Fullscreen and Safe Exam Browser security for this evaluation. You must re-enter fullscreen to continue.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-4 bg-[#DC2626]/10 border border-[#DC2626]/20 rounded-xl space-y-1 text-xs text-[#DC2626] font-medium">
+            <p>• Leaving fullscreen mode is logged as a proctoring violation.</p>
+            <p>• Click the button below to re-engage Fullscreen Lock.</p>
+          </div>
+
+          <DialogFooter className="pt-2">
+            <Button className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2" onClick={requestFullscreenExplicit}>
+              <Maximize2 className="h-4 w-4" /> Enable Fullscreen & Continue Exam
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* CONFIRM SUBMISSION MODAL */}
       <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
