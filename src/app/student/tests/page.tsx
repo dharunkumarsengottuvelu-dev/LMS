@@ -103,9 +103,6 @@ export default function StudentTestsPage() {
           <h1 className="text-[36px] font-bold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
             Scheduled Tests & Proctored Exams
           </h1>
-          <p className="text-[16px] text-[#4B5563] dark:text-[#9CA3AF] mt-1">
-            Access live cohort examinations, view upcoming schedules, and review past test evaluations
-          </p>
         </div>
 
         {/* Live Proctoring Compliance Pill */}
@@ -125,13 +122,13 @@ export default function StudentTestsPage() {
             All Tests ({mockTestsData.length})
           </TabsTrigger>
           <TabsTrigger value="live" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
-            🔴 Live / Ready (1)
+            Live / Ready (1)
           </TabsTrigger>
           <TabsTrigger value="upcoming" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
-            📅 Upcoming (1)
+            Upcoming (1)
           </TabsTrigger>
           <TabsTrigger value="completed" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
-            ✅ Completed (1)
+            Completed (1)
           </TabsTrigger>
         </TabsList>
 
