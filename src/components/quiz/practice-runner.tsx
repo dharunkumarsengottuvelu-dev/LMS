@@ -40,6 +40,10 @@ interface PracticeRunnerProps {
     durationMinutes: number;
     totalMarks: number;
     passingMarks: number;
+    proctoring?: {
+      fullscreenLock?: boolean;
+      copyPasteRestricted?: boolean;
+    };
   };
   questions: PracticeQuestion[];
   onSubmit: (answers: Record<string, any>) => Promise<void>;
@@ -150,12 +154,23 @@ export function PracticeRunnerEngine({
     await onSubmit({ ...answers, ...codeAnswers });
   };
 
+  const handleCopyPasteAttempt = (e: React.SyntheticEvent) => {
+    if (module.proctoring?.copyPasteRestricted) {
+      e.preventDefault();
+    }
+  };
+
   const answeredCount = questions.filter((q) => isQuestionAnswered(q.id)).length;
 
   if (!currentQuestion) return null;
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full">
+    <div
+      onCopy={handleCopyPasteAttempt}
+      onPaste={handleCopyPasteAttempt}
+      onContextMenu={handleCopyPasteAttempt}
+      className={`max-w-[1440px] mx-auto space-y-6 pb-12 w-full ${module.proctoring?.copyPasteRestricted ? "select-none" : ""}`}
+    >
       
       {/* 1. MNC-Level Clean Non-Truncated Header Bar */}
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-sm">

@@ -135,10 +135,47 @@ const mockQuestionSets: Record<string, QuestionItem[]> = {
   ]
 };
 
-const mockTestMeta: Record<string, { title: string; duration: number; maxMarks: number }> = {
-  t1: { title: "Mid-Term Proctored Evaluation — Batch 2026-A", duration: 60, maxMarks: 100 },
-  t2: { title: "Final Technical Readiness Assessment", duration: 90, maxMarks: 150 },
-  t3: { title: "Fullstack Core Concepts Evaluation", duration: 45, maxMarks: 50 },
+interface TestProctoringConfig {
+  fullscreenLock: boolean;
+  copyPasteRestricted: boolean;
+  webcamTracking: boolean;
+  safeExamBrowserRequired: boolean;
+}
+
+const mockTestMeta: Record<string, { title: string; duration: number; maxMarks: number; proctoring: TestProctoringConfig }> = {
+  t1: {
+    title: "Mid-Term Proctored Evaluation — Batch 2026-A",
+    duration: 60,
+    maxMarks: 100,
+    proctoring: {
+      fullscreenLock: true, // Enabled by Trainer
+      copyPasteRestricted: true,
+      webcamTracking: true,
+      safeExamBrowserRequired: true
+    }
+  },
+  t2: {
+    title: "Final Technical Readiness Assessment",
+    duration: 90,
+    maxMarks: 150,
+    proctoring: {
+      fullscreenLock: false, // Disabled by Trainer -> Standard Windowed Mode
+      copyPasteRestricted: true,
+      webcamTracking: false,
+      safeExamBrowserRequired: false
+    }
+  },
+  t3: {
+    title: "Fullstack Core Concepts Evaluation",
+    duration: 45,
+    maxMarks: 50,
+    proctoring: {
+      fullscreenLock: false, // Disabled by Trainer -> Standard Windowed Mode
+      copyPasteRestricted: false,
+      webcamTracking: false,
+      safeExamBrowserRequired: false
+    }
+  },
 };
 
 export default function StudentTestRunnerPage() {
@@ -160,11 +197,11 @@ export default function StudentTestRunnerPage() {
   const [autoSubmittedReason, setAutoSubmittedReason] = useState<string | null>(null);
   const [scoreResult, setScoreResult] = useState<number | null>(null);
 
-  // Security & Enforcement States
-  const [isCopyPasteBlocked] = useState(true);
-  const [isSEBRequired] = useState(true);
+  // Dynamic Security & Enforcement States based on Trainer/Admin settings
+  const isCopyPasteBlocked = currentTest.proctoring.copyPasteRestricted;
+  const isSEBRequired = currentTest.proctoring.safeExamBrowserRequired;
   const [isSEBVerified, setIsSEBVerified] = useState(false);
-  const [isFullscreenRequired] = useState(true);
+  const isFullscreenRequired = currentTest.proctoring.fullscreenLock;
   const [isFullscreenModalOpen, setIsFullscreenModalOpen] = useState(false);
   
   // Admin/Trainer Configured Tab Switch Violation Limits
