@@ -331,7 +331,7 @@ export default function StudentTestsPage() {
             {/* Configured Proctoring & Security Options Box */}
             <div className="p-4 bg-[#2563EB]/5 border border-[#2563EB]/20 rounded-xl space-y-2">
               <p className="font-bold text-[#2563EB] uppercase text-[11px]">
-                {selectedLobbyTest?.proctoring.enabled ? "🔒 Proctoring & Security (Enabled by Instructor)" : "ℹ️ Standard Test Rules"}
+                {selectedLobbyTest?.proctoring.enabled ? "Proctoring & Security (Enabled by Instructor)" : "Standard Test Rules"}
               </p>
               {selectedLobbyTest?.proctoring.enabled ? (
                 <ul className="list-disc list-inside space-y-1.5 text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed">

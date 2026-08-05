@@ -122,7 +122,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div>
           <h1 className="text-[32px] md:text-[36px] font-bold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            Welcome back, {firstName} 👋
+            Welcome back, {firstName}
           </h1>
           <p className="text-[15px] text-[#6B7280] dark:text-[#A1A1AA] mt-1">
             Track your active courses, practice modules, and upcoming proctored evaluations.

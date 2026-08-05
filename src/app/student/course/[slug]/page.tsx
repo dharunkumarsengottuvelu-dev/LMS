@@ -283,9 +283,9 @@ export default function StudentCoursePlayerPage() {
             activeLesson.type === "mcq" ? "bg-[#9333EA] text-white" :
             "bg-[#16A34A] text-white"
           }`}>
-            {activeLesson.type === "video" && "🎬 Video Lesson"}
-            {activeLesson.type === "mcq" && "❓ MCQ Quiz Lesson"}
-            {activeLesson.type === "coding" && "💻 Coding Practice Lesson"}
+            {activeLesson.type === "video" && "Video Lesson"}
+            {activeLesson.type === "mcq" && "MCQ Quiz Lesson"}
+            {activeLesson.type === "coding" && "Coding Practice Lesson"}
           </Badge>
         </div>
       </div>

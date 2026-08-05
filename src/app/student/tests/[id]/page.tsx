@@ -380,7 +380,7 @@ export default function StudentTestRunnerPage() {
             setScoreResult(0);
             toast({
               variant: "destructive",
-              title: "🚫 Exam Auto-Submitted Immediately!",
+              title: "Exam Auto-Submitted Immediately!",
               description: `Proctoring Violation! You reached ${next}/${maxTabSwitchLimit} forbidden tab switches. Exam auto-submitted with 0 marks.`,
             });
           } else {
@@ -649,7 +649,7 @@ export default function StudentTestRunnerPage() {
             </div>
             <div className="space-y-1">
               <h2 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">
-                {autoSubmittedReason ? "🚫 Examination Auto-Submitted (Security Violation)" : "Examination Submitted & Evaluated!"}
+                {autoSubmittedReason ? "Examination Auto-Submitted (Security Violation)" : "Examination Submitted & Evaluated!"}
               </h2>
               <p className="text-sm text-[#4B5563] dark:text-[#D1D5DB]">
                 {autoSubmittedReason ? (
