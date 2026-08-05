@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar, Clock, ShieldCheck, Play, CheckCircle2, AlertCircle,
-  FileCheck, Shield, ArrowRight, Eye, UserCheck, Lock, MonitorCheck, CopyX, Maximize, ArrowLeft
+  FileCheck, Shield, ArrowRight, Eye, UserCheck, Lock, MonitorCheck, CopyX, Maximize, ArrowLeft, Camera, RefreshCw
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -116,6 +116,11 @@ export default function StudentTestsPage() {
   const [selectedLobbyTest, setSelectedLobbyTest] = useState<ScheduledTest | null>(null);
   const [isLobbyOpen, setIsLobbyOpen] = useState(false);
 
+  // Candidate Reference Photo Verification state
+  const [referencePhoto, setReferencePhoto] = useState<string | null>(null);
+  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
+  const lobbyVideoRef = useRef<HTMLVideoElement>(null);
+
   // Sync completed test scores from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -142,6 +147,50 @@ export default function StudentTestsPage() {
     }
   }, []);
 
+  // Initialize camera preview when lobby opens
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    if (isLobbyOpen && selectedLobbyTest?.proctoring.webcamTracking) {
+      setIsCapturingPhoto(true);
+      navigator.mediaDevices?.getUserMedia({ video: { width: 320, height: 240 } })
+        .then((s) => {
+          stream = s;
+          if (lobbyVideoRef.current) {
+            lobbyVideoRef.current.srcObject = s;
+          }
+        })
+        .catch(() => {
+          setIsCapturingPhoto(false);
+        });
+    }
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [isLobbyOpen, selectedLobbyTest]);
+
+  const handleCaptureReferencePhoto = () => {
+    if (lobbyVideoRef.current) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 320;
+      canvas.height = 240;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(lobbyVideoRef.current, 0, 0, 320, 240);
+        const dataUrl = canvas.toDataURL("image/png");
+        setReferencePhoto(dataUrl);
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("candidate_reference_photo", dataUrl);
+        }
+        toast({
+          title: "Reference Snapshot Verified",
+          description: "Candidate face reference photo recorded successfully for exam proctoring.",
+        });
+      }
+    }
+  };
+
   const handleOpenLobby = (test: ScheduledTest) => {
     if (test.status === "completed") return; // Prevent completed tests from re-opening lobby!
     setSelectedLobbyTest(test);
@@ -150,6 +199,12 @@ export default function StudentTestsPage() {
 
   const handleStartExam = async () => {
     if (!selectedLobbyTest) return;
+
+    if (selectedLobbyTest.proctoring.webcamTracking && !referencePhoto) {
+      // If photo not manually captured, auto-capture current stream frame before proceeding
+      handleCaptureReferencePhoto();
+    }
+
     setIsLobbyOpen(false);
 
     if (selectedLobbyTest.proctoring.fullscreenLock) {
@@ -165,7 +220,7 @@ export default function StudentTestsPage() {
     toast({
       title: "Entering Exam Environment",
       description: `Starting ${selectedLobbyTest.title}... ${
-        selectedLobbyTest.proctoring.enabled ? "Proctoring & Security Controls Active." : "Standard Mode."
+        selectedLobbyTest.proctoring.enabled ? "Live Face Monitoring Stream Active." : "Standard Mode."
       }`,
     });
     router.push(`/student/tests/${selectedLobbyTest.id}`);
@@ -276,6 +331,11 @@ export default function StudentTestsPage() {
 
                     {/* Security Tags */}
                     <div className="flex flex-wrap gap-1.5 pt-1">
+                      {test.proctoring.webcamTracking && (
+                        <Badge variant="outline" className="text-[9px] border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
+                          Face Monitoring Stream
+                        </Badge>
+                      )}
                       {test.proctoring.safeExamBrowserRequired && (
                         <Badge variant="outline" className="text-[9px] border-[#9333EA]/30 text-[#9333EA] bg-[#9333EA]/5">
                           SEB Required
@@ -339,11 +399,11 @@ export default function StudentTestsPage() {
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-[#2563EB]" />
               <DialogTitle className="text-lg font-bold">
-                Pre-Exam Proctoring Verification Lobby
+                Pre-Exam Identity Verification Lobby
               </DialogTitle>
             </div>
             <DialogDescription className="text-xs text-[#6B7280]">
-              Review exam security policies configured by your instructor before starting.
+              Capture your reference face image & verify live camera stream before starting the test.
             </DialogDescription>
           </DialogHeader>
 
@@ -361,9 +421,67 @@ export default function StudentTestsPage() {
                 </div>
               </div>
 
-              <div className="p-4 bg-[#2563EB]/5 border border-[#2563EB]/20 rounded-xl space-y-2">
-                <p className="font-bold text-[#2563EB] uppercase text-[11px]">
-                  {selectedLobbyTest?.proctoring.enabled ? "Proctoring & Security (Enabled by Instructor)" : "Standard Test Rules"}
+              {/* CANDIDATE REFERENCE PHOTO CAPTURE BOX */}
+              {selectedLobbyTest.proctoring.webcamTracking && (
+                <div className="p-4 bg-[#2563EB]/5 border border-[#2563EB]/20 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#2563EB] flex items-center gap-1.5">
+                      <Camera className="h-4 w-4" /> Candidate Reference Photo Verification
+                    </span>
+                    {referencePhoto ? (
+                      <Badge className="bg-[#16A34A] text-white text-[10px] uppercase font-bold">
+                        Photo Verified
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-[#F59E0B] text-white text-[10px] uppercase font-bold">
+                        Capture Pending
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 items-center">
+                    {/* Live Camera Stream */}
+                    <div className="aspect-video bg-[#09090B] rounded-lg overflow-hidden relative border border-[#27272A] flex items-center justify-center">
+                      <video
+                        ref={lobbyVideoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute bottom-1.5 left-1.5 bg-[#09090B]/80 text-[9px] text-white px-1.5 py-0.5 rounded font-mono">
+                        Live Preview
+                      </span>
+                    </div>
+
+                    {/* Captured Reference Snapshot Thumbnail */}
+                    <div className="aspect-video bg-[#F3F4F6] dark:bg-[#27272A] rounded-lg overflow-hidden relative border border-[#E5E7EB] dark:border-[#27272A] flex flex-col items-center justify-center">
+                      {referencePhoto ? (
+                        <img src={referencePhoto} alt="Candidate Reference Snapshot" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-center p-2 text-[11px] text-[#6B7280]">
+                          <UserCheck className="h-6 w-6 mx-auto mb-1 text-[#2563EB]/60" />
+                          <span>No reference photo captured yet</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCaptureReferencePhoto}
+                    className="w-full h-9 text-xs font-bold border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                    {referencePhoto ? "Recapture Reference Photo" : "Capture Candidate Reference Snapshot"}
+                  </Button>
+                </div>
+              )}
+
+              <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
+                <p className="font-bold text-[#111827] dark:text-[#FAFAFA] uppercase text-[11px]">
+                  {selectedLobbyTest?.proctoring.enabled ? "Proctoring & Security Controls" : "Standard Test Rules"}
                 </p>
                 {selectedLobbyTest?.proctoring.enabled ? (
                   <ul className="list-disc list-inside space-y-1.5 text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed text-xs">
@@ -376,7 +494,7 @@ export default function StudentTestsPage() {
                     {selectedLobbyTest.proctoring.copyPasteRestricted && (
                       <li>Copy / Paste & Clipboard Restrictions: <strong>Blocked</strong></li>
                     )}
-                    <li>Live Camera & AI Proctoring Stream: <strong>Active</strong></li>
+                    <li>Live Real-time Camera Monitoring Stream: <strong>Active</strong></li>
                   </ul>
                 ) : (
                   <p className="text-xs text-[#4B5563]">This test is running in standard practice evaluation mode.</p>

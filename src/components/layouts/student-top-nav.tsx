@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Search, User, LogOut, Settings, Sun, Moon, Monitor } from "lucide-react";
+import { Bell, Search, User, LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -35,7 +35,7 @@ export function StudentTopNav() {
     <header className="fixed top-0 left-0 right-0 z-40 h-[68px] bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] shadow-xs backdrop-blur-md">
       <div className="max-w-[1440px] mx-auto h-full flex items-center justify-between gap-6 px-6 md:px-8">
         
-        {/* MNC Clean Brand Logo (WITHOUT STUDENT TAG) */}
+        {/* Left Brand Logo */}
         <Link href="/student/dashboard" className="flex items-center gap-3 shrink-0 group">
           <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center text-white font-bold text-sm shadow-xs transition-transform group-hover:scale-105">
             E
@@ -45,8 +45,8 @@ export function StudentTopNav() {
           </span>
         </Link>
 
-        {/* MNC Enterprise Horizontal Nav Links (Text-focused, clean, no funky icons) */}
-        <nav className="hidden md:flex items-center gap-1 flex-1 mx-4 overflow-x-auto no-scrollbar">
+        {/* Center Nav Links (100% Centered Content with Perfect Active Underline) */}
+        <nav className="hidden md:flex items-center justify-center gap-6 flex-1 mx-4 overflow-x-auto no-scrollbar">
           {studentNavItems.map((item) => {
             const isActive = pathname === item.href || (pathname.startsWith(item.href + "/") && item.href !== "/student/dashboard");
             return (
@@ -54,13 +54,18 @@ export function StudentTopNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "px-4 h-10 flex items-center text-xs font-semibold whitespace-nowrap transition-all duration-150 relative",
+                  "h-[68px] flex items-center text-xs font-semibold whitespace-nowrap transition-all duration-150 relative px-1",
                   isActive
-                    ? "text-[#2563EB] font-bold border-b-2 border-[#2563EB]"
+                    ? "text-[#2563EB] font-bold"
                     : "text-[#4B5563] dark:text-[#A1A1AA] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
                 )}
               >
-                <span>{item.label}</span>
+                <span className="relative flex items-center h-full">
+                  {item.label}
+                  {isActive && (
+                    <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#2563EB] rounded-t-full" />
+                  )}
+                </span>
               </Link>
             );
           })}
@@ -69,7 +74,7 @@ export function StudentTopNav() {
         {/* Right Controls */}
         <div className="flex items-center gap-3 shrink-0 ml-auto">
           {/* Search Input */}
-          <div className="relative hidden lg:block w-52">
+          <div className="relative hidden lg:block w-48">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6B7280]" />
             <Input
               placeholder="Search portal..."

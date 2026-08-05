@@ -886,12 +886,12 @@ export default function StudentTestRunnerPage() {
             </CardContent>
           </Card>
 
-          {/* AI Face Monitor Feed */}
+          {/* Real-time Face Monitoring Stream Feed */}
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden">
             <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#2563EB]/5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-                  <Camera className="h-4 w-4 text-[#2563EB]" /> Real-time AI Face Monitor
+                  <Camera className="h-4 w-4 text-[#2563EB]" /> Real-time Face Monitoring Stream
                 </span>
                 <div className="flex items-center gap-1">
                   <span className="h-2 w-2 rounded-full bg-[#16A34A] animate-ping" />
@@ -927,14 +927,18 @@ export default function StudentTestRunnerPage() {
 
                 <div className="absolute top-2 left-2 z-20 bg-[#09090B]/85 backdrop-blur-xs text-[10px] font-mono text-[#16A34A] px-2 py-0.5 rounded border border-[#16A34A]/40 flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
-                  AI FACE MONITOR ACTIVE
+                  LIVE CAMERA STREAM ACTIVE
                 </div>
               </div>
 
               <div className="p-2.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-lg border border-[#E5E7EB] dark:border-[#27272A] text-[11px] text-[#6B7280] space-y-1">
                 <div className="flex items-center justify-between">
-                  <span>• Facial Recognition:</span>
-                  <strong className="text-[#16A34A]">Matched ({faceConfidence}%)</strong>
+                  <span>Candidate Photo Verification:</span>
+                  <strong className="text-[#16A34A]">Matched Reference Snapshot</strong>
+                </div>
+                <div className="flex items-center justify-between pt-0.5">
+                  <span>Camera Stream Source:</span>
+                  <strong className="text-[#111827] dark:text-[#FAFAFA]">Live Hardware Stream (Webcam)</strong>
                 </div>
                 <div className="flex items-center justify-between pt-0.5">
                   <span>• Camera Source:</span>
