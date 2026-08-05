@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import {
   FileText, Plus, Search, CheckCircle2, Clock, Eye, Edit, Trash2,
-  Award, FileCode, Check, AlertCircle
+  Award, ArrowLeft, Sparkles
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
-} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 export interface StudentSubmission {
@@ -46,16 +43,6 @@ const initialSubmissions: StudentSubmission[] = [
     submittedAt: "2026-08-05 17:15",
     status: "pending",
   },
-  {
-    id: "sub_3",
-    studentName: "Sarah Chen",
-    assignmentTitle: "Python Transformers LLM Fine-Tuning Pipeline",
-    batch: "Batch 2026-B",
-    submittedAt: "2026-08-04 14:00",
-    status: "graded",
-    gradeScore: 95,
-    feedback: "Great model evaluation script and prompt engineering design.",
-  },
 ];
 
 export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
@@ -64,14 +51,13 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // Create Assignment Modal
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  // View state: "list" | "create" | "grade"
+  const [viewState, setViewState] = useState<"list" | "create" | "grade">("list");
+  const [selectedSub, setSelectedSub] = useState<StudentSubmission | null>(null);
+
+  // Form State
   const [newTitle, setNewTitle] = useState("");
   const [newBatch, setNewBatch] = useState("Batch 2026-A");
-
-  // Grade Modal State
-  const [selectedSub, setSelectedSub] = useState<StudentSubmission | null>(null);
-  const [isGradeOpen, setIsGradeOpen] = useState(false);
   const [scoreInput, setScoreInput] = useState<number>(90);
   const [feedbackInput, setFeedbackInput] = useState("");
 
@@ -87,11 +73,11 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
     e.preventDefault();
     if (!newTitle) return;
 
-    setIsCreateOpen(false);
+    setViewState("list");
     setNewTitle("");
     toast({
       title: "Assignment Published",
-      description: `${newTitle} assigned to ${newBatch}.`,
+      description: `"${newTitle}" assigned to ${newBatch}.`,
     });
   };
 
@@ -113,12 +99,134 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
       })
     );
 
-    setIsGradeOpen(false);
+    setViewState("list");
     toast({
       title: "Submission Graded",
       description: `Graded ${selectedSub.studentName}: ${scoreInput}%`,
     });
   };
+
+  // FULL PAGE ASSIGNMENT CREATOR VIEW
+  if (viewState === "create") {
+    return (
+      <div className="space-y-8 max-w-4xl mx-auto">
+        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <Button
+            onClick={() => setViewState("list")}
+            variant="outline"
+            size="sm"
+            className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Submissions
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+              Create & Publish Assignment
+            </h1>
+            <p className="text-xs text-[#6B7280]">Assign code challenges or practical project work to learners</p>
+          </div>
+        </div>
+
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
+          <form onSubmit={handleCreateAssignment} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assignment Title</label>
+              <Input
+                placeholder="e.g. Next.js 16 API Routes & Middleware Security"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                required
+                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Cohort Batch</label>
+              <Select value={newBatch} onValueChange={(val) => setNewBatch(val || "Batch 2026-A")}>
+                <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
+                  <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[48px] px-6 font-bold text-xs rounded-xl">
+                Cancel
+              </Button>
+              <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
+                <Sparkles className="h-4 w-4" /> Publish Assignment
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
+  // FULL PAGE GRADING VIEW
+  if (viewState === "grade" && selectedSub) {
+    return (
+      <div className="space-y-8 max-w-3xl mx-auto">
+        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <Button
+            onClick={() => setViewState("list")}
+            variant="outline"
+            size="sm"
+            className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Submissions
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+              Grade Submission: {selectedSub.studentName}
+            </h1>
+            <p className="text-xs text-[#6B7280]">{selectedSub.assignmentTitle} • {selectedSub.batch}</p>
+          </div>
+        </div>
+
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
+          <form onSubmit={handleSaveGrade} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Score Percentage (0 - 100)</label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={scoreInput}
+                onChange={(e) => setScoreInput(Number(e.target.value))}
+                required
+                className="h-[48px] text-sm font-bold rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Instructor Feedback</label>
+              <Textarea
+                placeholder="Provide feedback for the learner..."
+                value={feedbackInput}
+                onChange={(e) => setFeedbackInput(e.target.value)}
+                rows={4}
+                className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[48px] px-6 font-bold text-xs rounded-xl">
+                Cancel
+              </Button>
+              <Button type="submit" className="h-[48px] px-8 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#16A34A]/20">
+                <CheckCircle2 className="h-4 w-4" /> Save & Submit Grade
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -134,8 +242,8 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
         </div>
 
         <Button
-          onClick={() => setIsCreateOpen(true)}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0"
+          onClick={() => setViewState("create")}
+          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20"
         >
           <Plus className="h-4 w-4" /> Create New Assignment
         </Button>
@@ -220,7 +328,7 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
                         setSelectedSub(s);
                         setScoreInput(s.gradeScore || 90);
                         setFeedbackInput(s.feedback || "");
-                        setIsGradeOpen(true);
+                        setViewState("grade");
                       }}
                       size="sm"
                       className="h-8 text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-1"
@@ -234,94 +342,6 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
           </table>
         </CardContent>
       </Card>
-
-      {/* GRADE SUBMISSION MODAL */}
-      <Dialog open={isGradeOpen} onOpenChange={setIsGradeOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Grade Student Submission</DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
-              {selectedSub?.studentName} • {selectedSub?.assignmentTitle}
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSaveGrade} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Score Percentage (0 - 100)</label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={scoreInput}
-                onChange={(e) => setScoreInput(Number(e.target.value))}
-                required
-                className="h-[44px] text-xs font-bold"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Instructor Feedback</label>
-              <Textarea
-                placeholder="Provide constructive feedback for the learner..."
-                value={feedbackInput}
-                onChange={(e) => setFeedbackInput(e.target.value)}
-                rows={3}
-                className="text-xs"
-              />
-            </div>
-
-            <DialogFooter>
-              <Button type="submit" className="w-full h-[44px] bg-[#16A34A] hover:bg-[#15803D] text-white font-bold">
-                Save & Submit Grade
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* CREATE ASSIGNMENT MODAL */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Create New Assignment</DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
-              Assign code challenges or practical project work to learners.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateAssignment} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assignment Title</label>
-              <Input
-                placeholder="e.g. Next.js 16 API Routes & Middleware"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                required
-                className="h-[44px] text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Cohort Batch</label>
-              <Select value={newBatch} onValueChange={(val) => setNewBatch(val || "Batch 2026-A")}>
-                <SelectTrigger className="h-[44px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
-                  <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <DialogFooter>
-              <Button type="submit" className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold">
-                Publish Assignment
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

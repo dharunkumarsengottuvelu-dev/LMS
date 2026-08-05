@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import {
   Users, Search, Plus, UserCheck, Shield, Trash2, Edit, Eye, Filter,
   Award, AlertTriangle, CheckCircle2, FileText, Code2, Clock, ShieldAlert,
-  GraduationCap, ArrowUpRight, BarChart3, Lock, ShieldCheck
+  GraduationCap, ArrowUpRight, BarChart3, Lock, ShieldCheck, ArrowLeft, Sparkles
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
-} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
@@ -132,28 +129,22 @@ const mockStudentsList: StudentRecord[] = [
   },
 ];
 
-interface HubProps {
-  portalRole?: "admin" | "trainer";
-}
-
-export function StudentAnalyticsHub({ portalRole = "admin" }: HubProps) {
+export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "admin" | "trainer" }) {
   const { toast } = useToast();
   const [students, setStudents] = useState<StudentRecord[]>(mockStudentsList);
   const [searchQuery, setSearchQuery] = useState("");
   const [batchFilter, setBatchFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // Selected Student Modal State
+  // View State: "list" | "enroll" | "analytics"
+  const [viewState, setViewState] = useState<"list" | "enroll" | "analytics">("list");
   const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
-  const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
 
-  // New Student Enrollment Modal State
-  const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
+  // Form State for Enrollment
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentEmail, setNewStudentEmail] = useState("");
   const [newStudentBatch, setNewStudentBatch] = useState("Batch 2026-A");
 
-  // Filter Logic
   const filteredStudents = students.filter((std) => {
     const matchesSearch =
       std.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -162,11 +153,6 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: HubProps) {
     const matchesStatus = statusFilter === "all" || std.status === statusFilter;
     return matchesSearch && matchesBatch && matchesStatus;
   });
-
-  const handleOpenAnalytics = (student: StudentRecord) => {
-    setSelectedStudent(student);
-    setIsAnalyticsModalOpen(true);
-  };
 
   const handleToggleStatus = (studentId: string) => {
     setStudents((prev) =>
@@ -206,7 +192,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: HubProps) {
     };
 
     setStudents((prev) => [newRecord, ...prev]);
-    setIsEnrollModalOpen(false);
+    setViewState("list");
     setNewStudentName("");
     setNewStudentEmail("");
     toast({
@@ -215,9 +201,173 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: HubProps) {
     });
   };
 
+  // FULL PAGE ENROLLMENT VIEW
+  if (viewState === "enroll") {
+    return (
+      <div className="space-y-8 max-w-3xl mx-auto">
+        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <Button
+            onClick={() => setViewState("list")}
+            variant="outline"
+            size="sm"
+            className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Student Directory
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+              Enroll New Student
+            </h1>
+            <p className="text-xs text-[#6B7280]">Create student profile and assign to cohort batch</p>
+          </div>
+        </div>
+
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
+          <form onSubmit={handleEnrollStudent} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Student Full Name</label>
+              <Input
+                placeholder="e.g. Dharunkumar S"
+                value={newStudentName}
+                onChange={(e) => setNewStudentName(e.target.value)}
+                required
+                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Email Address</label>
+              <Input
+                type="email"
+                placeholder="e.g. dharunkumar@gmail.com"
+                value={newStudentEmail}
+                onChange={(e) => setNewStudentEmail(e.target.value)}
+                required
+                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assigned Cohort Batch</label>
+              <Select value={newStudentBatch} onValueChange={(val) => setNewStudentBatch(val || "Batch 2026-A")}>
+                <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
+                  <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[48px] px-6 font-bold text-xs rounded-xl">
+                Cancel
+              </Button>
+              <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
+                <Sparkles className="h-4 w-4" /> Enroll Student Now
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
+  // FULL PAGE INDIVIDUAL PERFORMANCE ANALYTICS VIEW
+  if (viewState === "analytics" && selectedStudent) {
+    return (
+      <div className="space-y-8 max-w-5xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => setViewState("list")}
+              variant="outline"
+              size="sm"
+              className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to Directory
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+                {selectedStudent.name} Performance & Security Sheet
+              </h1>
+              <p className="text-xs text-[#6B7280]">{selectedStudent.email} • {selectedStudent.batch}</p>
+            </div>
+          </div>
+
+          <Badge className={`text-xs font-bold capitalize px-3 py-1 ${selectedStudent.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#DC2626] text-white"}`}>
+            {selectedStudent.status}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <Card className="p-6 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-center space-y-1">
+            <span className="text-xs text-[#6B7280]">Overall Test Average</span>
+            <p className="text-3xl font-bold text-[#2563EB]">{selectedStudent.avgScore}%</p>
+          </Card>
+          <Card className="p-6 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-center space-y-1">
+            <span className="text-xs text-[#6B7280]">MCQ Choice Accuracy</span>
+            <p className="text-3xl font-bold text-[#16A34A]">{selectedStudent.mcqAccuracy}%</p>
+          </Card>
+          <Card className="p-6 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-center space-y-1">
+            <span className="text-xs text-[#6B7280]">Coding Challenge Rate</span>
+            <p className="text-3xl font-bold text-[#9333EA]">{selectedStudent.codingAccuracy}%</p>
+          </Card>
+        </div>
+
+        <Tabs defaultValue="tests" className="w-full space-y-4">
+          <TabsList className="bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] p-1 rounded-xl">
+            <TabsTrigger value="tests" className="text-xs font-bold px-4 py-2">
+              Evaluations ({selectedStudent.testsTaken.length})
+            </TabsTrigger>
+            <TabsTrigger value="proctoring" className="text-xs font-bold px-4 py-2">
+              Proctoring Security Logs ({selectedStudent.proctoringLogs.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="tests" className="space-y-3">
+            {selectedStudent.testsTaken.map((t) => (
+              <Card key={t.testId} className="p-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between text-xs">
+                <div>
+                  <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">{t.testTitle}</p>
+                  <p className="text-[11px] text-[#6B7280]">Completed: {t.completedAt}</p>
+                </div>
+                <div className="text-right">
+                  <span className="font-bold text-sm text-[#16A34A]">{t.score}% Score</span>
+                  <p className="text-[10px] text-[#6B7280]">{t.violations} Violations</p>
+                </div>
+              </Card>
+            ))}
+          </TabsContent>
+
+          <TabsContent value="proctoring" className="space-y-3">
+            {selectedStudent.proctoringLogs.length === 0 ? (
+              <div className="p-6 bg-[#16A34A]/5 border border-[#16A34A]/20 rounded-2xl text-center space-y-1">
+                <CheckCircle2 className="h-6 w-6 text-[#16A34A] mx-auto" />
+                <p className="text-xs font-bold text-[#16A34A]">100% Clean Security Record</p>
+                <p className="text-[11px] text-[#6B7280]">No tab switching, window blur, or gaze violations logged.</p>
+              </div>
+            ) : (
+              selectedStudent.proctoringLogs.map((log) => (
+                <div key={log.id} className="p-3.5 bg-[#DC2626]/5 border border-[#DC2626]/20 rounded-xl flex items-center justify-between text-xs">
+                  <div className="space-y-0.5">
+                    <Badge className="bg-[#DC2626] text-white text-[9px] font-bold uppercase mr-2">{log.type}</Badge>
+                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{log.message}</span>
+                  </div>
+                  <span className="font-mono text-[10px] text-[#6B7280]">{log.timestamp}</span>
+                </div>
+              ))
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
-      {/* Top Header & Metrics Banner */}
+      {/* Top Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div>
           <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
@@ -229,8 +379,8 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: HubProps) {
         </div>
 
         <Button
-          onClick={() => setIsEnrollModalOpen(true)}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0"
+          onClick={() => setViewState("enroll")}
+          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20"
         >
           <Plus className="h-4 w-4" /> Enroll New Student
         </Button>
@@ -409,7 +559,10 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: HubProps) {
 
                   <td className="p-4 pr-6 text-right space-x-2">
                     <Button
-                      onClick={() => handleOpenAnalytics(std)}
+                      onClick={() => {
+                        setSelectedStudent(std);
+                        setViewState("analytics");
+                      }}
                       size="sm"
                       className="h-8 text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-1 px-3"
                     >
@@ -432,183 +585,6 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: HubProps) {
           </table>
         </CardContent>
       </Card>
-
-      {/* INDIVIDUAL STUDENT PERFORMANCE ANALYTICS MODAL */}
-      <Dialog open={isAnalyticsModalOpen} onOpenChange={setIsAnalyticsModalOpen}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-6 rounded-2xl shadow-2xl">
-          {selectedStudent && (
-            <>
-              <DialogHeader className="pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12 border border-[#2563EB]">
-                    <AvatarFallback className="bg-[#2563EB] text-white font-bold text-base">
-                      {selectedStudent.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">
-                      {selectedStudent.name}
-                    </DialogTitle>
-                    <DialogDescription className="text-xs text-[#6B7280]">
-                      {selectedStudent.email} • {selectedStudent.batch} • Joined: {selectedStudent.joinedDate}
-                    </DialogDescription>
-                  </div>
-                </div>
-
-                <Badge
-                  className={`text-xs font-bold capitalize px-3 py-1 ${
-                    selectedStudent.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#DC2626] text-white"
-                  }`}
-                >
-                  {selectedStudent.status}
-                </Badge>
-              </DialogHeader>
-
-              {/* Performance Breakdown Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] text-center space-y-1">
-                  <span className="text-xs text-[#6B7280]">Overall Average Score</span>
-                  <p className="text-2xl font-bold text-[#2563EB]">{selectedStudent.avgScore}%</p>
-                </div>
-                <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] text-center space-y-1">
-                  <span className="text-xs text-[#6B7280]">MCQ Choice Accuracy</span>
-                  <p className="text-2xl font-bold text-[#16A34A]">{selectedStudent.mcqAccuracy}%</p>
-                </div>
-                <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] text-center space-y-1">
-                  <span className="text-xs text-[#6B7280]">Coding Problem Rate</span>
-                  <p className="text-2xl font-bold text-[#9333EA]">{selectedStudent.codingAccuracy}%</p>
-                </div>
-              </div>
-
-              {/* Tabs for Test History vs Proctoring Security Logs */}
-              <Tabs defaultValue="tests" className="w-full space-y-4">
-                <TabsList className="bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] p-1 rounded-xl">
-                  <TabsTrigger value="tests" className="text-xs font-bold px-4 py-2">
-                    Evaluations & Tests ({selectedStudent.testsTaken.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="proctoring" className="text-xs font-bold px-4 py-2">
-                    Proctoring Security Logs ({selectedStudent.proctoringLogs.length})
-                  </TabsTrigger>
-                </TabsList>
-
-                {/* Test Evaluation History */}
-                <TabsContent value="tests" className="space-y-3">
-                  {selectedStudent.testsTaken.length === 0 ? (
-                    <p className="text-xs text-[#6B7280] text-center py-6">No evaluation tests completed yet.</p>
-                  ) : (
-                    selectedStudent.testsTaken.map((t) => (
-                      <div
-                        key={t.testId}
-                        className="p-4 bg-white dark:bg-[#18181B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between text-xs"
-                      >
-                        <div>
-                          <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">{t.testTitle}</p>
-                          <p className="text-[11px] text-[#6B7280] mt-0.5">Completed: {t.completedAt}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <span className="font-bold text-sm text-[#16A34A]">{t.score}% Score</span>
-                            <p className="text-[10px] text-[#6B7280]">{t.violations} Violations</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </TabsContent>
-
-                {/* Proctoring Security Violation Logs */}
-                <TabsContent value="proctoring" className="space-y-3">
-                  {selectedStudent.proctoringLogs.length === 0 ? (
-                    <div className="p-6 bg-[#16A34A]/5 border border-[#16A34A]/20 rounded-xl text-center space-y-1">
-                      <CheckCircle2 className="h-6 w-6 text-[#16A34A] mx-auto" />
-                      <p className="text-xs font-bold text-[#16A34A]">100% Clean Security Record</p>
-                      <p className="text-[11px] text-[#6B7280]">No tab switching, window blur, or camera gaze violations recorded.</p>
-                    </div>
-                  ) : (
-                    selectedStudent.proctoringLogs.map((log) => (
-                      <div
-                        key={log.id}
-                        className="p-3 bg-[#DC2626]/5 border border-[#DC2626]/20 rounded-xl flex items-center justify-between text-xs"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-[#DC2626] text-white text-[9px] font-bold uppercase">{log.type}</Badge>
-                            <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{log.message}</span>
-                          </div>
-                          <p className="text-[10px] text-[#6B7280]">Browser: {log.browser}</p>
-                        </div>
-                        <span className="font-mono text-[10px] text-[#6B7280]">{log.timestamp}</span>
-                      </div>
-                    ))
-                  )}
-                </TabsContent>
-              </Tabs>
-            </>
-          )}
-
-          <DialogFooter className="pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-            <Button variant="outline" onClick={() => setIsAnalyticsModalOpen(false)} className="w-full font-bold">
-              Close Analytics Sheet
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ENROLL NEW STUDENT MODAL */}
-      <Dialog open={isEnrollModalOpen} onOpenChange={setIsEnrollModalOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Enroll New Learner</DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
-              Create a student profile and assign them to an active training cohort.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleEnrollStudent} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Student Full Name</label>
-              <Input
-                placeholder="e.g. Dharunkumar S"
-                value={newStudentName}
-                onChange={(e) => setNewStudentName(e.target.value)}
-                required
-                className="h-[44px] text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Email Address (Any Domain)</label>
-              <Input
-                type="email"
-                placeholder="e.g. dharunkumar@gmail.com"
-                value={newStudentEmail}
-                onChange={(e) => setNewStudentEmail(e.target.value)}
-                required
-                className="h-[44px] text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assigned Cohort Batch</label>
-              <Select value={newStudentBatch} onValueChange={(val) => setNewStudentBatch(val || "Batch 2026-A")}>
-                <SelectTrigger className="h-[44px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
-                  <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button type="submit" className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold">
-                Enroll Student Now
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

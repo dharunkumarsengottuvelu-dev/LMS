@@ -4,16 +4,13 @@ import React, { useState } from "react";
 import Link from "next/link";
 import {
   ClipboardList, Plus, Search, ShieldAlert, ShieldCheck, Clock, Users,
-  Award, Eye, Trash2, Edit, AlertTriangle, Play, Calendar, CheckCircle2, Lock
+  Award, Eye, Trash2, Play, ArrowLeft, Sparkles, Lock
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
-} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 export interface ScheduledTest {
@@ -74,18 +71,16 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // Schedule Test Modal State
-  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  // View State: "list" | "create"
+  const [viewState, setViewState] = useState<"list" | "create">("list");
+
+  // Form State for Exam Configurator
   const [newTitle, setNewTitle] = useState("");
   const [newBatch, setNewBatch] = useState("Batch 2026-A");
   const [newDuration, setNewDuration] = useState(60);
   const [newTotalQuestions, setNewTotalQuestions] = useState(5);
   const [newMaxMarks, setNewMaxMarks] = useState(100);
   const [newStatus, setNewStatus] = useState<"live" | "scheduled">("scheduled");
-
-  // Submissions Inspector Modal State
-  const [selectedTest, setSelectedTest] = useState<ScheduledTest | null>(null);
-  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
 
   const filtered = tests.filter((t) => {
     const matchesSearch = t.title.toLowerCase().includes(search.toLowerCase());
@@ -116,11 +111,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     };
 
     setTests((prev) => [newExam, ...prev]);
-    setIsScheduleOpen(false);
+    setViewState("list");
     setNewTitle("");
     toast({
-      title: "Proctored Exam Created & Scheduled",
-      description: `"${newTitle}" is now live and scheduled for ${newBatch}.`,
+      title: "Proctored Exam Scheduled",
+      description: `"${newTitle}" scheduled for ${newBatch}.`,
     });
   };
 
@@ -132,6 +127,106 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       variant: "destructive",
     });
   };
+
+  // FULL PAGE EXAM CREATION VIEW
+  if (viewState === "create") {
+    return (
+      <div className="space-y-8 max-w-4xl mx-auto">
+        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <Button
+            onClick={() => setViewState("list")}
+            variant="outline"
+            size="sm"
+            className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Assessment Directory
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+              Configure New Proctored Examination
+            </h1>
+            <p className="text-xs text-[#6B7280]">Set up proctoring security rules, duration, and question allocation</p>
+          </div>
+        </div>
+
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
+          <form onSubmit={handleScheduleTest} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Title</label>
+              <Input
+                placeholder="e.g. React 19 & Next.js 16 Proctored Evaluation"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                required
+                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assigned Cohort Batch</label>
+                <Select value={newBatch} onValueChange={(val) => setNewBatch(val || "Batch 2026-A")}>
+                  <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
+                    <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Initial Launch Status</label>
+                <Select value={newStatus} onValueChange={(val) => setNewStatus((val as any) || "scheduled")}>
+                  <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scheduled">Scheduled (Starts at set time)</SelectItem>
+                    <SelectItem value="live">Live Now (Immediate student access)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration (Minutes)</label>
+                <Input
+                  type="number"
+                  value={newDuration}
+                  onChange={(e) => setNewDuration(Number(e.target.value))}
+                  required
+                  className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Maximum Marks</label>
+                <Input
+                  type="number"
+                  value={newMaxMarks}
+                  onChange={(e) => setNewMaxMarks(Number(e.target.value))}
+                  required
+                  className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[48px] px-6 font-bold text-xs rounded-xl">
+                Cancel
+              </Button>
+              <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
+                <Sparkles className="h-4 w-4" /> Schedule Exam Now
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -147,8 +242,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         </div>
 
         <Button
-          onClick={() => setIsScheduleOpen(true)}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0"
+          onClick={() => setViewState("create")}
+          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20"
         >
           <Plus className="h-4 w-4" /> Schedule New Proctored Exam
         </Button>
@@ -241,18 +336,6 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     </Link>
 
                     <Button
-                      onClick={() => {
-                        setSelectedTest(t);
-                        setIsInspectorOpen(true);
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs font-bold"
-                    >
-                      <Eye className="h-3.5 w-3.5 text-[#2563EB]" /> Details
-                    </Button>
-
-                    <Button
                       onClick={() => handleDeleteTest(t.id, t.title)}
                       variant="ghost"
                       size="icon"
@@ -267,116 +350,6 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
           </table>
         </CardContent>
       </Card>
-
-      {/* INSPECT DETAILS MODAL */}
-      <Dialog open={isInspectorOpen} onOpenChange={setIsInspectorOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold">{selectedTest?.title}</DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
-              Proctoring Security Rules & Submission Metrics
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 text-xs">
-            <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl space-y-1">
-              <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">Active Security Policies:</span>
-              <ul className="list-disc pl-4 text-[11px] text-[#6B7280] space-y-1 mt-1">
-                {selectedTest?.proctoringFlags.map((f, i) => (
-                  <li key={i}>{f}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button onClick={() => setIsInspectorOpen(false)} className="w-full font-bold h-10">
-              Close Details
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* SCHEDULE EXAM MODAL */}
-      <Dialog open={isScheduleOpen} onOpenChange={setIsScheduleOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Schedule Proctored Exam</DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
-              Configure time duration, cohort target, and proctoring security rules.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleScheduleTest} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Title</label>
-              <Input
-                placeholder="e.g. React 19 & Next.js 16 Proctored Evaluation"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                required
-                className="h-[44px] text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assigned Cohort Batch</label>
-              <Select value={newBatch} onValueChange={(val) => setNewBatch(val || "Batch 2026-A")}>
-                <SelectTrigger className="h-[44px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
-                  <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration (Mins)</label>
-                <Input
-                  type="number"
-                  value={newDuration}
-                  onChange={(e) => setNewDuration(Number(e.target.value))}
-                  required
-                  className="h-[44px] text-xs"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Max Marks</label>
-                <Input
-                  type="number"
-                  value={newMaxMarks}
-                  onChange={(e) => setNewMaxMarks(Number(e.target.value))}
-                  required
-                  className="h-[44px] text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Initial Launch Status</label>
-              <Select value={newStatus} onValueChange={(val) => setNewStatus((val as any) || "scheduled")}>
-                <SelectTrigger className="h-[44px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="scheduled">Scheduled (Starts at set time)</SelectItem>
-                  <SelectItem value="live">Live Now (Immediate student access)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <DialogFooter>
-              <Button type="submit" className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold">
-                Schedule Proctored Exam Now
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

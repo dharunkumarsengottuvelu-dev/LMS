@@ -3,17 +3,14 @@
 import React, { useState } from "react";
 import {
   BookOpen, Plus, Search, Filter, Edit, Trash2, Eye, CheckCircle2,
-  Clock, Users, Award, PlayCircle, FileText, Sparkles, Layers, Video, HelpCircle, Code2
+  Clock, Users, Award, PlayCircle, FileText, Sparkles, ArrowLeft, Video, Code2, Layers
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
-} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 export interface ManagedCourse {
@@ -83,18 +80,18 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  // Create Course Modal State
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  // Page View Control: "list" | "create" | "syllabus" | "add-module"
+  const [viewState, setViewState] = useState<"list" | "create" | "syllabus" | "add-module">("list");
+  const [selectedCourse, setSelectedCourse] = useState<ManagedCourse | null>(null);
+
+  // Form State for Authoring Course
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState("Web Development");
   const [newLevel, setNewLevel] = useState<"Beginner" | "Intermediate" | "Advanced">("Intermediate");
-  const [newDesc, setNewDesc] = useState("");
   const [newDuration, setNewDuration] = useState("12 Hours");
+  const [newDesc, setNewDesc] = useState("");
 
-  // View Syllabus & Add Module Modal State
-  const [selectedCourse, setSelectedCourse] = useState<ManagedCourse | null>(null);
-  const [isSyllabusOpen, setIsSyllabusOpen] = useState(false);
-  const [isAddModuleOpen, setIsAddModuleOpen] = useState(false);
+  // Form State for Adding Module
   const [modTitle, setModTitle] = useState("");
   const [modDuration, setModDuration] = useState("45 mins");
   const [modType, setModType] = useState<"video" | "reading" | "quiz" | "coding">("video");
@@ -123,12 +120,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     };
 
     setCourses((prev) => [created, ...prev]);
-    setIsCreateOpen(false);
+    setViewState("list");
     setNewTitle("");
     setNewDesc("");
     toast({
-      title: "Course Authoring Successful",
-      description: `"${newTitle}" is now live and active in the course catalog.`,
+      title: "Course Published Successfully",
+      description: `"${newTitle}" is now live across the platform.`,
     });
   };
 
@@ -153,7 +150,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setSelectedCourse(updatedCourse);
     setCourses((prev) => prev.map((c) => (c.id === selectedCourse.id ? updatedCourse : c)));
 
-    setIsAddModuleOpen(false);
+    setViewState("syllabus");
     setModTitle("");
     toast({
       title: "Module Added to Syllabus",
@@ -186,6 +183,246 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     });
   };
 
+  // RENDER FULL PAGE COURSE AUTHORING VIEW
+  if (viewState === "create") {
+    return (
+      <div className="space-y-8 max-w-4xl mx-auto">
+        <div className="flex items-center justify-between pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => setViewState("list")}
+              variant="outline"
+              size="sm"
+              className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to Courses Directory
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+                Author New Enterprise Course
+              </h1>
+              <p className="text-xs text-[#6B7280]">Configure course metadata, category domain, and overview curriculum</p>
+            </div>
+          </div>
+        </div>
+
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
+          <form onSubmit={handleCreateCourse} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
+                <span>Course Title</span>
+                <span className="text-[10px] font-semibold text-[#2563EB]">Required Field</span>
+              </label>
+              <Input
+                placeholder="e.g. React 19 & Next.js 16 Enterprise Production Blueprint"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                required
+                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Domain Category</label>
+                <Select value={newCategory} onValueChange={(val) => setNewCategory(val || "Web Development")}>
+                  <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Web Development">Web Development</SelectItem>
+                    <SelectItem value="AI & Machine Learning">AI & Machine Learning</SelectItem>
+                    <SelectItem value="Database Architecture">Database Architecture</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Difficulty Level</label>
+                <Select value={newLevel} onValueChange={(val) => setNewLevel((val as any) || "Intermediate")}>
+                  <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Beginner">Beginner</SelectItem>
+                    <SelectItem value="Intermediate">Intermediate</SelectItem>
+                    <SelectItem value="Advanced">Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Estimated Total Duration</label>
+              <Input
+                placeholder="e.g. 16 Hours"
+                value={newDuration}
+                onChange={(e) => setNewDuration(e.target.value)}
+                required
+                className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Overview Description & Learning Outcomes</label>
+              <Textarea
+                placeholder="Write a comprehensive description of what learners will build and master..."
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+                rows={5}
+                className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[48px] px-6 font-bold text-xs rounded-xl">
+                Cancel
+              </Button>
+              <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
+                <Sparkles className="h-4 w-4" /> Publish Course Now
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
+  // RENDER FULL PAGE SYLLABUS INSPECTOR VIEW
+  if (viewState === "syllabus" && selectedCourse) {
+    return (
+      <div className="space-y-8 max-w-5xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => setViewState("list")}
+              variant="outline"
+              size="sm"
+              className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to Courses Directory
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+                {selectedCourse.title}
+              </h1>
+              <p className="text-xs text-[#6B7280]">Syllabus Breakdown • Category: {selectedCourse.category} • Level: {selectedCourse.level}</p>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => setViewState("add-module")}
+            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-2 px-5 rounded-xl shrink-0"
+          >
+            <Plus className="h-4 w-4" /> Add Module to Course
+          </Button>
+        </div>
+
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-3xl shadow-sm space-y-4">
+          <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+            <Layers className="h-4 w-4 text-[#2563EB]" /> Course Syllabus Modules ({selectedCourse.modules.length})
+          </h2>
+
+          <div className="space-y-3">
+            {selectedCourse.modules.map((m, idx) => (
+              <div key={m.id} className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between text-xs">
+                <div className="flex items-center gap-3.5">
+                  <span className="w-8 h-8 rounded-xl bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs flex items-center justify-center border border-[#2563EB]/20">
+                    {idx + 1}
+                  </span>
+                  <div>
+                    <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">{m.title}</p>
+                    <span className="text-[10px] text-[#6B7280] capitalize font-medium">Type: {m.type}</span>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-xs font-mono font-bold px-3 py-1 border-[#2563EB]/30 text-[#2563EB]">
+                  {m.duration}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // RENDER FULL PAGE ADD MODULE VIEW
+  if (viewState === "add-module" && selectedCourse) {
+    return (
+      <div className="space-y-8 max-w-3xl mx-auto">
+        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <Button
+            onClick={() => setViewState("syllabus")}
+            variant="outline"
+            size="sm"
+            className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Syllabus
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+              Add Module to {selectedCourse.title}
+            </h1>
+            <p className="text-xs text-[#6B7280]">Author a new video lesson, reading material, or coding challenge</p>
+          </div>
+        </div>
+
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
+          <form onSubmit={handleAddModule} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module / Lesson Title</label>
+              <Input
+                placeholder="e.g. Server Actions & Supabase JWT Authentication"
+                value={modTitle}
+                onChange={(e) => setModTitle(e.target.value)}
+                required
+                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Type</label>
+                <Select value={modType} onValueChange={(val) => setModType((val as any) || "video")}>
+                  <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="video">Video Lesson</SelectItem>
+                    <SelectItem value="coding">Coding Challenge (Judge0)</SelectItem>
+                    <SelectItem value="reading">Reading Material</SelectItem>
+                    <SelectItem value="quiz">Quiz Evaluation</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Estimated Duration</label>
+                <Input
+                  placeholder="e.g. 45 mins"
+                  value={modDuration}
+                  onChange={(e) => setModDuration(e.target.value)}
+                  required
+                  className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <Button type="button" variant="outline" onClick={() => setViewState("syllabus")} className="h-[48px] px-6 font-bold text-xs rounded-xl">
+                Cancel
+              </Button>
+              <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
+                <Sparkles className="h-4 w-4" /> Save Module to Syllabus
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
+  // RENDER DEFAULT COURSES DIRECTORY LIST VIEW
   return (
     <div className="space-y-8">
       {/* Top Banner */}
@@ -200,8 +437,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         </div>
 
         <Button
-          onClick={() => setIsCreateOpen(true)}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0"
+          onClick={() => setViewState("create")}
+          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20"
         >
           <Plus className="h-4 w-4" /> Author New Course
         </Button>
@@ -270,7 +507,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 <Button
                   onClick={() => {
                     setSelectedCourse(course);
-                    setIsSyllabusOpen(true);
+                    setViewState("syllabus");
                   }}
                   variant="outline"
                   size="sm"
@@ -301,207 +538,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           </Card>
         ))}
       </div>
-
-      {/* SYLLABUS INSPECTOR & MODULE MANAGER MODAL */}
-      <Dialog open={isSyllabusOpen} onOpenChange={setIsSyllabusOpen}>
-        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl shadow-xl">
-          <DialogHeader className="pb-2 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
-            <div>
-              <DialogTitle className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">
-                {selectedCourse?.title}
-              </DialogTitle>
-              <DialogDescription className="text-xs text-[#6B7280]">
-                {selectedCourse?.modules.length} Modules • Category: {selectedCourse?.category}
-              </DialogDescription>
-            </div>
-            <Button
-              onClick={() => setIsAddModuleOpen(true)}
-              size="sm"
-              className="h-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold gap-1"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add Module
-            </Button>
-          </DialogHeader>
-
-          <div className="space-y-2.5">
-            {selectedCourse?.modules.map((m, idx) => (
-              <div key={m.id} className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between text-xs">
-                <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs flex items-center justify-center">
-                    {idx + 1}
-                  </span>
-                  <div>
-                    <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">{m.title}</p>
-                    <span className="text-[10px] text-[#6B7280] capitalize">Type: {m.type}</span>
-                  </div>
-                </div>
-                <Badge variant="outline" className="text-[10px] font-mono">{m.duration}</Badge>
-              </div>
-            ))}
-          </div>
-
-          <DialogFooter className="pt-2">
-            <Button onClick={() => setIsSyllabusOpen(false)} className="w-full font-bold h-10">
-              Close Syllabus
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ADD MODULE MODAL */}
-      <Dialog open={isAddModuleOpen} onOpenChange={setIsAddModuleOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Add Module / Lesson</DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
-              Add a new video, reading, coding practice, or quiz module to {selectedCourse?.title}.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleAddModule} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module / Lesson Title</label>
-              <Input
-                placeholder="e.g. Building Middleware & JWT Verification"
-                value={modTitle}
-                onChange={(e) => setModTitle(e.target.value)}
-                required
-                className="h-[44px] text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Type</label>
-              <Select value={modType} onValueChange={(val) => setModType((val as any) || "video")}>
-                <SelectTrigger className="h-[44px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="video">Video Lesson</SelectItem>
-                  <SelectItem value="coding">Coding Challenge (Judge0)</SelectItem>
-                  <SelectItem value="reading">Reading Material</SelectItem>
-                  <SelectItem value="quiz">Quiz Evaluation</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Estimated Duration</label>
-              <Input
-                placeholder="e.g. 45 mins"
-                value={modDuration}
-                onChange={(e) => setModDuration(e.target.value)}
-                required
-                className="h-[44px] text-xs"
-              />
-            </div>
-
-            <DialogFooter>
-              <Button type="submit" className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold">
-                Save Module to Syllabus
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* CREATE NEW COURSE MODAL */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-5 rounded-3xl shadow-2xl">
-          <DialogHeader className="pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center font-bold shrink-0 border border-[#2563EB]/20">
-                <BookOpen className="h-5 w-5" />
-              </div>
-              <div>
-                <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">
-                  Author New Course
-                </DialogTitle>
-                <DialogDescription className="text-xs text-[#6B7280]">
-                  Create and publish a new interactive training module for enterprise learners.
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateCourse} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-                <span>Course Title</span>
-                <span className="text-[10px] font-semibold text-[#2563EB]">Required</span>
-              </label>
-              <Input
-                placeholder="e.g. React 19 & Next.js 16 Production Blueprint"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                required
-                className="h-[46px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Domain Category</label>
-                <Select value={newCategory} onValueChange={(val) => setNewCategory(val || "Web Development")}>
-                  <SelectTrigger className="h-[46px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Web Development">Web Development</SelectItem>
-                    <SelectItem value="AI & Machine Learning">AI & Machine Learning</SelectItem>
-                    <SelectItem value="Database Architecture">Database Architecture</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Difficulty Level</label>
-                <Select value={newLevel} onValueChange={(val) => setNewLevel((val as any) || "Intermediate")}>
-                  <SelectTrigger className="h-[46px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Beginner">Beginner</SelectItem>
-                    <SelectItem value="Intermediate">Intermediate</SelectItem>
-                    <SelectItem value="Advanced">Advanced</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Estimated Total Duration</label>
-              <Input
-                placeholder="e.g. 16 Hours"
-                value={newDuration}
-                onChange={(e) => setNewDuration(e.target.value)}
-                required
-                className="h-[46px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Overview Description</label>
-              <Textarea
-                placeholder="Brief summary of course curriculum..."
-                value={newDesc}
-                onChange={(e) => setNewDesc(e.target.value)}
-                rows={3}
-                className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-              />
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button
-                type="submit"
-                className="w-full h-[48px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20 transition-all"
-              >
-                <Sparkles className="h-4 w-4" /> Publish Course Now
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import {
-  Layers, Plus, Search, Video, FileText, Code2, HelpCircle, Trash2, Edit,
-  Eye, CheckCircle2, Clock, BookOpen, ArrowRight, PlayCircle
+  Layers, Plus, Search, Filter, Edit, Trash2, Eye, CheckCircle2,
+  Clock, BookOpen, ArrowLeft, Sparkles, Video, Code2, FileText
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
-} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
 export interface CourseModuleItem {
@@ -54,33 +51,6 @@ const initialModules: CourseModuleItem[] = [
     sequenceOrder: 3,
     contentSummary: "Interactive browser coding challenge with automated testcase assertions.",
   },
-  {
-    id: "m_4",
-    courseTitle: "Python AI & Deep Learning LLM Agentic Engineering",
-    title: "Transformers Architecture & Attention Mechanism",
-    duration: "75 mins",
-    type: "video",
-    sequenceOrder: 1,
-    contentSummary: "Self-attention math, multi-head attention blocks, and PyTorch implementations.",
-  },
-  {
-    id: "m_5",
-    courseTitle: "Python AI & Deep Learning LLM Agentic Engineering",
-    title: "LangChain Agentic Workflows & Tool Calling",
-    duration: "60 mins",
-    type: "reading",
-    sequenceOrder: 2,
-    contentSummary: "Designing autonomous AI agents with custom tools and memory buffer schemas.",
-  },
-  {
-    id: "m_6",
-    courseTitle: "PostgreSQL & Supabase High-Availability Systems",
-    title: "Row Level Security (RLS) & Multitenant Isolation",
-    duration: "40 mins",
-    type: "video",
-    sequenceOrder: 1,
-    contentSummary: "Writing high-performance RLS policy rules and database security roles.",
-  },
 ];
 
 export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
@@ -90,17 +60,15 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [courseFilter, setCourseFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
 
-  // Create Module Modal State
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  // View state: "list" | "create"
+  const [viewState, setViewState] = useState<"list" | "create">("list");
+
+  // Form State
   const [newTitle, setNewTitle] = useState("");
   const [newCourse, setNewCourse] = useState("Full Stack Next.js 16 & React 19 Enterprise Architecture");
   const [newDuration, setNewDuration] = useState("45 mins");
   const [newType, setNewType] = useState<"video" | "coding" | "reading" | "quiz">("video");
   const [newSummary, setNewSummary] = useState("");
-
-  // Inspect Module State
-  const [selectedModule, setSelectedModule] = useState<CourseModuleItem | null>(null);
-  const [isInspectOpen, setIsInspectOpen] = useState(false);
 
   const filtered = modules.filter((m) => {
     const matchesSearch =
@@ -126,11 +94,11 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
     };
 
     setModules((prev) => [created, ...prev]);
-    setIsCreateOpen(false);
+    setViewState("list");
     setNewTitle("");
     setNewSummary("");
     toast({
-      title: "Module Added Successfully",
+      title: "Module Published Successfully",
       description: `"${newTitle}" added to ${newCourse}.`,
     });
   };
@@ -143,6 +111,107 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
       variant: "destructive",
     });
   };
+
+  // FULL PAGE CREATION VIEW
+  if (viewState === "create") {
+    return (
+      <div className="space-y-8 max-w-4xl mx-auto">
+        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <Button
+            onClick={() => setViewState("list")}
+            variant="outline"
+            size="sm"
+            className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Modules Directory
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+              Author New Module / Lesson
+            </h1>
+            <p className="text-xs text-[#6B7280]">Configure video lesson, coding challenge, or reading content</p>
+          </div>
+        </div>
+
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
+          <form onSubmit={handleCreateModule} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module / Lesson Title</label>
+              <Input
+                placeholder="e.g. Next.js 16 Middleware & JWT Verification"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                required
+                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Parent Course</label>
+              <Select value={newCourse} onValueChange={(val) => setNewCourse(val || "Full Stack Next.js 16 & React 19 Enterprise Architecture")}>
+                <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Full Stack Next.js 16 & React 19 Enterprise Architecture">Next.js 16 Enterprise</SelectItem>
+                  <SelectItem value="Python AI & Deep Learning LLM Agentic Engineering">Python AI LLM</SelectItem>
+                  <SelectItem value="PostgreSQL & Supabase High-Availability Systems">PostgreSQL & Supabase</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Type</label>
+                <Select value={newType} onValueChange={(val) => setNewType((val as any) || "video")}>
+                  <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="video">Video Lesson</SelectItem>
+                    <SelectItem value="coding">Coding Challenge (Judge0)</SelectItem>
+                    <SelectItem value="reading">Reading Material</SelectItem>
+                    <SelectItem value="quiz">Quiz Evaluation</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Estimated Duration</label>
+                <Input
+                  placeholder="e.g. 45 mins"
+                  value={newDuration}
+                  onChange={(e) => setNewDuration(e.target.value)}
+                  required
+                  className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Overview & Syllabus Notes</label>
+              <Textarea
+                placeholder="Brief summary of key concepts covered in this module..."
+                value={newSummary}
+                onChange={(e) => setNewSummary(e.target.value)}
+                rows={4}
+                className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+              />
+            </div>
+
+            <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[48px] px-6 font-bold text-xs rounded-xl">
+                Cancel
+              </Button>
+              <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
+                <Sparkles className="h-4 w-4" /> Save & Publish Module
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -158,8 +227,8 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
         </div>
 
         <Button
-          onClick={() => setIsCreateOpen(true)}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0"
+          onClick={() => setViewState("create")}
+          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20"
         >
           <Plus className="h-4 w-4" /> Create New Module
         </Button>
@@ -261,18 +330,6 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
                   <td className="p-4 pr-6 text-right space-x-2">
                     <Button
-                      onClick={() => {
-                        setSelectedModule(m);
-                        setIsInspectOpen(true);
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs font-bold"
-                    >
-                      <Eye className="h-3.5 w-3.5 text-[#2563EB]" /> View Summary
-                    </Button>
-
-                    <Button
                       onClick={() => handleDeleteModule(m.id, m.title)}
                       variant="ghost"
                       size="icon"
@@ -287,113 +344,6 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
           </table>
         </CardContent>
       </Card>
-
-      {/* INSPECT MODULE MODAL */}
-      <Dialog open={isInspectOpen} onOpenChange={setIsInspectOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold">{selectedModule?.title}</DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
-              Course: {selectedModule?.courseTitle} • Type: {selectedModule?.type} • Duration: {selectedModule?.duration}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] text-xs space-y-2">
-            <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">Curriculum Summary:</span>
-            <p className="text-[#6B7280] leading-relaxed">{selectedModule?.contentSummary}</p>
-          </div>
-
-          <DialogFooter>
-            <Button onClick={() => setIsInspectOpen(false)} className="w-full font-bold h-10">
-              Close Inspection
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* CREATE NEW MODULE MODAL */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Author New Module</DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
-              Add a learning lesson, coding exercise, or quiz to an active course.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateModule} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module / Lesson Title</label>
-              <Input
-                placeholder="e.g. Next.js 16 Middleware & JWT Security"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                required
-                className="h-[44px] text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Parent Course</label>
-              <Select value={newCourse} onValueChange={(val) => setNewCourse(val || "Full Stack Next.js 16 & React 19 Enterprise Architecture")}>
-                <SelectTrigger className="h-[44px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Full Stack Next.js 16 & React 19 Enterprise Architecture">Next.js 16 Enterprise</SelectItem>
-                  <SelectItem value="Python AI & Deep Learning LLM Agentic Engineering">Python AI LLM</SelectItem>
-                  <SelectItem value="PostgreSQL & Supabase High-Availability Systems">PostgreSQL & Supabase</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Type</label>
-                <Select value={newType} onValueChange={(val) => setNewType((val as any) || "video")}>
-                  <SelectTrigger className="h-[44px] text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="video">Video Lesson</SelectItem>
-                    <SelectItem value="coding">Coding Challenge</SelectItem>
-                    <SelectItem value="reading">Reading Material</SelectItem>
-                    <SelectItem value="quiz">Quiz</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration</label>
-                <Input
-                  placeholder="e.g. 45 mins"
-                  value={newDuration}
-                  onChange={(e) => setNewDuration(e.target.value)}
-                  required
-                  className="h-[44px] text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Overview & Syllabus Notes</label>
-              <Textarea
-                placeholder="Brief summary of key concepts covered in this module..."
-                value={newSummary}
-                onChange={(e) => setNewSummary(e.target.value)}
-                rows={3}
-                className="text-xs"
-              />
-            </div>
-
-            <DialogFooter>
-              <Button type="submit" className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold">
-                Save & Publish Module
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
