@@ -19,6 +19,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { ProctoringEngine } from "@/components/proctoring/proctoring-engine";
 
 interface QuestionItem {
   id: number;
@@ -934,72 +935,34 @@ export default function StudentTestRunnerPage() {
             </CardContent>
           </Card>
 
-          {/* Real-time Face Monitoring Stream Feed (Hidden upon exam completion) */}
+          {/* Production-Ready Enterprise Proctoring Engine (Hidden upon exam completion) */}
           {!isExamSubmitted && (
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden">
-              <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#2563EB]/5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-                    <Camera className="h-4 w-4 text-[#2563EB]" /> Real-time Face Monitoring Stream
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-[#16A34A] animate-ping" />
-                    <span className="text-[10px] font-bold text-[#16A34A]">30 FPS</span>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent className="p-4 space-y-3">
-                <div className="aspect-video bg-[#09090B] rounded-xl flex items-center justify-center text-white relative overflow-hidden border border-[#27272A]">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className={`w-full h-full object-cover rounded-xl ${webcamStream ? "block" : "hidden"}`}
-                  />
-
-                  {!webcamStream && (
-                    <div className="w-full h-full bg-[#09090B] flex flex-col items-center justify-center text-center p-4 relative space-y-2">
-                      <Camera className="h-8 w-8 text-[#2563EB] animate-bounce" />
-                      <p className="text-xs text-[#D1D5DB] font-medium">Camera Stream Permission Pending</p>
-                      <Button
-                        size="sm"
-                        onClick={requestWebcamAccess}
-                        className="h-8 text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-1.5 px-3"
-                      >
-                        <Camera className="h-3.5 w-3.5" /> Enable Live Camera Stream
-                      </Button>
-                    </div>
-                  )}
-
-                  <canvas
-                    ref={canvasRef}
-                    width={320}
-                    height={240}
-                    className="absolute inset-0 w-full h-full pointer-events-none z-10"
-                  />
-
-                  {webcamStream && (
-                    <div className="absolute top-2 left-2 z-20 bg-[#09090B]/85 backdrop-blur-xs text-[10px] font-mono text-[#16A34A] px-2 py-0.5 rounded border border-[#16A34A]/40 flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
-                      LIVE CAMERA STREAM ACTIVE
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-2.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-lg border border-[#E5E7EB] dark:border-[#27272A] text-[11px] text-[#6B7280] space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span>Candidate Photo Verification:</span>
-                    <strong className="text-[#16A34A]">Matched Reference Snapshot</strong>
-                  </div>
-                  <div className="flex items-center justify-between pt-0.5">
-                    <span>Camera Stream Source:</span>
-                    <strong className="text-[#111827] dark:text-[#FAFAFA]">Live Hardware Stream (Webcam)</strong>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <ProctoringEngine
+              testId={testId}
+              config={{
+                enableFaceMonitoring: currentTest.proctoring.webcamTracking,
+                cameraRequired: currentTest.proctoring.webcamTracking,
+                fullscreenRequired: currentTest.proctoring.fullscreenLock,
+                enableTabSwitchDetection: true,
+                enableMultipleFaceDetection: true,
+                enableFaceVisibilityDetection: true,
+                maxAllowedViolations: maxTabSwitchLimit,
+                autoSubmit: true,
+              }}
+              isExamSubmitted={isExamSubmitted}
+              onAutoSubmit={(reason) => {
+                setIsExamSubmitted(true);
+                setAutoSubmittedReason(reason);
+                setScoreResult(0);
+              }}
+              onAutoSave={() => {
+                if (typeof window !== "undefined") {
+                  try {
+                    localStorage.setItem(`draft_answers_${testId}`, JSON.stringify(answers));
+                  } catch (e) {}
+                }
+              }}
+            />
           )}
         </div>
 
