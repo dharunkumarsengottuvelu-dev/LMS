@@ -1,4 +1,4 @@
-import { TrainerSidebar } from "@/components/layouts/trainer-sidebar";
+import { TrainerTopNav } from "@/components/layouts/trainer-top-nav";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -37,9 +37,9 @@ export default async function TrainerLayout({ children }: { children: React.Reac
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] dark:bg-[#09090B]">
-      <TrainerSidebar />
-      <main className="lg:ml-[280px] min-h-screen">
-        <div className="max-w-[1440px] mx-auto px-8 py-8">{children}</div>
+      <TrainerTopNav />
+      <main className="pt-[88px] max-w-[1440px] mx-auto px-6 md:px-8 pb-12">
+        {children}
       </main>
     </div>
   );

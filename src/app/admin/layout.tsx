@@ -1,4 +1,3 @@
-import { AdminSidebar } from "@/components/layouts/admin-sidebar";
 import { AdminTopNav } from "@/components/layouts/admin-top-nav";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -38,10 +37,9 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] dark:bg-[#09090B]">
-      <AdminSidebar />
       <AdminTopNav />
-      <main className="lg:ml-[280px] pt-[72px] min-h-screen">
-        <div className="max-w-[1440px] mx-auto px-8 py-8">{children}</div>
+      <main className="pt-[88px] max-w-[1440px] mx-auto px-6 md:px-8 pb-12">
+        {children}
       </main>
     </div>
   );
