@@ -30,23 +30,23 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
 
 -- Helper function: get current user's profile id
-CREATE OR REPLACE FUNCTION auth.profile_id()
+CREATE OR REPLACE FUNCTION public.profile_id()
 RETURNS UUID AS $$
   SELECT id FROM public.profiles WHERE user_id = auth.uid()
 $$ LANGUAGE SQL STABLE SECURITY DEFINER;
 
 -- Helper function: get current user's role
-CREATE OR REPLACE FUNCTION auth.user_role()
+CREATE OR REPLACE FUNCTION public.user_role()
 RETURNS TEXT AS $$
   SELECT role::TEXT FROM public.profiles WHERE user_id = auth.uid()
 $$ LANGUAGE SQL STABLE SECURITY DEFINER;
 
 -- Helper function: check if current user is enrolled in a course
-CREATE OR REPLACE FUNCTION auth.is_enrolled(p_course_id UUID)
+CREATE OR REPLACE FUNCTION public.is_enrolled(p_course_id UUID)
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.enrollments
-    WHERE student_id = auth.profile_id()
+    WHERE student_id = public.profile_id()
     AND course_id = p_course_id
     AND status != 'dropped'
   )
@@ -60,7 +60,7 @@ $$ LANGUAGE SQL STABLE SECURITY DEFINER;
 CREATE POLICY "profiles_select" ON profiles FOR SELECT
   USING (
     user_id = auth.uid()
-    OR auth.user_role() IN ('admin', 'trainer')
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 -- Users can update their own profile
@@ -69,26 +69,26 @@ CREATE POLICY "profiles_update_own" ON profiles FOR UPDATE
 
 -- Only admins can insert/delete profiles (handled by trigger otherwise)
 CREATE POLICY "profiles_admin_all" ON profiles FOR ALL
-  USING (auth.user_role() = 'admin');
+  USING (public.user_role() = 'admin');
 
 -- ============================================================
 -- BATCHES
 -- ============================================================
 
 CREATE POLICY "batches_select" ON batches FOR SELECT
-  USING (auth.user_role() IN ('admin', 'trainer'));
+  USING (public.user_role() IN ('admin', 'trainer'));
 
 CREATE POLICY "batches_admin_write" ON batches FOR ALL
-  USING (auth.user_role() = 'admin');
+  USING (public.user_role() = 'admin');
 
 CREATE POLICY "batch_members_select" ON batch_members FOR SELECT
   USING (
-    user_id = auth.profile_id()
-    OR auth.user_role() IN ('admin', 'trainer')
+    user_id = public.profile_id()
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 CREATE POLICY "batch_members_admin_write" ON batch_members FOR ALL
-  USING (auth.user_role() = 'admin');
+  USING (public.user_role() = 'admin');
 
 -- ============================================================
 -- CATEGORIES
@@ -99,7 +99,7 @@ CREATE POLICY "categories_read_all" ON categories FOR SELECT USING (TRUE);
 
 -- Only admins can write
 CREATE POLICY "categories_admin_write" ON categories FOR ALL
-  USING (auth.user_role() = 'admin');
+  USING (public.user_role() = 'admin');
 
 -- ============================================================
 -- COURSES
@@ -111,27 +111,27 @@ CREATE POLICY "courses_select" ON courses FOR SELECT
     status = 'published'
     AND (
       visibility = 'public'
-      OR auth.user_role() IN ('admin', 'trainer')
-      OR (visibility = 'enrolled_only' AND auth.is_enrolled(id))
+      OR public.user_role() IN ('admin', 'trainer')
+      OR (visibility = 'enrolled_only' AND public.is_enrolled(id))
     )
-    OR auth.user_role() = 'admin'
-    OR (auth.user_role() = 'trainer' AND trainer_id = auth.profile_id())
+    OR public.user_role() = 'admin'
+    OR (public.user_role() = 'trainer' AND trainer_id = public.profile_id())
   );
 
 -- Admins and course trainers can update
 CREATE POLICY "courses_update" ON courses FOR UPDATE
   USING (
-    auth.user_role() = 'admin'
-    OR (auth.user_role() = 'trainer' AND trainer_id = auth.profile_id())
+    public.user_role() = 'admin'
+    OR (public.user_role() = 'trainer' AND trainer_id = public.profile_id())
   );
 
 CREATE POLICY "courses_insert" ON courses FOR INSERT
   WITH CHECK (
-    auth.user_role() IN ('admin', 'trainer')
+    public.user_role() IN ('admin', 'trainer')
   );
 
 CREATE POLICY "courses_delete" ON courses FOR DELETE
-  USING (auth.user_role() = 'admin');
+  USING (public.user_role() = 'admin');
 
 -- ============================================================
 -- MODULES
@@ -139,16 +139,16 @@ CREATE POLICY "courses_delete" ON courses FOR DELETE
 
 CREATE POLICY "modules_select" ON modules FOR SELECT
   USING (
-    auth.user_role() IN ('admin', 'trainer')
-    OR auth.is_enrolled(course_id)
+    public.user_role() IN ('admin', 'trainer')
+    OR public.is_enrolled(course_id)
   );
 
 CREATE POLICY "modules_write" ON modules FOR ALL
   USING (
-    auth.user_role() = 'admin'
+    public.user_role() = 'admin'
     OR (
-      auth.user_role() = 'trainer'
-      AND EXISTS (SELECT 1 FROM courses WHERE id = modules.course_id AND trainer_id = auth.profile_id())
+      public.user_role() = 'trainer'
+      AND EXISTS (SELECT 1 FROM courses WHERE id = modules.course_id AND trainer_id = public.profile_id())
     )
   );
 
@@ -159,16 +159,16 @@ CREATE POLICY "modules_write" ON modules FOR ALL
 CREATE POLICY "lessons_select" ON lessons FOR SELECT
   USING (
     is_free_preview = TRUE
-    OR auth.user_role() IN ('admin', 'trainer')
-    OR auth.is_enrolled(course_id)
+    OR public.user_role() IN ('admin', 'trainer')
+    OR public.is_enrolled(course_id)
   );
 
 CREATE POLICY "lessons_write" ON lessons FOR ALL
   USING (
-    auth.user_role() = 'admin'
+    public.user_role() = 'admin'
     OR (
-      auth.user_role() = 'trainer'
-      AND EXISTS (SELECT 1 FROM courses WHERE id = lessons.course_id AND trainer_id = auth.profile_id())
+      public.user_role() = 'trainer'
+      AND EXISTS (SELECT 1 FROM courses WHERE id = lessons.course_id AND trainer_id = public.profile_id())
     )
   );
 
@@ -178,12 +178,12 @@ CREATE POLICY "lessons_write" ON lessons FOR ALL
 
 CREATE POLICY "resources_select" ON resources FOR SELECT
   USING (
-    auth.user_role() IN ('admin', 'trainer')
-    OR auth.is_enrolled(course_id)
+    public.user_role() IN ('admin', 'trainer')
+    OR public.is_enrolled(course_id)
   );
 
 CREATE POLICY "resources_write" ON resources FOR ALL
-  USING (auth.user_role() IN ('admin', 'trainer'));
+  USING (public.user_role() IN ('admin', 'trainer'));
 
 -- ============================================================
 -- ENROLLMENTS
@@ -191,18 +191,18 @@ CREATE POLICY "resources_write" ON resources FOR ALL
 
 CREATE POLICY "enrollments_select" ON enrollments FOR SELECT
   USING (
-    student_id = auth.profile_id()
-    OR auth.user_role() IN ('admin', 'trainer')
+    student_id = public.profile_id()
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 CREATE POLICY "enrollments_insert" ON enrollments FOR INSERT
   WITH CHECK (
-    student_id = auth.profile_id()
-    OR auth.user_role() = 'admin'
+    student_id = public.profile_id()
+    OR public.user_role() = 'admin'
   );
 
 CREATE POLICY "enrollments_admin_write" ON enrollments FOR ALL
-  USING (auth.user_role() = 'admin');
+  USING (public.user_role() = 'admin');
 
 -- ============================================================
 -- LESSON PROGRESS
@@ -210,12 +210,12 @@ CREATE POLICY "enrollments_admin_write" ON enrollments FOR ALL
 
 CREATE POLICY "lesson_progress_select" ON lesson_progress FOR SELECT
   USING (
-    student_id = auth.profile_id()
-    OR auth.user_role() IN ('admin', 'trainer')
+    student_id = public.profile_id()
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 CREATE POLICY "lesson_progress_write" ON lesson_progress FOR ALL
-  USING (student_id = auth.profile_id() OR auth.user_role() = 'admin');
+  USING (student_id = public.profile_id() OR public.user_role() = 'admin');
 
 -- ============================================================
 -- ASSESSMENTS
@@ -223,7 +223,7 @@ CREATE POLICY "lesson_progress_write" ON lesson_progress FOR ALL
 
 CREATE POLICY "assessments_select" ON assessments FOR SELECT
   USING (
-    auth.user_role() IN ('admin', 'trainer')
+    public.user_role() IN ('admin', 'trainer')
     OR (
       status = 'active'
       AND (
@@ -236,10 +236,10 @@ CREATE POLICY "assessments_select" ON assessments FOR SELECT
         SELECT 1 FROM assessment_assignments aa
         WHERE aa.assessment_id = assessments.id
         AND (
-          (aa.assigned_to_type = 'student' AND aa.assigned_to_id = auth.profile_id())
-          OR (aa.assigned_to_type = 'course' AND auth.is_enrolled(aa.assigned_to_id))
+          (aa.assigned_to_type = 'student' AND aa.assigned_to_id = public.profile_id())
+          OR (aa.assigned_to_type = 'course' AND public.is_enrolled(aa.assigned_to_id))
           OR (aa.assigned_to_type = 'batch' AND EXISTS (
-            SELECT 1 FROM batch_members WHERE batch_id = aa.assigned_to_id AND user_id = auth.profile_id()
+            SELECT 1 FROM batch_members WHERE batch_id = aa.assigned_to_id AND user_id = public.profile_id()
           ))
         )
       )
@@ -247,7 +247,7 @@ CREATE POLICY "assessments_select" ON assessments FOR SELECT
   );
 
 CREATE POLICY "assessments_write" ON assessments FOR ALL
-  USING (auth.user_role() IN ('admin', 'trainer'));
+  USING (public.user_role() IN ('admin', 'trainer'));
 
 -- ============================================================
 -- QUESTIONS
@@ -256,18 +256,18 @@ CREATE POLICY "assessments_write" ON assessments FOR ALL
 -- Students cannot see correct answers
 CREATE POLICY "questions_select_student" ON questions FOR SELECT
   USING (
-    auth.user_role() IN ('admin', 'trainer')
+    public.user_role() IN ('admin', 'trainer')
     OR EXISTS (
       SELECT 1 FROM assessments a
       JOIN assessment_attempts at ON at.assessment_id = a.id
       WHERE a.id = questions.assessment_id
-        AND at.student_id = auth.profile_id()
+        AND at.student_id = public.profile_id()
         AND at.status = 'in_progress'
     )
   );
 
 CREATE POLICY "questions_write" ON questions FOR ALL
-  USING (auth.user_role() IN ('admin', 'trainer'));
+  USING (public.user_role() IN ('admin', 'trainer'));
 
 -- ============================================================
 -- ASSESSMENT ATTEMPTS
@@ -275,17 +275,17 @@ CREATE POLICY "questions_write" ON questions FOR ALL
 
 CREATE POLICY "attempts_select" ON assessment_attempts FOR SELECT
   USING (
-    student_id = auth.profile_id()
-    OR auth.user_role() IN ('admin', 'trainer')
+    student_id = public.profile_id()
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 CREATE POLICY "attempts_insert" ON assessment_attempts FOR INSERT
-  WITH CHECK (student_id = auth.profile_id());
+  WITH CHECK (student_id = public.profile_id());
 
 CREATE POLICY "attempts_update" ON assessment_attempts FOR UPDATE
   USING (
-    (student_id = auth.profile_id() AND status = 'in_progress')
-    OR auth.user_role() IN ('admin', 'trainer')
+    (student_id = public.profile_id() AND status = 'in_progress')
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 -- ============================================================
@@ -295,12 +295,12 @@ CREATE POLICY "attempts_update" ON assessment_attempts FOR UPDATE
 CREATE POLICY "coding_problems_select" ON coding_problems FOR SELECT
   USING (
     is_public = TRUE
-    OR auth.user_role() IN ('admin', 'trainer')
-    OR (course_id IS NOT NULL AND auth.is_enrolled(course_id))
+    OR public.user_role() IN ('admin', 'trainer')
+    OR (course_id IS NOT NULL AND public.is_enrolled(course_id))
   );
 
 CREATE POLICY "coding_problems_write" ON coding_problems FOR ALL
-  USING (auth.user_role() IN ('admin', 'trainer'));
+  USING (public.user_role() IN ('admin', 'trainer'));
 
 -- ============================================================
 -- CODING SUBMISSIONS
@@ -308,12 +308,12 @@ CREATE POLICY "coding_problems_write" ON coding_problems FOR ALL
 
 CREATE POLICY "coding_submissions_select" ON coding_submissions FOR SELECT
   USING (
-    student_id = auth.profile_id()
-    OR auth.user_role() IN ('admin', 'trainer')
+    student_id = public.profile_id()
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 CREATE POLICY "coding_submissions_insert" ON coding_submissions FOR INSERT
-  WITH CHECK (student_id = auth.profile_id());
+  WITH CHECK (student_id = public.profile_id());
 
 -- ============================================================
 -- TESTS
@@ -321,14 +321,14 @@ CREATE POLICY "coding_submissions_insert" ON coding_submissions FOR INSERT
 
 CREATE POLICY "tests_select" ON tests FOR SELECT
   USING (
-    auth.user_role() IN ('admin', 'trainer')
+    public.user_role() IN ('admin', 'trainer')
     OR (
       status IN ('live', 'completed')
       AND (
-        ARRAY[auth.profile_id()] && eligible_student_ids
+        ARRAY[public.profile_id()] && eligible_student_ids
         OR EXISTS (
           SELECT 1 FROM batch_members bm
-          WHERE bm.user_id = auth.profile_id()
+          WHERE bm.user_id = public.profile_id()
           AND ARRAY[bm.batch_id] && eligible_batch_ids
         )
       )
@@ -336,7 +336,7 @@ CREATE POLICY "tests_select" ON tests FOR SELECT
   );
 
 CREATE POLICY "tests_write" ON tests FOR ALL
-  USING (auth.user_role() IN ('admin', 'trainer'));
+  USING (public.user_role() IN ('admin', 'trainer'));
 
 -- ============================================================
 -- TEST ATTEMPTS
@@ -344,14 +344,14 @@ CREATE POLICY "tests_write" ON tests FOR ALL
 
 CREATE POLICY "test_attempts_select" ON test_attempts FOR SELECT
   USING (
-    student_id = auth.profile_id()
-    OR auth.user_role() IN ('admin', 'trainer')
+    student_id = public.profile_id()
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 CREATE POLICY "test_attempts_write" ON test_attempts FOR ALL
   USING (
-    student_id = auth.profile_id()
-    OR auth.user_role() IN ('admin', 'trainer')
+    student_id = public.profile_id()
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 -- ============================================================
@@ -360,12 +360,12 @@ CREATE POLICY "test_attempts_write" ON test_attempts FOR ALL
 
 CREATE POLICY "assignments_select" ON assignments FOR SELECT
   USING (
-    auth.user_role() IN ('admin', 'trainer')
-    OR auth.is_enrolled(course_id)
+    public.user_role() IN ('admin', 'trainer')
+    OR public.is_enrolled(course_id)
   );
 
 CREATE POLICY "assignments_write" ON assignments FOR ALL
-  USING (auth.user_role() IN ('admin', 'trainer'));
+  USING (public.user_role() IN ('admin', 'trainer'));
 
 -- ============================================================
 -- ASSIGNMENT SUBMISSIONS
@@ -373,17 +373,17 @@ CREATE POLICY "assignments_write" ON assignments FOR ALL
 
 CREATE POLICY "assignment_submissions_select" ON assignment_submissions FOR SELECT
   USING (
-    student_id = auth.profile_id()
-    OR auth.user_role() IN ('admin', 'trainer')
+    student_id = public.profile_id()
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 CREATE POLICY "assignment_submissions_insert" ON assignment_submissions FOR INSERT
-  WITH CHECK (student_id = auth.profile_id());
+  WITH CHECK (student_id = public.profile_id());
 
 CREATE POLICY "assignment_submissions_update" ON assignment_submissions FOR UPDATE
   USING (
-    student_id = auth.profile_id()
-    OR auth.user_role() IN ('admin', 'trainer')
+    student_id = public.profile_id()
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 -- ============================================================
@@ -392,25 +392,25 @@ CREATE POLICY "assignment_submissions_update" ON assignment_submissions FOR UPDA
 
 CREATE POLICY "certificates_select" ON certificates FOR SELECT
   USING (
-    student_id = auth.profile_id()
-    OR auth.user_role() IN ('admin', 'trainer')
+    student_id = public.profile_id()
+    OR public.user_role() IN ('admin', 'trainer')
   );
 
 CREATE POLICY "certificates_write" ON certificates FOR ALL
-  USING (auth.user_role() = 'admin');
+  USING (public.user_role() = 'admin');
 
 -- ============================================================
 -- NOTIFICATIONS
 -- ============================================================
 
 CREATE POLICY "notifications_select" ON notifications FOR SELECT
-  USING (user_id = auth.profile_id());
+  USING (user_id = public.profile_id());
 
 CREATE POLICY "notifications_update" ON notifications FOR UPDATE
-  USING (user_id = auth.profile_id());
+  USING (user_id = public.profile_id());
 
 CREATE POLICY "notifications_write" ON notifications FOR ALL
-  USING (auth.user_role() IN ('admin', 'trainer'));
+  USING (public.user_role() IN ('admin', 'trainer'));
 
 -- ============================================================
 -- ACTIVITY LOGS
@@ -418,9 +418,9 @@ CREATE POLICY "notifications_write" ON notifications FOR ALL
 
 CREATE POLICY "activity_logs_select" ON activity_logs FOR SELECT
   USING (
-    user_id = auth.profile_id()
-    OR auth.user_role() = 'admin'
+    user_id = public.profile_id()
+    OR public.user_role() = 'admin'
   );
 
 CREATE POLICY "activity_logs_insert" ON activity_logs FOR INSERT
-  WITH CHECK (user_id = auth.profile_id() OR auth.user_role() = 'admin');
+  WITH CHECK (user_id = public.profile_id() OR public.user_role() = 'admin');
