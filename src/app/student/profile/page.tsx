@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  User, Mail, Phone, Globe, Save, Lock, Shield,
+  User, Mail, Phone, Globe, Save, Lock, Shield, Edit3, X,
   BookOpen, CheckCircle2, Award, Calendar, Layers, Key, Code2, Link2,
   ExternalLink, Terminal, Cpu
 } from "lucide-react";
@@ -23,6 +23,10 @@ export default function StudentProfilePage() {
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<"personal" | "coding" | "security">("personal");
+
+  // Edit Mode Toggles
+  const [isEditingPersonal, setIsEditingPersonal] = useState(false);
+  const [isEditingCoding, setIsEditingCoding] = useState(false);
 
   // Personal Info States
   const [firstName, setFirstName] = useState(profile?.first_name || "Dharunkumar");
@@ -47,10 +51,19 @@ export default function StudentProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleSaveProfile = () => {
+  const handleSavePersonal = () => {
+    setIsEditingPersonal(false);
     toast({
-      title: "Profile Updated Successfully",
-      description: "Your student profile and coding URLs have been saved.",
+      title: "Personal Information Saved",
+      description: "Your student profile details have been updated successfully.",
+    });
+  };
+
+  const handleSaveCoding = () => {
+    setIsEditingCoding(false);
+    toast({
+      title: "Coding Profiles Saved",
+      description: "Your LeetCode, HackerRank, and CodeChef URLs have been updated.",
     });
   };
 
@@ -73,7 +86,7 @@ export default function StudentProfilePage() {
     }
     toast({
       title: "Password Updated",
-      description: "Your security credentials have been updated.",
+      description: "Your security credentials have been updated successfully.",
     });
     setCurrentPassword("");
     setNewPassword("");
@@ -97,7 +110,7 @@ export default function StudentProfilePage() {
         
         {/* LEFT SIDEBAR: Student Summary & Nav Menu */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Student Profile Card */}
+          {/* Student Profile Summary Card */}
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden">
             <div className="h-24 bg-[#2563EB]/10 border-b border-[#E5E7EB] dark:border-[#27272A]" />
             <CardContent className="p-6 pt-0 text-center relative space-y-4">
@@ -194,23 +207,54 @@ export default function StudentProfilePage() {
           {/* TAB 1: PERSONAL INFORMATION */}
           {activeTab === "personal" && (
             <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
-              <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-                <CardTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA]">
-                  Personal & Academic Details
-                </CardTitle>
-                <CardDescription className="text-xs text-[#6B7280]">
-                  Update your identity details, phone number, and technical bio
-                </CardDescription>
+              <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA]">
+                    Personal & Academic Details
+                  </CardTitle>
+                  <CardDescription className="text-xs text-[#6B7280]">
+                    View and manage your identity details, phone number, and technical bio
+                  </CardDescription>
+                </div>
+
+                {/* Edit Toggle Button */}
+                {!isEditingPersonal ? (
+                  <Button
+                    onClick={() => setIsEditingPersonal(true)}
+                    variant="outline"
+                    className="h-9 px-4 text-xs font-semibold gap-1.5 border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" /> Edit Profile
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => setIsEditingPersonal(false)}
+                    variant="ghost"
+                    className="h-9 px-3 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 gap-1"
+                  >
+                    <X className="h-4 w-4" /> Cancel
+                  </Button>
+                )}
               </CardHeader>
               <CardContent className="p-6 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">First Name</Label>
-                    <Input className="h-[44px]" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                    <Input
+                      className="h-[44px]"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      disabled={!isEditingPersonal}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">Last Name</Label>
-                    <Input className="h-[44px]" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                    <Input
+                      className="h-[44px]"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      disabled={!isEditingPersonal}
+                    />
                   </div>
                 </div>
 
@@ -221,25 +265,46 @@ export default function StudentProfilePage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">Phone Number</Label>
-                    <Input className="h-[44px]" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                    <Input
+                      className="h-[44px]"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      disabled={!isEditingPersonal}
+                    />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">Technical Bio</Label>
-                  <Textarea className="min-h-[110px] text-sm leading-relaxed" value={bio} onChange={(e) => setBio(e.target.value)} />
+                  <Textarea
+                    className="min-h-[110px] text-sm leading-relaxed"
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    disabled={!isEditingPersonal}
+                  />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">Tech Stack & Skills (Comma separated)</Label>
-                  <Input className="h-[44px]" value={skills} onChange={(e) => setSkills(e.target.value)} />
+                  <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">Tech Stack & Skills</Label>
+                  <Input
+                    className="h-[44px]"
+                    value={skills}
+                    onChange={(e) => setSkills(e.target.value)}
+                    disabled={!isEditingPersonal}
+                  />
                 </div>
 
-                <div className="pt-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                  <Button className="h-[44px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2" onClick={handleSaveProfile}>
-                    <Save className="h-4 w-4" /> Save Personal Information
-                  </Button>
-                </div>
+                {/* Only Show Save Button when Edit Mode is Active */}
+                {isEditingPersonal && (
+                  <div className="pt-3 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center gap-3">
+                    <Button className="h-[44px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2" onClick={handleSavePersonal}>
+                      <Save className="h-4 w-4" /> Save Personal Information
+                    </Button>
+                    <Button variant="outline" className="h-[44px] px-5 text-xs font-semibold" onClick={() => setIsEditingPersonal(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -247,13 +312,34 @@ export default function StudentProfilePage() {
           {/* TAB 2: CODING PROFILES & URLS */}
           {activeTab === "coding" && (
             <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
-              <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-                <CardTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA]">
-                  Competitive Coding & Social Profiles
-                </CardTitle>
-                <CardDescription className="text-xs text-[#6B7280]">
-                  Add your LeetCode, HackerRank, CodeChef, GitHub, and LinkedIn profile URLs
-                </CardDescription>
+              <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA]">
+                    Competitive Coding & Social Profiles
+                  </CardTitle>
+                  <CardDescription className="text-xs text-[#6B7280]">
+                    Manage your LeetCode, HackerRank, CodeChef, GitHub, and LinkedIn profile URLs
+                  </CardDescription>
+                </div>
+
+                {/* Edit Toggle Button */}
+                {!isEditingCoding ? (
+                  <Button
+                    onClick={() => setIsEditingCoding(true)}
+                    variant="outline"
+                    className="h-9 px-4 text-xs font-semibold gap-1.5 border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" /> Edit Coding Links
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => setIsEditingCoding(false)}
+                    variant="ghost"
+                    className="h-9 px-3 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 gap-1"
+                  >
+                    <X className="h-4 w-4" /> Cancel
+                  </Button>
+                )}
               </CardHeader>
               <CardContent className="p-6 space-y-5">
                 
@@ -262,10 +348,16 @@ export default function StudentProfilePage() {
                   <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
                     <span>LeetCode Profile URL</span>
                     <a href={leetcode} target="_blank" rel="noreferrer" className="text-[11px] text-[#2563EB] hover:underline flex items-center gap-1">
-                      Preview <ExternalLink className="h-3 w-3" />
+                      Visit Profile <ExternalLink className="h-3 w-3" />
                     </a>
                   </Label>
-                  <Input className="h-[44px]" placeholder="https://leetcode.com/u/your-username" value={leetcode} onChange={(e) => setLeetcode(e.target.value)} />
+                  <Input
+                    className="h-[44px]"
+                    placeholder="https://leetcode.com/u/your-username"
+                    value={leetcode}
+                    onChange={(e) => setLeetcode(e.target.value)}
+                    disabled={!isEditingCoding}
+                  />
                 </div>
 
                 {/* HackerRank URL */}
@@ -273,10 +365,16 @@ export default function StudentProfilePage() {
                   <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
                     <span>HackerRank Profile URL</span>
                     <a href={hackerrank} target="_blank" rel="noreferrer" className="text-[11px] text-[#2563EB] hover:underline flex items-center gap-1">
-                      Preview <ExternalLink className="h-3 w-3" />
+                      Visit Profile <ExternalLink className="h-3 w-3" />
                     </a>
                   </Label>
-                  <Input className="h-[44px]" placeholder="https://hackerrank.com/profile/your-username" value={hackerrank} onChange={(e) => setHackerrank(e.target.value)} />
+                  <Input
+                    className="h-[44px]"
+                    placeholder="https://hackerrank.com/profile/your-username"
+                    value={hackerrank}
+                    onChange={(e) => setHackerrank(e.target.value)}
+                    disabled={!isEditingCoding}
+                  />
                 </div>
 
                 {/* CodeChef URL */}
@@ -284,37 +382,67 @@ export default function StudentProfilePage() {
                   <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
                     <span>CodeChef Profile URL</span>
                     <a href={codechef} target="_blank" rel="noreferrer" className="text-[11px] text-[#2563EB] hover:underline flex items-center gap-1">
-                      Preview <ExternalLink className="h-3 w-3" />
+                      Visit Profile <ExternalLink className="h-3 w-3" />
                     </a>
                   </Label>
-                  <Input className="h-[44px]" placeholder="https://codechef.com/users/your-username" value={codechef} onChange={(e) => setCodechef(e.target.value)} />
+                  <Input
+                    className="h-[44px]"
+                    placeholder="https://codechef.com/users/your-username"
+                    value={codechef}
+                    onChange={(e) => setCodechef(e.target.value)}
+                    disabled={!isEditingCoding}
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* GitHub URL */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">GitHub Profile URL</Label>
-                    <Input className="h-[44px]" placeholder="https://github.com/your-username" value={github} onChange={(e) => setGithub(e.target.value)} />
+                    <Input
+                      className="h-[44px]"
+                      placeholder="https://github.com/your-username"
+                      value={github}
+                      onChange={(e) => setGithub(e.target.value)}
+                      disabled={!isEditingCoding}
+                    />
                   </div>
 
                   {/* LinkedIn URL */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">LinkedIn Profile URL</Label>
-                    <Input className="h-[44px]" placeholder="https://linkedin.com/in/your-username" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
+                    <Input
+                      className="h-[44px]"
+                      placeholder="https://linkedin.com/in/your-username"
+                      value={linkedin}
+                      onChange={(e) => setLinkedin(e.target.value)}
+                      disabled={!isEditingCoding}
+                    />
                   </div>
                 </div>
 
                 {/* Portfolio Website URL */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">Portfolio Website URL</Label>
-                  <Input className="h-[44px]" placeholder="https://yourportfolio.com" value={portfolio} onChange={(e) => setPortfolio(e.target.value)} />
+                  <Input
+                    className="h-[44px]"
+                    placeholder="https://yourportfolio.com"
+                    value={portfolio}
+                    onChange={(e) => setPortfolio(e.target.value)}
+                    disabled={!isEditingCoding}
+                  />
                 </div>
 
-                <div className="pt-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                  <Button className="h-[44px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2" onClick={handleSaveProfile}>
-                    <Save className="h-4 w-4" /> Save Coding Profiles & Links
-                  </Button>
-                </div>
+                {/* Only Show Save Button when Edit Mode is Active */}
+                {isEditingCoding && (
+                  <div className="pt-3 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center gap-3">
+                    <Button className="h-[44px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2" onClick={handleSaveCoding}>
+                      <Save className="h-4 w-4" /> Save Coding Profiles & Links
+                    </Button>
+                    <Button variant="outline" className="h-[44px] px-5 text-xs font-semibold" onClick={() => setIsEditingCoding(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
