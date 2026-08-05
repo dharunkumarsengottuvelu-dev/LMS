@@ -47,6 +47,14 @@ export default function LoginPage() {
   async function onSubmit(data: LoginFormData) {
     setIsLoading(true);
     try {
+      // 1. Call server API to auto-confirm email if unconfirmed & ensure profile exists
+      await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: data.email, password: data.password }),
+      });
+
+      // 2. Sign in with password
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
@@ -56,7 +64,7 @@ export default function LoginPage() {
         toast({
           title: "Login failed",
           description: error.message === "Invalid login credentials"
-            ? "Incorrect email or password. Please check your credentials."
+            ? "Incorrect email or password. Please try again."
             : error.message || "Failed to sign in.",
           variant: "destructive",
         });

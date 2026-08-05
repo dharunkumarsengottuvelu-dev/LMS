@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Mail, Lock, User, Loader2, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,6 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createClient();
@@ -46,59 +45,44 @@ export default function RegisterPage() {
   async function onSubmit(data: RegisterFormData) {
     setIsLoading(true);
     try {
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            first_name: data.first_name,
-            last_name: data.last_name,
-            role: "student",
-          },
-        },
+      // 1. Call server API to create confirmed user & profile
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          first_name: data.first_name,
+          last_name: data.last_name,
+          email: data.email,
+          password: data.password,
+        }),
       });
 
-      if (error) {
-        toast({
-          title: "Registration failed",
-          description: error.message || "Could not complete registration.",
-          variant: "destructive",
-        });
-        return;
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Registration failed");
       }
 
-      if (authData.session) {
-        toast({ title: "Account created", description: "Redirecting to dashboard..." });
-        router.push("/student/dashboard");
-        router.refresh();
-      } else {
-        setSuccess(true);
+      // 2. Auto-login immediately
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (loginError) {
+        throw loginError;
       }
+
+      toast({ title: "Account created!", description: "Welcome to EduNexus. Redirecting to dashboard..." });
+
+      // 3. Immediate redirect to student dashboard
+      router.push("/student/dashboard");
+      router.refresh();
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : "An unexpected error occurred.";
-      toast({ title: "Registration error", description: errMsg, variant: "destructive" });
+      const errMsg = err instanceof Error ? err.message : "An error occurred during registration.";
+      toast({ title: "Registration failed", description: errMsg, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  }
-
-  if (success) {
-    return (
-      <div className="text-center space-y-4 py-8">
-        <div className="w-12 h-12 rounded-full bg-[#16A34A]/10 text-[#16A34A] flex items-center justify-center mx-auto">
-          <CheckCircle2 className="h-6 w-6" />
-        </div>
-        <h2 className="text-[24px] font-semibold text-[#111827] dark:text-[#FAFAFA]">
-          Account Created!
-        </h2>
-        <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] max-w-xs mx-auto leading-relaxed">
-          Your account has been registered successfully. You can now sign in.
-        </p>
-        <Button className="mt-4 h-[44px] bg-[#2563EB] text-white hover:bg-[#1D4ED8]" asChild>
-          <Link href="/login">Sign In Now</Link>
-        </Button>
-      </div>
-    );
   }
 
   return (
@@ -232,7 +216,7 @@ export default function RegisterPage() {
           disabled={isLoading}
         >
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Create account
+          Create account & Sign in
         </Button>
       </form>
 
