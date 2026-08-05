@@ -245,8 +245,8 @@ export function ProctoringEngine({
   // COMPACT TOP HEADER WIDGET VARIANT (Embedded inside Top Header Bar)
   if (variant === "compact") {
     return (
-      <div className="h-[44px] px-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center gap-2.5 shrink-0 shadow-xs">
-        <div className="w-[52px] h-[32px] bg-[#09090B] rounded-lg overflow-hidden relative border border-[#2563EB]/40 shrink-0">
+      <div className="h-[44px] bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center pr-3 overflow-hidden shrink-0 shadow-xs">
+        <div className="w-[64px] h-full bg-[#09090B] relative overflow-hidden shrink-0 border-r border-[#E5E7EB] dark:border-[#27272A]">
           <video
             ref={videoRef}
             autoPlay
@@ -261,11 +261,11 @@ export function ProctoringEngine({
               className="w-full h-full flex items-center justify-center bg-[#2563EB]/10 text-[#2563EB]"
               title="Click to Enable Camera"
             >
-              <Camera className="h-3.5 w-3.5" />
+              <Camera className="h-4 w-4" />
             </button>
           )}
         </div>
-        <div className="flex flex-col text-[10px] leading-tight font-medium pr-0.5">
+        <div className="flex flex-col text-[10px] leading-tight font-medium pl-2.5">
           <span className="text-[#16A34A] font-bold flex items-center gap-1 text-[10px]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
             LIVE CAM

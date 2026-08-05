@@ -29,7 +29,7 @@ const studentNavItems = [
 export function StudentTopNav() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
-  const { profile, signOut } = useAuth();
+  const { profile, user, signOut } = useAuth();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-40 h-[68px] bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] shadow-xs backdrop-blur-md">
@@ -108,7 +108,7 @@ export function StudentTopNav() {
                     {profile?.full_name ?? "Dharunkumar S"}
                   </p>
                   <p className="text-[11px] text-[#6B7280]">
-                    student@edunexus.io
+                    {user?.email || "dharunkumar@gmail.com"}
                   </p>
                 </div>
               </DropdownMenuLabel>

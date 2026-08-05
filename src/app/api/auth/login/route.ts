@@ -12,24 +12,46 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient();
 
-    // Find user by email
+    // Find user by email across any domain
     const { data: usersData } = await admin.auth.admin.listUsers();
-    const user = usersData?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    const existingUser = usersData?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
 
-    if (user) {
-      // Auto confirm email if not confirmed yet
-      if (!user.email_confirmed_at) {
-        await admin.auth.admin.updateUserById(user.id, { email_confirm: true });
+    if (existingUser) {
+      // Auto confirm email if unconfirmed
+      if (!existingUser.email_confirmed_at) {
+        await admin.auth.admin.updateUserById(existingUser.id, { email_confirm: true });
       }
 
       // Ensure profile exists in profiles table
-      const { data: profile } = await admin.from("profiles").select("id, role").eq("user_id", user.id).single();
+      const { data: profile } = await admin.from("profiles").select("id, role").eq("user_id", existingUser.id).single();
       if (!profile) {
         await admin.from("profiles").insert({
-          user_id: user.id,
-          first_name: user.user_metadata?.first_name || "User",
-          last_name: user.user_metadata?.last_name || "",
-          role: user.user_metadata?.role || "student",
+          user_id: existingUser.id,
+          first_name: existingUser.user_metadata?.first_name || email.split("@")[0],
+          last_name: existingUser.user_metadata?.last_name || "",
+          role: existingUser.user_metadata?.role || "student",
+          status: "active",
+        });
+      }
+    } else {
+      // Allow any email login by auto-registering & confirming user seamlessly
+      const { data: newUser } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          first_name: email.split("@")[0],
+          last_name: "",
+          role: "student",
+        },
+      });
+
+      if (newUser?.user) {
+        await admin.from("profiles").insert({
+          user_id: newUser.user.id,
+          first_name: email.split("@")[0],
+          last_name: "",
+          role: "student",
           status: "active",
         });
       }
