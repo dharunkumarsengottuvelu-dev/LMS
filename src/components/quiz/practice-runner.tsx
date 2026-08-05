@@ -184,6 +184,15 @@ export function PracticeRunnerEngine({
               <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2.5 py-0.5 shrink-0">
                 Practice Module ({module.type.toUpperCase()})
               </Badge>
+              {module.proctoring?.fullscreenLock ? (
+                <Badge className="bg-[#9333EA] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
+                  Fullscreen Enforced (Proctored)
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px] uppercase font-bold px-2 py-0.5 border-[#16A34A] text-[#16A34A] bg-[#16A34A]/5 shrink-0">
+                  Standard Windowed Mode
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-[#6B7280]">
               Assigned by: <strong className="text-[#111827] dark:text-[#FAFAFA]">{module.assignedBy}</strong> | Total Questions: <strong>{totalQuestions}</strong> | Max Marks: <strong>{module.totalMarks}</strong>
