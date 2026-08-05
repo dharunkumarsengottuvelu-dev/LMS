@@ -92,28 +92,6 @@ export function StudentTopNav() {
             <Bell className="h-4 w-4 text-[#4B5563] dark:text-[#D1D5DB]" />
           </Link>
 
-          {/* Theme Toggle */}
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center h-9 w-9 rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] transition-colors cursor-pointer focus:outline-none">
-              {theme === "dark" ? (
-                <Moon className="h-4 w-4 text-[#FAFAFA]" />
-              ) : (
-                <Sun className="h-4 w-4 text-[#111827]" />
-              )}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-36">
-              <DropdownMenuItem onClick={() => setTheme("light")}>
-                <Sun className="mr-2 h-4 w-4" /> Light
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("dark")}>
-                <Moon className="mr-2 h-4 w-4" /> Dark
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("system")}>
-                <Monitor className="mr-2 h-4 w-4" /> System
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
           {/* User Profile */}
           <DropdownMenu>
             <DropdownMenuTrigger className="h-9 w-9 rounded-full cursor-pointer overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]">

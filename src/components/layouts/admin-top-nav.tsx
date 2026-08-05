@@ -1,7 +1,6 @@
 "use client";
 
-import { Bell, Search, Sun, Moon, Monitor } from "lucide-react";
-import { useTheme } from "next-themes";
+import { Bell, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,7 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getInitials } from "@/lib/utils";
 import Link from "next/link";
@@ -26,7 +24,6 @@ interface TopNavProps {
 }
 
 export function AdminTopNav({ breadcrumbs, title, notificationCount = 0 }: TopNavProps) {
-  const { theme, setTheme } = useTheme();
   const { profile, signOut } = useAuth();
 
   return (
@@ -60,32 +57,6 @@ export function AdminTopNav({ breadcrumbs, title, notificationCount = 0 }: TopNa
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#6B7280] dark:text-[#A1A1AA]" />
         <Input placeholder="Search system..." className="pl-10 h-[44px] text-sm bg-[#FAFAFA] dark:bg-[#09090B]" />
       </div>
-
-      {/* Theme Toggle */}
-      <DropdownMenu>
-        <DropdownMenuTrigger>
-          <Button variant="ghost" size="icon" className="h-[44px] w-[44px]">
-            {theme === "dark" ? (
-              <Moon className="h-5 w-5 text-[#FAFAFA]" />
-            ) : theme === "light" ? (
-              <Sun className="h-5 w-5 text-[#111827]" />
-            ) : (
-              <Monitor className="h-5 w-5 text-[#6B7280]" />
-            )}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem onClick={() => setTheme("light")}>
-            <Sun className="mr-2 h-4 w-4" /> Light
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setTheme("dark")}>
-            <Moon className="mr-2 h-4 w-4" /> Dark
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setTheme("system")}>
-            <Monitor className="mr-2 h-4 w-4" /> System
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
 
       {/* Notifications */}
       <Link href="/admin/notifications" className="relative inline-flex items-center justify-center h-[44px] w-[44px] rounded-lg hover:bg-[#F5F5F5] dark:hover:bg-[#27272A] transition-colors">
