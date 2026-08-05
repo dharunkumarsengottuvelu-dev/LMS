@@ -1,16 +1,77 @@
 "use client";
 
 import { PracticeRunnerEngine, PracticeQuestion } from "@/components/quiz/practice-runner";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
-const mockModule = {
-  id: "p3",
-  title: "Fullstack Architecture & Mixed Coding Practice",
-  type: "mixed" as const, // MCQ + Coding Mixed format assigned by Trainer/Admin
-  assignedBy: "Admin (Dharun)",
-  durationMinutes: 45,
-  totalMarks: 150,
-  passingMarks: 100,
+interface SubModuleMeta {
+  id: string;
+  title: string;
+  type: "mcq" | "coding" | "mixed";
+  assignedBy: string;
+  durationMinutes: number;
+  totalMarks: number;
+  passingMarks: number;
+  proctoring: {
+    fullscreenLock: boolean;
+    copyPasteRestricted: boolean;
+  };
+}
+
+const mockSubModules: Record<string, SubModuleMeta> = {
+  "p1-sub1": {
+    id: "p1-sub1",
+    title: "Sub-Module 1.1: Server Component Rendering & Hydration",
+    type: "mcq",
+    assignedBy: "Admin (Dharunkumar S)",
+    durationMinutes: 30,
+    totalMarks: 100,
+    passingMarks: 70,
+    proctoring: {
+      fullscreenLock: true, // Instructor Enabled -> Fullscreen Required
+      copyPasteRestricted: true,
+    }
+  },
+  "p1-sub2": {
+    id: "p1-sub2",
+    title: "Sub-Module 1.2: Server Actions & Mutating Form Data",
+    type: "coding",
+    assignedBy: "Admin (Dharunkumar S)",
+    durationMinutes: 45,
+    totalMarks: 120,
+    passingMarks: 80,
+    proctoring: {
+      fullscreenLock: false, // Standard Practice -> Standard Windowed View (No Fullscreen)
+      copyPasteRestricted: true,
+    }
+  },
+  "p2-sub1": {
+    id: "p2-sub1",
+    title: "Sub-Module 2.1: Route Interception & JWT Cookie Validation",
+    type: "coding",
+    assignedBy: "Trainer (Dr. Arunkumar)",
+    durationMinutes: 40,
+    totalMarks: 150,
+    passingMarks: 100,
+    proctoring: {
+      fullscreenLock: true, // Instructor Enabled -> Fullscreen Required
+      copyPasteRestricted: true,
+    }
+  },
+  "p2-sub2": {
+    id: "p2-sub2",
+    title: "Sub-Module 2.2: Rate Limiting & Security Headers",
+    type: "mcq",
+    assignedBy: "Trainer (Dr. Arunkumar)",
+    durationMinutes: 25,
+    totalMarks: 80,
+    passingMarks: 50,
+    proctoring: {
+      fullscreenLock: false, // Standard Practice -> Standard Windowed View (No Fullscreen)
+      copyPasteRestricted: false,
+    }
+  }
 };
 
 const mockMixedQuestions: PracticeQuestion[] = [
@@ -61,15 +122,30 @@ const mockMixedQuestions: PracticeQuestion[] = [
 
 export default function AssessmentTakePage() {
   const params = useParams();
+  const router = useRouter();
+
+  const subModuleId = (params?.id as string) || "p1-sub1";
+  const currentSubModule = mockSubModules[subModuleId] ?? mockSubModules["p1-sub1"]!;
 
   const handleSubmit = async (answers: Record<string, any>) => {
-    console.log("Practice module submitted:", answers);
+    console.log("Practice sub-module submitted:", answers);
+    router.back();
   };
 
   return (
-    <div className="py-4">
+    <div className="py-4 space-y-4">
+      {/* Back Button */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A]"
+        onClick={() => router.back()}
+      >
+        <ArrowLeft className="h-4 w-4" /> Back
+      </Button>
+
       <PracticeRunnerEngine
-        module={mockModule}
+        module={currentSubModule}
         questions={mockMixedQuestions}
         onSubmit={handleSubmit}
       />
