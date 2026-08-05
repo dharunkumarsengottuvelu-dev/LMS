@@ -235,9 +235,9 @@ export default function PracticeTrackDetailPage() {
           variant="outline"
           size="sm"
           className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A]"
-          onClick={() => router.push("/student/assessments")}
+          onClick={() => router.back()}
         >
-          <ArrowLeft className="h-4 w-4" /> Back to Practice Tracks
+          <ArrowLeft className="h-4 w-4" /> Back
         </Button>
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

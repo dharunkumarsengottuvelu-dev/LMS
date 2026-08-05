@@ -158,9 +158,9 @@ export default function StudentTestsPage() {
         variant="outline"
         size="sm"
         className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A]"
-        onClick={() => router.push("/student/dashboard")}
+        onClick={() => router.back()}
       >
-        <ArrowLeft className="h-4 w-4" /> Back to Dashboard
+        <ArrowLeft className="h-4 w-4" /> Back
       </Button>
 
       {/* 1. Header */}
