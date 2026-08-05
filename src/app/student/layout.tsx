@@ -26,8 +26,8 @@ export default async function StudentLayout({ children }: { children: React.Reac
   return (
     <div className="min-h-screen bg-[#FAFAFA] dark:bg-[#09090B]">
       <StudentTopNav />
-      <main className="pt-[72px] min-h-screen">
-        <div className="max-w-[1440px] mx-auto px-8 py-8">{children}</div>
+      <main className="min-h-screen">
+        <div className="max-w-[1440px] mx-auto px-4 md:px-8 py-4 md:py-8">{children}</div>
       </main>
     </div>
   );

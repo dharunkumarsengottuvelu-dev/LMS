@@ -7,7 +7,7 @@ import {
   ArrowLeft, Clock, ShieldCheck, CheckCircle2, HelpCircle, Code2,
   Terminal, AlertTriangle, Send, RefreshCw, ChevronLeft, ChevronRight, Award,
   Camera, Eye, Flag, RotateCcw, Video, CopyX, Maximize2, ShieldAlert, MonitorCheck,
-  AlertOctagon, Lock
+  AlertOctagon, Lock, Download, ExternalLink, ShieldX
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -111,10 +111,21 @@ export default function StudentTestRunnerPage() {
 
   // Security & Enforcement States
   const [isCopyPasteBlocked] = useState(true);
-  const [isSafeExamBrowserActive] = useState(true);
+  const [isSEBRequired] = useState(true);
+  const [isSEBVerified, setIsSEBVerified] = useState(false);
   const [isFullscreenRequired] = useState(true);
   const [isFullscreenModalOpen, setIsFullscreenModalOpen] = useState(false);
   const [tabSwitchViolations, setTabSwitchViolations] = useState(0);
+
+  // Check SEB Browser UserAgent
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const ua = window.navigator.userAgent.toLowerCase();
+      if (ua.includes("seb") || ua.includes("safeexambrowser")) {
+        setIsSEBVerified(true);
+      }
+    }
+  }, []);
 
   // Coding Runner State
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
@@ -126,27 +137,25 @@ export default function StudentTestRunnerPage() {
 
   // 1. AUTOMATIC FULLSCREEN & SEB ENFORCEMENT ON PAGE MOUNT
   useEffect(() => {
-    // Attempt Automatic Fullscreen Trigger
+    if (!isSEBVerified && isSEBRequired) return;
+
     const enterFullscreen = async () => {
       try {
         if (isFullscreenRequired && !document.fullscreenElement) {
           await document.documentElement.requestFullscreen();
         }
       } catch (err) {
-        // Browser requires direct user click for fullscreen
         setIsFullscreenModalOpen(true);
       }
     };
     enterFullscreen();
 
-    // Listen for Fullscreen Exit Changes
     const handleFullscreenChange = () => {
       if (isFullscreenRequired && !document.fullscreenElement && !isExamSubmitted) {
         setIsFullscreenModalOpen(true);
       }
     };
 
-    // Listen for Window Blur / Tab Switch Violations
     const handleVisibilityChange = () => {
       if (document.hidden && !isExamSubmitted) {
         setTabSwitchViolations((prev) => {
@@ -168,9 +177,8 @@ export default function StudentTestRunnerPage() {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isFullscreenRequired, isExamSubmitted, toast]);
+  }, [isFullscreenRequired, isExamSubmitted, isSEBVerified, isSEBRequired, toast]);
 
-  // Request Fullscreen Helper on Button Click
   const requestFullscreenExplicit = async () => {
     try {
       if (document.documentElement.requestFullscreen) {
@@ -261,6 +269,69 @@ export default function StudentTestRunnerPage() {
     });
   };
 
+  // -------------------------------------------------------------
+  // STRICT SEB DENIAL SCREEN IF NOT RUNNING IN SAFE EXAM BROWSER
+  // -------------------------------------------------------------
+  if (isSEBRequired && !isSEBVerified) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center p-4">
+        <Card className="max-w-2xl w-full bg-white dark:bg-[#18181B] border-2 border-[#DC2626] p-8 rounded-2xl shadow-xl space-y-6 text-center">
+          <div className="w-16 h-16 rounded-full bg-[#DC2626]/10 text-[#DC2626] flex items-center justify-center mx-auto">
+            <ShieldX className="h-10 w-10" />
+          </div>
+
+          <div className="space-y-2">
+            <Badge className="bg-[#DC2626] text-white text-xs font-bold uppercase px-3 py-1">
+              Access Restricted
+            </Badge>
+            <h1 className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">
+              Safe Exam Browser (SEB) Required!
+            </h1>
+            <p className="text-sm text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed max-w-lg mx-auto">
+              This evaluation was configured by your trainer to run strictly inside the official <strong>Safe Exam Browser (SEB)</strong> application. You cannot launch this test using a standard web browser (Chrome, Edge, Safari).
+            </p>
+          </div>
+
+          <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] text-xs text-[#6B7280] space-y-2 text-left">
+            <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">How to access this exam:</p>
+            <p>1. Ensure Safe Exam Browser is installed on your computer.</p>
+            <p>2. Open the SEB Configuration file or click <strong>Launch SEB Application</strong> below.</p>
+            <p>3. If testing or demonstrating, click <strong>Bypass & Simulate SEB Mode</strong>.</p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <Button
+              className="w-full sm:w-auto h-[44px] px-6 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold gap-2"
+              onClick={() => window.location.href = "seb://localhost:3000/student/tests/t1"}
+            >
+              <ExternalLink className="h-4 w-4" /> Launch in SEB App (seb://)
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto h-[44px] px-6 border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 font-bold gap-2"
+              onClick={() => {
+                setIsSEBVerified(true);
+                toast({
+                  title: "SEB Environment Simulated",
+                  description: "Safe Exam Browser token verified for testing.",
+                });
+              }}
+            >
+              <MonitorCheck className="h-4 w-4" /> Bypass & Simulate SEB Mode
+            </Button>
+          </div>
+
+          <div className="pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+            <Button variant="ghost" className="text-xs text-[#6B7280]" onClick={() => router.push("/student/tests")}>
+              ← Back to Scheduled Tests
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div
       onCopy={handleCopyPasteAttempt}
@@ -268,7 +339,6 @@ export default function StudentTestRunnerPage() {
       onContextMenu={handleCopyPasteAttempt}
       className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full select-none"
     >
-      
       {/* 1. MNC-Level Clean Non-Overflowing Header Bar */}
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-sm">
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
@@ -282,11 +352,9 @@ export default function StudentTestRunnerPage() {
               <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
                 Live Test
               </Badge>
-              {isSafeExamBrowserActive && (
-                <Badge className="bg-[#9333EA] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
-                  Auto SEB Active
-                </Badge>
-              )}
+              <Badge className="bg-[#9333EA] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
+                SEB Active
+              </Badge>
             </div>
             <p className="text-xs text-[#6B7280]">
               Candidate: <strong className="text-[#111827] dark:text-[#FAFAFA]">Dharunkumar S</strong> | Questions: <strong>{mockExamQuestions.length}</strong> | Max Marks: <strong>100</strong>
@@ -302,7 +370,7 @@ export default function StudentTestRunnerPage() {
             )}
 
             <div className="flex items-center gap-1.5 bg-[#9333EA]/10 border border-[#9333EA]/20 px-3 py-2 rounded-xl text-xs font-bold text-[#9333EA]">
-              <MonitorCheck className="h-4 w-4" /> Auto SEB Mode
+              <MonitorCheck className="h-4 w-4" /> SEB Browser
             </div>
 
             <div className="flex items-center gap-1.5 bg-[#2563EB]/10 border border-[#2563EB]/20 px-3 py-2 rounded-xl text-xs font-bold text-[#2563EB]">
