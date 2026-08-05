@@ -100,9 +100,6 @@ export default function StudentProfilePage() {
         <h1 className="text-[36px] font-semibold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
           Student Profile & Settings
         </h1>
-        <p className="text-[16px] text-[#4B5563] dark:text-[#9CA3AF] mt-1">
-          Manage your personal details, competitive coding profiles (LeetCode, HackerRank, CodeChef), and security settings
-        </p>
       </div>
 
       {/* 2. Professional 2-Column Layout */}
