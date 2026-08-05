@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import {
   ClipboardList, Plus, Search, ShieldAlert, ShieldCheck, Clock, Users,
-  Award, Eye, Trash2, Edit, AlertTriangle, Play, Calendar, CheckCircle2
+  Award, Eye, Trash2, Edit, AlertTriangle, Play, Calendar, CheckCircle2, Lock
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,9 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [newTitle, setNewTitle] = useState("");
   const [newBatch, setNewBatch] = useState("Batch 2026-A");
   const [newDuration, setNewDuration] = useState(60);
+  const [newTotalQuestions, setNewTotalQuestions] = useState(5);
+  const [newMaxMarks, setNewMaxMarks] = useState(100);
+  const [newStatus, setNewStatus] = useState<"live" | "scheduled">("scheduled");
 
   // Submissions Inspector Modal State
   const [selectedTest, setSelectedTest] = useState<ScheduledTest | null>(null);
@@ -99,20 +102,25 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       title: newTitle,
       batch: newBatch,
       duration: newDuration,
-      totalQuestions: 5,
-      maxMarks: 100,
-      status: "scheduled",
+      totalQuestions: newTotalQuestions,
+      maxMarks: newMaxMarks,
+      status: newStatus,
       submissionsCount: 0,
       totalEnrolled: 50,
-      proctoringFlags: ["12 Camera Rules Face Monitoring", "Tab Switch Security"],
+      proctoringFlags: [
+        "12 Camera Rules Face Monitoring",
+        "Tab Switch Security",
+        "Window Blur Detection",
+        "Copy-Paste Lock",
+      ],
     };
 
     setTests((prev) => [newExam, ...prev]);
     setIsScheduleOpen(false);
     setNewTitle("");
     toast({
-      title: "Proctored Exam Scheduled",
-      description: `${newTitle} scheduled for ${newBatch}.`,
+      title: "Proctored Exam Created & Scheduled",
+      description: `"${newTitle}" is now live and scheduled for ${newBatch}.`,
     });
   };
 
@@ -202,7 +210,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                   </td>
 
                   <td className="p-4 text-xs font-medium text-[#6B7280]">
-                    <span>{t.duration} mins • {t.maxMarks} Marks</span>
+                    <span>{t.duration} mins • {t.totalQuestions} Questions ({t.maxMarks} Marks)</span>
                   </td>
 
                   <td className="p-4">
@@ -291,7 +299,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
       {/* SCHEDULE EXAM MODAL */}
       <Dialog open={isScheduleOpen} onOpenChange={setIsScheduleOpen}>
-        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl">
+        <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">Schedule Proctored Exam</DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
@@ -303,7 +311,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Title</label>
               <Input
-                placeholder="e.g. Next.js 16 Proctored Evaluation"
+                placeholder="e.g. React 19 & Next.js 16 Proctored Evaluation"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 required
@@ -324,20 +332,46 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               </Select>
             </div>
 
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration (Mins)</label>
+                <Input
+                  type="number"
+                  value={newDuration}
+                  onChange={(e) => setNewDuration(Number(e.target.value))}
+                  required
+                  className="h-[44px] text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Max Marks</label>
+                <Input
+                  type="number"
+                  value={newMaxMarks}
+                  onChange={(e) => setNewMaxMarks(Number(e.target.value))}
+                  required
+                  className="h-[44px] text-xs"
+                />
+              </div>
+            </div>
+
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration (Minutes)</label>
-              <Input
-                type="number"
-                value={newDuration}
-                onChange={(e) => setNewDuration(Number(e.target.value))}
-                required
-                className="h-[44px] text-xs"
-              />
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Initial Launch Status</label>
+              <Select value={newStatus} onValueChange={(val) => setNewStatus((val as any) || "scheduled")}>
+                <SelectTrigger className="h-[44px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="scheduled">Scheduled (Starts at set time)</SelectItem>
+                  <SelectItem value="live">Live Now (Immediate student access)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <DialogFooter>
               <Button type="submit" className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold">
-                Schedule Exam Now
+                Schedule Proctored Exam Now
               </Button>
             </DialogFooter>
           </form>
