@@ -52,7 +52,6 @@ const adminNavItems: NavItem[] = [
     icon: ClipboardList,
     children: [
       { label: "All Assessments", href: "/admin/assessments", icon: ClipboardList },
-      { label: "Coding Problems", href: "/admin/coding", icon: Code2 },
       { label: "Scheduled Tests", href: "/admin/tests", icon: Calendar },
       { label: "Assignments", href: "/admin/assignments", icon: FileText },
     ],
@@ -63,7 +62,6 @@ const adminNavItems: NavItem[] = [
     children: [
       { label: "Analytics", href: "/admin/analytics", icon: TrendingUp },
       { label: "Reports", href: "/admin/reports", icon: BarChart3 },
-      { label: "Certificates", href: "/admin/certificates", icon: Award },
     ],
   },
   { label: "Notifications", href: "/admin/notifications", icon: Bell },

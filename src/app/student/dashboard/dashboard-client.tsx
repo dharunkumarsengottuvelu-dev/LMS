@@ -76,14 +76,8 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
 
         {/* 2. Primary Actions (44px height buttons) */}
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="h-[44px] px-5" asChild>
+          <Button className="h-[44px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white" asChild>
             <Link href="/student/my-courses">My Courses</Link>
-          </Button>
-          <Button className="h-[44px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-2" asChild>
-            <Link href="/ide/playground">
-              <Code2 className="h-5 w-5" />
-              Code Playground
-            </Link>
           </Button>
         </div>
       </div>
@@ -92,7 +86,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard icon={BookOpen} value={stats.enrolledCourses} label="Enrolled Courses" href="/student/my-courses" />
         <StatCard icon={CheckCircle2} value={stats.completedCourses} label="Completed Courses" href="/student/my-courses" />
-        <StatCard icon={Award} value={stats.certificates} label="Certificates Earned" href="/student/certificates" />
+        <StatCard icon={ClipboardList} value={assessments.length} label="Active Assessments" href="/student/assessments" />
         <StatCard icon={Bell} value={unreadNotifications} label="Unread Notifications" href="/student/notifications" />
       </div>
 

@@ -25,10 +25,8 @@ const studentNavItems = [
   { label: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
   { label: "My Courses", href: "/student/my-courses", icon: BookOpen },
   { label: "Assessments", href: "/student/assessments", icon: ClipboardList },
-  { label: "Coding IDE", href: "/student/coding", icon: Code2 },
   { label: "Tests", href: "/student/tests", icon: Calendar },
   { label: "Assignments", href: "/student/assignments", icon: FileText },
-  { label: "Certificates", href: "/student/certificates", icon: Award },
 ];
 
 export function StudentTopNav() {

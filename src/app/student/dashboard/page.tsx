@@ -22,7 +22,7 @@ async function getStudentData() {
   const profileId = (profile?.id as string) ?? "";
 
   // Parallel data fetching
-  const [enrollmentsRes, testsRes, notificationsRes, certificatesRes] =
+  const [enrollmentsRes, testsRes, notificationsRes] =
     await Promise.all([
       supabase
         .from("enrollments")
@@ -43,71 +43,27 @@ async function getStudentData() {
         .select("*")
         .order("created_at", { ascending: false })
         .limit(8),
-      supabase
-        .from("certificates")
-        .select("id, issued_at, course_id")
-        .eq("student_id", profileId)
-        .limit(5),
     ]);
 
-  // Fetch course details for enrollments
-  const courseIds = (enrollmentsRes.data ?? [])
-    .map((e) => (e as unknown as { course_id: string }).course_id)
-    .filter(Boolean);
+  const enrollments = enrollmentsRes.data ?? [];
+  const tests = testsRes.data ?? [];
+  const notifications = notificationsRes.data ?? [];
 
-  const { data: coursesData } = courseIds.length > 0
-    ? await supabase
-        .from("courses")
-        .select("id, title, thumbnail_url, slug, difficulty")
-        .in("id", courseIds)
-    : { data: [] };
-
-  const coursesById: Record<string, unknown> = {};
-  for (const course of coursesData ?? []) {
-    const c = course as unknown as { id: string };
-    coursesById[c.id] = course;
-  }
-
-  // Build enrollments with course data
-  const enrollments = (enrollmentsRes.data ?? []).map((e) => {
-    const enr = e as unknown as {
-      id: string;
-      course_id: string;
-      progress_percentage: number;
-      status: string;
-      enrolled_at: string;
-    };
-    return {
-      id: enr.id,
-      course_id: enr.course_id,
-      progress_percentage: enr.progress_percentage ?? 0,
-      status: enr.status,
-      enrolled_at: enr.enrolled_at,
-      courses: (coursesById[enr.course_id] as {
-        id: string;
-        title: string;
-        thumbnail_url: string | null;
-        slug: string;
-        difficulty: string;
-      } | undefined) ?? null,
-    };
-  });
-
-  const completedCount = enrollments.filter((e) => e.status === "completed").length;
+  const enrolledCount = enrollments.length;
+  const completedCount = enrollments.filter((e: any) => e.progress_percentage === 100).length;
 
   return {
-    profile: profile as unknown as import("@/types").UserProfile | null,
-    enrollments,
-    assessments: [] as { assessment_id: string; assessments: { id: string; title: string; type: string; duration_minutes: number; expires_at: string | null } | null }[],
-    tests: (testsRes.data ?? []) as unknown as { id: string; title: string; type: string; scheduled_at: string; duration_minutes: number; status: string }[],
-    assignments: [] as { id: string; status: string; assignments: { id: string; title: string; deadline: string; max_marks: number } | null }[],
-    notifications: (notificationsRes.data ?? []) as unknown as { id: string; type: string; title: string; message: string; is_read: boolean; created_at: string }[],
-    certificates: (certificatesRes.data ?? []) as unknown as { id: string; issued_at: string; courses: { title: string } | null }[],
-    progressData: {},
+    profile: profile as any,
+    enrollments: enrollments as any,
+    assessments: [],
+    tests: tests as any,
+    assignments: [],
+    notifications: notifications as any,
+    certificates: [],
     stats: {
-      enrolledCourses: enrollments.length,
+      enrolledCourses: enrolledCount,
       completedCourses: completedCount,
-      certificates: certificatesRes.data?.length ?? 0,
+      certificates: 0,
     },
   };
 }
