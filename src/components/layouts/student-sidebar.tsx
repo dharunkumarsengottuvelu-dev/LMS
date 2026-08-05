@@ -17,7 +17,7 @@ import { getInitials } from "@/lib/utils";
 const studentNavItems = [
   { label: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
   { label: "My Courses", href: "/student/my-courses", icon: BookOpen },
-  { label: "Assessments", href: "/student/assessments", icon: ClipboardList },
+  { label: "Practice", href: "/student/assessments", icon: ClipboardList },
   { label: "Tests", href: "/student/tests", icon: Calendar },
   { label: "Assignments", href: "/student/assignments", icon: FileText },
   { label: "Notifications", href: "/student/notifications", icon: Bell },

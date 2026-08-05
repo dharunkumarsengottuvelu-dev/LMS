@@ -2,109 +2,200 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ClipboardList, Clock, AlertCircle, CheckCircle2, ChevronRight, Play } from "lucide-react";
+import {
+  ClipboardList, Clock, ArrowRight, CheckCircle2, AlertCircle, Search, Filter, Code2, Layers
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 
-const mockAssessments = [
+const mockPracticeModules = [
   {
-    id: "a1",
-    title: "React 19 & Next.js App Router MCQ Evaluation",
-    type: "MCQ Test",
-    duration: 30,
-    totalQuestions: 25,
-    totalMarks: 100,
-    passingMarks: 70,
-    status: "pending",
-    dueDate: "2026-08-15",
+    id: "p1",
+    title: "React 19 & Next.js App Router Evaluation",
+    type: "mcq", // MCQ format
+    duration_minutes: 30,
+    total_marks: 100,
+    question_count: 10,
+    passing_marks: 70,
+    my_status: "not_started",
+    assigned_by: "Admin (Dharun)",
+    category: "Frontend Development",
   },
   {
-    id: "a2",
-    title: "Data Structures & Complexity Analysis",
-    type: "Coding & MCQ",
-    duration: 45,
-    totalQuestions: 15,
-    totalMarks: 100,
-    passingMarks: 75,
-    status: "pending",
-    dueDate: "2026-08-20",
+    id: "p2",
+    title: "Data Structures & Algorithms - Arrays & Strings",
+    type: "coding", // Coding format
+    duration_minutes: 45,
+    total_marks: 150,
+    question_count: 3,
+    passing_marks: 100,
+    my_status: "in_progress",
+    assigned_by: "Trainer (Alex)",
+    category: "Algorithms",
   },
   {
-    id: "a3",
-    title: "SQL & PostgreSQL Database Design Test",
-    type: "MCQ Test",
-    duration: 20,
-    totalQuestions: 20,
-    totalMarks: 80,
-    passingMarks: 50,
-    status: "completed",
-    score: 74,
-    passed: true,
+    id: "p3",
+    title: "Fullstack Architecture & System Design",
+    type: "mixed", // Mixed MCQ + Coding format
+    duration_minutes: 60,
+    total_marks: 200,
+    question_count: 12,
+    passing_marks: 140,
+    my_status: "completed",
+    score: 180,
+    assigned_by: "Admin (Dharun)",
+    category: "Fullstack Engineering",
   },
 ];
 
-export default function StudentAssessmentsPage() {
+export default function StudentPracticePage() {
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState<"all" | "mcq" | "coding" | "mixed">("all");
+
+  const filteredModules = mockPracticeModules.filter((p) => {
+    const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase()) || p.category.toLowerCase().includes(search.toLowerCase());
+    const matchesType = filterType === "all" || p.type === filterType;
+    return matchesSearch && matchesType;
+  });
+
   return (
     <div className="space-y-8">
-      <div className="pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <h1 className="text-[36px] font-semibold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-          Assessments & Examinations
-        </h1>
-        <p className="text-[16px] text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-          Complete assigned evaluations, technical quizzes, and view scored results
-        </p>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+        <div>
+          <h1 className="text-[36px] font-semibold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+            Practice Modules
+          </h1>
+          <p className="text-[16px] text-[#4B5563] dark:text-[#9CA3AF] mt-1">
+            Solve assigned practice modules created by Admin & Trainers. Supports MCQ, Coding, or Mixed formats.
+          </p>
+        </div>
+
+        {/* Search */}
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#4B5563]" />
+          <Input
+            placeholder="Search practice modules..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-[44px] text-sm bg-white dark:bg-[#18181B]"
+          />
+        </div>
       </div>
 
+      {/* Format Filter Tabs */}
+      <div className="flex items-center gap-2 border-b border-[#E5E7EB] dark:border-[#27272A] pb-3 overflow-x-auto">
+        <Button
+          variant={filterType === "all" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setFilterType("all")}
+          className={`h-9 px-4 font-semibold text-xs rounded-lg ${filterType === "all" ? "bg-[#2563EB] text-white" : "text-[#4B5563] dark:text-[#D1D5DB]"}`}
+        >
+          All Practice
+        </Button>
+        <Button
+          variant={filterType === "mcq" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setFilterType("mcq")}
+          className={`h-9 px-4 font-semibold text-xs rounded-lg ${filterType === "mcq" ? "bg-[#2563EB] text-white" : "text-[#4B5563] dark:text-[#D1D5DB]"}`}
+        >
+          MCQ Format
+        </Button>
+        <Button
+          variant={filterType === "coding" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setFilterType("coding")}
+          className={`h-9 px-4 font-semibold text-xs rounded-lg ${filterType === "coding" ? "bg-[#2563EB] text-white" : "text-[#4B5563] dark:text-[#D1D5DB]"}`}
+        >
+          Coding Format
+        </Button>
+        <Button
+          variant={filterType === "mixed" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setFilterType("mixed")}
+          className={`h-9 px-4 font-semibold text-xs rounded-lg ${filterType === "mixed" ? "bg-[#2563EB] text-white" : "text-[#4B5563] dark:text-[#D1D5DB]"}`}
+        >
+          Mixed (MCQ + Coding)
+        </Button>
+      </div>
+
+      {/* Practice Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mockAssessments.map((assessment) => (
-          <Card key={assessment.id} className="h-full flex flex-col justify-between hover:border-[#2563EB]/40 transition-colors">
-            <CardHeader className="p-6 pb-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <Badge variant="outline" className="text-xs font-medium">
-                  {assessment.type}
-                </Badge>
-                {assessment.status === "completed" ? (
-                  <Badge className="bg-[#16A34A] text-white text-xs font-medium">Passed ({assessment.score}%)</Badge>
-                ) : (
-                  <Badge variant="secondary" className="text-xs font-medium">Pending</Badge>
+        {filteredModules.map((module) => (
+          <Card key={module.id} className="flex flex-col justify-between hover:border-[#2563EB]/50 transition-all duration-200 bg-white dark:bg-[#18181B]">
+            <CardHeader className="p-6 pb-4">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                {/* Format Badges */}
+                {module.type === "mcq" && (
+                  <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/20 text-xs font-semibold px-2.5 py-0.5">
+                    <ClipboardList className="h-3 w-3 mr-1 inline" /> MCQ Format
+                  </Badge>
                 )}
+                {module.type === "coding" && (
+                  <Badge className="bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/20 text-xs font-semibold px-2.5 py-0.5">
+                    <Code2 className="h-3 w-3 mr-1 inline" /> Coding Format
+                  </Badge>
+                )}
+                {module.type === "mixed" && (
+                  <Badge className="bg-[#9333EA]/10 text-[#9333EA] border-[#9333EA]/20 text-xs font-semibold px-2.5 py-0.5">
+                    <Layers className="h-3 w-3 mr-1 inline" /> Mixed (MCQ + Coding)
+                  </Badge>
+                )}
+
+                <span className="text-[11px] font-medium text-[#6B7280]">
+                  By {module.assigned_by}
+                </span>
               </div>
-              <CardTitle className="text-[18px] leading-snug line-clamp-2">
-                {assessment.title}
+
+              <CardTitle className="text-[18px] font-semibold text-[#111827] dark:text-[#FAFAFA] leading-snug">
+                {module.title}
               </CardTitle>
+              <CardDescription className="text-xs text-[#6B7280] dark:text-[#A1A1AA] mt-1">
+                {module.category}
+              </CardDescription>
             </CardHeader>
 
             <CardContent className="p-6 pt-0 space-y-4">
-              <div className="grid grid-cols-2 gap-2 text-xs text-[#6B7280] bg-[#F5F5F5] dark:bg-[#27272A] p-3 rounded-lg">
+              {/* Details Row */}
+              <div className="grid grid-cols-2 gap-2 text-xs py-3 border-y border-[#E5E7EB] dark:border-[#27272A]">
                 <div>
-                  <span className="block text-[#111827] dark:text-[#FAFAFA] font-semibold">{assessment.duration} mins</span>
-                  <span>Duration</span>
+                  <span className="text-[#6B7280]">Duration:</span>{" "}
+                  <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{module.duration_minutes} Mins</span>
                 </div>
                 <div>
-                  <span className="block text-[#111827] dark:text-[#FAFAFA] font-semibold">{assessment.totalQuestions} Questions</span>
-                  <span>Format</span>
+                  <span className="text-[#6B7280]">Questions:</span>{" "}
+                  <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{module.question_count} Items</span>
+                </div>
+                <div>
+                  <span className="text-[#6B7280]">Total Marks:</span>{" "}
+                  <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{module.total_marks}</span>
+                </div>
+                <div>
+                  <span className="text-[#6B7280]">Passing Marks:</span>{" "}
+                  <span className="font-semibold text-[#16A34A]">{module.passing_marks}</span>
                 </div>
               </div>
 
-              <Button
-                className={`w-full h-[44px] gap-2 font-medium text-sm ${
-                  assessment.status === "completed"
-                    ? "bg-[#F5F5F5] dark:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA] hover:bg-[#E5E7EB]"
-                    : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-                }`}
-                asChild
-              >
-                <Link href={`/student/assessments/${assessment.id}`}>
-                  {assessment.status === "completed" ? (
-                    "View Scored Report"
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4 fill-current" /> Start Assessment
-                    </>
-                  )}
-                </Link>
-              </Button>
+              {/* Action Button */}
+              {module.my_status === "completed" ? (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-[#16A34A]/10 border border-[#16A34A]/20">
+                  <span className="text-xs font-bold text-[#16A34A] flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4" /> Score: {module.score}/{module.total_marks} (Passed)
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs font-semibold text-[#2563EB]" asChild>
+                    <Link href={`/student/assessments/${module.id}`}>Review</Link>
+                  </Button>
+                </div>
+              ) : (
+                <Button className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2" asChild>
+                  <Link href={`/student/assessments/${module.id}`}>
+                    {module.my_status === "in_progress" ? "Resume Practice" : "Start Practice"}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
         ))}

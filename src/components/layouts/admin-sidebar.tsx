@@ -48,10 +48,10 @@ const adminNavItems: NavItem[] = [
     ],
   },
   {
-    label: "Assessments",
+    label: "Practice Modules",
     icon: ClipboardList,
     children: [
-      { label: "All Assessments", href: "/admin/assessments", icon: ClipboardList },
+      { label: "All Practice Modules", href: "/admin/assessments", icon: ClipboardList },
       { label: "Scheduled Tests", href: "/admin/tests", icon: Calendar },
       { label: "Assignments", href: "/admin/assignments", icon: FileText },
     ],
