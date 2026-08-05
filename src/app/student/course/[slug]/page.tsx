@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   Play, CheckCircle2, ArrowLeft, Video, HelpCircle, Code2,
-  Terminal, PlayCircle, CheckSquare, Sparkles, Send, RefreshCw, FileText
+  Terminal, PlayCircle, CheckSquare, Sparkles, Send, RefreshCw, FileText,
+  Download, Paperclip, FileCode, FileSpreadsheet, ExternalLink
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,14 @@ import { useToast } from "@/hooks/use-toast";
 
 type ContentType = "video" | "mcq" | "coding";
 
+interface LessonResource {
+  id: string;
+  title: string;
+  format: "pdf" | "word" | "docx";
+  size: string;
+  downloadUrl: string;
+}
+
 interface Lesson {
   id: string;
   title: string;
@@ -24,6 +33,7 @@ interface Lesson {
   type: ContentType;
   completed: boolean;
   videoUrl?: string;
+  resources?: LessonResource[];
   mcqData?: {
     question: string;
     options: string[];
@@ -55,6 +65,22 @@ const mockModules: Module[] = [
         type: "video",
         completed: true,
         videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
+        resources: [
+          {
+            id: "r1",
+            title: "NextJS_16_App_Router_Architecture_Cheatsheet.pdf",
+            format: "pdf",
+            size: "2.4 MB",
+            downloadUrl: "#"
+          },
+          {
+            id: "r2",
+            title: "Server_vs_Client_Components_Guide.docx",
+            format: "docx",
+            size: "1.2 MB",
+            downloadUrl: "#"
+          }
+        ]
       },
       {
         id: "l2",
@@ -62,6 +88,15 @@ const mockModules: Module[] = [
         duration: "10 mins",
         type: "mcq",
         completed: true,
+        resources: [
+          {
+            id: "r3",
+            title: "App_Router_Quiz_Study_Summary.pdf",
+            format: "pdf",
+            size: "850 KB",
+            downloadUrl: "#"
+          }
+        ],
         mcqData: {
           question: "Which directive is used in Next.js 16 to declare a component as a Client Component?",
           options: [
@@ -80,6 +115,15 @@ const mockModules: Module[] = [
         duration: "25 mins",
         type: "coding",
         completed: false,
+        resources: [
+          {
+            id: "r4",
+            title: "Route_Handler_Code_Snippets.docx",
+            format: "word",
+            size: "1.8 MB",
+            downloadUrl: "#"
+          }
+        ],
         codingData: {
           problemStatement: "Write a function `calculateProgress(completed, total)` that takes completed lessons and total lessons, and returns the percentage rounded to the nearest integer.",
           starterCode: {
@@ -102,6 +146,15 @@ const mockModules: Module[] = [
         duration: "15 mins",
         type: "video",
         completed: false,
+        resources: [
+          {
+            id: "r5",
+            title: "PostgreSQL_Enums_and_Types_Reference.pdf",
+            format: "pdf",
+            size: "3.1 MB",
+            downloadUrl: "#"
+          }
+        ]
       },
       {
         id: "l5",
@@ -193,6 +246,13 @@ export default function StudentCoursePlayerPage() {
     }, 800);
   };
 
+  const handleDownloadResource = (res: LessonResource) => {
+    toast({
+      title: `Downloading ${res.format.toUpperCase()} Note`,
+      description: `Preparing download for ${res.title} (${res.size})...`,
+    });
+  };
+
   return (
     <div className="max-w-[1440px] mx-auto space-y-6 pb-12">
       {/* Top Header */}
@@ -233,7 +293,7 @@ export default function StudentCoursePlayerPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         
         {/* LEFT / CENTER: Multi-format Lesson Player (Video / MCQ / Coding) */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-6">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] overflow-hidden shadow-sm">
             <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
               <div>
@@ -385,9 +445,63 @@ export default function StudentCoursePlayerPage() {
               </div>
             )}
           </Card>
+
+          {/* ATTACHED STUDY NOTES / PDF & WORD DOCUMENTS SECTION */}
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
+            <CardHeader className="p-6 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
+              <div className="flex items-center gap-2">
+                <Paperclip className="h-4 w-4 text-[#2563EB]" />
+                <CardTitle className="text-[16px] font-bold text-[#111827] dark:text-[#FAFAFA]">
+                  Lesson Notes & Study Material (.PDF / .DOCX)
+                </CardTitle>
+              </div>
+              <CardDescription className="text-xs text-[#6B7280]">
+                Download or view attached PDF notes and Word reference documents provided by the instructor
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-3">
+              {activeLesson.resources && activeLesson.resources.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {activeLesson.resources.map((res) => (
+                    <div
+                      key={res.id}
+                      className="p-4 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex items-center justify-between gap-3 group hover:border-[#2563EB] transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                          res.format === "pdf" ? "bg-[#DC2626]/10 text-[#DC2626]" : "bg-[#2563EB]/10 text-[#2563EB]"
+                        }`}>
+                          {res.format.toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] truncate">
+                            {res.title}
+                          </p>
+                          <p className="text-[11px] text-[#6B7280] font-medium">{res.size}</p>
+                        </div>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-3 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] group-hover:border-[#2563EB] group-hover:text-[#2563EB]"
+                        onClick={() => handleDownloadResource(res)}
+                      >
+                        <Download className="h-3.5 w-3.5" /> Download
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 text-center rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
+                  <p className="text-xs text-[#6B7280]">No additional PDF/Word attachments for this lesson.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* RIGHT SIDEBAR: Course Curriculum List (Video / MCQ / Coding Icons) */}
+        {/* RIGHT SIDEBAR: Course Curriculum List (Video / MCQ / Coding / Attachment Icons) */}
         <div className="space-y-4">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
             <CardHeader className="p-6 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
@@ -395,7 +509,7 @@ export default function StudentCoursePlayerPage() {
                 Course Curriculum
               </CardTitle>
               <CardDescription className="text-xs text-[#6B7280]">
-                Configured with Video, MCQ Quiz, and Coding Lessons
+                Lessons configured with Videos, Quizzes, Coding, & PDF/Word Notes
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
@@ -405,6 +519,8 @@ export default function StudentCoursePlayerPage() {
                   <div className="space-y-1">
                     {mod.lessons.map((les) => {
                       const isActive = activeLesson.id === les.id;
+                      const hasNotes = les.resources && les.resources.length > 0;
+
                       return (
                         <button
                           key={les.id}
@@ -423,6 +539,9 @@ export default function StudentCoursePlayerPage() {
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            {hasNotes && (
+                              <FileText className="h-3.5 w-3.5 text-[#2563EB]" />
+                            )}
                             <Badge variant="outline" className={`text-[9px] uppercase px-1.5 py-0 ${
                               les.type === "video" ? "border-[#2563EB]/30 text-[#2563EB]" :
                               les.type === "mcq" ? "border-[#9333EA]/30 text-[#9333EA]" :
