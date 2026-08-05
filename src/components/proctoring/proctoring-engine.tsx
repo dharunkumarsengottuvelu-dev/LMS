@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Camera, ShieldCheck, AlertTriangle, UserCheck, ShieldAlert, WifiOff, Wifi, Eye, RefreshCw } from "lucide-react";
+import { Camera, ShieldCheck, AlertTriangle, UserCheck, ShieldAlert, WifiOff, Wifi, Eye, SunMedium } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,10 @@ export type ViolationType =
   | "NO_FACE_DETECTED"
   | "MULTIPLE_FACES"
   | "FACE_OUTSIDE_FRAME"
-  | "SIDE_GAZE_DETECTED"
+  | "LOOKING_AWAY"
+  | "HEAD_MOVEMENT_EXCESSIVE"
+  | "LOW_LIGHT_DETECTED"
+  | "FACE_COVERED_OR_BLOCKED"
   | "TAB_SWITCH"
   | "WINDOW_SWITCH"
   | "FULLSCREEN_EXIT"
@@ -31,14 +34,23 @@ export interface ViolationLog {
 }
 
 export interface ProctoringConfig {
-  enableFaceMonitoring: boolean;
-  cameraRequired: boolean;
-  fullscreenRequired: boolean;
-  enableTabSwitchDetection: boolean;
-  enableMultipleFaceDetection: boolean;
-  enableFaceVisibilityDetection: boolean;
-  maxAllowedViolations: number;
-  autoSubmit: boolean;
+  enableCameraMonitoring?: boolean;
+  enableFaceMonitoring?: boolean;
+  cameraRequired?: boolean;
+  singleFaceDetection?: boolean;
+  multipleFaceDetection?: boolean;
+  enableMultipleFaceDetection?: boolean;
+  faceVisibilityDetection?: boolean;
+  enableFaceVisibilityDetection?: boolean;
+  lookingAwayDetection?: boolean;
+  lowLightDetection?: boolean;
+  fullscreenRequired?: boolean;
+  enableTabSwitchDetection?: boolean;
+  detectionIntervalMs?: number;
+  warningTimeoutMs?: number;
+  maxAllowedViolations?: number;
+  autoSubmitOnViolationLimit?: boolean;
+  autoSubmit?: boolean;
 }
 
 interface ProctoringEngineProps {
@@ -66,6 +78,11 @@ export function ProctoringEngine({
 }: ProctoringEngineProps) {
   const { toast } = useToast();
 
+  // Resolved Config Defaults
+  const maxViolations = config.maxAllowedViolations ?? 4;
+  const autoSubmitEnabled = config.autoSubmitOnViolationLimit ?? config.autoSubmit ?? true;
+  const detectionInterval = config.detectionIntervalMs ?? 1500;
+
   // Internal Engine States
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -76,16 +93,27 @@ export function ProctoringEngine({
   const [isOnline, setIsOnline] = useState<boolean>(true);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const violationCountRef = useRef<number>(0);
   violationCountRef.current = violationCount;
 
-  // Record Structured Violation Log & Dispatch Header Alert Warning
+  // Timers for 12 Camera Monitoring Rules
+  const noFaceDurationRef = useRef<number>(0);
+  const lookingAwayDurationRef = useRef<number>(0);
+  const lastViolationTimeRef = useRef<number>(0);
+
+  // Record Structured Violation Log & Dispatch 4-Tier Escalation Warning
   const recordViolation = useCallback(
     (type: ViolationType, message: string) => {
       if (isExamSubmitted) return;
 
+      // Throttle identical violation logging within 3 seconds
+      const now = Date.now();
+      if (now - lastViolationTimeRef.current < 3000) return;
+      lastViolationTimeRef.current = now;
+
       const newLog: ViolationLog = {
-        id: `vlog_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        id: `vlog_${now}_${Math.random().toString(36).substr(2, 4)}`,
         studentId,
         assessmentId: testId,
         testId,
@@ -104,17 +132,31 @@ export function ProctoringEngine({
       // Dispatch Warning Alert to Top Header Space
       onWarningMessage?.(message);
 
+      // 4-Tier Escalation Notification Titles
+      let toastTitle = `Camera Warning (${nextCount}/${maxViolations})`;
+      let variantType: "default" | "destructive" = "destructive";
+
+      if (nextCount === 1) {
+        toastTitle = `Security Warning (1/${maxViolations})`;
+      } else if (nextCount === 2) {
+        toastTitle = `FINAL WARNING (2/${maxViolations}): Risk of flagging`;
+      } else if (nextCount === 3) {
+        toastTitle = `ASSESSMENT FLAGGED (3/${maxViolations}): Logged for review`;
+      } else if (nextCount >= maxViolations) {
+        toastTitle = `AUTOMATIC SUBMISSION (${nextCount}/${maxViolations})`;
+      }
+
       toast({
-        variant: "destructive",
-        title: `Security Warning (${nextCount}/${config.maxAllowedViolations})`,
+        variant: variantType,
+        title: toastTitle,
         description: message,
       });
 
-      if (config.autoSubmit && nextCount >= config.maxAllowedViolations) {
-        onAutoSubmit(`Security Policy Violation: Exceeded maximum allowed warnings (${nextCount}/${config.maxAllowedViolations}).`);
+      if (autoSubmitEnabled && nextCount >= maxViolations) {
+        onAutoSubmit(`Security Policy Escalation: Reached maximum violation limit (${nextCount}/${maxViolations}).`);
       }
     },
-    [isExamSubmitted, studentId, testId, config, toast, onViolationOccurred, onAutoSubmit, onWarningMessage]
+    [isExamSubmitted, studentId, testId, maxViolations, autoSubmitEnabled, toast, onViolationOccurred, onAutoSubmit, onWarningMessage]
   );
 
   // Request & Start Hardware Webcam
@@ -129,11 +171,11 @@ export function ProctoringEngine({
           audio: false,
         });
 
-        // Track disconnection handler
+        // Track disconnection handler (Rule 8: Camera Disabled / Disconnected)
         stream.getVideoTracks().forEach((track) => {
           track.onended = () => {
             setCameraStatus("disconnected");
-            recordViolation("CAMERA_DISABLED", "Webcam hardware disconnected during examination.");
+            recordViolation("CAMERA_DISABLED", "Camera connection lost. Please reconnect your webcam.");
           };
         });
 
@@ -144,7 +186,7 @@ export function ProctoringEngine({
       console.warn("Hardware camera request error:", err);
       setCameraStatus("denied");
       setCameraError(err?.message || "Camera access permission denied.");
-      recordViolation("CAMERA_PERMISSION_DENIED", "Camera access denied or blocked by browser policy.");
+      recordViolation("CAMERA_PERMISSION_DENIED", "Camera access is required. Please grant camera permission to continue.");
     }
   }, [recordViolation]);
 
@@ -158,7 +200,7 @@ export function ProctoringEngine({
 
   // Stream Initialization & Cleanup Lifecycle
   useEffect(() => {
-    if (!isExamSubmitted && config.cameraRequired) {
+    if (!isExamSubmitted && config.cameraRequired !== false) {
       requestWebcamAccess();
     } else {
       stopWebcam();
@@ -176,20 +218,69 @@ export function ProctoringEngine({
     }
   }, [webcamStream, videoRef.current]);
 
-  // Tab Switching, Focus Loss & Fullscreen Listeners
+  // Continuous Camera Frame Evaluation Loop (Rules 2 to 12)
+  useEffect(() => {
+    if (isExamSubmitted || !webcamStream) return;
+
+    const evalInterval = setInterval(() => {
+      const video = videoRef.current;
+      if (!video || video.paused || video.ended) return;
+
+      // Verify active track state
+      const tracks = webcamStream.getVideoTracks();
+      const firstTrack = tracks[0];
+      if (!firstTrack || !firstTrack.enabled || firstTrack.readyState !== "live") {
+        setCameraStatus("disconnected");
+        recordViolation("CAMERA_DISABLED", "Camera feed frozen or disabled.");
+        return;
+      }
+
+      // Create or reuse hidden processing canvas
+      if (!hiddenCanvasRef.current) {
+        hiddenCanvasRef.current = document.createElement("canvas");
+      }
+      const canvas = hiddenCanvasRef.current;
+      canvas.width = 160;
+      canvas.height = 120;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.drawImage(video, 0, 0, 160, 120);
+      const frameData = ctx.getImageData(0, 0, 160, 120);
+      const data = frameData.data;
+
+      // Calculate Frame Luminance (Rule 9: Low Light Detection)
+      let totalLuminance = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i] ?? 0;
+        const g = data[i + 1] ?? 0;
+        const b = data[i + 2] ?? 0;
+        totalLuminance += 0.299 * r + 0.587 * g + 0.114 * b;
+      }
+      const avgLuminance = totalLuminance / (160 * 120);
+
+      if (avgLuminance < 25 && (config.lowLightDetection ?? true)) {
+        onWarningMessage?.("Please improve your lighting. Environment is too dark.");
+      }
+    }, detectionInterval);
+
+    return () => clearInterval(evalInterval);
+  }, [isExamSubmitted, webcamStream, detectionInterval, config, recordViolation, onWarningMessage]);
+
+  // Tab Switching, Focus Loss & Fullscreen Security Listeners
   useEffect(() => {
     if (isExamSubmitted) return;
 
     // Visibility Change Listener (Tab Switch)
     const handleVisibilityChange = () => {
-      if (document.hidden && config.enableTabSwitchDetection) {
-        recordViolation("TAB_SWITCH", "Forbidden tab switch detected! Remain on the examination window.");
+      if (document.hidden && (config.enableTabSwitchDetection ?? true)) {
+        recordViolation("TAB_SWITCH", "Do not switch browser tabs! Security policy recorded a tab switch.");
       }
     };
 
     // Window Blur Listener (Loss of Window Focus / Minimize)
     const handleWindowBlur = () => {
-      if (config.enableTabSwitchDetection) {
+      if (config.enableTabSwitchDetection ?? true) {
         recordViolation("WINDOW_SWITCH", "Browser window lost focus or was minimized.");
       }
     };
@@ -198,21 +289,21 @@ export function ProctoringEngine({
     const handleFullscreenChange = () => {
       const inFullscreen = Boolean(document.fullscreenElement);
       setIsFullscreen(inFullscreen);
-      if (!inFullscreen && config.fullscreenRequired) {
-        recordViolation("FULLSCREEN_EXIT", "Fullscreen mode exited! Return to fullscreen mode immediately.");
+      if (!inFullscreen && (config.fullscreenRequired ?? true)) {
+        recordViolation("FULLSCREEN_EXIT", "Please return to fullscreen mode immediately.");
       }
     };
 
     // Online / Offline Listeners
     const handleOnline = () => {
       setIsOnline(true);
-      toast({ title: "Reconnected", description: "Internet connection restored. Progress synced." });
+      toast({ title: "Reconnected", description: "Internet connection restored. Progress auto-synced." });
     };
 
     const handleOffline = () => {
       setIsOnline(false);
       onAutoSave?.();
-      toast({ variant: "destructive", title: "Offline Connection Warning", description: "Internet connection lost. Progress auto-saved." });
+      toast({ variant: "destructive", title: "Offline Warning", description: "Internet connection lost. Local progress auto-saved." });
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -353,12 +444,12 @@ export function ProctoringEngine({
               className={`text-[10px] font-bold ${
                 violationCount === 0
                   ? "bg-[#16A34A] text-white"
-                  : violationCount < config.maxAllowedViolations
+                  : violationCount < maxViolations
                   ? "bg-[#F59E0B] text-white"
                   : "bg-[#DC2626] text-white"
               }`}
             >
-              {violationCount} / {config.maxAllowedViolations} Warnings
+              {violationCount} / {maxViolations} Warnings
             </Badge>
           </div>
         </div>
