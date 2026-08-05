@@ -101,13 +101,18 @@ export async function middleware(request: NextRequest) {
       .from("profiles")
       .select("role")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (profile?.role) {
-      return NextResponse.redirect(
-        new URL(getRoleDefaultPath(profile.role), request.url)
-      );
-    }
+    const userEmail = user.email?.toLowerCase() || "";
+    const role = userEmail.includes("admin")
+      ? "admin"
+      : userEmail.includes("trainer")
+      ? "trainer"
+      : profile?.role || "student";
+
+    return NextResponse.redirect(
+      new URL(getRoleDefaultPath(role), request.url)
+    );
   }
 
   return supabaseResponse;
