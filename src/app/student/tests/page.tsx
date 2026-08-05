@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar, Clock, ShieldCheck, Play, CheckCircle2, AlertCircle,
@@ -41,7 +41,7 @@ interface ScheduledTest {
   passed?: boolean;
 }
 
-const mockTestsData: ScheduledTest[] = [
+const initialTestsData: ScheduledTest[] = [
   {
     id: "t1",
     title: "Mid-Term Proctored Evaluation — Batch 2026-A",
@@ -75,7 +75,7 @@ const mockTestsData: ScheduledTest[] = [
       enabled: true,
       webcamTracking: true,
       tabSwitchLock: true,
-      fullscreenLock: true,
+      fullscreenLock: false,
       safeExamBrowserRequired: false,
       copyPasteRestricted: true,
       assignedBy: "Admin",
@@ -88,10 +88,10 @@ const mockTestsData: ScheduledTest[] = [
     type: "Cohort Progress Test",
     scheduledAt: "2026-07-28 10:00 AM",
     duration: 45,
-    totalQuestions: 5,
-    totalMarks: 100,
+    totalQuestions: 1,
+    totalMarks: 50,
     status: "completed",
-    score: 88,
+    score: 92,
     maxScore: 100,
     passed: true,
     proctoring: {
@@ -101,8 +101,8 @@ const mockTestsData: ScheduledTest[] = [
       fullscreenLock: false,
       safeExamBrowserRequired: false,
       copyPasteRestricted: false,
-      assignedBy: "Trainer",
-      assignedByName: "Karthik Raja (Fullstack Instructor)",
+      assignedBy: "Admin",
+      assignedByName: "Dharunkumar S",
     },
   },
 ];
@@ -112,10 +112,38 @@ export default function StudentTestsPage() {
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState("all");
+  const [testsData, setTestsData] = useState<ScheduledTest[]>(initialTestsData);
   const [selectedLobbyTest, setSelectedLobbyTest] = useState<ScheduledTest | null>(null);
   const [isLobbyOpen, setIsLobbyOpen] = useState(false);
 
+  // Sync completed test scores from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");
+        if (Object.keys(completedMap).length > 0) {
+          setTestsData((prev) =>
+            prev.map((t) => {
+              if (completedMap[t.id]) {
+                return {
+                  ...t,
+                  status: "completed",
+                  score: completedMap[t.id].score,
+                  passed: completedMap[t.id].score >= 60,
+                };
+              }
+              return t;
+            })
+          );
+        }
+      } catch (e) {
+        console.warn("Could not read completed tests from localStorage:", e);
+      }
+    }
+  }, []);
+
   const handleOpenLobby = (test: ScheduledTest) => {
+    if (test.status === "completed") return; // Prevent completed tests from re-opening lobby!
     setSelectedLobbyTest(test);
     setIsLobbyOpen(true);
   };
@@ -124,7 +152,6 @@ export default function StudentTestsPage() {
     if (!selectedLobbyTest) return;
     setIsLobbyOpen(false);
 
-    // Trigger Fullscreen directly on user click gesture
     if (selectedLobbyTest.proctoring.fullscreenLock) {
       try {
         if (document.documentElement.requestFullscreen) {
@@ -144,7 +171,7 @@ export default function StudentTestsPage() {
     router.push(`/student/tests/${selectedLobbyTest.id}`);
   };
 
-  const filteredTests = mockTestsData.filter((t) => {
+  const filteredTests = testsData.filter((t) => {
     if (activeTab === "live") return t.status === "live";
     if (activeTab === "upcoming") return t.status === "upcoming";
     if (activeTab === "completed") return t.status === "completed";
@@ -176,27 +203,29 @@ export default function StudentTestsPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
         <TabsList className="bg-[#F3F4F6] dark:bg-[#18181B] p-1 h-12 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] w-fit flex gap-1">
           <TabsTrigger value="all" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
-            All Tests ({mockTestsData.length})
+            All Tests ({testsData.length})
           </TabsTrigger>
           <TabsTrigger value="live" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
-            Live / Ready (1)
+            Live / Ready ({testsData.filter((t) => t.status === "live").length})
           </TabsTrigger>
           <TabsTrigger value="upcoming" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
-            Upcoming (1)
+            Upcoming ({testsData.filter((t) => t.status === "upcoming").length})
           </TabsTrigger>
           <TabsTrigger value="completed" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
-            Completed (1)
+            Completed ({testsData.filter((t) => t.status === "completed").length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="w-full mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+        <TabsContent value={activeTab} className="mt-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTests.map((test) => (
               <Card
                 key={test.id}
-                className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm hover:border-[#2563EB]/50 transition-all flex flex-col justify-between"
+                className={`bg-white dark:bg-[#18181B] border shadow-sm rounded-2xl overflow-hidden flex flex-col justify-between transition-all ${
+                  test.status === "completed" ? "border-[#16A34A]/30" : "border-[#E5E7EB] dark:border-[#27272A]"
+                }`}
               >
-                <CardHeader className="p-6 pb-4 space-y-3">
+                <CardHeader className="p-6 space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
                       {test.type}
@@ -214,7 +243,7 @@ export default function StudentTestsPage() {
                     )}
                     {test.status === "completed" && (
                       <Badge className="bg-[#16A34A] text-white text-[10px] uppercase font-bold">
-                        Passed ({test.score}%)
+                        Completed (Score: {test.score ?? 90}%)
                       </Badge>
                     )}
                   </div>
@@ -272,28 +301,28 @@ export default function StudentTestsPage() {
                 </CardContent>
 
                 <CardFooter className="p-6 pt-0">
-                  {test.status === "live" ? (
+                  {test.status === "completed" ? (
+                    <Button
+                      onClick={() => router.push(`/student/tests/${test.id}`)}
+                      variant="outline"
+                      className="w-full h-[44px] border-[#16A34A] text-[#16A34A] hover:bg-[#16A34A]/10 font-bold gap-2"
+                    >
+                      <Eye className="h-4 w-4" /> View Results & Performance Analysis
+                    </Button>
+                  ) : test.status === "live" ? (
                     <Button
                       onClick={() => handleOpenLobby(test)}
                       className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2"
                     >
                       <Play className="h-4 w-4" /> Enter Exam Lobby
                     </Button>
-                  ) : test.status === "upcoming" ? (
+                  ) : (
                     <Button
                       onClick={() => handleOpenLobby(test)}
                       variant="outline"
                       className="w-full h-[44px] border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 font-bold gap-2"
                     >
                       <Clock className="h-4 w-4" /> View Exam Instructions
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => router.push(`/student/tests/${test.id}`)}
-                      variant="secondary"
-                      className="w-full h-[44px] font-bold gap-2"
-                    >
-                      <Eye className="h-4 w-4" /> View Results & Solutions
                     </Button>
                   )}
                 </CardFooter>
@@ -308,66 +337,61 @@ export default function StudentTestsPage() {
         <DialogContent className="sm:max-w-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-5">
           <DialogHeader>
             <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-[#2563EB]" />
-              <DialogTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Exam Lobby & Instructor Security Controls
+              <ShieldCheck className="h-5 w-5 text-[#2563EB]" />
+              <DialogTitle className="text-lg font-bold">
+                Pre-Exam Proctoring Verification Lobby
               </DialogTitle>
             </div>
-            <DialogDescription className="text-xs text-[#6B7280] pt-1">
-              Configured by {selectedLobbyTest?.proctoring.assignedBy} ({selectedLobbyTest?.proctoring.assignedByName})
+            <DialogDescription className="text-xs text-[#6B7280]">
+              Review exam security policies configured by your instructor before starting.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 text-xs">
-            <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
-              <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">{selectedLobbyTest?.title}</p>
-              <div className="flex justify-between text-[#6B7280]">
-                <span>Duration: <strong className="text-[#111827] dark:text-[#FAFAFA]">{selectedLobbyTest?.duration} mins</strong></span>
-                <span>Questions: <strong className="text-[#111827] dark:text-[#FAFAFA]">{selectedLobbyTest?.totalQuestions}</strong></span>
-                <span>Max Marks: <strong className="text-[#111827] dark:text-[#FAFAFA]">{selectedLobbyTest?.totalMarks}</strong></span>
+          {selectedLobbyTest && (
+            <div className="space-y-4">
+              <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
+                <p className="text-xs text-[#6B7280]">Target Exam:</p>
+                <p className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">{selectedLobbyTest.title}</p>
+                <div className="flex items-center gap-4 text-xs text-[#6B7280] pt-1">
+                  <span>Duration: <strong>{selectedLobbyTest.duration} mins</strong></span>
+                  <span>•</span>
+                  <span>Questions: <strong>{selectedLobbyTest.totalQuestions}</strong></span>
+                  <span>•</span>
+                  <span>Max Marks: <strong>{selectedLobbyTest.totalMarks}</strong></span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-[#2563EB]/5 border border-[#2563EB]/20 rounded-xl space-y-2">
+                <p className="font-bold text-[#2563EB] uppercase text-[11px]">
+                  {selectedLobbyTest?.proctoring.enabled ? "Proctoring & Security (Enabled by Instructor)" : "Standard Test Rules"}
+                </p>
+                {selectedLobbyTest?.proctoring.enabled ? (
+                  <ul className="list-disc list-inside space-y-1.5 text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed text-xs">
+                    {selectedLobbyTest.proctoring.safeExamBrowserRequired && (
+                      <li className="font-semibold text-[#9333EA]">Safe Exam Browser (SEB) Environment: <strong>Required & Enforced</strong></li>
+                    )}
+                    {selectedLobbyTest.proctoring.fullscreenLock && (
+                      <li>Mandatory Fullscreen Mode: <strong>Enforced (Auto-exit warning)</strong></li>
+                    )}
+                    {selectedLobbyTest.proctoring.copyPasteRestricted && (
+                      <li>Copy / Paste & Clipboard Restrictions: <strong>Blocked</strong></li>
+                    )}
+                    <li>Live Camera & AI Proctoring Stream: <strong>Active</strong></li>
+                  </ul>
+                ) : (
+                  <p className="text-xs text-[#4B5563]">This test is running in standard practice evaluation mode.</p>
+                )}
               </div>
             </div>
+          )}
 
-            {/* Configured Proctoring & Security Options Box */}
-            <div className="p-4 bg-[#2563EB]/5 border border-[#2563EB]/20 rounded-xl space-y-2">
-              <p className="font-bold text-[#2563EB] uppercase text-[11px]">
-                {selectedLobbyTest?.proctoring.enabled ? "Proctoring & Security (Enabled by Instructor)" : "Standard Test Rules"}
-              </p>
-              {selectedLobbyTest?.proctoring.enabled ? (
-                <ul className="list-disc list-inside space-y-1.5 text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed">
-                  {selectedLobbyTest.proctoring.safeExamBrowserRequired && (
-                    <li className="font-semibold text-[#9333EA]">Safe Exam Browser (SEB) Environment: <strong>Required & Enforced</strong></li>
-                  )}
-                  {selectedLobbyTest.proctoring.fullscreenLock && (
-                    <li>Mandatory Fullscreen Mode: <strong>Enforced (Auto-exit warning)</strong></li>
-                  )}
-                  {selectedLobbyTest.proctoring.copyPasteRestricted && (
-                    <li>Copy / Paste & Clipboard Restrictions: <strong>Blocked</strong></li>
-                  )}
-                  {selectedLobbyTest.proctoring.webcamTracking && <li>Webcam AI Face & Eye Tracking: <strong>Active</strong></li>}
-                  {selectedLobbyTest.proctoring.tabSwitchLock && <li>Tab Switch & Window Blur Prevention: <strong>Active</strong></li>}
-                </ul>
-              ) : (
-                <p className="text-[#4B5563] dark:text-[#D1D5DB]">
-                  This exam was configured as a standard practice evaluation. Security restrictions are disabled.
-                </p>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="pt-2 gap-2 sm:gap-0">
-            <Button variant="outline" className="h-[44px] px-5 text-xs font-semibold" onClick={() => setIsLobbyOpen(false)}>
-              Cancel
+          <DialogFooter className="pt-2">
+            <Button
+              className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2"
+              onClick={handleStartExam}
+            >
+              <Play className="h-4 w-4" /> Start Proctored Examination Now
             </Button>
-            {selectedLobbyTest?.status === "live" ? (
-              <Button className="h-[44px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2" onClick={handleStartExam}>
-                Start Exam Now <ArrowRight className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button disabled className="h-[44px] px-6 bg-gray-400 text-white font-bold">
-                Exam Not Live Yet
-              </Button>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

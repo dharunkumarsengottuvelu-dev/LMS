@@ -497,6 +497,16 @@ export default function StudentTestRunnerPage() {
     const calculatedScore = Math.round((correctCount / currentQuestions.length) * 100);
     setScoreResult(calculatedScore);
 
+    if (typeof window !== "undefined") {
+      try {
+        const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");
+        completedMap[testId] = { score: calculatedScore, timestamp: new Date().toISOString() };
+        localStorage.setItem("edunexus_completed_tests", JSON.stringify(completedMap));
+      } catch (e) {
+        console.warn("Could not save test score to localStorage:", e);
+      }
+    }
+
     toast({
       title: "Exam Submitted Successfully",
       description: `Your evaluation score: ${calculatedScore}%`,
