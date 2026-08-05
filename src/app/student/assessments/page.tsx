@@ -120,9 +120,21 @@ export default function StudentPracticePage() {
     setIsLobbyOpen(true);
   };
 
-  const handleStartPractice = () => {
+  const handleStartPractice = async () => {
     if (!selectedLobbyModule) return;
     setIsLobbyOpen(false);
+
+    // Trigger Fullscreen directly on user click gesture
+    if (selectedLobbyModule.proctoring.fullscreenLock) {
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (err) {
+        console.warn("Fullscreen error:", err);
+      }
+    }
+
     toast({
       title: "Starting Practice Environment",
       description: `Launching ${selectedLobbyModule.title}... ${

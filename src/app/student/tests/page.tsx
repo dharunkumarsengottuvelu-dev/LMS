@@ -120,9 +120,21 @@ export default function StudentTestsPage() {
     setIsLobbyOpen(true);
   };
 
-  const handleStartExam = () => {
+  const handleStartExam = async () => {
     if (!selectedLobbyTest) return;
     setIsLobbyOpen(false);
+
+    // Trigger Fullscreen directly on user click gesture
+    if (selectedLobbyTest.proctoring.fullscreenLock) {
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (err) {
+        console.warn("Fullscreen error:", err);
+      }
+    }
+
     toast({
       title: "Entering Exam Environment",
       description: `Starting ${selectedLobbyTest.title}... ${
