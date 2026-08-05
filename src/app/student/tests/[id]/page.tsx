@@ -230,6 +230,7 @@ export default function StudentTestRunnerPage() {
   // Admin/Trainer Configured Tab Switch Violation Limits
   const [maxTabSwitchLimit] = useState(3);
   const [tabSwitchViolations, setTabSwitchViolations] = useState(0);
+  const [activeWarningMessage, setActiveWarningMessage] = useState<string | null>(null);
 
   // Live Webcam & Canvas AI Overlay Engine
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -695,6 +696,19 @@ export default function StudentTestRunnerPage() {
             )}
           </div>
         </div>
+
+        {/* Real-time Security Alert Warning Banner right inside Top Header Space */}
+        {activeWarningMessage && !isExamSubmitted && (
+          <div className="mt-3 p-3 bg-[#DC2626]/10 border border-[#DC2626]/30 text-[#DC2626] rounded-xl text-xs font-semibold flex items-center justify-between gap-3 animate-pulse">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-[#DC2626]" />
+              <span>{activeWarningMessage}</span>
+            </div>
+            <Badge className="bg-[#DC2626] text-white text-[10px] uppercase font-bold shrink-0">
+              Security Alert ({tabSwitchViolations}/{maxTabSwitchLimit})
+            </Badge>
+          </div>
+        )}
       </Card>
 
       {/* RESULT BANNER */}
@@ -955,6 +969,11 @@ export default function StudentTestRunnerPage() {
                 setAutoSubmittedReason(reason);
                 setScoreResult(0);
               }}
+              onViolationOccurred={(log) => {
+                setTabSwitchViolations((prev) => prev + 1);
+                setActiveWarningMessage(log.message);
+              }}
+              onWarningMessage={(msg) => setActiveWarningMessage(msg)}
               onAutoSave={() => {
                 if (typeof window !== "undefined") {
                   try {

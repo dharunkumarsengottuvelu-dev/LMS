@@ -12,6 +12,7 @@ export type ViolationType =
   | "NO_FACE_DETECTED"
   | "MULTIPLE_FACES"
   | "FACE_OUTSIDE_FRAME"
+  | "SIDE_GAZE_DETECTED"
   | "TAB_SWITCH"
   | "WINDOW_SWITCH"
   | "FULLSCREEN_EXIT"
@@ -48,6 +49,7 @@ interface ProctoringEngineProps {
   onAutoSubmit: (reason: string) => void;
   onViolationOccurred?: (log: ViolationLog) => void;
   onAutoSave?: () => void;
+  onWarningMessage?: (msg: string | null) => void;
 }
 
 export function ProctoringEngine({
@@ -58,6 +60,7 @@ export function ProctoringEngine({
   onAutoSubmit,
   onViolationOccurred,
   onAutoSave,
+  onWarningMessage,
 }: ProctoringEngineProps) {
   const { toast } = useToast();
 
@@ -65,19 +68,16 @@ export function ProctoringEngine({
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraStatus, setCameraStatus] = useState<"connecting" | "active" | "denied" | "disconnected">("connecting");
-  const [faceStatus, setFaceStatus] = useState<"verified" | "no_face" | "multiple" | "outside">("verified");
   const [violationCount, setViolationCount] = useState<number>(0);
   const [violationLogs, setViolationLogs] = useState<ViolationLog[]>([]);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(true);
   const [isOnline, setIsOnline] = useState<boolean>(true);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animFrameIdRef = useRef<number | null>(null);
   const violationCountRef = useRef<number>(0);
   violationCountRef.current = violationCount;
 
-  // Record Structured Violation Log
+  // Record Structured Violation Log & Dispatch Header Alert Warning
   const recordViolation = useCallback(
     (type: ViolationType, message: string) => {
       if (isExamSubmitted) return;
@@ -99,9 +99,12 @@ export function ProctoringEngine({
       const nextCount = violationCountRef.current + 1;
       setViolationCount(nextCount);
 
+      // Dispatch Warning Alert to Top Header Space
+      onWarningMessage?.(message);
+
       toast({
         variant: "destructive",
-        title: `Proctoring Warning (${nextCount}/${config.maxAllowedViolations})`,
+        title: `Security Warning (${nextCount}/${config.maxAllowedViolations})`,
         description: message,
       });
 
@@ -109,7 +112,7 @@ export function ProctoringEngine({
         onAutoSubmit(`Security Policy Violation: Exceeded maximum allowed warnings (${nextCount}/${config.maxAllowedViolations}).`);
       }
     },
-    [isExamSubmitted, studentId, testId, config, toast, onViolationOccurred, onAutoSubmit]
+    [isExamSubmitted, studentId, testId, config, toast, onViolationOccurred, onAutoSubmit, onWarningMessage]
   );
 
   // Request & Start Hardware Webcam
@@ -171,97 +174,6 @@ export function ProctoringEngine({
     }
   }, [webcamStream, videoRef.current]);
 
-  // Real-time Canvas Laser Scan & Face Detection Engine
-  useEffect(() => {
-    if (isExamSubmitted || !webcamStream) return;
-
-    let scanY = 0;
-    let scanDirection = 1;
-
-    const drawCanvasOverlay = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      const width = canvas.width;
-      const height = canvas.height;
-
-      ctx.clearRect(0, 0, width, height);
-
-      // Laser Scan Line
-      scanY += scanDirection * 1.5;
-      if (scanY >= height || scanY <= 0) scanDirection *= -1;
-
-      ctx.strokeStyle = "rgba(22, 163, 74, 0.4)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, scanY);
-      ctx.lineTo(width, scanY);
-      ctx.stroke();
-
-      // Bounding Reticle
-      const boxW = 140;
-      const boxH = 170;
-      const boxX = (width - boxW) / 2;
-      const boxY = (height - boxH) / 2 - 10;
-      const bracketLen = 16;
-
-      ctx.strokeStyle = "#16A34A";
-      ctx.lineWidth = 2.5;
-
-      ctx.beginPath();
-      ctx.moveTo(boxX, boxY + bracketLen);
-      ctx.lineTo(boxX, boxY);
-      ctx.lineTo(boxX + bracketLen, boxY);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(boxX + boxW - bracketLen, boxY);
-      ctx.lineTo(boxX + boxW, boxY);
-      ctx.lineTo(boxX + boxW, boxY + bracketLen);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(boxX, boxY + boxH - bracketLen);
-      ctx.lineTo(boxX, boxY + boxH);
-      ctx.lineTo(boxX + bracketLen, boxY + boxH);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(boxX + boxW - bracketLen, boxY + boxH);
-      ctx.lineTo(boxX + boxW, boxY + boxH);
-      ctx.lineTo(boxX + boxW, boxY + boxH - bracketLen);
-      ctx.stroke();
-
-      // Eye Tracking Crosshairs
-      const leftEyeX = boxX + 45;
-      const rightEyeX = boxX + 95;
-      const eyeY = boxY + 55;
-
-      ctx.strokeStyle = "#2563EB";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(leftEyeX, eyeY, 6, 0, 2 * Math.PI);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(rightEyeX, eyeY, 6, 0, 2 * Math.PI);
-      ctx.stroke();
-
-      ctx.fillStyle = "#16A34A";
-      ctx.font = "bold 9px monospace";
-      ctx.fillText("FACE VERIFIED — 99.8%", boxX, boxY - 6);
-
-      animFrameIdRef.current = requestAnimationFrame(drawCanvasOverlay);
-    };
-
-    animFrameIdRef.current = requestAnimationFrame(drawCanvasOverlay);
-    return () => {
-      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
-    };
-  }, [isExamSubmitted, webcamStream]);
-
   // Tab Switching, Focus Loss & Fullscreen Listeners
   useEffect(() => {
     if (isExamSubmitted) return;
@@ -285,7 +197,7 @@ export function ProctoringEngine({
       const inFullscreen = Boolean(document.fullscreenElement);
       setIsFullscreen(inFullscreen);
       if (!inFullscreen && config.fullscreenRequired) {
-        recordViolation("FULLSCREEN_EXIT", "Fullscreen mode exited! Please return to fullscreen mode immediately.");
+        recordViolation("FULLSCREEN_EXIT", "Fullscreen mode exited! Return to fullscreen mode immediately.");
       }
     };
 
@@ -298,7 +210,7 @@ export function ProctoringEngine({
     const handleOffline = () => {
       setIsOnline(false);
       onAutoSave?.();
-      toast({ variant: "destructive", title: "Offline Connection Warning", description: "Internet connection lost. Local progress auto-saved." });
+      toast({ variant: "destructive", title: "Offline Connection Warning", description: "Internet connection lost. Progress auto-saved." });
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -349,7 +261,7 @@ export function ProctoringEngine({
           </div>
         )}
 
-        {/* Live Camera Stream Container */}
+        {/* MNC Clean HD Video Stream Container (No Sci-Fi Canvas Animations) */}
         <div className="aspect-video bg-[#09090B] rounded-xl flex items-center justify-center text-white relative overflow-hidden border border-[#27272A]">
           <video
             ref={videoRef}
@@ -373,16 +285,9 @@ export function ProctoringEngine({
             </div>
           )}
 
-          <canvas
-            ref={canvasRef}
-            width={320}
-            height={240}
-            className="absolute inset-0 w-full h-full pointer-events-none z-10"
-          />
-
           {webcamStream && (
-            <div className="absolute top-2 left-2 z-20 bg-[#09090B]/85 backdrop-blur-xs text-[10px] font-mono text-[#16A34A] px-2 py-0.5 rounded border border-[#16A34A]/40 flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
+            <div className="absolute top-2 left-2 z-20 bg-[#09090B]/85 backdrop-blur-xs text-[10px] font-mono text-[#16A34A] px-2.5 py-1 rounded-md border border-[#16A34A]/40 flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-[#16A34A] animate-pulse" />
               LIVE CAMERA STREAM ACTIVE
             </div>
           )}
