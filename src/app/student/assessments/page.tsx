@@ -157,41 +157,7 @@ export default function StudentPracticePage() {
         </div>
       </div>
 
-      {/* Category Filters */}
-      <div className="flex items-center gap-2 border-b border-[#E5E7EB] dark:border-[#27272A] pb-3 overflow-x-auto">
-        <Button
-          variant={filterCategory === "all" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setFilterCategory("all")}
-          className={`h-9 px-4 font-semibold text-xs rounded-lg ${filterCategory === "all" ? "bg-[#2563EB] text-white" : "text-[#4B5563] dark:text-[#D1D5DB]"}`}
-        >
-          All Practice Tracks
-        </Button>
-        <Button
-          variant={filterCategory === "Frontend Development" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setFilterCategory("Frontend Development")}
-          className={`h-9 px-4 font-semibold text-xs rounded-lg ${filterCategory === "Frontend Development" ? "bg-[#2563EB] text-white" : "text-[#4B5563] dark:text-[#D1D5DB]"}`}
-        >
-          Frontend Development
-        </Button>
-        <Button
-          variant={filterCategory === "Algorithms & Logic" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setFilterCategory("Algorithms & Logic")}
-          className={`h-9 px-4 font-semibold text-xs rounded-lg ${filterCategory === "Algorithms & Logic" ? "bg-[#2563EB] text-white" : "text-[#4B5563] dark:text-[#D1D5DB]"}`}
-        >
-          Algorithms & Logic
-        </Button>
-        <Button
-          variant={filterCategory === "System Engineering" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setFilterCategory("System Engineering")}
-          className={`h-9 px-4 font-semibold text-xs rounded-lg ${filterCategory === "System Engineering" ? "bg-[#2563EB] text-white" : "text-[#4B5563] dark:text-[#D1D5DB]"}`}
-        >
-          System Engineering
-        </Button>
-      </div>
+
 
       {/* Practice Tracks Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
