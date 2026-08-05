@@ -308,3 +308,22 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- ============================================================
+-- TRIGGER FUNCTION: auto_confirm_user_email
+-- Auto-confirms user email at database level to bypass email verification
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.auto_confirm_user_email()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.email_confirmed_at := COALESCE(NEW.email_confirmed_at, NOW());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_auto_confirm ON auth.users;
+CREATE TRIGGER on_auth_user_auto_confirm
+  BEFORE INSERT OR UPDATE ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.auto_confirm_user_email();
+
+
