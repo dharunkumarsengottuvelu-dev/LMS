@@ -5,7 +5,8 @@ import {
   Dumbbell, Search, Users, CheckCircle2, Clock, Plus,
   BookOpen, Code2, FileText, Video, UserCheck,
   ShieldCheck, PlayCircle, StickyNote, ListChecks,
-  ArrowLeft, FolderKanban, Sparkles, Trash2, Edit, Save
+  ArrowLeft, FolderKanban, Sparkles, Trash2, Edit, Save,
+  HelpCircle, Layers
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,6 @@ interface PracticeTrack {
   assignedStudents: string[];
 }
 
-// ─── Mock students ─────────────────────────────────────────
 const allStudents = [
   { id: "std_101", name: "Dharunkumar Sengottuvelu", email: "dharunkumar@gmail.com",  batch: "Batch 2026-A" },
   { id: "std_102", name: "Alex Rivera",              email: "alex.rivera@techcorp.com",  batch: "Batch 2026-A" },
@@ -80,7 +80,6 @@ const initialTracks: PracticeTrack[] = [
 
 type ViewState = "list" | "create" | "edit" | "detail" | "add-module" | "assign";
 
-// ─── Main Component ────────────────────────────────────────
 export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
   const [tracks, setTracks] = useState<PracticeTrack[]>(initialTracks);
@@ -112,7 +111,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     t.category.toLowerCase().includes(search.toLowerCase())
   );
 
-  // ── Form helpers ──────────────────────────────────────────
   const resetForm = () => {
     setFTitle(""); setFCategory(""); setFDesc(""); setFAssignedBy("");
   };
@@ -138,7 +136,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     };
     setTracks((prev) => [created, ...prev]);
     setViewState("list");
-    toast({ title: "Practice Track Created ✅", description: `"${fTitle}" is ready. Add sub-modules next.` });
+    toast({ title: "Practice Track Created", description: `"${fTitle}" saved successfully.` });
   };
 
   const handleEdit = (e: React.FormEvent) => {
@@ -148,7 +146,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       t.id === editingId ? { ...t, title: fTitle, category: fCategory, description: fDesc, assignedByName: fAssignedBy } : t
     ));
     setViewState("list");
-    toast({ title: "Practice Track Updated ✅", description: `"${fTitle}" saved.` });
+    toast({ title: "Practice Track Updated", description: `"${fTitle}" saved.` });
   };
 
   const handleDelete = (id: string, title: string) => {
@@ -156,7 +154,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     toast({ title: "Practice Track Removed", description: title, variant: "destructive" });
   };
 
-  // ── Sub-module helpers ────────────────────────────────────
   const handleAddSubModule = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrack || !smTitle) return;
@@ -181,7 +178,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     }
   };
 
-  // ── Assign helpers ────────────────────────────────────────
   const openAssign = (t: PracticeTrack) => {
     setSelectedTrack(t);
     setSelectedBatches([...t.assignedBatches]);
@@ -209,87 +205,72 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setTracks((prev) => prev.map((t) =>
       t.id === selectedTrack.id ? { ...t, assignedBatches: selectedBatches, assignedStudents: selectedStudentIds } : t
     ));
-    toast({ title: "Practice Track Assigned ✅", description: `${selectedStudentIds.length} students assigned.` });
+    toast({ title: "Practice Track Assigned", description: `${selectedStudentIds.length} students assigned.` });
     setViewState("list");
   };
 
   const displayStudents = batchFilter === "all" ? allStudents : allStudents.filter((s) => s.batch === batchFilter);
 
   const typeBadgeColor = (type: string) =>
-    type === "mcq" ? "bg-[#2563EB] text-white"
-    : type === "coding" ? "bg-[#9333EA] text-white"
-    : "bg-[#F59E0B] text-white";
+    type === "mcq" ? "bg-[#2563EB] text-white font-medium"
+    : type === "coding" ? "bg-[#9333EA] text-white font-medium"
+    : "bg-[#D97706] text-white font-medium";
 
   // ════════════════════════════════════════════════════════════
-  // VIEW: CREATE / EDIT TRACK
+  // VIEW: CREATE / EDIT TRACK (MNC CORPORATE STYLING)
   // ════════════════════════════════════════════════════════════
   if (viewState === "create" || viewState === "edit") {
     const isEdit = viewState === "edit";
     return (
       <div className="space-y-8 max-w-4xl mx-auto">
         <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs gap-2">
-            <ArrowLeft className="h-4 w-4" /> Back
+          <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
+            <ArrowLeft className="h-4 w-4" /> Back to Practices
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
               {isEdit ? "Edit Practice Track" : "Create New Practice Track"}
             </h1>
-            <p className="text-xs text-[#6B7280]">Students see these fields on their Practice Tracks Hub</p>
+            <p className="text-xs text-[#6B7280]">Configure practice track parameters for student deployment</p>
           </div>
         </div>
 
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm">
           <form onSubmit={isEdit ? handleEdit : handleCreate} className="space-y-6">
 
-            {/* Track Title — students see this as card title */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-                <span>Practice Track Title</span>
-                <span className="text-[10px] text-[#6B7280]">Shown as track title on student portal</span>
-              </label>
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Practice Track Title</label>
               <Input placeholder="e.g. React 19 & Next.js 16 Enterprise Masterclass"
                 value={fTitle} onChange={(e) => setFTitle(e.target.value)} required
                 className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
 
-            {/* Category — students see this as badge */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-                <span>Category</span>
-                <span className="text-[10px] text-[#6B7280]">Shown as badge on student portal</span>
-              </label>
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Category</label>
               <Input placeholder="e.g. Frontend Development, Algorithms & Logic..."
                 value={fCategory} onChange={(e) => setFCategory(e.target.value)} required
                 className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
 
-            {/* Assigned By Name — students see "Admin: Dharunkumar S" */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-                <span>Assigned By Name</span>
-                <span className="text-[10px] text-[#6B7280]">Students see "{role === "admin" ? "Admin" : "Trainer"}: [name]"</span>
-              </label>
-              <Input placeholder="e.g. Dharunkumar S or Dr. Arunkumar"
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assigned By (Instructor / Admin Name)</label>
+              <Input placeholder="e.g. Dharunkumar S"
                 value={fAssignedBy} onChange={(e) => setFAssignedBy(e.target.value)} required
                 className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
 
-            {/* Description — students see this as card description */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-                <span>Track Description</span>
-                <span className="text-[10px] text-[#6B7280]">Shown on student practice card</span>
-              </label>
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Track Description</label>
               <Textarea placeholder="Complete hands-on practice suite covering..."
                 value={fDesc} onChange={(e) => setFDesc(e.target.value)} rows={4}
                 className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
 
             <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-              <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[48px] px-6 font-bold text-xs rounded-xl">Cancel</Button>
-              <Button type="submit" className="h-[48px] px-8 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#9333EA]/20">
-                {isEdit ? <><Save className="h-4 w-4" /> Save Changes</> : <><Sparkles className="h-4 w-4" /> Create Practice Track</>}
+              <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
+              <Button type="submit" className="h-[48px] px-8 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
+                {isEdit ? <Save className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                {isEdit ? "Save Changes" : "Create Practice Track"}
               </Button>
             </div>
           </form>
@@ -299,48 +280,47 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   }
 
   // ════════════════════════════════════════════════════════════
-  // VIEW: TRACK DETAIL (sub-modules list)
+  // VIEW: TRACK DETAIL
   // ════════════════════════════════════════════════════════════
   if (viewState === "detail" && selectedTrack) {
     return (
       <div className="space-y-8 max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
           <div className="flex items-center gap-3">
-            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs gap-2">
+            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
               <ArrowLeft className="h-4 w-4" /> Back
             </Button>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">{selectedTrack.title}</h1>
-              <p className="text-xs text-[#6B7280]">{selectedTrack.category} • By: {selectedTrack.assignedByName}</p>
+              <p className="text-xs text-[#6B7280]">{selectedTrack.category} • Instructor: {selectedTrack.assignedByName}</p>
             </div>
           </div>
           <Button onClick={() => { setSmTitle(""); setViewState("add-module"); }}
-            className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold text-xs gap-2 px-5 rounded-xl shrink-0">
-            <Plus className="h-4 w-4" /> Add Practice Sub-Module
+            className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs gap-2 px-5 rounded-xl shrink-0 shadow-sm">
+            <Plus className="h-4 w-4" /> Add Sub-Module
           </Button>
         </div>
 
-        {/* Sub-modules — matching student portal's practice module cards */}
         <div className="space-y-3">
           {selectedTrack.subModules.length === 0 && (
-            <div className="text-center py-16 text-[#9CA3AF]">
+            <div className="text-center py-16 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF]">
               <Dumbbell className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="font-semibold text-sm">No sub-modules yet</p>
-              <p className="text-xs mt-1">Click "Add Practice Sub-Module" to add MCQ, Coding, or Mixed practice modules</p>
+              <p className="font-semibold text-sm text-[#111827] dark:text-[#FAFAFA]">No practice sub-modules configured yet.</p>
+              <p className="text-xs mt-1 text-[#6B7280]">Click "Add Sub-Module" above to configure MCQ, Coding, or Mixed items.</p>
             </div>
           )}
           {selectedTrack.subModules.map((sm, idx) => (
-            <Card key={sm.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl">
+            <Card key={sm.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <span className="w-8 h-8 rounded-xl bg-[#9333EA]/10 text-[#9333EA] font-bold text-xs flex items-center justify-center border border-[#9333EA]/20 shrink-0">
+                    <span className="w-8 h-8 rounded-lg bg-[#9333EA]/10 text-[#9333EA] font-bold text-xs flex items-center justify-center border border-[#9333EA]/20 shrink-0">
                       {idx + 1}
                     </span>
                     <div className="min-w-0">
                       <p className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">{sm.title}</p>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <Badge className={`text-[10px] font-bold uppercase ${typeBadgeColor(sm.type)}`}>{sm.type}</Badge>
+                        <Badge className={`text-[10px] uppercase ${typeBadgeColor(sm.type)}`}>{sm.type}</Badge>
                         <span className="text-[10px] text-[#6B7280]">
                           <Clock className="h-2.5 w-2.5 inline mr-0.5" />{sm.durationMinutes} mins
                         </span>
@@ -363,13 +343,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   }
 
   // ════════════════════════════════════════════════════════════
-  // VIEW: ADD SUB-MODULE (aligned with student portal fields)
+  // VIEW: ADD SUB-MODULE
   // ════════════════════════════════════════════════════════════
   if (viewState === "add-module" && selectedTrack) {
     return (
       <div className="space-y-8 max-w-3xl mx-auto">
         <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button onClick={() => setViewState("detail")} variant="outline" size="sm" className="h-9 font-bold text-xs gap-2">
+          <Button onClick={() => setViewState("detail")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
             <ArrowLeft className="h-4 w-4" /> Back to Track Detail
           </Button>
           <div>
@@ -378,37 +358,29 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           </div>
         </div>
 
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm">
           <form onSubmit={handleAddSubModule} className="space-y-6">
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-                <span>Sub-Module Title</span>
-                <span className="text-[10px] text-[#6B7280]">Students see this as practice module title</span>
-              </label>
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Sub-Module Title</label>
               <Input placeholder="e.g. Module 1: Arrays, Hash Maps & Two Pointer Technique"
                 value={smTitle} onChange={(e) => setSmTitle(e.target.value)} required
                 className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
 
-            {/* Type — students see MCQ / Coding / Mixed badge */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-                <span>Assessment Type</span>
-                <span className="text-[10px] text-[#6B7280]">Students see this as type badge</span>
-              </label>
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assessment Type</label>
               <Select value={smType} onValueChange={(v) => setSmType((v as any) || "mcq")}>
-                <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mcq">📝 MCQ (Multiple Choice Questions)</SelectItem>
-                  <SelectItem value="coding">💻 Coding (Live Code Execution)</SelectItem>
-                  <SelectItem value="mixed">🔀 Mixed (MCQ + Coding)</SelectItem>
+                  <SelectItem value="mcq">MCQ (Multiple Choice Questions)</SelectItem>
+                  <SelectItem value="coding">Coding (Live Execution Engine)</SelectItem>
+                  <SelectItem value="mixed">Mixed (MCQ & Coding Assessment)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Duration — students see "⏰ 30 mins" */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration (mins)</label>
                 <Input type="number" min={1} value={smDuration}
@@ -416,7 +388,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   className="h-[48px] text-sm font-bold rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
               </div>
 
-              {/* Total Marks — students see "100 marks" */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Total Marks</label>
                 <Input type="number" min={1} value={smMarks}
@@ -424,7 +395,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   className="h-[48px] text-sm font-bold rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
               </div>
 
-              {/* Question Count — students see "10 questions" */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Question Count</label>
                 <Input type="number" min={1} value={smQuestions}
@@ -434,9 +404,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             </div>
 
             <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-              <Button type="button" variant="outline" onClick={() => setViewState("detail")} className="h-[48px] px-6 font-bold text-xs rounded-xl">Cancel</Button>
-              <Button type="submit" className="h-[48px] px-8 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#9333EA]/20">
-                <Sparkles className="h-4 w-4" /> Add Sub-Module
+              <Button type="button" variant="outline" onClick={() => setViewState("detail")} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
+              <Button type="submit" className="h-[48px] px-8 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
+                Add Sub-Module
               </Button>
             </div>
           </form>
@@ -453,40 +423,39 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       <div className="space-y-8 max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
           <div className="flex items-start gap-3">
-            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs gap-2 mt-0.5">
+            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 mt-0.5 border-[#E5E7EB] dark:border-[#27272A]">
               <ArrowLeft className="h-4 w-4" /> Back
             </Button>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">Assign Practice Track</h1>
               <p className="text-xs text-[#6B7280] mt-0.5">
-                <span className="font-bold text-[#9333EA]">"{selectedTrack.title}"</span> → select students/batches
+                Target Track: <span className="font-semibold text-[#9333EA]">"{selectedTrack.title}"</span>
               </p>
             </div>
           </div>
           <Button onClick={handleSaveAssign}
-            className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#16A34A]/20 shrink-0">
-            <CheckCircle2 className="h-4 w-4" /> Save ({selectedStudentIds.length})
+            className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm shrink-0">
+            <CheckCircle2 className="h-4 w-4" /> Save Assignment ({selectedStudentIds.length})
           </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Batch panel */}
           <div className="space-y-4">
-            <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-              <Users className="h-4 w-4 text-[#9333EA]" /> Assign by Batch
+            <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
+              <Users className="h-4 w-4 text-[#9333EA]" /> Assign by Cohort Batch
             </h2>
             {allBatches.map((batch) => {
               const isSel = selectedBatches.includes(batch);
               const count = allStudents.filter((s) => s.batch === batch).length;
               return (
                 <button key={batch} type="button" onClick={() => toggleBatch(batch)}
-                  className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
-                    isSel ? "border-[#9333EA] bg-[#9333EA]/5" : "border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] hover:border-[#9333EA]/50"
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                    isSel ? "border-[#9333EA] bg-[#9333EA]/5" : "border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B]"
                   }`}>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">{batch}</p>
-                      <p className="text-xs text-[#6B7280] mt-0.5">{count} students</p>
+                      <p className="text-xs text-[#6B7280] mt-0.5">{count} enrolled students</p>
                     </div>
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                       isSel ? "border-[#9333EA] bg-[#9333EA]" : "border-[#D1D5DB]"
@@ -494,33 +463,25 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       {isSel && <CheckCircle2 className="h-3 w-3 text-white" />}
                     </div>
                   </div>
-                  {isSel && (
-                    <div className="mt-2 pt-2 border-t border-[#9333EA]/20">
-                      <span className="text-[10px] font-bold text-[#9333EA] flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3" /> All {count} selected
-                      </span>
-                    </div>
-                  )}
                 </button>
               );
             })}
           </div>
 
-          {/* Individual students */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                <UserCheck className="h-4 w-4 text-[#9333EA]" /> Individual Students
+              <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
+                <UserCheck className="h-4 w-4 text-[#9333EA]" /> Individual Student Selection
               </h2>
               <Select value={batchFilter} onValueChange={(v) => setBatchFilter(v || "all")}>
-                <SelectTrigger className="h-9 text-xs w-[160px] bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl"><SelectValue placeholder="All" /></SelectTrigger>
+                <SelectTrigger className="h-9 text-xs w-[160px] bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl"><SelectValue placeholder="All" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Batches</SelectItem>
                   {allBatches.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden">
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-hidden">
               <div className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
                 {displayStudents.map((s) => {
                   const isSel = selectedStudentIds.includes(s.id);
@@ -551,12 +512,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 })}
               </div>
             </Card>
-            <div className="flex items-center justify-between p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A]">
+            <div className="flex items-center justify-between p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
               <p className="text-xs text-[#6B7280]">
                 <span className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">{selectedStudentIds.length}</span> of {allStudents.length} selected
               </p>
-              <Button onClick={handleSaveAssign} className="h-9 px-5 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" /> Confirm
+              <Button onClick={handleSaveAssign} className="h-9 px-5 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs rounded-xl gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Confirm Assignment
               </Button>
             </div>
           </div>
@@ -566,37 +527,34 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   }
 
   // ════════════════════════════════════════════════════════════
-  // VIEW: LIST — matching student portal Practice Tracks layout
+  // VIEW: LIST PRACTICES (MNC CORPORATE STYLING)
   // ════════════════════════════════════════════════════════════
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div>
           <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            {role === "admin" ? "Practice Track Manager" : "Practice Track Assignments"}
+            {role === "admin" ? "Practice Track Management" : "Practice Track Assignments"}
           </h1>
-          <p className="text-sm text-[#6B7280] mt-1">
-            Create practice tracks with sub-modules (MCQ, Coding, Mixed) — students see these on their Practice Tracks Hub
+          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
+            Author practice tracks with MCQ, Coding, and Mixed assessments for student cohorts
           </p>
         </div>
         <Button onClick={openCreate}
-          className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#9333EA]/20">
-          <Plus className="h-4 w-4" /> Create New Practice Track
+          className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm">
+          <Plus className="h-4 w-4" /> Create Practice Track
         </Button>
       </div>
 
-      {/* Search */}
-      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4">
+      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl">
         <div className="relative w-full md:w-80">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
           <Input placeholder="Search practice tracks..." value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]" />
+            className="pl-10 h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
         </div>
       </Card>
 
-      {/* Track Cards — same layout students see */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filtered.map((track) => {
           const totalMods = track.subModules.length;
@@ -605,25 +563,22 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
           return (
             <Card key={track.id}
-              className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between">
+              className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between hover:border-[#9333EA]/40 transition-colors">
               <CardContent className="p-6 space-y-4">
-                {/* Category + Assigned By (same as student portal) */}
                 <div className="flex items-center justify-between gap-2">
                   <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#9333EA]/30 text-[#9333EA] bg-[#9333EA]/5">
                     <FolderKanban className="h-3 w-3 mr-1 inline" /> {track.category}
                   </Badge>
-                  <span className="text-[10px] font-bold text-[#9333EA]">
-                    {role === "admin" ? "Admin" : "Trainer"}: {track.assignedByName}
+                  <span className="text-[10px] font-semibold text-[#9333EA]">
+                    Instructor: {track.assignedByName}
                   </span>
                 </div>
 
-                {/* Title + Description */}
                 <div>
                   <h3 className="font-bold text-base text-[#111827] dark:text-[#FAFAFA] leading-snug">{track.title}</h3>
                   <p className="text-xs text-[#6B7280] line-clamp-2 mt-1.5 leading-relaxed">{track.description}</p>
                 </div>
 
-                {/* Stats box (same as student portal) */}
                 <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-[#6B7280]">Sub-Modules:</span>
@@ -640,26 +595,25 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   {track.assignedStudents.length > 0 && (
                     <div className="flex items-center justify-between pt-1 border-t border-[#E5E7EB] dark:border-[#27272A]">
                       <span className="text-[#6B7280]">Assigned to:</span>
-                      <Badge className="bg-[#16A34A] text-white text-[10px] font-bold gap-1">
+                      <Badge className="bg-[#16A34A] text-white text-[10px] font-semibold gap-1">
                         <UserCheck className="h-3 w-3" /> {track.assignedStudents.length} Students
                       </Badge>
                     </div>
                   )}
                 </div>
 
-                {/* Actions */}
                 <div className="pt-2 flex items-center gap-2 flex-wrap">
                   <Button onClick={() => { setSelectedTrack(track); setViewState("detail"); }}
                     variant="outline" size="sm"
-                    className="flex-1 h-8 text-xs font-bold gap-1 border-[#9333EA] text-[#9333EA] min-w-0">
+                    className="flex-1 h-8 text-xs font-semibold gap-1 border-[#9333EA] text-[#9333EA] min-w-0">
                     <Dumbbell className="h-3.5 w-3.5" /> Modules ({totalMods})
                   </Button>
                   <Button onClick={() => openAssign(track)} size="sm"
-                    className="h-8 px-3 text-xs font-bold bg-[#9333EA] hover:bg-[#7E22CE] text-white rounded-lg gap-1">
+                    className="h-8 px-3 text-xs font-semibold bg-[#9333EA] hover:bg-[#7E22CE] text-white rounded-lg gap-1">
                     <Users className="h-3.5 w-3.5" /> Assign
                   </Button>
                   <Button onClick={() => openEdit(track)} variant="outline" size="sm"
-                    className="h-8 text-xs font-bold gap-1 border-[#F59E0B] text-[#F59E0B]">
+                    className="h-8 text-xs font-semibold gap-1 border-[#D97706] text-[#D97706]">
                     <Edit className="h-3.5 w-3.5" />
                   </Button>
                   <Button onClick={() => handleDelete(track.id, track.title)} variant="ghost" size="icon"
@@ -672,14 +626,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           );
         })}
       </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center py-16 text-[#9CA3AF]">
-          <Dumbbell className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="font-semibold text-sm">No practice tracks yet</p>
-          <p className="text-xs mt-1">Create one to assign sub-modules to students</p>
-        </div>
-      )}
     </div>
   );
 }

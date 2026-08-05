@@ -52,7 +52,6 @@ function formatDuration(h: number, m: number) {
   return [h > 0 ? `${h}h` : "", m > 0 ? `${m}m` : ""].filter(Boolean).join(" ");
 }
 
-// Helper to auto-calculate total duration from modules list
 function calculateModulesTotalDuration(modules: CourseSyllabusModule[] = []): string {
   let totalMins = 0;
   (modules || []).forEach((m) => {
@@ -144,7 +143,6 @@ const initialCourses: ManagedCourse[] = [
 
 type ViewState = "list" | "wizard" | "syllabus" | "add-module" | "edit-module";
 
-// ─── Main Hub ──────────────────────────────────────────────
 export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
   const [courses, setCourses] = useState<ManagedCourse[]>(initialCourses);
@@ -153,11 +151,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [viewState, setViewState] = useState<ViewState>("list");
   const [selectedCourse, setSelectedCourse] = useState<ManagedCourse | null>(null);
 
-  // ── Multi-Step Wizard State ──
+  // Multi-Step Wizard State
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
 
-  // Step 1: Course Info (Cleaned up: Removed manual duration inputs)
+  // Step 1: Course Metadata
   const [fTitle, setFTitle]           = useState("");
   const [fCategory, setFCategory]     = useState("");
   const [fLevel, setFLevel]           = useState<"Beginner" | "Intermediate" | "Advanced">("Intermediate");
@@ -180,7 +178,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [modStarter, setModStarter]     = useState("");
   const [modQuiz, setModQuiz]           = useState("");
 
-  // Syllabus View Edit Module state
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
 
   const resetModuleBuilder = () => {
@@ -201,7 +198,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     (categoryFilter === "all" || c.category.toLowerCase().includes(categoryFilter.toLowerCase()))
   );
 
-  // ── Open Wizard (Create or Edit) ──
   const openCreateWizard = () => {
     setEditingCourseId(null);
     setFTitle(""); setFCategory(""); setFLevel("Intermediate");
@@ -224,7 +220,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setViewState("wizard");
   };
 
-  // ── Add module to Wizard Step 2 draft ──
   const handleAddModuleToDraft = (e: React.FormEvent) => {
     e.preventDefault();
     if (!modTitle) return;
@@ -244,23 +239,21 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setDraftModules((prev) => [...prev, newMod]);
     resetModuleBuilder();
     setShowModuleBuilder(false);
-    toast({ title: "Module Added to Draft", description: `"${modTitle}" added.` });
+    toast({ title: "Module Added", description: `"${modTitle}" appended to curriculum draft.` });
   };
 
   const removeDraftModule = (id: string) => {
     setDraftModules((prev) => prev.filter((m) => m.id !== id));
   };
 
-  // ── Final Step 3: Finish / Publish Course ──
   const handlePublishCourse = () => {
     if (!fTitle) {
-      toast({ title: "Course Title Required", description: "Please go to Step 1 and enter a title.", variant: "destructive" });
+      toast({ title: "Title Required", description: "Please enter a course title in Step 1.", variant: "destructive" });
       setWizardStep(1);
       return;
     }
 
     if (editingCourseId) {
-      // Update existing course
       setCourses((prev) => prev.map((c) =>
         c.id === editingCourseId ? {
           ...c,
@@ -273,9 +266,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           totalLessons: draftModules.length,
         } : c
       ));
-      toast({ title: "Course Updated Successfully ✅", description: `"${fTitle}" saved with ${draftModules.length} modules.` });
+      toast({ title: "Course Updated", description: `"${fTitle}" saved successfully.` });
     } else {
-      // Create new course
       const created: ManagedCourse = {
         id: `mc_${Date.now()}`,
         title: fTitle,
@@ -287,17 +279,16 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         instructor: fInstructor || "Course Instructor",
         durationHours: 0,
         durationMins: 0,
-        description: fDesc || "Newly authored interactive training course.",
+        description: fDesc || "Newly authored enterprise training course.",
         modules: draftModules,
       };
       setCourses((prev) => [created, ...prev]);
-      toast({ title: "Course Published Successfully 🎉", description: `"${fTitle}" is now live for students!` });
+      toast({ title: "Course Published", description: `"${fTitle}" is live.` });
     }
 
     setViewState("list");
   };
 
-  // ── Separate Syllabus View Module Handlers ──
   const openAddModuleFromSyllabus = () => {
     resetModuleBuilder();
     setEditingModuleId(null);
@@ -354,7 +345,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setCourses((prev) => prev.map((c) => (c.id === selectedCourse.id ? updatedCourse : c)));
     resetModuleBuilder();
     setViewState("syllabus");
-    toast({ title: editingModuleId ? "Module Updated ✅" : "Module Added ✅", description: `"${modTitle}" saved to course.` });
+    toast({ title: editingModuleId ? "Module Saved" : "Module Created", description: `"${modTitle}" saved to course.` });
   };
 
   const handleDeleteModuleInSyllabus = (modId: string, title: string) => {
@@ -363,7 +354,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     const updatedCourse = { ...selectedCourse, modules: updatedModules, totalLessons: updatedModules.length };
     setSelectedCourse(updatedCourse);
     setCourses((prev) => prev.map((c) => (c.id === selectedCourse.id ? updatedCourse : c)));
-    toast({ title: "Module Deleted", description: title, variant: "destructive" });
+    toast({ title: "Module Removed", description: title, variant: "destructive" });
   };
 
   const handleToggleStatus = (id: string) =>
@@ -376,11 +367,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
   const handleDeleteCourse = (id: string, title: string) => {
     setCourses((prev) => prev.filter((c) => c.id !== id));
-    toast({ title: "Course Removed", description: title, variant: "destructive" });
+    toast({ title: "Course Deleted", description: title, variant: "destructive" });
   };
 
   // ════════════════════════════════════════════════════════════
-  // VIEW: MULTI-STEP WIZARD (STEP 1 → STEP 2 → STEP 3)
+  // VIEW: MULTI-STEP WIZARD (PROFESSIONAL MNC STYLING, ZERO EMOJIS)
   // ════════════════════════════════════════════════════════════
   if (viewState === "wizard") {
     return (
@@ -388,24 +379,24 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
           <div className="flex items-center gap-3">
-            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs gap-2">
-              <ArrowLeft className="h-4 w-4" /> Cancel & Exit Wizard
+            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
+              <ArrowLeft className="h-4 w-4" /> Exit Authoring
             </Button>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-                {editingCourseId ? "Edit Course Wizard" : "Author New Course Wizard"}
+                {editingCourseId ? "Course Configuration Wizard" : "Enterprise Course Creation Wizard"}
               </h1>
-              <p className="text-xs text-[#6B7280]">Step-by-step course authoring & curriculum setup</p>
+              <p className="text-xs text-[#6B7280]">Structured multi-step curriculum authoring</p>
             </div>
           </div>
         </div>
 
-        {/* STEP PROGRESS BAR */}
+        {/* STEP PROGRESS INDICATOR */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { step: 1, title: "1. Course Details", desc: "Title, instructor, category" },
-            { step: 2, title: "2. Curriculum & Content", desc: "Videos, notes, coding, quiz" },
-            { step: 3, title: "3. Review & Publish", desc: "Final verification" },
+            { step: 1, title: "1. Basic Metadata", desc: "Title, category & instructor" },
+            { step: 2, title: "2. Curriculum Content", desc: "Lessons, code & assessments" },
+            { step: 3, title: "3. Review & Deploy", desc: "Verification & deployment" },
           ].map((item) => {
             const isActive = wizardStep === item.step;
             const isCompleted = wizardStep > item.step;
@@ -414,12 +405,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 key={item.step}
                 type="button"
                 onClick={() => setWizardStep(item.step as 1 | 2 | 3)}
-                className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
                   isActive
                     ? "border-[#2563EB] bg-[#2563EB]/5 dark:bg-[#2563EB]/10"
                     : isCompleted
                     ? "border-[#16A34A] bg-[#16A34A]/5"
-                    : "border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] opacity-60"
+                    : "border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B]"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -430,7 +421,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     <CheckCircle2 className="h-4 w-4 text-[#16A34A]" />
                   ) : (
                     <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                      isActive ? "bg-[#2563EB] text-white" : "bg-[#E5E7EB] text-[#6B7280]"
+                      isActive ? "bg-[#2563EB] text-white" : "bg-[#E5E7EB] dark:bg-[#27272A] text-[#6B7280]"
                     }`}>
                       {item.step}
                     </span>
@@ -442,11 +433,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           })}
         </div>
 
-        {/* ── STEP 1: COURSE METADATA (REMOVED MANUAL DURATION) ── */}
+        {/* STEP 1: METADATA */}
         {wizardStep === 1 && (
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm space-y-6">
-            <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
-              <BookOpen className="h-4 w-4 text-[#2563EB]" /> Step 1: Basic Course Metadata
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm space-y-6">
+            <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
+              <BookOpen className="h-4 w-4 text-[#2563EB]" /> Course Overview & Identity
             </h2>
 
             <div className="space-y-2">
@@ -454,7 +445,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 <span>Course Title</span>
                 <span className="text-[10px] font-semibold text-[#2563EB]">Required</span>
               </label>
-              <Input placeholder="e.g. React 19 & Next.js 16 Enterprise Production Blueprint"
+              <Input placeholder="e.g. Full Stack Next.js 16 Enterprise Production Architecture"
                 value={fTitle} onChange={(e) => setFTitle(e.target.value)} required
                 className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
@@ -462,7 +453,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Domain Category</label>
-                <Input placeholder="e.g. Web Development, AI & ML, DevOps..."
+                <Input placeholder="e.g. Web Development, Cloud Systems, AI Engineering"
                   value={fCategory} onChange={(e) => setFCategory(e.target.value)} required
                   className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
               </div>
@@ -470,13 +461,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Difficulty Level</label>
                 <Select value={fLevel} onValueChange={(v) => setFLevel((v as any) || "Intermediate")}>
-                  <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Beginner">🟢 Beginner</SelectItem>
-                    <SelectItem value="Intermediate">🟡 Intermediate</SelectItem>
-                    <SelectItem value="Advanced">🔴 Advanced</SelectItem>
+                    <SelectItem value="Beginner">Beginner Level</SelectItem>
+                    <SelectItem value="Intermediate">Intermediate Level</SelectItem>
+                    <SelectItem value="Advanced">Advanced Level</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -484,16 +475,16 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
             <div className="space-y-2">
               <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                <User className="h-3.5 w-3.5 text-[#2563EB]" /> Instructor Name
+                <User className="h-3.5 w-3.5 text-[#2563EB]" /> Lead Instructor Name
               </label>
-              <Input placeholder="e.g. Dr. Elena Rostova or Alex Rivera"
+              <Input placeholder="e.g. Alex Rivera"
                 value={fInstructor} onChange={(e) => setFInstructor(e.target.value)} required
                 className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Overview Description & Learning Outcomes</label>
-              <Textarea placeholder="Write course description for student portal..."
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Executive Summary & Learning Outcomes</label>
+              <Textarea placeholder="Write course objectives and syllabus takeaways..."
                 value={fDesc} onChange={(e) => setFDesc(e.target.value)} rows={5}
                 className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
@@ -501,48 +492,47 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             <div className="pt-4 flex items-center justify-end border-t border-[#E5E7EB] dark:border-[#27272A]">
               <Button type="button" onClick={() => {
                 if (!fTitle) {
-                  toast({ title: "Title Required", description: "Please enter course title first.", variant: "destructive" });
+                  toast({ title: "Title Required", description: "Enter course title to proceed.", variant: "destructive" });
                   return;
                 }
                 setWizardStep(2);
-              }} className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
-                Next: Add Curriculum Content <ArrowRight className="h-4 w-4" />
+              }} className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
+                Next Step: Curriculum Modules <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </Card>
         )}
 
-        {/* ── STEP 2: CURRICULUM MODULES & CONTENT ── */}
+        {/* STEP 2: CURRICULUM & CONTENT */}
         {wizardStep === 2 && (
           <div className="space-y-6">
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-3xl shadow-sm space-y-5">
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
-                    <Layers className="h-4 w-4 text-[#9333EA]" /> Step 2: Curriculum Modules & Content ({draftModules.length} Modules)
+                  <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
+                    <Layers className="h-4 w-4 text-[#9333EA]" /> Step 2: Curriculum Structure ({draftModules.length} Modules)
                   </h2>
-                  <p className="text-xs text-[#6B7280] mt-0.5">Configure Video URLs, Notes, Coding Challenges, and Quizzes</p>
+                  <p className="text-xs text-[#6B7280] mt-0.5">Author video links, notes, coding challenges or assessments</p>
                 </div>
                 <Button type="button" onClick={() => { resetModuleBuilder(); setShowModuleBuilder(true); }}
-                  className="h-10 px-4 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold text-xs rounded-xl gap-2">
+                  className="h-10 px-4 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2">
                   <Plus className="h-4 w-4" /> Add Module
                 </Button>
               </div>
 
-              {/* Draft Modules List */}
               {draftModules.length === 0 && !showModuleBuilder && (
-                <div className="text-center py-12 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF]">
+                <div className="text-center py-12 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[#9CA3AF]">
                   <Layers className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-xs font-semibold">No modules added to this course draft yet.</p>
-                  <p className="text-[11px] mt-1">Click "Add Module" to configure videos, notes, coding challenges or quizzes.</p>
+                  <p className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">No modules configured in curriculum draft.</p>
+                  <p className="text-[11px] text-[#6B7280] mt-1">Click "Add Module" above to add video, coding, or reading content.</p>
                 </div>
               )}
 
               <div className="space-y-3">
                 {draftModules.map((m, idx) => (
-                  <div key={m.id} className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-4">
+                  <div key={m.id} className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <span className="w-8 h-8 rounded-xl bg-[#9333EA]/10 text-[#9333EA] font-bold text-xs flex items-center justify-center border border-[#9333EA]/20 shrink-0">
+                      <span className="w-8 h-8 rounded-lg bg-[#9333EA]/10 text-[#9333EA] font-bold text-xs flex items-center justify-center border border-[#9333EA]/20 shrink-0">
                         {idx + 1}
                       </span>
                       <div className="min-w-0">
@@ -550,28 +540,28 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <Badge className="text-[10px] font-bold capitalize bg-[#9333EA] text-white">{m.type}</Badge>
                           {m.videoUrl && (
-                            <Badge className="bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 text-[9px] font-bold gap-0.5">
-                              <PlayCircle className="h-2.5 w-2.5" /> Video URL
+                            <Badge variant="outline" className="text-[9px] font-semibold text-[#2563EB] border-[#2563EB]/30 gap-1">
+                              <PlayCircle className="h-2.5 w-2.5" /> Video URL Configured
                             </Badge>
                           )}
                           {m.notes && (
-                            <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/20 text-[9px] font-bold gap-0.5">
-                              <StickyNote className="h-2.5 w-2.5" /> Notes
+                            <Badge variant="outline" className="text-[9px] font-semibold text-[#16A34A] border-[#16A34A]/30 gap-1">
+                              <StickyNote className="h-2.5 w-2.5" /> Notes Included
                             </Badge>
                           )}
                           {m.readingContent && (
-                            <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/20 text-[9px] font-bold gap-0.5">
-                              <FileText className="h-2.5 w-2.5" /> Article
+                            <Badge variant="outline" className="text-[9px] font-semibold text-[#16A34A] border-[#16A34A]/30 gap-1">
+                              <FileText className="h-2.5 w-2.5" /> Article Document
                             </Badge>
                           )}
                           {m.practiceDescription && (
-                            <Badge className="bg-[#9333EA]/10 text-[#9333EA] border border-[#9333EA]/20 text-[9px] font-bold gap-0.5">
-                              <Dumbbell className="h-2.5 w-2.5" /> Code Challenge
+                            <Badge variant="outline" className="text-[9px] font-semibold text-[#9333EA] border-[#9333EA]/30 gap-1">
+                              <Code2 className="h-2.5 w-2.5" /> Monaco Code Specs
                             </Badge>
                           )}
                           {m.quizQuestions && (
-                            <Badge className="bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20 text-[9px] font-bold gap-0.5">
-                              <ListChecks className="h-2.5 w-2.5" /> Quiz
+                            <Badge variant="outline" className="text-[9px] font-semibold text-[#D97706] border-[#D97706]/30 gap-1">
+                              <ListChecks className="h-2.5 w-2.5" /> Quiz Items
                             </Badge>
                           )}
                         </div>
@@ -579,7 +569,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
-                      <Badge variant="outline" className="text-xs font-mono font-bold px-3 py-1 border-[#9333EA]/30 text-[#9333EA]">
+                      <Badge variant="outline" className="text-xs font-mono font-semibold px-3 py-1 border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]">
                         {m.duration}
                       </Badge>
                       <Button type="button" onClick={() => removeDraftModule(m.id)} variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626]">
@@ -591,12 +581,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               </div>
             </Card>
 
-            {/* INLINE MODULE BUILDER */}
+            {/* MODULE BUILDER */}
             {showModuleBuilder && (
-              <Card className="bg-white dark:bg-[#18181B] border-2 border-[#9333EA] p-6 rounded-3xl space-y-5 shadow-lg">
+              <Card className="bg-white dark:bg-[#18181B] border-2 border-[#9333EA] p-6 rounded-2xl space-y-5 shadow-sm">
                 <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[#9333EA] flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" /> Add Module Content
+                    <Sparkles className="h-4 w-4" /> Module Content Authoring
                   </h3>
                   <Button type="button" variant="ghost" size="sm" onClick={() => setShowModuleBuilder(false)} className="text-xs">
                     Cancel
@@ -606,128 +596,123 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 <form onSubmit={handleAddModuleToDraft} className="space-y-5">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module / Lesson Title</label>
-                    <Input placeholder="e.g. Next.js 16 Middleware & JWT Verification" value={modTitle}
+                    <Input placeholder="e.g. Next.js 16 Middleware & JWT Authorization" value={modTitle}
                       onChange={(e) => setModTitle(e.target.value)} required
-                      className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
+                      className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Type</label>
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Delivery Type</label>
                       <Select value={modType} onValueChange={(v) => setModType((v as any) || "video")}>
-                        <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                        <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="video">📹 Video Lesson + Notes</SelectItem>
-                          <SelectItem value="coding">💻 Coding Challenge (Monaco)</SelectItem>
-                          <SelectItem value="reading">📄 Reading Material</SelectItem>
-                          <SelectItem value="quiz">❓ Quiz Evaluation</SelectItem>
+                          <SelectItem value="video">Video Lesson & Notes</SelectItem>
+                          <SelectItem value="coding">Coding Challenge (Monaco Editor)</SelectItem>
+                          <SelectItem value="reading">Reading Material & Documentation</SelectItem>
+                          <SelectItem value="quiz">Quiz Assessment</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration</label>
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Estimated Lesson Duration</label>
                       <Input placeholder="e.g. 45 mins" value={modDur} onChange={(e) => setModDur(e.target.value)} required
-                        className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
+                        className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
                     </div>
                   </div>
 
-                  {/* VIDEO TYPE FIELDS */}
                   {modType === "video" && (
-                    <div className="p-5 rounded-2xl border border-[#2563EB]/20 bg-[#2563EB]/5 space-y-4">
+                    <div className="p-5 rounded-xl border border-[#2563EB]/20 bg-[#2563EB]/5 space-y-4">
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                          <Link2 className="h-3.5 w-3.5 text-[#2563EB]" /> Video URL (YouTube, Vimeo, Loom, Drive)
+                          <Link2 className="h-3.5 w-3.5 text-[#2563EB]" /> Video Resource Stream URL
                         </label>
                         <Input type="url" placeholder="https://www.youtube.com/watch?v=..." value={modVideoUrl}
-                          onChange={(e) => setModVideoUrl(e.target.value)} className="h-[44px] text-xs rounded-xl bg-white dark:bg-[#09090B]" />
+                          onChange={(e) => setModVideoUrl(e.target.value)} className="h-[44px] text-xs rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                          <StickyNote className="h-3.5 w-3.5 text-[#2563EB]" /> Lesson Notes & Key Takeaways
+                          <StickyNote className="h-3.5 w-3.5 text-[#2563EB]" /> Lesson Notes & References
                         </label>
-                        <Textarea placeholder="# Lesson Notes..." value={modNotes} onChange={(e) => setModNotes(e.target.value)} rows={5}
-                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                        <Textarea placeholder="# Key Concepts\n- Concept 1..." value={modNotes} onChange={(e) => setModNotes(e.target.value)} rows={5}
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
                       </div>
                     </div>
                   )}
 
-                  {/* READING TYPE FIELDS */}
                   {modType === "reading" && (
-                    <div className="p-5 rounded-2xl border border-[#16A34A]/20 bg-[#16A34A]/5 space-y-4">
+                    <div className="p-5 rounded-xl border border-[#16A34A]/20 bg-[#16A34A]/5 space-y-4">
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Full Article Content</label>
-                        <Textarea placeholder="# Article Content..." value={modReading} onChange={(e) => setModReading(e.target.value)} rows={8}
-                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Full Article Document</label>
+                        <Textarea placeholder="# Reading Document Content..." value={modReading} onChange={(e) => setModReading(e.target.value)} rows={8}
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
                       </div>
                     </div>
                   )}
 
-                  {/* CODING TYPE FIELDS */}
                   {modType === "coding" && (
-                    <div className="p-5 rounded-2xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-4">
+                    <div className="p-5 rounded-xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-4">
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Description</label>
-                        <Textarea placeholder="Problem statement..." value={modDesc} onChange={(e) => setModDesc(e.target.value)} rows={4}
-                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement</label>
+                        <Textarea placeholder="Problem requirements..." value={modDesc} onChange={(e) => setModDesc(e.target.value)} rows={4}
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Test Cases (Input → Output)</label>
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Test Cases (Input → Expected Output)</label>
                         <Textarea placeholder="Input: 'hello' → Output: 'olleh'" value={modTestCases} onChange={(e) => setModTestCases(e.target.value)} rows={3}
-                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Starter Code</label>
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Starter Code Template</label>
                         <Textarea placeholder="function solution(input) {}" value={modStarter} onChange={(e) => setModStarter(e.target.value)} rows={4}
-                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
                       </div>
                     </div>
                   )}
 
-                  {/* QUIZ TYPE FIELDS */}
                   {modType === "quiz" && (
-                    <div className="p-5 rounded-2xl border border-[#F59E0B]/20 bg-[#F59E0B]/5 space-y-4">
+                    <div className="p-5 rounded-xl border border-[#D97706]/20 bg-[#D97706]/5 space-y-4">
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Quiz MCQ Questions</label>
-                        <Textarea placeholder={"Q1. Question?\nA) Option 1\nB) Option 2 ✓"} value={modQuiz} onChange={(e) => setModQuiz(e.target.value)} rows={6}
-                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Quiz MCQ Items</label>
+                        <Textarea placeholder={"Q1. Question?\nA) Option 1\nB) Option 2 (Correct)"} value={modQuiz} onChange={(e) => setModQuiz(e.target.value)} rows={6}
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
                       </div>
                     </div>
                   )}
 
                   <div className="flex justify-end gap-2 pt-2">
-                    <Button type="button" variant="outline" onClick={() => setShowModuleBuilder(false)} className="h-10 text-xs font-bold">Cancel</Button>
-                    <Button type="submit" className="h-10 px-6 bg-[#9333EA] text-white font-bold text-xs rounded-xl">Add Module to Draft</Button>
+                    <Button type="button" variant="outline" onClick={() => setShowModuleBuilder(false)} className="h-10 text-xs font-semibold">Cancel</Button>
+                    <Button type="submit" className="h-10 px-6 bg-[#9333EA] text-white font-semibold text-xs rounded-xl">Save Module</Button>
                   </div>
                 </form>
               </Card>
             )}
 
-            {/* Step 2 Buttons */}
             <div className="flex items-center justify-between pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-              <Button type="button" variant="outline" onClick={() => setWizardStep(1)} className="h-[48px] px-6 font-bold text-xs gap-2 rounded-xl">
-                <ArrowLeft className="h-4 w-4" /> Previous: Course Info
+              <Button type="button" variant="outline" onClick={() => setWizardStep(1)} className="h-[48px] px-6 font-semibold text-xs gap-2 rounded-xl border-[#E5E7EB] dark:border-[#27272A]">
+                <ArrowLeft className="h-4 w-4" /> Previous Step
               </Button>
-              <Button type="button" onClick={() => setWizardStep(3)} className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
-                Next: Review & Publish <ArrowRight className="h-4 w-4" />
+              <Button type="button" onClick={() => setWizardStep(3)} className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
+                Next Step: Review & Deploy <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
         )}
 
-        {/* ── STEP 3: REVIEW & PUBLISH ── */}
+        {/* STEP 3: REVIEW & PUBLISH */}
         {wizardStep === 3 && (
           <div className="space-y-6">
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm space-y-6">
-              <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
-                <CheckCircle2 className="h-4 w-4 text-[#16A34A]" /> Step 3: Final Verification & Publish
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm space-y-6">
+              <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
+                <CheckCircle2 className="h-4 w-4 text-[#16A34A]" /> Step 3: Verification & Deployment
               </h2>
 
-              <div className="p-6 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
+              <div className="p-6 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
                 <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-xs font-bold border-[#2563EB]/30 text-[#2563EB]">
+                  <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB]">
                     {fCategory || "General"}
                   </Badge>
                   <Badge className="bg-[#16A34A] text-white text-xs">{fLevel}</Badge>
@@ -748,13 +733,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     <p className="font-bold text-[#2563EB]">{draftModules.length} Modules</p>
                   </div>
                   <div>
-                    <span className="text-[#6B7280]">Status:</span>
+                    <span className="text-[#6B7280]">Deployment Status:</span>
                     <p className="font-bold text-[#16A34A]">Published</p>
                   </div>
                 </div>
               </div>
 
-              {/* Modules Summary */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Curriculum Modules Summary ({draftModules.length}):</h4>
                 {draftModules.map((m, idx) => (
@@ -766,11 +750,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                <Button type="button" variant="outline" onClick={() => setWizardStep(2)} className="h-[48px] px-6 font-bold text-xs gap-2 rounded-xl">
-                  <ArrowLeft className="h-4 w-4" /> Previous: Modules
+                <Button type="button" variant="outline" onClick={() => setWizardStep(2)} className="h-[48px] px-6 font-semibold text-xs gap-2 rounded-xl border-[#E5E7EB] dark:border-[#27272A]">
+                  <ArrowLeft className="h-4 w-4" /> Previous Step
                 </Button>
-                <Button type="button" onClick={handlePublishCourse} className="h-[48px] px-8 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#16A34A]/20">
-                  <Sparkles className="h-4 w-4" /> {editingCourseId ? "Save & Update Course" : "🚀 Publish Course Now"}
+                <Button type="button" onClick={handlePublishCourse} className="h-[48px] px-8 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
+                  <ShieldCheck className="h-4 w-4" /> {editingCourseId ? "Save Changes" : "Publish Course"}
                 </Button>
               </div>
             </Card>
@@ -787,7 +771,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     <div className="space-y-8 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div className="flex items-center gap-3">
-          <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs gap-2">
+          <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
             <ArrowLeft className="h-4 w-4" /> Back to Courses
           </Button>
           <div>
@@ -796,12 +780,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           </div>
         </div>
         <Button onClick={openAddModuleFromSyllabus}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-2 px-5 rounded-xl shrink-0">
-          <Plus className="h-4 w-4" /> Add Module / Lesson
+          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs gap-2 px-5 rounded-xl shrink-0 shadow-sm">
+          <Plus className="h-4 w-4" /> Add Module
         </Button>
       </div>
 
-      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-3xl shadow-sm space-y-4">
+      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-4">
         <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
           <span className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-[#2563EB]" /> Course Syllabus ({selectedCourse.modules.length} Lessons)
@@ -809,10 +793,10 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         </h2>
 
         {selectedCourse.modules.length === 0 && (
-          <div className="text-center py-12 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF]">
+          <div className="text-center py-12 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[#9CA3AF]">
             <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-30" />
-            <p className="text-xs font-semibold">No modules authored for this course yet.</p>
-            <Button onClick={openAddModuleFromSyllabus} size="sm" className="mt-3 bg-[#2563EB] text-white font-bold text-xs">
+            <p className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">No modules configured for this course yet.</p>
+            <Button onClick={openAddModuleFromSyllabus} size="sm" className="mt-3 bg-[#2563EB] text-white font-semibold text-xs">
               <Plus className="h-3.5 w-3.5 mr-1" /> Add First Module
             </Button>
           </div>
@@ -820,9 +804,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
         <div className="space-y-3">
           {selectedCourse.modules.map((m, idx) => (
-            <div key={m.id} className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-4">
+            <div key={m.id} className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-4">
               <div className="flex items-center gap-3.5 min-w-0">
-                <span className="w-8 h-8 rounded-xl bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs flex items-center justify-center border border-[#2563EB]/20 shrink-0">
+                <span className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs flex items-center justify-center border border-[#2563EB]/20 shrink-0">
                   {idx + 1}
                 </span>
                 <div className="min-w-0">
@@ -830,22 +814,22 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <Badge className="text-[10px] font-bold capitalize bg-[#2563EB] text-white">{m.type}</Badge>
                     {m.videoUrl && (
-                      <Badge className="bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 text-[9px] font-bold gap-0.5">
+                      <Badge variant="outline" className="text-[9px] font-semibold text-[#2563EB] border-[#2563EB]/30 gap-1">
                         <PlayCircle className="h-2.5 w-2.5" /> Video URL
                       </Badge>
                     )}
                     {m.notes && (
-                      <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/20 text-[9px] font-bold gap-0.5">
+                      <Badge variant="outline" className="text-[9px] font-semibold text-[#16A34A] border-[#16A34A]/30 gap-1">
                         <StickyNote className="h-2.5 w-2.5" /> Notes
                       </Badge>
                     )}
                     {m.practiceDescription && (
-                      <Badge className="bg-[#9333EA]/10 text-[#9333EA] border border-[#9333EA]/20 text-[9px] font-bold gap-0.5">
-                        <Dumbbell className="h-2.5 w-2.5" /> Code Challenge
+                      <Badge variant="outline" className="text-[9px] font-semibold text-[#9333EA] border-[#9333EA]/30 gap-1">
+                        <Code2 className="h-2.5 w-2.5" /> Code Challenge
                       </Badge>
                     )}
                     {m.quizQuestions && (
-                      <Badge className="bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20 text-[9px] font-bold gap-0.5">
+                      <Badge variant="outline" className="text-[9px] font-semibold text-[#D97706] border-[#D97706]/30 gap-1">
                         <ListChecks className="h-2.5 w-2.5" /> Quiz
                       </Badge>
                     )}
@@ -854,10 +838,10 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
-                <Badge variant="outline" className="text-xs font-mono font-bold px-3 py-1 border-[#2563EB]/30 text-[#2563EB]">
+                <Badge variant="outline" className="text-xs font-mono font-semibold px-3 py-1 border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]">
                   {m.duration}
                 </Badge>
-                <Button onClick={() => openEditModuleFromSyllabus(m)} variant="outline" size="sm" className="h-8 text-xs font-bold gap-1 border-[#F59E0B] text-[#F59E0B]">
+                <Button onClick={() => openEditModuleFromSyllabus(m)} variant="outline" size="sm" className="h-8 text-xs font-semibold gap-1 border-[#D97706] text-[#D97706]">
                   <Edit className="h-3.5 w-3.5" /> Edit
                 </Button>
                 <Button onClick={() => handleDeleteModuleInSyllabus(m.id, m.title)} variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626]">
@@ -877,38 +861,38 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     return (
       <div className="space-y-8 max-w-4xl mx-auto">
         <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button onClick={() => setViewState("syllabus")} variant="outline" size="sm" className="h-9 font-bold text-xs gap-2">
+          <Button onClick={() => setViewState("syllabus")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
             <ArrowLeft className="h-4 w-4" /> Back to Syllabus
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-              {isEditMod ? "Edit Lesson / Module Content" : "Author New Lesson / Module"}
+              {isEditMod ? "Edit Lesson Content" : "Author New Lesson"}
             </h1>
             <p className="text-xs text-[#6B7280]">{selectedCourse.title}</p>
           </div>
         </div>
 
         <form onSubmit={handleSaveModuleInSyllabus} className="space-y-6">
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-3xl shadow-sm space-y-5">
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-5">
             <div className="space-y-2">
               <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module / Lesson Title</label>
-              <Input placeholder="e.g. Next.js 16 Middleware & JWT Verification" value={modTitle}
+              <Input placeholder="e.g. Next.js 16 Middleware & JWT Authorization" value={modTitle}
                 onChange={(e) => setModTitle(e.target.value)} required
-                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
+                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Type</label>
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Delivery Type</label>
                 <Select value={modType} onValueChange={(v) => setModType((v as any) || "video")}>
-                  <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="video">📹 Video Lesson + Notes</SelectItem>
-                    <SelectItem value="coding">💻 Coding Challenge (Monaco)</SelectItem>
-                    <SelectItem value="reading">📄 Reading Material</SelectItem>
-                    <SelectItem value="quiz">❓ Quiz Evaluation</SelectItem>
+                    <SelectItem value="video">Video Lesson & Notes</SelectItem>
+                    <SelectItem value="coding">Coding Challenge (Monaco Editor)</SelectItem>
+                    <SelectItem value="reading">Reading Material & Documentation</SelectItem>
+                    <SelectItem value="quiz">Quiz Assessment</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -916,65 +900,62 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Lesson Duration</label>
                 <Input placeholder="e.g. 45 mins" value={modDur} onChange={(e) => setModDur(e.target.value)} required
-                  className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
+                  className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
               </div>
             </div>
           </Card>
 
-          {/* VIDEO */}
           {modType === "video" && (
-            <Card className="p-6 rounded-3xl border-2 border-[#2563EB]/20 bg-[#2563EB]/5 space-y-5">
+            <Card className="p-6 rounded-2xl border border-[#2563EB]/20 bg-[#2563EB]/5 space-y-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
                   <Link2 className="h-3.5 w-3.5 text-[#2563EB]" /> Video URL
                 </label>
                 <Input type="url" placeholder="https://www.youtube.com/watch?v=..." value={modVideoUrl}
-                  onChange={(e) => setModVideoUrl(e.target.value)} className="h-[48px] text-xs rounded-xl bg-white dark:bg-[#09090B]" />
+                  onChange={(e) => setModVideoUrl(e.target.value)} className="h-[48px] text-xs rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Lesson Notes</label>
                 <Textarea placeholder="# Lesson Notes..." value={modNotes} onChange={(e) => setModNotes(e.target.value)} rows={6}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
               </div>
             </Card>
           )}
 
-          {/* CODING */}
           {modType === "coding" && (
-            <Card className="p-6 rounded-3xl border-2 border-[#9333EA]/20 bg-[#9333EA]/5 space-y-5">
+            <Card className="p-6 rounded-2xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-5">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Description</label>
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement</label>
                 <Textarea placeholder="Problem statement..." value={modDesc} onChange={(e) => setModDesc(e.target.value)} rows={4}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Test Cases</label>
                 <Textarea placeholder="Input: 'hello' → Output: 'olleh'" value={modTestCases} onChange={(e) => setModTestCases(e.target.value)} rows={3}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Starter Code</label>
                 <Textarea placeholder="function solution() {}" value={modStarter} onChange={(e) => setModStarter(e.target.value)} rows={4}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
               </div>
             </Card>
           )}
 
-          {/* QUIZ */}
           {modType === "quiz" && (
-            <Card className="p-6 rounded-3xl border-2 border-[#F59E0B]/20 bg-[#F59E0B]/5 space-y-5">
+            <Card className="p-6 rounded-2xl border border-[#D97706]/20 bg-[#D97706]/5 space-y-5">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Quiz MCQ Questions</label>
-                <Textarea placeholder={"Q1. Question?\nA) Option 1\nB) Option 2 ✓"} value={modQuiz} onChange={(e) => setModQuiz(e.target.value)} rows={8}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Quiz MCQ Items</label>
+                <Textarea placeholder={"Q1. Question?\nA) Option 1\nB) Option 2 (Correct)"} value={modQuiz} onChange={(e) => setModQuiz(e.target.value)} rows={8}
+                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
               </div>
             </Card>
           )}
 
           <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-            <Button type="button" variant="outline" onClick={() => setViewState("syllabus")} className="h-[48px] px-6 font-bold text-xs rounded-xl">Cancel</Button>
-            <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
-              <Sparkles className="h-4 w-4" /> Save Module
+            <Button type="button" variant="outline" onClick={() => setViewState("syllabus")} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
+            <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
+              Save Module
             </Button>
           </div>
         </form>
@@ -990,29 +971,29 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div>
           <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            {role === "admin" ? "Enterprise Course & Curriculum Manager" : "Assigned Training Courses"}
+            {role === "admin" ? "Enterprise Course & Curriculum Management" : "Assigned Training Courses"}
           </h1>
           <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Author courses with step-by-step wizard (Course Info → Curriculum Modules → Review & Publish)
+            Author courses with step-by-step wizard (Course Info → Curriculum Modules → Review & Deploy)
           </p>
         </div>
         <Button onClick={openCreateWizard}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20">
+          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm">
           <Plus className="h-4 w-4" /> Author New Course (3-Step Wizard)
         </Button>
       </div>
 
-      {/* Filter */}
-      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4">
+      {/* Filter Bar */}
+      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
             <Input placeholder="Search course title..." value={search} onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]" />
+              className="pl-10 h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
           </div>
           <Input placeholder="Filter by category..." value={categoryFilter === "all" ? "" : categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value || "all")}
-            className="h-[44px] text-xs w-full md:w-[220px] bg-[#F9FAFB] dark:bg-[#09090B]" />
+            className="h-[44px] text-xs w-full md:w-[220px] bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
         </div>
       </Card>
 
@@ -1020,13 +1001,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filtered.map((course) => (
           <Card key={course.id}
-            className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between">
+            className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between hover:border-[#2563EB]/40 transition-colors">
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <Badge variant="outline" className="text-[10px] font-bold border-[#2563EB]/30 text-[#2563EB]">
+                <Badge variant="outline" className="text-[10px] font-semibold border-[#2563EB]/30 text-[#2563EB]">
                   {course.category}
                 </Badge>
-                <Badge className={course.status === "published" ? "bg-[#16A34A] text-white text-[10px]" : "bg-[#6B7280] text-white text-[10px]"}>
+                <Badge className={course.status === "published" ? "bg-[#16A34A] text-white text-[10px] font-medium" : "bg-[#6B7280] text-white text-[10px] font-medium"}>
                   {course.status}
                 </Badge>
               </div>
@@ -1055,15 +1036,15 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               <div className="pt-2 flex items-center gap-2 flex-wrap">
                 <Button onClick={() => { setSelectedCourse(course); setViewState("syllabus"); }}
                   variant="outline" size="sm"
-                  className="flex-1 h-8 text-xs font-bold gap-1 border-[#2563EB] text-[#2563EB] min-w-0">
+                  className="flex-1 h-8 text-xs font-semibold gap-1 border-[#2563EB] text-[#2563EB] min-w-0">
                   <Eye className="h-3.5 w-3.5" /> Syllabus ({course.modules.length})
                 </Button>
                 <Button onClick={() => openEditWizard(course)} variant="outline" size="sm"
-                  className="h-8 text-xs font-bold gap-1 border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/5">
+                  className="h-8 text-xs font-semibold gap-1 border-[#D97706] text-[#D97706] hover:bg-[#D97706]/5">
                   <Edit className="h-3.5 w-3.5" /> Edit Wizard
                 </Button>
                 <Button onClick={() => handleToggleStatus(course.id)} variant="outline" size="sm"
-                  className="h-8 text-xs font-bold text-[#6B7280]">
+                  className="h-8 text-xs font-semibold text-[#6B7280] border-[#E5E7EB] dark:border-[#27272A]">
                   {course.status === "published" ? "Unpublish" : "Publish"}
                 </Button>
                 <Button onClick={() => handleDeleteCourse(course.id, course.title)} variant="ghost" size="icon"
