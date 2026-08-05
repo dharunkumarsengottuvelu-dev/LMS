@@ -1,4 +1,4 @@
-import { StudentTopNav } from "@/components/layouts/student-top-nav";
+import { StudentLayoutWrapper } from "@/components/layouts/student-layout-wrapper";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -23,12 +23,5 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const profileData = profile as { role: string; status: string };
   if (profileData.status === "suspended") redirect("/auth/login?error=suspended");
 
-  return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-[#09090B]">
-      <StudentTopNav />
-      <main className="min-h-screen">
-        <div className="max-w-[1440px] mx-auto px-4 md:px-8 py-4 md:py-8">{children}</div>
-      </main>
-    </div>
-  );
+  return <StudentLayoutWrapper>{children}</StudentLayoutWrapper>;
 }

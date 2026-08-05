@@ -34,14 +34,6 @@ export function StudentTopNav() {
   const { theme, setTheme } = useTheme();
   const { profile, signOut } = useAuth();
 
-  // Hide Top Navbar during active live tests or practice runner pages
-  const isInsideTestRunner = pathname?.startsWith("/student/tests/") && pathname !== "/student/tests";
-  const isInsidePracticeRunner = pathname?.startsWith("/student/assessments/") && pathname !== "/student/assessments";
-
-  if (isInsideTestRunner || isInsidePracticeRunner) {
-    return null;
-  }
-
   return (
     <header className="fixed top-0 left-0 right-0 z-40 h-[72px] bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] shadow-xs">
       <div className="max-w-[1440px] mx-auto h-full flex items-center justify-between gap-4 px-6 md:px-8">
