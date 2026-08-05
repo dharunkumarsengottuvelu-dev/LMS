@@ -112,12 +112,7 @@ export function StudentTopNav() {
               <DropdownMenuSeparator />
               <DropdownMenuItem>
                 <Link href="/student/profile" className="w-full flex items-center gap-2">
-                  <User className="h-4 w-4" /> Profile Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Link href="/student/settings" className="w-full flex items-center gap-2">
-                  <Settings className="h-4 w-4" /> Account Settings
+                  <User className="h-4 w-4 text-[#2563EB]" /> Profile
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
