@@ -3,10 +3,10 @@
 import React, { useState } from "react";
 import {
   BookOpen, Plus, Search, Edit, Trash2, Eye,
-  Clock, Users, Sparkles, ArrowLeft, Layers, Save,
+  Clock, Users, Sparkles, ArrowLeft, ArrowRight, Layers, Save,
   User, GraduationCap, ListChecks, PlayCircle, Link2,
   StickyNote, Code2, Dumbbell, FileText, CheckCircle2,
-  PenLine
+  PenLine, Check, ChevronRight, AlertCircle, ShieldCheck
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -125,7 +125,7 @@ const initialCourses: ManagedCourse[] = [
   },
 ];
 
-type ViewState = "list" | "create" | "edit" | "syllabus" | "add-module" | "edit-module";
+type ViewState = "list" | "wizard" | "syllabus" | "add-module" | "edit-module";
 
 // ─── Duration Picker Component ──────────────────────────────
 function DurationPicker({ hours, mins, onH, onM }: {
@@ -163,141 +163,6 @@ function DurationPicker({ hours, mins, onH, onM }: {
   );
 }
 
-// ─── Shared Course Form ────────────────────────────────────
-function CourseForm({
-  title, setTitle, category, setCategory,
-  level, setLevel, instructor, setInstructor,
-  totalLessons, setTotalLessons,
-  hours, setHours, mins, setMins,
-  desc, setDesc, onSubmit, onCancel, isEdit,
-}: {
-  title: string; setTitle: (v: string) => void;
-  category: string; setCategory: (v: string) => void;
-  level: "Beginner" | "Intermediate" | "Advanced"; setLevel: (v: "Beginner" | "Intermediate" | "Advanced") => void;
-  instructor: string; setInstructor: (v: string) => void;
-  totalLessons: number; setTotalLessons: (v: number) => void;
-  hours: number; setHours: (v: number) => void;
-  mins: number; setMins: (v: number) => void;
-  desc: string; setDesc: (v: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
-  onCancel: () => void;
-  isEdit: boolean;
-}) {
-  return (
-    <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
-      <form onSubmit={onSubmit} className="space-y-6">
-
-        {/* Course Title */}
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-            <span>Course Title</span>
-            <span className="text-[10px] font-semibold text-[#2563EB]">Required</span>
-          </label>
-          <Input placeholder="e.g. React 19 & Next.js 16 Enterprise Production Blueprint"
-            value={title} onChange={(e) => setTitle(e.target.value)} required
-            className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Domain Category */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-              <span>Domain Category</span>
-              <span className="text-[10px] text-[#6B7280]">Shown as badge on student portal</span>
-            </label>
-            <Input placeholder="e.g. Web Development, AI & ML, Cloud & DevOps..."
-              value={category} onChange={(e) => setCategory(e.target.value)} required
-              className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
-          </div>
-
-          {/* Difficulty Level */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-              <span>Difficulty Level</span>
-              <span className="text-[10px] text-[#6B7280]">Shown as badge on student portal</span>
-            </label>
-            <Select value={level} onValueChange={(v) => setLevel((v as any) || "Intermediate")}>
-              <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Beginner">🟢 Beginner</SelectItem>
-                <SelectItem value="Intermediate">🟡 Intermediate</SelectItem>
-                <SelectItem value="Advanced">🔴 Advanced</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Instructor Name */}
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-            <User className="h-3.5 w-3.5 text-[#2563EB]" /> Instructor Name
-            <span className="text-[10px] text-[#6B7280] font-normal">— shown as "Instructor: ..." on student My Courses</span>
-          </label>
-          <Input placeholder="e.g. Dr. Elena Rostova or Alex Rivera"
-            value={instructor} onChange={(e) => setInstructor(e.target.value)} required
-            className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Total Lessons */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-              <ListChecks className="h-3.5 w-3.5 text-[#2563EB]" /> Total Lessons Count
-              <span className="text-[10px] text-[#6B7280] font-normal">— "X of Y lessons" progress on student portal</span>
-            </label>
-            <Input type="number" min={1} placeholder="e.g. 28"
-              value={totalLessons} onChange={(e) => setTotalLessons(Math.max(1, Number(e.target.value)))} required
-              className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
-          </div>
-
-          {/* Enrolled students */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-              Initial Enrolled Students <span className="text-[10px] text-[#6B7280] font-normal">(optional)</span>
-            </label>
-            <Input type="number" min={0} placeholder="0" defaultValue={0}
-              className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
-          </div>
-        </div>
-
-        {/* Estimated Duration */}
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <Clock className="h-3.5 w-3.5 text-[#16A34A]" /> Estimated Course Duration
-            </span>
-            <span className="text-[10px] text-[#6B7280]">Total hours and minutes for course completion</span>
-          </label>
-          <DurationPicker hours={hours} mins={mins} onH={setHours} onM={setMins} />
-        </div>
-
-        {/* Overview Description */}
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-            <span>Overview Description & Learning Outcomes</span>
-            <span className="text-[10px] text-[#6B7280]">Shown on student course card</span>
-          </label>
-          <Textarea
-            placeholder="Write a comprehensive description of what learners will build and master..."
-            value={desc} onChange={(e) => setDesc(e.target.value)} rows={5}
-            className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
-        </div>
-
-        <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-          <Button type="button" variant="outline" onClick={onCancel}
-            className="h-[48px] px-6 font-bold text-xs rounded-xl">Cancel</Button>
-          <Button type="submit"
-            className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
-            {isEdit ? <><Save className="h-4 w-4" /> Save Changes</> : <><Sparkles className="h-4 w-4" /> Publish Course Now</>}
-          </Button>
-        </div>
-      </form>
-    </Card>
-  );
-}
-
 // ─── Main Hub ──────────────────────────────────────────────
 export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
@@ -306,20 +171,25 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [viewState, setViewState] = useState<ViewState>("list");
   const [selectedCourse, setSelectedCourse] = useState<ManagedCourse | null>(null);
-  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
-  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
 
-  // Form state for Course
+  // ── Multi-Step Wizard State ──
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
+
+  // Step 1: Course Info
   const [fTitle, setFTitle]           = useState("");
   const [fCategory, setFCategory]     = useState("");
   const [fLevel, setFLevel]           = useState<"Beginner" | "Intermediate" | "Advanced">("Intermediate");
   const [fInstructor, setFInstructor] = useState("");
-  const [fLessons, setFLessons]       = useState(20);
   const [fHours, setFHours]           = useState(0);
   const [fMins, setFMins]             = useState(0);
   const [fDesc, setFDesc]             = useState("");
 
-  // Rich Form state for Module/Lesson inside Course Syllabus
+  // Step 2: Course Modules Draft
+  const [draftModules, setDraftModules] = useState<CourseSyllabusModule[]>([]);
+
+  // Temp Module Builder inside Wizard Step 2
+  const [showModuleBuilder, setShowModuleBuilder] = useState(false);
   const [modTitle, setModTitle]         = useState("");
   const [modDur, setModDur]             = useState("45 mins");
   const [modType, setModType]           = useState<"video" | "reading" | "quiz" | "coding">("video");
@@ -331,7 +201,10 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [modStarter, setModStarter]     = useState("");
   const [modQuiz, setModQuiz]           = useState("");
 
-  const resetModuleForm = () => {
+  // Syllabus View Edit Module state
+  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
+
+  const resetModuleBuilder = () => {
     setModTitle("");
     setModDur("45 mins");
     setModType("video");
@@ -349,59 +222,113 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     (categoryFilter === "all" || c.category.toLowerCase().includes(categoryFilter.toLowerCase()))
   );
 
-  const openCreateCourse = () => {
+  // ── Open Wizard (Create or Edit) ──
+  const openCreateWizard = () => {
     setEditingCourseId(null);
     setFTitle(""); setFCategory(""); setFLevel("Intermediate");
-    setFInstructor(""); setFLessons(20); setFHours(0); setFMins(0); setFDesc("");
-    setViewState("create");
+    setFInstructor(""); setFHours(0); setFMins(0); setFDesc("");
+    setDraftModules([]);
+    resetModuleBuilder();
+    setShowModuleBuilder(false);
+    setWizardStep(1);
+    setViewState("wizard");
   };
 
-  const openEditCourse = (c: ManagedCourse) => {
+  const openEditWizard = (c: ManagedCourse) => {
     setEditingCourseId(c.id);
     setFTitle(c.title); setFCategory(c.category); setFLevel(c.level);
-    setFInstructor(c.instructor); setFLessons(c.totalLessons);
+    setFInstructor(c.instructor);
     setFHours(c.durationHours); setFMins(c.durationMins); setFDesc(c.description);
-    setViewState("edit");
+    setDraftModules([...c.modules]);
+    resetModuleBuilder();
+    setShowModuleBuilder(false);
+    setWizardStep(1);
+    setViewState("wizard");
   };
 
-  const handleCreateCourse = (e: React.FormEvent) => {
+  // ── Add module to Wizard Step 2 draft ──
+  const handleAddModuleToDraft = (e: React.FormEvent) => {
     e.preventDefault();
-    const created: ManagedCourse = {
-      id: `mc_${Date.now()}`,
-      title: fTitle, category: fCategory || "General",
-      level: fLevel, status: "published",
-      enrolledStudents: 0, totalLessons: fLessons,
-      instructor: fInstructor || "Course Instructor",
-      durationHours: fHours, durationMins: fMins,
-      description: fDesc || "Newly authored interactive training module.",
-      modules: [],
+    if (!modTitle) return;
+    const newMod: CourseSyllabusModule = {
+      id: `mod_${Date.now()}`,
+      title: modTitle,
+      duration: modDur,
+      type: modType,
+      videoUrl: modType === "video" ? modVideoUrl : undefined,
+      notes: modType === "video" ? modNotes : undefined,
+      readingContent: modType === "reading" ? modReading : undefined,
+      practiceDescription: modType === "coding" ? modDesc : undefined,
+      practiceTestCases: modType === "coding" ? modTestCases : undefined,
+      practiceStarterCode: modType === "coding" ? modStarter : undefined,
+      quizQuestions: modType === "quiz" ? modQuiz : undefined,
     };
-    setCourses((prev) => [created, ...prev]);
-    setViewState("list");
-    toast({ title: "Course Published ✅", description: `"${fTitle}" is live for students.` });
+    setDraftModules((prev) => [...prev, newMod]);
+    resetModuleBuilder();
+    setShowModuleBuilder(false);
+    toast({ title: "Module Added to Draft", description: `"${modTitle}" added.` });
   };
 
-  const handleEditCourse = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCourseId) return;
-    setCourses((prev) => prev.map((c) =>
-      c.id === editingCourseId ? {
-        ...c, title: fTitle, category: fCategory || "General", level: fLevel,
-        instructor: fInstructor, totalLessons: fLessons,
-        durationHours: fHours, durationMins: fMins, description: fDesc,
-      } : c
-    ));
-    setViewState("list");
-    toast({ title: "Course Updated ✅", description: `"${fTitle}" saved.` });
+  const removeDraftModule = (id: string) => {
+    setDraftModules((prev) => prev.filter((m) => m.id !== id));
   };
 
-  const openAddModule = () => {
-    resetModuleForm();
+  // ── Final Step 3: Finish / Publish Course ──
+  const handlePublishCourse = () => {
+    if (!fTitle) {
+      toast({ title: "Course Title Required", description: "Please go to Step 1 and enter a title.", variant: "destructive" });
+      setWizardStep(1);
+      return;
+    }
+
+    if (editingCourseId) {
+      // Update existing course
+      setCourses((prev) => prev.map((c) =>
+        c.id === editingCourseId ? {
+          ...c,
+          title: fTitle,
+          category: fCategory || "General",
+          level: fLevel,
+          instructor: fInstructor || "Course Instructor",
+          durationHours: fHours,
+          durationMins: fMins,
+          description: fDesc,
+          modules: draftModules,
+          totalLessons: draftModules.length,
+        } : c
+      ));
+      toast({ title: "Course Updated Successfully ✅", description: `"${fTitle}" saved with ${draftModules.length} modules.` });
+    } else {
+      // Create new course
+      const created: ManagedCourse = {
+        id: `mc_${Date.now()}`,
+        title: fTitle,
+        category: fCategory || "General",
+        level: fLevel,
+        status: "published",
+        enrolledStudents: 0,
+        totalLessons: draftModules.length,
+        instructor: fInstructor || "Course Instructor",
+        durationHours: fHours,
+        durationMins: fMins,
+        description: fDesc || "Newly authored interactive training course.",
+        modules: draftModules,
+      };
+      setCourses((prev) => [created, ...prev]);
+      toast({ title: "Course Published Successfully 🎉", description: `"${fTitle}" is now live for students!` });
+    }
+
+    setViewState("list");
+  };
+
+  // ── Separate Syllabus View Module Handlers ──
+  const openAddModuleFromSyllabus = () => {
+    resetModuleBuilder();
     setEditingModuleId(null);
     setViewState("add-module");
   };
 
-  const openEditModule = (m: CourseSyllabusModule) => {
+  const openEditModuleFromSyllabus = (m: CourseSyllabusModule) => {
     setEditingModuleId(m.id);
     setModTitle(m.title);
     setModDur(m.duration);
@@ -416,7 +343,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setViewState("edit-module");
   };
 
-  const handleSaveModule = (e: React.FormEvent) => {
+  const handleSaveModuleInSyllabus = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCourse || !modTitle) return;
 
@@ -449,12 +376,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
     setSelectedCourse(updatedCourse);
     setCourses((prev) => prev.map((c) => (c.id === selectedCourse.id ? updatedCourse : c)));
-    resetModuleForm();
+    resetModuleBuilder();
     setViewState("syllabus");
     toast({ title: editingModuleId ? "Module Updated ✅" : "Module Added ✅", description: `"${modTitle}" saved to course.` });
   };
 
-  const handleDeleteModule = (modId: string, title: string) => {
+  const handleDeleteModuleInSyllabus = (modId: string, title: string) => {
     if (!selectedCourse) return;
     const updatedModules = selectedCourse.modules.filter((m) => m.id !== modId);
     const updatedCourse = { ...selectedCourse, modules: updatedModules, totalLessons: updatedModules.length };
@@ -476,47 +403,420 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     toast({ title: "Course Removed", description: title, variant: "destructive" });
   };
 
-  // ── VIEW: CREATE ─────────────────────────────────────────
-  if (viewState === "create") return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs gap-2">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">Author New Enterprise Course</h1>
-          <p className="text-xs text-[#6B7280]">All fields here are shown to students on their portal</p>
+  // ════════════════════════════════════════════════════════════
+  // VIEW: MULTI-STEP WIZARD (STEP 1 → STEP 2 → STEP 3)
+  // ════════════════════════════════════════════════════════════
+  if (viewState === "wizard") {
+    return (
+      <div className="space-y-8 max-w-4xl mx-auto pb-12">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs gap-2">
+              <ArrowLeft className="h-4 w-4" /> Cancel & Exit Wizard
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+                {editingCourseId ? "Edit Course Wizard" : "Author New Course Wizard"}
+              </h1>
+              <p className="text-xs text-[#6B7280]">Step-by-step course authoring & curriculum setup</p>
+            </div>
+          </div>
         </div>
-      </div>
-      <CourseForm title={fTitle} setTitle={setFTitle} category={fCategory} setCategory={setFCategory}
-        level={fLevel} setLevel={setFLevel} instructor={fInstructor} setInstructor={setFInstructor}
-        totalLessons={fLessons} setTotalLessons={setFLessons}
-        hours={fHours} setHours={setFHours} mins={fMins} setMins={setFMins}
-        desc={fDesc} setDesc={setFDesc} onSubmit={handleCreateCourse} onCancel={() => setViewState("list")} isEdit={false} />
-    </div>
-  );
 
-  // ── VIEW: EDIT ───────────────────────────────────────────
-  if (viewState === "edit") return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs gap-2">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">Edit Course Details</h1>
-          <p className="text-xs text-[#6B7280]">Changes reflect immediately on student portal</p>
+        {/* STEP PROGRESS BAR */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { step: 1, title: "1. Course Details", desc: "Title, instructor, duration" },
+            { step: 2, title: "2. Curriculum & Content", desc: "Videos, notes, coding, quiz" },
+            { step: 3, title: "3. Review & Publish", desc: "Final verification" },
+          ].map((item) => {
+            const isActive = wizardStep === item.step;
+            const isCompleted = wizardStep > item.step;
+            return (
+              <button
+                key={item.step}
+                type="button"
+                onClick={() => setWizardStep(item.step as 1 | 2 | 3)}
+                className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                  isActive
+                    ? "border-[#2563EB] bg-[#2563EB]/5 dark:bg-[#2563EB]/10"
+                    : isCompleted
+                    ? "border-[#16A34A] bg-[#16A34A]/5"
+                    : "border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] opacity-60"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-bold ${isActive ? "text-[#2563EB]" : isCompleted ? "text-[#16A34A]" : "text-[#6B7280]"}`}>
+                    {item.title}
+                  </span>
+                  {isCompleted ? (
+                    <CheckCircle2 className="h-4 w-4 text-[#16A34A]" />
+                  ) : (
+                    <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                      isActive ? "bg-[#2563EB] text-white" : "bg-[#E5E7EB] text-[#6B7280]"
+                    }`}>
+                      {item.step}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[#6B7280] mt-1">{item.desc}</p>
+              </button>
+            );
+          })}
         </div>
-      </div>
-      <CourseForm title={fTitle} setTitle={setFTitle} category={fCategory} setCategory={setFCategory}
-        level={fLevel} setLevel={setFLevel} instructor={fInstructor} setInstructor={setFInstructor}
-        totalLessons={fLessons} setTotalLessons={setFLessons}
-        hours={fHours} setHours={setFHours} mins={fMins} setMins={setFMins}
-        desc={fDesc} setDesc={setFDesc} onSubmit={handleEditCourse} onCancel={() => setViewState("list")} isEdit={true} />
-    </div>
-  );
 
-  // ── VIEW: SYLLABUS ───────────────────────────────────────
+        {/* ── STEP 1: COURSE METADATA ── */}
+        {wizardStep === 1 && (
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm space-y-6">
+            <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
+              <BookOpen className="h-4 w-4 text-[#2563EB]" /> Step 1: Basic Course Metadata
+            </h2>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
+                <span>Course Title</span>
+                <span className="text-[10px] font-semibold text-[#2563EB]">Required</span>
+              </label>
+              <Input placeholder="e.g. React 19 & Next.js 16 Enterprise Production Blueprint"
+                value={fTitle} onChange={(e) => setFTitle(e.target.value)} required
+                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Domain Category</label>
+                <Input placeholder="e.g. Web Development, AI & ML, DevOps..."
+                  value={fCategory} onChange={(e) => setFCategory(e.target.value)} required
+                  className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Difficulty Level</label>
+                <Select value={fLevel} onValueChange={(v) => setFLevel((v as any) || "Intermediate")}>
+                  <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Beginner">🟢 Beginner</SelectItem>
+                    <SelectItem value="Intermediate">🟡 Intermediate</SelectItem>
+                    <SelectItem value="Advanced">🔴 Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                <User className="h-3.5 w-3.5 text-[#2563EB]" /> Instructor Name
+              </label>
+              <Input placeholder="e.g. Dr. Elena Rostova or Alex Rivera"
+                value={fInstructor} onChange={(e) => setFInstructor(e.target.value)} required
+                className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 text-[#16A34A]" /> Estimated Course Duration
+                </span>
+                <span className="text-[10px] text-[#6B7280]">Hours & Minutes</span>
+              </label>
+              <DurationPicker hours={fHours} mins={fMins} onH={setFHours} onM={setFMins} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Overview Description & Learning Outcomes</label>
+              <Textarea placeholder="Write course description for student portal..."
+                value={fDesc} onChange={(e) => setFDesc(e.target.value)} rows={4}
+                className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+            </div>
+
+            <div className="pt-4 flex items-center justify-end border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <Button type="button" onClick={() => {
+                if (!fTitle) {
+                  toast({ title: "Title Required", description: "Please enter course title first.", variant: "destructive" });
+                  return;
+                }
+                setWizardStep(2);
+              }} className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
+                Next: Add Curriculum Content <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* ── STEP 2: CURRICULUM MODULES & CONTENT ── */}
+        {wizardStep === 2 && (
+          <div className="space-y-6">
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-3xl shadow-sm space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
+                    <Layers className="h-4 w-4 text-[#9333EA]" /> Step 2: Curriculum Modules & Content ({draftModules.length} Modules)
+                  </h2>
+                  <p className="text-xs text-[#6B7280] mt-0.5">Configure Video URLs, Notes, Coding Challenges, and Quizzes</p>
+                </div>
+                <Button type="button" onClick={() => { resetModuleBuilder(); setShowModuleBuilder(true); }}
+                  className="h-10 px-4 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold text-xs rounded-xl gap-2">
+                  <Plus className="h-4 w-4" /> Add Module
+                </Button>
+              </div>
+
+              {/* Draft Modules List */}
+              {draftModules.length === 0 && !showModuleBuilder && (
+                <div className="text-center py-12 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF]">
+                  <Layers className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-xs font-semibold">No modules added to this course draft yet.</p>
+                  <p className="text-[11px] mt-1">Click "Add Module" to configure videos, notes, coding challenges or quizzes.</p>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {draftModules.map((m, idx) => (
+                  <div key={m.id} className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <span className="w-8 h-8 rounded-xl bg-[#9333EA]/10 text-[#9333EA] font-bold text-xs flex items-center justify-center border border-[#9333EA]/20 shrink-0">
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm truncate">{m.title}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <Badge className="text-[10px] font-bold capitalize bg-[#9333EA] text-white">{m.type}</Badge>
+                          {m.videoUrl && (
+                            <Badge className="bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 text-[9px] font-bold gap-0.5">
+                              <PlayCircle className="h-2.5 w-2.5" /> Video URL
+                            </Badge>
+                          )}
+                          {m.notes && (
+                            <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/20 text-[9px] font-bold gap-0.5">
+                              <StickyNote className="h-2.5 w-2.5" /> Notes
+                            </Badge>
+                          )}
+                          {m.readingContent && (
+                            <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/20 text-[9px] font-bold gap-0.5">
+                              <FileText className="h-2.5 w-2.5" /> Article
+                            </Badge>
+                          )}
+                          {m.practiceDescription && (
+                            <Badge className="bg-[#9333EA]/10 text-[#9333EA] border border-[#9333EA]/20 text-[9px] font-bold gap-0.5">
+                              <Dumbbell className="h-2.5 w-2.5" /> Code Challenge
+                            </Badge>
+                          )}
+                          {m.quizQuestions && (
+                            <Badge className="bg-[#F59E0B]/10 text-[#F59E0B] border border-[#F59E0B]/20 text-[9px] font-bold gap-0.5">
+                              <ListChecks className="h-2.5 w-2.5" /> Quiz
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <Badge variant="outline" className="text-xs font-mono font-bold px-3 py-1 border-[#9333EA]/30 text-[#9333EA]">
+                        {m.duration}
+                      </Badge>
+                      <Button type="button" onClick={() => removeDraftModule(m.id)} variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626]">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* INLINE MODULE BUILDER */}
+            {showModuleBuilder && (
+              <Card className="bg-white dark:bg-[#18181B] border-2 border-[#9333EA] p-6 rounded-3xl space-y-5 shadow-lg">
+                <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#9333EA] flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" /> Add Module Content
+                  </h3>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowModuleBuilder(false)} className="text-xs">
+                    Cancel
+                  </Button>
+                </div>
+
+                <form onSubmit={handleAddModuleToDraft} className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module / Lesson Title</label>
+                    <Input placeholder="e.g. Next.js 16 Middleware & JWT Verification" value={modTitle}
+                      onChange={(e) => setModTitle(e.target.value)} required
+                      className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Type</label>
+                      <Select value={modType} onValueChange={(v) => setModType((v as any) || "video")}>
+                        <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="video">📹 Video Lesson + Notes</SelectItem>
+                          <SelectItem value="coding">💻 Coding Challenge (Monaco)</SelectItem>
+                          <SelectItem value="reading">📄 Reading Material</SelectItem>
+                          <SelectItem value="quiz">❓ Quiz Evaluation</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration</label>
+                      <Input placeholder="e.g. 45 mins" value={modDur} onChange={(e) => setModDur(e.target.value)} required
+                        className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
+                    </div>
+                  </div>
+
+                  {/* VIDEO TYPE FIELDS */}
+                  {modType === "video" && (
+                    <div className="p-5 rounded-2xl border border-[#2563EB]/20 bg-[#2563EB]/5 space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                          <Link2 className="h-3.5 w-3.5 text-[#2563EB]" /> Video URL (YouTube, Vimeo, Loom, Drive)
+                        </label>
+                        <Input type="url" placeholder="https://www.youtube.com/watch?v=..." value={modVideoUrl}
+                          onChange={(e) => setModVideoUrl(e.target.value)} className="h-[44px] text-xs rounded-xl bg-white dark:bg-[#09090B]" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                          <StickyNote className="h-3.5 w-3.5 text-[#2563EB]" /> Lesson Notes & Key Takeaways
+                        </label>
+                        <Textarea placeholder="# Lesson Notes..." value={modNotes} onChange={(e) => setModNotes(e.target.value)} rows={5}
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* READING TYPE FIELDS */}
+                  {modType === "reading" && (
+                    <div className="p-5 rounded-2xl border border-[#16A34A]/20 bg-[#16A34A]/5 space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Full Article Content</label>
+                        <Textarea placeholder="# Article Content..." value={modReading} onChange={(e) => setModReading(e.target.value)} rows={8}
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CODING TYPE FIELDS */}
+                  {modType === "coding" && (
+                    <div className="p-5 rounded-2xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Description</label>
+                        <Textarea placeholder="Problem statement..." value={modDesc} onChange={(e) => setModDesc(e.target.value)} rows={4}
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Test Cases (Input → Output)</label>
+                        <Textarea placeholder="Input: 'hello' → Output: 'olleh'" value={modTestCases} onChange={(e) => setModTestCases(e.target.value)} rows={3}
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Starter Code</label>
+                        <Textarea placeholder="function solution(input) {}" value={modStarter} onChange={(e) => setModStarter(e.target.value)} rows={4}
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* QUIZ TYPE FIELDS */}
+                  {modType === "quiz" && (
+                    <div className="p-5 rounded-2xl border border-[#F59E0B]/20 bg-[#F59E0B]/5 space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Quiz MCQ Questions</label>
+                        <Textarea placeholder={"Q1. Question?\nA) Option 1\nB) Option 2 ✓"} value={modQuiz} onChange={(e) => setModQuiz(e.target.value)} rows={6}
+                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button type="button" variant="outline" onClick={() => setShowModuleBuilder(false)} className="h-10 text-xs font-bold">Cancel</Button>
+                    <Button type="submit" className="h-10 px-6 bg-[#9333EA] text-white font-bold text-xs rounded-xl">Add Module to Draft</Button>
+                  </div>
+                </form>
+              </Card>
+            )}
+
+            {/* Step 2 Buttons */}
+            <div className="flex items-center justify-between pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <Button type="button" variant="outline" onClick={() => setWizardStep(1)} className="h-[48px] px-6 font-bold text-xs gap-2 rounded-xl">
+                <ArrowLeft className="h-4 w-4" /> Previous: Course Info
+              </Button>
+              <Button type="button" onClick={() => setWizardStep(3)} className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
+                Next: Review & Publish <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP 3: REVIEW & PUBLISH ── */}
+        {wizardStep === 3 && (
+          <div className="space-y-6">
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm space-y-6">
+              <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
+                <CheckCircle2 className="h-4 w-4 text-[#16A34A]" /> Step 3: Final Verification & Publish
+              </h2>
+
+              <div className="p-6 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="text-xs font-bold border-[#2563EB]/30 text-[#2563EB]">
+                    {fCategory || "General"}
+                  </Badge>
+                  <Badge className="bg-[#16A34A] text-white text-xs">{fLevel}</Badge>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">{fTitle || "Untitled Course"}</h3>
+                  <p className="text-xs text-[#6B7280] mt-1">Instructor: <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{fInstructor || "Course Instructor"}</span></p>
+                  <p className="text-xs text-[#6B7280] mt-2 leading-relaxed">{fDesc || "No description provided."}</p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 pt-3 border-t border-[#E5E7EB] dark:border-[#27272A] text-xs">
+                  <div>
+                    <span className="text-[#6B7280]">Duration:</span>
+                    <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">{formatDuration(fHours, fMins)}</p>
+                  </div>
+                  <div>
+                    <span className="text-[#6B7280]">Total Modules:</span>
+                    <p className="font-bold text-[#2563EB]">{draftModules.length} Modules</p>
+                  </div>
+                  <div>
+                    <span className="text-[#6B7280]">Status:</span>
+                    <p className="font-bold text-[#16A34A]">Published</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modules Summary */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Curriculum Modules Summary ({draftModules.length}):</h4>
+                {draftModules.map((m, idx) => (
+                  <div key={m.id} className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between text-xs">
+                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{idx + 1}. {m.title}</span>
+                    <Badge className="text-[10px] bg-[#9333EA] text-white capitalize">{m.type} ({m.duration})</Badge>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                <Button type="button" variant="outline" onClick={() => setWizardStep(2)} className="h-[48px] px-6 font-bold text-xs gap-2 rounded-xl">
+                  <ArrowLeft className="h-4 w-4" /> Previous: Modules
+                </Button>
+                <Button type="button" onClick={handlePublishCourse} className="h-[48px] px-8 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#16A34A]/20">
+                  <Sparkles className="h-4 w-4" /> {editingCourseId ? "Save & Update Course" : "🚀 Publish Course Now"}
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // VIEW: SYLLABUS DIRECT VIEW
+  // ════════════════════════════════════════════════════════════
   if (viewState === "syllabus" && selectedCourse) return (
     <div className="space-y-8 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
@@ -529,7 +829,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             <p className="text-xs text-[#6B7280]">{selectedCourse.category} • {selectedCourse.level} • Instructor: {selectedCourse.instructor}</p>
           </div>
         </div>
-        <Button onClick={openAddModule}
+        <Button onClick={openAddModuleFromSyllabus}
           className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-2 px-5 rounded-xl shrink-0">
           <Plus className="h-4 w-4" /> Add Module / Lesson
         </Button>
@@ -540,14 +840,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           <span className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-[#2563EB]" /> Course Syllabus ({selectedCourse.modules.length} Lessons)
           </span>
-          <span className="text-xs text-[#6B7280]">Configure Video URLs, Notes, Code Challenges, or Quizzes</span>
         </h2>
 
         {selectedCourse.modules.length === 0 && (
           <div className="text-center py-12 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF]">
             <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-30" />
             <p className="text-xs font-semibold">No modules authored for this course yet.</p>
-            <Button onClick={openAddModule} size="sm" className="mt-3 bg-[#2563EB] text-white font-bold text-xs">
+            <Button onClick={openAddModuleFromSyllabus} size="sm" className="mt-3 bg-[#2563EB] text-white font-bold text-xs">
               <Plus className="h-3.5 w-3.5 mr-1" /> Add First Module
             </Button>
           </div>
@@ -574,11 +873,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                         <StickyNote className="h-2.5 w-2.5" /> Notes
                       </Badge>
                     )}
-                    {m.readingContent && (
-                      <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/20 text-[9px] font-bold gap-0.5">
-                        <FileText className="h-2.5 w-2.5" /> Article
-                      </Badge>
-                    )}
                     {m.practiceDescription && (
                       <Badge className="bg-[#9333EA]/10 text-[#9333EA] border border-[#9333EA]/20 text-[9px] font-bold gap-0.5">
                         <Dumbbell className="h-2.5 w-2.5" /> Code Challenge
@@ -597,10 +891,10 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 <Badge variant="outline" className="text-xs font-mono font-bold px-3 py-1 border-[#2563EB]/30 text-[#2563EB]">
                   {m.duration}
                 </Badge>
-                <Button onClick={() => openEditModule(m)} variant="outline" size="sm" className="h-8 text-xs font-bold gap-1 border-[#F59E0B] text-[#F59E0B]">
+                <Button onClick={() => openEditModuleFromSyllabus(m)} variant="outline" size="sm" className="h-8 text-xs font-bold gap-1 border-[#F59E0B] text-[#F59E0B]">
                   <Edit className="h-3.5 w-3.5" /> Edit
                 </Button>
-                <Button onClick={() => handleDeleteModule(m.id, m.title)} variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626]">
+                <Button onClick={() => handleDeleteModuleInSyllabus(m.id, m.title)} variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626]">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -611,7 +905,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     </div>
   );
 
-  // ── VIEW: ADD / EDIT MODULE (WITH RICH CONTENT AUTHORING) ─
+  // ── VIEW: ADD / EDIT MODULE IN SYLLABUS DIRECT VIEW ─────
   if ((viewState === "add-module" || viewState === "edit-module") && selectedCourse) {
     const isEditMod = viewState === "edit-module";
     return (
@@ -628,18 +922,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           </div>
         </div>
 
-        <form onSubmit={handleSaveModule} className="space-y-6">
-          {/* Basic Module Header */}
+        <form onSubmit={handleSaveModuleInSyllabus} className="space-y-6">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-3xl shadow-sm space-y-5">
-            <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] uppercase tracking-wider flex items-center gap-2">
-              <Layers className="h-4 w-4 text-[#2563EB]" /> Lesson Basic Metadata
-            </h2>
-
             <div className="space-y-2">
               <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module / Lesson Title</label>
               <Input placeholder="e.g. Next.js 16 Middleware & JWT Verification" value={modTitle}
                 onChange={(e) => setModTitle(e.target.value)} required
-                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+                className="h-[48px] text-sm rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -661,150 +950,65 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Lesson Duration</label>
                 <Input placeholder="e.g. 45 mins" value={modDur} onChange={(e) => setModDur(e.target.value)} required
-                  className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+                  className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
               </div>
             </div>
           </Card>
 
-          {/* ── RICH CONTENT AUTHORING BY TYPE ── */}
-
-          {/* VIDEO TYPE */}
+          {/* VIDEO */}
           {modType === "video" && (
-            <Card className="p-6 rounded-3xl border-2 border-[#2563EB]/20 bg-[#2563EB]/5 dark:bg-[#2563EB]/10 space-y-5">
-              <div className="flex items-center gap-2">
-                <PlayCircle className="h-5 w-5 text-[#2563EB]" />
-                <span className="text-xs font-bold text-[#2563EB] uppercase tracking-wider">Video Lesson Content</span>
-              </div>
-
+            <Card className="p-6 rounded-3xl border-2 border-[#2563EB]/20 bg-[#2563EB]/5 space-y-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
                   <Link2 className="h-3.5 w-3.5 text-[#2563EB]" /> Video URL
-                  <span className="text-[10px] text-[#6B7280] font-normal">(YouTube, Vimeo, Loom, Google Drive, MP4 link)</span>
                 </label>
-                <Input
-                  type="url"
-                  placeholder="https://www.youtube.com/watch?v=... or https://vimeo.com/..."
-                  value={modVideoUrl}
-                  onChange={(e) => setModVideoUrl(e.target.value)}
-                  className="h-[48px] text-xs rounded-xl bg-white dark:bg-[#09090B] border-[#2563EB]/30"
-                />
-                {modVideoUrl && (
-                  <p className="text-[10px] text-[#16A34A] font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Valid Video URL configured
-                  </p>
-                )}
+                <Input type="url" placeholder="https://www.youtube.com/watch?v=..." value={modVideoUrl}
+                  onChange={(e) => setModVideoUrl(e.target.value)} className="h-[48px] text-xs rounded-xl bg-white dark:bg-[#09090B]" />
               </div>
-
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                  <StickyNote className="h-3.5 w-3.5 text-[#2563EB]" /> Lesson Notes & References
-                  <span className="text-[10px] text-[#6B7280] font-normal">(Shown alongside video on student learning portal)</span>
-                </label>
-                <Textarea
-                  placeholder={"# Key Concepts\n- Concept 1\n- Concept 2\n\n```js\nconst example = 'code snippet';\n```"}
-                  value={modNotes}
-                  onChange={(e) => setModNotes(e.target.value)}
-                  rows={8}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#2563EB]/30"
-                />
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Lesson Notes</label>
+                <Textarea placeholder="# Lesson Notes..." value={modNotes} onChange={(e) => setModNotes(e.target.value)} rows={6}
+                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
               </div>
             </Card>
           )}
 
-          {/* READING TYPE */}
-          {modType === "reading" && (
-            <Card className="p-6 rounded-3xl border-2 border-[#16A34A]/20 bg-[#16A34A]/5 dark:bg-[#16A34A]/10 space-y-5">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-[#16A34A]" />
-                <span className="text-xs font-bold text-[#16A34A] uppercase tracking-wider">Reading Material Content</span>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                  <PenLine className="h-3.5 w-3.5 text-[#16A34A]" /> Full Article Text
-                  <span className="text-[10px] text-[#6B7280] font-normal">(Markdown supported)</span>
-                </label>
-                <Textarea
-                  placeholder={"# Introduction\nWrite full article text here..."}
-                  value={modReading}
-                  onChange={(e) => setModReading(e.target.value)}
-                  rows={12}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#16A34A]/30"
-                />
-              </div>
-            </Card>
-          )}
-
-          {/* CODING TYPE */}
+          {/* CODING */}
           {modType === "coding" && (
-            <Card className="p-6 rounded-3xl border-2 border-[#9333EA]/20 bg-[#9333EA]/5 dark:bg-[#9333EA]/10 space-y-5">
-              <div className="flex items-center gap-2">
-                <Code2 className="h-5 w-5 text-[#9333EA]" />
-                <span className="text-xs font-bold text-[#9333EA] uppercase tracking-wider">Coding Challenge Setup</span>
-              </div>
-
+            <Card className="p-6 rounded-3xl border-2 border-[#9333EA]/20 bg-[#9333EA]/5 space-y-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Description</label>
-                <Textarea
-                  placeholder="Write the problem statement and constraints for students..."
-                  value={modDesc}
-                  onChange={(e) => setModDesc(e.target.value)}
-                  rows={5}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#9333EA]/30"
-                />
+                <Textarea placeholder="Problem statement..." value={modDesc} onChange={(e) => setModDesc(e.target.value)} rows={4}
+                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
               </div>
-
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Test Cases (Input → Expected Output)</label>
-                <Textarea
-                  placeholder={"Input: 'hello' → Output: 'olleh'\nInput: '' → Output: ''"}
-                  value={modTestCases}
-                  onChange={(e) => setModTestCases(e.target.value)}
-                  rows={4}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#9333EA]/30"
-                />
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Test Cases</label>
+                <Textarea placeholder="Input: 'hello' → Output: 'olleh'" value={modTestCases} onChange={(e) => setModTestCases(e.target.value)} rows={3}
+                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
               </div>
-
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Starter Code Template</label>
-                <Textarea
-                  placeholder={"function solution(input) {\n  // Write solution here\n}"}
-                  value={modStarter}
-                  onChange={(e) => setModStarter(e.target.value)}
-                  rows={5}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#9333EA]/30"
-                />
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Starter Code</label>
+                <Textarea placeholder="function solution() {}" value={modStarter} onChange={(e) => setModStarter(e.target.value)} rows={4}
+                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
               </div>
             </Card>
           )}
 
-          {/* QUIZ TYPE */}
+          {/* QUIZ */}
           {modType === "quiz" && (
-            <Card className="p-6 rounded-3xl border-2 border-[#F59E0B]/20 bg-[#F59E0B]/5 dark:bg-[#F59E0B]/10 space-y-5">
-              <div className="flex items-center gap-2">
-                <ListChecks className="h-5 w-5 text-[#F59E0B]" />
-                <span className="text-xs font-bold text-[#F59E0B] uppercase tracking-wider">Quiz Questions (MCQ)</span>
-              </div>
-
+            <Card className="p-6 rounded-3xl border-2 border-[#F59E0B]/20 bg-[#F59E0B]/5 space-y-5">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Quiz Format Questions</label>
-                <Textarea
-                  placeholder={"Q1. Question text?\nA) Choice 1\nB) Choice 2 ✓\nC) Choice 3"}
-                  value={modQuiz}
-                  onChange={(e) => setModQuiz(e.target.value)}
-                  rows={10}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#F59E0B]/30"
-                />
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Quiz MCQ Questions</label>
+                <Textarea placeholder={"Q1. Question?\nA) Option 1\nB) Option 2 ✓"} value={modQuiz} onChange={(e) => setModQuiz(e.target.value)} rows={8}
+                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B]" />
               </div>
             </Card>
           )}
 
           <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-            <Button type="button" variant="outline" onClick={() => setViewState("syllabus")} className="h-[48px] px-6 font-bold text-xs rounded-xl">
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={() => setViewState("syllabus")} className="h-[48px] px-6 font-bold text-xs rounded-xl">Cancel</Button>
             <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-md shadow-[#2563EB]/20">
-              <Sparkles className="h-4 w-4" /> {isEditMod ? "Save Module Changes" : "Publish Module to Course"}
+              <Sparkles className="h-4 w-4" /> Save Module
             </Button>
           </div>
         </form>
@@ -812,7 +1016,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     );
   }
 
-  // ── VIEW: LIST COURSES ───────────────────────────────────
+  // ════════════════════════════════════════════════════════════
+  // VIEW: LIST COURSES
+  // ════════════════════════════════════════════════════════════
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
@@ -821,12 +1027,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             {role === "admin" ? "Enterprise Course & Curriculum Manager" : "Assigned Training Courses"}
           </h1>
           <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Author courses and full module content (Videos, Notes, Code Challenges, Quizzes) for students
+            Author courses with step-by-step wizard (Course Info → Curriculum Modules → Review & Publish)
           </p>
         </div>
-        <Button onClick={openCreateCourse}
+        <Button onClick={openCreateWizard}
           className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20">
-          <Plus className="h-4 w-4" /> Author New Course
+          <Plus className="h-4 w-4" /> Author New Course (3-Step Wizard)
         </Button>
       </div>
 
@@ -886,9 +1092,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   className="flex-1 h-8 text-xs font-bold gap-1 border-[#2563EB] text-[#2563EB] min-w-0">
                   <Eye className="h-3.5 w-3.5" /> Syllabus ({course.modules.length})
                 </Button>
-                <Button onClick={() => openEditCourse(course)} variant="outline" size="sm"
+                <Button onClick={() => openEditWizard(course)} variant="outline" size="sm"
                   className="h-8 text-xs font-bold gap-1 border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/5">
-                  <Edit className="h-3.5 w-3.5" /> Edit
+                  <Edit className="h-3.5 w-3.5" /> Edit Wizard
                 </Button>
                 <Button onClick={() => handleToggleStatus(course.id)} variant="outline" size="sm"
                   className="h-8 text-xs font-bold text-[#6B7280]">
