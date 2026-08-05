@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Clock, ChevronLeft, ChevronRight, Flag, CheckCircle2,
-  AlertTriangle, BookmarkCheck, Send, Grid3x3
+  Send, Grid3x3, AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -140,7 +140,7 @@ export function MCQAssessmentEngine({
       <button
         onClick={() => { setCurrentIndex(index); setShowPalette(false); }}
         className={cn(
-          "w-9 h-9 rounded-lg text-xs font-bold transition-all duration-200 border",
+          "w-10 h-10 rounded-lg text-xs font-bold transition-all duration-150 border flex items-center justify-center",
           index === currentIndex && "ring-2 ring-[#2563EB] ring-offset-2",
           status === "answered" && "bg-[#16A34A] text-white border-[#16A34A]",
           status === "marked" && "bg-[#F59E0B] text-white border-[#F59E0B]",
@@ -157,81 +157,84 @@ export function MCQAssessmentEngine({
   const currentAnswers = answers[currentQuestion.id] ?? [];
 
   return (
-    <div className="space-y-6">
-      {/* Assessment Header Bar */}
-      <div className="sticky top-[72px] z-30 bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex-1 min-w-0">
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Sticky High-Contrast Assessment Header Bar */}
+      <div className="sticky top-[72px] z-30 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-xl shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="font-semibold text-lg text-[#111827] dark:text-[#FAFAFA] truncate">
               {assessment.title}
             </h1>
             <p className="text-xs font-medium text-[#4B5563] dark:text-[#9CA3AF] mt-0.5">
-              Question {currentIndex + 1} of {totalQuestions} • {answeredCount} answered
+              Question <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{currentIndex + 1}</span> of {totalQuestions} • <span className="font-bold text-[#2563EB]">{answeredCount}</span> answered
             </p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
-            {/* Timer Box */}
+            {/* High Contrast Countdown Timer */}
             <div className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-bold text-base border",
-              isDanger ? "border-[#DC2626] bg-[#FEF2F2] text-[#DC2626]" :
-              isWarning ? "border-[#F59E0B] bg-[#FFFBEB] text-[#D97706]" :
+              "flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-bold text-base border shadow-sm",
+              isDanger ? "border-[#DC2626] bg-[#FEF2F2] dark:bg-[#450A0A] text-[#DC2626] dark:text-[#FCA5A5]" :
+              isWarning ? "border-[#F59E0B] bg-[#FFFBEB] dark:bg-[#451A03] text-[#D97706] dark:text-[#FCD34D]" :
               "border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA]"
             )}>
               <Clock className="h-4 w-4 shrink-0" />
               {formatTimerDisplay(timeLeft)}
             </div>
 
-            {/* Question Palette Drawer */}
+            {/* Question Palette Sheet */}
             <Sheet open={showPalette} onOpenChange={setShowPalette}>
               <SheetTrigger>
-                <Button variant="outline" size="sm" className="h-[40px] gap-1.5 font-medium">
-                  <Grid3x3 className="h-4 w-4" />
-                  <span>Question Palette</span>
+                <Button variant="outline" className="h-[42px] px-4 gap-2 font-medium text-xs text-[#111827] dark:text-[#FAFAFA] border-[#E5E7EB] dark:border-[#27272A]">
+                  <Grid3x3 className="h-4 w-4 text-[#2563EB]" />
+                  <span>Palette</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-80">
+              <SheetContent side="right" className="w-80 bg-white dark:bg-[#18181B] border-l border-[#E5E7EB] dark:border-[#27272A]">
                 <SheetHeader>
                   <SheetTitle className="text-base font-semibold text-[#111827] dark:text-[#FAFAFA]">Question Palette</SheetTitle>
                 </SheetHeader>
-                <div className="mt-4 space-y-4">
-                  <div className="grid grid-cols-7 gap-2">
+                <div className="mt-6 space-y-5">
+                  <div className="grid grid-cols-6 gap-2">
                     {questions.map((q, i) => (
                       <PaletteButton key={q.id} index={i} question={q} />
                     ))}
                   </div>
-                  <Progress value={(answeredCount / totalQuestions) * 100} className="h-2" />
-                  <p className="text-xs text-[#4B5563] dark:text-[#9CA3AF] text-center font-medium">
-                    {answeredCount} of {totalQuestions} questions answered
-                  </p>
+                  <div className="space-y-1.5 pt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                    <div className="flex items-center justify-between text-xs font-semibold text-[#4B5563] dark:text-[#9CA3AF]">
+                      <span>Progress</span>
+                      <span>{Math.round((answeredCount / totalQuestions) * 100)}%</span>
+                    </div>
+                    <Progress value={(answeredCount / totalQuestions) * 100} className="h-2" />
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
 
-            {/* Submit Button */}
+            {/* Submit Assessment Button */}
             <Button
               onClick={() => setShowSubmitDialog(true)}
-              className="h-[40px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-medium gap-1.5"
+              className="h-[42px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-medium text-xs gap-1.5 shadow-sm"
             >
-              <Send className="h-4 w-4" /> Submit Assessment
+              <Send className="h-4 w-4" /> Submit
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Main Question Card */}
-      <Card className="border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B]">
+      {/* Main Question Card with Ultra Crisp Typography & Visibility */}
+      <Card className="border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] shadow-sm">
         <CardContent className="p-8 space-y-6">
-          {/* Question Header Badges */}
+          {/* Badges Bar */}
           <div className="flex items-center justify-between gap-4 border-b border-[#E5E7EB] dark:border-[#27272A] pb-4">
             <div className="flex items-center gap-3">
-              <Badge variant="outline" className="text-xs font-semibold px-3 py-1">
+              <span className="text-xs font-bold px-3 py-1 rounded bg-[#2563EB]/10 text-[#2563EB]">
                 Question {currentIndex + 1}
-              </Badge>
-              <Badge className="bg-[#2563EB] text-white text-xs font-medium">
+              </span>
+              <span className="text-xs font-semibold px-3 py-1 rounded bg-[#F3F4F6] dark:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA]">
                 {currentQuestion.type === "multiple_choice" ? "Multiple Select" : "Single Choice"}
-              </Badge>
-              <span className="text-xs font-semibold text-[#4B5563] dark:text-[#9CA3AF]">
+              </span>
+              <span className="text-xs font-bold text-[#4B5563] dark:text-[#D1D5DB]">
                 {currentQuestion.marks} Marks
               </span>
             </div>
@@ -240,10 +243,10 @@ export function MCQAssessmentEngine({
               variant="outline"
               size="sm"
               className={cn(
-                "gap-1.5 text-xs h-9 font-medium",
+                "gap-1.5 text-xs h-9 font-semibold transition-colors",
                 markedForReview.has(currentQuestion.id)
                   ? "bg-[#F59E0B]/10 border-[#F59E0B] text-[#D97706]"
-                  : "text-[#4B5563] dark:text-[#9CA3AF]"
+                  : "text-[#4B5563] dark:text-[#D1D5DB] border-[#E5E7EB] dark:border-[#27272A]"
               )}
               onClick={toggleMarkForReview}
             >
@@ -252,12 +255,12 @@ export function MCQAssessmentEngine({
             </Button>
           </div>
 
-          {/* Question Text (High-contrast Crisp Font) */}
-          <h2 className="text-[18px] font-semibold text-[#111827] dark:text-[#FAFAFA] leading-relaxed">
+          {/* Question Text */}
+          <h2 className="text-[20px] font-semibold text-[#111827] dark:text-[#FAFAFA] leading-relaxed">
             {currentQuestion.text}
           </h2>
 
-          {/* Option List */}
+          {/* Options List with High-Contrast Text & Clear Selected State */}
           <div className="space-y-3 pt-2">
             {currentQuestion.type === "single_choice" || currentQuestion.type === "true_false" ? (
               <RadioGroup
@@ -272,16 +275,16 @@ export function MCQAssessmentEngine({
                       key={option.id}
                       onClick={() => handleSingleAnswer(currentQuestion.id, option.id)}
                       className={cn(
-                        "flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all duration-150",
+                        "flex items-center gap-4 p-5 rounded-xl border cursor-pointer transition-all duration-150",
                         isSelected
-                          ? "bg-[#2563EB]/10 border-2 border-[#2563EB]"
-                          : "bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB]/50"
+                          ? "bg-[#2563EB]/10 dark:bg-[#2563EB]/20 border-2 border-[#2563EB] shadow-sm"
+                          : "bg-[#FAFAFA] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB]/60 hover:bg-[#F3F4F6] dark:hover:bg-[#18181B]"
                       )}
                     >
-                      <RadioGroupItem value={option.id} id={`opt-${option.id}`} className="shrink-0" />
+                      <RadioGroupItem value={option.id} id={`opt-${option.id}`} className="shrink-0 text-[#2563EB]" />
                       <Label
                         htmlFor={`opt-${option.id}`}
-                        className="cursor-pointer text-[15px] font-medium text-[#111827] dark:text-[#FAFAFA] leading-relaxed flex-1"
+                        className="cursor-pointer text-[15px] font-semibold text-[#111827] dark:text-[#FAFAFA] leading-relaxed flex-1"
                       >
                         {option.text}
                       </Label>
@@ -298,10 +301,10 @@ export function MCQAssessmentEngine({
                     <div
                       key={option.id}
                       className={cn(
-                        "flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all duration-150",
+                        "flex items-center gap-4 p-5 rounded-xl border cursor-pointer transition-all duration-150",
                         isSelected
-                          ? "bg-[#2563EB]/10 border-2 border-[#2563EB]"
-                          : "bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB]/50"
+                          ? "bg-[#2563EB]/10 dark:bg-[#2563EB]/20 border-2 border-[#2563EB] shadow-sm"
+                          : "bg-[#FAFAFA] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB]/60 hover:bg-[#F3F4F6] dark:hover:bg-[#18181B]"
                       )}
                     >
                       <Checkbox
@@ -310,9 +313,9 @@ export function MCQAssessmentEngine({
                         onCheckedChange={(checked) =>
                           handleMultipleAnswer(currentQuestion.id, option.id, checked === true)
                         }
-                        className="shrink-0"
+                        className="shrink-0 text-[#2563EB]"
                       />
-                      <Label htmlFor={`opt-${option.id}`} className="cursor-pointer text-[15px] font-medium text-[#111827] dark:text-[#FAFAFA] leading-relaxed flex-1">
+                      <Label htmlFor={`opt-${option.id}`} className="cursor-pointer text-[15px] font-semibold text-[#111827] dark:text-[#FAFAFA] leading-relaxed flex-1">
                         {option.text}
                       </Label>
                     </div>
@@ -324,40 +327,40 @@ export function MCQAssessmentEngine({
         </CardContent>
       </Card>
 
-      {/* Navigation Footer Controls */}
-      <div className="flex items-center justify-between gap-4 p-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
+      {/* Sticky Bottom Controls */}
+      <div className="sticky bottom-6 z-30 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl shadow-lg flex items-center justify-between gap-4">
         <Button
           variant="outline"
           onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
           disabled={currentIndex === 0}
-          className="h-[44px] px-6 font-medium text-sm gap-2"
+          className="h-[44px] px-6 font-semibold text-sm gap-2 border-[#E5E7EB] dark:border-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
         >
           <ChevronLeft className="h-4 w-4" /> Previous
         </Button>
 
-        <span className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">
+        <span className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
           {currentIndex + 1} / {totalQuestions}
         </span>
 
         <Button
           onClick={() => setCurrentIndex((prev) => Math.min(totalQuestions - 1, prev + 1))}
           disabled={currentIndex === totalQuestions - 1}
-          className="h-[44px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-medium text-sm gap-2"
+          className="h-[44px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm gap-2"
         >
           Next <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Confirmation Dialog */}
+      {/* Final Submit Confirmation Modal */}
       <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-semibold text-[#111827] dark:text-[#FAFAFA]">Submit Assessment?</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-[#4B5563] leading-relaxed">
-              You have answered <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{answeredCount}</span> out of <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{totalQuestions}</span> questions. Once submitted, you cannot modify your answers.
+            <AlertDialogDescription className="text-sm text-[#4B5563] dark:text-[#9CA3AF] leading-relaxed">
+              You have answered <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{answeredCount}</span> out of <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{totalQuestions}</span> questions. Once submitted, your scores will be locked.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-2">
             <AlertDialogCancel className="h-[44px]">Review Answers</AlertDialogCancel>
             <AlertDialogAction onClick={handleFinalSubmit} className="h-[44px] bg-[#2563EB] text-white hover:bg-[#1D4ED8]">
               Confirm & Submit

@@ -17,6 +17,8 @@ const PUBLIC_ROUTES = [
   "/contact",
   "/courses",
   "/pricing",
+  "/login",
+  "/register",
   "/auth/login",
   "/auth/register",
   "/auth/forgot-password",
@@ -49,7 +51,7 @@ function getRoleDefaultPath(role: string): string {
     case "student":
       return "/student/dashboard";
     default:
-      return "/auth/login";
+      return "/login";
   }
 }
 
@@ -75,14 +77,13 @@ export async function middleware(request: NextRequest) {
 
   // If user is not logged in and trying to access a protected route
   if (!user && !isPublic && requiredRoles !== null) {
-    const redirectUrl = new URL("/auth/login", request.url);
+    const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
   // If user IS logged in and tries to access auth pages, redirect to dashboard
-  if (user && pathname.startsWith("/auth/")) {
-    // Fetch user role from profile
+  if (user && (pathname.startsWith("/auth/") || pathname === "/login" || pathname === "/register")) {
     const supabase = createServerClient(
       process.env["NEXT_PUBLIC_SUPABASE_URL"]!,
       process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]!,
@@ -91,9 +92,7 @@ export async function middleware(request: NextRequest) {
           getAll() {
             return request.cookies.getAll();
           },
-          setAll() {
-            // No-op here; handled by updateSession
-          },
+          setAll() {},
         },
       }
     );
@@ -111,55 +110,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // If user is logged in but doesn't have the required role
-  if (user && requiredRoles !== null) {
-    const supabase = createServerClient(
-      process.env["NEXT_PUBLIC_SUPABASE_URL"]!,
-      process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll();
-          },
-          setAll() {
-            // handled by updateSession
-          },
-        },
-      }
-    );
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!profile || !requiredRoles.includes(profile.role)) {
-      // Redirect to their appropriate dashboard instead of a generic 403
-      const userRole = profile?.role ?? "student";
-      const redirectPath = getRoleDefaultPath(userRole);
-
-      // If they're already at their dashboard path, show unauthorized
-      if (pathname.startsWith(redirectPath.split("/")[1] ?? "")) {
-        return NextResponse.redirect(new URL("/unauthorized", request.url));
-      }
-
-      return NextResponse.redirect(new URL(redirectPath, request.url));
-    }
-  }
-
   return supabaseResponse;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths EXCEPT:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     * - public folder assets
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
