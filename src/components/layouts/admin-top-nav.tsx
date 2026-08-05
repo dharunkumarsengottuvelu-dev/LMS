@@ -52,11 +52,6 @@ export function AdminTopNav({ breadcrumbs, title, notificationCount = 0 }: TopNa
         ) : null}
       </div>
 
-      {/* Search Input (44px height) */}
-      <div className="relative hidden md:block w-72">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#6B7280] dark:text-[#A1A1AA]" />
-        <Input placeholder="Search system..." className="pl-10 h-[44px] text-sm bg-[#FAFAFA] dark:bg-[#09090B]" />
-      </div>
 
       {/* Notifications */}
       <Link href="/admin/notifications" className="relative inline-flex items-center justify-center h-[44px] w-[44px] rounded-lg hover:bg-[#F5F5F5] dark:hover:bg-[#27272A] transition-colors">

@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Search, User, LogOut } from "lucide-react";
+import { Bell, User, LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -73,14 +72,6 @@ export function StudentTopNav() {
 
         {/* Right Controls */}
         <div className="flex items-center gap-3 shrink-0 ml-auto">
-          {/* Search Input */}
-          <div className="relative hidden lg:block w-48">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6B7280]" />
-            <Input
-              placeholder="Search portal..."
-              className="pl-8.5 h-9 text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-lg focus-visible:ring-1 focus-visible:ring-[#2563EB]"
-            />
-          </div>
 
           {/* Notifications */}
           <Link
