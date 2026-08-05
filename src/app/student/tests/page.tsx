@@ -148,15 +148,6 @@ export default function StudentTestsPage() {
             Scheduled Tests & Proctored Exams
           </h1>
         </div>
-
-        {/* Admin/Trainer Proctoring Config Info Pill */}
-        <div className="flex items-center gap-2.5 bg-[#2563EB]/10 border border-[#2563EB]/20 px-4 py-2.5 rounded-xl shrink-0">
-          <UserCheck className="h-5 w-5 text-[#2563EB]" />
-          <div className="text-xs">
-            <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">Instructor Proctoring & Security Active</p>
-            <p className="text-[#6B7280]">SEB, Fullscreen, and Copy-Paste rules configured by Trainer</p>
-          </div>
-        </div>
       </div>
 
       {/* 2. Tabs Filter */}
