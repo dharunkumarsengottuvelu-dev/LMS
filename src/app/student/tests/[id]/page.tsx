@@ -32,86 +32,135 @@ interface QuestionItem {
   sampleOutput?: string;
 }
 
-const mockExamQuestions: QuestionItem[] = [
-  {
-    id: 1,
-    type: "mcq",
-    question: "What is the primary benefit of React 19 Server Components in Next.js 16?",
-    options: [
-      "Components execute on the client side only",
-      "Zero bundle size for server components rendered on the server",
-      "Server components disable all CSS styles",
-      "They eliminate the need for PostgreSQL databases"
-    ],
-    correctOption: 1,
-    explanation: "Server Components execute exclusively on the server, sending zero client JS bundle weight for those components."
-  },
-  {
-    id: 2,
-    type: "mcq",
-    question: "Which Supabase PostgreSQL feature restricts data access based on authentication policies?",
-    options: [
-      "Foreign Key Constraints",
-      "Row Level Security (RLS)",
-      "B-Tree Indexes",
-      "WAL Replication Log"
-    ],
-    correctOption: 1,
-    explanation: "Row Level Security (RLS) allows database administrators to define SQL policies restricting rows based on user authentication."
-  },
-  {
-    id: 3,
-    type: "coding",
-    question: "Coding Problem 1: Implement Array Deduplication",
-    problemStatement: "Write a function `uniqueArray(arr)` that accepts an array of numbers and returns a new array with all duplicate values removed.",
-    starterCode: {
-      javascript: "function uniqueArray(arr) {\n  // Write your code here\n  return Array.from(new Set(arr));\n}\n\nconsole.log(uniqueArray([1, 2, 2, 3, 4, 4, 5]));",
-      python: "def unique_array(arr):\n    # Write your code here\n    return list(set(arr))\n\nprint(unique_array([1, 2, 2, 3, 4, 4, 5]))",
+// Dynamic Mock Question Sets per Test ID
+const mockQuestionSets: Record<string, QuestionItem[]> = {
+  t1: [
+    {
+      id: 1,
+      type: "mcq",
+      question: "What is the primary benefit of React 19 Server Components in Next.js 16?",
+      options: [
+        "Components execute on the client side only",
+        "Zero bundle size for server components rendered on the server",
+        "Server components disable all CSS styles",
+        "They eliminate the need for PostgreSQL databases"
+      ],
+      correctOption: 1,
+      explanation: "Server Components execute exclusively on the server, sending zero client JS bundle weight for those components."
     },
-    sampleOutput: "[1, 2, 3, 4, 5]",
-  },
-  {
-    id: 4,
-    type: "mcq",
-    question: "How do Middleware files in Next.js execute relative to incoming HTTP requests?",
-    options: [
-      "After the page component renders in the browser",
-      "Before a request is completed, intercepting headers and routing",
-      "Only during build time npm run build",
-      "Inside WebAssembly sandbox threads"
-    ],
-    correctOption: 1,
-    explanation: "Next.js Middleware runs before a request is completed, allowing URL redirects and header authentication."
-  },
-  {
-    id: 5,
-    type: "coding",
-    question: "Coding Problem 2: Validate Email Format",
-    problemStatement: "Write a function `isValidEmail(email)` that returns `true` if the string contains '@' and '.', otherwise `false`.",
-    starterCode: {
-      javascript: "function isValidEmail(email) {\n  return email.includes('@') && email.includes('.');\n}\n\nconsole.log(isValidEmail('student@edunexus.io'));",
-      python: "def is_valid_email(email):\n    return '@' in email and '.' in email\n\nprint(is_valid_email('student@edunexus.io'))",
+    {
+      id: 2,
+      type: "mcq",
+      question: "Which Supabase PostgreSQL feature restricts data access based on authentication policies?",
+      options: [
+        "Foreign Key Constraints",
+        "Row Level Security (RLS)",
+        "B-Tree Indexes",
+        "WAL Replication Log"
+      ],
+      correctOption: 1,
+      explanation: "Row Level Security (RLS) allows database administrators to define SQL policies restricting rows based on user authentication."
     },
-    sampleOutput: "true",
-  }
-];
+    {
+      id: 3,
+      type: "coding",
+      question: "Coding Problem 1: Implement Array Deduplication",
+      problemStatement: "Write a function `uniqueArray(arr)` that accepts an array of numbers and returns a new array with all duplicate values removed.",
+      starterCode: {
+        javascript: "function uniqueArray(arr) {\n  // Write your code here\n  return Array.from(new Set(arr));\n}\n\nconsole.log(uniqueArray([1, 2, 2, 3, 4, 4, 5]));",
+        python: "def unique_array(arr):\n    # Write your code here\n    return list(set(arr))\n\nprint(unique_array([1, 2, 2, 3, 4, 4, 5]))",
+      },
+      sampleOutput: "[1, 2, 3, 4, 5]",
+    },
+    {
+      id: 4,
+      type: "mcq",
+      question: "How do Middleware files in Next.js execute relative to incoming HTTP requests?",
+      options: [
+        "After the page component renders in the browser",
+        "Before a request is completed, intercepting headers and routing",
+        "Only during build time npm run build",
+        "Inside WebAssembly sandbox threads"
+      ],
+      correctOption: 1,
+      explanation: "Next.js Middleware runs before a request is completed, allowing URL redirects and header authentication."
+    },
+    {
+      id: 5,
+      type: "coding",
+      question: "Coding Problem 2: Validate Email Format",
+      problemStatement: "Write a function `isValidEmail(email)` that returns `true` if the string contains '@' and '.', otherwise `false`.",
+      starterCode: {
+        javascript: "function isValidEmail(email) {\n  return email.includes('@') && email.includes('.');\n}\n\nconsole.log(isValidEmail('student@edunexus.io'));",
+        python: "def is_valid_email(email):\n    return '@' in email and '.' in email\n\nprint(is_valid_email('student@edunexus.io'))",
+      },
+      sampleOutput: "true",
+    }
+  ],
+  t2: [
+    {
+      id: 1,
+      type: "mcq",
+      question: "In System Design, what is the primary purpose of a Redis In-Memory Cache?",
+      options: [
+        "Long term database backups",
+        "Sub-millisecond high-speed data retrieval for frequent queries",
+        "Styling React HTML elements",
+        "Replacing WebGL canvas renderers"
+      ],
+      correctOption: 1,
+      explanation: "Redis caches key-value data in memory to provide ultra-fast access."
+    },
+    {
+      id: 2,
+      type: "coding",
+      question: "Coding Challenge: Reverse a Linked List Node Sequence",
+      problemStatement: "Write a function to reverse a singly linked list in linear time O(N).",
+      starterCode: {
+        javascript: "function reverseList(head) {\n  let prev = null;\n  let curr = head;\n  while (curr) {\n    let nxt = curr.next;\n    curr.next = prev;\n    prev = curr;\n    curr = nxt;\n  }\n  return prev;\n}",
+        python: "def reverse_list(head):\n    prev, curr = None, head\n    while curr:\n        nxt = curr.next\n        curr.next = prev\n        prev = curr\n        curr = nxt\n    return prev",
+      },
+      sampleOutput: "Reversed Head Node",
+    }
+  ],
+  t3: [
+    {
+      id: 1,
+      type: "mcq",
+      question: "What is the result of typeof NaN in JavaScript?",
+      options: ["'number'", "'nan'", "'undefined'", "'object'"],
+      correctOption: 0,
+      explanation: "In JS specs, NaN is of type 'number'."
+    }
+  ]
+};
+
+const mockTestMeta: Record<string, { title: string; duration: number; maxMarks: number }> = {
+  t1: { title: "Mid-Term Proctored Evaluation — Batch 2026-A", duration: 60, maxMarks: 100 },
+  t2: { title: "Final Technical Readiness Assessment", duration: 90, maxMarks: 150 },
+  t3: { title: "Fullstack Core Concepts Evaluation", duration: 45, maxMarks: 50 },
+};
 
 export default function StudentTestRunnerPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
 
+  const testId = (params?.id as string) || "t1";
+  const currentTest = mockTestMeta[testId] ?? mockTestMeta["t1"]!;
+  const currentQuestions = mockQuestionSets[testId] ?? mockQuestionSets["t1"]!;
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, any>>({});
   const [markedForReview, setMarkedForReview] = useState<Record<number, boolean>>({});
-  const [timeLeft, setTimeLeft] = useState(3600); // 60 minutes countdown
+  const [timeLeft, setTimeLeft] = useState(currentTest.duration * 60);
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [isExamSubmitted, setIsExamSubmitted] = useState(false);
   const [autoSubmittedReason, setAutoSubmittedReason] = useState<string | null>(null);
   const [scoreResult, setScoreResult] = useState<number | null>(null);
 
-  // Security & Enforcement States (Configured by Admin/Trainer)
+  // Security & Enforcement States
   const [isCopyPasteBlocked] = useState(true);
   const [isSEBRequired] = useState(true);
   const [isSEBVerified, setIsSEBVerified] = useState(false);
@@ -126,9 +175,7 @@ export default function StudentTestRunnerPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [cameraMode, setCameraMode] = useState<"hardware" | "ai_simulation">("hardware");
-  const [isCameraActive, setIsCameraActive] = useState(true);
-  const [faceConfidence, setFaceConfidence] = useState(99.8);
-  const [gazeStatus, setGazeStatus] = useState("CENTERED (LOOKING AT SCREEN)");
+  const [faceConfidence] = useState(99.8);
 
   // Check SEB Browser UserAgent
   useEffect(() => {
@@ -151,7 +198,6 @@ export default function StudentTestRunnerPage() {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
           setCameraMode("hardware");
-          setIsCameraActive(true);
           toast({
             title: "Hardware Camera Active",
             description: "Live camera stream connected with AI Face Proctoring overlay.",
@@ -163,16 +209,13 @@ export default function StudentTestRunnerPage() {
       console.warn("Hardware webcam not accessible, activating AI Simulation Engine:", err);
     }
     setCameraMode("ai_simulation");
-    setIsCameraActive(true);
   };
 
   useEffect(() => {
     requestWebcamAccess();
   }, []);
 
-  // -------------------------------------------------------------
-  // HTML5 CANVAS REAL-TIME AI FACIAL BOUNDING OVERLAY DRAWING LOOP
-  // -------------------------------------------------------------
+  // HTML5 Canvas AI Bounding Reticle Animation
   useEffect(() => {
     let animId: number;
     let scanY = 0;
@@ -189,7 +232,7 @@ export default function StudentTestRunnerPage() {
 
       ctx.clearRect(0, 0, width, height);
 
-      // 1. Draw Moving Scan Line
+      // Moving Laser Scan Line
       scanY += scanDirection * 1.5;
       if (scanY >= height || scanY <= 0) scanDirection *= -1;
 
@@ -200,7 +243,7 @@ export default function StudentTestRunnerPage() {
       ctx.lineTo(width, scanY);
       ctx.stroke();
 
-      // 2. Draw Center AI Face Bounding Reticle
+      // Center AI Reticle Box
       const boxW = 140;
       const boxH = 170;
       const boxX = (width - boxW) / 2;
@@ -210,52 +253,45 @@ export default function StudentTestRunnerPage() {
       ctx.strokeStyle = "#16A34A";
       ctx.lineWidth = 2.5;
 
-      // Top-Left Corner
       ctx.beginPath();
       ctx.moveTo(boxX, boxY + bracketLen);
       ctx.lineTo(boxX, boxY);
       ctx.lineTo(boxX + bracketLen, boxY);
       ctx.stroke();
 
-      // Top-Right Corner
       ctx.beginPath();
       ctx.moveTo(boxX + boxW - bracketLen, boxY);
       ctx.lineTo(boxX + boxW, boxY);
       ctx.lineTo(boxX + boxW, boxY + bracketLen);
       ctx.stroke();
 
-      // Bottom-Left Corner
       ctx.beginPath();
       ctx.moveTo(boxX, boxY + boxH - bracketLen);
       ctx.lineTo(boxX, boxY + boxH);
-      ctx.lineTo(boxX + boxX + bracketLen - boxX, boxY + boxH);
+      ctx.lineTo(boxX + bracketLen, boxY + boxH);
       ctx.stroke();
 
-      // Bottom-Right Corner
       ctx.beginPath();
       ctx.moveTo(boxX + boxW - bracketLen, boxY + boxH);
       ctx.lineTo(boxX + boxW, boxY + boxH);
       ctx.lineTo(boxX + boxW, boxY + boxH - bracketLen);
       ctx.stroke();
 
-      // 3. Draw Eye Tracking Crosshairs
+      // Eye Tracking Crosshairs
       const leftEyeX = boxX + 45;
       const rightEyeX = boxX + 95;
       const eyeY = boxY + 55;
 
       ctx.strokeStyle = "#2563EB";
       ctx.lineWidth = 1.5;
-      // Left Eye
       ctx.beginPath();
       ctx.arc(leftEyeX, eyeY, 6, 0, 2 * Math.PI);
       ctx.stroke();
 
-      // Right Eye
       ctx.beginPath();
       ctx.arc(rightEyeX, eyeY, 6, 0, 2 * Math.PI);
       ctx.stroke();
 
-      // 4. Draw Label Badges
       ctx.fillStyle = "#16A34A";
       ctx.font = "bold 9px monospace";
       ctx.fillText("FACE ID #8492 — 99.8%", boxX, boxY - 6);
@@ -273,7 +309,7 @@ export default function StudentTestRunnerPage() {
   const [codeConsoleOutput, setCodeConsoleOutput] = useState<string | null>(null);
   const [isRunningCode, setIsRunningCode] = useState(false);
 
-  const currentQ = (mockExamQuestions[currentIndex] || mockExamQuestions[0]) as QuestionItem;
+  const currentQ = (currentQuestions[currentIndex] || currentQuestions[0]) as QuestionItem;
 
   // FULLSCREEN & TAB SWITCH VIOLATION WITH AUTOMATIC SUBMIT
   useEffect(() => {
@@ -362,7 +398,6 @@ export default function StudentTestRunnerPage() {
     return () => clearInterval(timer);
   }, [timeLeft, isExamSubmitted, toast]);
 
-  // Prevent Copy/Paste Clipboard Event Handler
   const handleCopyPasteAttempt = (e: React.SyntheticEvent) => {
     if (isCopyPasteBlocked) {
       e.preventDefault();
@@ -374,7 +409,6 @@ export default function StudentTestRunnerPage() {
     }
   };
 
-  // Format timer MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -415,7 +449,7 @@ export default function StudentTestRunnerPage() {
     setIsExamSubmitted(true);
 
     let correctCount = 0;
-    mockExamQuestions.forEach((q) => {
+    currentQuestions.forEach((q) => {
       if (q.type === "mcq" && answers[q.id] === q.correctOption) {
         correctCount++;
       } else if (q.type === "coding" && answers[q.id]) {
@@ -423,7 +457,7 @@ export default function StudentTestRunnerPage() {
       }
     });
 
-    const calculatedScore = Math.round((correctCount / mockExamQuestions.length) * 100);
+    const calculatedScore = Math.round((correctCount / currentQuestions.length) * 100);
     setScoreResult(calculatedScore);
 
     toast({
@@ -432,7 +466,6 @@ export default function StudentTestRunnerPage() {
     });
   };
 
-  // STRICT SEB DENIAL SCREEN IF NOT RUNNING IN SAFE EXAM BROWSER
   if (isSEBRequired && !isSEBVerified) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-4">
@@ -449,21 +482,20 @@ export default function StudentTestRunnerPage() {
               Safe Exam Browser (SEB) Required!
             </h1>
             <p className="text-sm text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed max-w-lg mx-auto">
-              This evaluation was configured by your trainer to run strictly inside the official <strong>Safe Exam Browser (SEB)</strong> application. You cannot launch this test using a standard web browser (Chrome, Edge, Safari).
+              This evaluation was configured by your trainer to run strictly inside the official <strong>Safe Exam Browser (SEB)</strong> application.
             </p>
           </div>
 
           <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] text-xs text-[#6B7280] space-y-2 text-left">
             <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">How to access this exam:</p>
             <p>1. Ensure Safe Exam Browser is installed on your computer.</p>
-            <p>2. Open the SEB Configuration file or click <strong>Launch SEB Application</strong> below.</p>
-            <p>3. If testing or demonstrating, click <strong>Bypass & Simulate SEB Mode</strong>.</p>
+            <p>2. If testing or demonstrating, click <strong>Bypass & Simulate SEB Mode</strong>.</p>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <Button
               className="w-full sm:w-auto h-[44px] px-6 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold gap-2"
-              onClick={() => window.location.href = "seb://localhost:3000/student/tests/t1"}
+              onClick={() => window.location.href = `seb://localhost:3000/student/tests/${testId}`}
             >
               <ExternalLink className="h-4 w-4" /> Launch in SEB App (seb://)
             </Button>
@@ -484,8 +516,8 @@ export default function StudentTestRunnerPage() {
           </div>
 
           <div className="pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-            <Button variant="ghost" className="text-xs text-[#6B7280]" onClick={() => router.push("/student/tests")}>
-              ← Back to Scheduled Tests
+            <Button variant="ghost" className="text-xs text-[#6B7280]" onClick={() => router.back()}>
+              ← Back
             </Button>
           </div>
         </Card>
@@ -500,18 +532,27 @@ export default function StudentTestRunnerPage() {
       onContextMenu={handleCopyPasteAttempt}
       className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full select-none"
     >
-      {/* 1. MNC-Level Clean Header Bar */}
+      {/* Back Button */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A]"
+        onClick={() => router.back()}
+      >
+        <ArrowLeft className="h-4 w-4" /> Back
+      </Button>
+
+      {/* 1. Dynamic Test Header Bar */}
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           
-          {/* Left Title & Meta Info */}
           <div className="space-y-1.5 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-[18px] md:text-[20px] font-bold text-[#111827] dark:text-[#FAFAFA] leading-tight">
-                Mid-Term Proctored Evaluation — Batch 2026-A
+                {currentTest.title}
               </h1>
               <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
-                Live Test
+                Test ID: {testId.toUpperCase()}
               </Badge>
               <Badge className="bg-[#9333EA] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
                 SEB Active
@@ -521,20 +562,19 @@ export default function StudentTestRunnerPage() {
             <div className="flex flex-wrap items-center gap-3 text-xs text-[#6B7280]">
               <span>Candidate: <strong className="text-[#111827] dark:text-[#FAFAFA]">Dharunkumar S</strong></span>
               <span>•</span>
-              <span>Questions: <strong className="text-[#111827] dark:text-[#FAFAFA]">{mockExamQuestions.length} Items</strong></span>
+              <span>Questions: <strong className="text-[#111827] dark:text-[#FAFAFA]">{currentQuestions.length} Items</strong></span>
               <span>•</span>
-              <span>Max Marks: <strong className="text-[#111827] dark:text-[#FAFAFA]">100 Marks</strong></span>
+              <span>Max Marks: <strong className="text-[#111827] dark:text-[#FAFAFA]">{currentTest.maxMarks} Marks</strong></span>
             </div>
           </div>
 
-          {/* Right Actions Bar */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <Button
               variant="outline"
               className="h-[44px] px-4 border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 font-bold text-xs gap-2 shrink-0"
               onClick={() => setIsInstructionsOpen(true)}
             >
-              <Info className="h-4 w-4" /> Exam Instructions & Security Rules
+              <Info className="h-4 w-4" /> Exam Instructions & Rules
               {tabSwitchViolations > 0 && (
                 <Badge className="bg-[#DC2626] text-white text-[9px] font-bold ml-1">
                   {tabSwitchViolations}/{maxTabSwitchLimit} Alert
@@ -553,15 +593,15 @@ export default function StudentTestRunnerPage() {
                 <Send className="h-4 w-4" /> Submit Exam
               </Button>
             ) : (
-              <Button variant="outline" className="h-[44px] px-5 text-xs font-bold shrink-0" onClick={() => router.push("/student/tests")}>
-                Back to Tests Hub
+              <Button variant="outline" className="h-[44px] px-5 text-xs font-bold shrink-0" onClick={() => router.back()}>
+                Back
               </Button>
             )}
           </div>
         </div>
       </Card>
 
-      {/* RESULT SCORE BANNER IF SUBMITTED */}
+      {/* RESULT BANNER */}
       {isExamSubmitted && (
         <Card className={`bg-white dark:bg-[#18181B] border-2 p-6 shadow-sm ${autoSubmittedReason ? "border-[#DC2626]" : "border-[#16A34A]"}`}>
           <div className="flex items-center gap-5">
@@ -578,7 +618,7 @@ export default function StudentTestRunnerPage() {
                 {autoSubmittedReason ? (
                   <span className="text-[#DC2626] font-semibold">{autoSubmittedReason}</span>
                 ) : (
-                  <>Your score: <strong className="text-[#16A34A] font-bold">{scoreResult}%</strong>. The proctored log and answers have been recorded for instructor review.</>
+                  <>Your score: <strong className="text-[#16A34A] font-bold">{scoreResult}%</strong>. Your answers and logs have been saved.</>
                 )}
               </p>
             </div>
@@ -586,18 +626,16 @@ export default function StudentTestRunnerPage() {
         </Card>
       )}
 
-      {/* 2. Main Workspace Layout */}
+      {/* Main Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
         
         {/* LEFT QUESTION PANEL (8 cols) */}
         <div className="lg:col-span-8 space-y-6">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
-            
-            {/* Question Card Header */}
             <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
               <div className="flex items-center gap-2">
                 <Badge className="bg-[#2563EB] text-white text-xs font-bold px-3 py-1">
-                  Question {currentIndex + 1} of {mockExamQuestions.length}
+                  Question {currentIndex + 1} of {currentQuestions.length}
                 </Badge>
                 <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#E5E7EB] dark:border-[#27272A]">
                   {currentQ.type === "mcq" ? "MCQ Single Choice" : "Coding Challenge"}
@@ -608,8 +646,6 @@ export default function StudentTestRunnerPage() {
             </CardHeader>
 
             <CardContent className="p-6 space-y-6">
-              
-              {/* TYPE 1: MCQ QUESTION */}
               {currentQ.type === "mcq" && (
                 <div className="space-y-6">
                   <h3 className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug">
@@ -646,7 +682,6 @@ export default function StudentTestRunnerPage() {
                 </div>
               )}
 
-              {/* TYPE 2: CODING QUESTION */}
               {currentQ.type === "coding" && (
                 <div className="space-y-5">
                   <div className="p-4 bg-[#16A34A]/5 border border-[#16A34A]/20 rounded-xl space-y-2">
@@ -704,7 +739,6 @@ export default function StudentTestRunnerPage() {
                 </div>
               )}
 
-              {/* Action Controls Bar */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-6 border-t border-[#E5E7EB] dark:border-[#27272A]">
                 <div className="flex items-center gap-2">
                   <Button
@@ -739,9 +773,9 @@ export default function StudentTestRunnerPage() {
                 </div>
 
                 <Button
-                  disabled={currentIndex === mockExamQuestions.length - 1}
+                  disabled={currentIndex === currentQuestions.length - 1}
                   className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-1"
-                  onClick={() => setCurrentIndex((prev) => Math.min(mockExamQuestions.length - 1, prev + 1))}
+                  onClick={() => setCurrentIndex((prev) => Math.min(currentQuestions.length - 1, prev + 1))}
                 >
                   Next Question <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -750,10 +784,8 @@ export default function StudentTestRunnerPage() {
           </Card>
         </div>
 
-        {/* RIGHT SIDEBAR: CLEAN 2-CARD LAYOUT (4 cols) */}
+        {/* RIGHT SIDEBAR (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
-          
-          {/* 1. Question Palette Drawer (TOP CARD) */}
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
             <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
               <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
@@ -762,7 +794,7 @@ export default function StudentTestRunnerPage() {
             </CardHeader>
             <CardContent className="p-4 space-y-4">
               <div className="grid grid-cols-5 gap-2">
-                {mockExamQuestions.map((q, idx) => {
+                {currentQuestions.map((q, idx) => {
                   const isAnswered = answers[q.id] !== undefined;
                   const isMarked = markedForReview[q.id];
                   const isCurrent = currentIndex === idx;
@@ -784,7 +816,6 @@ export default function StudentTestRunnerPage() {
                 })}
               </div>
 
-              {/* Status Legend */}
               <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-[11px]">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2 text-[#4B5563]">
@@ -802,13 +833,13 @@ export default function StudentTestRunnerPage() {
                   <span className="flex items-center gap-2 text-[#4B5563]">
                     <span className="w-3 h-3 rounded-full bg-[#E5E7EB]" /> Unanswered
                   </span>
-                  <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{mockExamQuestions.length - Object.keys(answers).length}</span>
+                  <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{currentQuestions.length - Object.keys(answers).length}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* 2. HIGH-TECH HTML5 CANVAS AI PROCTORING FACE RECOGNITION ENGINE */}
+          {/* AI Face Monitor Feed */}
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden">
             <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#2563EB]/5">
               <div className="flex items-center justify-between">
@@ -824,8 +855,6 @@ export default function StudentTestRunnerPage() {
 
             <CardContent className="p-4 space-y-3">
               <div className="aspect-video bg-[#09090B] rounded-xl flex items-center justify-center text-white relative overflow-hidden border border-[#27272A]">
-                
-                {/* Hardware Webcam Video Feed */}
                 <video
                   ref={videoRef}
                   autoPlay
@@ -834,7 +863,6 @@ export default function StudentTestRunnerPage() {
                   className={`w-full h-full object-cover rounded-xl ${cameraMode === "hardware" ? "block" : "hidden"}`}
                 />
 
-                {/* Simulated AI Candidate Face Stream */}
                 {cameraMode === "ai_simulation" && (
                   <div className="w-full h-full bg-[#09090B] flex flex-col items-center justify-center text-center p-4 relative">
                     <div className="w-20 h-20 rounded-full bg-[#2563EB]/20 border-2 border-[#2563EB] flex items-center justify-center text-[#2563EB] relative">
@@ -843,7 +871,6 @@ export default function StudentTestRunnerPage() {
                   </div>
                 )}
 
-                {/* HTML5 Canvas AI Bounding Reticle Overlay (Layered on top of video) */}
                 <canvas
                   ref={canvasRef}
                   width={320}
@@ -851,45 +878,31 @@ export default function StudentTestRunnerPage() {
                   className="absolute inset-0 w-full h-full pointer-events-none z-10"
                 />
 
-                {/* Live HUD Badge */}
                 <div className="absolute top-2 left-2 z-20 bg-[#09090B]/85 backdrop-blur-xs text-[10px] font-mono text-[#16A34A] px-2 py-0.5 rounded border border-[#16A34A]/40 flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
                   AI FACE MONITOR ACTIVE
                 </div>
-
-                <div className="absolute bottom-2 right-2 z-20 bg-[#09090B]/85 backdrop-blur-xs text-[9px] font-mono text-white/80 px-2 py-0.5 rounded border border-white/20">
-                  GAZE: CENTERED
-                </div>
               </div>
 
-              {/* Status info & Camera retry control */}
               <div className="p-2.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-lg border border-[#E5E7EB] dark:border-[#27272A] text-[11px] text-[#6B7280] space-y-1">
                 <div className="flex items-center justify-between">
                   <span>• Facial Recognition:</span>
                   <strong className="text-[#16A34A]">Matched ({faceConfidence}%)</strong>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>• Eye Gaze Tracking:</span>
-                  <strong className="text-[#16A34A]">Centered</strong>
-                </div>
                 <div className="flex items-center justify-between pt-0.5">
                   <span>• Camera Source:</span>
-                  <button
-                    onClick={requestWebcamAccess}
-                    className="text-[#2563EB] font-bold hover:underline text-[10px]"
-                  >
+                  <button onClick={requestWebcamAccess} className="text-[#2563EB] font-bold hover:underline text-[10px]">
                     {cameraMode === "hardware" ? "Using Hardware Cam" : "Try Connect Hardware Cam"}
                   </button>
                 </div>
               </div>
             </CardContent>
           </Card>
-
         </div>
 
       </div>
 
-      {/* EXAM INSTRUCTIONS & SECURITY RULES MODAL (CONTAINS ENTIRE SECURITY SUMMARY NOW!) */}
+      {/* Instructions Modal */}
       <Dialog open={isInstructionsOpen} onOpenChange={setIsInstructionsOpen}>
         <DialogContent className="sm:max-w-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-5">
           <DialogHeader>
@@ -899,12 +912,8 @@ export default function StudentTestRunnerPage() {
                 Examination Rules & Security Enforcement
               </DialogTitle>
             </div>
-            <DialogDescription className="text-xs text-[#6B7280] pt-1">
-              Review active security enforcement rules configured by your instructor.
-            </DialogDescription>
           </DialogHeader>
 
-          {/* 1. Security Enforcement Summary Card Inside Instructions */}
           <div className="p-4 bg-[#9333EA]/5 rounded-2xl border border-[#9333EA]/20 space-y-3">
             <p className="font-bold text-[#9333EA] flex items-center gap-1.5 text-xs">
               <ShieldCheck className="h-4 w-4" /> Active Security Enforcement Summary
@@ -912,51 +921,21 @@ export default function StudentTestRunnerPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
-                <span className="text-[#6B7280] flex items-center gap-1.5">
-                  <MonitorCheck className="h-3.5 w-3.5 text-[#9333EA]" /> Safe Exam Browser:
-                </span>
+                <span className="text-[#6B7280] flex items-center gap-1.5"><MonitorCheck className="h-3.5 w-3.5 text-[#9333EA]" /> Safe Exam Browser:</span>
                 <span className="font-bold text-[#16A34A]">Auto Active</span>
               </div>
-
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
-                <span className="text-[#6B7280] flex items-center gap-1.5">
-                  <Maximize2 className="h-3.5 w-3.5 text-[#2563EB]" /> Mandatory Fullscreen:
-                </span>
+                <span className="text-[#6B7280] flex items-center gap-1.5"><Maximize2 className="h-3.5 w-3.5 text-[#2563EB]" /> Mandatory Fullscreen:</span>
                 <span className="font-bold text-[#16A34A]">Auto Locked</span>
               </div>
-
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
-                <span className="text-[#6B7280] flex items-center gap-1.5">
-                  <AlertTriangle className="h-3.5 w-3.5 text-[#DC2626]" /> Tab Switch Limit:
-                </span>
+                <span className="text-[#6B7280] flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5 text-[#DC2626]" /> Tab Switch Limit:</span>
                 <span className="font-bold text-[#DC2626]">{maxTabSwitchLimit} Max Allowed</span>
               </div>
-
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
-                <span className="text-[#6B7280] flex items-center gap-1.5">
-                  <CopyX className="h-3.5 w-3.5 text-[#DC2626]" /> Copy / Paste:
-                </span>
+                <span className="text-[#6B7280] flex items-center gap-1.5"><CopyX className="h-3.5 w-3.5 text-[#DC2626]" /> Copy / Paste:</span>
                 <span className="font-bold text-[#DC2626]">Blocked</span>
               </div>
-            </div>
-          </div>
-
-          {/* 2. Detailed Violation Rules */}
-          <div className="space-y-3 text-xs text-[#4B5563] dark:text-[#D1D5DB]">
-            <div className="p-3.5 bg-[#DC2626]/5 border border-[#DC2626]/20 rounded-xl space-y-1.5">
-              <p className="font-bold text-[#DC2626] flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4" /> Tab Switch Violation & Immediate Auto-Submit Policy
-              </p>
-              <p className="text-[#DC2626]">
-                You have used <strong>{tabSwitchViolations} of {maxTabSwitchLimit}</strong> allowed tab switches. Exceeding <strong>{maxTabSwitchLimit} tab switches / window exits</strong> will trigger an immediate <strong>AUTOMATIC SUBMISSION</strong> with 0 score.
-              </p>
-            </div>
-
-            <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-1.5">
-              <p className="font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-                <Camera className="h-4 w-4 text-[#2563EB]" /> Real-time AI Camera & Proctoring Log
-              </p>
-              <p>Your camera feed is active and analyzed continuously for gaze direction and candidate identity verification.</p>
             </div>
           </div>
 
@@ -968,25 +947,15 @@ export default function StudentTestRunnerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* MANDATORY FULLSCREEN VIOLATION OVERLAY MODAL */}
+      {/* FULLSCREEN MODAL */}
       <Dialog open={isFullscreenModalOpen} onOpenChange={setIsFullscreenModalOpen}>
         <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border-2 border-[#DC2626] p-6 space-y-4">
           <DialogHeader>
             <div className="flex items-center gap-2 text-[#DC2626]">
               <AlertOctagon className="h-6 w-6" />
-              <DialogTitle className="text-lg font-bold">
-                Mandatory Fullscreen Mode Required
-              </DialogTitle>
+              <DialogTitle className="text-lg font-bold">Mandatory Fullscreen Mode Required</DialogTitle>
             </div>
-            <DialogDescription className="text-xs text-[#6B7280] pt-1">
-              Your instructor has enabled mandatory Fullscreen and Safe Exam Browser security for this evaluation. You must re-enter fullscreen to continue.
-            </DialogDescription>
           </DialogHeader>
-
-          <div className="p-4 bg-[#DC2626]/10 border border-[#DC2626]/20 rounded-xl space-y-1 text-xs text-[#DC2626] font-medium">
-            <p>• Exceeding {maxTabSwitchLimit} tab switch / window focus exits auto-submits your test with 0 marks.</p>
-            <p>• Click the button below to re-engage Fullscreen Lock immediately.</p>
-          </div>
 
           <DialogFooter className="pt-2">
             <Button className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2" onClick={requestFullscreenExplicit}>
@@ -996,25 +965,19 @@ export default function StudentTestRunnerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* CONFIRM SUBMISSION MODAL */}
+      {/* CONFIRM SUBMIT MODAL */}
       <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
         <DialogContent className="sm:max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 space-y-4">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">
-              Submit Examination?
-            </DialogTitle>
+            <DialogTitle className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Submit Examination?</DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
-              You have answered {Object.keys(answers).length} out of {mockExamQuestions.length} questions. Are you sure you want to finalize your evaluation?
+              You have answered {Object.keys(answers).length} out of {currentQuestions.length} questions.
             </DialogDescription>
           </DialogHeader>
 
           <DialogFooter className="pt-2 gap-2 sm:gap-0">
-            <Button variant="outline" className="h-10 text-xs font-semibold" onClick={() => setIsSubmitDialogOpen(false)}>
-              Continue Exam
-            </Button>
-            <Button className="h-10 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold" onClick={handleSubmitExam}>
-              Yes, Submit Evaluation
-            </Button>
+            <Button variant="outline" className="h-10 text-xs font-semibold" onClick={() => setIsSubmitDialogOpen(false)}>Continue Exam</Button>
+            <Button className="h-10 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold" onClick={handleSubmitExam}>Yes, Submit Evaluation</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
