@@ -48,8 +48,25 @@ export interface ManagedCourse {
 }
 
 function formatDuration(h: number, m: number) {
-  if (h === 0 && m === 0) return "—";
+  if (h === 0 && m === 0) return "Self-paced";
   return [h > 0 ? `${h}h` : "", m > 0 ? `${m}m` : ""].filter(Boolean).join(" ");
+}
+
+// Helper to auto-calculate total duration from modules list
+function calculateModulesTotalDuration(modules: CourseSyllabusModule[] = []): string {
+  let totalMins = 0;
+  (modules || []).forEach((m) => {
+    if (m && m.duration) {
+      const match = m.duration.match(/(\d+)/);
+      if (match && match[1]) {
+        totalMins += parseInt(match[1], 10);
+      }
+    }
+  });
+  if (totalMins === 0) return "Self-paced";
+  const h = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  return formatDuration(h, mins);
 }
 
 const initialCourses: ManagedCourse[] = [
@@ -127,42 +144,6 @@ const initialCourses: ManagedCourse[] = [
 
 type ViewState = "list" | "wizard" | "syllabus" | "add-module" | "edit-module";
 
-// ─── Duration Picker Component ──────────────────────────────
-function DurationPicker({ hours, mins, onH, onM }: {
-  hours: number; mins: number;
-  onH: (v: number) => void; onM: (v: number) => void;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex-1 space-y-1">
-        <label className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider">Hours</label>
-        <div className="relative">
-          <Input type="number" min={0} max={999} value={hours}
-            onChange={(e) => onH(Math.max(0, Number(e.target.value)))}
-            className="h-[48px] text-sm font-bold rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] pr-12" />
-          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#6B7280]">hrs</span>
-        </div>
-      </div>
-      <div className="flex-1 space-y-1">
-        <label className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-wider">Minutes</label>
-        <div className="relative">
-          <Input type="number" min={0} max={59} value={mins}
-            onChange={(e) => onM(Math.min(59, Math.max(0, Number(e.target.value))))}
-            className="h-[48px] text-sm font-bold rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] pr-12" />
-          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#6B7280]">min</span>
-        </div>
-      </div>
-      {(hours > 0 || mins > 0) && (
-        <div className="pt-5">
-          <Badge className="bg-[#2563EB] text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap">
-            <Clock className="h-3 w-3 mr-1" /> {formatDuration(hours, mins)}
-          </Badge>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Main Hub ──────────────────────────────────────────────
 export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
@@ -176,13 +157,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
 
-  // Step 1: Course Info
+  // Step 1: Course Info (Cleaned up: Removed manual duration inputs)
   const [fTitle, setFTitle]           = useState("");
   const [fCategory, setFCategory]     = useState("");
   const [fLevel, setFLevel]           = useState<"Beginner" | "Intermediate" | "Advanced">("Intermediate");
   const [fInstructor, setFInstructor] = useState("");
-  const [fHours, setFHours]           = useState(0);
-  const [fMins, setFMins]             = useState(0);
   const [fDesc, setFDesc]             = useState("");
 
   // Step 2: Course Modules Draft
@@ -226,7 +205,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const openCreateWizard = () => {
     setEditingCourseId(null);
     setFTitle(""); setFCategory(""); setFLevel("Intermediate");
-    setFInstructor(""); setFHours(0); setFMins(0); setFDesc("");
+    setFInstructor(""); setFDesc("");
     setDraftModules([]);
     resetModuleBuilder();
     setShowModuleBuilder(false);
@@ -237,8 +216,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const openEditWizard = (c: ManagedCourse) => {
     setEditingCourseId(c.id);
     setFTitle(c.title); setFCategory(c.category); setFLevel(c.level);
-    setFInstructor(c.instructor);
-    setFHours(c.durationHours); setFMins(c.durationMins); setFDesc(c.description);
+    setFInstructor(c.instructor); setFDesc(c.description);
     setDraftModules([...c.modules]);
     resetModuleBuilder();
     setShowModuleBuilder(false);
@@ -290,8 +268,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           category: fCategory || "General",
           level: fLevel,
           instructor: fInstructor || "Course Instructor",
-          durationHours: fHours,
-          durationMins: fMins,
           description: fDesc,
           modules: draftModules,
           totalLessons: draftModules.length,
@@ -309,8 +285,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         enrolledStudents: 0,
         totalLessons: draftModules.length,
         instructor: fInstructor || "Course Instructor",
-        durationHours: fHours,
-        durationMins: fMins,
+        durationHours: 0,
+        durationMins: 0,
         description: fDesc || "Newly authored interactive training course.",
         modules: draftModules,
       };
@@ -427,7 +403,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         {/* STEP PROGRESS BAR */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { step: 1, title: "1. Course Details", desc: "Title, instructor, duration" },
+            { step: 1, title: "1. Course Details", desc: "Title, instructor, category" },
             { step: 2, title: "2. Curriculum & Content", desc: "Videos, notes, coding, quiz" },
             { step: 3, title: "3. Review & Publish", desc: "Final verification" },
           ].map((item) => {
@@ -466,7 +442,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           })}
         </div>
 
-        {/* ── STEP 1: COURSE METADATA ── */}
+        {/* ── STEP 1: COURSE METADATA (REMOVED MANUAL DURATION) ── */}
         {wizardStep === 1 && (
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm space-y-6">
             <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
@@ -516,19 +492,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5 text-[#16A34A]" /> Estimated Course Duration
-                </span>
-                <span className="text-[10px] text-[#6B7280]">Hours & Minutes</span>
-              </label>
-              <DurationPicker hours={fHours} mins={fMins} onH={setFHours} onM={setFMins} />
-            </div>
-
-            <div className="space-y-2">
               <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Overview Description & Learning Outcomes</label>
               <Textarea placeholder="Write course description for student portal..."
-                value={fDesc} onChange={(e) => setFDesc(e.target.value)} rows={4}
+                value={fDesc} onChange={(e) => setFDesc(e.target.value)} rows={5}
                 className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
 
@@ -774,8 +740,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
                 <div className="grid grid-cols-3 gap-4 pt-3 border-t border-[#E5E7EB] dark:border-[#27272A] text-xs">
                   <div>
-                    <span className="text-[#6B7280]">Duration:</span>
-                    <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">{formatDuration(fHours, fMins)}</p>
+                    <span className="text-[#6B7280]">Calculated Duration:</span>
+                    <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">{calculateModulesTotalDuration(draftModules)}</p>
                   </div>
                   <div>
                     <span className="text-[#6B7280]">Total Modules:</span>
@@ -1082,7 +1048,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   <GraduationCap className="h-3.5 w-3.5 text-[#9333EA]" /> {course.totalLessons} Lessons
                 </span>
                 <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5 text-[#16A34A]" /> {formatDuration(course.durationHours, course.durationMins)}
+                  <Clock className="h-3.5 w-3.5 text-[#16A34A]" /> {calculateModulesTotalDuration(course.modules)}
                 </span>
               </div>
 
