@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Clock, ShieldCheck, CheckCircle2, HelpCircle, Code2,
   Terminal, AlertTriangle, Send, RefreshCw, ChevronLeft, ChevronRight, Award,
-  Camera, Eye, Flag, RotateCcw, Video
+  Camera, Eye, Flag, RotateCcw, Video, CopyX, Maximize2, ShieldAlert, MonitorCheck
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -108,6 +108,11 @@ export default function StudentTestRunnerPage() {
   const [isExamSubmitted, setIsExamSubmitted] = useState(false);
   const [scoreResult, setScoreResult] = useState<number | null>(null);
 
+  // Admin / Trainer Security Controls
+  const [isCopyPasteBlocked] = useState(true);
+  const [isSafeExamBrowserActive] = useState(true);
+  const [isFullscreenActive, setIsFullscreenActive] = useState(true);
+
   // Coding Runner State
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [codeContent, setCodeContent] = useState("");
@@ -124,6 +129,18 @@ export default function StudentTestRunnerPage() {
     }, 1000);
     return () => clearInterval(timer);
   }, [timeLeft, isExamSubmitted]);
+
+  // Prevent Copy/Paste Clipboard Event Handler
+  const handleCopyPasteAttempt = (e: React.SyntheticEvent) => {
+    if (isCopyPasteBlocked) {
+      e.preventDefault();
+      toast({
+        variant: "destructive",
+        title: "Clipboard Restricted",
+        description: "Copy/Paste is restricted by instructor during proctored evaluation.",
+      });
+    }
+  };
 
   // Format timer MM:SS
   const formatTime = (seconds: number) => {
@@ -184,7 +201,12 @@ export default function StudentTestRunnerPage() {
   };
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full">
+    <div
+      onCopy={handleCopyPasteAttempt}
+      onPaste={handleCopyPasteAttempt}
+      onContextMenu={handleCopyPasteAttempt}
+      className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full select-none"
+    >
       
       {/* 1. MNC-Level Clean Non-Overflowing Header Bar */}
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-sm">
@@ -192,24 +214,33 @@ export default function StudentTestRunnerPage() {
           
           {/* Left Title & Meta Info */}
           <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-[20px] font-bold text-[#111827] dark:text-[#FAFAFA] tracking-tight truncate">
                 Mid-Term Proctored Evaluation — Batch 2026-A
               </h1>
               <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
                 Live Test
               </Badge>
+              {isSafeExamBrowserActive && (
+                <Badge className="bg-[#9333EA] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
+                  SEB Mode Active
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-[#6B7280]">
               Candidate: <strong className="text-[#111827] dark:text-[#FAFAFA]">Dharunkumar S</strong> | Questions: <strong>{mockExamQuestions.length}</strong> | Max Marks: <strong>100</strong>
             </p>
           </div>
 
-          {/* Right Info: Timer & Submit Exam (Strict non-overflow flex line) */}
+          {/* Right Info: Timer & Security Indicators & Submit Exam */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <div className="flex items-center gap-2 bg-[#2563EB]/10 border border-[#2563EB]/20 px-3.5 py-2 rounded-xl text-xs font-bold text-[#2563EB]">
+            <div className="flex items-center gap-1.5 bg-[#9333EA]/10 border border-[#9333EA]/20 px-3 py-2 rounded-xl text-xs font-bold text-[#9333EA]">
+              <MonitorCheck className="h-4 w-4" /> SEB Browser
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-[#2563EB]/10 border border-[#2563EB]/20 px-3 py-2 rounded-xl text-xs font-bold text-[#2563EB]">
               <span className="h-2 w-2 rounded-full bg-[#2563EB] animate-ping" />
-              <ShieldCheck className="h-4 w-4" /> AI Proctoring Active
+              <ShieldCheck className="h-4 w-4" /> Fullscreen & Proctoring
             </div>
 
             <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm font-bold border ${
@@ -412,9 +443,32 @@ export default function StudentTestRunnerPage() {
           </Card>
         </div>
 
-        {/* RIGHT PROCTORING & QUESTION PALETTE DRAWER (4 cols) */}
+        {/* RIGHT PROCTORING & SECURITY DRAWER (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
           
+          {/* Active Security Safeguards Card */}
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
+            <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#9333EA]/5">
+              <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4 text-[#9333EA]" /> Instructor Security Rules
+              </span>
+            </CardHeader>
+            <CardContent className="p-4 space-y-2 text-xs">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[#F9FAFB] dark:bg-[#09090B]">
+                <span className="text-[#6B7280] flex items-center gap-1.5"><MonitorCheck className="h-3.5 w-3.5 text-[#9333EA]" /> Safe Exam Browser:</span>
+                <span className="font-bold text-[#16A34A]">Enforced</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[#F9FAFB] dark:bg-[#09090B]">
+                <span className="text-[#6B7280] flex items-center gap-1.5"><Maximize2 className="h-3.5 w-3.5 text-[#2563EB]" /> Mandatory Fullscreen:</span>
+                <span className="font-bold text-[#16A34A]">Active</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[#F9FAFB] dark:bg-[#09090B]">
+                <span className="text-[#6B7280] flex items-center gap-1.5"><CopyX className="h-3.5 w-3.5 text-[#DC2626]" /> Copy / Paste Clipboard:</span>
+                <span className="font-bold text-[#DC2626]">Blocked</span>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* AI Proctoring Live Feed Simulation Card */}
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden">
             <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#2563EB]/5">

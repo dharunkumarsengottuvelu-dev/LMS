@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar, Clock, ShieldCheck, Play, CheckCircle2, AlertCircle,
-  FileCheck, Shield, ArrowRight, Eye, UserCheck, Lock
+  FileCheck, Shield, ArrowRight, Eye, UserCheck, Lock, MonitorCheck, CopyX, Maximize
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ interface ProctoringConfig {
   webcamTracking: boolean;
   tabSwitchLock: boolean;
   fullscreenLock: boolean;
+  safeExamBrowserRequired: boolean;
+  copyPasteRestricted: boolean;
   assignedBy: "Admin" | "Trainer";
   assignedByName: string;
 }
@@ -54,6 +56,8 @@ const mockTestsData: ScheduledTest[] = [
       webcamTracking: true,
       tabSwitchLock: true,
       fullscreenLock: true,
+      safeExamBrowserRequired: true,
+      copyPasteRestricted: true,
       assignedBy: "Trainer",
       assignedByName: "Dr. Arunkumar (Lead Technical Trainer)",
     },
@@ -71,7 +75,9 @@ const mockTestsData: ScheduledTest[] = [
       enabled: true,
       webcamTracking: true,
       tabSwitchLock: true,
-      fullscreenLock: false,
+      fullscreenLock: true,
+      safeExamBrowserRequired: false,
+      copyPasteRestricted: true,
       assignedBy: "Admin",
       assignedByName: "System Admin",
     },
@@ -93,6 +99,8 @@ const mockTestsData: ScheduledTest[] = [
       webcamTracking: false,
       tabSwitchLock: false,
       fullscreenLock: false,
+      safeExamBrowserRequired: false,
+      copyPasteRestricted: false,
       assignedBy: "Trainer",
       assignedByName: "Karthik Raja (Fullstack Instructor)",
     },
@@ -118,7 +126,7 @@ export default function StudentTestsPage() {
     toast({
       title: "Entering Exam Environment",
       description: `Starting ${selectedLobbyTest.title}... ${
-        selectedLobbyTest.proctoring.enabled ? "AI Proctoring Active." : "Standard Mode."
+        selectedLobbyTest.proctoring.enabled ? "Proctoring & Security Controls Active." : "Standard Mode."
       }`,
     });
     router.push(`/student/tests/${selectedLobbyTest.id}`);
@@ -145,8 +153,8 @@ export default function StudentTestsPage() {
         <div className="flex items-center gap-2.5 bg-[#2563EB]/10 border border-[#2563EB]/20 px-4 py-2.5 rounded-xl shrink-0">
           <UserCheck className="h-5 w-5 text-[#2563EB]" />
           <div className="text-xs">
-            <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">Instructor Proctoring Control Enabled</p>
-            <p className="text-[#6B7280]">Proctoring rules are configured when test is assigned</p>
+            <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">Instructor Proctoring & Security Active</p>
+            <p className="text-[#6B7280]">SEB, Fullscreen, and Copy-Paste rules configured by Trainer</p>
           </div>
         </div>
       </div>
@@ -223,6 +231,26 @@ export default function StudentTestsPage() {
                       </span>
                       <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{test.totalQuestions} ({test.totalMarks} Marks)</span>
                     </div>
+
+                    {/* Security Tags */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {test.proctoring.safeExamBrowserRequired && (
+                        <Badge variant="outline" className="text-[9px] border-[#9333EA]/30 text-[#9333EA] bg-[#9333EA]/5">
+                          SEB Required
+                        </Badge>
+                      )}
+                      {test.proctoring.fullscreenLock && (
+                        <Badge variant="outline" className="text-[9px] border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
+                          Fullscreen Lock
+                        </Badge>
+                      )}
+                      {test.proctoring.copyPasteRestricted && (
+                        <Badge variant="outline" className="text-[9px] border-[#DC2626]/30 text-[#DC2626] bg-[#DC2626]/5">
+                          Copy-Paste Disabled
+                        </Badge>
+                      )}
+                    </div>
+
                     <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between text-[11px]">
                       <span className="text-[#6B7280]">Assigned By:</span>
                       <span className="font-bold text-[#2563EB]">{test.proctoring.assignedBy}: {test.proctoring.assignedByName}</span>
@@ -269,11 +297,11 @@ export default function StudentTestsPage() {
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-[#2563EB]" />
               <DialogTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Exam Lobby & Instructor Rules
+                Exam Lobby & Instructor Security Controls
               </DialogTitle>
             </div>
             <DialogDescription className="text-xs text-[#6B7280] pt-1">
-              Review rules configured by {selectedLobbyTest?.proctoring.assignedBy} ({selectedLobbyTest?.proctoring.assignedByName})
+              Configured by {selectedLobbyTest?.proctoring.assignedBy} ({selectedLobbyTest?.proctoring.assignedByName})
             </DialogDescription>
           </DialogHeader>
 
@@ -287,21 +315,28 @@ export default function StudentTestsPage() {
               </div>
             </div>
 
-            {/* Configured Proctoring Options Box */}
+            {/* Configured Proctoring & Security Options Box */}
             <div className="p-4 bg-[#2563EB]/5 border border-[#2563EB]/20 rounded-xl space-y-2">
               <p className="font-bold text-[#2563EB] uppercase text-[11px]">
-                {selectedLobbyTest?.proctoring.enabled ? "🔒 Proctoring Rules (Enabled by Instructor)" : "ℹ️ Standard Test Rules"}
+                {selectedLobbyTest?.proctoring.enabled ? "🔒 Proctoring & Security (Enabled by Instructor)" : "ℹ️ Standard Test Rules"}
               </p>
               {selectedLobbyTest?.proctoring.enabled ? (
-                <ul className="list-disc list-inside space-y-1 text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed">
-                  {selectedLobbyTest.proctoring.webcamTracking && <li>Webcam AI Face & Eye Tracking: <strong>Enabled</strong></li>}
-                  {selectedLobbyTest.proctoring.tabSwitchLock && <li>Tab Switch & Window Blur Prevention: <strong>Enabled</strong></li>}
-                  {selectedLobbyTest.proctoring.fullscreenLock && <li>Fullscreen Security Mode: <strong>Enforced</strong></li>}
-                  <li>Auto-submission enabled when timer reaches 00:00.</li>
+                <ul className="list-disc list-inside space-y-1.5 text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed">
+                  {selectedLobbyTest.proctoring.safeExamBrowserRequired && (
+                    <li className="font-semibold text-[#9333EA]">Safe Exam Browser (SEB) Environment: <strong>Required & Enforced</strong></li>
+                  )}
+                  {selectedLobbyTest.proctoring.fullscreenLock && (
+                    <li>Mandatory Fullscreen Mode: <strong>Enforced (Auto-exit warning)</strong></li>
+                  )}
+                  {selectedLobbyTest.proctoring.copyPasteRestricted && (
+                    <li>Copy / Paste & Clipboard Restrictions: <strong>Blocked</strong></li>
+                  )}
+                  {selectedLobbyTest.proctoring.webcamTracking && <li>Webcam AI Face & Eye Tracking: <strong>Active</strong></li>}
+                  {selectedLobbyTest.proctoring.tabSwitchLock && <li>Tab Switch & Window Blur Prevention: <strong>Active</strong></li>}
                 </ul>
               ) : (
                 <p className="text-[#4B5563] dark:text-[#D1D5DB]">
-                  This exam was configured as a standard practice evaluation. Webcam proctoring is disabled.
+                  This exam was configured as a standard practice evaluation. Security restrictions are disabled.
                 </p>
               )}
             </div>
