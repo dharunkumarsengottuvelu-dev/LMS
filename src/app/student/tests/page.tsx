@@ -232,6 +232,7 @@ export default function StudentTestsPage() {
       setIsUpcomingModalOpen(true);
     } else {
       // Live Test -> Open Pre-Exam Verification Lobby!
+      setReferencePhoto(null); // Reset photo verification for new session
       setSelectedLobbyTest(test);
       setIsLobbyOpen(true);
     }
@@ -560,12 +561,22 @@ export default function StudentTestsPage() {
             </div>
           )}
 
-          <DialogFooter className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
+          <DialogFooter className="pt-2 flex-col gap-2.5 border-t border-[#E5E7EB] dark:border-[#27272A]">
+            {selectedLobbyTest?.proctoring.webcamTracking && !referencePhoto && (
+              <div className="w-full p-2.5 bg-[#DC2626]/10 border border-[#DC2626]/30 text-[#DC2626] rounded-xl text-xs font-semibold flex items-center justify-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                Candidate Reference Photo Snapshot Required to Unlock Exam!
+              </div>
+            )}
             <Button
-              className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 text-sm rounded-xl"
+              disabled={Boolean(selectedLobbyTest?.proctoring.webcamTracking && !referencePhoto)}
+              className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-[#9CA3AF] disabled:cursor-not-allowed text-white font-bold gap-2 text-sm rounded-xl"
               onClick={handleStartExam}
             >
-              <Play className="h-4 w-4" /> Start Proctored Examination Now
+              <Play className="h-4 w-4" />
+              {selectedLobbyTest?.proctoring.webcamTracking && !referencePhoto
+                ? "Capture Reference Photo Below to Unlock Exam"
+                : "Start Proctored Examination Now"}
             </Button>
           </DialogFooter>
         </DialogContent>
