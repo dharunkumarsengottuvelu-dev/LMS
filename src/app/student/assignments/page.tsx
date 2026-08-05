@@ -162,14 +162,6 @@ export default function StudentAssignmentsPage() {
             Assignments & Project Submissions
           </h1>
         </div>
-
-        <div className="flex items-center gap-2.5 bg-[#2563EB]/10 border border-[#2563EB]/20 px-4 py-2.5 rounded-xl shrink-0">
-          <FileCheck className="h-5 w-5 text-[#2563EB]" />
-          <div className="text-xs">
-            <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">Trainer Evaluation Portal Active</p>
-            <p className="text-[#6B7280]">Submit GitHub repositories, PDFs, or live project URLs</p>
-          </div>
-        </div>
       </div>
 
       {/* 2. Tabs Filter */}
