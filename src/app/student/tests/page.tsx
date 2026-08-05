@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Calendar, Clock, ShieldCheck, Play, CheckCircle2, AlertCircle,
-  FileCheck, Shield, ChevronRight, Sparkles, Award, ArrowRight, Eye
+  FileCheck, Shield, ArrowRight, Eye
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,7 +96,7 @@ export default function StudentTestsPage() {
   });
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-8 pb-12">
+    <div className="max-w-[1440px] mx-auto space-y-8 pb-12 w-full">
       {/* 1. Header */}
       <div className="pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -110,7 +109,7 @@ export default function StudentTestsPage() {
         </div>
 
         {/* Live Proctoring Compliance Pill */}
-        <div className="flex items-center gap-2 bg-[#2563EB]/10 border border-[#2563EB]/20 px-4 py-2 rounded-xl shrink-0">
+        <div className="flex items-center gap-2.5 bg-[#2563EB]/10 border border-[#2563EB]/20 px-4 py-2.5 rounded-xl shrink-0">
           <ShieldCheck className="h-5 w-5 text-[#2563EB]" />
           <div className="text-xs">
             <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">AI Proctoring Active</p>
@@ -120,8 +119,8 @@ export default function StudentTestsPage() {
       </div>
 
       {/* 2. Tabs Filter */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-[#F3F4F6] dark:bg-[#18181B] p-1 h-12 rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
+        <TabsList className="bg-[#F3F4F6] dark:bg-[#18181B] p-1 h-12 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] w-fit flex gap-1">
           <TabsTrigger value="all" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
             All Tests ({mockTestsData.length})
           </TabsTrigger>
@@ -136,15 +135,15 @@ export default function StudentTestsPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <TabsContent value={activeTab} className="w-full mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
             {filteredTests.map((test) => (
               <Card
                 key={test.id}
                 className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm hover:border-[#2563EB]/50 transition-all flex flex-col justify-between"
               >
                 <CardHeader className="p-6 pb-4 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
                       {test.type}
                     </Badge>
@@ -172,7 +171,7 @@ export default function StudentTestsPage() {
                 </CardHeader>
 
                 <CardContent className="p-6 pt-0 space-y-4">
-                  <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-xs">
+                  <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-[#6B7280] flex items-center gap-1.5">
                         <Calendar className="h-3.5 w-3.5 text-[#2563EB]" /> Schedule:
@@ -187,9 +186,9 @@ export default function StudentTestsPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[#6B7280] flex items-center gap-1.5">
-                        <FileCheck className="h-3.5 w-3.5 text-[#2563EB]" /> Total Questions:
+                        <FileCheck className="h-3.5 w-3.5 text-[#2563EB]" /> Questions:
                       </span>
-                      <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{test.totalQuestions} Questions ({test.totalMarks} Marks)</span>
+                      <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{test.totalQuestions} ({test.totalMarks} Marks)</span>
                     </div>
                   </div>
                 </CardContent>
