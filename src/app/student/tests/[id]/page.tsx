@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Clock, ShieldCheck, CheckCircle2, HelpCircle, Code2,
-  Terminal, AlertTriangle, Send, RefreshCw, ChevronLeft, ChevronRight, Award
+  Terminal, AlertTriangle, Send, RefreshCw, ChevronLeft, ChevronRight, Award,
+  Camera, Eye, Flag, RotateCcw, Video
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -101,6 +102,7 @@ export default function StudentTestRunnerPage() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, any>>({});
+  const [markedForReview, setMarkedForReview] = useState<Record<number, boolean>>({});
   const [timeLeft, setTimeLeft] = useState(3600); // 60 minutes countdown
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [isExamSubmitted, setIsExamSubmitted] = useState(false);
@@ -134,6 +136,22 @@ export default function StudentTestRunnerPage() {
     setAnswers((prev) => ({ ...prev, [questionId]: optionIdx }));
   };
 
+  const toggleMarkForReview = (questionId: number) => {
+    setMarkedForReview((prev) => ({ ...prev, [questionId]: !prev[questionId] }));
+    toast({
+      title: markedForReview[questionId] ? "Unmarked for Review" : "Marked for Review",
+      description: `Question ${questionId} updated in palette.`,
+    });
+  };
+
+  const handleClearAnswer = (questionId: number) => {
+    setAnswers((prev) => {
+      const copy = { ...prev };
+      delete copy[questionId];
+      return copy;
+    });
+  };
+
   const handleRunCode = () => {
     setIsRunningCode(true);
     setTimeout(() => {
@@ -147,7 +165,6 @@ export default function StudentTestRunnerPage() {
     setIsSubmitDialogOpen(false);
     setIsExamSubmitted(true);
 
-    // Calculate MCQ Score
     let correctCount = 0;
     mockExamQuestions.forEach((q) => {
       if (q.type === "mcq" && answers[q.id] === q.correctOption) {
@@ -167,77 +184,83 @@ export default function StudentTestRunnerPage() {
   };
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-6 pb-12">
-      {/* 1. Proctored Exam Header */}
-      <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-[22px] font-bold text-[#111827] dark:text-[#FAFAFA]">
+    <div className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full">
+      
+      {/* 1. MNC-Level Sticky Header Bar */}
+      <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 md:p-6 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-[20px] md:text-[22px] font-bold text-[#111827] dark:text-[#FAFAFA] truncate">
               Mid-Term Proctored Evaluation — Batch 2026-A
             </h1>
-            <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold">
+            <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
               Live Test
             </Badge>
           </div>
-          <p className="text-xs text-[#6B7280]">Total Questions: {mockExamQuestions.length} | Max Marks: 100</p>
+          <p className="text-xs text-[#6B7280]">Candidate: Dharunkumar S | Total Questions: {mockExamQuestions.length} | Max Marks: 100</p>
         </div>
 
-        {/* Right Info: Timer & Proctoring Status */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2 bg-[#2563EB]/10 border border-[#2563EB]/20 px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#2563EB]">
+        {/* Right Info: Timer & Submit Exam */}
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 bg-[#2563EB]/10 border border-[#2563EB]/20 px-3.5 py-2 rounded-xl text-xs font-bold text-[#2563EB]">
+            <span className="h-2 w-2 rounded-full bg-[#2563EB] animate-ping" />
             <ShieldCheck className="h-4 w-4" /> AI Proctoring Active
           </div>
 
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-sm font-bold border ${
-            timeLeft < 300 ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30 animate-pulse" : "bg-[#F3F4F6] dark:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA] border-[#E5E7EB] dark:border-[#27272A]"
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-mono text-sm font-bold border ${
+            timeLeft < 300 ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30 animate-pulse" : "bg-[#F9FAFB] dark:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA] border-[#E5E7EB] dark:border-[#27272A]"
           }`}>
             <Clock className="h-4 w-4 text-[#2563EB]" /> {formatTime(timeLeft)}
           </div>
 
           {!isExamSubmitted ? (
-            <Button className="h-10 px-5 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold gap-2" onClick={() => setIsSubmitDialogOpen(true)}>
+            <Button className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold gap-2" onClick={() => setIsSubmitDialogOpen(true)}>
               <Send className="h-4 w-4" /> Submit Exam
             </Button>
           ) : (
-            <Button variant="outline" className="h-10 px-4 text-xs font-semibold" onClick={() => router.push("/student/tests")}>
-              Back to Tests
+            <Button variant="outline" className="h-[44px] px-5 text-xs font-bold" onClick={() => router.push("/student/tests")}>
+              Back to Tests Hub
             </Button>
           )}
         </div>
       </div>
 
-      {/* RESULT CARD IF SUBMITTED */}
+      {/* RESULT SCORE BANNER IF SUBMITTED */}
       {isExamSubmitted && scoreResult !== null && (
         <Card className="bg-white dark:bg-[#18181B] border-2 border-[#16A34A] p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-[#16A34A]/10 text-[#16A34A] flex items-center justify-center font-bold text-xl shrink-0">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-full bg-[#16A34A]/10 text-[#16A34A] flex items-center justify-center font-bold text-2xl shrink-0">
               {scoreResult}%
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Evaluation Complete!</h2>
-              <p className="text-xs text-[#6B7280]">
-                You scored <strong className="text-[#16A34A]">{scoreResult}%</strong> on this evaluation. Detailed performance feedback has been submitted to your trainer.
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">Examination Submitted & Evaluated!</h2>
+              <p className="text-sm text-[#4B5563] dark:text-[#D1D5DB]">
+                Your score: <strong className="text-[#16A34A] font-bold">{scoreResult}%</strong>. The proctored log and answers have been recorded for instructor review.
               </p>
             </div>
           </div>
         </Card>
       )}
 
-      {/* 2. Main Question Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+      {/* 2. Main Workspace Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* LEFT: Active Question Body (MCQ or Coding) */}
-        <div className="lg:col-span-3 space-y-6">
+        {/* LEFT QUESTION PANEL (8 cols) */}
+        <div className="lg:col-span-8 space-y-6">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
+            
+            {/* Question Card Header */}
             <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
+                <Badge className="bg-[#2563EB] text-white text-xs font-bold px-3 py-1">
                   Question {currentIndex + 1} of {mockExamQuestions.length}
                 </Badge>
-                <Badge className="bg-gray-100 dark:bg-[#09090B] text-gray-700 dark:text-gray-300 text-xs font-semibold">
-                  {currentQ.type === "mcq" ? "MCQ Single Choice" : "Coding Problem"}
+                <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#E5E7EB] dark:border-[#27272A]">
+                  {currentQ.type === "mcq" ? "MCQ Single Choice" : "Coding Challenge"}
                 </Badge>
               </div>
+
+              <span className="text-xs font-bold text-[#6B7280]">Marks: 20</span>
             </CardHeader>
 
             <CardContent className="p-6 space-y-6">
@@ -257,13 +280,20 @@ export default function StudentTestRunnerPage() {
                           key={idx}
                           disabled={isExamSubmitted}
                           onClick={() => handleMcqSelect(currentQ.id, idx)}
-                          className={`w-full text-left p-4 rounded-xl border text-sm font-medium transition-all flex items-center justify-between ${
+                          className={`w-full text-left p-4 rounded-xl border text-sm font-semibold transition-all flex items-center justify-between ${
                             isSelected
-                              ? "border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB] font-bold shadow-xs"
-                              : "border-[#E5E7EB] dark:border-[#27272A] hover:bg-[#F9FAFB] dark:hover:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA]"
+                              ? "border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB] shadow-xs"
+                              : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB] hover:bg-[#F9FAFB] dark:hover:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA]"
                           }`}
                         >
-                          <span>{opt}</span>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${
+                              isSelected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]"
+                            }`}>
+                              {String.fromCharCode(65 + idx)}
+                            </div>
+                            <span>{opt}</span>
+                          </div>
                           {isSelected && <CheckCircle2 className="h-5 w-5 text-[#2563EB]" />}
                         </button>
                       );
@@ -303,7 +333,7 @@ export default function StudentTestRunnerPage() {
 
                   <Textarea
                     disabled={isExamSubmitted}
-                    className="font-mono text-xs leading-relaxed min-h-[160px] bg-[#09090B] text-[#FAFAFA] border-[#27272A] p-4"
+                    className="font-mono text-xs leading-relaxed min-h-[170px] bg-[#09090B] text-[#FAFAFA] border-[#27272A] p-4"
                     value={codeContent || (currentQ.starterCode?.[selectedLanguage] || "")}
                     onChange={(e) => setCodeContent(e.target.value)}
                   />
@@ -330,20 +360,43 @@ export default function StudentTestRunnerPage() {
                 </div>
               )}
 
-              {/* Navigation Controls */}
-              <div className="flex items-center justify-between pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                <Button
-                  disabled={currentIndex === 0}
-                  variant="outline"
-                  className="h-10 px-4 text-xs font-semibold gap-1"
-                  onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" /> Previous
-                </Button>
+              {/* Action Controls Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-6 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                <div className="flex items-center gap-2">
+                  <Button
+                    disabled={currentIndex === 0}
+                    variant="outline"
+                    className="h-10 px-4 text-xs font-semibold gap-1"
+                    onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Previous
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className={`h-10 px-3 text-xs font-semibold gap-1.5 ${
+                      markedForReview[currentQ.id] ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]" : "text-[#4B5563]"
+                    }`}
+                    onClick={() => toggleMarkForReview(currentQ.id)}
+                  >
+                    <Flag className="h-3.5 w-3.5" />
+                    {markedForReview[currentQ.id] ? "Marked for Review" : "Mark for Review"}
+                  </Button>
+
+                  {answers[currentQ.id] !== undefined && (
+                    <Button
+                      variant="ghost"
+                      className="h-10 px-3 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 gap-1"
+                      onClick={() => handleClearAnswer(currentQ.id)}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Clear Response
+                    </Button>
+                  )}
+                </div>
 
                 <Button
                   disabled={currentIndex === mockExamQuestions.length - 1}
-                  className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-1"
+                  className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-1"
                   onClick={() => setCurrentIndex((prev) => Math.min(mockExamQuestions.length - 1, prev + 1))}
                 >
                   Next Question <ChevronRight className="h-4 w-4" />
@@ -353,8 +406,33 @@ export default function StudentTestRunnerPage() {
           </Card>
         </div>
 
-        {/* RIGHT: Question Palette Drawer */}
-        <div className="lg:col-span-1 space-y-4">
+        {/* RIGHT PROCTORING & QUESTION PALETTE DRAWER (4 cols) */}
+        <div className="lg:col-span-4 space-y-6">
+          
+          {/* AI Proctoring Live Feed Simulation Card */}
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden">
+            <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#2563EB]/5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                  <Camera className="h-4 w-4 text-[#2563EB]" /> Live AI Proctoring Stream
+                </span>
+                <span className="h-2 w-2 rounded-full bg-[#16A34A] animate-ping" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <div className="aspect-video bg-[#09090B] rounded-xl flex flex-col items-center justify-center text-white relative overflow-hidden border border-[#27272A]">
+                <Video className="h-10 w-10 text-[#2563EB] mb-2" />
+                <p className="text-xs font-semibold text-white/90">AI Camera Monitor Active</p>
+                <p className="text-[10px] text-[#16A34A] font-mono mt-1">Status: Candidate Eyes Verified</p>
+              </div>
+              <div className="p-2.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-lg border border-[#E5E7EB] dark:border-[#27272A] text-[11px] text-[#6B7280] space-y-1">
+                <p>• Tab Switch Prevention: <strong>Enforced</strong></p>
+                <p>• Face Detection Confidence: <strong className="text-[#16A34A]">99.4%</strong></p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Question Palette Drawer */}
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
             <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
               <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
@@ -365,19 +443,19 @@ export default function StudentTestRunnerPage() {
               <div className="grid grid-cols-5 gap-2">
                 {mockExamQuestions.map((q, idx) => {
                   const isAnswered = answers[q.id] !== undefined;
+                  const isMarked = markedForReview[q.id];
                   const isCurrent = currentIndex === idx;
+
+                  let style = "bg-[#F9FAFB] dark:bg-[#09090B] text-[#4B5563] border-[#E5E7EB] dark:border-[#27272A]";
+                  if (isCurrent) style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold";
+                  else if (isMarked) style = "bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B]";
+                  else if (isAnswered) style = "bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/40 font-bold";
 
                   return (
                     <button
                       key={q.id}
                       onClick={() => setCurrentIndex(idx)}
-                      className={`h-10 rounded-lg text-xs font-bold transition-all border ${
-                        isCurrent
-                          ? "ring-2 ring-[#2563EB] bg-[#2563EB] text-white"
-                          : isAnswered
-                          ? "bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/40"
-                          : "bg-[#F9FAFB] dark:bg-[#09090B] text-[#4B5563] border-[#E5E7EB] dark:border-[#27272A]"
-                      }`}
+                      className={`h-10 rounded-lg text-xs font-bold transition-all border ${style}`}
                     >
                       {idx + 1}
                     </button>
@@ -385,14 +463,25 @@ export default function StudentTestRunnerPage() {
                 })}
               </div>
 
-              <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-lg border border-[#E5E7EB] dark:border-[#27272A] space-y-1.5 text-[11px]">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#16A34A]" />
-                  <span>Answered ({Object.keys(answers).length})</span>
+              {/* Status Legend */}
+              <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-[#4B5563]">
+                    <span className="w-3 h-3 rounded-full bg-[#16A34A]" /> Answered
+                  </span>
+                  <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{Object.keys(answers).length}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-[#F3F4F6] border border-[#E5E7EB]" />
-                  <span>Unanswered ({mockExamQuestions.length - Object.keys(answers).length})</span>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-[#4B5563]">
+                    <span className="w-3 h-3 rounded-full bg-[#F59E0B]" /> Marked for Review
+                  </span>
+                  <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{Object.values(markedForReview).filter(Boolean).length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-[#4B5563]">
+                    <span className="w-3 h-3 rounded-full bg-[#E5E7EB]" /> Unanswered
+                  </span>
+                  <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{mockExamQuestions.length - Object.keys(answers).length}</span>
                 </div>
               </div>
             </CardContent>
