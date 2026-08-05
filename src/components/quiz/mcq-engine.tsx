@@ -184,11 +184,9 @@ export function MCQAssessmentEngine({
 
             {/* Question Palette Sheet */}
             <Sheet open={showPalette} onOpenChange={setShowPalette}>
-              <SheetTrigger>
-                <Button variant="outline" className="h-[42px] px-4 gap-2 font-medium text-xs text-[#111827] dark:text-[#FAFAFA] border-[#E5E7EB] dark:border-[#27272A]">
-                  <Grid3x3 className="h-4 w-4 text-[#2563EB]" />
-                  <span>Palette</span>
-                </Button>
+              <SheetTrigger className="inline-flex items-center justify-center rounded-lg h-[42px] px-4 gap-2 font-medium text-xs text-[#111827] dark:text-[#FAFAFA] border border-[#E5E7EB] dark:border-[#27272A] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] transition-colors cursor-pointer">
+                <Grid3x3 className="h-4 w-4 text-[#2563EB]" />
+                <span>Palette</span>
               </SheetTrigger>
               <SheetContent side="right" className="w-80 bg-white dark:bg-[#18181B] border-l border-[#E5E7EB] dark:border-[#27272A]">
                 <SheetHeader>
