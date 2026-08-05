@@ -2,6 +2,6 @@
 
 import { ModuleManagementHub } from "@/components/admin/module-management-hub";
 
-export default function AdminModulesPage() {
-  return <ModuleManagementHub role="admin" />;
+export default function TrainerModulesPage() {
+  return <ModuleManagementHub role="trainer" />;
 }
