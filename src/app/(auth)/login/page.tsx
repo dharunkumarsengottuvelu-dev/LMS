@@ -148,10 +148,55 @@ export default function LoginPage() {
         Continue with Google
       </Button>
 
+      {/* Quick Role Login Presets */}
+      <div className="p-3 bg-[#F9FAFB] dark:bg-[#18181B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
+        <p className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">Quick Demo Login Presets:</p>
+        <div className="grid grid-cols-3 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setValue("email", "admin@edunexus.io");
+              setValue("password", "Password123");
+            }}
+            className="h-8 text-[11px] font-bold border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10"
+          >
+            👑 Admin
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setValue("email", "trainer@edunexus.io");
+              setValue("password", "Password123");
+            }}
+            className="h-8 text-[11px] font-bold border-[#9333EA] text-[#9333EA] hover:bg-[#9333EA]/10"
+          >
+            👨‍🏫 Trainer
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setValue("email", "student@gmail.com");
+              setValue("password", "Password123");
+            }}
+            className="h-8 text-[11px] font-bold border-[#16A34A] text-[#16A34A] hover:bg-[#16A34A]/10"
+          >
+            🎓 Student
+          </Button>
+        </div>
+      </div>
+
       <div className="flex items-center gap-4">
         <Separator className="flex-1 bg-[#E5E7EB] dark:bg-[#27272A]" />
         <span className="text-xs text-[#6B7280] dark:text-[#A1A1AA] whitespace-nowrap">
-          or sign in with email
+          or sign in with credentials
         </span>
         <Separator className="flex-1 bg-[#E5E7EB] dark:bg-[#27272A]" />
       </div>
