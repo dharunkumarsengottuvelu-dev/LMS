@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BookOpen, Search, Filter, Clock, Play, CheckCircle2, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { BookOpen, Search, Filter, Clock, Play, CheckCircle2, ChevronRight, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,8 @@ export default function StudentCoursesPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("all");
 
+  const router = useRouter();
+
   const filteredCourses = mockCourses.filter((course) => {
     const matchesSearch = course.title.toLowerCase().includes(search.toLowerCase());
     if (tab === "in-progress") return matchesSearch && course.progress > 0 && course.progress < 100;
@@ -59,6 +62,16 @@ export default function StudentCoursesPage() {
 
   return (
     <div className="space-y-8">
+      {/* Back Button */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A]"
+        onClick={() => router.push("/student/dashboard")}
+      >
+        <ArrowLeft className="h-4 w-4" /> Back to Dashboard
+      </Button>
+
       {/* Title */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div>

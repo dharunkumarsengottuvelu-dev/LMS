@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   FileText, Upload, CheckCircle2, Clock, Link as LinkIcon, FileCheck,
-  AlertCircle, ChevronRight, Award, ExternalLink, Download, MessageSquare, Send, Check
+  AlertCircle, ChevronRight, Award, ExternalLink, Download, MessageSquare, Send, Check, ArrowLeft
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,7 @@ const mockAssignmentsData: AssignmentItem[] = [
 ];
 
 export default function StudentAssignmentsPage() {
+  const router = useRouter();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState("all");
@@ -155,6 +157,16 @@ export default function StudentAssignmentsPage() {
 
   return (
     <div className="max-w-[1440px] mx-auto space-y-8 pb-12 w-full">
+      {/* Back Button */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A]"
+        onClick={() => router.push("/student/dashboard")}
+      >
+        <ArrowLeft className="h-4 w-4" /> Back to Dashboard
+      </Button>
+
       {/* 1. Header */}
       <div className="pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
