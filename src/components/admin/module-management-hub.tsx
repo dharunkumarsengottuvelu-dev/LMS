@@ -123,6 +123,9 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
   const [newTitle, setNewTitle]     = useState("");
   const [newCourse, setNewCourse]   = useState("Full Stack Next.js 16 & React 19 Enterprise Architecture");
+  const [newDurEnabled, setNewDurEnabled] = useState(true);
+  const [newStartTime, setNewStartTime]   = useState("09:00");
+  const [newEndTime, setNewEndTime]     = useState("09:45");
   const [newDuration, setNewDuration] = useState("45 mins");
   const [newType, setNewType]       = useState<"video" | "coding" | "reading" | "quiz">("video");
   const [newSummary, setNewSummary] = useState("");
@@ -140,8 +143,41 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [selectedStudentIds, setSelectedStudentIds]   = useState<string[]>([]);
   const [assignBatchFilter, setAssignBatchFilter]     = useState("all");
 
+  const calculateDuration = (start: string, end: string) => {
+    if (!start || !end) return "N/A";
+    const [sH, sM] = start.split(":").map(Number);
+    const [eH, eM] = end.split(":").map(Number);
+    const startMins = sH * 60 + sM;
+    const endMins = eH * 60 + eM;
+    let diff = endMins - startMins;
+    if (diff <= 0) diff += 24 * 60;
+    const hours = Math.floor(diff / 60);
+    const mins = diff % 60;
+    if (hours > 0 && mins > 0) return `${hours} hr ${mins} mins`;
+    if (hours > 0) return `${hours} hr${hours > 1 ? "s" : ""}`;
+    return `${mins} mins`;
+  };
+
+  const handleTimeChange = (start: string, end: string) => {
+    setNewStartTime(start);
+    setNewEndTime(end);
+    if (newDurEnabled) {
+      setNewDuration(calculateDuration(start, end));
+    }
+  };
+
+  const handleToggleDuration = (enabled: boolean) => {
+    setNewDurEnabled(enabled);
+    if (enabled) {
+      setNewDuration(calculateDuration(newStartTime, newEndTime));
+    } else {
+      setNewDuration("N/A");
+    }
+  };
+
   const resetForm = () => {
     setNewTitle(""); setNewSummary(""); setNewDuration("45 mins");
+    setNewDurEnabled(true); setNewStartTime("09:00"); setNewEndTime("09:45");
     setNewType("video");
     setVideoUrl(""); setVideoNotes("");
     setReadingContent("");
@@ -308,10 +344,60 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration</label>
-                <Input placeholder="e.g. 45 mins" value={newDuration}
-                  onChange={(e) => setNewDuration(e.target.value)} required
-                  className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Lesson Duration</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-[#6B7280] font-medium">
+                      {newDurEnabled ? "Enabled" : "Off"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleDuration(!newDurEnabled)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        newDurEnabled ? "bg-[#2563EB]" : "bg-gray-300 dark:bg-gray-700"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                          newDurEnabled ? "translate-x-4" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {newDurEnabled ? (
+                  <div className="grid grid-cols-3 gap-2 items-center">
+                    <div>
+                      <span className="text-[10px] text-[#6B7280]">Start Time</span>
+                      <Input
+                        type="time"
+                        value={newStartTime}
+                        onChange={(e) => handleTimeChange(e.target.value, newEndTime)}
+                        className="h-[40px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[#6B7280]">End Time</span>
+                      <Input
+                        type="time"
+                        value={newEndTime}
+                        onChange={(e) => handleTimeChange(newStartTime, e.target.value)}
+                        className="h-[40px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[#6B7280]">Duration</span>
+                      <div className="h-[40px] px-3 flex items-center text-xs font-semibold text-[#2563EB] bg-[#2563EB]/10 border border-[#2563EB]/20 rounded-xl">
+                        {newDuration}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-[44px] px-3 flex items-center text-xs text-[#6B7280] italic bg-gray-100 dark:bg-[#18181B] rounded-xl border border-dashed border-[#E5E7EB] dark:border-[#27272A]">
+                    Duration tracking is turned off for this lesson.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -336,11 +422,19 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 </label>
                 <Input
                   type="url"
-                  placeholder="https://www.youtube.com/watch?v=..."
+                  placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
                   value={videoUrl}
                   onChange={(e) => setVideoUrl(e.target.value)}
                   className="h-[48px] text-xs rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
                 />
+                <div className="flex items-start gap-2 p-3 bg-white dark:bg-[#09090B] border border-[#2563EB]/20 rounded-lg">
+                  <HardDrive className="h-3.5 w-3.5 text-[#2563EB] mt-0.5 shrink-0" />
+                  <div className="text-[10px] text-[#6B7280] leading-relaxed">
+                    <p className="font-semibold text-[#2563EB] mb-0.5">Google Drive format:</p>
+                    <p className="font-mono break-all">https://drive.google.com/file/d/<span className="text-[#9333EA]">FILE_ID</span>/view?usp=sharing</p>
+                    <p className="mt-1">Make sure the file is shared as <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">&quot;Anyone with the link&quot;</span> in Drive settings.</p>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">

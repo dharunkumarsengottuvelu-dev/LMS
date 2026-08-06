@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 
 // ─── Types aligned with Student Portal assessments page ────
@@ -100,6 +101,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [smDuration, setSmDuration]     = useState(30);
   const [smMarks, setSmMarks]           = useState(100);
   const [smQuestions, setSmQuestions]    = useState(10);
+  const [smHasHiddenTests, setSmHasHiddenTests] = useState(false);
+  const [smHiddenTests, setSmHiddenTests] = useState("");
 
   // Assign state
   const [selectedBatches, setSelectedBatches]       = useState<string[]>([]);
@@ -157,14 +160,19 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const handleAddSubModule = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrack || !smTitle) return;
-    const newSm: SubModuleItem = {
+    const newSm: SubModuleItem & { hasHiddenTests?: boolean; hiddenTestsCode?: string } = {
       id: `sm_${Date.now()}`, title: smTitle, type: smType,
       durationMinutes: smDuration, totalMarks: smMarks, questionCount: smQuestions,
+      ...(smType === "coding" || smType === "mixed" ? {
+        hasHiddenTests: smHasHiddenTests,
+        hiddenTestsCode: smHasHiddenTests ? smHiddenTests : undefined
+      } : {})
     };
     const updated = { ...selectedTrack, subModules: [...selectedTrack.subModules, newSm] };
     setSelectedTrack(updated);
     setTracks((prev) => prev.map((t) => (t.id === selectedTrack.id ? updated : t)));
     setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
+    setSmHasHiddenTests(false); setSmHiddenTests("");
     setViewState("detail");
     toast({ title: "Sub-Module Added", description: `"${smTitle}" added.` });
   };
@@ -403,6 +411,26 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               </div>
             </div>
 
+            {(smType === "coding" || smType === "mixed") && (
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl">
+                  <div>
+                    <label className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Enable Hidden Test Cases</label>
+                    <p className="text-xs text-[#6B7280]">Hidden test cases are used for final grading but kept hidden from the student during practice.</p>
+                  </div>
+                  <Switch checked={smHasHiddenTests} onCheckedChange={setSmHasHiddenTests} />
+                </div>
+                {smHasHiddenTests && (
+                  <div className="space-y-2 mt-3">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Hidden Test Cases (JSON / Code format)</label>
+                    <Textarea placeholder="e.g. [{ input: [1,2], expected: 3 }]"
+                      value={smHiddenTests} onChange={(e) => setSmHiddenTests(e.target.value)}
+                      className="min-h-[120px] text-sm font-mono rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
               <Button type="button" variant="outline" onClick={() => setViewState("detail")} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
               <Button type="submit" className="h-[48px] px-8 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
@@ -546,14 +574,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         </Button>
       </div>
 
-      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl">
-        <div className="relative w-full md:w-80">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-3 rounded-xl shadow-sm">
+        <div className="relative w-full md:w-[450px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
           <Input placeholder="Search practice tracks..." value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+            className="pl-10 h-10 text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-none shadow-none focus-visible:ring-0" />
         </div>
-      </Card>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filtered.map((track) => {

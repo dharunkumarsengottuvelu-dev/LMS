@@ -31,6 +31,7 @@ interface QuestionItem {
   problemStatement?: string;
   starterCode?: Record<string, string>;
   sampleOutput?: string;
+  section?: string;
 }
 
 // Dynamic Mock Question Sets per Test ID
@@ -47,20 +48,8 @@ const mockQuestionSets: Record<string, QuestionItem[]> = {
         "They eliminate the need for PostgreSQL databases"
       ],
       correctOption: 1,
-      explanation: "Server Components execute exclusively on the server, sending zero client JS bundle weight for those components."
-    },
-    {
-      id: 2,
-      type: "mcq",
-      question: "Which Supabase PostgreSQL feature restricts data access based on authentication policies?",
-      options: [
-        "Foreign Key Constraints",
-        "Row Level Security (RLS)",
-        "B-Tree Indexes",
-        "WAL Replication Log"
-      ],
-      correctOption: 1,
-      explanation: "Row Level Security (RLS) allows database administrators to define SQL policies restricting rows based on user authentication."
+      explanation: "Row Level Security (RLS) allows database administrators to define SQL policies restricting rows based on user authentication.",
+      section: "Verbal Ability"
     },
     {
       id: 3,
@@ -72,6 +61,7 @@ const mockQuestionSets: Record<string, QuestionItem[]> = {
         python: "def unique_array(arr):\n    # Write your code here\n    return list(set(arr))\n\nprint(unique_array([1, 2, 2, 3, 4, 4, 5]))",
       },
       sampleOutput: "[1, 2, 3, 4, 5]",
+      section: "Quantitative Ability"
     },
     {
       id: 4,
@@ -84,7 +74,8 @@ const mockQuestionSets: Record<string, QuestionItem[]> = {
         "Inside WebAssembly sandbox threads"
       ],
       correctOption: 1,
-      explanation: "Next.js Middleware runs before a request is completed, allowing URL redirects and header authentication."
+      explanation: "Next.js Middleware runs before a request is completed, allowing URL redirects and header authentication.",
+      section: "Reasoning Ability"
     },
     {
       id: 5,
@@ -96,6 +87,7 @@ const mockQuestionSets: Record<string, QuestionItem[]> = {
         python: "def is_valid_email(email):\n    return '@' in email and '.' in email\n\nprint(is_valid_email('student@edunexus.io'))",
       },
       sampleOutput: "true",
+      section: "Quantitative Ability"
     }
   ],
   t2: [
@@ -933,59 +925,98 @@ export default function StudentTestRunnerPage() {
         {/* RIGHT SIDEBAR (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
-            <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-              <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Question Palette
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-4">
-              <div className="grid grid-cols-5 gap-2">
-                {currentQuestions.map((q, idx) => {
-                  const isAnswered = answers[q.id] !== undefined;
-                  const isMarked = markedForReview[q.id];
-                  const isCurrent = currentIndex === idx;
-
-                  let style = "bg-[#F9FAFB] dark:bg-[#09090B] text-[#4B5563] border-[#E5E7EB] dark:border-[#27272A]";
-                  if (isCurrent) style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold";
-                  else if (isMarked) style = "bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B]";
-                  else if (isAnswered) style = "bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/40 font-bold";
-
-                  return (
-                    <button
-                      key={q.id}
-                      onClick={() => setCurrentIndex(idx)}
-                      className={`h-10 rounded-lg text-xs font-bold transition-all border ${style}`}
-                    >
-                      {idx + 1}
-                    </button>
-                  );
-                })}
+            <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-lg font-bold text-[#2563EB]">
+                  All sections
+                </CardTitle>
+                <CardDescription className="text-xs text-[#9CA3AF] mt-1">
+                  {Object.keys(answers).length}/{currentQuestions.length} questions answered
+                </CardDescription>
               </div>
+              <div className="relative w-12 h-12 shrink-0 flex items-center justify-center">
+                <svg className="w-12 h-12 transform -rotate-90">
+                  <circle className="text-[#EFF6FF] dark:text-[#1E3A8A]/20" strokeWidth="4" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24" />
+                  <circle 
+                    className="text-[#2563EB]" 
+                    strokeWidth="4" 
+                    strokeDasharray={125.6} 
+                    strokeDashoffset={125.6 - (125.6 * (Object.keys(answers).length / currentQuestions.length))} 
+                    strokeLinecap="round" 
+                    stroke="currentColor" 
+                    fill="transparent" 
+                    r="20" 
+                    cx="24" 
+                    cy="24" 
+                  />
+                </svg>
+                <span className="absolute text-[10px] font-bold text-[#111827] dark:text-[#FAFAFA]">
+                  {Math.round((Object.keys(answers).length / currentQuestions.length) * 100)}%
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 space-y-6">
+              {Object.entries(
+                currentQuestions.reduce((acc, q, index) => {
+                  const sec = q.section || "GENERAL ABILITY";
+                  if (!acc[sec]) acc[sec] = [];
+                  acc[sec].push({ ...q, originalIndex: index });
+                  return acc;
+                }, {} as Record<string, (QuestionItem & { originalIndex: number })[]>)
+              ).map(([section, qs]) => (
+                <div key={section} className="space-y-3">
+                  <h4 className="text-xs font-bold text-[#6B7280] uppercase tracking-wider border-b border-[#E5E7EB] dark:border-[#27272A] pb-2">
+                    {section}
+                  </h4>
+                  <div className="grid grid-cols-5 gap-2">
+                    {qs.map((q) => {
+                      const isAnswered = answers[q.id] !== undefined;
+                      const isMarked = markedForReview[q.id];
+                      const isCurrent = currentIndex === q.originalIndex;
 
-              <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-[11px]">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-[#4B5563]">
-                    <span className="w-3 h-3 rounded-full bg-[#16A34A]" /> Answered
-                  </span>
-                  <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{Object.keys(answers).length}</span>
+                      let style = "bg-white dark:bg-[#18181B] text-[#4B5563] border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB] hover:text-[#2563EB]";
+                      if (isCurrent) style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white border-transparent shadow-md";
+                      else if (isMarked) style = "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]";
+                      else if (isAnswered) style = "bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/30";
+
+                      return (
+                        <button
+                          key={q.id}
+                          onClick={() => setCurrentIndex(q.originalIndex)}
+                          className={`aspect-square rounded-xl text-xs font-bold transition-all border ${style}`}
+                        >
+                          {q.originalIndex + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-[#4B5563]">
-                    <span className="w-3 h-3 rounded-full bg-[#F59E0B]" /> Marked for Review
-                  </span>
-                  <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{Object.values(markedForReview).filter(Boolean).length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-[#4B5563]">
-                    <span className="w-3 h-3 rounded-full bg-[#E5E7EB]" /> Unanswered
-                  </span>
-                  <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{currentQuestions.length - Object.keys(answers).length}</span>
+              ))}
+              
+              <div className="pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-[11px]">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-[#4B5563]">
+                      <span className="w-3 h-3 rounded-full bg-[#16A34A]" /> Answered
+                    </span>
+                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{Object.keys(answers).length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-[#4B5563]">
+                      <span className="w-3 h-3 rounded-full bg-[#F59E0B]" /> Marked for Review
+                    </span>
+                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{Object.values(markedForReview).filter(Boolean).length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-[#4B5563]">
+                      <span className="w-3 h-3 rounded-full border border-[#E5E7EB] bg-white" /> Unanswered
+                    </span>
+                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{currentQuestions.length - Object.keys(answers).length}</span>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-
         </div>
 
       </div>

@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import {
   Users, GraduationCap, BookOpen, ClipboardList,
-  Calendar, Code2, TrendingUp, Activity, ArrowUpRight, ArrowDownRight, Plus
+  Calendar, Code2, TrendingUp, Activity, ArrowUpRight, ArrowDownRight
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -104,12 +104,12 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
         {/* 2. Primary Actions (44px height buttons) */}
         <div className="flex items-center gap-3">
           <Button variant="outline" className="h-[44px] px-5" asChild>
-            <Link href="/admin/reports">View Reports</Link>
+            <Link href="/admin/students">Student Hub</Link>
           </Button>
           <Button className="h-[44px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-2" asChild>
-            <Link href="/admin/courses/new">
-              <Plus className="h-5 w-5" />
-              Create Course
+            <Link href="/admin/users">
+              <Users className="h-5 w-5" />
+              User Directory
             </Link>
           </Button>
         </div>

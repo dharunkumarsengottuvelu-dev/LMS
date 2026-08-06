@@ -249,29 +249,40 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
         </Button>
       </div>
 
-      {/* Filter Controls */}
-      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
+      {/* Filter Controls - Premium MNC Level */}
+      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-1 shadow-sm rounded-2xl">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-2">
+          {/* Status Filter Pills */}
+          <div className="flex items-center gap-1 bg-[#F9FAFB] dark:bg-[#09090B] p-1 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] w-full md:w-auto overflow-x-auto">
+            {[
+              { id: "all", label: "All Submissions" },
+              { id: "graded", label: "Graded" },
+              { id: "pending", label: "Pending Review" }
+            ].map(status => (
+              <button
+                key={status.id}
+                onClick={() => setStatusFilter(status.id)}
+                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all whitespace-nowrap ${
+                  statusFilter === status.id
+                    ? "bg-white dark:bg-[#18181B] text-[#111827] dark:text-[#FAFAFA] shadow-sm border border-[#E5E7EB] dark:border-[#27272A]"
+                    : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+                }`}
+              >
+                {status.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative w-full md:max-w-[320px]">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
             <Input
               placeholder="Search student or assignment..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]"
+              className="pl-10 h-10 text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl focus-visible:ring-1 focus-visible:ring-[#2563EB] transition-all"
             />
           </div>
-
-          <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "all")}>
-            <SelectTrigger className="h-[44px] text-xs w-[180px] bg-[#F9FAFB] dark:bg-[#09090B]">
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Submissions</SelectItem>
-              <SelectItem value="graded">Graded</SelectItem>
-              <SelectItem value="pending">Pending Review</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </Card>
 
