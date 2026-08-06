@@ -19,12 +19,12 @@ import {
 
 const adminNavItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/students", label: "Student Analytics", icon: Users },
-  { href: "/admin/courses", label: "Courses", icon: BookOpen },
+  { href: "/admin/students", label: "Student Performance", icon: Users },
+  { href: "/admin/courses", label: "Assigned Courses", icon: BookOpen },
   { href: "/admin/practices", label: "Practices", icon: Dumbbell },
-  { href: "/admin/tests", label: "Proctored Exams", icon: ClipboardList },
-  { href: "/admin/assignments", label: "Assignments", icon: FileText },
-  { href: "/admin/users", label: "User Control", icon: ShieldCheck },
+  { href: "/admin/tests", label: "Assessments", icon: ClipboardList },
+  { href: "/admin/assignments", label: "Submissions", icon: FileText },
+  { href: "/admin/users", label: "Manage Users", icon: ShieldCheck },
 ];
 
 export function AdminTopNav() {

@@ -3,11 +3,11 @@
 import React, { useState } from "react";
 import {
   BookOpen, Plus, Search, Edit, Trash2, Eye,
-  Clock, Users, Sparkles, ArrowLeft, ArrowRight, Layers, Save,
-  User, GraduationCap, ListChecks, PlayCircle, Link2,
-  StickyNote, Code2, Dumbbell, FileText, CheckCircle2,
-  PenLine, Check, ChevronRight, AlertCircle, ShieldCheck,
-  UploadCloud, HardDrive, PenSquare
+  Clock, Users, Sparkles, ArrowLeft, ArrowRight, Layers,
+  User, GraduationCap, ListChecks, PlayCircle,
+  StickyNote, Code2, FileText, CheckCircle2,
+  Check, ShieldCheck,
+  UploadCloud, PenSquare, HardDrive
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,71 +74,78 @@ function calculateModulesTotalDuration(modules: CourseSyllabusModule[] = []): st
 const initialCourses: ManagedCourse[] = [
   {
     id: "mc_1",
-    title: "Full Stack Next.js 16 & React 19 Enterprise Architecture",
+    title: "React & Next.js Enterprise App Development",
     category: "Web Development",
     level: "Advanced",
     status: "published",
-    enrolledStudents: 142,
-    totalLessons: 28,
-    instructor: "Alex Rivera",
-    durationHours: 24,
+    enrolledStudents: 48,
+    totalLessons: 12,
+    instructor: "Kaaviya Dharun",
+    durationHours: 18,
     durationMins: 0,
-    description: "Production-ready enterprise web application engineering with React Server Components, Supabase, and TailwindCSS.",
+    description: "Build production-grade enterprise apps using Next.js App Router, React Server Components, and Supabase backend integration.",
     modules: [
       {
         id: "mod_1",
-        title: "Next.js 16 App Router Fundamentals",
-        duration: "45 mins",
+        title: "Next.js App Router & File-based Routing",
+        duration: "60 mins",
         type: "video",
         videoUrl: "https://www.youtube.com/watch?v=example1",
-        notes: "# Next.js 16 Fundamentals\n- React Server Components\n- App router folder structure",
+        notes: "# App Router Overview\n- Pages vs App router differences\n- Layout hierarchy\n- Loading & error boundaries",
       },
       {
         id: "mod_2",
-        title: "Server Actions & Supabase Authentication",
-        duration: "60 mins",
+        title: "Server Components & Data Fetching Patterns",
+        duration: "75 mins",
         type: "video",
         videoUrl: "https://www.youtube.com/watch?v=example2",
-        notes: "JWT authentication and Supabase RLS security setup.",
+        notes: "Server vs Client components, async data fetching, streaming and Suspense.",
       },
       {
         id: "mod_3",
-        title: "Monaco Code Editor & Judge0 Integration",
+        title: "Build a Full-Stack CRUD Feature",
         duration: "90 mins",
         type: "coding",
-        practiceDescription: "Create a function to execute code using Monaco Editor.",
-        practiceTestCases: "Input: 'test' → Output: 'test'\n",
-        practiceStarterCode: "function solution(code) {\n  return code;\n}",
+        practiceDescription: "Build a complete API route with GET/POST/DELETE operations using Next.js Route Handlers.",
+        practiceTestCases: "GET /api/items → 200 OK with items array\nPOST /api/items → 201 Created\n",
+        practiceStarterCode: "// Create an API route handler\nexport async function GET() {\n  // Your code here\n}",
       },
     ],
   },
   {
     id: "mc_2",
-    title: "Python AI & Deep Learning LLM Agentic Engineering",
-    category: "AI & Machine Learning",
+    title: "Python for Data Science & Analytics",
+    category: "Data Science",
     level: "Intermediate",
     status: "published",
-    enrolledStudents: 189,
-    totalLessons: 30,
-    instructor: "Dr. Elena Rostova",
-    durationHours: 32,
-    durationMins: 0,
-    description: "PyTorch, Hugging Face, Transformers, and LLM fine-tuning for high-performance corporate applications.",
+    enrolledStudents: 62,
+    totalLessons: 15,
+    instructor: "Arun Prasath",
+    durationHours: 22,
+    durationMins: 30,
+    description: "Hands-on data analysis using Pandas, NumPy, Matplotlib, and Scikit-learn for real-world business analytics workflows.",
     modules: [
       {
         id: "mod_4",
-        title: "Transformers Architecture Deep Dive",
-        duration: "75 mins",
+        title: "Pandas DataFrames & Data Wrangling",
+        duration: "60 mins",
         type: "video",
-        videoUrl: "https://youtube.com/watch?v=ai123",
-        notes: "Attention mechanism and positional embeddings breakdown.",
+        videoUrl: "https://youtube.com/watch?v=ds001",
+        notes: "GroupBy, merge, pivot tables, and handling missing values.",
       },
       {
         id: "mod_5",
-        title: "Agentic AI Tools & LangChain",
-        duration: "60 mins",
+        title: "Data Visualization with Matplotlib & Seaborn",
+        duration: "45 mins",
         type: "reading",
-        readingContent: "# LangChain Agents Overview\n\nLearn how to create ReAct agents.",
+        readingContent: "# Visualization Fundamentals\n\nLearn to create bar charts, line plots, heatmaps and scatter plots for data storytelling.",
+      },
+      {
+        id: "mod_6",
+        title: "Python Data Analysis Quiz",
+        duration: "30 mins",
+        type: "quiz",
+        quizQuestions: "1. What does df.groupby() do?\n2. How do you handle NaN values in Pandas?\n3. What is the difference between .loc and .iloc?",
       },
     ],
   },
@@ -234,8 +241,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
   const calculateDuration = (start: string, end: string) => {
     if (!start || !end) return "N/A";
-    const [sH, sM] = start.split(":").map(Number);
-    const [eH, eM] = end.split(":").map(Number);
+    const [sH = 0, sM = 0] = start.split(":").map(Number);
+    const [eH = 0, eM = 0] = end.split(":").map(Number);
     const startMins = sH * 60 + sM;
     const endMins = eH * 60 + eM;
     let diff = endMins - startMins;
@@ -550,7 +557,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Difficulty Level</label>
-                <Select value={fLevel} onValueChange={(v) => setFLevel((v as any) || "Intermediate")}>
+                <Select value={fLevel} onValueChange={(v) => setFLevel(v || "Intermediate")}>
                   <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]">
                     <SelectValue />
                   </SelectTrigger>
@@ -614,7 +621,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 <div className="text-center py-12 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[#9CA3AF]">
                   <Layers className="h-8 w-8 mx-auto mb-2 opacity-30" />
                   <p className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">No modules configured in curriculum draft.</p>
-                  <p className="text-[11px] text-[#6B7280] mt-1">Click "Add Module" above to add video, coding, or reading content.</p>
+                  <p className="text-[11px] text-[#6B7280] mt-1">Click &quot;Add Module&quot; above to add video, coding, or reading content.</p>
                 </div>
               )}
 
@@ -694,7 +701,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Delivery Type</label>
-                      <Select value={modType} onValueChange={(v) => setModType((v as any) || "video")}>
+                      <Select value={modType} onValueChange={(v) => setModType((v as "video" | "reading" | "quiz" | "coding") || "video")}>
                         <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]">
                           <SelectValue />
                         </SelectTrigger>
@@ -1092,7 +1099,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Module Delivery Type</label>
-                <Select value={modType} onValueChange={(v) => setModType((v as any) || "video")}>
+                <Select value={modType} onValueChange={(v) => setModType((v as "video" | "reading" | "quiz" | "coding") || "video")}>
                   <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]">
                     <SelectValue />
                   </SelectTrigger>
@@ -1312,11 +1319,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-3 rounded-xl shadow-sm">
-        <div className="relative w-full md:w-[450px]">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2 rounded-xl shadow-sm">
+        <div className="relative w-full flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
           <Input placeholder="Search courses by title or instructor..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-10 text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-none shadow-none focus-visible:ring-0" />
+            className="pl-10 h-10 text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-none shadow-none focus-visible:ring-0 w-full rounded-lg" />
         </div>
         <div className="flex items-center w-full md:w-auto shrink-0 border-t md:border-t-0 md:border-l border-[#E5E7EB] dark:border-[#27272A] pt-3 md:pt-0 md:pl-4">
           <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val || "all")}>
@@ -1458,7 +1465,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
                   Assign to Specific Students ({selectedStudentIds.length} enrolled)
                 </label>
-                <Select value={assignBatchFilter} onValueChange={setAssignBatchFilter}>
+                <Select value={assignBatchFilter} onValueChange={(v) => setAssignBatchFilter(v || "all")}>
                   <SelectTrigger className="h-8 text-xs w-[140px] bg-[#F9FAFB] dark:bg-[#09090B]">
                     <SelectValue placeholder="Filter batch..." />
                   </SelectTrigger>

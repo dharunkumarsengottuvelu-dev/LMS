@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, User, LogOut } from "lucide-react";
+import { Bell, User, LogOut, LayoutDashboard, BookOpen, Dumbbell, ClipboardList, FileText } from "lucide-react";
 import { useTheme } from "next-themes";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,11 +19,11 @@ import {
 import { getInitials } from "@/lib/utils";
 
 const studentNavItems = [
-  { label: "Dashboard", href: "/student/dashboard" },
-  { label: "My Courses", href: "/student/my-courses" },
-  { label: "Practice Tracks", href: "/student/assessments" },
-  { label: "Scheduled Tests", href: "/student/tests" },
-  { label: "Assignments", href: "/student/assignments" },
+  { label: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
+  { label: "Assigned Courses", href: "/student/my-courses", icon: BookOpen },
+  { label: "Practices", href: "/student/assessments", icon: Dumbbell },
+  { label: "Assessments", href: "/student/tests", icon: ClipboardList },
+  { label: "Submissions", href: "/student/assignments", icon: FileText },
 ];
 
 export function StudentTopNav() {
@@ -31,47 +32,48 @@ export function StudentTopNav() {
   const { profile, user, signOut } = useAuth();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 h-[68px] bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] shadow-xs backdrop-blur-md">
-      <div className="max-w-[1440px] mx-auto h-full flex items-center justify-between gap-6 px-6 md:px-8">
-        
-        {/* Left Brand Logo */}
-        <Link href="/student/dashboard" className="flex items-center gap-3 shrink-0 group">
-          <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center text-white font-bold text-sm shadow-xs transition-transform group-hover:scale-105">
-            E
-          </div>
-          <span className="font-bold text-lg text-[#111827] dark:text-[#FAFAFA] tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>
+    <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between px-6 lg:px-10">
+      {/* Brand Logo */}
+      <Link href="/student/dashboard" className="flex items-center gap-2.5 shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-[#2563EB] flex items-center justify-center text-white font-bold text-base shadow-sm">
+          E
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-base tracking-tight text-[#111827] dark:text-[#FAFAFA]">
             EduNexus
           </span>
-        </Link>
+          <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 text-[10px] font-bold px-2 py-0.5">
+            STUDENT
+          </Badge>
+        </div>
+      </Link>
 
-        {/* Center Nav Links (100% Centered Content with Perfect Active Underline) */}
-        <nav className="hidden md:flex items-center justify-center gap-6 flex-1 mx-4 overflow-x-auto no-scrollbar">
-          {studentNavItems.map((item) => {
-            const isActive = pathname === item.href || (pathname.startsWith(item.href + "/") && item.href !== "/student/dashboard");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "h-[68px] flex items-center text-xs font-semibold whitespace-nowrap transition-all duration-150 relative px-1",
-                  isActive
-                    ? "text-[#2563EB] font-bold"
-                    : "text-[#4B5563] dark:text-[#A1A1AA] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
-                )}
-              >
-                <span className="relative flex items-center h-full">
-                  {item.label}
-                  {isActive && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#2563EB] rounded-t-full" />
-                  )}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
+      {/* Centered Nav Links */}
+      <nav className="hidden md:flex items-center gap-1 lg:gap-2">
+        {studentNavItems.map((item) => {
+          const isActive = pathname === item.href || (item.href !== "/student/dashboard" && pathname.startsWith(item.href));
+          const Icon = item.icon;
 
-        {/* Right Controls */}
-        <div className="flex items-center gap-3 shrink-0 ml-auto">
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all",
+                isActive
+                  ? "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#60A5FA]"
+                  : "text-[#6B7280] dark:text-[#A1A1AA] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]"
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Right Controls */}
+      <div className="flex items-center gap-3 shrink-0">
 
           {/* Notifications */}
           <Link
@@ -120,7 +122,6 @@ export function StudentTopNav() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
     </header>
   );
 }

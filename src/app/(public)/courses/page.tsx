@@ -2,8 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { BookOpen, Search, Star, Clock, Users, ArrowRight, CheckCircle2, Shield } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { BookOpen, Search, Star, Clock, Users, ArrowRight, Code2, BarChart3, ClipboardList, Dumbbell, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,47 +10,87 @@ import { Badge } from "@/components/ui/badge";
 const publicCourses = [
   {
     id: "c1",
-    title: "Full Stack Next.js 16 & React 19 Enterprise Masterclass",
+    title: "React & Next.js Enterprise App Development",
     category: "Web Development",
+    icon: Code2,
+    color: "#2563EB",
     rating: 4.9,
-    students: "14,200",
-    duration: "24 Hours",
-    level: "Intermediate to Advanced",
-    image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80",
-    description: "Build production-ready enterprise web applications using Server Components, Supabase, TailwindCSS, and AI integration.",
+    students: "48",
+    duration: "18 Hours",
+    modules: 12,
+    level: "Advanced",
+    description: "Build production-grade enterprise apps using Next.js App Router, React Server Components, and Supabase backend integration.",
+    topics: ["App Router & Routing", "Server Components", "API Route Handlers", "Supabase Auth"],
   },
   {
     id: "c2",
-    title: "Python AI & LLM Machine Learning Engineering",
-    category: "Artificial Intelligence",
-    rating: 4.95,
-    students: "18,900",
-    duration: "32 Hours",
-    level: "All Levels",
-    image: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&q=80",
-    description: "Master PyTorch, Transformers, OpenAI API, and automated prompt engineering for enterprise AI solutions.",
+    title: "Python for Data Science & Analytics",
+    category: "Data Science",
+    icon: BarChart3,
+    color: "#9333EA",
+    rating: 4.8,
+    students: "62",
+    duration: "22 Hours",
+    modules: 15,
+    level: "Intermediate",
+    description: "Hands-on data analysis using Pandas, NumPy, Matplotlib, and Scikit-learn for real-world business analytics workflows.",
+    topics: ["Pandas & NumPy", "Data Visualization", "Scikit-learn Basics", "Business Analytics"],
   },
   {
     id: "c3",
-    title: "PostgreSQL & Supabase High-Performance Database Systems",
-    category: "Database Architecture",
+    title: "DSA & Problem Solving with Java",
+    category: "Computer Science",
+    icon: Code2,
+    color: "#D97706",
     rating: 4.85,
-    students: "9,600",
-    duration: "18 Hours",
+    students: "35",
+    duration: "16 Hours",
+    modules: 10,
     level: "Intermediate",
-    image: "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&w=800&q=80",
-    description: "Design fault-tolerant relational databases, Row Level Security (RLS) policies, B-Tree indexes, and WAL replication.",
+    description: "Master arrays, linked lists, trees, graphs, and sorting algorithms with hands-on coding challenges and LeetCode-style problems.",
+    topics: ["Arrays & Strings", "Trees & Graphs", "Dynamic Programming", "Interview Prep"],
   },
   {
     id: "c4",
-    title: "DevOps, Kubernetes & Cloud Architecture Pipeline",
-    category: "DevOps & Cloud",
-    rating: 4.88,
-    students: "11,400",
-    duration: "28 Hours",
-    level: "Advanced",
-    image: "https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?auto=format&fit=crop&w=800&q=80",
-    description: "Automate CI/CD pipelines, Docker containerization, AWS deployment, and zero-downtime microservices orchestration.",
+    title: "SQL & Database Design Fundamentals",
+    category: "Database",
+    icon: FileText,
+    color: "#0891B2",
+    rating: 4.75,
+    students: "41",
+    duration: "12 Hours",
+    modules: 8,
+    level: "Beginner",
+    description: "Learn to design relational databases, write efficient SQL queries, and understand indexes, joins, and normalization for enterprise use.",
+    topics: ["SQL Queries", "Joins & Aggregations", "Indexing", "Schema Design"],
+  },
+  {
+    id: "c5",
+    title: "Proctored Assessment Preparation",
+    category: "Assessments",
+    icon: ClipboardList,
+    color: "#DC2626",
+    rating: 4.9,
+    students: "85",
+    duration: "8 Hours",
+    modules: 6,
+    level: "All Levels",
+    description: "Prepare for timed MCQ and coding exams with mock assessments, time management strategies, and best-practice checklists.",
+    topics: ["MCQ Strategies", "Coding Under Time", "Mock Tests", "Review Techniques"],
+  },
+  {
+    id: "c6",
+    title: "Coding Practice: Daily Challenges",
+    category: "Practice",
+    icon: Dumbbell,
+    color: "#16A34A",
+    rating: 4.95,
+    students: "110",
+    duration: "Self-paced",
+    modules: 30,
+    level: "All Levels",
+    description: "Daily coding challenges with live execution in the browser. Build problem-solving muscle with real test case validation.",
+    topics: ["Daily Problems", "Live Code Editor", "Test Case Validation", "Progress Tracking"],
   },
 ];
 
@@ -63,104 +102,129 @@ export default function PublicCoursesPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#09090B] pt-24 pb-16">
-      {/* Top Navbar Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-[#18181B]/80 backdrop-blur-md border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center text-white font-bold">
+    <div className="min-h-screen bg-white text-[#111827]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+
+      {/* ── Navbar ── */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#E5E7EB] h-[68px]">
+        <div className="max-w-[1280px] mx-auto px-6 h-full flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] flex items-center justify-center text-white font-bold text-base shadow-md">
               E
             </div>
-            <span className="font-bold text-lg text-[#111827] dark:text-[#FAFAFA]">
-              EduNexus
-            </span>
+            <span className="font-bold text-base text-[#111827] tracking-tight">EduNexus</span>
+            <span className="hidden sm:inline text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 rounded-full tracking-widest">ENTERPRISE LMS</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-[#4B5563] dark:text-[#A1A1AA]">
-            <Link href="/courses" className="text-[#2563EB] font-bold">Courses</Link>
-            <Link href="/pricing" className="hover:text-[#111827] dark:hover:text-[#FAFAFA]">Pricing</Link>
-            <Link href="/about" className="hover:text-[#111827] dark:hover:text-[#FAFAFA]">About</Link>
-            <Link href="/contact" className="hover:text-[#111827] dark:hover:text-[#FAFAFA]">Contact</Link>
+
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[#6B7280]">
+            <Link href="/" className="hover:text-[#111827] transition-colors">Home</Link>
+            <Link href="/courses" className="text-[#2563EB] font-bold border-b-2 border-[#2563EB] pb-0.5">Courses</Link>
+            <Link href="/about" className="hover:text-[#111827] transition-colors">About</Link>
           </nav>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/login">Sign in</Link>
-            </Button>
-            <Button size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold" asChild>
-              <Link href="/register">Get started free</Link>
-            </Button>
-          </div>
+
+          <Button className="h-[40px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg shadow-md" asChild>
+            <Link href="/login">Get Started <ArrowRight className="h-4 w-4 ml-1.5 inline" /></Link>
+          </Button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 space-y-10">
-        <div className="text-center space-y-4 max-w-3xl mx-auto">
-          <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 font-bold px-3 py-1">
-            EXPLORE CATALOG
-          </Badge>
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            Enterprise Training Courses & Skill Tracks
+      {/* ── Hero ── */}
+      <section className="pt-36 pb-16 px-6 text-center bg-gradient-to-b from-[#EFF6FF] to-white">
+        <div className="max-w-[1280px] mx-auto space-y-5">
+          <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/20 text-xs font-bold tracking-widest px-3 py-1">COURSE CATALOG</Badge>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-[#111827]">
+            Courses Built for <span className="bg-gradient-to-r from-[#2563EB] via-[#7C3AED] to-[#16A34A] bg-clip-text text-transparent">Your Role</span>
           </h1>
-          <p className="text-base text-[#6B7280] dark:text-[#A1A1AA]">
-            Master modern technologies with hands-on coding environments, real-world projects, and verified digital certificates.
+          <p className="text-[#6B7280] text-lg max-w-xl mx-auto">
+            Assigned by your trainer, tracked by your admin — access courses built exactly for your learning path.
           </p>
-
-          <div className="relative max-w-xl mx-auto pt-2">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
+          <div className="relative max-w-lg mx-auto pt-2">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
             <Input
-              placeholder="Search courses by title or domain..."
+              placeholder="Search by course title or category..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-11 h-[48px] text-sm rounded-xl border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#18181B]"
+              className="pl-11 h-[48px] text-sm rounded-xl border-[#E5E7EB] bg-white text-[#111827] placeholder:text-[#9CA3AF] focus-visible:ring-[#2563EB] shadow-sm"
             />
           </div>
         </div>
+      </section>
 
-        {/* Courses Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {filtered.map((course) => (
-            <Card key={course.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-              <div className="h-48 overflow-hidden relative">
-                <img src={course.image} alt={course.title} className="w-full h-full object-cover" />
-                <Badge className="absolute top-3 left-3 bg-[#09090B]/80 text-white border-0 text-xs font-bold">
-                  {course.category}
-                </Badge>
-              </div>
-
-              <CardContent className="p-6 space-y-4">
-                <div className="flex items-center justify-between text-xs text-[#6B7280]">
-                  <span className="flex items-center gap-1 font-bold text-[#F59E0B]">
-                    <Star className="h-3.5 w-3.5 fill-current" /> {course.rating}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5 text-[#2563EB]" /> {course.duration}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5 text-[#16A34A]" /> {course.students} Learners
-                  </span>
+      {/* ── Courses Grid ── */}
+      <section className="py-16 px-6 bg-white">
+        <div className="max-w-[1280px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map((course) => {
+            const Icon = course.icon;
+            return (
+              <div key={course.id} className="group bg-white border border-[#E5E7EB] hover:border-[#2563EB]/30 hover:shadow-lg rounded-2xl p-6 space-y-4 transition-all duration-200 flex flex-col">
+                {/* Header */}
+                <div className="flex items-start justify-between">
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `${course.color}12`, border: `1px solid ${course.color}25` }}>
+                    <Icon className="h-5 w-5" style={{ color: course.color }} />
+                  </div>
+                  <Badge className="text-[10px] font-black tracking-widest px-2.5 py-0.5" style={{ color: course.color, background: `${course.color}12`, border: `1px solid ${course.color}25` }}>
+                    {course.category.toUpperCase()}
+                  </Badge>
                 </div>
 
-                <h3 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug">
-                  {course.title}
-                </h3>
+                {/* Title & Desc */}
+                <div className="space-y-2 flex-1">
+                  <h3 className="text-base font-bold text-[#111827] group-hover:text-[#2563EB] transition-colors leading-snug">{course.title}</h3>
+                  <p className="text-xs text-[#6B7280] leading-relaxed">{course.description}</p>
+                </div>
 
-                <p className="text-xs text-[#6B7280] leading-relaxed">
-                  {course.description}
-                </p>
+                {/* Topics */}
+                <div className="flex flex-wrap gap-1.5">
+                  {course.topics.map((t) => (
+                    <span key={t} className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-[#F3F4F6] border border-[#E5E7EB] text-[#4B5563]">{t}</span>
+                  ))}
+                </div>
 
-                <div className="pt-2 flex items-center justify-between border-t border-[#E5E7EB] dark:border-[#27272A]">
-                  <span className="text-xs font-bold text-[#2563EB]">{course.level}</span>
+                {/* Stats */}
+                <div className="flex items-center gap-4 text-xs text-[#6B7280] border-t border-[#E5E7EB] pt-3">
+                  <span className="flex items-center gap-1 font-bold text-[#F59E0B]"><Star className="h-3.5 w-3.5 fill-current" /> {course.rating}</span>
+                  <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {course.duration}</span>
+                  <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {course.students} enrolled</span>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs font-bold" style={{ color: course.color }}>{course.level}</span>
                   <Link href="/login">
-                    <Button size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-1 text-xs">
-                      Enroll Course <ArrowRight className="h-3.5 w-3.5" />
+                    <Button size="sm" className="h-8 px-4 text-xs font-bold gap-1 text-white shadow-sm" style={{ background: course.color }}>
+                      Enroll Now <ArrowRight className="h-3 w-3" />
                     </Button>
                   </Link>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            );
+          })}
         </div>
-      </div>
+
+        {filtered.length === 0 && (
+          <div className="text-center py-20 text-[#9CA3AF]">
+            <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-semibold">No courses found for &quot;{search}&quot;</p>
+          </div>
+        )}
+      </section>
+
+      {/* ── Footer ── */}
+      <footer className="py-10 px-6 border-t border-[#E5E7EB] bg-white">
+        <div className="max-w-[1280px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-[#6B7280]">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] flex items-center justify-center text-white font-bold text-sm">E</div>
+            <span className="font-bold text-sm text-[#111827]">EduNexus</span>
+            <span className="text-[#9CA3AF]">Enterprise Learning Platform</span>
+          </div>
+          <p>© {new Date().getFullYear()} EduNexus Platform. Built for modern engineering teams.</p>
+          <div className="flex items-center gap-6">
+            <Link href="/" className="hover:text-[#111827] transition-colors">Home</Link>
+            <Link href="/courses" className="hover:text-[#111827] transition-colors">Courses</Link>
+            <Link href="/about" className="hover:text-[#111827] transition-colors">About</Link>
+            <Link href="/login" className="hover:text-[#111827] transition-colors">Sign In</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
