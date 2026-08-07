@@ -1,6 +1,6 @@
 /**
  * Comprehensive Zod Validation Schemas
- * Server-Side & Client-Side Input Security Layer
+ * Server-Side & Client-Side Input Security Layer (Zod v4 Compatible)
  */
 
 import { z } from "zod";
@@ -9,29 +9,31 @@ import { z } from "zod";
 
 export const loginSchema = z.object({
   email: z
-    .string({ required_error: "Email is required" })
+    .string()
+    .min(1, "Email is required")
     .email("Invalid email address format")
     .trim()
     .toLowerCase(),
   password: z
-    .string({ required_error: "Password is required" })
-    .min(1, "Password cannot be empty"),
+    .string()
+    .min(1, "Password is required"),
   rememberMe: z.boolean().optional(),
 });
 
 export const registerSchema = z.object({
   name: z
-    .string({ required_error: "Full name is required" })
+    .string()
     .min(2, "Name must be at least 2 characters")
     .max(100, "Name cannot exceed 100 characters")
     .trim(),
   email: z
-    .string({ required_error: "Email is required" })
+    .string()
+    .min(1, "Email is required")
     .email("Invalid email address format")
     .trim()
     .toLowerCase(),
   password: z
-    .string({ required_error: "Password is required" })
+    .string()
     .min(12, "Password must be at least 12 characters long")
     .regex(/[A-Z]/, "Must contain at least one uppercase letter")
     .regex(/[a-z]/, "Must contain at least one lowercase letter")
@@ -58,7 +60,7 @@ export const passwordResetSchema = z.object({
 
 export const courseCreateSchema = z.object({
   title: z
-    .string({ required_error: "Course title is required" })
+    .string()
     .min(3, "Title must be at least 3 characters")
     .max(150, "Title cannot exceed 150 characters")
     .trim(),
@@ -77,7 +79,5 @@ export const fileUploadSchema = z.object({
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
     "image/png",
     "image/jpeg",
-  ], {
-    invalid_type_error: "Only PDF, DOCX, PNG, and JPEG files are allowed.",
-  }),
+  ]),
 });
