@@ -16,6 +16,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
+function getYouTubeEmbedUrl(url?: string): string {
+  if (!url) return "https://www.youtube.com/embed/wm5gMKCOm4U";
+  if (url.includes("youtube.com/embed/")) return url;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  if (match && match[2] && match[2].length === 11) {
+    return `https://www.youtube.com/embed/${match[2]}`;
+  }
+  return url;
+}
+
 type ContentType = "video" | "mcq" | "coding";
 
 interface LessonResource {
@@ -310,16 +321,17 @@ export default function StudentCoursePlayerPage() {
                 </CardDescription>
               </div>
             </CardHeader>
-
             {/* FORMAT 1: VIDEO LESSON PLAYER */}
             {activeLesson.type === "video" && (
               <div className="p-6 space-y-4">
-                <div className="aspect-video bg-[#09090B] rounded-xl flex items-center justify-center text-white relative overflow-hidden shadow-md">
-                  <div className="text-center space-y-3 p-6">
-                    <Play className="h-16 w-16 mx-auto text-[#2563EB] fill-current cursor-pointer hover:scale-105 transition-transform" />
-                    <p className="text-base font-semibold">{activeLesson.title}</p>
-                    <p className="text-xs text-white/60">Click to start video stream ({activeLesson.duration})</p>
-                  </div>
+                <div className="aspect-video bg-[#09090B] rounded-xl overflow-hidden shadow-md border border-[#E5E7EB] dark:border-[#27272A]">
+                  <iframe
+                    src={getYouTubeEmbedUrl(activeLesson.videoUrl)}
+                    title={activeLesson.title}
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
                 </div>
                 <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-lg border border-[#E5E7EB] dark:border-[#27272A]">
                   <h3 className="text-xs font-bold uppercase text-[#111827] dark:text-[#FAFAFA] mb-1">Lesson Notes & Highlights</h3>

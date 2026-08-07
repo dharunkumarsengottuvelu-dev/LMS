@@ -14,36 +14,51 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 const mockCourses = [
   {
     id: "c1",
-    slug: "fullstack-web-development",
-    title: "Fullstack Web Development with Next.js & React 19",
-    category: "Web Development",
+    slug: "react-19-nextjs-16-masterclass",
+    title: "React 19 & Next.js 16 Enterprise Production Masterclass",
+    category: "Frontend Development",
     difficulty: "Intermediate",
     progress: 65,
     completedLessons: 18,
     totalLessons: 28,
-    instructor: "Alex Rivera",
+    instructor: "Dharunkumar Sengottuvelu",
+    thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
   },
   {
     id: "c2",
-    slug: "python-data-structures-algorithms",
-    title: "Data Structures & Algorithms in Python",
-    category: "Computer Science",
+    slug: "data-structures-and-algorithms-mastery",
+    title: "Data Structures & Algorithms Problem Solving Track",
+    category: "Algorithms & Logic",
     difficulty: "Advanced",
     progress: 30,
     completedLessons: 9,
     totalLessons: 30,
-    instructor: "Dr. Elena Rostova",
+    instructor: "Dr. Arunkumar (Lead Technical Trainer)",
+    thumbnail: "https://images.unsplash.com/photo-1516116211223-4c714cf99465?w=800&auto=format&fit=crop&q=80",
   },
   {
     id: "c3",
-    slug: "system-design-cloud-architecture",
-    title: "Enterprise System Design & Microservices Architecture",
-    category: "Cloud & DevOps",
+    slug: "system-design-cloud-database-architecture",
+    title: "Fullstack Architecture & System Design Track",
+    category: "System Engineering",
     difficulty: "Advanced",
     progress: 100,
     completedLessons: 24,
     totalLessons: 24,
-    instructor: "Marcus Vance",
+    instructor: "Alex Rivera (Cloud Architect)",
+    thumbnail: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80",
+  },
+  {
+    id: "c4",
+    slug: "python-data-science-machine-learning",
+    title: "Python Data Science & AI Engineering Masterclass",
+    category: "Data Science & AI",
+    difficulty: "Intermediate",
+    progress: 45,
+    completedLessons: 12,
+    totalLessons: 26,
+    instructor: "Sarah Chen (AI Research Lead)",
+    thumbnail: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=800&auto=format&fit=crop&q=80",
   },
 ];
 
@@ -61,7 +76,7 @@ export default function StudentCoursesPage() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-[1440px] mx-auto pb-12 w-full">
       {/* Back Button */}
       <Button
         variant="outline"
@@ -76,10 +91,10 @@ export default function StudentCoursesPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div>
           <h1 className="text-[36px] font-semibold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            My Courses
+            My Enrolled Courses
           </h1>
           <p className="text-[16px] text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Access your enrolled training modules and track learning progress
+            Access your active training modules with playable YouTube video lessons and practice labs
           </p>
         </div>
 
@@ -98,30 +113,41 @@ export default function StudentCoursesPage() {
       {/* Tabs */}
       <Tabs defaultValue="all" onValueChange={setTab}>
         <TabsList className="h-[44px] bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-1">
-          <TabsTrigger value="all" className="h-[36px] px-4 text-xs font-medium">All Courses ({mockCourses.length})</TabsTrigger>
-          <TabsTrigger value="in-progress" className="h-[36px] px-4 text-xs font-medium">In Progress (2)</TabsTrigger>
-          <TabsTrigger value="completed" className="h-[36px] px-4 text-xs font-medium">Completed (1)</TabsTrigger>
+          <TabsTrigger value="all" className="text-xs font-semibold">
+            All Courses ({mockCourses.length})
+          </TabsTrigger>
+          <TabsTrigger value="in-progress" className="text-xs font-semibold">
+            In Progress ({mockCourses.filter((c) => c.progress > 0 && c.progress < 100).length})
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="text-xs font-semibold">
+            Completed ({mockCourses.filter((c) => c.progress === 100).length})
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {/* Courses List Grid */}
+      {/* Course Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCourses.map((course) => (
-          <Card key={course.id} className="h-full flex flex-col justify-between hover:border-[#2563EB]/40 transition-colors">
+          <Card key={course.id} className="h-full flex flex-col justify-between overflow-hidden hover:border-[#2563EB]/40 transition-colors bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-sm">
+            {/* Thumbnail Header */}
+            <div className="relative w-full h-44 overflow-hidden border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9] dark:bg-[#09090B]">
+              <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+            </div>
+
             <CardHeader className="p-6 pb-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <Badge variant="outline" className="text-xs font-medium">
+                <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB]">
                   {course.category}
                 </Badge>
                 <Badge variant="secondary" className="text-xs font-medium capitalize">
                   {course.difficulty}
                 </Badge>
               </div>
-              <CardTitle className="text-[18px] leading-snug line-clamp-2">
+              <CardTitle className="text-[18px] leading-snug line-clamp-2 font-bold text-[#111827] dark:text-[#FAFAFA]">
                 {course.title}
               </CardTitle>
               <CardDescription className="text-xs text-[#6B7280]">
-                Instructor: {course.instructor}
+                Instructor: <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{course.instructor}</span>
               </CardDescription>
             </CardHeader>
 
@@ -137,9 +163,9 @@ export default function StudentCoursesPage() {
 
               {/* Action Button */}
               <Button
-                className={`w-full h-[44px] gap-2 font-medium text-sm ${
+                className={`w-full h-[44px] gap-2 font-semibold text-xs ${
                   course.progress === 100
-                    ? "bg-[#16A34A] hover:bg-[#15803D] text-white"
+                    ? "bg-[#22C55E] hover:bg-[#16A34A] text-white"
                     : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                 }`}
                 asChild
@@ -147,11 +173,11 @@ export default function StudentCoursesPage() {
                 <Link href={`/student/course/${course.slug}`}>
                   {course.progress === 100 ? (
                     <>
-                      <CheckCircle2 className="h-4 w-4" /> Review Course
+                      <CheckCircle2 className="h-4 w-4" /> Review Course Syllabus
                     </>
                   ) : (
                     <>
-                      <Play className="h-4 w-4 fill-current" /> Continue Learning
+                      <Play className="h-4 w-4 fill-current" /> Watch Video & Learn
                     </>
                   )}
                 </Link>
