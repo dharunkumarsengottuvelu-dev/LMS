@@ -71,7 +71,7 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co; frame-ancestors 'none';"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; media-src 'self' blob: data:; connect-src 'self' blob: https://*.supabase.co; frame-ancestors 'none';"
   );
   return response;
 }

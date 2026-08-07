@@ -230,11 +230,17 @@ export default function StudentTestRunnerPage() {
   const [cameraMode, setCameraMode] = useState<"hardware" | "ai_simulation">("hardware");
   const [faceConfidence] = useState(99.8);
 
-  // Check SEB Browser UserAgent
+  // Check SEB Browser UserAgent and URL parameters
   useEffect(() => {
     if (typeof window !== "undefined") {
       const ua = window.navigator.userAgent.toLowerCase();
-      if (ua.includes("seb") || ua.includes("safeexambrowser")) {
+      const search = window.location.search.toLowerCase();
+      if (
+        ua.includes("seb") ||
+        ua.includes("safeexambrowser") ||
+        search.includes("seb=true") ||
+        search.includes("seb=1")
+      ) {
         setIsSEBVerified(true);
       }
     }
@@ -584,9 +590,15 @@ export default function StudentTestRunnerPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <Button
               className="w-full sm:w-auto h-[44px] px-6 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold gap-2"
-              onClick={() => window.location.href = `seb://localhost:3000/student/tests/${testId}`}
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  const protocol = window.location.protocol === "https:" ? "sebs://" : "seb://";
+                  const host = window.location.host;
+                  window.location.href = `${protocol}${host}/student/tests/${testId}?seb=true`;
+                }
+              }}
             >
-              <ExternalLink className="h-4 w-4" /> Launch in SEB App (seb://)
+              <ExternalLink className="h-4 w-4" /> Launch in SEB App (sebs://)
             </Button>
 
             <Button
