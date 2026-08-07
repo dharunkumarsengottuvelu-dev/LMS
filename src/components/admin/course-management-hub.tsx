@@ -590,17 +590,72 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-                <span>Course Thumbnail Image URL</span>
-                <span className="text-[10px] font-medium text-[#6B7280]">Supports Unsplash / Direct Image URL</span>
+                <span>Course Thumbnail Image</span>
+                <span className="text-[10px] font-semibold text-[#2563EB]">Upload Local File OR Paste Image URL</span>
               </label>
-              <Input placeholder="e.g. https://images.unsplash.com/photo-1633356122544-f134324a6cee"
-                value={fThumbnail} onChange={(e) => setFThumbnail(e.target.value)}
-                className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Mode 1: Manual File Upload from Computer / Device */}
+                <div className="relative">
+                  <input
+                    type="file"
+                    id="thumbnail-file-upload"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          if (event.target?.result) {
+                            setFThumbnail(event.target.result as string);
+                            toast({ title: "Image Selected", description: `File "${file.name}" loaded for thumbnail.` });
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor="thumbnail-file-upload"
+                    className="flex items-center justify-center gap-2 h-[48px] px-4 rounded-xl border border-dashed border-[#2563EB]/40 bg-[#2563EB]/5 hover:bg-[#2563EB]/10 text-[#2563EB] text-xs font-bold cursor-pointer transition-all w-full text-center"
+                  >
+                    <UploadCloud className="h-4 w-4" />
+                    <span>Upload Image File from Device</span>
+                  </label>
+                </div>
+
+                {/* Mode 2: Direct URL Input */}
+                <div>
+                  <Input
+                    placeholder="Or paste image URL (https://...)"
+                    value={fThumbnail}
+                    onChange={(e) => setFThumbnail(e.target.value)}
+                    className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                  />
+                </div>
+              </div>
+
+              {/* Live Image Preview Box */}
               {fThumbnail && (
-                <div className="relative w-full h-36 rounded-xl overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] mt-2 bg-[#F1F5F9]">
+                <div className="relative w-full h-44 rounded-xl overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9] dark:bg-[#09090B]">
                   <img src={fThumbnail} alt="Thumbnail Preview" className="w-full h-full object-cover" />
+                  <div className="absolute top-2 right-2 flex items-center gap-2">
+                    <Badge className="bg-[#111827]/80 text-white text-[10px] font-bold">
+                      Active Thumbnail
+                    </Badge>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 text-[10px] px-2.5 font-bold"
+                      onClick={() => setFThumbnail("")}
+                    >
+                      Remove
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
