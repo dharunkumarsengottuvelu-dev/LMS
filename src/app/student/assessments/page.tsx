@@ -29,6 +29,7 @@ interface PracticeCourseTrack {
   title: string;
   category: string;
   description: string;
+  thumbnail: string;
   assignedBy: "Admin" | "Trainer";
   assignedByName: string;
   subModules: SubModuleItem[];
@@ -40,6 +41,7 @@ const mockPracticeTracks: PracticeCourseTrack[] = [
     title: "React 19 & Next.js 16 Enterprise Masterclass",
     category: "Frontend Development",
     description: "Complete hands-on practice suite covering Server Components, App Router Navigation, and Custom Middleware.",
+    thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
     assignedBy: "Admin",
     assignedByName: "Dharunkumar S",
     subModules: [
@@ -78,6 +80,7 @@ const mockPracticeTracks: PracticeCourseTrack[] = [
     title: "Data Structures & Algorithms Problem Solving Track",
     category: "Algorithms & Logic",
     description: "Master essential algorithmic problem solving with live code execution and test cases.",
+    thumbnail: "https://images.unsplash.com/photo-1516116211223-4c714cf99465?w=800&auto=format&fit=crop&q=80",
     assignedBy: "Trainer",
     assignedByName: "Dr. Arunkumar (Lead Technical Trainer)",
     subModules: [
@@ -106,6 +109,7 @@ const mockPracticeTracks: PracticeCourseTrack[] = [
     title: "Fullstack Architecture & System Design Track",
     category: "System Engineering",
     description: "Architect scaleable cloud databases, microservices, and client-side caching.",
+    thumbnail: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80",
     assignedBy: "Admin",
     assignedByName: "System Admin",
     subModules: [
@@ -167,8 +171,6 @@ export default function StudentPracticePage() {
         </div>
       </div>
 
-
-
       {/* Practice Tracks Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
         {filteredTracks.map((track) => {
@@ -177,7 +179,16 @@ export default function StudentPracticePage() {
           const progressPercentage = Math.round((completedCount / totalCount) * 100);
 
           return (
-            <Card key={track.id} className="flex flex-col justify-between hover:border-[#2563EB]/50 transition-all duration-200 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
+            <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-[#2563EB]/50 transition-all duration-200 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl">
+              {/* Thumbnail Header Image */}
+              <div className="relative w-full h-44 overflow-hidden border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9] dark:bg-[#09090B]">
+                <img
+                  src={track.thumbnail}
+                  alt={track.title}
+                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                />
+              </div>
+
               <CardHeader className="p-6 pb-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
@@ -220,7 +231,7 @@ export default function StudentPracticePage() {
                   onClick={() => router.push(`/student/assessments/tracks/${track.id}`)}
                   className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2"
                 >
-                  Explore Practice Track ({totalCount} Modules) <ChevronRight className="h-4 w-4" />
+                  Explore Practice Track <ChevronRight className="h-4 w-4" />
                 </Button>
               </CardFooter>
             </Card>
