@@ -34,7 +34,7 @@ export function StudentTopNav() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between px-6 lg:px-10">
       {/* Brand Logo */}
-      <Link href="/student/dashboard" className="flex items-center gap-2.5 shrink-0">
+      <Link href="/student/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0">
         <div className="w-9 h-9 rounded-xl bg-[#2563EB] flex items-center justify-center text-white font-bold text-base shadow-sm">
           E
         </div>
