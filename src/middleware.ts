@@ -1,13 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { createServerClient } from "@supabase/ssr";
+import { checkRateLimit } from "@/lib/security/rate-limiter";
 
-// Define protected route patterns and their required roles
+// Define protected route patterns and their required roles (RBAC)
 const ROUTE_ROLE_MAP: Record<string, string[]> = {
-  "/admin": ["admin"],
-  "/trainer": ["admin", "trainer"],
-  "/student": ["admin", "trainer", "student"],
-  "/ide": ["admin", "trainer", "student"],
+  "/admin": ["super_admin", "admin"],
+  "/trainer": ["super_admin", "admin", "trainer"],
+  "/recruiter": ["super_admin", "admin", "recruiter"],
+  "/student": ["super_admin", "admin", "trainer", "student"],
+  "/ide": ["super_admin", "admin", "trainer", "student"],
 };
 
 // Public routes that never require auth
@@ -44,15 +46,34 @@ function getRequiredRoles(pathname: string): string[] | null {
 
 function getRoleDefaultPath(role: string): string {
   switch (role) {
+    case "super_admin":
     case "admin":
       return "/admin/dashboard";
     case "trainer":
       return "/trainer/dashboard";
+    case "recruiter":
+      return "/admin/students";
     case "student":
       return "/student/dashboard";
     default:
       return "/login";
   }
+}
+
+/**
+ * Applies OWASP Top 10 Security Headers to the response
+ */
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=(), display-capture=(self)");
+  response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co; frame-ancestors 'none';"
+  );
+  return response;
 }
 
 export async function middleware(request: NextRequest) {
@@ -69,20 +90,37 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Update session (refreshes cookie, returns current user)
+  // 1. Rate Limiting Check (IP-based)
+  const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
+  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register") || pathname.startsWith("/auth");
+  const limit = isAuthRoute ? 10 : 120; // 10 req/min for auth, 120 for general routes
+  const rateCheck = checkRateLimit(clientIp, limit, 60 * 1000);
+
+  if (!rateCheck.success) {
+    const errorResponse = new NextResponse(
+      JSON.stringify({ error: "Too many requests. Rate limit exceeded. Please try again later." }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
+    );
+    errorResponse.headers.set("X-RateLimit-Limit", String(rateCheck.limit));
+    errorResponse.headers.set("X-RateLimit-Remaining", "0");
+    errorResponse.headers.set("Retry-After", "60");
+    return applySecurityHeaders(errorResponse);
+  }
+
+  // 2. Update Supabase Session
   const { supabaseResponse, user } = await updateSession(request);
 
   const isPublic = isPublicRoute(pathname);
   const requiredRoles = getRequiredRoles(pathname);
 
-  // If user is not logged in and trying to access a protected route
+  // 3. Unauthenticated User Protection
   if (!user && !isPublic && requiredRoles !== null) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(redirectUrl);
+    return applySecurityHeaders(NextResponse.redirect(redirectUrl));
   }
 
-  // If user IS logged in and tries to access auth pages, redirect to dashboard
+  // 4. Authenticated User Redirection from Login/Auth pages
   if (user && (pathname.startsWith("/auth/") || pathname === "/login" || pathname === "/register")) {
     const supabase = createServerClient(
       process.env["NEXT_PUBLIC_SUPABASE_URL"]!,
@@ -110,12 +148,12 @@ export async function middleware(request: NextRequest) {
       ? "trainer"
       : profile?.role || "student";
 
-    return NextResponse.redirect(
-      new URL(getRoleDefaultPath(role), request.url)
+    return applySecurityHeaders(
+      NextResponse.redirect(new URL(getRoleDefaultPath(role), request.url))
     );
   }
 
-  return supabaseResponse;
+  return applySecurityHeaders(supabaseResponse);
 }
 
 export const config = {
