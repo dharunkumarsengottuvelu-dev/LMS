@@ -7,7 +7,6 @@ import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   DropdownMenu,
@@ -34,49 +33,8 @@ export function TrainerTopNav() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between px-4 sm:px-6 lg:px-10">
-      {/* Brand Logo & Mobile Trigger */}
+      {/* Brand Logo */}
       <div className="flex items-center gap-3">
-        {/* Mobile Hamburger Drawer Trigger */}
-        <Sheet>
-          <SheetTrigger className="md:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-[#4B5563] dark:text-[#A1A1AA] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A]">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle navigation menu</span>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[280px] sm:w-[320px] bg-white dark:bg-[#18181B] border-r border-[#E5E7EB] dark:border-[#27272A] p-6">
-            <SheetHeader className="text-left pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-              <SheetTitle className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#9333EA] flex items-center justify-center text-white font-bold text-sm">
-                  E
-                </div>
-                <span className="font-bold text-base text-[#111827] dark:text-[#FAFAFA]">EduNexus</span>
-                <Badge className="bg-[#9333EA]/10 text-[#9333EA] text-[9px] font-bold">TRAINER</Badge>
-              </SheetTitle>
-            </SheetHeader>
-
-            <nav className="flex flex-col gap-1.5 pt-6">
-              {trainerNavItems.map((item) => {
-                const isActive = pathname === item.href || (item.href !== "/trainer/dashboard" && pathname.startsWith(item.href));
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all",
-                      isActive
-                        ? "bg-[#9333EA]/10 text-[#9333EA] dark:bg-[#9333EA]/20 dark:text-[#C084FC]"
-                        : "text-[#6B7280] dark:text-[#A1A1AA] hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </SheetContent>
-        </Sheet>
-
         <Link href="/trainer/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0">
           <div className="w-9 h-9 rounded-xl bg-[#9333EA] flex items-center justify-center text-white font-bold text-base shadow-sm">
             E
@@ -116,8 +74,50 @@ export function TrainerTopNav() {
         })}
       </nav>
 
-      {/* Right Controls & User Profile */}
-      <div className="flex items-center gap-3 shrink-0">
+      {/* Right Controls (Mobile Menu & Profile) */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Mobile Hamburger Menu Trigger */}
+        <Sheet>
+          <SheetTrigger className="md:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-[#4B5563] dark:text-[#A1A1AA] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] border border-[#E5E7EB] dark:border-[#27272A]">
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle navigation menu</span>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-white dark:bg-[#18181B] border-l border-[#E5E7EB] dark:border-[#27272A] p-6">
+            <SheetHeader className="text-left pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+              <SheetTitle className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#9333EA] flex items-center justify-center text-white font-bold text-sm">
+                  E
+                </div>
+                <span className="font-bold text-base text-[#111827] dark:text-[#FAFAFA]">EduNexus</span>
+                <Badge className="bg-[#9333EA]/10 text-[#9333EA] text-[9px] font-bold">TRAINER</Badge>
+              </SheetTitle>
+            </SheetHeader>
+
+            <nav className="flex flex-col gap-1.5 pt-6">
+              {trainerNavItems.map((item) => {
+                const isActive = pathname === item.href || (item.href !== "/trainer/dashboard" && pathname.startsWith(item.href));
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all",
+                      isActive
+                        ? "bg-[#9333EA]/10 text-[#9333EA] dark:bg-[#9333EA]/20 dark:text-[#C084FC]"
+                        : "text-[#6B7280] dark:text-[#A1A1AA] hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </SheetContent>
+        </Sheet>
+
+        {/* Profile Avatar */}
         <DropdownMenu>
           <DropdownMenuTrigger className="outline-none">
             <div className="flex items-center gap-2.5 p-1 rounded-full hover:bg-[#F9FAFB] dark:hover:bg-[#27272A] transition-colors cursor-pointer border border-[#E5E7EB] dark:border-[#27272A]">
