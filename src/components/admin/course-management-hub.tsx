@@ -45,6 +45,7 @@ export interface ManagedCourse {
   durationHours: number;
   durationMins: number;
   description: string;
+  thumbnail?: string;
   modules: CourseSyllabusModule[];
   assignedBatches?: string[];
   assignedStudents?: string[];
@@ -215,6 +216,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [fLevel, setFLevel]           = useState<"Beginner" | "Intermediate" | "Advanced">("Intermediate");
   const [fInstructor, setFInstructor] = useState("");
   const [fDesc, setFDesc]             = useState("");
+  const [fThumbnail, setFThumbnail]   = useState("");
 
   // Step 2: Course Modules Draft
   const [draftModules, setDraftModules] = useState<CourseSyllabusModule[]>([]);
@@ -297,7 +299,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const openCreateWizard = () => {
     setEditingCourseId(null);
     setFTitle(""); setFCategory(""); setFLevel("Intermediate");
-    setFInstructor(""); setFDesc("");
+    setFInstructor(""); setFDesc(""); setFThumbnail("");
     setDraftModules([]);
     resetModuleBuilder();
     setShowModuleBuilder(false);
@@ -308,7 +310,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const openEditWizard = (c: ManagedCourse) => {
     setEditingCourseId(c.id);
     setFTitle(c.title); setFCategory(c.category); setFLevel(c.level);
-    setFInstructor(c.instructor); setFDesc(c.description);
+    setFInstructor(c.instructor); setFDesc(c.description); setFThumbnail(c.thumbnail || "");
     setDraftModules([...c.modules]);
     resetModuleBuilder();
     setShowModuleBuilder(false);
@@ -358,6 +360,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           level: fLevel,
           instructor: fInstructor || "Course Instructor",
           description: fDesc,
+          thumbnail: fThumbnail || c.thumbnail,
           modules: draftModules,
           totalLessons: draftModules.length,
         } : c
@@ -376,6 +379,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         durationHours: 0,
         durationMins: 0,
         description: fDesc || "Newly authored enterprise training course.",
+        thumbnail: fThumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
         modules: draftModules,
       };
       setCourses((prev) => [created, ...prev]);
@@ -582,8 +586,23 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             <div className="space-y-2">
               <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Executive Summary & Learning Outcomes</label>
               <Textarea placeholder="Write course objectives and syllabus takeaways..."
-                value={fDesc} onChange={(e) => setFDesc(e.target.value)} rows={5}
+                value={fDesc} onChange={(e) => setFDesc(e.target.value)} rows={4}
                 className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
+                <span>Course Thumbnail Image URL</span>
+                <span className="text-[10px] font-medium text-[#6B7280]">Supports Unsplash / Direct Image URL</span>
+              </label>
+              <Input placeholder="e.g. https://images.unsplash.com/photo-1633356122544-f134324a6cee"
+                value={fThumbnail} onChange={(e) => setFThumbnail(e.target.value)}
+                className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+              {fThumbnail && (
+                <div className="relative w-full h-36 rounded-xl overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] mt-2 bg-[#F1F5F9]">
+                  <img src={fThumbnail} alt="Thumbnail Preview" className="w-full h-full object-cover" />
+                </div>
+              )}
             </div>
 
             <div className="pt-4 flex items-center justify-end border-t border-[#E5E7EB] dark:border-[#27272A]">
@@ -1346,6 +1365,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         {filtered.map((course) => (
           <Card key={course.id}
             className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between hover:border-[#2563EB]/40 transition-colors">
+            {course.thumbnail && (
+              <div className="relative w-full h-36 overflow-hidden border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9]">
+                <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+              </div>
+            )}
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className="text-[10px] font-semibold border-[#2563EB]/30 text-[#2563EB]">
