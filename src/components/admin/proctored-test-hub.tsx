@@ -35,7 +35,7 @@ export interface ScheduledTest {
 export interface TestQuestion {
   id: string;
   title: string;
-  type: "coding" | "mcq" | "msq";
+  type: "coding" | "mcq" | "msq" | "both";
   marks: number;
   section: string;
 }
@@ -229,7 +229,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       t.id === assigningTest.id ? { 
         ...t, 
         assignedBatches: selectedBatches,
-        batch: selectedBatches.length > 0 ? selectedBatches[0] : "Unassigned",
+        batch: selectedBatches.length > 0 ? (selectedBatches[0] ?? "Unassigned") : "Unassigned",
         totalEnrolled: selectedBatches.length * 50 // Mock enrollment count
       } : t
     ));
@@ -559,7 +559,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
                 <Code2 className="h-4 w-4 text-[#2563EB]" /> Inline Question Builder
               </h3>
-              <Select value={manualQuestionType} onValueChange={setManualQuestionType}>
+              <Select value={manualQuestionType} onValueChange={(val) => val && setManualQuestionType(val as any)}>
                 <SelectTrigger className="h-9 text-xs w-[160px] bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(selectedTest.allowedQuestionTypes === "both" || selectedTest.allowedQuestionTypes === "coding" || !selectedTest.allowedQuestionTypes) && (

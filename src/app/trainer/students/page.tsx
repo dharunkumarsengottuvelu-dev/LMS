@@ -58,7 +58,7 @@ export default function TrainerStudentsPage() {
       name: newUserName,
       email: newUserEmail,
       status: "active",
-      joined: new Date().toISOString().split("T")[0],
+      joined: new Date().toISOString().split("T")[0] ?? "",
       batch: newUserBatch === "custom" ? customBatch : newUserBatch,
     };
 
@@ -340,7 +340,7 @@ export default function TrainerStudentsPage() {
 
             <div className="space-y-2">
               <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Cohort Batch</label>
-              <Select value={newUserBatch} onValueChange={setNewUserBatch}>
+              <Select value={newUserBatch} onValueChange={(val) => val && setNewUserBatch(val)}>
                 <SelectTrigger className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border-[#E5E7EB] dark:border-[#27272A]">
                   <SelectValue />
                 </SelectTrigger>

@@ -431,6 +431,10 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
       certificationsEarned: [],
       testsTaken: [],
       proctoringLogs: [],
+      practicesSubmitted: [],
+      dailyProgress: [],
+      systemInfo: { ipAddress: "127.0.0.1", browser: "Chrome 127.0", os: "Windows 11", lastActive: "Just now", status: "Online", currentPage: "Dashboard" },
+      activityLogs: [],
     };
 
     setStudents((prev) => [newRecord, ...prev]);
@@ -885,14 +889,10 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                                 </div>
                               </div>
                               <DialogFooter>
-                                <DialogClose asChild>
-                                  <Button variant="outline">Cancel</Button>
-                                </DialogClose>
-                                <DialogClose asChild>
-                                  <Button className="bg-[#9333EA] hover:bg-[#7E22CE] text-white" onClick={() => {
-                                    toast({ title: "Evaluation Saved", description: "Practice lab evaluation updated." });
-                                  }}>Save Evaluation</Button>
-                                </DialogClose>
+                                <DialogClose render={<Button variant="outline">Cancel</Button>} />
+                                <DialogClose render={<Button className="bg-[#9333EA] hover:bg-[#7E22CE] text-white" onClick={() => {
+                                  toast({ title: "Evaluation Saved", description: "Practice lab evaluation updated." });
+                                }}>Save Evaluation</Button>} />
                               </DialogFooter>
                             </DialogContent>
                           </Dialog>
@@ -951,15 +951,11 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                               <Input type="number" max="100" min="0" defaultValue={t.score} id={`score-${t.testId}`} />
                             </div>
                             <DialogFooter className="flex items-center gap-2">
-                              <DialogClose asChild>
-                                <Button variant="outline">Cancel</Button>
-                              </DialogClose>
-                              <DialogClose asChild>
-                                <Button onClick={() => {
-                                  const val = (document.getElementById(`score-${t.testId}`) as HTMLInputElement)?.value;
-                                  if (val) handleUpdateScore(t.testId, Number(val));
-                                }} className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white">Save Changes</Button>
-                              </DialogClose>
+                              <DialogClose render={<Button variant="outline">Cancel</Button>} />
+                              <DialogClose render={<Button onClick={() => {
+                                const val = (document.getElementById(`score-${t.testId}`) as HTMLInputElement)?.value;
+                                if (val) handleUpdateScore(t.testId, Number(val));
+                              }} className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white">Save Changes</Button>} />
                             </DialogFooter>
                           </DialogContent>
                         </Dialog>
@@ -1031,14 +1027,10 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                                     </div>
                                   </div>
                                   <DialogFooter>
-                                    <DialogClose asChild>
-                                      <Button variant="outline">Cancel</Button>
-                                    </DialogClose>
-                                    <DialogClose asChild>
-                                      <Button className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" onClick={() => {
-                                        toast({ title: "Evaluation Saved", description: "The answer feedback and marks have been updated." });
-                                      }}>Save Evaluation</Button>
-                                    </DialogClose>
+                                    <DialogClose render={<Button variant="outline">Cancel</Button>} />
+                                    <DialogClose render={<Button className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" onClick={() => {
+                                      toast({ title: "Evaluation Saved", description: "The answer feedback and marks have been updated." });
+                                    }}>Save Evaluation</Button>} />
                                   </DialogFooter>
                                 </DialogContent>
                               </Dialog>

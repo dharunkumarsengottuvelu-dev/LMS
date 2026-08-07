@@ -5,7 +5,7 @@ import {
   Layers, Plus, Search, Trash2, ArrowLeft, Sparkles, UserCheck,
   Users, CheckCircle2, Clock, BookOpen, Code2, FileText, Video,
   ChevronDown, ShieldCheck, Link2, StickyNote, Dumbbell, AlertCircle,
-  PlayCircle, ListChecks, PenLine
+  PlayCircle, ListChecks, PenLine, HardDrive
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -145,8 +145,10 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
   const calculateDuration = (start: string, end: string) => {
     if (!start || !end) return "N/A";
-    const [sH, sM] = start.split(":").map(Number);
-    const [eH, eM] = end.split(":").map(Number);
+    const sH = Number(start.split(":")[0] ?? 0);
+    const sM = Number(start.split(":")[1] ?? 0);
+    const eH = Number(end.split(":")[0] ?? 0);
+    const eM = Number(end.split(":")[1] ?? 0);
     const startMins = sH * 60 + sM;
     const endMins = eH * 60 + eM;
     let diff = endMins - startMins;
