@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dumbbell, Search, Users, CheckCircle2, Clock, Plus,
   BookOpen, Code2, FileText, Video, UserCheck,
@@ -81,9 +81,24 @@ const initialTracks: PracticeTrack[] = [
 
 type ViewState = "list" | "create" | "edit" | "detail" | "add-module" | "assign";
 
+import { useLMSStore } from "@/lib/store/lms-store";
+import { PracticeTrackItem } from "@/services/assessment.service";
+
+// ... existing code ...
+
 export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const [tracks, setTracks] = useState<PracticeTrack[]>(initialTracks);
+  const { practiceTracks: storeTracks, updatePracticeTracks } = useLMSStore();
+  const [tracks, setTracks] = useState<PracticeTrack[]>(() => {
+    return storeTracks.length > 0 ? (storeTracks as unknown as PracticeTrack[]) : initialTracks;
+  });
+
+  useEffect(() => {
+    if (storeTracks && storeTracks.length > 0) {
+      setTracks(storeTracks as unknown as PracticeTrack[]);
+    }
+  }, [storeTracks]);
+
   const [search, setSearch] = useState("");
   const [viewState, setViewState] = useState<ViewState>("list");
   const [selectedTrack, setSelectedTrack] = useState<PracticeTrack | null>(null);
@@ -127,6 +142,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setViewState("edit");
   };
 
+  const syncTracksToStore = (newTracks: PracticeTrack[]) => {
+    setTracks(newTracks);
+    updatePracticeTracks(newTracks as unknown as PracticeTrackItem[]);
+  };
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!fTitle) return;
@@ -135,25 +155,28 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       title: fTitle, category: fCategory || "General",
       description: fDesc || "New practice track for students.",
       assignedByName: fAssignedBy || (role === "admin" ? "Admin" : "Trainer"),
-      subModules: [], assignedBatches: [], assignedStudents: [],
+      subModules: [], assignedBatches: ["Batch 2026-A"], assignedStudents: ["std_101", "student-1"],
     };
-    setTracks((prev) => [created, ...prev]);
+    const updated = [created, ...tracks];
+    syncTracksToStore(updated);
     setViewState("list");
-    toast({ title: "Practice Track Created", description: `"${fTitle}" saved successfully.` });
+    toast({ title: "Practice Track Created", description: `"${fTitle}" saved and assigned to students.` });
   };
 
   const handleEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingId) return;
-    setTracks((prev) => prev.map((t) =>
+    const updated = tracks.map((t) =>
       t.id === editingId ? { ...t, title: fTitle, category: fCategory, description: fDesc, assignedByName: fAssignedBy } : t
-    ));
+    );
+    syncTracksToStore(updated);
     setViewState("list");
     toast({ title: "Practice Track Updated", description: `"${fTitle}" saved.` });
   };
 
   const handleDelete = (id: string, title: string) => {
-    setTracks((prev) => prev.filter((t) => t.id !== id));
+    const updated = tracks.filter((t) => t.id !== id);
+    syncTracksToStore(updated);
     toast({ title: "Practice Track Removed", description: title, variant: "destructive" });
   };
 
@@ -168,9 +191,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         hiddenTestsCode: smHasHiddenTests ? smHiddenTests : undefined
       } : {})
     };
-    const updated = { ...selectedTrack, subModules: [...selectedTrack.subModules, newSm] };
-    setSelectedTrack(updated);
-    setTracks((prev) => prev.map((t) => (t.id === selectedTrack.id ? updated : t)));
+    const updatedTrack = { ...selectedTrack, subModules: [...selectedTrack.subModules, newSm] };
+    setSelectedTrack(updatedTrack);
+    const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
+    syncTracksToStore(updatedTracks);
     setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
     setSmHasHiddenTests(false); setSmHiddenTests("");
     setViewState("detail");
@@ -178,9 +202,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   };
 
   const handleDeleteSubModule = (trackId: string, smId: string) => {
-    setTracks((prev) => prev.map((t) =>
+    const updatedTracks = tracks.map((t) =>
       t.id === trackId ? { ...t, subModules: t.subModules.filter((s) => s.id !== smId) } : t
-    ));
+    );
+    syncTracksToStore(updatedTracks);
     if (selectedTrack?.id === trackId) {
       setSelectedTrack((prev) => prev ? { ...prev, subModules: prev.subModules.filter((s) => s.id !== smId) } : prev);
     }
@@ -188,8 +213,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const openAssign = (t: PracticeTrack) => {
     setSelectedTrack(t);
-    setSelectedBatches([...t.assignedBatches]);
-    setSelectedStudentIds([...t.assignedStudents]);
+    setSelectedBatches([...(t.assignedBatches || [])]);
+    setSelectedStudentIds([...(t.assignedStudents || [])]);
     setBatchFilter("all");
     setViewState("assign");
   };
@@ -210,9 +235,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const handleSaveAssign = () => {
     if (!selectedTrack) return;
-    setTracks((prev) => prev.map((t) =>
+    const updatedTracks = tracks.map((t) =>
       t.id === selectedTrack.id ? { ...t, assignedBatches: selectedBatches, assignedStudents: selectedStudentIds } : t
-    ));
+    );
+    syncTracksToStore(updatedTracks);
     toast({ title: "Practice Track Assigned", description: `${selectedStudentIds.length} students assigned.` });
     setViewState("list");
   };

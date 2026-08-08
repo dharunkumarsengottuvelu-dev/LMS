@@ -127,13 +127,37 @@ const mockPracticeTracks: PracticeCourseTrack[] = [
   },
 ];
 
+import { useLMSStore } from "@/lib/store/lms-store";
+
 export default function StudentPracticePage() {
   const router = useRouter();
-
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const { practiceTracks: storePracticeTracks } = useLMSStore();
 
-  const filteredTracks = mockPracticeTracks.filter((track) => {
+  const formattedStoreTracks: PracticeCourseTrack[] = storePracticeTracks.map(t => ({
+    id: t.id,
+    title: t.title,
+    category: t.category,
+    description: t.description,
+    thumbnail: t.thumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
+    assignedBy: t.assignedBy,
+    assignedByName: t.assignedByName,
+    subModules: t.subModules.map(sm => ({
+      id: sm.id,
+      title: sm.title,
+      type: sm.type,
+      duration_minutes: sm.durationMinutes,
+      total_marks: sm.totalMarks,
+      question_count: sm.questionCount,
+      status: sm.status || "not_started",
+      score: sm.score,
+    }))
+  }));
+
+  const allTracks = storePracticeTracks.length > 0 ? formattedStoreTracks : mockPracticeTracks;
+
+  const filteredTracks = allTracks.filter((track) => {
     const matchesSearch = track.title.toLowerCase().includes(search.toLowerCase()) || track.category.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = filterCategory === "all" || track.category === filterCategory;
     return matchesSearch && matchesCategory;

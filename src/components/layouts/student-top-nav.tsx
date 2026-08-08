@@ -153,11 +153,6 @@ export function StudentTopNav() {
                 <User className="h-4 w-4 mr-2 text-[#2563EB]" /> My Profile
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer font-semibold text-xs">
-              <Link href="/student/settings" className="flex items-center w-full">
-                <Settings className="h-4 w-4 mr-2 text-[#6B7280]" /> Settings
-              </Link>
-            </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-[#27272A]" />
             <DropdownMenuItem onClick={signOut} className="text-[#DC2626] font-bold text-xs cursor-pointer">
               <LogOut className="h-4 w-4 mr-2" /> Sign out

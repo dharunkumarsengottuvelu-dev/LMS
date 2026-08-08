@@ -1,6 +1,30 @@
 import { createClient } from "@/lib/supabase/client";
 import type { Assessment, AssessmentAttempt, SubmitAnswersInput, CreateAssessmentInput } from "@/types/assessment";
 
+export interface PracticeSubModule {
+  id: string;
+  title: string;
+  type: "mcq" | "coding" | "mixed";
+  durationMinutes: number;
+  totalMarks: number;
+  questionCount: number;
+  status?: "not_started" | "in_progress" | "completed";
+  score?: number;
+}
+
+export interface PracticeTrackItem {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  thumbnail: string;
+  assignedBy: "Admin" | "Trainer";
+  assignedByName: string;
+  subModules: PracticeSubModule[];
+  assignedBatches?: string[];
+  assignedStudents?: string[];
+}
+
 export const INITIAL_MOCK_ASSESSMENTS: Assessment[] = [
   {
     id: "test-1",
@@ -52,8 +76,107 @@ export const INITIAL_MOCK_ASSESSMENTS: Assessment[] = [
   }
 ];
 
+export const INITIAL_MOCK_PRACTICE_TRACKS: PracticeTrackItem[] = [
+  {
+    id: "track-1",
+    title: "React 19 & Next.js 16 Enterprise Masterclass",
+    category: "Frontend Development",
+    description: "Complete hands-on practice suite covering Server Components, App Router Navigation, and Custom Middleware.",
+    thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
+    assignedBy: "Admin",
+    assignedByName: "Dharunkumar S",
+    assignedBatches: ["Batch 2026-A"],
+    assignedStudents: ["std_101", "std_102", "std_105", "student-1"],
+    subModules: [
+      {
+        id: "p1",
+        title: "Module 1: React 19 Server Components Architecture",
+        type: "mcq",
+        durationMinutes: 30,
+        totalMarks: 100,
+        questionCount: 10,
+        status: "completed",
+        score: 90,
+      },
+      {
+        id: "p1-m2",
+        title: "Module 2: Custom Middleware & JWT Auth Handshake",
+        type: "coding",
+        durationMinutes: 45,
+        totalMarks: 150,
+        questionCount: 2,
+        status: "in_progress",
+      },
+      {
+        id: "p1-m3",
+        title: "Module 3: Fullstack Server Action & PostgreSQL RLS",
+        type: "mixed",
+        durationMinutes: 60,
+        totalMarks: 200,
+        questionCount: 8,
+        status: "not_started",
+      },
+    ],
+  },
+  {
+    id: "track-2",
+    title: "Data Structures & Algorithms Problem Solving Track",
+    category: "Algorithms & Logic",
+    description: "Master essential algorithmic problem solving with live code execution and test cases.",
+    thumbnail: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
+    assignedBy: "Trainer",
+    assignedByName: "Dr. Arunkumar (Lead Technical Trainer)",
+    assignedBatches: ["Batch 2026-A"],
+    assignedStudents: ["std_101", "student-1"],
+    subModules: [
+      {
+        id: "p2",
+        title: "Module 1: Arrays, Hash Maps & Two Pointer Technique",
+        type: "coding",
+        durationMinutes: 45,
+        totalMarks: 150,
+        questionCount: 3,
+        status: "in_progress",
+      },
+      {
+        id: "p2-m2",
+        title: "Module 2: Dynamic Programming & Recursion Fundamentals",
+        type: "coding",
+        durationMinutes: 60,
+        totalMarks: 200,
+        questionCount: 4,
+        status: "not_started",
+      },
+    ],
+  },
+  {
+    id: "track-3",
+    title: "Fullstack Architecture & System Design Track",
+    category: "System Engineering",
+    description: "Architect scalable cloud databases, microservices, and client-side caching.",
+    thumbnail: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80",
+    assignedBy: "Admin",
+    assignedByName: "System Admin",
+    assignedBatches: ["Batch 2026-A"],
+    assignedStudents: ["std_101", "student-1"],
+    subModules: [
+      {
+        id: "p3",
+        title: "Module 1: System Architecture & Distributed Cache Strategy",
+        type: "mixed",
+        durationMinutes: 60,
+        totalMarks: 200,
+        questionCount: 5,
+        status: "completed",
+        score: 100,
+      },
+    ],
+  },
+];
+
 const LOCAL_STORAGE_KEY_TESTS = "enterprise_lms_assessments_v1";
 const LOCAL_STORAGE_KEY_ATTEMPTS = "enterprise_lms_attempts_v1";
+const LOCAL_STORAGE_KEY_PRACTICE_TRACKS = "enterprise_lms_practice_tracks_v1";
 
 export class AssessmentService {
   private static getLocalAssessments(): Assessment[] {
@@ -136,6 +259,23 @@ export class AssessmentService {
     const updated = [newAssessment, ...current];
     this.saveLocalAssessments(updated);
     return newAssessment;
+  }
+
+  static getPracticeTracks(): PracticeTrackItem[] {
+    if (typeof window === "undefined") return INITIAL_MOCK_PRACTICE_TRACKS;
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PRACTICE_TRACKS);
+      if (saved) return JSON.parse(saved);
+      localStorage.setItem(LOCAL_STORAGE_KEY_PRACTICE_TRACKS, JSON.stringify(INITIAL_MOCK_PRACTICE_TRACKS));
+    } catch {}
+    return INITIAL_MOCK_PRACTICE_TRACKS;
+  }
+
+  static savePracticeTracks(tracks: PracticeTrackItem[]) {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY_PRACTICE_TRACKS, JSON.stringify(tracks));
+    } catch {}
   }
 
   static async submitAttempt(input: SubmitAnswersInput, studentId: string = "student-1"): Promise<AssessmentAttempt> {
