@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ClipboardList, Clock, ArrowRight, CheckCircle2, AlertCircle, Search, Filter, Code2, Layers,
-  ShieldCheck, MonitorCheck, Maximize, CopyX, Play, Shield, FolderKanban, Check, ChevronRight, ArrowLeft
+  ShieldCheck, MonitorCheck, Maximize, CopyX, Play, Shield, FolderKanban, Check, ChevronRight, ArrowLeft, Dumbbell
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,97 +35,7 @@ interface PracticeCourseTrack {
   subModules: SubModuleItem[];
 }
 
-const mockPracticeTracks: PracticeCourseTrack[] = [
-  {
-    id: "track-1",
-    title: "React 19 & Next.js 16 Enterprise Masterclass",
-    category: "Frontend Development",
-    description: "Complete hands-on practice suite covering Server Components, App Router Navigation, and Custom Middleware.",
-    thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
-    assignedBy: "Admin",
-    assignedByName: "Dharunkumar S",
-    subModules: [
-      {
-        id: "p1",
-        title: "Module 1: React 19 Server Components Architecture",
-        type: "mcq",
-        duration_minutes: 30,
-        total_marks: 100,
-        question_count: 10,
-        status: "completed",
-        score: 90,
-      },
-      {
-        id: "p1-m2",
-        title: "Module 2: Custom Middleware & JWT Auth Handshake",
-        type: "coding",
-        duration_minutes: 45,
-        total_marks: 150,
-        question_count: 2,
-        status: "in_progress",
-      },
-      {
-        id: "p1-m3",
-        title: "Module 3: Fullstack Server Action & PostgreSQL RLS",
-        type: "mixed",
-        duration_minutes: 60,
-        total_marks: 200,
-        question_count: 8,
-        status: "not_started",
-      },
-    ],
-  },
-  {
-    id: "track-2",
-    title: "Data Structures & Algorithms Problem Solving Track",
-    category: "Algorithms & Logic",
-    description: "Master essential algorithmic problem solving with live code execution and test cases.",
-    thumbnail: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
-    assignedBy: "Trainer",
-    assignedByName: "Dr. Arunkumar (Lead Technical Trainer)",
-    subModules: [
-      {
-        id: "p2",
-        title: "Module 1: Arrays, Hash Maps & Two Pointer Technique",
-        type: "coding",
-        duration_minutes: 45,
-        total_marks: 150,
-        question_count: 3,
-        status: "in_progress",
-      },
-      {
-        id: "p2-m2",
-        title: "Module 2: Dynamic Programming & Recursion Fundamentals",
-        type: "coding",
-        duration_minutes: 60,
-        total_marks: 200,
-        question_count: 4,
-        status: "not_started",
-      },
-    ],
-  },
-  {
-    id: "track-3",
-    title: "Fullstack Architecture & System Design Track",
-    category: "System Engineering",
-    description: "Architect scaleable cloud databases, microservices, and client-side caching.",
-    thumbnail: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80",
-    assignedBy: "Admin",
-    assignedByName: "System Admin",
-    subModules: [
-      {
-        id: "p3",
-        title: "Module 1: Database Normalization & Index Optimization",
-        type: "mixed",
-        duration_minutes: 60,
-        total_marks: 200,
-        question_count: 12,
-        status: "completed",
-        score: 180,
-      },
-    ],
-  },
-];
+const mockPracticeTracks: PracticeCourseTrack[] = [];
 
 import { useLMSStore } from "@/lib/store/lms-store";
 
@@ -196,7 +106,16 @@ export default function StudentPracticePage() {
       </div>
 
       {/* Practice Tracks Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+      {filteredTracks.length === 0 ? (
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-12 text-center rounded-2xl w-full">
+          <Dumbbell className="h-12 w-12 text-[#2563EB] mx-auto mb-4 opacity-80" />
+          <h3 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">No Practice Tracks Assigned Yet</h3>
+          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] max-w-md mx-auto mt-2">
+            Practice tracks created or assigned in the Admin or Trainer panel will appear here automatically in real-time.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
         {filteredTracks.map((track) => {
           const completedCount = track.subModules.filter((m) => m.status === "completed").length;
           const totalCount = track.subModules.length;
@@ -262,6 +181,7 @@ export default function StudentPracticePage() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

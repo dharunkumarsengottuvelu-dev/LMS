@@ -106,15 +106,30 @@ const mockUpcomingEvents = [
   },
 ];
 
+import { useLMSStore } from "@/lib/store/lms-store";
+
 export function StudentDashboardClient({ data }: { data: StudentDashboardData }) {
   const router = useRouter();
-  const { profile, enrollments, tests, notifications, stats } = data;
+  const { profile } = data;
   const firstName = profile?.first_name ?? "Dharunkumar";
 
-  const displayEnrolledCount = stats.enrolledCourses > 0 ? stats.enrolledCourses : 3;
-  const displayCompletedCount = stats.completedCourses > 0 ? stats.completedCourses : 12;
-  const displayAssessmentsCount = 3;
-  const displayUnreadNotifications = 2;
+  const { courses: storeCourses, practiceTracks: storeTracks, assessments: storeAssessments } = useLMSStore();
+
+  const activeCourses = storeCourses.map((c) => ({
+    id: c.id,
+    title: c.title,
+    category: (typeof c.category_id === 'string' ? c.category_id : (c.category_id as any)?.name) || "Technical Training",
+    completedLessons: 0,
+    totalLessons: c.modules?.length || 1,
+    progressPercentage: 0,
+    nextLesson: c.modules?.[0]?.title || "Module 1 Overview",
+    slug: c.slug || c.id,
+  }));
+
+  const displayEnrolledCount = activeCourses.length;
+  const displayCompletedCount = activeCourses.filter(c => c.progressPercentage === 100).length;
+  const displayAssessmentsCount = storeTracks.length;
+  const displayUnreadNotifications = 0;
 
   return (
     <div className="space-y-8 max-w-[1440px] mx-auto pb-12 w-full">
@@ -168,50 +183,60 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
               </div>
 
               <Button variant="ghost" size="sm" className="text-xs font-bold text-[#2563EB]" asChild>
-                <Link href="/student/my-courses">View All ({mockEnrolledCourses.length}) →</Link>
+                <Link href="/student/my-courses">View All ({activeCourses.length}) →</Link>
               </Button>
             </CardHeader>
 
             <CardContent className="p-6 space-y-4">
-              {mockEnrolledCourses.map((course) => (
-                <div
-                  key={course.id}
-                  className="p-5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-[#2563EB]/40 transition-all"
-                >
-                  <div className="space-y-2 min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] font-bold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
-                        {course.category}
-                      </Badge>
-                      <span className="text-xs text-[#6B7280]">
-                        Lesson {course.completedLessons}/{course.totalLessons}
-                      </span>
-                    </div>
-
-                    <h3 className="text-[16px] font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug">
-                      {course.title}
-                    </h3>
-
-                    <p className="text-xs text-[#6B7280]">
-                      Next Topic: <strong className="text-[#111827] dark:text-[#FAFAFA]">{course.nextLesson}</strong>
-                    </p>
-
-                    <div className="space-y-1 pt-1 max-w-md">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-[#6B7280]">Course Progress</span>
-                        <span className="font-bold text-[#2563EB]">{course.progressPercentage}%</span>
-                      </div>
-                      <Progress value={course.progressPercentage} className="h-1.5 bg-[#E5E7EB]" />
-                    </div>
-                  </div>
-
-                  <Button className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-1.5 shrink-0" asChild>
-                    <Link href={`/student/my-courses`}>
-                      <Play className="h-3.5 w-3.5" /> Continue
-                    </Link>
-                  </Button>
+              {activeCourses.length === 0 ? (
+                <div className="py-8 text-center space-y-3">
+                  <BookOpen className="h-10 w-10 text-[#2563EB] mx-auto opacity-80" />
+                  <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">No Active Courses Enrolled</p>
+                  <p className="text-xs text-[#6B7280] dark:text-[#A1A1AA] max-w-sm mx-auto">
+                    Courses created or assigned in the Admin or Trainer panel will appear here automatically.
+                  </p>
                 </div>
-              ))}
+              ) : (
+                activeCourses.map((course) => (
+                  <div
+                    key={course.id}
+                    className="p-5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-[#2563EB]/40 transition-all"
+                  >
+                    <div className="space-y-2 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[10px] font-bold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
+                          {course.category}
+                        </Badge>
+                        <span className="text-xs text-[#6B7280]">
+                          Lesson {course.completedLessons}/{course.totalLessons}
+                        </span>
+                      </div>
+
+                      <h3 className="text-[16px] font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug">
+                        {course.title}
+                      </h3>
+
+                      <p className="text-xs text-[#6B7280]">
+                        Next Topic: <strong className="text-[#111827] dark:text-[#FAFAFA]">{course.nextLesson}</strong>
+                      </p>
+
+                      <div className="space-y-1 pt-1 max-w-md">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-[#6B7280]">Course Progress</span>
+                          <span className="font-bold text-[#2563EB]">{course.progressPercentage}%</span>
+                        </div>
+                        <Progress value={course.progressPercentage} className="h-1.5 bg-[#E5E7EB]" />
+                      </div>
+                    </div>
+
+                    <Button className="h-[40px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-1.5 shrink-0" asChild>
+                      <Link href={`/student/course/${course.slug}`}>
+                        Resume <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>

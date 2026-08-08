@@ -13,56 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 import { useLMSStore } from "@/lib/store/lms-store";
 
-const fallbackCourses = [
-  {
-    id: "c1",
-    slug: "react-19-nextjs-16-masterclass",
-    title: "React 19 & Next.js 16 Enterprise Production Masterclass",
-    category: "Frontend Development",
-    difficulty: "Intermediate",
-    progress: 65,
-    completedLessons: 18,
-    totalLessons: 28,
-    instructor: "Dharunkumar Sengottuvelu",
-    thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "c2",
-    slug: "data-structures-and-algorithms-mastery",
-    title: "Data Structures & Algorithms Problem Solving Track",
-    category: "Algorithms & Logic",
-    difficulty: "Advanced",
-    progress: 30,
-    completedLessons: 9,
-    totalLessons: 30,
-    instructor: "Dr. Arunkumar (Lead Technical Trainer)",
-    thumbnail: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "c3",
-    slug: "system-design-cloud-database-architecture",
-    title: "Fullstack Architecture & System Design Track",
-    category: "System Engineering",
-    difficulty: "Advanced",
-    progress: 100,
-    completedLessons: 24,
-    totalLessons: 24,
-    instructor: "Alex Rivera (Cloud Architect)",
-    thumbnail: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "c4",
-    slug: "python-data-science-machine-learning",
-    title: "Python Data Science & AI Engineering Masterclass",
-    category: "Data Science & AI",
-    difficulty: "Intermediate",
-    progress: 45,
-    completedLessons: 12,
-    totalLessons: 26,
-    instructor: "Sarah Chen (AI Research Lead)",
-    thumbnail: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=800&auto=format&fit=crop&q=80",
-  },
-];
+const fallbackCourses: any[] = [];
 
 export default function StudentCoursesPage() {
   const [search, setSearch] = useState("");
@@ -143,8 +94,17 @@ export default function StudentCoursesPage() {
       </Tabs>
 
       {/* Course Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCourses.map((course) => (
+      {filteredCourses.length === 0 ? (
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-12 text-center rounded-2xl">
+          <BookOpen className="h-12 w-12 text-[#2563EB] mx-auto mb-4 opacity-80" />
+          <h3 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">No Courses Assigned Yet</h3>
+          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] max-w-md mx-auto mt-2">
+            Courses created or assigned in the Admin or Trainer panel will appear here automatically in real-time.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredCourses.map((course) => (
           <Card key={course.id} className="h-full flex flex-col justify-between overflow-hidden hover:border-[#2563EB]/40 transition-colors bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-sm">
             {/* Thumbnail Header */}
             <div className="relative w-full h-44 overflow-hidden border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9] dark:bg-[#09090B]">
@@ -201,8 +161,9 @@ export default function StudentCoursesPage() {
               </Button>
             </CardContent>
           </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

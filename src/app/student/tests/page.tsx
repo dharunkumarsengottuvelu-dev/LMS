@@ -41,16 +41,26 @@ interface ScheduledTest {
   passed?: boolean;
 }
 
-const initialTestsData: ScheduledTest[] = [
-  {
-    id: "t1",
-    title: "Mid-Term Proctored Evaluation — Batch 2026-A",
-    type: "Proctored Examination",
-    scheduledAt: "Today, Available Now",
-    duration: 60,
-    totalQuestions: 5,
-    totalMarks: 100,
+const initialTestsData: ScheduledTest[] = [];
+
+import { useLMSStore } from "@/lib/store/lms-store";
+
+export default function StudentTestsPage() {
+  const router = useRouter();
+  const { assessments: storeAssessments } = useLMSStore();
+
+  const formattedStoreTests: ScheduledTest[] = storeAssessments.map((a) => ({
+    id: a.id,
+    title: a.title,
+    type: a.type === "coding" ? "Coding Assessment" : "Proctored Examination",
+    scheduledAt: "Available Now",
+    duration: a.duration_minutes,
+    totalQuestions: a.question_count || 10,
+    totalMarks: a.total_marks || 100,
     status: "live",
+    score: a.best_score,
+    maxScore: a.total_marks,
+    passed: (a.best_score || 0) >= (a.passing_marks || 70),
     proctoring: {
       enabled: true,
       webcamTracking: true,
@@ -58,61 +68,16 @@ const initialTestsData: ScheduledTest[] = [
       fullscreenLock: true,
       safeExamBrowserRequired: true,
       copyPasteRestricted: true,
-      assignedBy: "Trainer",
-      assignedByName: "Dr. Arunkumar (Lead Technical Trainer)",
-    },
-  },
-  {
-    id: "t2",
-    title: "Final Technical Readiness Assessment",
-    type: "Mock Interview Test",
-    scheduledAt: "2026-08-25 02:00 PM",
-    duration: 90,
-    totalQuestions: 8,
-    totalMarks: 150,
-    status: "upcoming",
-    proctoring: {
-      enabled: true,
-      webcamTracking: true,
-      tabSwitchLock: true,
-      fullscreenLock: false,
-      safeExamBrowserRequired: false,
-      copyPasteRestricted: true,
       assignedBy: "Admin",
       assignedByName: "System Admin",
     },
-  },
-  {
-    id: "t3",
-    title: "Fullstack Core Concepts Evaluation",
-    type: "Cohort Progress Test",
-    scheduledAt: "2026-08-02 10:00 AM",
-    duration: 45,
-    totalQuestions: 1,
-    totalMarks: 50,
-    status: "completed",
-    score: 92,
-    maxScore: 100,
-    passed: true,
-    proctoring: {
-      enabled: false,
-      webcamTracking: false,
-      tabSwitchLock: false,
-      fullscreenLock: false,
-      safeExamBrowserRequired: false,
-      copyPasteRestricted: false,
-      assignedBy: "Admin",
-      assignedByName: "Dharunkumar S",
-    },
-  },
-];
+  }));
 
-export default function StudentTestsPage() {
-  const router = useRouter();
+  const allTestsData = storeAssessments.length > 0 ? formattedStoreTests : initialTestsData;
+  const [tests, setTests] = useState<ScheduledTest[]>(allTestsData);
   const { toast } = useToast();
-
   const [activeTab, setActiveTab] = useState("all");
-  const [testsData, setTestsData] = useState<ScheduledTest[]>(initialTestsData);
+  const [testsData, setTestsData] = useState<ScheduledTest[]>(allTestsData);
 
   // Modals for distinct card actions
   const [selectedLobbyTest, setSelectedLobbyTest] = useState<ScheduledTest | null>(null);

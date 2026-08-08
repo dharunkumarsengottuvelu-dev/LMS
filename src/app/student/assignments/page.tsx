@@ -35,42 +35,7 @@ interface AssignmentItem {
   submittedAt?: string;
 }
 
-const mockAssignmentsData: AssignmentItem[] = [
-  {
-    id: "as1",
-    title: "Build a Fullstack Enterprise SaaS Dashboard in Next.js 16",
-    course: "Fullstack Web Development",
-    deadline: "2026-08-12 (Due in 4 days)",
-    maxMarks: 100,
-    status: "pending",
-    instructions: "Develop a responsive enterprise LMS dashboard using Next.js 16 App Router, Tailwind CSS, and Supabase database. Ensure Row Level Security (RLS) is applied to student records.",
-    attachmentName: "LMS_Project_Requirements_v2.pdf",
-  },
-  {
-    id: "as2",
-    title: "Design PostgreSQL Database Schema with RLS Security Policies",
-    course: "Database Architecture & Cloud DB",
-    deadline: "2026-08-04 (Completed)",
-    maxMarks: 50,
-    status: "graded",
-    score: 48,
-    instructions: "Write SQL migration scripts for tables: users, courses, enrollments, and test_results. Include benchmark RLS policies for student vs trainer read permissions.",
-    trainerFeedback: "Excellent SQL migration scripts! RLS policies for student isolation are written according to production standards.",
-    submittedUrl: "https://github.com/dharunkumarsengottuvelu-dev/lms-schema-rls",
-    submittedNotes: "Implemented all 4 tables with foreign key constraints and indexed RLS policies.",
-    submittedAt: "2026-08-03 04:20 PM",
-  },
-  {
-    id: "as3",
-    title: "Implement High-Performance Custom Middleware & JWT Auth",
-    course: "Advanced Backend Engineering",
-    deadline: "2026-08-15 (Due in 10 days)",
-    maxMarks: 100,
-    status: "pending",
-    instructions: "Create a Next.js middleware file that intercepts request headers, validates session cookies, and redirects unauthenticated users automatically.",
-    attachmentName: "Middleware_Security_Spec.docx",
-  },
-];
+const mockAssignmentsData: AssignmentItem[] = [];
 
 export default function StudentAssignmentsPage() {
   const router = useRouter();
@@ -194,8 +159,17 @@ export default function StudentAssignmentsPage() {
         </TabsList>
 
         <TabsContent value={activeTab} className="w-full mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-            {filteredAssignments.map((item) => (
+          {filteredAssignments.length === 0 ? (
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-12 text-center rounded-2xl w-full">
+              <FileText className="h-12 w-12 text-[#2563EB] mx-auto mb-4 opacity-80" />
+              <h3 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">No Assignments Assigned Yet</h3>
+              <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] max-w-md mx-auto mt-2">
+                Assignments created or assigned in the Admin or Trainer panel will appear here automatically in real-time.
+              </p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+              {filteredAssignments.map((item) => (
               <Card
                 key={item.id}
                 className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm hover:border-[#2563EB]/50 transition-all flex flex-col justify-between"
@@ -287,6 +261,7 @@ export default function StudentAssignmentsPage() {
               </Card>
             ))}
           </div>
+          )}
         </TabsContent>
       </Tabs>
 
