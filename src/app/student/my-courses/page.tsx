@@ -11,7 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-const mockCourses = [
+import { useLMSStore } from "@/lib/store/lms-store";
+
+const fallbackCourses = [
   {
     id: "c1",
     slug: "react-19-nextjs-16-masterclass",
@@ -65,10 +67,25 @@ const mockCourses = [
 export default function StudentCoursesPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("all");
-
   const router = useRouter();
+  const { courses: storeCourses } = useLMSStore();
 
-  const filteredCourses = mockCourses.filter((course) => {
+  const formattedStoreCourses = storeCourses.map(c => ({
+    id: c.id,
+    slug: c.slug,
+    title: c.title,
+    category: typeof c.category_id === 'string' ? c.category_id : 'General',
+    difficulty: c.difficulty,
+    progress: c.progress ?? 45,
+    completedLessons: 12,
+    totalLessons: c.modules?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || 15,
+    instructor: "Lead Technical Trainer",
+    thumbnail: c.thumbnail_url || "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
+  }));
+
+  const allCoursesList = storeCourses.length > 0 ? formattedStoreCourses : fallbackCourses;
+
+  const filteredCourses = allCoursesList.filter((course) => {
     const matchesSearch = course.title.toLowerCase().includes(search.toLowerCase());
     if (tab === "in-progress") return matchesSearch && course.progress > 0 && course.progress < 100;
     if (tab === "completed") return matchesSearch && course.progress === 100;
@@ -114,13 +131,13 @@ export default function StudentCoursesPage() {
       <Tabs defaultValue="all" onValueChange={setTab}>
         <TabsList className="h-[44px] bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-1">
           <TabsTrigger value="all" className="text-xs font-semibold">
-            All Courses ({mockCourses.length})
+            All Courses ({allCoursesList.length})
           </TabsTrigger>
           <TabsTrigger value="in-progress" className="text-xs font-semibold">
-            In Progress ({mockCourses.filter((c) => c.progress > 0 && c.progress < 100).length})
+            In Progress ({allCoursesList.filter((c) => c.progress > 0 && c.progress < 100).length})
           </TabsTrigger>
           <TabsTrigger value="completed" className="text-xs font-semibold">
-            Completed ({mockCourses.filter((c) => c.progress === 100).length})
+            Completed ({allCoursesList.filter((c) => c.progress === 100).length})
           </TabsTrigger>
         </TabsList>
       </Tabs>
