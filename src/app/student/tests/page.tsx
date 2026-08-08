@@ -86,7 +86,7 @@ const initialTestsData: ScheduledTest[] = [
     id: "t3",
     title: "Fullstack Core Concepts Evaluation",
     type: "Cohort Progress Test",
-    scheduledAt: "2026-07-28 10:00 AM",
+    scheduledAt: "2026-08-02 10:00 AM",
     duration: 45,
     totalQuestions: 1,
     totalMarks: 50,

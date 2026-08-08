@@ -80,7 +80,7 @@ const mockPracticeTracks: PracticeCourseTrack[] = [
     title: "Data Structures & Algorithms Problem Solving Track",
     category: "Algorithms & Logic",
     description: "Master essential algorithmic problem solving with live code execution and test cases.",
-    thumbnail: "https://images.unsplash.com/photo-1516116211223-4c714cf99465?w=800&auto=format&fit=crop&q=80",
+    thumbnail: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
     assignedBy: "Trainer",
     assignedByName: "Dr. Arunkumar (Lead Technical Trainer)",
     subModules: [

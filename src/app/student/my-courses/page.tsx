@@ -36,7 +36,7 @@ const fallbackCourses = [
     completedLessons: 9,
     totalLessons: 30,
     instructor: "Dr. Arunkumar (Lead Technical Trainer)",
-    thumbnail: "https://images.unsplash.com/photo-1516116211223-4c714cf99465?w=800&auto=format&fit=crop&q=80",
+    thumbnail: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
   },
   {
     id: "c3",

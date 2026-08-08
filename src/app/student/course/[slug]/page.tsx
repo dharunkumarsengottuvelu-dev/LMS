@@ -75,7 +75,7 @@ const mockModules: Module[] = [
         duration: "12 mins",
         type: "video",
         completed: true,
-        videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
+        videoUrl: "https://www.youtube.com/embed/Sklc_poWXJ4",
         resources: [
           {
             id: "r1",
