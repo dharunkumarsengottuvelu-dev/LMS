@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, LayoutDashboard, Users, BookOpen, ClipboardList, FileText, Dumbbell, Activity, Menu } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, BookOpen, ClipboardList, FileText, Dumbbell, Activity, Menu, User, Settings } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -137,6 +137,17 @@ export function TrainerTopNav() {
               </p>
               <p className="text-[11px] text-[#6B7280]">Lead Technical Trainer</p>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer font-semibold text-xs">
+              <Link href="/trainer/profile" className="flex items-center w-full">
+                <User className="h-4 w-4 mr-2 text-[#9333EA]" /> My Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer font-semibold text-xs">
+              <Link href="/trainer/settings" className="flex items-center w-full">
+                <Settings className="h-4 w-4 mr-2 text-[#6B7280]" /> Settings
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut} className="text-[#DC2626] font-bold text-xs cursor-pointer">
               <LogOut className="h-4 w-4 mr-2" /> Sign out

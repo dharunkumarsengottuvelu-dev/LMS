@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, LogOut, LayoutDashboard, BookOpen, Dumbbell, ClipboardList, FileText, Menu } from "lucide-react";
+import { Bell, LogOut, LayoutDashboard, BookOpen, Dumbbell, ClipboardList, FileText, Menu, User, Settings } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -136,8 +136,8 @@ export function StudentTopNav() {
               </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A]">
-            <DropdownMenuLabel className="font-normal">
+          <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-1 rounded-xl shadow-xl">
+            <DropdownMenuLabel className="font-normal p-3">
               <div className="flex flex-col space-y-1">
                 <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
                   {profile?.full_name ?? "Student User"}
@@ -147,6 +147,17 @@ export function StudentTopNav() {
                 </p>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-[#27272A]" />
+            <DropdownMenuItem className="cursor-pointer font-semibold text-xs">
+              <Link href="/student/profile" className="flex items-center w-full">
+                <User className="h-4 w-4 mr-2 text-[#2563EB]" /> My Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer font-semibold text-xs">
+              <Link href="/student/settings" className="flex items-center w-full">
+                <Settings className="h-4 w-4 mr-2 text-[#6B7280]" /> Settings
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-[#27272A]" />
             <DropdownMenuItem onClick={signOut} className="text-[#DC2626] font-bold text-xs cursor-pointer">
               <LogOut className="h-4 w-4 mr-2" /> Sign out
