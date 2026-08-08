@@ -4,12 +4,13 @@ import type { Course, Module, Lesson, Enrollment, CreateCourseInput } from "@/ty
 // Clean initial courses array (Ready for dynamic authoring and assignment)
 export const INITIAL_MOCK_COURSES: Course[] = [];
 
-const LOCAL_STORAGE_KEY = "enterprise_lms_courses_v1";
+const LOCAL_STORAGE_KEY = "enterprise_lms_courses_v2";
 
 export class CourseService {
   static getLocalCourses(): Course[] {
     if (typeof window === "undefined") return INITIAL_MOCK_COURSES;
     try {
+      localStorage.removeItem("enterprise_lms_courses_v1");
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) return JSON.parse(saved);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_MOCK_COURSES));

@@ -28,14 +28,15 @@ export interface PracticeTrackItem {
 export const INITIAL_MOCK_ASSESSMENTS: Assessment[] = [];
 export const INITIAL_MOCK_PRACTICE_TRACKS: PracticeTrackItem[] = [];
 
-const LOCAL_STORAGE_KEY_TESTS = "enterprise_lms_assessments_v1";
-const LOCAL_STORAGE_KEY_ATTEMPTS = "enterprise_lms_attempts_v1";
-const LOCAL_STORAGE_KEY_PRACTICE_TRACKS = "enterprise_lms_practice_tracks_v1";
+const LOCAL_STORAGE_KEY_TESTS = "enterprise_lms_assessments_v2";
+const LOCAL_STORAGE_KEY_ATTEMPTS = "enterprise_lms_attempts_v2";
+const LOCAL_STORAGE_KEY_PRACTICE_TRACKS = "enterprise_lms_practice_tracks_v2";
 
 export class AssessmentService {
   private static getLocalAssessments(): Assessment[] {
     if (typeof window === "undefined") return INITIAL_MOCK_ASSESSMENTS;
     try {
+      localStorage.removeItem("enterprise_lms_assessments_v1");
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY_TESTS);
       if (saved) return JSON.parse(saved);
       localStorage.setItem(LOCAL_STORAGE_KEY_TESTS, JSON.stringify(INITIAL_MOCK_ASSESSMENTS));
@@ -118,6 +119,7 @@ export class AssessmentService {
   static getPracticeTracks(): PracticeTrackItem[] {
     if (typeof window === "undefined") return INITIAL_MOCK_PRACTICE_TRACKS;
     try {
+      localStorage.removeItem("enterprise_lms_practice_tracks_v1");
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PRACTICE_TRACKS);
       if (saved) return JSON.parse(saved);
       localStorage.setItem(LOCAL_STORAGE_KEY_PRACTICE_TRACKS, JSON.stringify(INITIAL_MOCK_PRACTICE_TRACKS));
