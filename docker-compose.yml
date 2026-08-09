@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  # ── Main LMS Application ──────────────────────────────────────────────────
+  lms:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: edunexus-lms
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      # ── Supabase ──────────────────────────────────────────────────────────
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      # ── App URL ───────────────────────────────────────────────────────────
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-EduNexus}
+      # ── Code Execution: point to the jobe service below ───────────────────
+      JOBE_URL: http://jobe:80/jobe/index.php/restapi
+      JOBE_TIMEOUT: "10000"
+      JOBE_DEFAULT_TIME_LIMIT: "5"
+      JOBE_DEFAULT_MEMORY_LIMIT: "256"
+    depends_on:
+      jobe:
+        condition: service_healthy
+    networks:
+      - lms-network
+
+  # ── Jobe Code Execution Sandbox ───────────────────────────────────────────
+  # Jobe is a production-grade sandboxed code execution server used by
+  # Moodle, VLE platforms, and competitive programming judges worldwide.
+  # It supports: Python3, Java, C, C++, Node.js, PHP, Ruby, Go, Rust, etc.
+  jobe:
+    image: trampgeek/jobeinabox:latest
+    container_name: edunexus-jobe
+    restart: unless-stopped
+    # Jobe runs on port 80 internally — do NOT expose to public internet
+    # If you want to test Jobe directly, uncomment the line below:
+    # ports:
+    #   - "4000:80"
+    environment:
+      # Restrict Jobe to only accept requests from the lms container
+      JOBE_ALLOW_ORIGINS: "http://lms:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/jobe/index.php/restapi/languages"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - lms-network
+    # Resource limits for the execution sandbox
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+
+networks:
+  lms-network:
+    driver: bridge

@@ -1,0 +1,26 @@
+# ── Node / Next.js build artifacts ───────────────────────────────────────────
+node_modules
+.next
+.git
+*.log
+npm-debug.log*
+
+# ── Test files ────────────────────────────────────────────────────────────────
+test_user_exact_cases.ts
+*.test.ts
+*.spec.ts
+
+# ── Secrets / local env ───────────────────────────────────────────────────────
+.env.local
+.env*.local
+.env.development
+
+# ── Dev tooling / docs ───────────────────────────────────────────────────────
+docs/
+README.md
+*.md
+!public/**
+
+# ── OS files ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
