@@ -12,7 +12,88 @@ export type CodingLanguage =
   | "swift"
   | "php"
   | "ruby"
-  | "scala";
+  | "scala"
+  | "dart"
+  | "sql"
+  | "html"
+  | "css"
+  | "react";
+
+export type ExecutionCategory = "general" | "web" | "sql";
+
+export interface CodeFile {
+  name: string;
+  content: string;
+}
+
+export interface MultiFilePayload {
+  language: CodingLanguage;
+  files: CodeFile[];
+  stdin?: string;
+}
+
+export interface SQLColumnSchema {
+  name: string;
+  type: string;
+  isPrimary?: boolean;
+}
+
+export interface SQLTableSchema {
+  name: string;
+  columns: SQLColumnSchema[];
+  rows: Record<string, any>[];
+}
+
+export interface SQLDatasetSchema {
+  name: string;
+  tables: SQLTableSchema[];
+}
+
+export interface SQLQueryInput {
+  query: string;
+  datasetName?: string;
+}
+
+export interface SQLQueryResult {
+  columns: string[];
+  rows: Record<string, any>[];
+  rowCount: number;
+  executionTimeMs: number;
+  error?: string;
+}
+
+export interface LanguageConfig {
+  id: CodingLanguage;
+  name: string;
+  monacoLanguage: string;
+  jobeLanguage: string;
+  extension: string;
+  category: ExecutionCategory;
+  compilationRequired: boolean;
+  version: string;
+}
+
+export const LANGUAGE_REGISTRY: Record<CodingLanguage, LanguageConfig> = {
+  javascript: { id: "javascript", name: "JavaScript (Node.js)", monacoLanguage: "javascript", jobeLanguage: "nodejs", extension: ".js", category: "general", compilationRequired: false, version: "v18+" },
+  typescript: { id: "typescript", name: "TypeScript", monacoLanguage: "typescript", jobeLanguage: "nodejs", extension: ".ts", category: "general", compilationRequired: false, version: "v5+" },
+  python: { id: "python", name: "Python 3", monacoLanguage: "python", jobeLanguage: "python3", extension: ".py", category: "general", compilationRequired: false, version: "v3.10+" },
+  java: { id: "java", name: "Java 17", monacoLanguage: "java", jobeLanguage: "java", extension: ".java", category: "general", compilationRequired: true, version: "v17" },
+  cpp: { id: "cpp", name: "C++ 17", monacoLanguage: "cpp", jobeLanguage: "cpp", extension: ".cpp", category: "general", compilationRequired: true, version: "GCC 11+" },
+  c: { id: "c", name: "C", monacoLanguage: "c", jobeLanguage: "c", extension: ".c", category: "general", compilationRequired: true, version: "GCC 11+" },
+  csharp: { id: "csharp", name: "C# (.NET)", monacoLanguage: "csharp", jobeLanguage: "cs", extension: ".cs", category: "general", compilationRequired: true, version: ".NET 8" },
+  go: { id: "go", name: "Go", monacoLanguage: "go", jobeLanguage: "go", extension: ".go", category: "general", compilationRequired: true, version: "v1.20+" },
+  rust: { id: "rust", name: "Rust", monacoLanguage: "rust", jobeLanguage: "rust", extension: ".rs", category: "general", compilationRequired: true, version: "v1.70+" },
+  kotlin: { id: "kotlin", name: "Kotlin", monacoLanguage: "kotlin", jobeLanguage: "kotlin", extension: ".kt", category: "general", compilationRequired: true, version: "v1.9+" },
+  swift: { id: "swift", name: "Swift", monacoLanguage: "swift", jobeLanguage: "swift", extension: ".swift", category: "general", compilationRequired: true, version: "v5.9" },
+  php: { id: "php", name: "PHP 8", monacoLanguage: "php", jobeLanguage: "php", extension: ".php", category: "general", compilationRequired: false, version: "v8.2" },
+  ruby: { id: "ruby", name: "Ruby", monacoLanguage: "ruby", jobeLanguage: "ruby", extension: ".rb", category: "general", compilationRequired: false, version: "v3.2" },
+  scala: { id: "scala", name: "Scala", monacoLanguage: "scala", jobeLanguage: "scala", extension: ".scala", category: "general", compilationRequired: true, version: "v3.3" },
+  dart: { id: "dart", name: "Dart", monacoLanguage: "dart", jobeLanguage: "dart", extension: ".dart", category: "general", compilationRequired: false, version: "v3.0" },
+  sql: { id: "sql", name: "SQL (MySQL)", monacoLanguage: "sql", jobeLanguage: "sql", extension: ".sql", category: "sql", compilationRequired: false, version: "MySQL 8.0" },
+  html: { id: "html", name: "HTML5", monacoLanguage: "html", jobeLanguage: "html", extension: ".html", category: "web", compilationRequired: false, version: "HTML5" },
+  css: { id: "css", name: "CSS3", monacoLanguage: "css", jobeLanguage: "css", extension: ".css", category: "web", compilationRequired: false, version: "CSS3" },
+  react: { id: "react", name: "React (JSX/TSX)", monacoLanguage: "typescript", jobeLanguage: "react", extension: ".tsx", category: "web", compilationRequired: false, version: "React 18" },
+};
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type SubmissionStatus = "accepted" | "wrong_answer" | "time_limit_exceeded" | "compilation_error" | "runtime_error" | "pending";
@@ -46,11 +127,16 @@ export interface CodingProblem {
   slug: string;
   description: string;
   difficulty: Difficulty;
+  category?: string;
   constraints?: string;
+  input_format?: string;
+  output_format?: string;
+  points?: number;
   sample_input?: string;
   sample_output?: string;
   templates: Record<string, string>;
   test_cases: TestCase[];
+  dataset_name?: string;
   created_at: string;
   updated_at: string;
 }
@@ -64,6 +150,8 @@ export interface CodingSubmission {
   status: SubmissionStatus;
   passed_test_cases: number;
   total_test_cases: number;
+  execution_time?: number;
+  memory_used?: number;
   results?: TestCaseResult[];
   created_at: string;
 }
@@ -71,7 +159,11 @@ export interface CodingSubmission {
 export interface ExecuteCodeInput {
   language: CodingLanguage;
   code: string;
+  files?: CodeFile[];
   stdin?: string;
+  html?: string;
+  css?: string;
+  js?: string;
 }
 
 export interface ExecuteCodeResult {
@@ -85,12 +177,14 @@ export interface ExecuteCodeResult {
   };
   time?: string | null;
   memory?: number | null;
+  sqlResult?: SQLQueryResult | null;
 }
 
 export interface SubmitCodeInput {
   problem_id: string;
   language: CodingLanguage;
   code: string;
+  files?: CodeFile[];
 }
 
 export interface CreateCodingProblemInput {
@@ -102,7 +196,32 @@ export interface CreateCodingProblemInput {
   test_cases: TestCase[];
 }
 
-// Judge0 Language ID map
+// Jobe Language ID map (Jobe language identifiers used by trampgeek/jobe)
+export const JOBE_LANGUAGE_MAP: Record<CodingLanguage, string> = {
+  python: "python3",
+  java: "java",
+  cpp: "cpp",
+  c: "c",
+  javascript: "nodejs",
+  typescript: "nodejs",
+  php: "php",
+  octave: "octave",
+  pascal: "pascal",
+  csharp: "cs",
+  go: "go",
+  rust: "rust",
+  kotlin: "kotlin",
+  swift: "swift",
+  ruby: "ruby",
+  scala: "scala",
+  dart: "dart",
+  sql: "sql",
+  html: "html",
+  css: "css",
+  react: "react",
+} as unknown as Record<CodingLanguage, string>;
+
+// Backward compatibility map for legacy references
 export const JUDGE0_LANGUAGE_MAP: Record<CodingLanguage, number> = {
   javascript: 93,
   typescript: 94,
@@ -118,40 +237,39 @@ export const JUDGE0_LANGUAGE_MAP: Record<CodingLanguage, number> = {
   php: 68,
   ruby: 72,
   scala: 81,
-};
+} as unknown as Record<CodingLanguage, number>;
 
-export const LANGUAGE_DISPLAY_NAMES: Record<CodingLanguage, string> = {
-  javascript: "JavaScript (Node.js)",
-  typescript: "TypeScript",
-  python: "Python 3",
-  java: "Java 17",
-  cpp: "C++ 17",
-  c: "C",
-  csharp: "C# (.NET)",
-  go: "Go",
-  rust: "Rust",
-  kotlin: "Kotlin",
-  swift: "Swift",
-  php: "PHP 8",
-  ruby: "Ruby",
-  scala: "Scala",
-};
+export const LANGUAGE_DISPLAY_NAMES: Record<CodingLanguage, string> = Object.fromEntries(
+  Object.entries(LANGUAGE_REGISTRY).map(([key, val]) => [key, val.name])
+) as Record<CodingLanguage, string>;
 
-export const LANGUAGE_FILE_EXTENSIONS: Record<CodingLanguage, string> = {
-  javascript: ".js",
-  typescript: ".ts",
-  python: ".py",
-  java: ".java",
-  cpp: ".cpp",
-  c: ".c",
-  csharp: ".cs",
-  go: ".go",
-  rust: ".rs",
-  kotlin: ".kt",
-  swift: ".swift",
-  php: ".php",
-  ruby: ".rb",
-  scala: ".scala",
+export const LANGUAGE_FILE_EXTENSIONS: Record<CodingLanguage, string> = Object.fromEntries(
+  Object.entries(LANGUAGE_REGISTRY).map(([key, val]) => [key, val.extension])
+) as Record<CodingLanguage, string>;
+
+// Official Jobe Outcome codes (trampgeek/jobe specification)
+export const JOBE_OUTCOME = {
+  SUCCESS: 15,
+  SUCCESS_ALT: 0,
+  COMPILATION_ERROR: 11,
+  RUNTIME_ERROR: 12,
+  TIME_LIMIT_EXCEEDED: 13,
+  MEMORY_LIMIT_EXCEEDED: 17,
+  ILLEGAL_SYSTEM_CALL: 19,
+  INTERNAL_ERROR: 20,
+  SERVER_OVERLOAD: 21,
+} as const;
+
+export const JOBE_OUTCOME_DESCRIPTION: Record<number, string> = {
+  15: "Success",
+  0: "Success",
+  11: "Compilation Error",
+  12: "Runtime Error",
+  13: "Time Limit Exceeded",
+  17: "Memory Limit Exceeded",
+  19: "Illegal System Call",
+  20: "Internal Server Error",
+  21: "Server Overload",
 };
 
 export const JUDGE0_STATUS = {
@@ -172,3 +290,4 @@ export const JUDGE0_STATUS = {
 } as const;
 
 export type Judge0StatusCode = keyof typeof JUDGE0_STATUS;
+

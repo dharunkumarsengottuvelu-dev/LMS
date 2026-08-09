@@ -6,10 +6,12 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, "Supabase anon key is required"),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "Supabase service role key is required").optional(),
 
-  // Judge0
-  JUDGE0_API_KEY: z.string().min(1, "Judge0 API key is required").optional(),
-  JUDGE0_API_HOST: z.string().default("judge0-ce.p.rapidapi.com"),
-  JUDGE0_BASE_URL: z.string().url().default("https://judge0-ce.p.rapidapi.com"),
+  // Jobe Code Execution Server
+  JOBE_URL: z.string().url("Invalid JOBE_URL").default("http://localhost/jobe/index.php/restapi"),
+  JOBE_API_KEY: z.string().optional(),
+  JOBE_TIMEOUT: z.coerce.number().default(10000),
+  JOBE_DEFAULT_TIME_LIMIT: z.coerce.number().default(5),
+  JOBE_DEFAULT_MEMORY_LIMIT: z.coerce.number().default(256),
 
   // App
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),

@@ -36,6 +36,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { GlobalErrorListener } from "@/components/providers/global-error-listener";
+
 export default function RootLayout({
   children,
 }: {
@@ -56,6 +58,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased">
+        <GlobalErrorListener />
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

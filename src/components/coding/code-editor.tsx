@@ -1,30 +1,80 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback, Component, ErrorInfo, ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { loader } from "@monaco-editor/react";
 import {
-  Play, RotateCcw, ChevronDown, Loader2,
+  Play, RotateCcw, Loader2,
   CheckCircle2, XCircle, Clock, Cpu
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 import type { CodingLanguage, ExecuteCodeResult, CodingProblem } from "@/types";
 import { LANGUAGE_DISPLAY_NAMES } from "@/types/coding";
 
-// Lazy load Monaco to reduce initial bundle size
+// Lazy load Monaco to avoid SSR issues
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
-      <Loader2 className="h-6 w-6 animate-spin text-white/50" />
+    <div className="flex items-center justify-center h-full bg-white">
+      <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
     </div>
   ),
 });
+
+const SQLEditor = dynamic(() => import("./sql-editor").then((mod) => mod.SQLEditor), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full bg-[#18181B] text-white">
+      <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+    </div>
+  ),
+});
+
+const WebPreview = dynamic(() => import("./web-preview").then((mod) => mod.WebPreview), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full bg-[#18181B] text-white">
+      <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+    </div>
+  ),
+});
+
+// React Error Boundary to catch Monaco initialization crashes gracefully
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallback: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class MonacoErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(_: Error): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.warn("Monaco Error Boundary caught initialization error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
 
 const STARTER_TEMPLATES: Record<CodingLanguage, string> = {
   javascript: `// JavaScript Solution\n\nfunction solution(input) {\n  // Write your solution here\n  \n}\n\n// Read input\nconst lines = require('fs').readFileSync('/dev/stdin', 'utf8').trim().split('\\n');\nconsole.log(solution(lines));`,
@@ -41,6 +91,11 @@ const STARTER_TEMPLATES: Record<CodingLanguage, string> = {
   php: `<?php\n// PHP Solution\n$lines = [];\nwhile ($line = fgets(STDIN)) {\n    $lines[] = trim($line);\n}\n// Write your solution here\n?>`,
   ruby: `# Ruby Solution\nlines = []\nwhile line = gets\n  lines << line.chomp\nend\n# Write your solution here`,
   scala: `// Scala Solution\nobject Solution {\n    def main(args: Array[String]): Unit = {\n        val lines = io.Source.stdin.getLines().toList\n        // Write your solution here\n    }\n}`,
+  dart: `// Dart Solution\nimport 'dart:io';\n\nvoid main() {\n  // Write your solution here\n}`,
+  sql: `SELECT * FROM students WHERE mark > 80;`,
+  html: `<div className="container">\n  <h1>Hello EduNexus LMS</h1>\n  <p>Welcome to Live Web Preview mode!</p>\n</div>`,
+  css: `body { font-family: sans-serif; background: #f8fafc; padding: 20px; }\nh1 { color: #2563eb; }`,
+  react: `function App() {\n  const [count, setCount] = React.useState(0);\n  return (\n    <div style={{ padding: 20 }}>\n      <h2>React Counter Challenge</h2>\n      <p>Count: {count}</p>\n      <button onClick={() => setCount(count + 1)}>Increment</button>\n    </div>\n  );\n}`,
 };
 
 interface CodeEditorProps {
@@ -69,16 +124,71 @@ export function CodeEditor({
     defaultCode ??
     (problem?.templates?.[defaultLanguage] ?? STARTER_TEMPLATES[defaultLanguage as keyof typeof STARTER_TEMPLATES] ?? "")
   );
-  const [stdin, setStdin] = useState("");
+  const [stdin, setStdin] = useState(problem?.sample_input ?? "");
   const [output, setOutput] = useState<ExecuteCodeResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
-  const [activeTab, setActiveTab] = useState("input");
+  const [activeTab, setActiveTab] = useState("code");
+  const [useFallbackTextarea, setUseFallbackTextarea] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (problem) {
+      const template = problem.templates?.[language] ?? STARTER_TEMPLATES[language] ?? "";
+      setCode(template);
+      if (problem.sample_input !== undefined) {
+        setStdin(problem.sample_input);
+      }
+      setOutput(null);
+    }
+  }, [problem]);
+
+  useEffect(() => {
+    const handleScriptEventError = (event: ErrorEvent | Event) => {
+      const isEventObj = event instanceof Event || (event && typeof event === "object" && "type" in event);
+      const msg = event instanceof ErrorEvent ? event.message : String((event as any)?.error || (event as any)?.message || event);
+
+      if (
+        isEventObj ||
+        msg.includes("[object Event]") ||
+        msg.includes("Script error") ||
+        msg.includes("Monaco")
+      ) {
+        if (typeof event.preventDefault === "function") event.preventDefault();
+        if (typeof (event as any).stopImmediatePropagation === "function") (event as any).stopImmediatePropagation();
+        setUseFallbackTextarea(true);
+      }
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      const isEventReason =
+        reason instanceof Event ||
+        (reason && typeof reason === "object" && ("target" in reason || "type" in reason) && !("message" in reason)) ||
+        String(reason) === "[object Event]" ||
+        String(reason) === "[object ErrorEvent]";
+
+      if (isEventReason) {
+        if (typeof event.preventDefault === "function") event.preventDefault();
+        setUseFallbackTextarea(true);
+      }
+    };
+
+    window.addEventListener("error", handleScriptEventError, true);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection, true);
+
+    return () => {
+      window.removeEventListener("error", handleScriptEventError, true);
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection, true);
+    };
+  }, []);
 
   const handleLanguageChange = useCallback((newLang: CodingLanguage) => {
     setLanguage(newLang);
     const template = problem?.templates?.[newLang] ?? STARTER_TEMPLATES[newLang] ?? "";
     setCode(template);
+    if (problem?.sample_input) {
+      setStdin(problem.sample_input);
+    }
     setOutput(null);
   }, [problem]);
 
@@ -89,24 +199,30 @@ export function CodeEditor({
     }
 
     setIsRunning(true);
-    setActiveTab("output");
+    // Stay on Code tab so the output panel at the bottom becomes visible
 
     try {
-      const response = await fetch("/api/coding/execute", {
+      const response = await fetch("/api/code/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language, code, stdin }),
+        body: JSON.stringify({
+          language,
+          code,
+          stdin,
+          input: stdin,
+          input_data: stdin,
+        }),
       });
 
       if (!response.ok) {
-        const error = await response.json() as { error: string };
-        throw new Error(error.error ?? "Execution failed");
+        const error = (await response.json()) as { error: string };
+        throw new Error(error.error ?? "Code execution failed");
       }
 
-      const result = await response.json() as ExecuteCodeResult;
+      const result = (await response.json()) as ExecuteCodeResult;
       setOutput(result);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "Execution failed";
+      const msg = getErrorMessage(error);
       toast({ title: "Run failed", description: msg, variant: "destructive" });
     } finally {
       setIsRunning(false);
@@ -115,7 +231,12 @@ export function CodeEditor({
 
   const handleSubmit = async () => {
     if (onSubmit) {
-      await onSubmit(code, language);
+      try {
+        await onSubmit(code, language);
+      } catch (err) {
+        const msg = getErrorMessage(err);
+        toast({ title: "Submission error", description: msg, variant: "destructive" });
+      }
     }
   };
 
@@ -133,24 +254,48 @@ export function CodeEditor({
       : "text-amber-600"
     : "";
 
+  const isFillMode = height === "100%";
+
   return (
-    <div className="flex flex-col border border-border rounded-xl overflow-hidden code-editor-container bg-[#1e1e1e]">
-      {/* Editor Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#2d2d2d] border-b border-[#3d3d3d]">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-red-500" />
-            <div className="w-3 h-3 rounded-full bg-yellow-500" />
-            <div className="w-3 h-3 rounded-full bg-green-500" />
-          </div>
-          <span className="text-xs text-white/50 ml-2">
-            {problem?.title ?? "Code Playground"}
-          </span>
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden bg-white",
+        isFillMode ? "h-full" : "border border-gray-200 rounded-xl"
+      )}
+    >
+      {/* ── Top Tab Bar ── */}
+      <div className="flex items-center border-b border-gray-200 bg-white shrink-0 min-w-0">
+        {/* Left: Section Tabs — scrollable if needed */}
+        <div className="flex items-center overflow-x-auto flex-1 min-w-0 scrollbar-none">
+          {(["code", "testcases", "sampletests", "hiddentests", "customtest"] as const).map((tab) => {
+            const labels: Record<string, string> = {
+              code: "Code",
+              testcases: "Test Cases",
+              sampletests: "Sample Tests",
+              hiddentests: "Hidden Tests",
+              customtest: "Custom Test",
+            };
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  "px-3 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap shrink-0",
+                  activeTab === tab
+                    ? "border-blue-600 text-blue-700 bg-white"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                )}
+              >
+                {labels[tab]}
+              </button>
+            );
+          })}
         </div>
-        <div className="flex items-center gap-2">
-          {/* Language Selector */}
+
+        {/* Right: Language selector + Run/Submit */}
+        <div className="flex items-center gap-2 px-3 py-2 shrink-0">
           <Select value={language} onValueChange={(v) => handleLanguageChange(v as CodingLanguage)}>
-            <SelectTrigger className="h-7 w-44 text-xs bg-[#3d3d3d] border-[#4d4d4d] text-white">
+            <SelectTrigger className="h-8 w-40 text-xs border-gray-300 bg-white text-gray-700">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -162,140 +307,361 @@ export function CodeEditor({
             </SelectContent>
           </Select>
 
-          {/* Reset */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-white/50 hover:text-white hover:bg-white/10"
+            className="h-8 w-8 text-gray-400 hover:text-gray-700"
             onClick={handleReset}
             title="Reset to template"
           >
             <RotateCcw className="h-3.5 w-3.5" />
           </Button>
+
+          <Button
+            size="sm"
+            className="h-8 px-4 text-xs font-bold bg-green-500 hover:bg-green-600 text-white gap-1.5 rounded-lg"
+            onClick={() => handleRun()}
+            disabled={isRunning || readOnly}
+          >
+            {isRunning ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+            {isRunning ? "Running..." : "Run Code"}
+          </Button>
+
+          {showSubmit && onSubmit && (
+            <Button
+              size="sm"
+              className="h-8 px-4 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white gap-1.5 rounded-lg"
+              onClick={() => handleSubmit()}
+              disabled={isSubmitting || readOnly}
+            >
+              {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+              {isSubmitting ? "Submitting..." : "Submit"}
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Monaco Editor */}
-      <div style={{ height }}>
-        <MonacoEditor
-          language={language === "cpp" ? "cpp" : language === "csharp" ? "csharp" : language}
-          value={code}
-          onChange={(v) => !readOnly && setCode(v ?? "")}
-          theme="vs-dark"
-          options={{
-            fontSize: 14,
-            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-            fontLigatures: true,
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            lineNumbers: "on",
-            renderLineHighlight: "line",
-            tabSize: 2,
-            readOnly,
-            wordWrap: "on",
-            formatOnPaste: true,
-            automaticLayout: true,
-            padding: { top: 16, bottom: 16 },
-          }}
-        />
-      </div>
-
-      {/* Bottom Panel: Input/Output + Actions */}
-      <div className="bg-[#1e1e1e] border-t border-[#3d3d3d]">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex items-center justify-between px-4 pt-2">
-            <TabsList className="bg-[#2d2d2d] h-7">
-              <TabsTrigger value="input" className="text-xs h-6 px-3 data-[state=active]:bg-[#3d3d3d] text-white">
-                Input
-              </TabsTrigger>
-              <TabsTrigger value="output" className="text-xs h-6 px-3 data-[state=active]:bg-[#3d3d3d] text-white">
-                Output
-                {output && (
-                  <span className={cn("ml-1.5 w-2 h-2 rounded-full", output.status.id === 3 ? "bg-green-500" : "bg-red-500")} />
-                )}
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Run / Submit buttons */}
-            <div className="flex items-center gap-2 pb-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs bg-[#2d2d2d] border-[#4d4d4d] text-white hover:bg-[#3d3d3d] gap-1.5"
-                onClick={handleRun}
-                disabled={isRunning || readOnly}
-              >
-                {isRunning ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Play className="h-3 w-3 text-green-400" />
-                )}
-                {isRunning ? "Running..." : "Run Code"}
-              </Button>
-              {showSubmit && onSubmit && (
-                <Button
-                  size="sm"
-                  className="h-7 text-xs bg-primary gap-1.5"
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || readOnly}
-                >
-                  {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                  {isSubmitting ? "Submitting..." : "Submit"}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <TabsContent value="input" className="m-0 px-4 pb-4">
-            <Textarea
-              placeholder="Custom input (stdin)..."
-              value={stdin}
-              onChange={(e) => setStdin(e.target.value)}
-              className="h-24 resize-none font-mono text-xs bg-[#2d2d2d] border-[#3d3d3d] text-white placeholder:text-white/30"
-            />
-          </TabsContent>
-
-          <TabsContent value="output" className="m-0 px-4 pb-4">
-            {!output ? (
-              <div className="h-24 flex items-center justify-center text-white/30 text-xs font-mono border border-[#3d3d3d] rounded-lg">
-                Run your code to see output
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center gap-4 flex-wrap">
-                  <Badge
-                    variant="outline"
-                    className={cn("text-xs border-[#3d3d3d]", statusColor)}
-                  >
-                    {output.status.id === 3 ? (
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                    ) : (
-                      <XCircle className="h-3 w-3 mr-1" />
-                    )}
-                    {output.status.description}
-                  </Badge>
-                  {output.time && (
-                    <span className="text-xs text-white/40 flex items-center gap-1">
-                      <Clock className="h-3 w-3" /> {output.time}s
-                    </span>
-                  )}
-                  {output.memory && (
-                    <span className="text-xs text-white/40 flex items-center gap-1">
-                      <Cpu className="h-3 w-3" /> {(output.memory / 1024).toFixed(1)}MB
-                    </span>
+      {/* ── Code Tab: Monaco Editor ── */}
+      {activeTab === "code" && (
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          {/* Monaco / SQL / Web editor */}
+          <div className="flex-1 min-h-0">
+            {language === "sql" ? (
+              <SQLEditor
+                datasetName={problem?.dataset_name ?? "university"}
+                defaultQuery={code}
+                height={isFillMode ? "100%" : height}
+              />
+            ) : language === "html" || language === "css" || language === "react" ? (
+              <div className="grid grid-cols-2 h-full">
+                <div className="h-full border-r border-gray-200">
+                  {useFallbackTextarea ? (
+                    <textarea
+                      value={code}
+                      readOnly={readOnly}
+                      onChange={(e) => setCode(e.target.value)}
+                      className="w-full h-full font-mono text-sm p-4 resize-none focus:outline-none bg-white text-gray-800"
+                      placeholder="Write your code here..."
+                    />
+                  ) : (
+                    <MonacoErrorBoundary fallback={
+                      <textarea
+                        value={code}
+                        onChange={(e) => setCode(e.target.value)}
+                        className="w-full h-full font-mono text-sm p-4 resize-none bg-white"
+                      />
+                    }>
+                      <MonacoEditor
+                        language={language === "react" ? "typescript" : language}
+                        value={code}
+                        onChange={(v) => !readOnly && setCode(v ?? "")}
+                        theme="vs"
+                        onMount={() => setUseFallbackTextarea(false)}
+                        height="100%"
+                        options={{
+                          fontSize: 14,
+                          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                          minimap: { enabled: false },
+                          scrollBeyondLastLine: false,
+                          lineNumbers: "on",
+                          tabSize: 2,
+                          readOnly,
+                          wordWrap: "on",
+                          automaticLayout: true,
+                          padding: { top: 12, bottom: 12 },
+                        }}
+                      />
+                    </MonacoErrorBoundary>
                   )}
                 </div>
-                <pre className="h-20 overflow-auto font-mono text-xs text-white/80 bg-[#2d2d2d] border border-[#3d3d3d] rounded-lg p-3 whitespace-pre-wrap">
-                  {output.stdout
-                    ?? output.stderr
-                    ?? output.compile_output
-                    ?? "No output"}
+                <WebPreview
+                  html={language === "html" ? code : ""}
+                  css={language === "css" ? code : ""}
+                  reactCode={language === "react" ? code : ""}
+                  height="100%"
+                />
+              </div>
+            ) : useFallbackTextarea ? (
+              <textarea
+                value={code}
+                readOnly={readOnly}
+                onChange={(e) => setCode(e.target.value)}
+                className="w-full h-full font-mono text-sm p-4 resize-none focus:outline-none bg-white text-gray-800"
+                placeholder="Write your code here..."
+                style={{ height: isFillMode ? "100%" : height }}
+              />
+            ) : (
+              <MonacoErrorBoundary fallback={
+                <textarea
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="w-full h-full font-mono text-sm p-4 resize-none bg-white"
+                  style={{ height: isFillMode ? "100%" : height }}
+                />
+              }>
+                <MonacoEditor
+                  language={language === "cpp" ? "cpp" : language === "csharp" ? "csharp" : language}
+                  value={code}
+                  onChange={(v) => !readOnly && setCode(v ?? "")}
+                  theme="vs"
+                  onMount={() => setUseFallbackTextarea(false)}
+                  height={isFillMode ? "100%" : height}
+                  options={{
+                    fontSize: 14,
+                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                    fontLigatures: true,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    lineNumbers: "on",
+                    renderLineHighlight: "line",
+                    tabSize: 2,
+                    readOnly,
+                    wordWrap: "on",
+                    formatOnPaste: true,
+                    automaticLayout: true,
+                    padding: { top: 12, bottom: 12 },
+                  }}
+                />
+              </MonacoErrorBoundary>
+            )}
+          </div>
+
+          {/* Output panel at bottom of Code tab */}
+          {output && (
+            <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-4 py-3 space-y-2 max-h-52 overflow-y-auto">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Badge
+                  className={cn(
+                    "text-xs font-bold px-2.5 py-1 border",
+                    output.status.id === 3
+                      ? "bg-green-50 text-green-700 border-green-300"
+                      : output.status.id === 6
+                      ? "bg-red-50 text-red-700 border-red-300"
+                      : output.status.id === 7
+                      ? "bg-amber-50 text-amber-700 border-amber-300"
+                      : "bg-purple-50 text-purple-700 border-purple-300"
+                  )}
+                >
+                  {output.status.id === 3 ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-green-600" />
+                  ) : (
+                    <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  {output.status.description.toUpperCase()}
+                </Badge>
+                {output.time && (
+                  <span className="text-xs text-gray-500 flex items-center gap-1 font-mono">
+                    <Clock className="h-3 w-3" /> {output.time}s
+                  </span>
+                )}
+                {output.memory && (
+                  <span className="text-xs text-gray-500 flex items-center gap-1 font-mono">
+                    <Cpu className="h-3 w-3" /> {(output.memory / 1024).toFixed(1)}MB
+                  </span>
+                )}
+              </div>
+
+              {output.status.id === 6 || output.compile_output ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-mono space-y-1">
+                  <span className="text-red-600 font-bold block border-b border-red-200 pb-1">Compilation Error</span>
+                  <pre className="overflow-auto max-h-28 text-red-700 whitespace-pre-wrap leading-relaxed">
+                    {output.compile_output || output.stderr || output.message || "Compilation failed"}
+                  </pre>
+                </div>
+              ) : output.status.id === 7 || (output.stderr && output.status.id !== 3) ? (
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-mono space-y-1">
+                    <span className="text-amber-700 font-bold block border-b border-amber-200 pb-1">Runtime Error & Stack Trace</span>
+                    <pre className="overflow-auto max-h-28 text-amber-800 whitespace-pre-wrap leading-relaxed">
+                      {output.stderr || output.message || "Runtime exception occurred"}
+                    </pre>
+                  </div>
+                  {(!stdin || !stdin.trim()) &&
+                  (output.stderr?.includes("NoSuchElementException") ||
+                    output.stderr?.includes("EOFError") ||
+                    output.message?.includes("NoSuchElementException")) ? (
+                    <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 flex items-start gap-2">
+                      <span className="font-bold text-blue-600 shrink-0">💡 Input Notice:</span>
+                      <span>
+                        The program requested input (e.g.{" "}
+                        <code className="font-mono">Scanner.nextInt()</code> or{" "}
+                        <code className="font-mono">input()</code>), but the Custom Test input is empty. Go to{" "}
+                        <strong>Custom Test</strong> tab and enter your input.
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-gray-200 bg-white p-3 text-xs font-mono">
+                  <pre className="overflow-auto max-h-28 text-gray-800 whitespace-pre-wrap leading-relaxed">
+                    {output.stdout || "Program executed successfully with no output."}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Test Cases Tab ── */}
+      {activeTab === "testcases" && (
+        <div className="flex-1 overflow-y-auto p-4 bg-white">
+          {!output ? (
+            <div className="flex flex-col items-center justify-center h-48 text-gray-400 text-sm gap-2">
+              <Play className="h-8 w-8 text-gray-300" />
+              <p>Run your code to see test case results</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-gray-700">
+                Execution Result
+              </p>
+              <div
+                className={cn(
+                  "flex items-center gap-2 p-3 rounded-xl border font-semibold text-sm",
+                  output.status.id === 3
+                    ? "bg-green-50 border-green-200 text-green-700"
+                    : "bg-red-50 border-red-200 text-red-700"
+                )}
+              >
+                {output.status.id === 3 ? (
+                  <CheckCircle2 className="h-5 w-5" />
+                ) : (
+                  <XCircle className="h-5 w-5" />
+                )}
+                {output.status.description.toUpperCase()}
+              </div>
+              <div className="rounded-xl border border-gray-200 p-3 text-xs font-mono bg-gray-50">
+                <p className="text-gray-500 mb-1 font-bold">Output:</p>
+                <pre className="text-gray-800 whitespace-pre-wrap">
+                  {output.stdout || output.stderr || output.compile_output || output.message || "—"}
                 </pre>
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Sample Tests Tab ── */}
+      {activeTab === "sampletests" && (
+        <div className="flex-1 overflow-y-auto p-4 bg-white space-y-3">
+          {problem?.test_cases?.filter((tc) => !tc.is_hidden).length ? (
+            problem.test_cases
+              .filter((tc) => !tc.is_hidden)
+              .map((tc, i) => (
+                <div key={tc.id} className="rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="bg-gray-50 px-3 py-2 text-xs font-bold text-gray-500 border-b border-gray-200">
+                    Test Case {i + 1}
+                    {tc.explanation && <span className="ml-2 font-normal text-gray-400">— {tc.explanation}</span>}
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-gray-200">
+                    <div className="p-3">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Input:</p>
+                      <pre className="text-xs font-mono text-blue-700 whitespace-pre-wrap">{tc.input || "—"}</pre>
+                    </div>
+                    <div className="p-3">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Expected Output:</p>
+                      <pre className="text-xs font-mono text-green-700 whitespace-pre-wrap">{tc.expected_output || "—"}</pre>
+                    </div>
+                  </div>
+                </div>
+              ))
+          ) : (
+            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+              No public sample test cases for this problem.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Hidden Tests Tab ── */}
+      {activeTab === "hiddentests" && (
+        <div className="flex-1 overflow-y-auto p-4 bg-white">
+          {problem?.test_cases?.some((tc) => tc.is_hidden) ? (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-gray-700 mb-3">Hidden Test Cases</p>
+              {problem.test_cases
+                .filter((tc) => tc.is_hidden)
+                .map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500"
+                  >
+                    <span className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+                      {i + 1}
+                    </span>
+                    Hidden Test Case — visible only after submission
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+              No hidden test cases for this problem.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Custom Test Tab ── */}
+      {activeTab === "customtest" && (
+        <div className="flex-1 overflow-y-auto p-4 bg-white space-y-3">
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-1.5">
+              Custom Input (stdin)
+            </label>
+            <Textarea
+              placeholder={"Enter your custom input here...\nExample:\n4\n2 7 11 15\n9"}
+              value={stdin}
+              onChange={(e) => setStdin(e.target.value)}
+              className="h-36 resize-none font-mono text-sm bg-white border-gray-300 text-gray-800 placeholder:text-gray-400 focus:ring-blue-500"
+            />
+          </div>
+          <Button
+            size="sm"
+            className="h-8 px-5 text-xs font-bold bg-green-500 hover:bg-green-600 text-white gap-1.5 rounded-lg"
+            onClick={() => {
+              handleRun();
+            }}
+            disabled={isRunning || readOnly}
+          >
+            {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+            {isRunning ? "Running..." : "Run with this Input"}
+          </Button>
+
+          {output && (
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs font-mono space-y-1">
+              <p className="text-gray-500 font-bold border-b border-gray-200 pb-1 mb-1.5">Output:</p>
+              <pre className="text-gray-800 whitespace-pre-wrap max-h-36 overflow-auto">
+                {output.stdout || output.stderr || output.compile_output || "—"}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

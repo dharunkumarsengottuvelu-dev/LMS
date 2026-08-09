@@ -536,6 +536,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                             toast({ title: "Image Selected", description: `File "${file.name}" loaded for thumbnail.` });
                           }
                         };
+                        reader.onerror = () => {
+                          toast({ title: "File Error", description: "Failed to read the selected file.", variant: "destructive" });
+                        };
                         reader.readAsDataURL(file);
                       }
                     }}

@@ -19,6 +19,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/utils";
 import { ProctoringEngine } from "@/components/proctoring/proctoring-engine";
 
 interface QuestionItem {
@@ -265,9 +266,9 @@ export default function StudentTestRunnerPage() {
           description: "Live camera stream active for real-time face monitoring.",
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn("Hardware webcam access error:", err);
-      setCameraError(err?.message || "Webcam access denied or unavailable.");
+      setCameraError(getErrorMessage(err));
       toast({
         variant: "destructive",
         title: "Webcam Access Required",

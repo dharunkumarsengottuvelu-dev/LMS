@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ClipboardList, Clock, ArrowRight, CheckCircle2, AlertCircle, Search, Filter, Code2, Layers,
-  ShieldCheck, MonitorCheck, Maximize, CopyX, Play, Shield, FolderKanban, Check, ChevronRight, ArrowLeft, Dumbbell
+  ShieldCheck, MonitorCheck, Maximize, CopyX, Play, Shield, FolderKanban, Check, ChevronRight, ArrowLeft, Dumbbell, Sparkles
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { useLMSStore } from "@/lib/store/lms-store";
 
 interface SubModuleItem {
   id: string;
@@ -35,9 +36,34 @@ interface PracticeCourseTrack {
   subModules: SubModuleItem[];
 }
 
-const mockPracticeTracks: PracticeCourseTrack[] = [];
-
-import { useLMSStore } from "@/lib/store/lms-store";
+const defaultPracticeTracks: PracticeCourseTrack[] = [
+  {
+    id: "track-1",
+    title: "Data Structures & Algorithmic Problem Solving",
+    category: "Computer Science & Coding",
+    description: "Master Arrays, Strings, Hash Maps, Dynamic Programming, and Recursion with sandboxed Jobe execution evaluation.",
+    thumbnail: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop&q=80",
+    assignedBy: "Admin",
+    assignedByName: "EduNexus Enterprise",
+    subModules: [
+      { id: "sm-1", title: "Two Sum & Hash Maps", type: "coding", duration_minutes: 30, total_marks: 100, question_count: 4, status: "not_started" },
+      { id: "sm-2", title: "String Reversal & Pointers", type: "coding", duration_minutes: 25, total_marks: 100, question_count: 3, status: "not_started" },
+      { id: "sm-3", title: "Dynamic Programming Fibonacci", type: "coding", duration_minutes: 40, total_marks: 100, question_count: 3, status: "not_started" },
+    ]
+  },
+  {
+    id: "track-2",
+    title: "Java Object-Oriented Programming & Logic",
+    category: "Java Engineering",
+    description: "Practice Core Java OOP principles, Scanner I/O streams, Collection frameworks, and algorithmic edge cases.",
+    thumbnail: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
+    assignedBy: "Trainer",
+    assignedByName: "Dr. Aris Thorne",
+    subModules: [
+      { id: "sm-4", title: "Java Input Parsing & Collections", type: "coding", duration_minutes: 45, total_marks: 100, question_count: 5, status: "not_started" },
+    ]
+  }
+];
 
 export default function StudentPracticePage() {
   const router = useRouter();
@@ -65,7 +91,7 @@ export default function StudentPracticePage() {
     }))
   }));
 
-  const allTracks = storePracticeTracks.length > 0 ? formattedStoreTracks : mockPracticeTracks;
+  const allTracks = storePracticeTracks.length > 0 ? formattedStoreTracks : defaultPracticeTracks;
 
   const filteredTracks = allTracks.filter((track) => {
     const matchesSearch = track.title.toLowerCase().includes(search.toLowerCase()) || track.category.toLowerCase().includes(search.toLowerCase());
@@ -74,7 +100,7 @@ export default function StudentPracticePage() {
   });
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-8 pb-12 w-full">
+    <div className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full">
       {/* Back Button */}
       <Button
         variant="outline"
@@ -86,11 +112,14 @@ export default function StudentPracticePage() {
       </Button>
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div>
           <h1 className="text-[36px] font-bold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            Practice Tracks Hub
+            Practice Tracks & Coding Hub
           </h1>
+          <p className="text-xs text-[#6B7280] dark:text-[#A1A1AA] mt-1">
+            Access interactive coding IDE practice, algorithmic problem sets, and assigned practice tracks.
+          </p>
         </div>
 
         {/* Search */}
@@ -105,83 +134,123 @@ export default function StudentPracticePage() {
         </div>
       </div>
 
-      {/* Practice Tracks Cards Grid */}
-      {filteredTracks.length === 0 ? (
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-12 text-center rounded-2xl w-full">
-          <Dumbbell className="h-12 w-12 text-[#2563EB] mx-auto mb-4 opacity-80" />
-          <h3 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">No Practice Tracks Assigned Yet</h3>
-          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] max-w-md mx-auto mt-2">
-            Practice tracks created or assigned in the Admin or Trainer panel will appear here automatically in real-time.
-          </p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-        {filteredTracks.map((track) => {
-          const completedCount = track.subModules.filter((m) => m.status === "completed").length;
-          const totalCount = track.subModules.length;
-          const progressPercentage = Math.round((completedCount / totalCount) * 100);
+      {/* FEATURED CODING IDE BANNER */}
+      <div className="p-6 bg-gradient-to-r from-[#2563EB]/10 via-[#1D4ED8]/10 to-[#9333EA]/10 border border-[#2563EB]/25 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-5 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#2563EB] text-white flex items-center justify-center font-bold text-xl shadow-md shrink-0">
+            <Code2 className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">
+                Student Practice Monaco IDE
+              </h2>
+              <Badge className="bg-[#16A34A] text-white text-[10px] font-bold px-2 py-0.5">
+                LIVE JOBE SERVER COMPILER
+              </Badge>
+            </div>
+            <p className="text-xs text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed max-w-2xl">
+              Execute Python, Java, C++, JavaScript, C, Go code live in Jobe sandbox. Evaluate solutions against test cases with score calculation.
+            </p>
+          </div>
+        </div>
 
-          return (
-            <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-[#2563EB]/50 transition-all duration-200 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl">
-              {/* Thumbnail Header Image */}
-              <div className="relative w-full h-44 overflow-hidden border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9] dark:bg-[#09090B]">
-                <img
-                  src={track.thumbnail}
-                  alt={track.title}
-                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                />
-              </div>
-
-              <CardHeader className="p-6 pb-4 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
-                    <FolderKanban className="h-3 w-3 mr-1 inline" /> {track.category}
-                  </Badge>
-
-                  <span className="text-[11px] font-bold text-[#2563EB]">
-                    {track.assignedBy}: {track.assignedByName}
-                  </span>
-                </div>
-
-                <CardTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug">
-                  {track.title}
-                </CardTitle>
-
-                <p className="text-xs text-[#6B7280] dark:text-[#A1A1AA] line-clamp-2 leading-relaxed">
-                  {track.description}
-                </p>
-              </CardHeader>
-
-              <CardContent className="p-6 pt-0 space-y-4">
-                <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#6B7280]">Modules Count:</span>
-                    <span className="font-bold text-[#2563EB]">{totalCount} Practice Modules</span>
-                  </div>
-
-                  <div className="space-y-1 pt-1">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#6B7280]">Track Completion:</span>
-                      <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{progressPercentage}% ({completedCount}/{totalCount})</span>
-                    </div>
-                    <Progress value={progressPercentage} className="h-1.5 bg-[#E5E7EB]" />
-                  </div>
-                </div>
-              </CardContent>
-
-              <CardFooter className="p-6 pt-0">
-                <Button
-                  onClick={() => router.push(`/student/assessments/tracks/${track.id}`)}
-                  className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2"
-                >
-                  Explore Practice Track <ChevronRight className="h-4 w-4" />
-                </Button>
-              </CardFooter>
-            </Card>
-          );
-        })}
+        <Button
+          onClick={() => router.push("/student/coding")}
+          className="h-[46px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 text-sm shrink-0 shadow-md"
+        >
+          <Code2 className="h-4 w-4" /> Launch Interactive Coding IDE
+        </Button>
       </div>
-      )}
+
+      {/* Practice Tracks Cards Grid */}
+      <div className="space-y-4 pt-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">
+            Assigned Practice Tracks & Problem Sets
+          </h2>
+          <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB]">
+            {filteredTracks.length} Tracks Available
+          </Badge>
+        </div>
+
+        {filteredTracks.length === 0 ? (
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-12 text-center rounded-2xl w-full">
+            <Dumbbell className="h-12 w-12 text-[#2563EB] mx-auto mb-4 opacity-80" />
+            <h3 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">No Matching Practice Tracks</h3>
+            <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] max-w-md mx-auto mt-2">
+              Try adjusting your search criteria or launch the Interactive Coding IDE above.
+            </p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 w-full">
+            {filteredTracks.map((track) => {
+              const completedCount = track.subModules.filter((m) => m.status === "completed").length;
+              const totalCount = track.subModules.length;
+              const progressPercentage = Math.round((completedCount / totalCount) * 100);
+
+              return (
+                <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-[#2563EB]/50 transition-all duration-200 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl">
+                  {/* Thumbnail Header Image */}
+                  <div className="relative w-full h-44 overflow-hidden border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9] dark:bg-[#09090B]">
+                    <img
+                      src={track.thumbnail}
+                      alt={track.title}
+                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                    />
+                  </div>
+
+                  <CardHeader className="p-6 pb-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
+                        <FolderKanban className="h-3 w-3 mr-1 inline" /> {track.category}
+                      </Badge>
+
+                      <span className="text-[11px] font-bold text-[#2563EB]">
+                        {track.assignedBy}: {track.assignedByName}
+                      </span>
+                    </div>
+
+                    <CardTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug">
+                      {track.title}
+                    </CardTitle>
+
+                    <p className="text-xs text-[#6B7280] dark:text-[#A1A1AA] line-clamp-2 leading-relaxed">
+                      {track.description}
+                    </p>
+                  </CardHeader>
+
+                  <CardContent className="p-6 pt-0 space-y-4">
+                    <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#6B7280]">Modules Count:</span>
+                        <span className="font-bold text-[#2563EB]">{totalCount} Practice Modules</span>
+                      </div>
+
+                      <div className="space-y-1 pt-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-[#6B7280]">Track Completion:</span>
+                          <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{progressPercentage}% ({completedCount}/{totalCount})</span>
+                        </div>
+                        <Progress value={progressPercentage} className="h-1.5 bg-[#E5E7EB]" />
+                      </div>
+                    </div>
+                  </CardContent>
+
+                  <CardFooter className="p-6 pt-0 gap-3">
+                    <Button
+                      onClick={() => router.push("/student/coding")}
+                      className="flex-1 h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2"
+                    >
+                      <Code2 className="h-4 w-4" /> Start Practice in IDE
+                    </Button>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

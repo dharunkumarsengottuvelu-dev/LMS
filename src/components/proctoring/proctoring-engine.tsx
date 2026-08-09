@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/utils";
 
 export type ViolationType =
   | "CAMERA_DISABLED"
@@ -182,10 +183,10 @@ export function ProctoringEngine({
         setWebcamStream(stream);
         setCameraStatus("active");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn("Hardware camera request error:", err);
       setCameraStatus("denied");
-      setCameraError(err?.message || "Camera access permission denied.");
+      setCameraError(getErrorMessage(err));
       recordViolation("CAMERA_PERMISSION_DENIED", "Camera access is required. Please grant camera permission to continue.");
     }
   }, [recordViolation]);
@@ -348,7 +349,7 @@ export function ProctoringEngine({
           {!webcamStream && (
             <button
               type="button"
-              onClick={requestWebcamAccess}
+              onClick={() => requestWebcamAccess()}
               className="w-full h-full flex flex-col items-center justify-center bg-[#2563EB]/10 text-[#2563EB] text-[10px] font-bold gap-1"
               title="Click to Enable Camera"
             >
@@ -411,7 +412,7 @@ export function ProctoringEngine({
               <p className="text-xs text-[#D1D5DB] font-medium">Camera Stream Permission Pending</p>
               <Button
                 size="sm"
-                onClick={requestWebcamAccess}
+                onClick={() => requestWebcamAccess()}
                 className="h-8 text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-1.5 px-3"
               >
                 <Camera className="h-3.5 w-3.5" /> Enable Live Camera Stream

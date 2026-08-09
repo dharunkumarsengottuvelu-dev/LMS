@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/utils";
 
 function getYouTubeEmbedUrl(url?: string): string {
   if (!url) return "https://www.youtube.com/embed/wm5gMKCOm4U";
@@ -54,6 +55,7 @@ interface Lesson {
   codingData?: {
     problemStatement: string;
     starterCode: Record<string, string>;
+    sampleInput?: string;
     sampleOutput: string;
   };
 }
@@ -249,12 +251,39 @@ export default function StudentCoursePlayerPage() {
     setMcqSubmitted(true);
   };
 
-  const handleRunCode = () => {
+  const handleRunCode = async () => {
+    if (!codeContent.trim()) {
+      toast({ variant: "destructive", title: "Empty Code", description: "Please write some code first" });
+      return;
+    }
     setIsRunningCode(true);
-    setTimeout(() => {
+    setCodeOutput(null);
+    try {
+      const response = await fetch("/api/code/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          language: selectedLanguage,
+          code: codeContent,
+          stdin: activeLesson.codingData?.sampleInput ?? "",
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Code execution failed");
+      }
+
+      const result = await response.json();
+      const outputText = result.stdout || result.stderr || result.compile_output || "No output";
+      setCodeOutput(`[Jobe Engine Status: ${result.status?.description ?? "Success"}]\nExecution Time: ${result.time ?? "0.00"}s\n\nOutput:\n${outputText}`);
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err);
+      setCodeOutput(`[Jobe Execution Error]\n${msg}`);
+      toast({ variant: "destructive", title: "Execution Failed", description: msg });
+    } finally {
       setIsRunningCode(false);
-      setCodeOutput(`[Executing ${selectedLanguage.toUpperCase()} Code...]\nOutput:\n80%\n✔ Test Case 1 Passed (Output matched sample)`);
-    }, 800);
+    }
   };
 
   const handleDownloadResource = (res: LessonResource) => {

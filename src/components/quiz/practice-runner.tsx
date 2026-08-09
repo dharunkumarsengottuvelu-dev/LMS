@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Clock, ChevronLeft, ChevronRight, Flag, CheckCircle2,
   Send, Grid3x3, Code2, ClipboardList, Layers, Play, Check, Award,
@@ -17,7 +17,7 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 
 export interface PracticeQuestion {
   id: string;
@@ -29,6 +29,7 @@ export interface PracticeQuestion {
   options?: { id: string; text: string }[];
   starterCode?: Record<string, string>;
   testCases?: { input: string; expectedOutput: string }[];
+  sampleInput?: string;
 }
 
 interface PracticeRunnerProps {
@@ -67,6 +68,11 @@ export function PracticeRunnerEngine({
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
 
+  const handleFinalSubmit = useCallback(async () => {
+    setShowSubmitDialog(false);
+    await onSubmit({ ...answers, ...codeAnswers });
+  }, [answers, codeAnswers, onSubmit]);
+
   // Countdown Timer
   useEffect(() => {
     if (timeLeft <= 0) {
@@ -77,7 +83,7 @@ export function PracticeRunnerEngine({
       setTimeLeft((prev) => prev - 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, [timeLeft, handleFinalSubmit]);
 
   const handleSingleAnswer = (questionId: string, optionId: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: [optionId] }));
@@ -105,13 +111,38 @@ export function PracticeRunnerEngine({
     }));
   };
 
-  const handleRunCodeTest = () => {
+  const handleRunCodeTest = async () => {
+    if (!currentQuestion) return;
+    const userCode = codeAnswers[currentQuestion.id]?.code || currentQuestion.starterCode?.[selectedLang] || "";
+    if (!userCode.trim()) return;
+
     setIsRunningCode(true);
     setCodeRunOutput(null);
-    setTimeout(() => {
+    try {
+      const response = await fetch("/api/code/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          language: selectedLang,
+          code: userCode,
+          stdin: currentQuestion.sampleInput || currentQuestion.testCases?.[0]?.input || "",
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Code test execution failed");
+      }
+
+      const res = await response.json();
+      const outputStr = res.stdout || res.stderr || res.compile_output || "No output";
+      setCodeRunOutput(`✓ [Jobe Status: ${res.status?.description ?? "Success"}] ${outputStr.trim()}`);
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err);
+      setCodeRunOutput(`✕ Error: ${msg}`);
+    } finally {
       setIsRunningCode(false);
-      setCodeRunOutput("✓ All sample test cases passed successfully! (Output match: [0, 1])");
-    }, 900);
+    }
   };
 
   const toggleMarkForReview = () => {
@@ -147,11 +178,6 @@ export function PracticeRunnerEngine({
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const handleFinalSubmit = async () => {
-    setShowSubmitDialog(false);
-    await onSubmit({ ...answers, ...codeAnswers });
   };
 
   const handleCopyPasteAttempt = (e: React.SyntheticEvent) => {
@@ -342,7 +368,7 @@ export function PracticeRunnerEngine({
 
                   <div className="flex items-center justify-between pt-1">
                     <Button
-                      onClick={handleRunCodeTest}
+                      onClick={() => handleRunCodeTest()}
                       disabled={isRunningCode}
                       className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold gap-2"
                     >
@@ -375,7 +401,7 @@ export function PracticeRunnerEngine({
                       "h-10 px-3 text-xs font-semibold gap-1.5",
                       markedForReview.has(currentQuestion.id) ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]" : "text-[#4B5563]"
                     )}
-                    onClick={toggleMarkForReview}
+                    onClick={() => toggleMarkForReview()}
                   >
                     <Flag className="h-3.5 w-3.5" />
                     {markedForReview.has(currentQuestion.id) ? "Marked for Review" : "Mark for Review"}
@@ -474,7 +500,7 @@ export function PracticeRunnerEngine({
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-2 gap-2 sm:gap-0">
             <AlertDialogCancel className="h-10 text-xs font-semibold">Continue Practice</AlertDialogCancel>
-            <AlertDialogAction onClick={handleFinalSubmit} className="h-10 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold">
+            <AlertDialogAction onClick={() => handleFinalSubmit()} className="h-10 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold">
               Yes, Submit Practice
             </AlertDialogAction>
           </AlertDialogFooter>

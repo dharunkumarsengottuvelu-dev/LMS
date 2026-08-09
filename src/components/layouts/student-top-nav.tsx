@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, LogOut, LayoutDashboard, BookOpen, Dumbbell, ClipboardList, FileText, Menu, User, Settings } from "lucide-react";
+import { Bell, LogOut, LayoutDashboard, BookOpen, Dumbbell, ClipboardList, FileText, Menu, User, Settings, Code2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -21,6 +21,7 @@ import {
 const studentNavItems = [
   { label: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
   { label: "Assigned Courses", href: "/student/my-courses", icon: BookOpen },
+  { label: "Coding IDE", href: "/student/coding", icon: Code2 },
   { label: "Practices", href: "/student/assessments", icon: Dumbbell },
   { label: "Assessments", href: "/student/tests", icon: ClipboardList },
   { label: "Submissions", href: "/student/assignments", icon: FileText },
