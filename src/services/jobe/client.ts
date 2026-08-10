@@ -492,7 +492,7 @@ export class JobeService {
               memory: 24000,
             };
           } else {
-            const compileErr = (compileProc.stderr || compileProc.stdout || "Java compilation failed").trim();
+            const compileErr = (compileProc.stderr || compileProc.stdout || (compileProc.error ? (compileProc.error as any).message : "Java compilation failed")).trim();
             return {
               stdout: "",
               stderr: compileErr,
