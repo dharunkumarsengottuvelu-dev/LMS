@@ -366,7 +366,7 @@ export default function StudentCodingIDEPage() {
             {!showNavigator && (
               <button
                 onClick={() => setShowNavigator(true)}
-                className="absolute right-0 top-1/2 -translate-y-1/2 bg-white border border-r-0 border-gray-200 p-2 rounded-l-lg shadow-sm hover:bg-gray-50 z-10 flex items-center justify-center transition-all group"
+                className="absolute right-0 top-4 bg-white border border-r-0 border-gray-200 py-3 px-2 rounded-l-lg shadow-sm hover:bg-gray-50 z-10 flex items-center justify-center transition-all group"
                 title="Show Question Navigator"
               >
                 <ChevronLeft className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
