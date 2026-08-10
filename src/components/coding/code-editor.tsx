@@ -136,7 +136,7 @@ export function CodeEditor({
 
   useEffect(() => {
     if (submissionResult) {
-      setActiveTab("testresult");
+      setActiveTab("testcases");
     }
   }, [submissionResult]);
 
@@ -251,7 +251,7 @@ export function CodeEditor({
         const result = await response.json();
         setMultiOutput(result);
       }
-      setActiveTab("testresult");
+      setActiveTab(activeTab === "customtest" ? "customtest" : "testcases");
     } catch (error) {
       const msg = getErrorMessage(error);
       toast({ title: "Run failed", description: msg, variant: "destructive" });
@@ -434,11 +434,9 @@ export function CodeEditor({
       <div className="flex items-center justify-between px-2 bg-gray-50 border-b border-gray-200 shrink-0 overflow-x-auto scrollbar-none">
         {/* Tabs for Bottom Pane */}
         <div className="flex items-center space-x-1 py-1">
-          {(["testcases", "hiddentests", "customtest", "testresult"] as const).map((tab) => {
+          {(["testcases", "customtest"] as const).map((tab) => {
             const labels: Record<string, string> = {
-              testresult: "Results",
-              testcases: "Sample Testcases",
-              hiddentests: "Hidden Testcases",
+              testcases: (submissionResult || multiOutput || output) ? "Test Result" : "Sample Testcases",
               customtest: "Custom Testcase",
             };
             return (
@@ -491,7 +489,7 @@ export function CodeEditor({
       {/* ── Bottom Pane: Test Console ── */}
       <div className="flex flex-col flex-[2] min-h-0 bg-white overflow-hidden relative">
       
-      {activeTab === "testresult" && (
+      {activeTab === "testcases" && (
         <div className="flex-1 overflow-y-auto p-4 bg-white">
           {submissionResult ? (
             <div className="space-y-4">
@@ -573,12 +571,7 @@ export function CodeEditor({
                  );
               })}
             </div>
-          ) : !output ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm gap-2">
-              <Play className="h-8 w-8 text-gray-300" />
-              <p>Run your code to see the execution results here.</p>
-            </div>
-          ) : (
+          ) : output ? (
             <div className="space-y-4">
               <div className="flex items-center gap-3 flex-wrap">
                 <Badge
@@ -648,58 +641,26 @@ export function CodeEditor({
                 </div>
               )}
             </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === "testcases" && (
-        <div className="flex-1 overflow-y-auto p-4 bg-white space-y-3">
-          {problem?.test_cases?.filter((tc) => !tc.is_hidden).length ? (
-            <div className="flex flex-col h-full">
-               {/* List of sample tests */}
-               {problem.test_cases.filter((tc) => !tc.is_hidden).map((tc, i) => (
-                <div key={tc.id} className="rounded-lg border border-gray-200 overflow-hidden mb-3 shrink-0">
-                  <div className="bg-gray-50 px-3 py-1.5 text-[11px] font-bold text-gray-500 border-b border-gray-200">
-                    Test Case {i + 1}
-                    {tc.explanation && <span className="ml-2 font-normal text-gray-400">— {tc.explanation}</span>}
-                  </div>
-                  <div className="grid grid-cols-2 divide-x divide-gray-200">
-                    <div className="p-2.5">
+          ) : (
+            <div className="flex flex-col h-full space-y-3">
+               {problem?.test_cases?.filter((tc) => !tc.is_hidden).length ? (
+                 problem.test_cases.filter((tc) => !tc.is_hidden).map((tc, i) => (
+                  <div key={tc.id} className="rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                    <div className="bg-gray-50 px-3 py-1.5 text-[11px] font-bold text-gray-500 border-b border-gray-200">
+                      Test Case {i + 1}
+                      {tc.explanation && <span className="ml-2 font-normal text-gray-400">— {tc.explanation}</span>}
+                    </div>
+                    <div className="p-2.5 bg-white">
                       <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Input:</p>
                       <pre className="text-[11px] font-mono text-blue-700 whitespace-pre-wrap">{tc.input || "—"}</pre>
                     </div>
-                    <div className="p-2.5">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Expected Output:</p>
-                      <pre className="text-[11px] font-mono text-green-700 whitespace-pre-wrap">{tc.expected_output || "—"}</pre>
-                    </div>
                   </div>
-                </div>
-               ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-              No public test cases for this problem.
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === "hiddentests" && (
-        <div className="flex-1 overflow-y-auto p-4 bg-white">
-          {problem?.test_cases?.some((tc) => tc.is_hidden) ? (
-            <div className="space-y-2">
-              {problem.test_cases.filter((tc) => tc.is_hidden).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 text-[11px] text-gray-500">
-                    <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600">
-                      {i + 1}
-                    </span>
-                    Hidden Test Case — visible only after submission
-                  </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-              No hidden test cases.
+                 ))
+               ) : (
+                 <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                   No public test cases for this problem.
+                 </div>
+               )}
             </div>
           )}
         </div>
