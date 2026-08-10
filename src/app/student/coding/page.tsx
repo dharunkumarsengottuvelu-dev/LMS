@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CodeEditor } from "@/components/coding/code-editor";
 import { StudentTopNav } from "@/components/layouts/student-top-nav";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
 import type { CodingSubmission, CodingLanguage, TestCaseResult } from "@/types/coding";
@@ -29,6 +30,7 @@ export default function StudentCodingIDEPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [latestSubmission, setLatestSubmission] = useState<CodingSubmission | null>(null);
   const [problemTab, setProblemTab] = useState<ProblemTab>("statement");
+  const [showNavigator, setShowNavigator] = useState(true);
   const [jobeStatus, setJobeStatus] = useState<{ available: boolean; latencyMs?: number } | null>(null);
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -160,9 +162,10 @@ export default function StudentCodingIDEPage() {
 
       {/* ── 3-Column Body ── */}
       <div className="flex flex-1 overflow-hidden">
-
-        {/* ── LEFT: Problem Statement (280px) ── */}
-        <div className="w-[300px] shrink-0 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
+        <PanelGroup direction="horizontal" autoSaveId="ide-layout">
+          {/* ── LEFT: Problem Statement (280px) ── */}
+          <Panel defaultSize={30} minSize={20} maxSize={50} className="flex flex-col bg-white border-r border-gray-200">
+            <div className="flex-1 overflow-y-auto flex flex-col">
           {/* Question header */}
           <div className="px-4 py-3 border-b border-gray-200">
             <div className="flex items-center justify-between mb-1">
@@ -344,11 +347,24 @@ export default function StudentCodingIDEPage() {
                 )}
               </TabsContent>
             )}
+            )}
           </Tabs>
-        </div>
+          </div>
+          </Panel>
 
-        {/* ── MIDDLE: Code Editor (flex-1) ── */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          <PanelResizeHandle className="w-1.5 bg-gray-100 hover:bg-blue-200 cursor-col-resize transition-colors" />
+
+          {/* ── MIDDLE: Code Editor (flex-1) ── */}
+          <Panel defaultSize={showNavigator ? 50 : 70} minSize={30} className="flex flex-col overflow-hidden bg-white">
+            <div className="flex items-center justify-end px-2 py-1 bg-gray-50 border-b border-gray-200">
+              <button
+                onClick={() => setShowNavigator(!showNavigator)}
+                className="text-xs font-semibold text-gray-500 hover:text-blue-600 px-2 py-1 rounded-md transition-colors"
+              >
+                {showNavigator ? "Hide Question Navigator" : "Show Question Navigator"}
+              </button>
+            </div>
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           <CodeEditor
             problem={selectedProblem}
             submissionResult={latestSubmission}
@@ -358,11 +374,17 @@ export default function StudentCodingIDEPage() {
             isSubmitting={isSubmitting}
             onSubmit={handleSubmit}
           />
-        </div>
+          />
+            </div>
+          </Panel>
 
-        {/* ── RIGHT: Question Navigator (220px) ── */}
-        <div className="w-[220px] shrink-0 bg-white border-l border-gray-200 overflow-y-auto flex flex-col">
-          <div className="px-4 py-3 border-b border-gray-200">
+          {showNavigator && (
+            <>
+              <PanelResizeHandle className="w-1.5 bg-gray-100 hover:bg-blue-200 cursor-col-resize transition-colors" />
+              {/* ── RIGHT: Question Navigator (220px) ── */}
+              <Panel defaultSize={20} minSize={15} maxSize={30} className="flex flex-col bg-white border-l border-gray-200">
+                <div className="flex-1 overflow-y-auto flex flex-col">
+                  <div className="px-4 py-3 border-b border-gray-200">
             <h3 className="font-bold text-sm text-gray-800">Question Navigator</h3>
           </div>
 
@@ -438,30 +460,34 @@ export default function StudentCodingIDEPage() {
             </div>
           </div>
 
-          {/* Prev / Next navigation */}
-          <div className="mt-auto px-4 py-3 border-t border-gray-200 flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 h-8 text-xs gap-1"
-              disabled={currentIdx === 0}
-              onClick={() => goTo(currentIdx - 1)}
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              Previous
-            </Button>
-            <Button
-              size="sm"
-              className="flex-1 h-8 text-xs gap-1 bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={currentIdx === totalProblems - 1}
-              onClick={() => goTo(currentIdx + 1)}
-            >
-              Next
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
+          {/* Navigation buttons */}
+            <div className="mt-4 border-t border-gray-200 pt-3">
+              <div className="flex items-center justify-between gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-[11px] h-7"
+                  disabled={currentIdx === 0}
+                  onClick={() => goTo(currentIdx - 1)}
+                >
+                  <ChevronLeft className="h-3 w-3 mr-1" /> Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-[11px] h-7"
+                  disabled={currentIdx === totalProblems - 1}
+                  onClick={() => goTo(currentIdx + 1)}
+                >
+                  Next <ChevronRight className="h-3 w-3 ml-1" />
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
+          </Panel>
+          </>
+          )}
+        </PanelGroup>
       </div>
     </div>
   );
-}

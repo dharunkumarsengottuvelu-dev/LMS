@@ -305,7 +305,7 @@ export function CodeEditor({
            
            <div className="flex items-center gap-2">
              <Select value={language} onValueChange={(v) => handleLanguageChange(v as CodingLanguage)}>
-               <SelectTrigger className="h-7 w-28 text-[11px] border-gray-300 bg-white text-gray-700">
+               <SelectTrigger className="h-7 w-[140px] text-[11px] border-gray-300 bg-white text-gray-700">
                  <SelectValue />
                </SelectTrigger>
                <SelectContent>
