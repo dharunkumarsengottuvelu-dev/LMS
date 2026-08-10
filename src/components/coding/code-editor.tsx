@@ -199,7 +199,7 @@ export function CodeEditor({
     }
 
     setIsRunning(true);
-    // Stay on Code tab so the output panel at the bottom becomes visible
+    // Stay on current tab during execution, then switch on success
 
     try {
       const response = await fetch("/api/code/run", {
@@ -221,6 +221,7 @@ export function CodeEditor({
 
       const result = (await response.json()) as ExecuteCodeResult;
       setOutput(result);
+      setActiveTab("testresult");
     } catch (error) {
       const msg = getErrorMessage(error);
       toast({ title: "Run failed", description: msg, variant: "destructive" });
@@ -267,9 +268,10 @@ export function CodeEditor({
       <div className="flex items-center border-b border-gray-200 bg-white shrink-0 min-w-0">
         {/* Left: Section Tabs — scrollable if needed */}
         <div className="flex items-center overflow-x-auto flex-1 min-w-0 scrollbar-none">
-          {(["code", "testcases", "hiddentests", "customtest"] as const).map((tab) => {
+          {(["code", "testresult", "testcases", "hiddentests", "customtest"] as const).map((tab) => {
             const labels: Record<string, string> = {
               code: "Code",
+              testresult: "Test Result",
               testcases: "Test Cases",
               hiddentests: "Hidden Tests",
               customtest: "Custom Test",
@@ -448,10 +450,19 @@ export function CodeEditor({
               </MonacoErrorBoundary>
             )}
           </div>
+        </div>
+      )}
 
-          {/* Output panel at bottom of Code tab */}
-          {output && (
-            <div className="shrink-0 border-t border-gray-200 bg-gray-50 px-4 py-3 space-y-2 max-h-52 overflow-y-auto">
+      {/* ── Test Result Tab ── */}
+      {activeTab === "testresult" && (
+        <div className="flex-1 overflow-y-auto p-4 bg-white">
+          {!output ? (
+            <div className="flex flex-col items-center justify-center h-48 text-gray-400 text-sm gap-2">
+              <Play className="h-8 w-8 text-gray-300" />
+              <p>Run your code to see the execution results here.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
               <div className="flex items-center gap-3 flex-wrap">
                 <Badge
                   className={cn(
@@ -485,17 +496,17 @@ export function CodeEditor({
               </div>
 
               {output.status.id === 6 || output.compile_output ? (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-mono space-y-1">
-                  <span className="text-red-600 font-bold block border-b border-red-200 pb-1">Compilation Error</span>
-                  <pre className="overflow-auto max-h-28 text-red-700 whitespace-pre-wrap leading-relaxed">
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-mono space-y-2">
+                  <span className="text-red-600 font-bold block border-b border-red-200 pb-2">Compilation Error</span>
+                  <pre className="overflow-auto text-red-700 whitespace-pre-wrap leading-relaxed">
                     {output.compile_output || output.stderr || output.message || "Compilation failed"}
                   </pre>
                 </div>
               ) : output.status.id === 7 || (output.stderr && output.status.id !== 3) ? (
-                <div className="space-y-2">
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-mono space-y-1">
-                    <span className="text-amber-700 font-bold block border-b border-amber-200 pb-1">Runtime Error & Stack Trace</span>
-                    <pre className="overflow-auto max-h-28 text-amber-800 whitespace-pre-wrap leading-relaxed">
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-mono space-y-2">
+                    <span className="text-amber-700 font-bold block border-b border-amber-200 pb-2">Runtime Error & Stack Trace</span>
+                    <pre className="overflow-auto text-amber-800 whitespace-pre-wrap leading-relaxed">
                       {output.stderr || output.message || "Runtime exception occurred"}
                     </pre>
                   </div>
@@ -503,20 +514,19 @@ export function CodeEditor({
                   (output.stderr?.includes("NoSuchElementException") ||
                     output.stderr?.includes("EOFError") ||
                     output.message?.includes("NoSuchElementException")) ? (
-                    <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700 flex items-start gap-2">
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 flex items-start gap-3">
                       <span className="font-bold text-blue-600 shrink-0">💡 Input Notice:</span>
                       <span>
-                        The program requested input (e.g.{" "}
-                        <code className="font-mono">Scanner.nextInt()</code> or{" "}
-                        <code className="font-mono">input()</code>), but the Custom Test input is empty. Go to{" "}
+                        The program requested input, but the Custom Test input is empty. Go to{" "}
                         <strong>Custom Test</strong> tab and enter your input.
                       </span>
                     </div>
                   ) : null}
                 </div>
               ) : (
-                <div className="rounded-lg border border-gray-200 bg-white p-3 text-xs font-mono">
-                  <pre className="overflow-auto max-h-28 text-gray-800 whitespace-pre-wrap leading-relaxed">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm font-mono space-y-2">
+                  <span className="text-gray-500 font-bold block border-b border-gray-200 pb-2">Standard Output (stdout)</span>
+                  <pre className="overflow-auto text-gray-800 whitespace-pre-wrap leading-relaxed">
                     {output.stdout || "Program executed successfully with no output."}
                   </pre>
                 </div>
