@@ -161,11 +161,11 @@ export default function StudentCodingIDEPage() {
       </div>
 
       {/* ── 3-Column Body ── */}
-      <div className="flex flex-1 overflow-hidden">
-        <PanelGroup orientation="horizontal">
+      <div className="flex flex-1 overflow-hidden w-full">
+        <PanelGroup orientation="horizontal" className="flex-1 w-full h-full">
           {/* ── LEFT: Problem Statement (280px) ── */}
-          <Panel defaultSize={30} minSize={20} maxSize={50} className="flex flex-col bg-white border-r border-gray-200">
-            <div className="flex-1 overflow-y-auto flex flex-col">
+          <Panel defaultSize={30} minSize={20} maxSize={50} className="flex flex-col bg-white border-r border-gray-200 h-full">
+            <div className="flex-1 overflow-y-auto flex flex-col h-full">
           {/* Question header */}
           <div className="px-4 py-3 border-b border-gray-200">
             <div className="flex items-center justify-between mb-1">
@@ -354,8 +354,8 @@ export default function StudentCodingIDEPage() {
           <PanelResizeHandle className="w-1.5 bg-gray-100 hover:bg-blue-200 cursor-col-resize transition-colors" />
 
           {/* ── MIDDLE: Code Editor (flex-1) ── */}
-          <Panel defaultSize={showNavigator ? 50 : 70} minSize={30} className="flex flex-col overflow-hidden bg-white">
-            <div className="flex items-center justify-end px-2 py-1 bg-gray-50 border-b border-gray-200">
+          <Panel defaultSize={showNavigator ? 50 : 70} minSize={30} className="flex flex-col overflow-hidden bg-white h-full">
+            <div className="flex items-center justify-end px-2 py-1 bg-gray-50 border-b border-gray-200 shrink-0">
               <button
                 onClick={() => setShowNavigator(!showNavigator)}
                 className="text-xs font-semibold text-gray-500 hover:text-blue-600 px-2 py-1 rounded-md transition-colors"
@@ -363,12 +363,12 @@ export default function StudentCodingIDEPage() {
                 {showNavigator ? "Hide Question Navigator" : "Show Question Navigator"}
               </button>
             </div>
-            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden h-full">
           <CodeEditor
             problem={selectedProblem}
             submissionResult={latestSubmission}
             defaultLanguage="java"
-            height="calc(100vh - 110px)"
+            height="100%"
             showSubmit={true}
             isSubmitting={isSubmitting}
             onSubmit={handleSubmit}
@@ -380,8 +380,8 @@ export default function StudentCodingIDEPage() {
             <>
               <PanelResizeHandle className="w-1.5 bg-gray-100 hover:bg-blue-200 cursor-col-resize transition-colors" />
               {/* ── RIGHT: Question Navigator (220px) ── */}
-              <Panel defaultSize={20} minSize={15} maxSize={30} className="flex flex-col bg-white border-l border-gray-200">
-                <div className="flex-1 overflow-y-auto flex flex-col">
+              <Panel defaultSize={20} minSize={15} maxSize={30} className="flex flex-col bg-white border-l border-gray-200 h-full">
+                <div className="flex-1 overflow-y-auto flex flex-col h-full">
                   <div className="px-4 py-3 border-b border-gray-200">
             <h3 className="font-bold text-sm text-gray-800">Question Navigator</h3>
           </div>
