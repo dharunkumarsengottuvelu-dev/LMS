@@ -134,8 +134,25 @@ export async function middleware(request: NextRequest) {
       ? "trainer"
       : profile?.role || "student";
 
+    // --- REDIRECT LOOP FIX ---
+    // Cause: If a user has an active Auth session but their row in the 'profiles' table is missing 
+    // (e.g. wiped DB), middleware would redirect them to /student/dashboard. 
+    // Then, /student/layout.tsx checks for the profile, doesn't find it, and redirects back to /auth/login.
+    // Fix: If no profile exists and they aren't an admin/trainer bypass, we let them stay on the login page 
+    // instead of forcing them into the redirect loop.
+    if (!profile && !userEmail.includes("admin") && !userEmail.includes("trainer")) {
+      return applySecurityHeaders(supabaseResponse);
+    }
+
+    const defaultPath = getRoleDefaultPath(role);
+    
+    // Prevent redirecting to the exact same path (self-redirect)
+    if (request.nextUrl.pathname === defaultPath) {
+      return applySecurityHeaders(supabaseResponse);
+    }
+
     return applySecurityHeaders(
-      NextResponse.redirect(new URL(getRoleDefaultPath(role), request.url))
+      NextResponse.redirect(new URL(defaultPath, request.url))
     );
   }
 
@@ -144,6 +161,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Exclude /api/auth, /login, /register from matcher explicitly if preferred,
+    // though we handle it safely above now.
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
