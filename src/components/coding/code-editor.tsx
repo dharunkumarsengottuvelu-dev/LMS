@@ -267,11 +267,10 @@ export function CodeEditor({
       <div className="flex items-center border-b border-gray-200 bg-white shrink-0 min-w-0">
         {/* Left: Section Tabs — scrollable if needed */}
         <div className="flex items-center overflow-x-auto flex-1 min-w-0 scrollbar-none">
-          {(["code", "testcases", "sampletests", "hiddentests", "customtest"] as const).map((tab) => {
+          {(["code", "testcases", "hiddentests", "customtest"] as const).map((tab) => {
             const labels: Record<string, string> = {
               code: "Code",
               testcases: "Test Cases",
-              sampletests: "Sample Tests",
               hiddentests: "Hidden Tests",
               customtest: "Custom Test",
             };
@@ -527,47 +526,8 @@ export function CodeEditor({
         </div>
       )}
 
-      {/* ── Test Cases Tab ── */}
+      {/* ── Test Cases Tab (formerly Sample Tests) ── */}
       {activeTab === "testcases" && (
-        <div className="flex-1 overflow-y-auto p-4 bg-white">
-          {!output ? (
-            <div className="flex flex-col items-center justify-center h-48 text-gray-400 text-sm gap-2">
-              <Play className="h-8 w-8 text-gray-300" />
-              <p>Run your code to see test case results</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm font-semibold text-gray-700">
-                Execution Result
-              </p>
-              <div
-                className={cn(
-                  "flex items-center gap-2 p-3 rounded-xl border font-semibold text-sm",
-                  output.status.id === 3
-                    ? "bg-green-50 border-green-200 text-green-700"
-                    : "bg-red-50 border-red-200 text-red-700"
-                )}
-              >
-                {output.status.id === 3 ? (
-                  <CheckCircle2 className="h-5 w-5" />
-                ) : (
-                  <XCircle className="h-5 w-5" />
-                )}
-                {output.status.description.toUpperCase()}
-              </div>
-              <div className="rounded-xl border border-gray-200 p-3 text-xs font-mono bg-gray-50">
-                <p className="text-gray-500 mb-1 font-bold">Output:</p>
-                <pre className="text-gray-800 whitespace-pre-wrap">
-                  {output.stdout || output.stderr || output.compile_output || output.message || "—"}
-                </pre>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Sample Tests Tab ── */}
-      {activeTab === "sampletests" && (
         <div className="flex-1 overflow-y-auto p-4 bg-white space-y-3">
           {problem?.test_cases?.filter((tc) => !tc.is_hidden).length ? (
             problem.test_cases
@@ -592,7 +552,7 @@ export function CodeEditor({
               ))
           ) : (
             <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
-              No public sample test cases for this problem.
+              No public test cases for this problem.
             </div>
           )}
         </div>
