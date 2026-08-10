@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   ChevronLeft, ChevronRight, Flag, CheckCircle2, XCircle,
-  Loader2, Server, RefreshCw, Clock, BarChart2
+  Loader2, Server, RefreshCw, Clock, BarChart2, X, PanelRightOpen, PanelRightClose
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -155,6 +155,15 @@ export default function StudentCodingIDEPage() {
             onClick={() => toast({ title: "Assessment submitted!", description: "Your answers have been recorded." })}
           >
             ✓ Submit Assessment
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 text-gray-500 hover:text-blue-600 ml-1"
+            onClick={() => setShowNavigator(!showNavigator)}
+            title={showNavigator ? "Hide Question Navigator" : "Show Question Navigator"}
+          >
+            {showNavigator ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
           </Button>
         </div>
       </div>
@@ -351,14 +360,6 @@ export default function StudentCodingIDEPage() {
 
         {/* ── MIDDLE: Code Editor (flex-1) ── */}
         <div className="flex-1 flex flex-col overflow-hidden bg-white min-w-0">
-          <div className="flex items-center justify-end px-2 py-1 bg-gray-50 border-b border-gray-200 shrink-0">
-              <button
-                onClick={() => setShowNavigator(!showNavigator)}
-                className="text-xs font-semibold text-gray-500 hover:text-blue-600 px-2 py-1 rounded-md transition-colors"
-              >
-                {showNavigator ? "Hide Question Navigator" : "Show Question Navigator"}
-              </button>
-            </div>
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden h-full">
           <CodeEditor
             problem={selectedProblem}
@@ -373,11 +374,14 @@ export default function StudentCodingIDEPage() {
         </div>
 
         {showNavigator && (
-          <div className="w-[240px] flex flex-col bg-white border-l border-gray-200 shrink-0">
+          <div className="w-[240px] flex flex-col bg-white border-l border-gray-200 shrink-0 relative">
             {/* ── RIGHT: Question Navigator (220px) ── */}
             <div className="flex-1 overflow-y-auto flex flex-col h-full">
-                  <div className="px-4 py-3 border-b border-gray-200">
-            <h3 className="font-bold text-sm text-gray-800">Question Navigator</h3>
+                  <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+             <h3 className="font-bold text-sm text-gray-800">Question Navigator</h3>
+             <button onClick={() => setShowNavigator(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+               <X className="w-4 h-4" />
+             </button>
           </div>
 
           {/* Section */}
