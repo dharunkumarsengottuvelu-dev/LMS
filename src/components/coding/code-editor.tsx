@@ -519,22 +519,45 @@ export function CodeEditor({
                   )}
                </div>
                {submissionResult.results && (
-                  <div className="space-y-1.5">
-                    {submissionResult.results.map((r, i) => (
-                      <div
-                        key={r.test_case_id}
-                        className={cn(
-                          "flex items-center justify-between p-2.5 rounded-lg border text-xs",
-                          r.passed ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-600"
-                        )}
-                      >
-                        <span className="flex items-center gap-1.5 font-medium">
-                          {r.passed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-                          Test Case #{i + 1}
-                        </span>
-                        <span className="font-mono">{r.passed ? "Passed" : r.error ?? "Failed"}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-3">
+                    {submissionResult.results.map((r, i) => {
+                      const tc = problem?.test_cases?.find(t => t.id === r.test_case_id);
+                      const isHidden = !tc;
+                      return (
+                        <div key={r.test_case_id} className="rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                          <div className={cn(
+                            "px-3 py-1.5 text-[11px] font-bold border-b border-gray-200 flex justify-between items-center",
+                            r.passed ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                          )}>
+                            <span>Test Case {i + 1} {isHidden && "(Hidden)"}</span>
+                            <span>{r.passed ? "Passed" : "Failed"}</span>
+                          </div>
+                          
+                          {!r.passed && (
+                            <div className="grid grid-cols-1 divide-y divide-gray-200 bg-white">
+                              {tc && (
+                                <div className="p-2.5 bg-gray-50">
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Input:</p>
+                                  <pre className="text-[11px] font-mono text-gray-600 whitespace-pre-wrap max-h-24 overflow-y-auto">{tc.input}</pre>
+                                </div>
+                              )}
+                              <div className="p-2.5">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Error / Output:</p>
+                                <pre className="text-[11px] font-mono text-red-600 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                                  {r.error || r.actual_output || "Unknown error"}
+                                </pre>
+                              </div>
+                              {tc && tc.expected_output && (
+                                <div className="p-2.5">
+                                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Expected Output:</p>
+                                  <pre className="text-[11px] font-mono text-green-700 whitespace-pre-wrap max-h-24 overflow-y-auto">{tc.expected_output}</pre>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                )}
             </div>
