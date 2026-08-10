@@ -159,10 +159,8 @@ export class JobeService {
       clearTimeout(timeoutId);
 
       if (error instanceof Error && error.name === "AbortError") {
-        return this.createErrorResult(
-          `Code execution request timed out after ${this.config.timeoutMs / 1000}s while communicating with Jobe server.`,
-          504
-        );
+        console.warn(`Jobe server timed out after ${this.config.timeoutMs / 1000}s — switching to local execution fallback.`);
+        return this.executeLocalFallback(language, code, stdin ?? "");
       }
 
       const msg = getErrorMessage(error);
