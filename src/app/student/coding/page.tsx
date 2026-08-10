@@ -372,28 +372,12 @@ export default function StudentCodingIDEPage() {
             showSubmit={true}
             isSubmitting={isSubmitting}
             onSubmit={handleSubmit}
+            showQuestionToggle={!showQuestion}
+            onToggleQuestion={() => setShowQuestion(true)}
+            showNavigatorToggle={!showNavigator}
+            onToggleNavigator={() => setShowNavigator(true)}
           />
             </div>
-            
-            {!showQuestion && (
-              <button
-                onClick={() => setShowQuestion(true)}
-                className="absolute left-0 top-14 bg-white border border-l-0 border-gray-200 py-3 px-2 rounded-r-lg shadow-sm hover:bg-gray-50 z-10 flex items-center justify-center transition-all group"
-                title="Show Question Statement"
-              >
-                <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
-              </button>
-            )}
-
-            {!showNavigator && (
-              <button
-                onClick={() => setShowNavigator(true)}
-                className="absolute right-0 top-14 bg-white border border-r-0 border-gray-200 py-3 px-2 rounded-l-lg shadow-sm hover:bg-gray-50 z-10 flex items-center justify-center transition-all group"
-                title="Show Question Navigator"
-              >
-                <ChevronLeft className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
-              </button>
-            )}
         </div>
 
         {showNavigator && (

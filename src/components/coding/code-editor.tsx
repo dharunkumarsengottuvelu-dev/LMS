@@ -5,7 +5,8 @@ import dynamic from "next/dynamic";
 import { loader } from "@monaco-editor/react";
 import {
   Play, RotateCcw, Loader2,
-  CheckCircle2, XCircle, Clock, Cpu
+  CheckCircle2, XCircle, Clock, Cpu,
+  PanelLeftOpen, PanelRightOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -104,6 +105,10 @@ interface CodeEditorProps {
   onSubmit?: (code: string, language: CodingLanguage) => Promise<void>;
   isSubmitting?: boolean;
   readOnly?: boolean;
+  showQuestionToggle?: boolean;
+  onToggleQuestion?: () => void;
+  showNavigatorToggle?: boolean;
+  onToggleNavigator?: () => void;
   defaultLanguage?: CodingLanguage;
   defaultCode?: string;
   showSubmit?: boolean;
@@ -116,6 +121,10 @@ export function CodeEditor({
   onSubmit,
   isSubmitting = false,
   readOnly = false,
+  showQuestionToggle = false,
+  onToggleQuestion,
+  showNavigatorToggle = false,
+  onToggleNavigator,
   defaultLanguage = "python",
   defaultCode,
   showSubmit = true,
@@ -299,6 +308,11 @@ export function CodeEditor({
         {/* Editor Toolbar */}
         <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200 shrink-0">
            <div className="text-xs font-bold text-gray-700 flex items-center gap-2">
+             {showQuestionToggle && onToggleQuestion && (
+               <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-600 p-0" onClick={onToggleQuestion} title="Show Question Statement">
+                 <PanelLeftOpen className="h-4 w-4" />
+               </Button>
+             )}
              <span className="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span>
              Code Editor
            </div>
@@ -326,6 +340,12 @@ export function CodeEditor({
              >
                <RotateCcw className="h-3 w-3" />
              </Button>
+
+             {showNavigatorToggle && onToggleNavigator && (
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-blue-600" onClick={onToggleNavigator} title="Show Question Navigator">
+                  <PanelRightOpen className="h-4 w-4" />
+                </Button>
+              )}
            </div>
         </div>
 
