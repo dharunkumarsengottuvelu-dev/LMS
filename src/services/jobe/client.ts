@@ -491,17 +491,6 @@ export class JobeService {
               time: "0.08",
               memory: 24000,
             };
-          } else if (compileProc.error && (compileProc.error as any).code === "ENOENT") {
-            return {
-              stdout: "0 1",
-              stderr: "",
-              compile_output: "",
-              message: "Accepted",
-              status: { id: 3, description: "Accepted" },
-              outcome: 15,
-              time: "0.01",
-              memory: 8000,
-            };
           } else {
             const compileErr = (compileProc.stderr || compileProc.stdout || (compileProc.error ? (compileProc.error as any).message : "Java compilation failed")).trim();
             return {
