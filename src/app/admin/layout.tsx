@@ -1,5 +1,4 @@
 import { AdminTopNav } from "@/components/layouts/admin-top-nav";
-import { LMSProvider } from "@/lib/store/lms-store";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -37,13 +36,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <LMSProvider>
-      <div className="min-h-screen bg-background">
-        <AdminTopNav />
-        <main className="pt-[88px] max-w-[1440px] mx-auto px-6 md:px-8 pb-12 animate-fade-up">
-          {children}
-        </main>
-      </div>
-    </LMSProvider>
+    <div className="min-h-screen bg-background">
+      <AdminTopNav />
+      <main className="pt-[88px] max-w-[1440px] mx-auto px-6 md:px-8 pb-12 animate-fade-up">
+        {children}
+      </main>
+    </div>
   );
 }

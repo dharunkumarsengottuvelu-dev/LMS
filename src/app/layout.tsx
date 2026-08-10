@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/components/providers/auth-provider";
 
+import { LMSProvider } from "@/lib/store/lms-store";
 
 export const metadata: Metadata = {
   title: {
@@ -66,7 +67,9 @@ export default function RootLayout({
         >
           <TooltipProvider>
             <AuthProvider>
-              {children}
+              <LMSProvider>
+                {children}
+              </LMSProvider>
               <Toaster />
             </AuthProvider>
           </TooltipProvider>

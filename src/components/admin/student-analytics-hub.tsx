@@ -115,7 +115,222 @@ export interface StudentRecord {
   activityLogs: ActivityLog[];
 }
 
-const mockStudentsList: StudentRecord[] = [];
+const mockStudentsList: StudentRecord[] = [
+  {
+    id: "std_101",
+    employeeId: "EMP-2026-9041",
+    name: "Dharunkumar Sengottuvelu",
+    email: "dharunkumarsengottuvelu@gmail.com",
+    batch: "Batch 2026-A",
+    department: "Cloud & Fullstack Engineering",
+    designation: "Associate Software Engineer",
+    techTrack: "Fullstack Enterprise React/Next.js",
+    role: "student",
+    status: "active",
+    avgScore: 92,
+    mcqAccuracy: 95,
+    codingAccuracy: 89,
+    proctoringCompliance: 100,
+    violationCount: 0,
+    joinedDate: "2026-08-01",
+    githubUrl: "https://github.com/dharunkumar",
+    linkedinUrl: "https://linkedin.com/in/dharunkumar",
+    skills: ["React 19", "Next.js 16 App Router", "TypeScript", "PostgreSQL RLS", "Tailwind CSS"],
+    certificationsEarned: ["Enterprise Next.js Architect", "Supabase Security Specialist"],
+    testsTaken: [
+      {
+        testId: "t1",
+        testTitle: "Mid-Term Proctored Evaluation",
+        category: "Proctored Exam",
+        score: 92,
+        completedAt: "2026-08-05 14:30",
+        date: "2026-08-05",
+        dayNumber: 5,
+        violations: 0,
+        status: "Evaluated",
+        answers: [
+          {
+            questionId: "q1",
+            questionText: "What is the primary benefit of React Server Components in Next.js App Router?",
+            studentAnswer: "They allow reducing the client-side JavaScript bundle size by rendering on the server.",
+            correctAnswer: "Reduced client-side JavaScript bundle and direct backend access.",
+            isCorrect: true,
+            marksObtained: 10,
+            maxMarks: 10,
+            feedback: "Excellent understanding."
+          },
+          {
+            questionId: "q2",
+            questionText: "Explain Row Level Security (RLS) in PostgreSQL.",
+            studentAnswer: "RLS secures tables so users can only view rows that belong to them based on a condition.",
+            correctAnswer: "Policies applied to tables to restrict which rows are returned by queries or can be modified.",
+            isCorrect: true,
+            marksObtained: 8,
+            maxMarks: 10,
+            feedback: "Good, but could mention policy syntax."
+          }
+        ]
+      },
+    ],
+    practicesSubmitted: [
+      {
+        practiceId: "p1",
+        title: "Build a Custom Hook",
+        type: "coding",
+        date: "2026-08-04",
+        dayNumber: 4,
+        submittedCode: "function useDebounce(val, delay) { ... }",
+        testCasesPassed: "5/5",
+        score: 100,
+      }
+    ],
+    dailyProgress: [
+      {
+        dayNumber: 1,
+        date: "2026-08-01",
+        topicTitle: "Next.js App Router Fundamentals",
+        status: "Completed",
+        durationSpent: "4h 30m",
+        quizScore: 90
+      },
+      {
+        dayNumber: 2,
+        date: "2026-08-02",
+        topicTitle: "Server Actions & Data Mutations",
+        status: "Completed",
+        durationSpent: "5h 15m",
+        quizScore: 95
+      },
+      {
+        dayNumber: 3,
+        date: "2026-08-03",
+        topicTitle: "Advanced PostgreSQL RLS",
+        status: "Completed",
+        durationSpent: "6h 00m",
+        quizScore: 100
+      },
+      {
+        dayNumber: 4,
+        date: "2026-08-04",
+        topicTitle: "Authentication flows with Supabase",
+        status: "Completed",
+        durationSpent: "3h 45m",
+        quizScore: 85
+      },
+      {
+        dayNumber: 5,
+        date: "2026-08-05",
+        topicTitle: "Mid-Term Evaluation",
+        status: "Completed",
+        durationSpent: "2h 00m"
+      }
+    ],
+    proctoringLogs: [],
+    systemInfo: {
+      os: "macOS 14.5",
+      browser: "Chrome 127.0",
+      ipAddress: "192.168.1.104",
+      lastActive: "Just now",
+      status: "Online",
+      currentPage: "/student/courses/react-enterprise"
+    },
+    activityLogs: [
+      { id: "al_1", timestamp: "2026-08-06 12:45:10", action: "Viewed Course Module", details: "Server Components Deep Dive", type: "course" },
+      { id: "al_2", timestamp: "2026-08-06 12:30:05", action: "Logged In", details: "Successful login from IP 192.168.1.104", type: "login" },
+      { id: "al_3", timestamp: "2026-08-05 16:30:00", action: "Submitted Evaluation", details: "Mid-Term Proctored Evaluation completed with score 92%", type: "test" },
+      { id: "al_4", timestamp: "2026-08-04 14:15:22", action: "Practice Lab Completed", details: "Build a Custom Hook - Score: 100%", type: "practice" }
+    ]
+  },
+  {
+    id: "std_102",
+    employeeId: "EMP-2026-8812",
+    name: "Alex Rivera",
+    email: "alex.rivera@techcorp.com",
+    batch: "Batch 2026-A",
+    department: "AI & Cognitive Solutions",
+    designation: "Junior AI Engineer",
+    techTrack: "LLM Agentic Engineering & PyTorch",
+    role: "student",
+    status: "active",
+    avgScore: 84,
+    mcqAccuracy: 88,
+    codingAccuracy: 80,
+    proctoringCompliance: 95,
+    violationCount: 1,
+    joinedDate: "2026-07-15",
+    skills: ["Python 3.12", "LangChain", "Hugging Face", "PyTorch", "RAG Pipeline"],
+    certificationsEarned: ["AI Agentic Developer Level 1"],
+    testsTaken: [
+      {
+        testId: "t1",
+        testTitle: "Mid-Term Proctored Evaluation",
+        category: "Proctored Exam",
+        score: 84,
+        completedAt: "2026-08-05 15:10",
+        date: "2026-08-05",
+        dayNumber: 5,
+        violations: 1,
+        status: "Evaluated",
+        answers: [
+          {
+            questionId: "q1",
+            questionText: "What is the primary purpose of a Retrieval-Augmented Generation (RAG) pipeline?",
+            studentAnswer: "It allows LLMs to fetch external data before generating an answer, which reduces hallucinations.",
+            correctAnswer: "To ground LLM responses in external, domain-specific knowledge bases to improve accuracy and reduce hallucination.",
+            isCorrect: true,
+            marksObtained: 9,
+            maxMarks: 10,
+            feedback: "Good answer, hits the core points."
+          },
+          {
+            questionId: "q2",
+            questionText: "Explain the difference between a sparse and dense retriever in RAG.",
+            studentAnswer: "Sparse uses keywords like BM25, dense uses embeddings like vector databases.",
+            correctAnswer: "Sparse retrievers rely on exact keyword matches (e.g., TF-IDF, BM25). Dense retrievers use neural embeddings to match semantic meaning.",
+            isCorrect: true,
+            marksObtained: 8,
+            maxMarks: 10,
+            feedback: "Correct, but needs a bit more detail on semantic meaning."
+          }
+        ]
+      },
+    ],
+    practicesSubmitted: [],
+    dailyProgress: [
+      {
+        dayNumber: 1,
+        date: "2026-08-01",
+        topicTitle: "Introduction to LLMs",
+        status: "Completed",
+        durationSpent: "4h 00m",
+        quizScore: 88
+      },
+      {
+        dayNumber: 2,
+        date: "2026-08-02",
+        topicTitle: "RAG Pipelines Basics",
+        status: "Completed",
+        durationSpent: "5h 20m",
+        quizScore: 80
+      }
+    ],
+    proctoringLogs: [
+      { id: "log_1", type: "WINDOW_SWITCH", message: "Browser window lost focus or was minimized", timestamp: "2026-08-05 15:14:02", browser: "Chrome 126.0 (Windows 11)" },
+    ],
+    systemInfo: {
+      os: "Windows 11",
+      browser: "Edge 126.0",
+      ipAddress: "10.0.0.45",
+      lastActive: "15 mins ago",
+      status: "Idle",
+      currentPage: "/student/dashboard"
+    },
+    activityLogs: [
+      { id: "al_5", timestamp: "2026-08-06 12:30:10", action: "Idle timeout", details: "User inactive for 15 minutes", type: "system" },
+      { id: "al_6", timestamp: "2026-08-06 10:15:00", action: "Logged In", details: "Successful login from IP 10.0.0.45", type: "login" }
+    ]
+  }
+];
 
 export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "admin" | "trainer" }) {
   const { toast } = useToast();
@@ -991,59 +1206,47 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-              {filteredStudents.length > 0 ? filteredStudents.map((std) => (
-                <tr key={std.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors group">
-                  <td className="p-4 pl-6">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 border border-[#E5E7EB] dark:border-[#27272A] shadow-xs">
-                        {std.avatar ? (
-                          <AvatarImage src={std.avatar} alt={std.name} />
-                        ) : (
-                          <AvatarFallback className="bg-gradient-to-br from-[#2563EB] to-[#9333EA] text-white font-bold text-sm">
-                            {std.name.substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        )}
+              {filteredStudents.map((std) => (
+                <tr key={std.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors">
+                  <td className="p-4 pl-6 align-middle">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar className="h-10 w-10 shrink-0 border border-[#E5E7EB] dark:border-[#27272A]">
+                        <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs">
+                          {std.name.charAt(0)}
+                        </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm flex items-center gap-2">
-                          {std.name} 
+                      <div className="min-w-0 truncate">
+                        <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs flex items-center gap-2 truncate">
+                          <span className="truncate">{std.name}</span>
+                          <span className="font-mono text-[10px] text-[#2563EB] font-normal shrink-0">({std.employeeId})</span>
                         </p>
-                        <p className="text-xs text-[#6B7280] font-mono mt-0.5">{std.employeeId} • {std.email}</p>
+                        <p className="text-[11px] text-[#6B7280] truncate">{std.email} • <span className="font-medium text-[#111827] dark:text-[#FAFAFA]">{std.designation}</span></p>
                       </div>
                     </div>
                   </td>
 
                   <td className="p-4">
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">{std.department}</p>
-                      <Badge variant="outline" className="text-[10px] font-bold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
-                        {std.batch}
-                      </Badge>
-                    </div>
+                    <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
+                      {std.batch}
+                    </Badge>
                   </td>
 
                   <td className="p-4">
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Avg Score:</span>
-                        <span className={`text-xs font-bold ${std.avgScore >= 90 ? 'text-[#16A34A]' : std.avgScore >= 75 ? 'text-[#EAB308]' : 'text-[#DC2626]'}`}>
-                          {std.avgScore}%
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Badge variant="outline" className="text-[9px] text-[#6B7280]">MCQ: {std.mcqAccuracy}%</Badge>
-                        <Badge variant="outline" className="text-[9px] text-[#6B7280]">Code: {std.codingAccuracy}%</Badge>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-[#111827] dark:text-[#FAFAFA]">{std.avgScore}%</span>
+                      <div className="w-20 bg-[#E5E7EB] dark:bg-[#27272A] h-2 rounded-full overflow-hidden">
+                        <div className="bg-[#16A34A] h-full rounded-full" style={{ width: `${std.avgScore}%` }} />
                       </div>
                     </div>
                   </td>
 
                   <td className="p-4">
                     {std.violationCount === 0 ? (
-                      <Badge variant="outline" className="text-[#16A34A] border-[#16A34A]/30 text-[10px] font-bold gap-1 bg-[#16A34A]/5">
-                        <Shield className="h-3 w-3" /> Clear Record
+                      <Badge className="bg-[#16A34A] text-white text-[10px] font-bold gap-1">
+                        <ShieldCheck className="h-3 w-3" /> Clean Record (0 Logs)
                       </Badge>
-                    ) : std.violationCount <= 2 ? (
-                      <Badge variant="outline" className="text-[#EAB308] border-[#EAB308]/30 text-[10px] font-bold gap-1 bg-[#EAB308]/5">
+                    ) : std.violationCount < 3 ? (
+                      <Badge className="bg-[#F59E0B] text-white text-[10px] font-bold gap-1">
                         <AlertTriangle className="h-3 w-3" /> {std.violationCount} Warnings Logged
                       </Badge>
                     ) : (
@@ -1092,15 +1295,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                     </div>
                   </td>
                 </tr>
-              )) : (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-[#6B7280]">
-                    <Users className="h-12 w-12 mx-auto text-[#9CA3AF] mb-3 opacity-50" />
-                    <p className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">No students found</p>
-                    <p className="text-xs mt-1">Enroll new students to see them here.</p>
-                  </td>
-                </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </CardContent>

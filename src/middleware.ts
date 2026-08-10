@@ -90,8 +90,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Rate Limiting Check (IP-based) - Disabled
-  // const rateCheck = checkRateLimit(clientIp, limit, 60 * 1000);
+  // 1. Rate Limiting Check (IP-based)
+  const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
+  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register") || pathname.startsWith("/auth");
+  const limit = isAuthRoute ? 10 : 120; // 10 req/min for auth, 120 for general routes
+  const rateCheck = checkRateLimit(clientIp, limit, 60 * 1000);
+
+  if (!rateCheck.success) {
+    const errorResponse = new NextResponse(
+      JSON.stringify({ error: "Too many requests. Rate limit exceeded. Please try again later." }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
+    );
+    errorResponse.headers.set("X-RateLimit-Limit", String(rateCheck.limit));
+    errorResponse.headers.set("X-RateLimit-Remaining", "0");
+    errorResponse.headers.set("Retry-After", "60");
+    return applySecurityHeaders(errorResponse);
+  }
 
   // 2. Update Supabase Session
   const { supabaseResponse, user } = await updateSession(request);
@@ -134,25 +148,8 @@ export async function middleware(request: NextRequest) {
       ? "trainer"
       : profile?.role || "student";
 
-    // --- REDIRECT LOOP FIX ---
-    // Cause: If a user has an active Auth session but their row in the 'profiles' table is missing 
-    // (e.g. wiped DB), middleware would redirect them to /student/dashboard. 
-    // Then, /student/layout.tsx checks for the profile, doesn't find it, and redirects back to /auth/login.
-    // Fix: If no profile exists and they aren't an admin/trainer bypass, we let them stay on the login page 
-    // instead of forcing them into the redirect loop.
-    if (!profile && !userEmail.includes("admin") && !userEmail.includes("trainer")) {
-      return applySecurityHeaders(supabaseResponse);
-    }
-
-    const defaultPath = getRoleDefaultPath(role);
-    
-    // Prevent redirecting to the exact same path (self-redirect)
-    if (request.nextUrl.pathname === defaultPath) {
-      return applySecurityHeaders(supabaseResponse);
-    }
-
     return applySecurityHeaders(
-      NextResponse.redirect(new URL(defaultPath, request.url))
+      NextResponse.redirect(new URL(getRoleDefaultPath(role), request.url))
     );
   }
 
@@ -161,8 +158,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Exclude /api/auth, /login, /register from matcher explicitly if preferred,
-    // though we handle it safely above now.
-    "/((?!_next/static|_next/image|favicon.ico|api/auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -32,13 +32,10 @@ export function LMSProvider({ children }: { children: React.ReactNode }) {
   const refreshData = async () => {
     setIsLoading(true);
     try {
-      // Parallelize the queries to improve load time
-      const [fetchedCourses, fetchedAssessments, fetchedTracks, fetchedAttempts] = await Promise.all([
-        CourseService.getCourses(),
-        AssessmentService.getAssessments(),
-        AssessmentService.getPracticeTracks(),
-        AssessmentService.getStudentAttempts()
-      ]);
+      const fetchedCourses = await CourseService.getCourses();
+      const fetchedAssessments = await AssessmentService.getAssessments();
+      const fetchedTracks = AssessmentService.getPracticeTracks();
+      const fetchedAttempts = await AssessmentService.getStudentAttempts();
 
       setCourses(fetchedCourses);
       setAssessments(fetchedAssessments);

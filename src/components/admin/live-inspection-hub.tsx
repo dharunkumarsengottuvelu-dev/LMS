@@ -13,8 +13,21 @@ import { Badge } from "@/components/ui/badge";
 export function LiveInspectionHub({ examId }: { examId: string }) {
   const [activeTab, setActiveTab] = useState("grid");
 
-  const mockStudents: any[] = [];
-  const recentLogs: any[] = [];
+  const mockStudents = [
+    { id: "S1", name: "Alex Johnson", status: "Active", warnings: 0, camera: "Live", screen: "Live" },
+    { id: "S2", name: "Maria Garcia", status: "Warning", warnings: 2, camera: "Live", screen: "Tab Switched", log: "Navigated away from test tab." },
+    { id: "S3", name: "Chen Wei", status: "Active", warnings: 0, camera: "Live", screen: "Live" },
+    { id: "S4", name: "Sarah Smith", status: "Suspicious", warnings: 4, camera: "Multiple Faces Detected", screen: "Live", log: "Secondary face detected in frame." },
+    { id: "S5", name: "James Wilson", status: "Active", warnings: 0, camera: "Live", screen: "Live" },
+    { id: "S6", name: "Emily Davis", status: "Offline", warnings: 0, camera: "Disconnected", screen: "Disconnected", log: "Connection lost 2 mins ago." },
+  ];
+
+  const recentLogs = [
+    { time: "14:22:10", student: "Sarah Smith", event: "Multiple Faces Detected", type: "critical" },
+    { time: "14:20:05", student: "Maria Garcia", event: "Tab Switched", type: "warning" },
+    { time: "14:15:30", student: "Emily Davis", event: "Camera Disconnected", type: "critical" },
+    { time: "14:05:00", student: "System", event: "Proctoring AI Engine Started", type: "info" },
+  ];
 
   return (
     <div className="space-y-6 h-full flex flex-col">
@@ -67,69 +80,61 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
         
         {/* Left Side: Feeds */}
         <div className="lg:col-span-3 flex flex-col overflow-hidden space-y-4">
-          {mockStudents.length > 0 ? (
-            <div className="grid grid-cols-3 gap-4 overflow-y-auto pr-2 pb-4">
-              {mockStudents.map(student => (
-                <div key={student.id} className="relative group rounded-2xl overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] shadow-sm flex flex-col">
-                  <div className="relative aspect-video bg-[#F3F4F6] dark:bg-[#09090B] flex items-center justify-center overflow-hidden">
-                    {student.status === "Offline" ? (
-                      <Video className="h-10 w-10 text-[#9CA3AF] opacity-50" />
-                    ) : student.status === "Suspicious" ? (
-                      <div className="absolute inset-0 bg-red-500/10 flex items-center justify-center border-2 border-red-500 box-border">
-                        <AlertTriangle className="h-12 w-12 text-red-500 opacity-80" />
-                      </div>
-                    ) : (
-                      <div className="absolute inset-0 bg-[#E5E7EB] dark:bg-[#27272A] flex items-center justify-center">
-                        <Users className="h-12 w-12 text-[#9CA3AF] dark:text-[#52525B]" />
-                      </div>
+          <div className="grid grid-cols-3 gap-4 overflow-y-auto pr-2 pb-4">
+            {mockStudents.map(student => (
+              <div key={student.id} className="relative group rounded-2xl overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] shadow-sm flex flex-col">
+                <div className="relative aspect-video bg-[#F3F4F6] dark:bg-[#09090B] flex items-center justify-center overflow-hidden">
+                  {student.status === "Offline" ? (
+                    <Video className="h-10 w-10 text-[#9CA3AF] opacity-50" />
+                  ) : student.status === "Suspicious" ? (
+                    <div className="absolute inset-0 bg-red-500/10 flex items-center justify-center border-2 border-red-500 box-border">
+                      <AlertTriangle className="h-12 w-12 text-red-500 opacity-80" />
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 bg-[#E5E7EB] dark:bg-[#27272A] flex items-center justify-center">
+                      <Users className="h-12 w-12 text-[#9CA3AF] dark:text-[#52525B]" />
+                    </div>
+                  )}
+                  
+                  {/* Status Overlay */}
+                  <div className="absolute top-3 right-3 flex items-center gap-2">
+                    {student.warnings > 0 && (
+                      <Badge variant="destructive" className="text-[10px] font-bold px-2 shadow-sm backdrop-blur-md">
+                        {student.warnings} Warnings
+                      </Badge>
                     )}
-                    
-                    {/* Status Overlay */}
-                    <div className="absolute top-3 right-3 flex items-center gap-2">
-                      {student.warnings > 0 && (
-                        <Badge variant="destructive" className="text-[10px] font-bold px-2 shadow-sm backdrop-blur-md">
-                          {student.warnings} Warnings
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    {/* Bottom Action Bar */}
-                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end gap-2">
-                      <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-white/20 hover:bg-white/40 text-white backdrop-blur-md border-none">
-                        <VolumeX className="h-3 w-3" />
-                      </Button>
-                      <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-white/20 hover:bg-white/40 text-white backdrop-blur-md border-none">
-                        <Maximize className="h-3 w-3" />
-                      </Button>
-                    </div>
                   </div>
                   
-                  <div className="p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{student.name}</h4>
-                      <span className={`h-2 w-2 rounded-full ${student.status === 'Active' ? 'bg-[#16A34A]' : student.status === 'Offline' ? 'bg-[#6B7280]' : student.status === 'Warning' ? 'bg-[#EAB308]' : 'bg-[#EF4444]'}`}></span>
+                  {/* Bottom Action Bar */}
+                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end gap-2">
+                    <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-white/20 hover:bg-white/40 text-white backdrop-blur-md border-none">
+                      <VolumeX className="h-3 w-3" />
+                    </Button>
+                    <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-white/20 hover:bg-white/40 text-white backdrop-blur-md border-none">
+                      <Maximize className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{student.name}</h4>
+                    <span className={`h-2 w-2 rounded-full ${student.status === 'Active' ? 'bg-[#16A34A]' : student.status === 'Offline' ? 'bg-[#6B7280]' : student.status === 'Warning' ? 'bg-[#EAB308]' : 'bg-[#EF4444]'}`}></span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-[#6B7280]">
+                      <span>Camera:</span>
+                      <span className={`font-medium ${student.camera !== 'Live' ? 'text-[#EF4444]' : 'text-[#16A34A]'}`}>{student.camera}</span>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-[#6B7280]">
-                        <span>Camera:</span>
-                        <span className={`font-medium ${student.camera !== 'Live' ? 'text-[#EF4444]' : 'text-[#16A34A]'}`}>{student.camera}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] text-[#6B7280]">
-                        <span>Screen:</span>
-                        <span className={`font-medium ${student.screen !== 'Live' ? 'text-[#EAB308]' : 'text-[#16A34A]'}`}>{student.screen}</span>
-                      </div>
+                    <div className="flex items-center justify-between text-[10px] text-[#6B7280]">
+                      <span>Screen:</span>
+                      <span className={`font-medium ${student.screen !== 'Live' ? 'text-[#EAB308]' : 'text-[#16A34A]'}`}>{student.screen}</span>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl">
-              <Video className="h-12 w-12 text-[#9CA3AF] dark:text-[#52525B] mb-4" />
-              <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">No active participants</h3>
-              <p className="text-xs text-[#6B7280] mt-1 text-center max-w-sm">Students will appear here once they begin the examination and start broadcasting.</p>
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Right Side: Log Stream */}
@@ -141,7 +146,7 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
           </div>
           
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {recentLogs.length > 0 ? recentLogs.map((log, i) => (
+            {recentLogs.map((log, i) => (
               <div key={i} className="flex gap-3">
                 <div className="shrink-0 mt-0.5">
                   {log.type === 'critical' ? (
@@ -164,12 +169,7 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
                   <p className="text-[9px] font-mono text-[#9CA3AF] mt-1">{log.time}</p>
                 </div>
               </div>
-            )) : (
-              <div className="h-full flex flex-col items-center justify-center">
-                <Activity className="h-8 w-8 text-[#9CA3AF] dark:text-[#52525B] mb-3 opacity-50" />
-                <p className="text-xs text-[#6B7280]">No events recorded yet.</p>
-              </div>
-            )}
+            ))}
           </div>
           
           <div className="p-3 border-t border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]">
