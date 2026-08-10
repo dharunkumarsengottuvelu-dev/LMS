@@ -296,7 +296,7 @@ export function CodeEditor({
         {/* Right: Language selector + Run/Submit */}
         <div className="flex items-center gap-2 px-3 py-2 shrink-0">
           <Select value={language} onValueChange={(v) => handleLanguageChange(v as CodingLanguage)}>
-            <SelectTrigger className="h-8 w-40 text-xs border-gray-300 bg-white text-gray-700">
+            <SelectTrigger className="h-7 w-28 text-[11px] border-gray-300 bg-white text-gray-700">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -311,23 +311,23 @@ export function CodeEditor({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-gray-400 hover:text-gray-700"
+            className="h-7 w-7 text-gray-400 hover:text-gray-700"
             onClick={handleReset}
             title="Reset to template"
           >
-            <RotateCcw className="h-3.5 w-3.5" />
+            <RotateCcw className="h-3 w-3" />
           </Button>
 
           <Button
             size="sm"
-            className="h-8 px-4 text-xs font-bold bg-green-500 hover:bg-green-600 text-white gap-1.5 rounded-lg"
+            className="h-7 px-3 text-[11px] font-bold bg-green-500 hover:bg-green-600 text-white gap-1 rounded-md"
             onClick={() => handleRun()}
             disabled={isRunning || readOnly}
           >
             {isRunning ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
-              <Play className="h-3.5 w-3.5" />
+              <Play className="h-3 w-3" />
             )}
             {isRunning ? "Running..." : "Run Code"}
           </Button>
@@ -335,11 +335,11 @@ export function CodeEditor({
           {showSubmit && onSubmit && (
             <Button
               size="sm"
-              className="h-8 px-4 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white gap-1.5 rounded-lg"
+              className="h-7 px-3 text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white gap-1 rounded-md"
               onClick={() => handleSubmit()}
               disabled={isSubmitting || readOnly}
             >
-              {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+              {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
               {isSubmitting ? "Submitting..." : "Submit"}
             </Button>
           )}
