@@ -5,8 +5,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 
   // Standalone output — required for Docker deployment
-  // Bundles the server + all deps into .next/standalone/server.js
-  output: "standalone",
+  // Disable it on Vercel to fix the build error
+  output: process.env.VERCEL ? undefined : "standalone",
 
   // Turbopack compatibility setting
   turbopack: {},
