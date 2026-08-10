@@ -45,6 +45,9 @@ services:
     environment:
       # Restrict Jobe to only accept requests from the lms container
       JOBE_ALLOW_ORIGINS: "http://lms:3000"
+    # REQUIRED: Disable no-new-privileges so Jobe's internal sudo can escalate to the sandbox users
+    security_opt:
+      - no-new-privileges:false
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/jobe/index.php/restapi/languages"]
       interval: 15s
