@@ -90,22 +90,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 1. Rate Limiting Check (IP-based)
-  const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
-  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register") || pathname.startsWith("/auth");
-  const limit = isAuthRoute ? 10 : 120; // 10 req/min for auth, 120 for general routes
-  const rateCheck = checkRateLimit(clientIp, limit, 60 * 1000);
-
-  if (!rateCheck.success) {
-    const errorResponse = new NextResponse(
-      JSON.stringify({ error: "Too many requests. Rate limit exceeded. Please try again later." }),
-      { status: 429, headers: { "Content-Type": "application/json" } }
-    );
-    errorResponse.headers.set("X-RateLimit-Limit", String(rateCheck.limit));
-    errorResponse.headers.set("X-RateLimit-Remaining", "0");
-    errorResponse.headers.set("Retry-After", "60");
-    return applySecurityHeaders(errorResponse);
-  }
+  // Rate Limiting Check (IP-based) - Disabled
+  // const rateCheck = checkRateLimit(clientIp, limit, 60 * 1000);
 
   // 2. Update Supabase Session
   const { supabaseResponse, user } = await updateSession(request);
