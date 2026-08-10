@@ -127,7 +127,7 @@ export function CodeEditor({
   const [stdin, setStdin] = useState(problem?.sample_input ?? "");
   const [output, setOutput] = useState<ExecuteCodeResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
-  const [activeTab, setActiveTab] = useState("code");
+  const [activeTab, setActiveTab] = useState("testcases");
   const [useFallbackTextarea, setUseFallbackTextarea] = useState(false);
   const { toast } = useToast();
 
@@ -264,98 +264,48 @@ export function CodeEditor({
         isFillMode ? "h-full" : "border border-gray-200 rounded-xl"
       )}
     >
-      {/* ── Top Tab Bar ── */}
-      <div className="flex items-center border-b border-gray-200 bg-white shrink-0 min-w-0">
-        {/* Left: Section Tabs — scrollable if needed */}
-        <div className="flex items-center overflow-x-auto flex-1 min-w-0 scrollbar-none">
-          {(["code", "testresult", "testcases", "hiddentests", "customtest"] as const).map((tab) => {
-            const labels: Record<string, string> = {
-              code: "Code",
-              testresult: "Test Result",
-              testcases: "Test Cases",
-              hiddentests: "Hidden Tests",
-              customtest: "Custom Test",
-            };
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  "px-3 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap shrink-0",
-                  activeTab === tab
-                    ? "border-blue-600 text-blue-700 bg-white"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                )}
-              >
-                {labels[tab]}
-              </button>
-            );
-          })}
+      {/* ── Top Pane: Code Editor ── */}
+      <div className="flex flex-col flex-[3] min-h-0 border-b border-gray-200">
+        {/* Editor Toolbar */}
+        <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200 shrink-0">
+           <div className="text-xs font-bold text-gray-700 flex items-center gap-2">
+             <span className="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span>
+             Code Editor
+           </div>
+           
+           <div className="flex items-center gap-2">
+             <Select value={language} onValueChange={(v) => handleLanguageChange(v as CodingLanguage)}>
+               <SelectTrigger className="h-7 w-28 text-[11px] border-gray-300 bg-white text-gray-700">
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                 {(Object.keys(LANGUAGE_DISPLAY_NAMES) as CodingLanguage[]).map((lang) => (
+                   <SelectItem key={lang} value={lang} className="text-xs">
+                     {LANGUAGE_DISPLAY_NAMES[lang]}
+                   </SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+
+             <Button
+               variant="ghost"
+               size="icon"
+               className="h-7 w-7 text-gray-400 hover:text-gray-700"
+               onClick={handleReset}
+               title="Reset to template"
+             >
+               <RotateCcw className="h-3 w-3" />
+             </Button>
+           </div>
         </div>
 
-        {/* Right: Language selector + Run/Submit */}
-        <div className="flex items-center gap-2 px-3 py-2 shrink-0">
-          <Select value={language} onValueChange={(v) => handleLanguageChange(v as CodingLanguage)}>
-            <SelectTrigger className="h-7 w-28 text-[11px] border-gray-300 bg-white text-gray-700">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(LANGUAGE_DISPLAY_NAMES) as CodingLanguage[]).map((lang) => (
-                <SelectItem key={lang} value={lang} className="text-xs">
-                  {LANGUAGE_DISPLAY_NAMES[lang]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-gray-400 hover:text-gray-700"
-            onClick={handleReset}
-            title="Reset to template"
-          >
-            <RotateCcw className="h-3 w-3" />
-          </Button>
-
-          <Button
-            size="sm"
-            className="h-7 px-3 text-[11px] font-bold bg-green-500 hover:bg-green-600 text-white gap-1 rounded-md"
-            onClick={() => handleRun()}
-            disabled={isRunning || readOnly}
-          >
-            {isRunning ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Play className="h-3 w-3" />
-            )}
-            {isRunning ? "Running..." : "Run Code"}
-          </Button>
-
-          {showSubmit && onSubmit && (
-            <Button
-              size="sm"
-              className="h-7 px-3 text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white gap-1 rounded-md"
-              onClick={() => handleSubmit()}
-              disabled={isSubmitting || readOnly}
-            >
-              {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-              {isSubmitting ? "Submitting..." : "Submit"}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Code Tab: Monaco Editor ── */}
-      {activeTab === "code" && (
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          {/* Monaco / SQL / Web editor */}
-          <div className="flex-1 min-h-0">
+        {/* Monaco Editor */}
+        <div className="flex-1 min-h-0 relative">
             {language === "sql" ? (
               <SQLEditor
                 datasetName={problem?.dataset_name ?? "university"}
                 defaultQuery={code}
-                height={isFillMode ? "100%" : height}
+                height="100%"
               />
             ) : language === "html" || language === "css" || language === "react" ? (
               <div className="grid grid-cols-2 h-full">
@@ -413,7 +363,6 @@ export function CodeEditor({
                 onChange={(e) => setCode(e.target.value)}
                 className="w-full h-full font-mono text-sm p-4 resize-none focus:outline-none bg-white text-gray-800"
                 placeholder="Write your code here..."
-                style={{ height: isFillMode ? "100%" : height }}
               />
             ) : (
               <MonacoErrorBoundary fallback={
@@ -421,7 +370,6 @@ export function CodeEditor({
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   className="w-full h-full font-mono text-sm p-4 resize-none bg-white"
-                  style={{ height: isFillMode ? "100%" : height }}
                 />
               }>
                 <MonacoEditor
@@ -430,7 +378,7 @@ export function CodeEditor({
                   onChange={(v) => !readOnly && setCode(v ?? "")}
                   theme="vs"
                   onMount={() => setUseFallbackTextarea(false)}
-                  height={isFillMode ? "100%" : height}
+                  height="100%"
                   options={{
                     fontSize: 14,
                     fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
@@ -449,15 +397,74 @@ export function CodeEditor({
                 />
               </MonacoErrorBoundary>
             )}
-          </div>
         </div>
-      )}
+      </div>
 
-      {/* ── Test Result Tab ── */}
+      {/* ── Middle Divider / Action Bar ── */}
+      <div className="flex items-center justify-between px-2 bg-gray-50 border-b border-gray-200 shrink-0 overflow-x-auto scrollbar-none">
+        {/* Tabs for Bottom Pane */}
+        <div className="flex items-center space-x-1 py-1">
+          {(["testcases", "hiddentests", "customtest", "testresult"] as const).map((tab) => {
+            const labels: Record<string, string> = {
+              testresult: "Results",
+              testcases: "Sample Testcases",
+              hiddentests: "Hidden Testcases",
+              customtest: "Custom Testcase",
+            };
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  "px-3 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0 rounded-md",
+                  activeTab === tab
+                    ? "bg-white text-blue-600 shadow-sm border border-gray-200"
+                    : "bg-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                )}
+              >
+                {labels[tab]}
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Run / Submit Actions */}
+        <div className="flex items-center gap-2 pl-4 py-1 shrink-0">
+           <Button
+             size="sm"
+             className="h-7 px-4 text-[11px] font-bold bg-green-500 hover:bg-green-600 text-white gap-1 rounded-md"
+             onClick={() => handleRun()}
+             disabled={isRunning || readOnly}
+           >
+             {isRunning ? (
+               <Loader2 className="h-3 w-3 animate-spin" />
+             ) : (
+               <Play className="h-3 w-3" />
+             )}
+             {isRunning ? "Running..." : "Run Code"}
+           </Button>
+
+           {showSubmit && onSubmit && (
+             <Button
+               size="sm"
+               className="h-7 px-4 text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white gap-1 rounded-md"
+               onClick={() => handleSubmit()}
+               disabled={isSubmitting || readOnly}
+             >
+               {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+               {isSubmitting ? "Submitting..." : "Submit"}
+             </Button>
+           )}
+        </div>
+      </div>
+
+      {/* ── Bottom Pane: Test Console ── */}
+      <div className="flex flex-col flex-[2] min-h-0 bg-white overflow-hidden relative">
+      
       {activeTab === "testresult" && (
         <div className="flex-1 overflow-y-auto p-4 bg-white">
           {!output ? (
-            <div className="flex flex-col items-center justify-center h-48 text-gray-400 text-sm gap-2">
+            <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm gap-2">
               <Play className="h-8 w-8 text-gray-300" />
               <p>Run your code to see the execution results here.</p>
             </div>
@@ -466,7 +473,7 @@ export function CodeEditor({
               <div className="flex items-center gap-3 flex-wrap">
                 <Badge
                   className={cn(
-                    "text-xs font-bold px-2.5 py-1 border",
+                    "text-[11px] font-bold px-2.5 py-1 border",
                     output.status.id === 3
                       ? "bg-green-50 text-green-700 border-green-300"
                       : output.status.id === 6
@@ -477,36 +484,36 @@ export function CodeEditor({
                   )}
                 >
                   {output.status.id === 3 ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-green-600" />
+                    <CheckCircle2 className="h-3 w-3 mr-1.5 text-green-600" />
                   ) : (
-                    <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                    <XCircle className="h-3 w-3 mr-1.5" />
                   )}
                   {output.status.description.toUpperCase()}
                 </Badge>
                 {output.time && (
-                  <span className="text-xs text-gray-500 flex items-center gap-1 font-mono">
+                  <span className="text-[11px] text-gray-500 flex items-center gap-1 font-mono">
                     <Clock className="h-3 w-3" /> {output.time}s
                   </span>
                 )}
                 {output.memory && (
-                  <span className="text-xs text-gray-500 flex items-center gap-1 font-mono">
+                  <span className="text-[11px] text-gray-500 flex items-center gap-1 font-mono">
                     <Cpu className="h-3 w-3" /> {(output.memory / 1024).toFixed(1)}MB
                   </span>
                 )}
               </div>
 
               {output.status.id === 6 || output.compile_output ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-mono space-y-2">
-                  <span className="text-red-600 font-bold block border-b border-red-200 pb-2">Compilation Error</span>
-                  <pre className="overflow-auto text-red-700 whitespace-pre-wrap leading-relaxed">
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-mono space-y-1">
+                  <span className="text-red-600 font-bold block border-b border-red-200 pb-1">Compilation Error</span>
+                  <pre className="overflow-auto max-h-32 text-red-700 whitespace-pre-wrap leading-relaxed">
                     {output.compile_output || output.stderr || output.message || "Compilation failed"}
                   </pre>
                 </div>
               ) : output.status.id === 7 || (output.stderr && output.status.id !== 3) ? (
-                <div className="space-y-3">
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-mono space-y-2">
-                    <span className="text-amber-700 font-bold block border-b border-amber-200 pb-2">Runtime Error & Stack Trace</span>
-                    <pre className="overflow-auto text-amber-800 whitespace-pre-wrap leading-relaxed">
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-mono space-y-1">
+                    <span className="text-amber-700 font-bold block border-b border-amber-200 pb-1">Runtime Error & Stack Trace</span>
+                    <pre className="overflow-auto max-h-32 text-amber-800 whitespace-pre-wrap leading-relaxed">
                       {output.stderr || output.message || "Runtime exception occurred"}
                     </pre>
                   </div>
@@ -514,19 +521,18 @@ export function CodeEditor({
                   (output.stderr?.includes("NoSuchElementException") ||
                     output.stderr?.includes("EOFError") ||
                     output.message?.includes("NoSuchElementException")) ? (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-700 flex items-start gap-3">
+                    <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-700 flex items-start gap-2">
                       <span className="font-bold text-blue-600 shrink-0">💡 Input Notice:</span>
                       <span>
-                        The program requested input, but the Custom Test input is empty. Go to{" "}
-                        <strong>Custom Test</strong> tab and enter your input.
+                        The program requested input, but Custom Test input is empty. Go to <strong>Custom Testcase</strong> tab and enter input.
                       </span>
                     </div>
                   ) : null}
                 </div>
               ) : (
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm font-mono space-y-2">
-                  <span className="text-gray-500 font-bold block border-b border-gray-200 pb-2">Standard Output (stdout)</span>
-                  <pre className="overflow-auto text-gray-800 whitespace-pre-wrap leading-relaxed">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs font-mono space-y-1">
+                  <span className="text-gray-500 font-bold block border-b border-gray-200 pb-1">Standard Output (stdout)</span>
+                  <pre className="overflow-auto max-h-32 text-gray-800 whitespace-pre-wrap leading-relaxed">
                     {output.stdout || "Program executed successfully with no output."}
                   </pre>
                 </div>
@@ -536,102 +542,76 @@ export function CodeEditor({
         </div>
       )}
 
-      {/* ── Test Cases Tab (formerly Sample Tests) ── */}
       {activeTab === "testcases" && (
         <div className="flex-1 overflow-y-auto p-4 bg-white space-y-3">
           {problem?.test_cases?.filter((tc) => !tc.is_hidden).length ? (
-            problem.test_cases
-              .filter((tc) => !tc.is_hidden)
-              .map((tc, i) => (
-                <div key={tc.id} className="rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="bg-gray-50 px-3 py-2 text-xs font-bold text-gray-500 border-b border-gray-200">
+            <div className="flex flex-col h-full">
+               {/* List of sample tests */}
+               {problem.test_cases.filter((tc) => !tc.is_hidden).map((tc, i) => (
+                <div key={tc.id} className="rounded-lg border border-gray-200 overflow-hidden mb-3 shrink-0">
+                  <div className="bg-gray-50 px-3 py-1.5 text-[11px] font-bold text-gray-500 border-b border-gray-200">
                     Test Case {i + 1}
                     {tc.explanation && <span className="ml-2 font-normal text-gray-400">— {tc.explanation}</span>}
                   </div>
                   <div className="grid grid-cols-2 divide-x divide-gray-200">
-                    <div className="p-3">
+                    <div className="p-2.5">
                       <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Input:</p>
-                      <pre className="text-xs font-mono text-blue-700 whitespace-pre-wrap">{tc.input || "—"}</pre>
+                      <pre className="text-[11px] font-mono text-blue-700 whitespace-pre-wrap">{tc.input || "—"}</pre>
                     </div>
-                    <div className="p-3">
+                    <div className="p-2.5">
                       <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Expected Output:</p>
-                      <pre className="text-xs font-mono text-green-700 whitespace-pre-wrap">{tc.expected_output || "—"}</pre>
+                      <pre className="text-[11px] font-mono text-green-700 whitespace-pre-wrap">{tc.expected_output || "—"}</pre>
                     </div>
                   </div>
                 </div>
-              ))
+               ))}
+            </div>
           ) : (
-            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
               No public test cases for this problem.
             </div>
           )}
         </div>
       )}
 
-      {/* ── Hidden Tests Tab ── */}
       {activeTab === "hiddentests" && (
         <div className="flex-1 overflow-y-auto p-4 bg-white">
           {problem?.test_cases?.some((tc) => tc.is_hidden) ? (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-gray-700 mb-3">Hidden Test Cases</p>
-              {problem.test_cases
-                .filter((tc) => tc.is_hidden)
-                .map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500"
-                  >
-                    <span className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+              {problem.test_cases.filter((tc) => tc.is_hidden).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 text-[11px] text-gray-500">
+                    <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600">
                       {i + 1}
                     </span>
                     Hidden Test Case — visible only after submission
                   </div>
-                ))}
+              ))}
             </div>
           ) : (
-            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
-              No hidden test cases for this problem.
+            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+              No hidden test cases.
             </div>
           )}
         </div>
       )}
 
-      {/* ── Custom Test Tab ── */}
       {activeTab === "customtest" && (
-        <div className="flex-1 overflow-y-auto p-4 bg-white space-y-3">
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-1.5">
-              Custom Input (stdin)
-            </label>
-            <Textarea
-              placeholder={"Enter your custom input here...\nExample:\n4\n2 7 11 15\n9"}
-              value={stdin}
-              onChange={(e) => setStdin(e.target.value)}
-              className="h-36 resize-none font-mono text-sm bg-white border-gray-300 text-gray-800 placeholder:text-gray-400 focus:ring-blue-500"
-            />
+        <div className="flex flex-col flex-1 min-h-0 bg-white">
+          <div className="p-4 flex-1 flex flex-col min-h-0">
+             <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide block mb-1.5 shrink-0">
+               Custom Input (stdin)
+             </label>
+             <Textarea
+               placeholder={"Enter your custom input here...\nExample:\n4\n2 7 11 15\n9"}
+               value={stdin}
+               onChange={(e) => setStdin(e.target.value)}
+               className="flex-1 resize-none font-mono text-sm bg-gray-50 border-gray-200 text-gray-800 focus:ring-blue-500 min-h-[100px]"
+             />
           </div>
-          <Button
-            size="sm"
-            className="h-8 px-5 text-xs font-bold bg-green-500 hover:bg-green-600 text-white gap-1.5 rounded-lg"
-            onClick={() => {
-              handleRun();
-            }}
-            disabled={isRunning || readOnly}
-          >
-            {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-            {isRunning ? "Running..." : "Run with this Input"}
-          </Button>
-
-          {output && (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs font-mono space-y-1">
-              <p className="text-gray-500 font-bold border-b border-gray-200 pb-1 mb-1.5">Output:</p>
-              <pre className="text-gray-800 whitespace-pre-wrap max-h-36 overflow-auto">
-                {output.stdout || output.stderr || output.compile_output || "—"}
-              </pre>
-            </div>
-          )}
         </div>
       )}
+      
+      </div>
     </div>
   );
 }
