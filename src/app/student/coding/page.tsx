@@ -373,8 +373,8 @@ export default function StudentCodingIDEPage() {
         </div>
 
         {showNavigator && (
-          {/* ── RIGHT: Question Navigator (220px) ── */}
           <div className="w-[240px] flex flex-col bg-white border-l border-gray-200 shrink-0">
+            {/* ── RIGHT: Question Navigator (220px) ── */}
             <div className="flex-1 overflow-y-auto flex flex-col h-full">
                   <div className="px-4 py-3 border-b border-gray-200">
             <h3 className="font-bold text-sm text-gray-800">Question Navigator</h3>
