@@ -4,17 +4,17 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-5 [&_svg]:shrink-0 h-[44px] px-5 select-none",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-lg)] text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 select-none active:scale-[0.98]",
   {
     variants: {
       variant: {
-        default: "bg-[#2563EB] text-white hover:bg-[#1D4ED8] active:bg-[#1E40AF]",
-        secondary: "bg-white dark:bg-[#18181B] text-[#111827] dark:text-[#FAFAFA] border border-[#E5E7EB] dark:border-[#27272A] hover:bg-[#F5F5F5] dark:hover:bg-[#27272A]",
-        outline: "bg-white dark:bg-[#18181B] text-[#111827] dark:text-[#FAFAFA] border border-[#E5E7EB] dark:border-[#27272A] hover:bg-[#F5F5F5] dark:hover:bg-[#27272A]",
-        ghost: "bg-transparent text-[#111827] dark:text-[#FAFAFA] hover:bg-[#F5F5F5] dark:hover:bg-[#27272A]",
-        danger: "bg-[#DC2626] text-white hover:bg-[#B91C1C] active:bg-[#991B1B]",
-        destructive: "bg-[#DC2626] text-white hover:bg-[#B91C1C] active:bg-[#991B1B]",
-        link: "text-[#2563EB] underline-offset-4 hover:underline h-auto px-0",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm hover:-translate-y-[1px] hover:shadow-md",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        outline: "bg-background text-foreground border border-input hover:bg-accent hover:text-accent-foreground",
+        ghost: "bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground",
+        danger: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm",
+        link: "text-primary underline-offset-4 hover:underline h-auto px-0",
       },
       size: {
         default: "h-[44px] px-5 text-sm",

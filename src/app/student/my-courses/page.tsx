@@ -49,38 +49,38 @@ export default function StudentCoursesPage() {
       <Button
         variant="outline"
         size="sm"
-        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A]"
+        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-border"
         onClick={() => router.back()}
       >
         <ArrowLeft className="h-4 w-4" /> Back
       </Button>
 
       {/* Title */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border animate-fade-up">
         <div>
-          <h1 className="text-[36px] font-semibold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+          <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-foreground">
             My Enrolled Courses
           </h1>
-          <p className="text-[16px] text-[#6B7280] dark:text-[#A1A1AA] mt-1">
+          <p className="text-sm text-muted-foreground mt-1.5 font-medium">
             Access your active training modules with playable YouTube video lessons and practice labs
           </p>
         </div>
 
         {/* Search */}
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
+        <div className="relative w-full md:w-72 animate-fade-up stagger-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search my courses..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-[44px] bg-white dark:bg-[#18181B]"
+            className="pl-10 h-[44px] bg-background"
           />
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="all" onValueChange={setTab}>
-        <TabsList className="h-[44px] bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-1">
+      <Tabs defaultValue="all" onValueChange={setTab} className="animate-fade-up stagger-1">
+        <TabsList className="h-[44px] bg-background border border-border p-1">
           <TabsTrigger value="all" className="text-xs font-semibold">
             All Courses ({allCoursesList.length})
           </TabsTrigger>
@@ -95,47 +95,47 @@ export default function StudentCoursesPage() {
 
       {/* Course Cards Grid */}
       {filteredCourses.length === 0 ? (
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-12 text-center rounded-2xl">
-          <BookOpen className="h-12 w-12 text-[#2563EB] mx-auto mb-4 opacity-80" />
-          <h3 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">No Courses Assigned Yet</h3>
-          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] max-w-md mx-auto mt-2">
+        <Card className="bg-card border border-border p-12 text-center rounded-[var(--radius-xl)] animate-fade-up stagger-2 shadow-sm">
+          <BookOpen className="h-12 w-12 text-primary mx-auto mb-4 opacity-80" />
+          <h3 className="text-xl font-bold text-foreground">No Courses Assigned Yet</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
             Courses created or assigned in the Admin or Trainer panel will appear here automatically in real-time.
           </p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-up stagger-2">
           {filteredCourses.map((course) => (
-          <Card key={course.id} className="h-full flex flex-col justify-between overflow-hidden hover:border-[#2563EB]/40 transition-colors bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-sm">
+          <Card key={course.id} className="h-full flex flex-col justify-between overflow-hidden hover:border-primary/40 transition-colors bg-card border border-border rounded-[var(--radius-xl)] shadow-sm group">
             {/* Thumbnail Header */}
-            <div className="relative w-full h-44 overflow-hidden border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9] dark:bg-[#09090B]">
-              <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+            <div className="relative w-full h-44 overflow-hidden border-b border-border bg-muted">
+              <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
             </div>
 
             <CardHeader className="p-6 pb-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB]">
+                <Badge variant="outline" className="text-xs font-semibold border-primary/30 text-primary bg-primary/5">
                   {course.category}
                 </Badge>
-                <Badge variant="secondary" className="text-xs font-medium capitalize">
+                <Badge variant="secondary" className="text-xs font-medium capitalize bg-secondary text-secondary-foreground">
                   {course.difficulty}
                 </Badge>
               </div>
-              <CardTitle className="text-[18px] leading-snug line-clamp-2 font-bold text-[#111827] dark:text-[#FAFAFA]">
+              <CardTitle className="text-lg leading-snug line-clamp-2 font-bold text-foreground">
                 {course.title}
               </CardTitle>
-              <CardDescription className="text-xs text-[#6B7280]">
-                Instructor: <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{course.instructor}</span>
+              <CardDescription className="text-xs text-muted-foreground font-medium">
+                Instructor: <span className="font-semibold text-foreground">{course.instructor}</span>
               </CardDescription>
             </CardHeader>
 
             <CardContent className="p-6 pt-0 space-y-4">
               {/* Progress */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-[#6B7280]">
+                <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
                   <span>{course.completedLessons} of {course.totalLessons} lessons</span>
-                  <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{course.progress}%</span>
+                  <span className="font-semibold text-foreground">{course.progress}%</span>
                 </div>
-                <Progress value={course.progress} className="h-2" />
+                <Progress value={course.progress} className="h-2 bg-border" />
               </div>
 
               {/* Action Button */}
@@ -143,7 +143,7 @@ export default function StudentCoursesPage() {
                 className={`w-full h-[44px] gap-2 font-semibold text-xs ${
                   course.progress === 100
                     ? "bg-[#22C55E] hover:bg-[#16A34A] text-white"
-                    : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                    : ""
                 }`}
                 asChild
               >

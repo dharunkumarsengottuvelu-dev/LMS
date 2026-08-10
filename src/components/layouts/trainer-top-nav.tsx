@@ -32,18 +32,18 @@ export function TrainerTopNav() {
   const { profile, signOut } = useAuth();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between px-4 sm:px-6 lg:px-10">
+    <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 sm:px-6 lg:px-10 transition-colors duration-200">
       {/* Brand Logo */}
       <div className="flex items-center gap-3">
-        <Link href="/trainer/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-[#9333EA] flex items-center justify-center text-white font-bold text-base shadow-sm">
+        <Link href="/trainer/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0 group">
+          <div className="w-9 h-9 rounded-xl bg-[#9333EA] flex items-center justify-center text-white font-bold text-base shadow-sm transition-transform duration-200 group-hover:scale-105">
             E
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-base tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+            <span className="font-bold text-base tracking-tight text-foreground">
               EduNexus
             </span>
-            <Badge className="hidden sm:inline-flex bg-[#9333EA]/10 text-[#9333EA] border-[#9333EA]/30 text-[10px] font-bold px-2 py-0.5">
+            <Badge variant="outline" className="hidden sm:inline-flex bg-[#9333EA]/10 text-[#9333EA] border-[#9333EA]/30 text-[10px] font-bold px-2 py-0.5">
               TRAINER
             </Badge>
           </div>
@@ -61,10 +61,10 @@ export function TrainerTopNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-2 px-3 lg:px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
+                "flex items-center gap-2 px-3 lg:px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap duration-200 ease-out hover:-translate-y-[1px]",
                 isActive
                   ? "bg-[#9333EA]/10 text-[#9333EA] dark:bg-[#9333EA]/20 dark:text-[#C084FC]"
-                  : "text-[#6B7280] dark:text-[#A1A1AA] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
               <Icon className="h-4 w-4" />
@@ -78,18 +78,18 @@ export function TrainerTopNav() {
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Mobile Hamburger Menu Trigger */}
         <Sheet>
-          <SheetTrigger className="md:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-[#4B5563] dark:text-[#A1A1AA] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] border border-[#E5E7EB] dark:border-[#27272A]">
+          <SheetTrigger className="md:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-muted-foreground hover:bg-accent border border-input shadow-sm transition-all duration-200">
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle navigation menu</span>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-white dark:bg-[#18181B] border-l border-[#E5E7EB] dark:border-[#27272A] p-6">
-            <SheetHeader className="text-left pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-background border-l border-border p-6">
+            <SheetHeader className="text-left pb-4 border-b border-border">
               <SheetTitle className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-[#9333EA] flex items-center justify-center text-white font-bold text-sm">
                   E
                 </div>
-                <span className="font-bold text-base text-[#111827] dark:text-[#FAFAFA]">EduNexus</span>
-                <Badge className="bg-[#9333EA]/10 text-[#9333EA] text-[9px] font-bold">TRAINER</Badge>
+                <span className="font-bold text-base text-foreground">EduNexus</span>
+                <Badge variant="outline" className="bg-[#9333EA]/10 text-[#9333EA] text-[9px] font-bold border-[#9333EA]/30">TRAINER</Badge>
               </SheetTitle>
             </SheetHeader>
 
@@ -102,10 +102,10 @@ export function TrainerTopNav() {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all",
+                      "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
                       isActive
                         ? "bg-[#9333EA]/10 text-[#9333EA] dark:bg-[#9333EA]/20 dark:text-[#C084FC]"
-                        : "text-[#6B7280] dark:text-[#A1A1AA] hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                   >
                     <Icon className="h-4 w-4" />
@@ -120,7 +120,7 @@ export function TrainerTopNav() {
         {/* Profile Avatar */}
         <DropdownMenu>
           <DropdownMenuTrigger className="outline-none">
-            <div className="flex items-center gap-2.5 p-1 rounded-full hover:bg-[#F9FAFB] dark:hover:bg-[#27272A] transition-colors cursor-pointer border border-[#E5E7EB] dark:border-[#27272A]">
+            <div className="flex items-center gap-2.5 p-1 rounded-full hover:bg-accent transition-colors cursor-pointer border border-input">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={profile?.avatar_url ?? undefined} />
                 <AvatarFallback className="bg-[#9333EA]/10 text-[#9333EA] text-xs font-bold">
@@ -130,21 +130,21 @@ export function TrainerTopNav() {
             </div>
           </DropdownMenuTrigger>
 
-          <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-1 rounded-xl shadow-xl">
+          <DropdownMenuContent align="end" className="w-56 bg-popover border-border p-1 rounded-xl shadow-modal">
             <DropdownMenuLabel className="font-normal p-3">
-              <p className="font-bold text-xs text-[#111827] dark:text-[#FAFAFA]">
+              <p className="font-semibold text-sm text-foreground">
                 {profile?.first_name || "Trainer"} {profile?.last_name || "Instructor"}
               </p>
-              <p className="text-[11px] text-[#6B7280]">Lead Technical Trainer</p>
+              <p className="text-[11px] text-muted-foreground">Lead Technical Trainer</p>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer font-semibold text-xs">
-              <Link href="/trainer/profile" className="flex items-center w-full">
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem className="cursor-pointer font-medium text-xs">
+              <Link href="/trainer/profile" className="flex items-center w-full text-foreground hover:text-[#9333EA] transition-colors">
                 <User className="h-4 w-4 mr-2 text-[#9333EA]" /> My Profile
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={signOut} className="text-[#DC2626] font-bold text-xs cursor-pointer">
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem onClick={signOut} className="text-destructive font-medium text-xs cursor-pointer hover:bg-destructive/10 transition-colors">
               <LogOut className="h-4 w-4 mr-2" /> Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>

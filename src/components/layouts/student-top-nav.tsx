@@ -32,18 +32,18 @@ export function StudentTopNav() {
   const { profile, user, signOut } = useAuth();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between px-4 sm:px-6 lg:px-10">
+    <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 sm:px-6 lg:px-10 transition-colors duration-200">
       {/* Brand Logo */}
       <div className="flex items-center gap-3">
-        <Link href="/student/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-[#2563EB] flex items-center justify-center text-white font-bold text-base shadow-sm">
+        <Link href="/student/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0 group">
+          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-base shadow-sm transition-transform duration-200 group-hover:scale-105">
             E
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-base tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+            <span className="font-bold text-base tracking-tight text-foreground">
               EduNexus
             </span>
-            <Badge className="hidden sm:inline-flex bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 text-[10px] font-bold px-2 py-0.5">
+            <Badge variant="outline" className="hidden sm:inline-flex bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0.5">
               STUDENT
             </Badge>
           </div>
@@ -61,10 +61,10 @@ export function StudentTopNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-2 px-3 lg:px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
+                "flex items-center gap-2 px-3 lg:px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap duration-200 ease-out hover:-translate-y-[1px]",
                 isActive
-                  ? "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#60A5FA]"
-                  : "text-[#6B7280] dark:text-[#A1A1AA] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
               <Icon className="h-4 w-4" />
@@ -79,26 +79,26 @@ export function StudentTopNav() {
         {/* Notifications Icon */}
         <Link
           href="/student/notifications"
-          className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] text-[#4B5563] dark:text-[#A1A1AA] hover:text-[#111827] transition-colors border border-[#E5E7EB] dark:border-[#27272A]"
+          className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 border border-input shadow-sm"
           title="Notifications"
         >
           <Bell className="h-4 w-4" />
         </Link>
 
-        {/* Mobile Hamburger Menu Trigger (Placed Right Next to Notification) */}
+        {/* Mobile Hamburger Menu Trigger */}
         <Sheet>
-          <SheetTrigger className="md:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-[#4B5563] dark:text-[#A1A1AA] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] border border-[#E5E7EB] dark:border-[#27272A]">
+          <SheetTrigger className="md:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-muted-foreground hover:bg-accent border border-input shadow-sm transition-all duration-200">
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle navigation menu</span>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-white dark:bg-[#18181B] border-l border-[#E5E7EB] dark:border-[#27272A] p-6">
-            <SheetHeader className="text-left pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-background border-l border-border p-6">
+            <SheetHeader className="text-left pb-4 border-b border-border">
               <SheetTitle className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#2563EB] flex items-center justify-center text-white font-bold text-sm">
+                <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
                   E
                 </div>
-                <span className="font-bold text-base text-[#111827] dark:text-[#FAFAFA]">EduNexus</span>
-                <Badge className="bg-[#2563EB]/10 text-[#2563EB] text-[9px] font-bold">STUDENT</Badge>
+                <span className="font-bold text-base text-foreground">EduNexus</span>
+                <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20">STUDENT</Badge>
               </SheetTitle>
             </SheetHeader>
 
@@ -111,10 +111,10 @@ export function StudentTopNav() {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all",
+                      "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
                       isActive
-                        ? "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#60A5FA]"
-                        : "text-[#6B7280] dark:text-[#A1A1AA] hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]"
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                   >
                     <Icon className="h-4 w-4" />
@@ -128,33 +128,33 @@ export function StudentTopNav() {
 
         {/* User Profile Dropdown */}
         <DropdownMenu>
-          <DropdownMenuTrigger className="h-9 w-9 rounded-full cursor-pointer overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] focus:outline-none focus:ring-2 focus:ring-[#2563EB]">
+          <DropdownMenuTrigger className="h-9 w-9 rounded-full cursor-pointer overflow-hidden border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-transform hover:scale-105 duration-200">
             <Avatar className="h-9 w-9">
               <AvatarImage src={profile?.avatar_url ?? undefined} />
-              <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] text-xs font-bold">
+              <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
                 {getInitials(profile?.full_name ?? "Student User")}
               </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-1 rounded-xl shadow-xl">
+          <DropdownMenuContent align="end" className="w-56 bg-popover border-border p-1 rounded-xl shadow-modal">
             <DropdownMenuLabel className="font-normal p-3">
               <div className="flex flex-col space-y-1">
-                <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                <p className="text-sm font-semibold text-foreground">
                   {profile?.full_name ?? "Student User"}
                 </p>
-                <p className="text-[11px] text-[#6B7280]">
+                <p className="text-[11px] text-muted-foreground">
                   {user?.email || "student@edunexus.edu"}
                 </p>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-[#27272A]" />
-            <DropdownMenuItem className="cursor-pointer font-semibold text-xs">
-              <Link href="/student/profile" className="flex items-center w-full">
-                <User className="h-4 w-4 mr-2 text-[#2563EB]" /> My Profile
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem className="cursor-pointer font-medium text-xs">
+              <Link href="/student/profile" className="flex items-center w-full text-foreground hover:text-primary transition-colors">
+                <User className="h-4 w-4 mr-2 text-primary" /> My Profile
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-[#27272A]" />
-            <DropdownMenuItem onClick={signOut} className="text-[#DC2626] font-bold text-xs cursor-pointer">
+            <DropdownMenuSeparator className="bg-border" />
+            <DropdownMenuItem onClick={signOut} className="text-destructive font-medium text-xs cursor-pointer hover:bg-destructive/10 transition-colors">
               <LogOut className="h-4 w-4 mr-2" /> Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>

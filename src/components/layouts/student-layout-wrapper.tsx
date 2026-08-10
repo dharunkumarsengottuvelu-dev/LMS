@@ -11,10 +11,12 @@ export function StudentLayoutWrapper({ children }: { children: React.ReactNode }
   const isRunner = isInsideTestRunner || isInsidePracticeRunner;
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-[#09090B]">
+    <div className="min-h-screen bg-background transition-colors duration-300">
       {!isRunner && <StudentTopNav />}
       <main className={`min-h-screen ${!isRunner ? "pt-[72px]" : "pt-0"}`}>
-        <div className="max-w-[1440px] mx-auto px-4 md:px-8 py-4 md:py-8">{children}</div>
+        <div key={pathname} className="max-w-[1440px] mx-auto px-4 md:px-8 py-4 md:py-8 animate-fade-up">
+          {children}
+        </div>
       </main>
     </div>
   );
