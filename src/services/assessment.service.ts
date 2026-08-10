@@ -70,14 +70,18 @@ export class AssessmentService {
   static async getAssessments(): Promise<Assessment[]> {
     try {
       const supabase = createClient();
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("assessments")
         .select("*");
-      if (!error && data && data.length > 0) {
-        return data as unknown as Assessment[];
+      if (error) {
+        console.error("Supabase getAssessments error:", error);
+        return [];
       }
-    } catch {}
-    return this.getLocalAssessments();
+      return data as unknown as Assessment[];
+    } catch (err) {
+      console.error("Failed to fetch assessments:", err);
+      return [];
+    }
   }
 
   static async getAssessmentById(id: string): Promise<Assessment | null> {
@@ -86,34 +90,39 @@ export class AssessmentService {
   }
 
   static async createAssessment(input: CreateAssessmentInput, createdBy: string = "trainer-admin"): Promise<Assessment> {
-    const newAssessment: Assessment = {
-      id: `test-${Date.now()}`,
-      title: input.title,
-      description: input.description || null,
-      type: input.type,
-      course_id: input.course_id || null,
-      created_by: createdBy,
-      duration_minutes: input.duration_minutes,
-      passing_marks: input.passing_marks,
-      total_marks: 100,
-      max_attempts: input.max_attempts || 3,
-      shuffle_questions: input.shuffle_questions ?? true,
-      negative_marking: input.negative_marking ?? false,
-      negative_marks_per_wrong: input.negative_marks_per_wrong || 0,
-      available_from: input.available_from || new Date().toISOString(),
-      expires_at: input.expires_at || null,
-      status: "active",
-      instructions: input.instructions || null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      question_count: 10,
-      attempt_count: 0
-    };
-
-    const current = this.getLocalAssessments();
-    const updated = [newAssessment, ...current];
-    this.saveLocalAssessments(updated);
-    return newAssessment;
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("assessments")
+        .insert([{
+          title: input.title,
+          description: input.description || null,
+          type: input.type,
+          course_id: input.course_id || null,
+          created_by: createdBy,
+          duration_minutes: input.duration_minutes,
+          passing_marks: input.passing_marks,
+          total_marks: 100,
+          max_attempts: input.max_attempts || 3,
+          shuffle_questions: input.shuffle_questions ?? true,
+          negative_marking: input.negative_marking ?? false,
+          negative_marks_per_wrong: input.negative_marks_per_wrong || 0,
+          available_from: input.available_from || new Date().toISOString(),
+          expires_at: input.expires_at || null,
+          status: "active",
+          instructions: input.instructions || null
+        }] as any)
+        .select()
+        .single();
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      return data as unknown as Assessment;
+    } catch (err) {
+      console.error("Failed to create assessment:", err);
+      throw err;
+    }
   }
 
   static getPracticeTracks(): PracticeTrackItem[] {
@@ -135,6 +144,11 @@ export class AssessmentService {
   }
 
   static async submitAttempt(input: SubmitAnswersInput, studentId: string = "student-1"): Promise<AssessmentAttempt> {
+    // TODO: NEEDS REAL IMPLEMENTATION
+    // The "assessment_attempts" table is currently missing from Supabase schema.
+    // This feature is still mocked and will not persist to the DB.
+    console.warn("Mock submitAttempt called: Real implementation requires an assessment_attempts table in Supabase.");
+    
     const attempts = this.getLocalAttempts();
     const score = Math.floor(Math.random() * 30) + 70; // 70-100 score range
     const newAttempt: AssessmentAttempt = {

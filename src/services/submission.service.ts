@@ -10,7 +10,11 @@ import type {
 import { jobeService } from "@/services/jobe";
 import { SQLExecutionService } from "@/services/sql-execution.service";
 
-// In-memory / persistent mock repository for coding problems
+// TODO: NEEDS REAL IMPLEMENTATION
+// The Supabase schema is missing 'coding_problems' and 'coding_submissions' tables.
+// This feature relies entirely on mocked data and localStorage persistence.
+// Do not remove this mock data until real backend implementation is ready.
+
 export const SAMPLE_CODING_PROBLEMS: CodingProblem[] = [
   {
     id: "p1",
@@ -176,6 +180,7 @@ export class SubmissionService {
    * Retrieves a problem by ID, option to sanitize hidden test cases for public client view.
    */
   public static getProblemById(problemId: string, publicOnly = true): CodingProblem | null {
+    console.warn("Mock getProblemById called: 'coding_problems' table missing from Supabase.");
     const problem = SAMPLE_CODING_PROBLEMS.find((p) => p.id === problemId || p.slug === problemId);
     if (!problem) return null;
 
@@ -196,6 +201,7 @@ export class SubmissionService {
     input: SubmitCodeInput,
     studentId: string = "student-1"
   ): Promise<CodingSubmission> {
+    console.warn("Mock submitSolution called: 'coding_submissions' table missing from Supabase.");
     const problem = this.getProblemById(input.problem_id, false);
 
     if (!problem) {

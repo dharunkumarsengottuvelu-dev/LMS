@@ -40,40 +40,7 @@ export interface TestQuestion {
   section: string;
 }
 
-const initialTests: ScheduledTest[] = [
-  {
-    id: "t1",
-    title: "Mid-Term Proctored Evaluation",
-    batch: "Batch 2026-A",
-    duration: 60,
-    totalQuestions: 5,
-    maxMarks: 100,
-    status: "live",
-    submissionsCount: 48,
-    totalEnrolled: 50,
-    proctoringFlags: ["12 Camera Rules Face Monitoring", "Tab Switch Security", "Window Blur Detection", "Copy-Paste Lock"],
-    assignedBatches: ["Batch 2026-A"],
-    questions: [
-      { id: "q1", title: "Two Sum Problem", type: "coding", marks: 20, section: "Programming Task" },
-      { id: "q2", title: "Reverse Linked List", type: "coding", marks: 20, section: "Programming Task" },
-    ],
-    sections: ["Programming Task"]
-  },
-  {
-    id: "t2",
-    title: "React 19 & Next.js 16 Coding Assessment",
-    batch: "Batch 2026-B",
-    duration: 90,
-    totalQuestions: 10,
-    maxMarks: 100,
-    status: "scheduled",
-    submissionsCount: 0,
-    totalEnrolled: 45,
-    proctoringFlags: ["Face Monitoring", "Fullscreen Lock", "Judge0 Execution"],
-    assignedBatches: ["Batch 2026-B"],
-    questions: []
-  }
-];
+const initialTests: ScheduledTest[] = [];
 
 const allBatches = ["Batch 2026-A", "Batch 2026-B", "Batch 2026-C", "Enterprise FastTrack"];
 
@@ -230,7 +197,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         ...t, 
         assignedBatches: selectedBatches,
         batch: selectedBatches.length > 0 ? (selectedBatches[0] ?? "Unassigned") : "Unassigned",
-        totalEnrolled: selectedBatches.length * 50 // Mock enrollment count
+        totalEnrolled: 0 // Mock enrollment count
       } : t
     ));
     setAssigningTest(null);
@@ -773,7 +740,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-              {filtered.map((t) => (
+              {filtered.length > 0 ? filtered.map((t) => (
                 <tr key={t.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors group">
                   <td className="p-4 pl-6 space-y-0.5">
                     <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs">{t.title}</p>
@@ -824,7 +791,15 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     </div>
                   </td>
                 </tr>
-              ))}
+              )) : (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-[#6B7280]">
+                    <ShieldCheck className="h-12 w-12 mx-auto text-[#9CA3AF] mb-3 opacity-50" />
+                    <p className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">No scheduled tests found</p>
+                    <p className="text-xs mt-1">Create a new test to get started.</p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </CardContent>

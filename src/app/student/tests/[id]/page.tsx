@@ -36,98 +36,7 @@ interface QuestionItem {
 }
 
 // Dynamic Mock Question Sets per Test ID
-const mockQuestionSets: Record<string, QuestionItem[]> = {
-  t1: [
-    {
-      id: 1,
-      type: "mcq",
-      question: "What is the primary benefit of React 19 Server Components in Next.js 16?",
-      options: [
-        "Components execute on the client side only",
-        "Zero bundle size for server components rendered on the server",
-        "Server components disable all CSS styles",
-        "They eliminate the need for PostgreSQL databases"
-      ],
-      correctOption: 1,
-      explanation: "Row Level Security (RLS) allows database administrators to define SQL policies restricting rows based on user authentication.",
-      section: "Verbal Ability"
-    },
-    {
-      id: 3,
-      type: "coding",
-      question: "Coding Problem 1: Implement Array Deduplication",
-      problemStatement: "Write a function `uniqueArray(arr)` that accepts an array of numbers and returns a new array with all duplicate values removed.",
-      starterCode: {
-        javascript: "function uniqueArray(arr) {\n  // Write your code here\n  return Array.from(new Set(arr));\n}\n\nconsole.log(uniqueArray([1, 2, 2, 3, 4, 4, 5]));",
-        python: "def unique_array(arr):\n    # Write your code here\n    return list(set(arr))\n\nprint(unique_array([1, 2, 2, 3, 4, 4, 5]))",
-      },
-      sampleOutput: "[1, 2, 3, 4, 5]",
-      section: "Quantitative Ability"
-    },
-    {
-      id: 4,
-      type: "mcq",
-      question: "How do Middleware files in Next.js execute relative to incoming HTTP requests?",
-      options: [
-        "After the page component renders in the browser",
-        "Before a request is completed, intercepting headers and routing",
-        "Only during build time npm run build",
-        "Inside WebAssembly sandbox threads"
-      ],
-      correctOption: 1,
-      explanation: "Next.js Middleware runs before a request is completed, allowing URL redirects and header authentication.",
-      section: "Reasoning Ability"
-    },
-    {
-      id: 5,
-      type: "coding",
-      question: "Coding Problem 2: Validate Email Format",
-      problemStatement: "Write a function `isValidEmail(email)` that returns `true` if the string contains '@' and '.', otherwise `false`.",
-      starterCode: {
-        javascript: "function isValidEmail(email) {\n  return email.includes('@') && email.includes('.');\n}\n\nconsole.log(isValidEmail('student@edunexus.io'));",
-        python: "def is_valid_email(email):\n    return '@' in email and '.' in email\n\nprint(is_valid_email('student@edunexus.io'))",
-      },
-      sampleOutput: "true",
-      section: "Quantitative Ability"
-    }
-  ],
-  t2: [
-    {
-      id: 1,
-      type: "mcq",
-      question: "In System Design, what is the primary purpose of a Redis In-Memory Cache?",
-      options: [
-        "Long term database backups",
-        "Sub-millisecond high-speed data retrieval for frequent queries",
-        "Styling React HTML elements",
-        "Replacing WebGL canvas renderers"
-      ],
-      correctOption: 1,
-      explanation: "Redis caches key-value data in memory to provide ultra-fast access."
-    },
-    {
-      id: 2,
-      type: "coding",
-      question: "Coding Challenge: Reverse a Linked List Node Sequence",
-      problemStatement: "Write a function to reverse a singly linked list in linear time O(N).",
-      starterCode: {
-        javascript: "function reverseList(head) {\n  let prev = null;\n  let curr = head;\n  while (curr) {\n    let nxt = curr.next;\n    curr.next = prev;\n    prev = curr;\n    curr = nxt;\n  }\n  return prev;\n}",
-        python: "def reverse_list(head):\n    prev, curr = None, head\n    while curr:\n        nxt = curr.next\n        curr.next = prev\n        prev = curr\n        curr = nxt\n    return prev",
-      },
-      sampleOutput: "Reversed Head Node",
-    }
-  ],
-  t3: [
-    {
-      id: 1,
-      type: "mcq",
-      question: "What is the result of typeof NaN in JavaScript?",
-      options: ["'number'", "'nan'", "'undefined'", "'object'"],
-      correctOption: 0,
-      explanation: "In JS specs, NaN is of type 'number'."
-    }
-  ]
-};
+const mockQuestionSets: Record<string, QuestionItem[]> = {};
 
 interface TestProctoringConfig {
   fullscreenLock: boolean;
@@ -136,41 +45,7 @@ interface TestProctoringConfig {
   safeExamBrowserRequired: boolean;
 }
 
-const mockTestMeta: Record<string, { title: string; duration: number; maxMarks: number; proctoring: TestProctoringConfig }> = {
-  t1: {
-    title: "Mid-Term Proctored Evaluation — Batch 2026-A",
-    duration: 60,
-    maxMarks: 100,
-    proctoring: {
-      fullscreenLock: true, // Enabled by Trainer
-      copyPasteRestricted: true,
-      webcamTracking: true,
-      safeExamBrowserRequired: true
-    }
-  },
-  t2: {
-    title: "Final Technical Readiness Assessment",
-    duration: 90,
-    maxMarks: 150,
-    proctoring: {
-      fullscreenLock: false, // Disabled by Trainer -> Standard Windowed Mode
-      copyPasteRestricted: true,
-      webcamTracking: false,
-      safeExamBrowserRequired: false
-    }
-  },
-  t3: {
-    title: "Fullstack Core Concepts Evaluation",
-    duration: 45,
-    maxMarks: 50,
-    proctoring: {
-      fullscreenLock: false, // Disabled by Trainer -> Standard Windowed Mode
-      copyPasteRestricted: false,
-      webcamTracking: false,
-      safeExamBrowserRequired: false
-    }
-  },
-};
+const mockTestMeta: Record<string, { title: string; duration: number; maxMarks: number; proctoring: TestProctoringConfig }> = {};
 
 export default function StudentTestRunnerPage() {
   const params = useParams();
@@ -178,8 +53,18 @@ export default function StudentTestRunnerPage() {
   const { toast } = useToast();
 
   const testId = (params?.id as string) || "t1";
-  const currentTest = mockTestMeta[testId] ?? mockTestMeta["t1"]!;
-  const currentQuestions = mockQuestionSets[testId] ?? mockQuestionSets["t1"]!;
+  const currentTest = mockTestMeta[testId] ?? {
+    title: "No Assessment Found",
+    duration: 0,
+    maxMarks: 0,
+    proctoring: {
+      fullscreenLock: false,
+      copyPasteRestricted: false,
+      webcamTracking: false,
+      safeExamBrowserRequired: false
+    }
+  };
+  const currentQuestions = mockQuestionSets[testId] ?? [];
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, any>>({});
@@ -626,6 +511,22 @@ export default function StudentTestRunnerPage() {
       </div>
     );
   }
+
+  if (currentQuestions.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[80vh]">
+        <Card className="max-w-md p-6 text-center border shadow-md">
+          <FileText className="h-12 w-12 text-[#6B7280] mx-auto mb-4 opacity-50" />
+          <h2 className="text-xl font-bold mb-2">No Questions Found</h2>
+          <p className="text-sm text-[#6B7280] mb-6">
+            There are no questions configured for this assessment yet.
+          </p>
+          <Button onClick={() => router.back()} className="w-full">Go Back</Button>
+        </Card>
+      </div>
+    );
+  }
+
 
   return (
     <div
