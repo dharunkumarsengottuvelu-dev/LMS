@@ -136,7 +136,7 @@ export function CodeEditor({
 
   useEffect(() => {
     if (submissionResult) {
-      setActiveTab("testcases");
+      setActiveTab("testresult");
     }
   }, [submissionResult]);
 
@@ -434,9 +434,10 @@ export function CodeEditor({
       <div className="flex items-center justify-between px-2 bg-gray-50 border-b border-gray-200 shrink-0 overflow-x-auto scrollbar-none">
         {/* Tabs for Bottom Pane */}
         <div className="flex items-center space-x-1 py-1">
-          {(["testcases", "customtest"] as const).map((tab) => {
+          {(["testcases", "testresult", "customtest"] as const).map((tab) => {
             const labels: Record<string, string> = {
-              testcases: (submissionResult || multiOutput || output) ? "Test Result" : "Sample Testcases",
+              testcases: "Sample Testcases",
+              testresult: "Test Result",
               customtest: "Custom Testcase",
             };
             return (
@@ -489,7 +490,7 @@ export function CodeEditor({
       {/* ── Bottom Pane: Test Console ── */}
       <div className="flex flex-col flex-[2] min-h-0 bg-white overflow-hidden relative">
       
-      {activeTab === "testcases" && (
+      {activeTab === "testresult" && (
         <div className="flex-1 overflow-y-auto p-4 bg-white">
           {submissionResult ? (
             <div className="space-y-4">
@@ -561,7 +562,18 @@ export function CodeEditor({
                   </div>
                )}
             </div>
-          ) : multiOutput ? (
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm gap-2">
+              <CheckCircle2 className="h-8 w-8 text-gray-300" />
+              <p>Submit your code to see final evaluation results here.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "testcases" && (
+        <div className="flex-1 overflow-y-auto p-4 bg-white">
+          {multiOutput ? (
             <div className="space-y-3">
               {multiOutput.results.map((r, i) => {
                  const tc = problem?.test_cases?.find(t => t.id === r.test_case_id);
@@ -667,18 +679,20 @@ export function CodeEditor({
           ) : (
             <div className="flex flex-col h-full space-y-3">
                {problem?.test_cases?.filter((tc) => !tc.is_hidden).length ? (
-                 problem.test_cases.filter((tc) => !tc.is_hidden).map((tc, i) => (
-                  <div key={tc.id} className="rounded-lg border border-gray-200 overflow-hidden shrink-0">
-                    <div className="bg-gray-50 px-3 py-1.5 text-[11px] font-bold text-gray-500 border-b border-gray-200">
-                      Test Case {i + 1}
-                      {tc.explanation && <span className="ml-2 font-normal text-gray-400">— {tc.explanation}</span>}
+                 <div className="flex flex-col h-full">
+                   {problem.test_cases.filter((tc) => !tc.is_hidden).map((tc, i) => (
+                    <div key={tc.id} className="rounded-lg border border-gray-200 overflow-hidden mb-3 shrink-0">
+                      <div className="bg-gray-50 px-3 py-1.5 text-[11px] font-bold text-gray-500 border-b border-gray-200">
+                        Test Case {i + 1}
+                        {tc.explanation && <span className="ml-2 font-normal text-gray-400">— {tc.explanation}</span>}
+                      </div>
+                      <div className="p-2.5 bg-white">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Input:</p>
+                        <pre className="text-[11px] font-mono text-blue-700 whitespace-pre-wrap">{tc.input || "—"}</pre>
+                      </div>
                     </div>
-                    <div className="p-2.5 bg-white">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Input:</p>
-                      <pre className="text-[11px] font-mono text-blue-700 whitespace-pre-wrap">{tc.input || "—"}</pre>
-                    </div>
-                  </div>
-                 ))
+                   ))}
+                 </div>
                ) : (
                  <div className="flex items-center justify-center h-full text-gray-400 text-sm">
                    No public test cases for this problem.
