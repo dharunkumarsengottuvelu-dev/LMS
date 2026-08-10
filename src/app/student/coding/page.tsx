@@ -30,6 +30,7 @@ export default function StudentCodingIDEPage() {
   const [latestSubmission, setLatestSubmission] = useState<CodingSubmission | null>(null);
   const [problemTab, setProblemTab] = useState<ProblemTab>("statement");
   const [showNavigator, setShowNavigator] = useState(true);
+  const [showQuestion, setShowQuestion] = useState(true);
   const [jobeStatus, setJobeStatus] = useState<{ available: boolean; latencyMs?: number } | null>(null);
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -162,7 +163,8 @@ export default function StudentCodingIDEPage() {
       {/* ── 3-Column Body ── */}
       <div className="flex flex-1 overflow-hidden w-full">
         {/* ── LEFT: Problem Statement (280px) ── */}
-        <div className="w-[300px] flex flex-col bg-white border-r border-gray-200 shrink-0">
+        {showQuestion && (
+        <div className="w-[300px] flex flex-col bg-white border-r border-gray-200 shrink-0 relative">
           <div className="flex-1 overflow-y-auto flex flex-col h-full">
           {/* Question header */}
           <div className="px-4 py-3 border-b border-gray-200">
@@ -170,17 +172,26 @@ export default function StudentCodingIDEPage() {
               <h2 className="font-bold text-base text-gray-800">
                 Question {currentIdx + 1}
               </h2>
-              <button
-                onClick={toggleFlag}
-                className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded ${
-                  isFlagged
-                    ? "bg-orange-100 text-orange-600"
-                    : "bg-gray-100 text-gray-500 hover:text-orange-500"
-                }`}
-              >
-                <Flag className="h-3.5 w-3.5" />
-                {isFlagged ? "Flagged" : "Flag for review"}
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={toggleFlag}
+                  className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded ${
+                    isFlagged
+                      ? "bg-orange-100 text-orange-600"
+                      : "bg-gray-100 text-gray-500 hover:text-orange-500"
+                  }`}
+                >
+                  <Flag className="h-3.5 w-3.5" />
+                  {isFlagged ? "Flagged" : "Flag"}
+                </button>
+                <button 
+                  onClick={() => setShowQuestion(false)} 
+                  className="text-gray-500 hover:text-blue-600 transition-colors flex items-center justify-center ml-1"
+                  title="Hide Question"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className="bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold uppercase px-2">
@@ -348,6 +359,7 @@ export default function StudentCodingIDEPage() {
           </Tabs>
           </div>
         </div>
+        )}
 
         {/* ── MIDDLE: Code Editor (flex-1) ── */}
         <div className="flex-1 flex flex-col overflow-hidden bg-white min-w-0 relative">
@@ -363,10 +375,20 @@ export default function StudentCodingIDEPage() {
           />
             </div>
             
+            {!showQuestion && (
+              <button
+                onClick={() => setShowQuestion(true)}
+                className="absolute left-0 top-14 bg-white border border-l-0 border-gray-200 py-3 px-2 rounded-r-lg shadow-sm hover:bg-gray-50 z-10 flex items-center justify-center transition-all group"
+                title="Show Question Statement"
+              >
+                <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
+              </button>
+            )}
+
             {!showNavigator && (
               <button
                 onClick={() => setShowNavigator(true)}
-                className="absolute right-0 top-4 bg-white border border-r-0 border-gray-200 py-3 px-2 rounded-l-lg shadow-sm hover:bg-gray-50 z-10 flex items-center justify-center transition-all group"
+                className="absolute right-0 top-14 bg-white border border-r-0 border-gray-200 py-3 px-2 rounded-l-lg shadow-sm hover:bg-gray-50 z-10 flex items-center justify-center transition-all group"
                 title="Show Question Navigator"
               >
                 <ChevronLeft className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
