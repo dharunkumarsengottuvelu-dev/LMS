@@ -156,15 +156,6 @@ export default function StudentCodingIDEPage() {
           >
             ✓ Submit Assessment
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8 text-gray-500 hover:text-blue-600 ml-1"
-            onClick={() => setShowNavigator(!showNavigator)}
-            title={showNavigator ? "Hide Question Navigator" : "Show Question Navigator"}
-          >
-            {showNavigator ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-          </Button>
         </div>
       </div>
 
@@ -359,7 +350,7 @@ export default function StudentCodingIDEPage() {
         </div>
 
         {/* ── MIDDLE: Code Editor (flex-1) ── */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-white min-w-0">
+        <div className="flex-1 flex flex-col overflow-hidden bg-white min-w-0 relative">
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden h-full">
           <CodeEditor
             problem={selectedProblem}
@@ -371,6 +362,16 @@ export default function StudentCodingIDEPage() {
             onSubmit={handleSubmit}
           />
             </div>
+            
+            {!showNavigator && (
+              <button
+                onClick={() => setShowNavigator(true)}
+                className="absolute right-0 top-1/2 -translate-y-1/2 bg-white border border-r-0 border-gray-200 p-2 rounded-l-lg shadow-sm hover:bg-gray-50 z-10 flex items-center justify-center transition-all group"
+                title="Show Question Navigator"
+              >
+                <ChevronLeft className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
+              </button>
+            )}
         </div>
 
         {showNavigator && (
