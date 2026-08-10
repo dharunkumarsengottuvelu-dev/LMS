@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pistonService } from "@/services/piston.service";
+import { jobeService } from "@/services/jobe";
 import { SQLExecutionService } from "@/services/sql-execution.service";
 import type { ExecuteCodeInput } from "@/types/coding";
 import { getErrorMessage } from "@/lib/utils";
@@ -62,26 +62,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 1. Language validation
-    const langVal = pistonService.validateLanguage(language);
-    if (!langVal.valid) {
-      return NextResponse.json(
-        { error: `Unsupported programming language: '${language}'` },
-        { status: 400 }
-      );
-    }
-
-    // 2. Payload size validation
-    const payloadVal = pistonService.validatePayload(code, stdin);
-    if (!payloadVal.valid) {
-      return NextResponse.json(
-        { error: payloadVal.error },
-        { status: 400 }
-      );
-    }
-
-    // 3. Execute via Piston API
-    const result = await pistonService.executeCode(language, code, stdin);
+    // 1. Execute via Jobe API
+    const result = await jobeService.executeCode(language, code, stdin);
 
     return NextResponse.json(result, { status: 200 });
   } catch (error: unknown) {
