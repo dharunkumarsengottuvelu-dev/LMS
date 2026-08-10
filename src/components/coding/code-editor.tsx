@@ -6,7 +6,8 @@ import { loader } from "@monaco-editor/react";
 import {
   Play, RotateCcw, Loader2,
   CheckCircle2, XCircle, Clock, Cpu,
-  PanelLeftOpen, PanelRightOpen
+  PanelLeftOpen, PanelRightOpen,
+  ChevronUp, ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -140,12 +141,14 @@ export function CodeEditor({
   const [multiOutput, setMultiOutput] = useState<{ results: TestCaseResult[] } | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useState("testcases");
+  const [showConsole, setShowConsole] = useState(false);
   const [useFallbackTextarea, setUseFallbackTextarea] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     if (submissionResult) {
       setActiveTab("testresult");
+      setShowConsole(true);
     }
   }, [submissionResult]);
 
@@ -219,6 +222,7 @@ export function CodeEditor({
     setIsRunning(true);
     setOutput(null);
     setMultiOutput(null);
+    setShowConsole(true);
 
     try {
       if (activeTab === "customtest") {
@@ -451,10 +455,18 @@ export function CodeEditor({
       </div>
 
       {/* ── Middle Divider / Action Bar ── */}
-      <div className="flex items-center justify-between px-2 bg-gray-50 border-b border-gray-200 shrink-0 overflow-x-auto scrollbar-none">
+      <div className="flex items-center justify-between px-2 bg-muted border-b border-border shrink-0 overflow-x-auto scrollbar-none">
         {/* Tabs for Bottom Pane */}
         <div className="flex items-center space-x-1 py-1">
-          {(["testcases", "testresult", "customtest"] as const).map((tab) => {
+          <button
+            onClick={() => setShowConsole(!showConsole)}
+            className="px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors shrink-0 rounded-md hover:bg-muted-foreground/10"
+          >
+            Console
+            {showConsole ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          </button>
+          
+          {showConsole && (["testcases", "testresult", "customtest"] as const).map((tab) => {
             const labels: Record<string, string> = {
               testcases: "Sample Testcases",
               testresult: "Test Result",
@@ -508,9 +520,10 @@ export function CodeEditor({
       </div>
 
       {/* ── Bottom Pane: Test Console ── */}
-      <div className="flex flex-col flex-[2] min-h-0 bg-white overflow-hidden relative">
-      
-      {activeTab === "testresult" && (
+      {showConsole && (
+        <div className="flex flex-col flex-[2] min-h-0 bg-card overflow-hidden relative">
+        
+        {activeTab === "testresult" && (
         <div className="flex-1 overflow-y-auto p-4 bg-white">
           {submissionResult ? (
             <div className="space-y-4">
@@ -739,7 +752,8 @@ export function CodeEditor({
         </div>
       )}
       
-      </div>
+        </div>
+      )}
     </div>
   );
 }
