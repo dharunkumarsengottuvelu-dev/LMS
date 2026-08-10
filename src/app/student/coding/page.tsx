@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CodeEditor } from "@/components/coding/code-editor";
 import { StudentTopNav } from "@/components/layouts/student-top-nav";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
 import type { CodingSubmission, CodingLanguage, TestCaseResult } from "@/types/coding";
@@ -162,7 +162,7 @@ export default function StudentCodingIDEPage() {
 
       {/* ── 3-Column Body ── */}
       <div className="flex flex-1 overflow-hidden">
-        <PanelGroup direction="horizontal" autoSaveId="ide-layout">
+        <PanelGroup orientation="horizontal">
           {/* ── LEFT: Problem Statement (280px) ── */}
           <Panel defaultSize={30} minSize={20} maxSize={50} className="flex flex-col bg-white border-r border-gray-200">
             <div className="flex-1 overflow-y-auto flex flex-col">
@@ -347,7 +347,6 @@ export default function StudentCodingIDEPage() {
                 )}
               </TabsContent>
             )}
-            )}
           </Tabs>
           </div>
           </Panel>
@@ -373,7 +372,6 @@ export default function StudentCodingIDEPage() {
             showSubmit={true}
             isSubmitting={isSubmitting}
             onSubmit={handleSubmit}
-          />
           />
             </div>
           </Panel>
@@ -491,3 +489,4 @@ export default function StudentCodingIDEPage() {
       </div>
     </div>
   );
+}
