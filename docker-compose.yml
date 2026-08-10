@@ -25,8 +25,7 @@ services:
       JOBE_DEFAULT_TIME_LIMIT: "5"
       JOBE_DEFAULT_MEMORY_LIMIT: "256"
     depends_on:
-      jobe:
-        condition: service_healthy
+      - jobe
     networks:
       - lms-network
 
@@ -48,12 +47,6 @@ services:
     # REQUIRED: Disable no-new-privileges so Jobe's internal sudo can escalate to the sandbox users
     security_opt:
       - no-new-privileges:false
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/jobe/index.php/restapi/languages"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
     networks:
       - lms-network
     # Resource limits for the execution sandbox
