@@ -351,6 +351,7 @@ export default function StudentCodingIDEPage() {
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           <CodeEditor
             problem={selectedProblem}
+            submissionResult={latestSubmission}
             defaultLanguage="java"
             height="calc(100vh - 110px)"
             showSubmit={true}

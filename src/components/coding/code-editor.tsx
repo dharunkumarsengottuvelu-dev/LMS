@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn, getErrorMessage } from "@/lib/utils";
-import type { CodingLanguage, ExecuteCodeResult, CodingProblem } from "@/types";
+import type { CodingLanguage, ExecuteCodeResult, CodingProblem, TestCaseResult, CodingSubmission } from "@/types";
 import { LANGUAGE_DISPLAY_NAMES } from "@/types/coding";
 
 // Lazy load Monaco to avoid SSR issues
@@ -99,6 +99,7 @@ const STARTER_TEMPLATES: Record<CodingLanguage, string> = {
 };
 
 interface CodeEditorProps {
+  submissionResult?: CodingSubmission | null;
   problem?: CodingProblem;
   onSubmit?: (code: string, language: CodingLanguage) => Promise<void>;
   isSubmitting?: boolean;
@@ -111,6 +112,7 @@ interface CodeEditorProps {
 
 export function CodeEditor({
   problem,
+  submissionResult,
   onSubmit,
   isSubmitting = false,
   readOnly = false,
@@ -126,10 +128,17 @@ export function CodeEditor({
   );
   const [stdin, setStdin] = useState(problem?.sample_input ?? "");
   const [output, setOutput] = useState<ExecuteCodeResult | null>(null);
+  const [multiOutput, setMultiOutput] = useState<{ results: TestCaseResult[] } | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useState("testcases");
   const [useFallbackTextarea, setUseFallbackTextarea] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (submissionResult) {
+      setActiveTab("testresult");
+    }
+  }, [submissionResult]);
 
   useEffect(() => {
     if (problem) {
@@ -199,28 +208,49 @@ export function CodeEditor({
     }
 
     setIsRunning(true);
-    // Stay on current tab during execution, then switch on success
+    setOutput(null);
+    setMultiOutput(null);
 
     try {
-      const response = await fetch("/api/code/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          language,
-          code,
-          stdin,
-          input: stdin,
-          input_data: stdin,
-        }),
-      });
+      if (activeTab === "customtest") {
+        const response = await fetch("/api/code/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            language,
+            code,
+            stdin,
+            input: stdin,
+            input_data: stdin,
+          }),
+        });
 
-      if (!response.ok) {
-        const error = (await response.json()) as { error: string };
-        throw new Error(error.error ?? "Code execution failed");
+        if (!response.ok) {
+          const error = (await response.json()) as { error: string };
+          throw new Error(error.error ?? "Code execution failed");
+        }
+
+        const result = (await response.json()) as ExecuteCodeResult;
+        setOutput(result);
+      } else {
+        const response = await fetch("/api/code/run-testcases", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            problem_id: problem?.id,
+            language,
+            code,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = (await response.json()) as { error: string };
+          throw new Error(error.error ?? "Evaluation failed");
+        }
+
+        const result = await response.json();
+        setMultiOutput(result);
       }
-
-      const result = (await response.json()) as ExecuteCodeResult;
-      setOutput(result);
       setActiveTab("testresult");
     } catch (error) {
       const msg = getErrorMessage(error);
@@ -463,7 +493,87 @@ export function CodeEditor({
       
       {activeTab === "testresult" && (
         <div className="flex-1 overflow-y-auto p-4 bg-white">
-          {!output ? (
+          {submissionResult ? (
+            <div className="space-y-4">
+               <div className="flex items-center gap-3 flex-wrap">
+                  <Badge
+                    className={cn(
+                      "text-[11px] font-bold px-2.5 py-1 border",
+                      submissionResult.status === "accepted"
+                        ? "bg-green-50 text-green-700 border-green-300"
+                        : "bg-red-50 text-red-700 border-red-300"
+                    )}
+                  >
+                    {submissionResult.status === "accepted" ? (
+                      <CheckCircle2 className="h-3 w-3 mr-1.5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-3 w-3 mr-1.5" />
+                    )}
+                    {submissionResult.status.replace("_", " ").toUpperCase()}
+                  </Badge>
+                  <span className="text-[11px] text-gray-500 flex items-center gap-1 font-mono">
+                    Passed: {submissionResult.passed_test_cases}/{submissionResult.total_test_cases}
+                  </span>
+                  {submissionResult.execution_time != null && (
+                    <span className="text-[11px] text-gray-500 flex items-center gap-1 font-mono">
+                      <Clock className="h-3 w-3" /> {submissionResult.execution_time.toFixed(2)}s
+                    </span>
+                  )}
+               </div>
+               {submissionResult.results && (
+                  <div className="space-y-1.5">
+                    {submissionResult.results.map((r, i) => (
+                      <div
+                        key={r.test_case_id}
+                        className={cn(
+                          "flex items-center justify-between p-2.5 rounded-lg border text-xs",
+                          r.passed ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-600"
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5 font-medium">
+                          {r.passed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                          Test Case #{i + 1}
+                        </span>
+                        <span className="font-mono">{r.passed ? "Passed" : r.error ?? "Failed"}</span>
+                      </div>
+                    ))}
+                  </div>
+               )}
+            </div>
+          ) : multiOutput ? (
+            <div className="space-y-3">
+              {multiOutput.results.map((r, i) => {
+                 const tc = problem?.test_cases?.find(t => t.id === r.test_case_id);
+                 return (
+                   <div key={r.test_case_id} className="rounded-lg border border-gray-200 overflow-hidden shrink-0">
+                     <div className={cn(
+                       "px-3 py-1.5 text-[11px] font-bold border-b border-gray-200 flex justify-between items-center",
+                       r.passed ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                     )}>
+                       <span>Test Case {i + 1}</span>
+                       <span>{r.passed ? "Passed" : "Failed"}</span>
+                     </div>
+                     <div className="grid grid-cols-2 divide-x divide-gray-200 bg-white">
+                       <div className="p-2.5 space-y-2">
+                         <div>
+                           <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Input:</p>
+                           <pre className="text-[11px] font-mono text-gray-600 whitespace-pre-wrap max-h-24 overflow-y-auto">{tc?.input || "—"}</pre>
+                         </div>
+                         <div>
+                           <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Your Output:</p>
+                           <pre className="text-[11px] font-mono text-blue-700 whitespace-pre-wrap max-h-24 overflow-y-auto">{r.actual_output || r.error || "—"}</pre>
+                         </div>
+                       </div>
+                       <div className="p-2.5">
+                         <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Expected Output:</p>
+                         <pre className="text-[11px] font-mono text-green-700 whitespace-pre-wrap max-h-24 overflow-y-auto">{tc?.expected_output || "—"}</pre>
+                       </div>
+                     </div>
+                   </div>
+                 );
+              })}
+            </div>
+          ) : !output ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm gap-2">
               <Play className="h-8 w-8 text-gray-300" />
               <p>Run your code to see the execution results here.</p>
