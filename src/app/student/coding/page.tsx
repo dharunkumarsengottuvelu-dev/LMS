@@ -377,11 +377,11 @@ export default function StudentCodingIDEPage() {
           <div className="w-[240px] flex flex-col bg-white border-l border-gray-200 shrink-0 relative">
             {/* ── RIGHT: Question Navigator (220px) ── */}
             <div className="flex-1 overflow-y-auto flex flex-col h-full">
-                  <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-             <h3 className="font-bold text-sm text-gray-800">Question Navigator</h3>
-             <button onClick={() => setShowNavigator(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-               <X className="w-4 h-4" />
+                  <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+             <button onClick={() => setShowNavigator(false)} className="text-gray-500 hover:text-blue-600 transition-colors flex items-center justify-center">
+               <ChevronRight className="w-4 h-4" />
              </button>
+             <h3 className="font-bold text-sm text-gray-800">Question Navigator</h3>
           </div>
 
           {/* Section */}
