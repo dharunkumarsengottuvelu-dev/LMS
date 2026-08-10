@@ -134,34 +134,6 @@ export default function StudentPracticePage() {
         </div>
       </div>
 
-      {/* FEATURED CODING IDE BANNER */}
-      <div className="p-6 bg-gradient-to-r from-[#2563EB]/10 via-[#1D4ED8]/10 to-[#9333EA]/10 border border-[#2563EB]/25 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-5 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#2563EB] text-white flex items-center justify-center font-bold text-xl shadow-md shrink-0">
-            <Code2 className="h-6 w-6" />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Student Practice Monaco IDE
-              </h2>
-              <Badge className="bg-[#16A34A] text-white text-[10px] font-bold px-2 py-0.5">
-                LIVE JOBE SERVER COMPILER
-              </Badge>
-            </div>
-            <p className="text-xs text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed max-w-2xl">
-              Execute Python, Java, C++, JavaScript, C, Go code live in Jobe sandbox. Evaluate solutions against test cases with score calculation.
-            </p>
-          </div>
-        </div>
-
-        <Button
-          onClick={() => router.push("/student/coding")}
-          className="h-[46px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 text-sm shrink-0 shadow-md"
-        >
-          <Code2 className="h-4 w-4" /> Launch Interactive Coding IDE
-        </Button>
-      </div>
 
       {/* Practice Tracks Cards Grid */}
       <div className="space-y-4 pt-2">
@@ -179,20 +151,20 @@ export default function StudentPracticePage() {
             <Dumbbell className="h-12 w-12 text-[#2563EB] mx-auto mb-4 opacity-80" />
             <h3 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">No Matching Practice Tracks</h3>
             <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] max-w-md mx-auto mt-2">
-              Try adjusting your search criteria or launch the Interactive Coding IDE above.
+              Try adjusting your search criteria.
             </p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
             {filteredTracks.map((track) => {
               const completedCount = track.subModules.filter((m) => m.status === "completed").length;
               const totalCount = track.subModules.length;
               const progressPercentage = Math.round((completedCount / totalCount) * 100);
 
               return (
-                <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-[#2563EB]/50 transition-all duration-200 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl">
+                <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-[#2563EB]/40 transition-all duration-200 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-xl">
                   {/* Thumbnail Header Image */}
-                  <div className="relative w-full h-44 overflow-hidden border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9] dark:bg-[#09090B]">
+                  <div className="relative w-full h-32 overflow-hidden border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9] dark:bg-[#09090B]">
                     <img
                       src={track.thumbnail}
                       alt={track.title}
@@ -200,49 +172,41 @@ export default function StudentPracticePage() {
                     />
                   </div>
 
-                  <CardHeader className="p-6 pb-4 space-y-3">
+                  <CardHeader className="p-4 pb-2 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
-                        <FolderKanban className="h-3 w-3 mr-1 inline" /> {track.category}
+                      <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-[#2563EB]/20 text-[#2563EB] bg-[#2563EB]/5">
+                        <FolderKanban className="h-3 w-3 mr-1.5 inline" /> {track.category}
                       </Badge>
-
-                      <span className="text-[11px] font-bold text-[#2563EB]">
-                        {track.assignedBy}: {track.assignedByName}
+                      <span className="text-[10px] font-medium text-[#6B7280]">
+                        {track.assignedByName}
                       </span>
                     </div>
 
-                    <CardTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug">
+                    <CardTitle className="text-base font-bold text-[#111827] dark:text-[#FAFAFA] leading-tight line-clamp-1">
                       {track.title}
                     </CardTitle>
 
-                    <p className="text-xs text-[#6B7280] dark:text-[#A1A1AA] line-clamp-2 leading-relaxed">
+                    <p className="text-[11px] text-[#6B7280] dark:text-[#A1A1AA] line-clamp-2 leading-relaxed h-8">
                       {track.description}
                     </p>
                   </CardHeader>
 
-                  <CardContent className="p-6 pt-0 space-y-4">
-                    <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[#6B7280]">Modules Count:</span>
-                        <span className="font-bold text-[#2563EB]">{totalCount} Practice Modules</span>
+                  <CardContent className="p-4 pt-2 space-y-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[#6B7280] font-medium">{totalCount} Modules</span>
+                        <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{progressPercentage}%</span>
                       </div>
-
-                      <div className="space-y-1 pt-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-[#6B7280]">Track Completion:</span>
-                          <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{progressPercentage}% ({completedCount}/{totalCount})</span>
-                        </div>
-                        <Progress value={progressPercentage} className="h-1.5 bg-[#E5E7EB]" />
-                      </div>
+                      <Progress value={progressPercentage} className="h-1 bg-[#E5E7EB]" />
                     </div>
                   </CardContent>
 
-                  <CardFooter className="p-6 pt-0 gap-3">
+                  <CardFooter className="p-4 pt-0 gap-3">
                     <Button
                       onClick={() => router.push("/student/coding")}
-                      className="flex-1 h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2"
+                      className="w-full h-8 text-[11px] bg-[#111827] hover:bg-[#1f2937] dark:bg-white dark:hover:bg-gray-200 dark:text-black text-white font-semibold gap-2 transition-colors rounded-lg"
                     >
-                      <Code2 className="h-4 w-4" /> Start Practice in IDE
+                      <Code2 className="h-3.5 w-3.5" /> Start Practice
                     </Button>
                   </CardFooter>
                 </Card>

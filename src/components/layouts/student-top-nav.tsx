@@ -21,7 +21,6 @@ import {
 const studentNavItems = [
   { label: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
   { label: "Assigned Courses", href: "/student/my-courses", icon: BookOpen },
-  { label: "Coding IDE", href: "/student/coding", icon: Code2 },
   { label: "Practices", href: "/student/assessments", icon: Dumbbell },
   { label: "Assessments", href: "/student/tests", icon: ClipboardList },
   { label: "Submissions", href: "/student/assignments", icon: FileText },

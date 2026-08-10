@@ -26,6 +26,7 @@ export interface PracticeQuestion {
   text: string;
   marks: number;
   order: number;
+  allowedLanguages?: string[];
   options?: { id: string; text: string }[];
   starterCode?: Record<string, string>;
   testCases?: { input: string; expectedOutput: string }[];
@@ -348,13 +349,27 @@ export function PracticeRunnerEngine({
                 <div className="space-y-4 pt-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">Code Solution Editor</Label>
-                    <Select value={selectedLang} onValueChange={(v) => { if (v) setSelectedLang(v); }}>
+                    <Select 
+                      value={currentQuestion.allowedLanguages?.length === 1 ? currentQuestion.allowedLanguages[0] : selectedLang} 
+                      onValueChange={(v) => { if (v) setSelectedLang(v); }}
+                      disabled={currentQuestion.allowedLanguages?.length === 1}
+                    >
                       <SelectTrigger className="w-40 h-9 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="python">Python 3</SelectItem>
-                        <SelectItem value="javascript">JavaScript (Node)</SelectItem>
+                        {(!currentQuestion.allowedLanguages || currentQuestion.allowedLanguages.includes("python")) && (
+                          <SelectItem value="python">Python 3</SelectItem>
+                        )}
+                        {(!currentQuestion.allowedLanguages || currentQuestion.allowedLanguages.includes("javascript")) && (
+                          <SelectItem value="javascript">JavaScript (Node)</SelectItem>
+                        )}
+                        {(!currentQuestion.allowedLanguages || currentQuestion.allowedLanguages.includes("java")) && (
+                          <SelectItem value="java">Java 17</SelectItem>
+                        )}
+                        {(!currentQuestion.allowedLanguages || currentQuestion.allowedLanguages.includes("cpp")) && (
+                          <SelectItem value="cpp">C++ 17</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
