@@ -90,13 +90,123 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 1. Rate Limiting Check (IP-based)
-  const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
-  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register") || pathname.startsWith("/auth");
-  const limit = isAuthRoute ? 10 : 120; // 10 req/min for auth, 120 for general routes
-  const rateCheck = checkRateLimit(clientIp, limit, 60 * 1000);
+  // 1. Rate Limiting Check (IP-based with route scoping)
+  const clientIp =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip")?.trim() ||
+    (request as unknown as { ip?: string }).ip ||
+    "127.0.0.1";
+
+  const isAuthApi = pathname.startsWith("/api/auth");
+  const isAuthPage =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/auth");
+  const isApiRoute = pathname.startsWith("/api/");
+
+  let scope = "general";
+  let limit = 300; // 300 req/min for general routes
+
+  if (isAuthApi) {
+    scope = "auth_api";
+    limit = 60; // 60 req/min for auth API endpoints
+  } else if (isAuthPage) {
+    scope = "auth_page";
+    limit = 200; // 200 req/min for auth UI pages
+  } else if (isApiRoute) {
+    scope = "api";
+    limit = 200;
+  }
+
+  const rateCheckKey = `${scope}:${clientIp}`;
+  const rateCheck = checkRateLimit(rateCheckKey, limit, 60 * 1000);
 
   if (!rateCheck.success) {
+    const isHtmlRequest = request.headers.get("accept")?.includes("text/html");
+
+    if (isHtmlRequest && !isApiRoute) {
+      const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Too Many Requests | EduNexus LMS</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #090d16;
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #1f293d;
+      border-radius: 16px;
+      padding: 2.5rem;
+      max-width: 460px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    }
+    .icon-wrapper {
+      width: 64px;
+      height: 64px;
+      background: rgba(244, 63, 94, 0.15);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem auto;
+      color: #fb7185;
+    }
+    h1 { font-size: 1.5rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.75rem; }
+    p { color: #94a3b8; font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.75rem; }
+    .btn {
+      display: inline-block;
+      width: 100%;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      border: none;
+      padding: 0.85rem 1.5rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .btn:hover { background: linear-gradient(135deg, #2563eb, #1d4ed8); transform: translateY(-1px); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-wrapper">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <h1>Too Many Requests</h1>
+    <p>You have made too many requests in a short period of time. Please wait a minute before trying again.</p>
+    <a href="${request.url}" class="btn" onclick="window.location.reload(); return false;">Try Again</a>
+  </div>
+</body>
+</html>`;
+      const htmlResponse = new NextResponse(htmlContent, {
+        status: 429,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+      htmlResponse.headers.set("X-RateLimit-Limit", String(rateCheck.limit));
+      htmlResponse.headers.set("X-RateLimit-Remaining", "0");
+      htmlResponse.headers.set("Retry-After", "60");
+      return applySecurityHeaders(htmlResponse);
+    }
+
     const errorResponse = new NextResponse(
       JSON.stringify({ error: "Too many requests. Rate limit exceeded. Please try again later." }),
       { status: 429, headers: { "Content-Type": "application/json" } }

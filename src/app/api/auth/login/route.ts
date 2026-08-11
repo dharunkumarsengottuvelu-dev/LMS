@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       }
 
       // Ensure profile exists in profiles table with correct role
-      const { data: profile } = await admin.from("profiles").select("id, role").eq("user_id", existingUser.id).single();
+      const { data: profile } = await admin.from("profiles").select("id, role").eq("user_id", existingUser.id).maybeSingle();
       if (!profile) {
         await admin.from("profiles").insert({
           user_id: existingUser.id,

@@ -16,10 +16,10 @@ async function getStudentData() {
     .from("profiles")
     .select("*")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
   const profile = profileData as Record<string, unknown> | null;
-  const profileId = (profile?.id as string) ?? "";
+  const profileId = (profile?.id as string) ?? user.id;
 
   // Parallel data fetching
   const [enrollmentsRes, testsRes, notificationsRes] =

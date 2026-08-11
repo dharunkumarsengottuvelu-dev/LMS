@@ -15,7 +15,7 @@ export async function GET(request: Request) {
         .from("profiles")
         .select("role")
         .eq("user_id", data.user.id)
-        .single();
+        .maybeSingle();
 
       const profile = profileData as { role?: string } | null;
       const role = profile?.role ?? "student";

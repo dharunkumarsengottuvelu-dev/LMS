@@ -81,7 +81,7 @@ export class AuthService {
       .from("profiles")
       .select("*")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
     return data as unknown as UserProfile | null;
   }
@@ -93,7 +93,7 @@ export class AuthService {
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq("user_id", userId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data as unknown as UserProfile;

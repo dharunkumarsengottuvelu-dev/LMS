@@ -52,7 +52,7 @@ export class CourseService {
         .from("courses")
         .select("*, modules(*, lessons(*))")
         .eq("slug", slug)
-        .single();
+        .maybeSingle();
       
       if (!error && data) {
         return data as unknown as Course;

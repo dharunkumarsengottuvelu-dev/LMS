@@ -17,11 +17,10 @@ export default async function StudentLayout({ children }: { children: React.Reac
     .from("profiles")
     .select("role, status")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (!profile) redirect("/auth/login");
-  const profileData = profile as { role: string; status: string };
-  if (profileData.status === "suspended") redirect("/auth/login?error=suspended");
+  const profileData = profile as { role?: string; status?: string } | null;
+  if (profileData?.status === "suspended") redirect("/auth/login?error=suspended");
 
   return <StudentLayoutWrapper>{children}</StudentLayoutWrapper>;
 }

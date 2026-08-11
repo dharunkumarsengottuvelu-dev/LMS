@@ -25,12 +25,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient();
 
   async function fetchProfile(userId: string) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .single();
-    setProfile(data as UserProfile | null);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Profile fetch warning:", error.message);
+      }
+
+      setProfile((data as UserProfile | null) ?? {
+        id: userId,
+        user_id: userId,
+        first_name: user?.email?.split("@")[0] || "User",
+        last_name: "",
+        role: "student",
+        status: "active",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as UserProfile);
+    } catch (err) {
+      console.error("Profile fetch exception:", err);
+    }
   }
 
   async function refreshProfile() {
