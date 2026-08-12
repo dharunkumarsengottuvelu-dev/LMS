@@ -156,9 +156,7 @@ export default function StudentProfilePage() {
   };
 
   const batchName = currentStudent?.batch && currentStudent.batch !== "Not Assigned" ? currentStudent.batch : "Not Assigned";
-  const collegeVal = currentStudent?.college || "Not provided";
-  const courseVal = currentStudent?.course || "Not provided";
-  const joiningDate = currentStudent?.joinedDate || "N/A";
+  const loginDate = user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "N/A";
   const accountStatus = currentStudent?.status || "active";
 
   return (
@@ -214,16 +212,8 @@ export default function StudentProfilePage() {
               {/* Structured Profile Breakdown */}
               <div className="text-left space-y-2 pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] text-xs text-[#6B7280]">
                 <div className="flex justify-between">
-                  <span>Institution / College:</span>
-                  <strong className="text-[#111827] dark:text-[#FAFAFA]">{collegeVal}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Course Program:</span>
-                  <strong className="text-[#111827] dark:text-[#FAFAFA]">{courseVal}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span>Joining Date:</span>
-                  <strong className="text-[#111827] dark:text-[#FAFAFA]">{joiningDate}</strong>
+                  <span>Login Date:</span>
+                  <strong className="text-[#111827] dark:text-[#FAFAFA]">{loginDate}</strong>
                 </div>
                 <div className="flex justify-between items-center">
                   <span>Account Status:</span>
