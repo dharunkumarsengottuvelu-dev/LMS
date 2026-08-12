@@ -79,6 +79,14 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // 0. Auto-route OAuth callback if `code` query param is present
+  const codeParam = request.nextUrl.searchParams.get("code");
+  if (codeParam && !pathname.startsWith("/api/auth/callback")) {
+    const callbackUrl = new URL("/api/auth/callback", request.url);
+    callbackUrl.searchParams.set("code", codeParam);
+    return applySecurityHeaders(NextResponse.redirect(callbackUrl));
+  }
+
   // Skip middleware for static files and Next.js internals
   if (
     pathname.startsWith("/_next") ||
