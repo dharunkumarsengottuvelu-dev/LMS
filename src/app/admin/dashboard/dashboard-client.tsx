@@ -27,6 +27,12 @@ interface DashboardData {
     total_coding_problems: number;
     active_enrollments: number;
   };
+  changes: {
+    students: number;
+    trainers: number;
+    courses: number;
+    assessments: number;
+  };
   trendData: { day: string; enrollments: number }[];
   recentUsers: {
     id: string;
@@ -49,37 +55,37 @@ const statCards = [
   {
     title: "Total Students",
     key: "total_students",
+    changeKey: "students",
     icon: GraduationCap,
     href: "/admin/students",
-    change: +12,
   },
   {
     title: "Total Trainers",
     key: "total_trainers",
+    changeKey: "trainers",
     icon: Users,
     href: "/admin/trainers",
-    change: +2,
   },
   {
     title: "Published Courses",
     key: "total_courses",
+    changeKey: "courses",
     icon: BookOpen,
     href: "/admin/courses",
-    change: +5,
   },
   {
     title: "Active Assessments",
     key: "total_assessments",
+    changeKey: "assessments",
     icon: ClipboardList,
     href: "/admin/assessments",
-    change: +8,
   },
 ];
 
 const PIE_COLORS = ["#2563EB", "#3B82F6", "#60A5FA", "#93C5FD"];
 
 export function AdminDashboardClient({ data }: { data: DashboardData }) {
-  const { stats, trendData, recentUsers, activities } = data;
+  const { stats, changes, trendData, recentUsers, activities } = data;
 
   const statDistributionData = [
     { name: "Students", value: stats.total_students },
@@ -119,7 +125,8 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-up stagger-1">
         {statCards.map((card) => {
           const value = stats[card.key as keyof typeof stats];
-          const isPositive = card.change > 0;
+          const changeValue = changes[card.changeKey as keyof typeof changes];
+          const isPositive = changeValue >= 0;
           const Icon = card.icon;
           return (
             <Link key={card.key} href={card.href} className="block h-full">
@@ -140,7 +147,7 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
                     </span>
                     <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${isPositive ? "text-green-600 dark:text-green-500" : "text-destructive"}`}>
                       {isPositive ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-                      {Math.abs(card.change)}%
+                      {Math.abs(changeValue)}%
                     </span>
                   </div>
                 </CardContent>
