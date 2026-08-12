@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FileText, Plus, Search, CheckCircle2, Clock, Eye, Edit, Trash2,
   Award, ArrowLeft, Sparkles
@@ -24,30 +24,27 @@ export interface StudentSubmission {
   feedback?: string;
 }
 
-const initialSubmissions: StudentSubmission[] = [
-  {
-    id: "sub_1",
-    studentName: "Dharunkumar Sengottuvelu",
-    assignmentTitle: "Next.js 16 Server Components Architecture & RLS Security",
-    batch: "Batch 2026-A",
-    submittedAt: "2026-08-05 16:30",
-    status: "graded",
-    gradeScore: 98,
-    feedback: "Exceptional code quality, flawless type safety, and clean RLS integration.",
-  },
-  {
-    id: "sub_2",
-    studentName: "Alex Rivera",
-    assignmentTitle: "Next.js 16 Server Components Architecture & RLS Security",
-    batch: "Batch 2026-A",
-    submittedAt: "2026-08-05 17:15",
-    status: "pending",
-  },
-];
+const initialSubmissions: StudentSubmission[] = [];
+
+import { useLMSStore, StudentSubmissionItem } from "@/lib/store/lms-store";
 
 export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const [submissions, setSubmissions] = useState<StudentSubmission[]>(initialSubmissions);
+  const { assignments: storeSubmissions, updateSubmissions } = useLMSStore();
+  const [submissions, setSubmissions] = useState<StudentSubmission[]>(() => {
+    return storeSubmissions.length > 0 ? (storeSubmissions as unknown as StudentSubmission[]) : initialSubmissions;
+  });
+
+  useEffect(() => {
+    if (storeSubmissions) {
+      setSubmissions(storeSubmissions as unknown as StudentSubmission[]);
+    }
+  }, [storeSubmissions]);
+
+  const syncSubmissionsToStore = (newSubs: StudentSubmission[]) => {
+    setSubmissions(newSubs);
+    updateSubmissions(newSubs as unknown as StudentSubmissionItem[]);
+  };
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -141,12 +138,13 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Cohort Batch</label>
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Student Batch</label>
               <Select value={newBatch} onValueChange={(val) => setNewBatch(val || "Batch 2026-A")}>
                 <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="All Batches">All Batches (Common Assignment)</SelectItem>
                   <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
                   <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
                 </SelectContent>
@@ -294,7 +292,7 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
               <tr>
                 <th className="p-4 pl-6">Student Name</th>
                 <th className="p-4">Assignment Title</th>
-                <th className="p-4">Cohort</th>
+                <th className="p-4">Batch</th>
                 <th className="p-4">Submitted Date</th>
                 <th className="p-4">Grade & Status</th>
                 <th className="p-4 pr-6 text-right">Actions</th>

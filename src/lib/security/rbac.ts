@@ -34,7 +34,7 @@ export type Permission =
   | "candidates:read_analytics"
   // Analytics & Reports
   | "analytics:read_global"
-  | "analytics:read_cohort"
+  | "analytics:read_batch"
   | "analytics:read_self";
 
 const ROLE_PERMISSIONS_MAP: Record<UserRole, Permission[]> = {
@@ -44,7 +44,7 @@ const ROLE_PERMISSIONS_MAP: Record<UserRole, Permission[]> = {
     "tests:create", "tests:read", "tests:update", "tests:delete", "tests:proctor", "tests:attempt",
     "assignments:grade", "assignments:submit", "practices:attempt",
     "candidates:evaluate", "candidates:read_analytics",
-    "analytics:read_global", "analytics:read_cohort", "analytics:read_self",
+    "analytics:read_global", "analytics:read_batch", "analytics:read_self",
   ],
 
   admin: [
@@ -53,7 +53,7 @@ const ROLE_PERMISSIONS_MAP: Record<UserRole, Permission[]> = {
     "tests:create", "tests:read", "tests:update", "tests:delete", "tests:proctor",
     "assignments:grade",
     "candidates:evaluate", "candidates:read_analytics",
-    "analytics:read_global", "analytics:read_cohort",
+    "analytics:read_global", "analytics:read_batch",
   ],
 
   trainer: [
@@ -62,7 +62,7 @@ const ROLE_PERMISSIONS_MAP: Record<UserRole, Permission[]> = {
     "tests:create", "tests:read", "tests:update", "tests:proctor",
     "assignments:grade",
     "candidates:read_analytics",
-    "analytics:read_cohort",
+    "analytics:read_batch",
   ],
 
   student: [
@@ -76,7 +76,7 @@ const ROLE_PERMISSIONS_MAP: Record<UserRole, Permission[]> = {
     "users:read",
     "courses:read",
     "candidates:evaluate", "candidates:read_analytics",
-    "analytics:read_cohort",
+    "analytics:read_batch",
   ],
 };
 

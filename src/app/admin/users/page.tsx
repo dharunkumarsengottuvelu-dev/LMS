@@ -28,12 +28,7 @@ interface SystemUser {
   batch?: string; // For students
 }
 
-const initialUsers: SystemUser[] = [
-  { id: "u1", name: "Dharunkumar Sengottuvelu", email: "dharunkumarsengottuvelu@gmail.com", role: "manager", status: "active", joined: "2026-08-01", department: "Platform Engineering", type: "employee" },
-  { id: "u2", name: "Alex Rivera", email: "alex.rivera@techcorp.com", role: "trainer", status: "active", joined: "2026-07-15", department: "AI & Cognitive Solutions", type: "employee" },
-  { id: "u3", name: "Sarah Chen", email: "sarah.chen@techcorp.com", role: "student", status: "active", joined: "2026-07-20", batch: "Batch 2026-A", type: "student" },
-  { id: "u4", name: "Michael Chang", email: "m.chang@enterprise.com", role: "student", status: "pending", joined: "2026-08-04", batch: "Batch 2026-B", type: "student" },
-];
+const initialUsers: SystemUser[] = [];
 
 export default function AdminUsersPage() {
   const { toast } = useToast();
@@ -206,7 +201,7 @@ export default function AdminUsersPage() {
                 <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
                   <tr>
                     <th className="p-4 pl-6">Student Profile</th>
-                    <th className="p-4">Assigned Cohort</th>
+                    <th className="p-4">Assigned Batch</th>
                     <th className="p-4">Account Status</th>
                     <th className="p-4">Enrollment Date</th>
                     <th className="p-4 pr-6 text-right">Access</th>
@@ -508,7 +503,7 @@ export default function AdminUsersPage() {
               </>
             ) : (
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Cohort Batch</label>
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Student Batch</label>
                 <Select value={newUserBatch} onValueChange={(val) => val && setNewUserBatch(val)}>
                   <SelectTrigger className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl">
                     <SelectValue />

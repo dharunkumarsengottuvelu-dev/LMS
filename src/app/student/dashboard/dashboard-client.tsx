@@ -55,56 +55,9 @@ function StatCard({ icon: Icon, value, label, href, badgeText }: {
   );
 }
 
-const mockEnrolledCourses = [
-  {
-    id: "c1",
-    title: "React 19 & Next.js 16 Enterprise App Router",
-    category: "Frontend Engineering",
-    completedLessons: 14,
-    totalLessons: 20,
-    progressPercentage: 70,
-    nextLesson: "Custom Middleware & Authentication",
-  },
-  {
-    id: "c2",
-    title: "Data Structures & Algorithms Problem Solving Track",
-    category: "Algorithms & Logic",
-    completedLessons: 8,
-    totalLessons: 20,
-    progressPercentage: 40,
-    nextLesson: "Dynamic Programming Memoization",
-  },
-  {
-    id: "c3",
-    title: "Fullstack Cloud Architecture & System Design",
-    category: "System Engineering",
-    completedLessons: 5,
-    totalLessons: 20,
-    progressPercentage: 25,
-    nextLesson: "PostgreSQL Row Level Security Isolation",
-  },
-];
+const mockEnrolledCourses: any[] = [];
 
-const mockUpcomingEvents = [
-  {
-    id: "t1",
-    title: "Mid-Term Proctored Evaluation — Batch 2026-A",
-    type: "Live Examination",
-    duration: "60 Mins",
-    time: "Today at 4:00 PM",
-    badge: "SEB & Fullscreen Lock",
-    href: "/student/tests/t1",
-  },
-  {
-    id: "p1",
-    title: "React 19 Server Components Practice Module",
-    type: "Practice Track",
-    duration: "30 Mins",
-    time: "Due in 2 days",
-    badge: "MCQ & Coding",
-    href: "/student/assessments/tracks/track-1",
-  },
-];
+const mockUpcomingEvents: any[] = [];
 
 import { useLMSStore } from "@/lib/store/lms-store";
 

@@ -13,14 +13,7 @@ import { Badge } from "@/components/ui/badge";
 export function LiveInspectionHub({ examId }: { examId: string }) {
   const [activeTab, setActiveTab] = useState("grid");
 
-  const mockStudents = [
-    { id: "S1", name: "Alex Johnson", status: "Active", warnings: 0, camera: "Live", screen: "Live" },
-    { id: "S2", name: "Maria Garcia", status: "Warning", warnings: 2, camera: "Live", screen: "Tab Switched", log: "Navigated away from test tab." },
-    { id: "S3", name: "Chen Wei", status: "Active", warnings: 0, camera: "Live", screen: "Live" },
-    { id: "S4", name: "Sarah Smith", status: "Suspicious", warnings: 4, camera: "Multiple Faces Detected", screen: "Live", log: "Secondary face detected in frame." },
-    { id: "S5", name: "James Wilson", status: "Active", warnings: 0, camera: "Live", screen: "Live" },
-    { id: "S6", name: "Emily Davis", status: "Offline", warnings: 0, camera: "Disconnected", screen: "Disconnected", log: "Connection lost 2 mins ago." },
-  ];
+  const mockStudents: any[] = [];
 
   const recentLogs = [
     { time: "14:22:10", student: "Sarah Smith", event: "Multiple Faces Detected", type: "critical" },

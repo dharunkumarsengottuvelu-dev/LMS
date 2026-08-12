@@ -22,10 +22,7 @@ interface StudentUser {
   batch: string;
 }
 
-const initialStudents: StudentUser[] = [
-  { id: "u3", name: "Sarah Chen", email: "sarah.chen@techcorp.com", status: "active", joined: "2026-07-20", batch: "Batch 2026-A" },
-  { id: "u4", name: "Michael Chang", email: "m.chang@enterprise.com", status: "pending", joined: "2026-08-04", batch: "Batch 2026-B" },
-];
+const initialStudents: StudentUser[] = [];
 
 export default function TrainerStudentsPage() {
   const { toast } = useToast();
@@ -71,7 +68,7 @@ export default function TrainerStudentsPage() {
     
     toast({
       title: "Student Successfully Added",
-      description: `${newUserName} has been added to the cohort.`,
+      description: `${newUserName} has been added to the batch.`,
     });
   };
 
@@ -114,7 +111,7 @@ export default function TrainerStudentsPage() {
     setUsers(users.filter(u => u.id !== id));
     toast({
       title: "Student Removed",
-      description: `${name} has been removed from the cohort.`,
+      description: `${name} has been removed from the batch.`,
       variant: "destructive"
     });
   };
@@ -126,10 +123,10 @@ export default function TrainerStudentsPage() {
         <div>
           <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA] flex items-center gap-3">
             <Users className="h-8 w-8 text-[#9333EA]" />
-            Cohort Management
+            Student Batch Management
           </h1>
           <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Manage your students, track their cohorts, and provision access
+            Manage your students, track their assigned batches, and provision access
           </p>
         </div>
 
@@ -174,7 +171,7 @@ export default function TrainerStudentsPage() {
             <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
               <tr>
                 <th className="p-4 pl-6">Student Profile</th>
-                <th className="p-4">Assigned Cohort</th>
+                <th className="p-4">Assigned Batch</th>
                 <th className="p-4">Account Status</th>
                 <th className="p-4">Enrollment Date</th>
                 <th className="p-4 pr-6 text-right">Access</th>
@@ -243,7 +240,7 @@ export default function TrainerStudentsPage() {
               {isEditOpen ? "Edit Student Profile" : "Add New Student"}
             </DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
-              {isEditOpen ? "Update details for this student." : "Add a new student to your assigned cohorts."}
+              {isEditOpen ? "Update details for this student." : "Add a new student to your assigned batches."}
             </DialogDescription>
           </DialogHeader>
 

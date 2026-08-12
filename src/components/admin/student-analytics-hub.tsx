@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { useLMSStore, StudentUserRecord } from "@/lib/store/lms-store";
 import {
   Users, Search, Plus, UserCheck, Shield, Trash2, Edit, Eye, Filter,
   Award, AlertTriangle, CheckCircle2, FileText, Code2, Clock, ShieldAlert,
-  GraduationCap, ArrowUpRight, BarChart3, Lock, ShieldCheck, ArrowLeft, Sparkles
+  GraduationCap, ArrowUpRight, BarChart3, Lock, ShieldCheck, ArrowLeft, Sparkles, FolderKanban,
+  Upload, Download, FileSpreadsheet, FileUp, X
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -115,233 +117,392 @@ export interface StudentRecord {
   activityLogs: ActivityLog[];
 }
 
-const mockStudentsList: StudentRecord[] = [
-  {
-    id: "std_101",
-    employeeId: "EMP-2026-9041",
-    name: "Dharunkumar Sengottuvelu",
-    email: "dharunkumarsengottuvelu@gmail.com",
-    batch: "Batch 2026-A",
-    department: "Cloud & Fullstack Engineering",
-    designation: "Associate Software Engineer",
-    techTrack: "Fullstack Enterprise React/Next.js",
-    role: "student",
-    status: "active",
-    avgScore: 92,
-    mcqAccuracy: 95,
-    codingAccuracy: 89,
-    proctoringCompliance: 100,
-    violationCount: 0,
-    joinedDate: "2026-08-01",
-    githubUrl: "https://github.com/dharunkumar",
-    linkedinUrl: "https://linkedin.com/in/dharunkumar",
-    skills: ["React 19", "Next.js 16 App Router", "TypeScript", "PostgreSQL RLS", "Tailwind CSS"],
-    certificationsEarned: ["Enterprise Next.js Architect", "Supabase Security Specialist"],
-    testsTaken: [
-      {
-        testId: "t1",
-        testTitle: "Mid-Term Proctored Evaluation",
-        category: "Proctored Exam",
-        score: 92,
-        completedAt: "2026-08-05 14:30",
-        date: "2026-08-05",
-        dayNumber: 5,
-        violations: 0,
-        status: "Evaluated",
-        answers: [
-          {
-            questionId: "q1",
-            questionText: "What is the primary benefit of React Server Components in Next.js App Router?",
-            studentAnswer: "They allow reducing the client-side JavaScript bundle size by rendering on the server.",
-            correctAnswer: "Reduced client-side JavaScript bundle and direct backend access.",
-            isCorrect: true,
-            marksObtained: 10,
-            maxMarks: 10,
-            feedback: "Excellent understanding."
-          },
-          {
-            questionId: "q2",
-            questionText: "Explain Row Level Security (RLS) in PostgreSQL.",
-            studentAnswer: "RLS secures tables so users can only view rows that belong to them based on a condition.",
-            correctAnswer: "Policies applied to tables to restrict which rows are returned by queries or can be modified.",
-            isCorrect: true,
-            marksObtained: 8,
-            maxMarks: 10,
-            feedback: "Good, but could mention policy syntax."
-          }
-        ]
-      },
-    ],
-    practicesSubmitted: [
-      {
-        practiceId: "p1",
-        title: "Build a Custom Hook",
-        type: "coding",
-        date: "2026-08-04",
-        dayNumber: 4,
-        submittedCode: "function useDebounce(val, delay) { ... }",
-        testCasesPassed: "5/5",
-        score: 100,
-      }
-    ],
-    dailyProgress: [
-      {
-        dayNumber: 1,
-        date: "2026-08-01",
-        topicTitle: "Next.js App Router Fundamentals",
-        status: "Completed",
-        durationSpent: "4h 30m",
-        quizScore: 90
-      },
-      {
-        dayNumber: 2,
-        date: "2026-08-02",
-        topicTitle: "Server Actions & Data Mutations",
-        status: "Completed",
-        durationSpent: "5h 15m",
-        quizScore: 95
-      },
-      {
-        dayNumber: 3,
-        date: "2026-08-03",
-        topicTitle: "Advanced PostgreSQL RLS",
-        status: "Completed",
-        durationSpent: "6h 00m",
-        quizScore: 100
-      },
-      {
-        dayNumber: 4,
-        date: "2026-08-04",
-        topicTitle: "Authentication flows with Supabase",
-        status: "Completed",
-        durationSpent: "3h 45m",
-        quizScore: 85
-      },
-      {
-        dayNumber: 5,
-        date: "2026-08-05",
-        topicTitle: "Mid-Term Evaluation",
-        status: "Completed",
-        durationSpent: "2h 00m"
-      }
-    ],
-    proctoringLogs: [],
-    systemInfo: {
-      os: "macOS 14.5",
-      browser: "Chrome 127.0",
-      ipAddress: "192.168.1.104",
-      lastActive: "Just now",
-      status: "Online",
-      currentPage: "/student/courses/react-enterprise"
-    },
-    activityLogs: [
-      { id: "al_1", timestamp: "2026-08-06 12:45:10", action: "Viewed Course Module", details: "Server Components Deep Dive", type: "course" },
-      { id: "al_2", timestamp: "2026-08-06 12:30:05", action: "Logged In", details: "Successful login from IP 192.168.1.104", type: "login" },
-      { id: "al_3", timestamp: "2026-08-05 16:30:00", action: "Submitted Evaluation", details: "Mid-Term Proctored Evaluation completed with score 92%", type: "test" },
-      { id: "al_4", timestamp: "2026-08-04 14:15:22", action: "Practice Lab Completed", details: "Build a Custom Hook - Score: 100%", type: "practice" }
-    ]
-  },
-  {
-    id: "std_102",
-    employeeId: "EMP-2026-8812",
-    name: "Alex Rivera",
-    email: "alex.rivera@techcorp.com",
-    batch: "Batch 2026-A",
-    department: "AI & Cognitive Solutions",
-    designation: "Junior AI Engineer",
-    techTrack: "LLM Agentic Engineering & PyTorch",
-    role: "student",
-    status: "active",
-    avgScore: 84,
-    mcqAccuracy: 88,
-    codingAccuracy: 80,
-    proctoringCompliance: 95,
-    violationCount: 1,
-    joinedDate: "2026-07-15",
-    skills: ["Python 3.12", "LangChain", "Hugging Face", "PyTorch", "RAG Pipeline"],
-    certificationsEarned: ["AI Agentic Developer Level 1"],
-    testsTaken: [
-      {
-        testId: "t1",
-        testTitle: "Mid-Term Proctored Evaluation",
-        category: "Proctored Exam",
-        score: 84,
-        completedAt: "2026-08-05 15:10",
-        date: "2026-08-05",
-        dayNumber: 5,
-        violations: 1,
-        status: "Evaluated",
-        answers: [
-          {
-            questionId: "q1",
-            questionText: "What is the primary purpose of a Retrieval-Augmented Generation (RAG) pipeline?",
-            studentAnswer: "It allows LLMs to fetch external data before generating an answer, which reduces hallucinations.",
-            correctAnswer: "To ground LLM responses in external, domain-specific knowledge bases to improve accuracy and reduce hallucination.",
-            isCorrect: true,
-            marksObtained: 9,
-            maxMarks: 10,
-            feedback: "Good answer, hits the core points."
-          },
-          {
-            questionId: "q2",
-            questionText: "Explain the difference between a sparse and dense retriever in RAG.",
-            studentAnswer: "Sparse uses keywords like BM25, dense uses embeddings like vector databases.",
-            correctAnswer: "Sparse retrievers rely on exact keyword matches (e.g., TF-IDF, BM25). Dense retrievers use neural embeddings to match semantic meaning.",
-            isCorrect: true,
-            marksObtained: 8,
-            maxMarks: 10,
-            feedback: "Correct, but needs a bit more detail on semantic meaning."
-          }
-        ]
-      },
-    ],
-    practicesSubmitted: [],
-    dailyProgress: [
-      {
-        dayNumber: 1,
-        date: "2026-08-01",
-        topicTitle: "Introduction to LLMs",
-        status: "Completed",
-        durationSpent: "4h 00m",
-        quizScore: 88
-      },
-      {
-        dayNumber: 2,
-        date: "2026-08-02",
-        topicTitle: "RAG Pipelines Basics",
-        status: "Completed",
-        durationSpent: "5h 20m",
-        quizScore: 80
-      }
-    ],
-    proctoringLogs: [
-      { id: "log_1", type: "WINDOW_SWITCH", message: "Browser window lost focus or was minimized", timestamp: "2026-08-05 15:14:02", browser: "Chrome 126.0 (Windows 11)" },
-    ],
-    systemInfo: {
-      os: "Windows 11",
-      browser: "Edge 126.0",
-      ipAddress: "10.0.0.45",
-      lastActive: "15 mins ago",
-      status: "Idle",
-      currentPage: "/student/dashboard"
-    },
-    activityLogs: [
-      { id: "al_5", timestamp: "2026-08-06 12:30:10", action: "Idle timeout", details: "User inactive for 15 minutes", type: "system" },
-      { id: "al_6", timestamp: "2026-08-06 10:15:00", action: "Logged In", details: "Successful login from IP 10.0.0.45", type: "login" }
-    ]
-  }
-];
+
+const mockStudentsList: StudentRecord[] = [];
 
 export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const [students, setStudents] = useState<StudentRecord[]>(mockStudentsList);
+  const { students: storeStudents, updateStudents, batches: storeBatches, addBatch } = useLMSStore();
+  const [students, setStudents] = useState<StudentRecord[]>(() => {
+    return storeStudents.length > 0 ? (storeStudents as unknown as StudentRecord[]) : mockStudentsList;
+  });
+
+  useEffect(() => {
+    if (storeStudents && storeStudents.length > 0) {
+      setStudents(storeStudents as unknown as StudentRecord[]);
+    }
+  }, [storeStudents]);
+
+  const syncStudentsToStore = (newStds: StudentRecord[]) => {
+    setStudents(newStds);
+    updateStudents(newStds as unknown as StudentUserRecord[]);
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
   const [batchFilter, setBatchFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // View State: "list" | "enroll" | "analytics"
+  // Dynamic Batch Options from Store + Presets
+  const availableBatches = useMemo(() => {
+    const names = new Set<string>([
+      "Batch 2026-A",
+      "Batch 2026-B",
+      "Enterprise FastTrack 2026",
+      "Zoho Prep 2026",
+    ]);
+    if (storeBatches) {
+      storeBatches.forEach((b) => names.add(b.batchName));
+    }
+    return Array.from(names);
+  }, [storeBatches]);
+
+  // Filtered Students List
+  const filteredStudents = useMemo(() => {
+    return students.filter((std) => {
+      const matchesSearch =
+        std.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        std.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        std.employeeId.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesBatch = batchFilter === "all" || (std.batch && std.batch.toLowerCase().includes(batchFilter.toLowerCase()));
+      const matchesStatus = statusFilter === "all" || std.status === statusFilter;
+      return matchesSearch && matchesBatch && matchesStatus;
+    });
+  }, [students, searchQuery, batchFilter, statusFilter]);
+
+  const avgTestScore = useMemo(() => {
+    if (filteredStudents.length === 0) return 0;
+    const total = filteredStudents.reduce((acc, s) => acc + (s.avgScore || 0), 0);
+    return Math.round(total / filteredStudents.length);
+  }, [filteredStudents]);
+
+  const avgCompliance = useMemo(() => {
+    if (filteredStudents.length === 0) return 0;
+    const total = filteredStudents.reduce((acc, s) => acc + (s.proctoringCompliance || 0), 0);
+    return Math.round(total / filteredStudents.length);
+  }, [filteredStudents]);
+
+  const flaggedAlertsCount = useMemo(() => {
+    return filteredStudents.filter((s) => s.status === "flagged" || s.violationCount > 0).length;
+  }, [filteredStudents]);
+
   const [viewState, setViewState] = useState<"list" | "enroll" | "analytics">("list");
   const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
+
+  const [isCreateBatchOpen, setIsCreateBatchOpen] = useState(false);
+  const [newBatchTitle, setNewBatchTitle] = useState("");
+  const [newBatchCollege, setNewBatchCollege] = useState("ABC College");
+  const [newBatchTrack, setNewBatchTrack] = useState("Fullstack Enterprise React/Next.js");
+  const [newBatchStartDate, setNewBatchStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [newBatchEndDate, setNewBatchEndDate] = useState(new Date(Date.now() + 120 * 86400000).toISOString().slice(0, 10));
+  const [newBatchSession, setNewBatchSession] = useState("Morning Session (09:00 AM)");
+  const [newBatchTrainer, setNewBatchTrainer] = useState("Dr. Aris Thorne");
+
+  const [isAssignBatchOpen, setIsAssignBatchOpen] = useState(false);
+  const [assignStudentId, setAssignStudentId] = useState("");
+  const [assignTargetBatch, setAssignTargetBatch] = useState("Batch 2026-A");
+  const [assignStudentEmailManual, setAssignStudentEmailManual] = useState("");
+  const [assignStudentNameManual, setAssignStudentNameManual] = useState("");
+
+  const [createBatchMode, setCreateBatchMode] = useState<"manual" | "csv">("manual");
+  const [assignStudentMode, setAssignStudentMode] = useState<"single" | "csv">("single");
+  const [csvParsedStudents, setCsvParsedStudents] = useState<{ name: string; email: string; college?: string; course?: string; batch?: string }[]>([]);
+  const [csvParsedBatches, setCsvParsedBatches] = useState<{ batchName: string; collegeName: string; course: string; startDate: string; endDate: string; joiningTime: string; trainer: string }[]>([]);
+  const [csvFileName, setCsvFileName] = useState<string>("");
+
+  const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+      if (lines.length <= 1) {
+        toast({ title: "Empty CSV File", description: "No student records found in CSV file.", variant: "destructive" });
+        return;
+      }
+
+      const rows = lines.slice(1);
+      const list: { name: string; email: string; college?: string; course?: string; batch?: string }[] = [];
+
+      rows.forEach((row) => {
+        const cols = row.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
+        if (cols.length >= 2 && cols[0] && cols[1]) {
+          list.push({
+            name: cols[0],
+            email: cols[1],
+            college: cols[2] || "ABC College",
+            course: cols[3] || "Fullstack Enterprise React/Next.js",
+            batch: cols[4] || undefined,
+          });
+        }
+      });
+
+      setCsvParsedStudents(list);
+      toast({
+        title: "CSV File Processed",
+        description: `Successfully parsed ${list.length} student records from ${file.name}.`,
+      });
+    };
+    reader.readAsText(file);
+  };
+
+  const handleBatchCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+      if (lines.length <= 1) {
+        toast({ title: "Empty CSV File", description: "No batch records found in CSV file.", variant: "destructive" });
+        return;
+      }
+
+      const rows = lines.slice(1);
+      const list: any[] = [];
+
+      rows.forEach((row) => {
+        const cols = row.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
+        if (cols.length >= 1 && cols[0]) {
+          list.push({
+            batchName: cols[0],
+            collegeName: cols[1] || "ABC College",
+            course: cols[2] || "Fullstack Enterprise React/Next.js",
+            startDate: cols[3] || new Date().toISOString().slice(0, 10),
+            endDate: cols[4] || new Date(Date.now() + 120 * 86400000).toISOString().slice(0, 10),
+            joiningTime: cols[5] || "Morning Session (09:00 AM)",
+            trainer: cols[6] || "Dr. Aris Thorne",
+          });
+        }
+      });
+
+      setCsvParsedBatches(list);
+      toast({
+        title: "CSV Batches Parsed",
+        description: `Successfully loaded ${list.length} batch records from ${file.name}.`,
+      });
+    };
+    reader.readAsText(file);
+  };
+
+  const handleDownloadSampleCsv = () => {
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      "Full Name,Email Address,College Name,Course Track,Batch Name\n" +
+      "Dharunkumar S,dharunkumar@example.com,ABC College,Java Development,Batch 2026-A\n" +
+      "Alex Rivera,alex.rivera@example.com,PSG College of Technology,Fullstack Enterprise React/Next.js,Batch 2026-B\n" +
+      "Priya Sharma,priya.sharma@example.com,IIT Madras,AI/ML Engineering,Batch 2026-C\n";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "edunexus_sample_batch_students.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadBatchSampleCsv = () => {
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      "Batch Name,College Name,Target Tech Track,Start Date,End Date,Joining Session,Lead Trainer\n" +
+      "ABC College ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Java Development ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Batch 01,ABC College,Core Java & Data Structures,2026-08-01,2026-12-31,Morning Session (09:00 AM),Dr. Aris Thorne\n" +
+      "PSG Tech ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ React ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Batch 02,PSG College of Technology,Fullstack Enterprise React/Next.js,2026-09-01,2027-01-31,Afternoon Session (02:00 PM),Dr. Aris Thorne\n";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "edunexus_sample_batches.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCreateBatchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (createBatchMode === "csv") {
+      if (csvParsedBatches.length === 0) {
+        toast({ title: "No CSV Data", description: "Please upload a CSV file with batch records first.", variant: "destructive" });
+        return;
+      }
+      csvParsedBatches.forEach((b) => {
+        addBatch({
+          batchName: b.batchName,
+          collegeName: b.collegeName,
+          course: b.course,
+          startDate: b.startDate,
+          endDate: b.endDate,
+          joiningTime: b.joiningTime,
+          trainer: b.trainer,
+          status: "active",
+        });
+      });
+      toast({
+        title: `âœ… ${csvParsedBatches.length} Batches Created!`,
+        description: `Successfully imported & activated ${csvParsedBatches.length} cohort batches from CSV.`,
+      });
+      setIsCreateBatchOpen(false);
+      setCsvParsedBatches([]);
+      setCsvFileName("");
+      return;
+    }
+
+    if (!newBatchTitle.trim()) {
+      toast({ title: "Batch Name Required", description: "Please enter a name for the new batch.", variant: "destructive" });
+      return;
+    }
+    const trimmed = newBatchTitle.trim();
+    addBatch({
+      batchName: trimmed,
+      collegeName: newBatchCollege || "ABC College",
+      course: newBatchTrack || "Fullstack Enterprise React/Next.js",
+      startDate: newBatchStartDate,
+      endDate: newBatchEndDate,
+      joiningTime: newBatchSession,
+      trainer: newBatchTrainer || "Dr. Aris Thorne",
+      status: "active",
+    });
+    toast({
+      title: `âœ… Batch Created!`,
+      description: `"${trimmed}" is now active and ready for student assignments.`,
+    });
+    setIsCreateBatchOpen(false);
+    setNewBatchTitle("");
+    setCsvFileName("");
+  };
+
+  const handleAssignStudentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (assignStudentMode === "csv") {
+      if (csvParsedStudents.length === 0) {
+        toast({ title: "No CSV Data", description: "Please upload a CSV file with student records first.", variant: "destructive" });
+        return;
+      }
+    }
+
+    if (assignStudentMode === "single" && !assignStudentId && (!assignStudentNameManual.trim() || !assignStudentEmailManual.trim())) {
+      toast({ title: "Student Info Required", description: "Please select a student or enter their name & email.", variant: "destructive" });
+      return;
+    }
+
+    if (assignStudentMode === "csv" && csvParsedStudents.length > 0) {
+      csvParsedStudents.forEach((std) => {
+        if (std.batch && std.batch !== "Not Assigned" && !storeBatches.some((b) => b.batchName.toLowerCase() === std.batch?.toLowerCase())) {
+          addBatch({
+            batchName: std.batch,
+            collegeName: std.college || "Enterprise Academy",
+            course: std.course || "Fullstack Enterprise React/Next.js",
+            startDate: new Date().toISOString().slice(0, 10),
+            endDate: new Date(Date.now() + 120 * 86400000).toISOString().slice(0, 10),
+            joiningTime: "Morning Session (09:00 AM)",
+            trainer: "Dr. Aris Thorne",
+            status: "active",
+          });
+        }
+      });
+
+      const newRecords: StudentRecord[] = csvParsedStudents.map((std, idx) => ({
+        id: `std_csv_${Date.now()}_${idx}`,
+        employeeId: `EMP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        name: std.name,
+        email: std.email,
+        batch: std.batch?.trim() || assignTargetBatch || "Not Assigned",
+        department: std.course || "Computer Science",
+        designation: "Student Learner",
+        techTrack: std.course || "Fullstack Enterprise React/Next.js",
+        role: "student",
+        status: "active",
+        avgScore: 0,
+        mcqAccuracy: 0,
+        codingAccuracy: 0,
+        proctoringCompliance: 100,
+        violationCount: 0,
+        joinedDate: new Date().toISOString().slice(0, 10),
+        skills: ["React", "Next.js", "TypeScript"],
+        certificationsEarned: [],
+        testsTaken: [],
+        practicesSubmitted: [],
+        dailyProgress: [],
+        proctoringLogs: [],
+        systemInfo: { os: "Windows 11", browser: "Chrome", ipAddress: "192.168.1.1", lastActive: "Just now", status: "Online", currentPage: "/student/dashboard" },
+        activityLogs: [],
+      }));
+
+      syncStudentsToStore([...newRecords, ...students]);
+      toast({
+        title: `âœ… ${newRecords.length} Students Enrolled!`,
+        description: `Enrolled ${newRecords.length} students from CSV to their assigned batches.`,
+      });
+
+      setIsAssignBatchOpen(false);
+      setCsvParsedStudents([]);
+      setCsvFileName("");
+      return;
+    }
+
+    if (assignStudentId) {
+      const updated = students.map(s => s.id === assignStudentId ? { ...s, batch: assignTargetBatch } : s);
+      syncStudentsToStore(updated);
+      const matched = students.find(s => s.id === assignStudentId);
+      toast({
+        title: "âœ… Student Assigned!",
+        description: `${matched?.name || "Student"} has been moved to ${assignTargetBatch}.`,
+      });
+    } else if (assignStudentNameManual && assignStudentEmailManual) {
+      const newRecord: StudentRecord = {
+        id: `std_${Date.now()}`,
+        employeeId: `EMP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        name: assignStudentNameManual.trim(),
+        email: assignStudentEmailManual.trim(),
+        batch: assignTargetBatch,
+        department: "Computer Science & Engineering",
+        designation: "Software Engineering Trainee",
+        techTrack: "Fullstack Enterprise React/Next.js",
+        role: "student",
+        status: "active",
+        avgScore: 0,
+        mcqAccuracy: 0,
+        codingAccuracy: 0,
+        proctoringCompliance: 100,
+        violationCount: 0,
+        joinedDate: new Date().toISOString().slice(0, 10),
+        skills: ["React", "Next.js", "TypeScript"],
+        certificationsEarned: [],
+        testsTaken: [],
+        practicesSubmitted: [],
+        dailyProgress: [],
+        proctoringLogs: [],
+        systemInfo: {
+          os: "Windows 11",
+          browser: "Chrome",
+          ipAddress: "192.168.1.1",
+          lastActive: "Just now",
+          status: "Online",
+          currentPage: "/student/dashboard",
+        },
+        activityLogs: [],
+      };
+      syncStudentsToStore([newRecord, ...students]);
+      toast({
+        title: "âœ… Student Added!",
+        description: `${assignStudentNameManual} added to ${assignTargetBatch}.`,
+      });
+    }
+    setIsAssignBatchOpen(false);
+    setAssignStudentId("");
+    setAssignStudentNameManual("");
+    setAssignStudentEmailManual("");
+    setCsvParsedStudents([]);
+    setCsvFileName("");
+  };
 
   const [expandedTests, setExpandedTests] = useState<string[]>([]);
   const toggleTest = (testId: string) => {
@@ -380,15 +541,6 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   const [editingStudent, setEditingStudent] = useState<StudentRecord | null>(null);
   const [editName, setEditName] = useState("");
 
-  const filteredStudents = students.filter((std) => {
-    const matchesSearch =
-      std.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      std.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      std.employeeId.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesBatch = batchFilter === "all" || std.batch.toLowerCase().includes(batchFilter.toLowerCase());
-    const matchesStatus = statusFilter === "all" || std.status === statusFilter;
-    return matchesSearch && matchesBatch && matchesStatus;
-  });
 
   const handleToggleStatus = (studentId: string) => {
     setStudents((prev) =>
@@ -585,7 +737,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
             <div className="space-y-2">
               <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">User Control (Role Access)</label>
               <div className="flex flex-col md:flex-row gap-3">
-                <label className="flex-1 flex items-center justify-between p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl cursor-pointer hover:border-[#2563EB] transition-colors">
+                <label className="flex-1 flex items-center justify-between p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#2563EB]/40 dark:border-[#2563EB]/40 rounded-xl cursor-default">
                   <div>
                     <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">Student Login</p>
                     <p className="text-xs text-[#6B7280]">Standard access to courses and exams</p>
@@ -595,20 +747,8 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                     name="enrollRoleAccess" 
                     value="student" 
                     defaultChecked 
+                    readOnly
                     className="w-4 h-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300"
-                  />
-                </label>
-                
-                <label className="flex-1 flex items-center justify-between p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl cursor-pointer hover:border-[#9333EA] transition-colors">
-                  <div>
-                    <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">Trainer Login</p>
-                    <p className="text-xs text-[#6B7280]">Access to grading and performance analytics</p>
-                  </div>
-                  <input 
-                    type="radio" 
-                    name="enrollRoleAccess" 
-                    value="trainer" 
-                    className="w-4 h-4 text-[#9333EA] focus:ring-[#9333EA] border-gray-300"
                   />
                 </label>
               </div>
@@ -646,7 +786,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
                 {selectedStudent.name} Performance & Security Sheet
               </h1>
-              <p className="text-xs text-[#6B7280]">{selectedStudent.email} • {selectedStudent.batch}</p>
+              <p className="text-xs text-[#6B7280]">{selectedStudent.email} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ {selectedStudent.batch}</p>
             </div>
           </div>
 
@@ -663,7 +803,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                   <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${selectedStudent.systemInfo.status === "Online" ? "bg-[#16A34A]" : selectedStudent.systemInfo.status === "Idle" ? "bg-[#F59E0B]" : "bg-[#6B7280]"}`}></span>
                 </span>
                 <span className="text-[10px] text-[#6B7280] font-semibold">
-                  {selectedStudent.systemInfo.status} • {selectedStudent.systemInfo.os} • {selectedStudent.systemInfo.ipAddress}
+                  {selectedStudent.systemInfo.status} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ {selectedStudent.systemInfo.os} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ {selectedStudent.systemInfo.ipAddress}
                 </span>
               </div>
             )}
@@ -681,7 +821,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               <div>
                 <h3 className="font-bold text-base text-[#111827] dark:text-[#FAFAFA]">{selectedStudent.name}</h3>
                 <p className="text-xs text-[#6B7280]">
-                  <span className="font-mono text-[#2563EB] font-semibold">{selectedStudent.employeeId}</span> • {selectedStudent.designation}
+                  <span className="font-mono text-[#2563EB] font-semibold">{selectedStudent.employeeId}</span> ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ {selectedStudent.designation}
                 </p>
               </div>
             </div>
@@ -1075,20 +1215,278 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div>
           <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            {portalRole === "admin" ? "Enterprise Student Performance & Proctoring Hub" : "Cohort Performance & Proctoring Analytics"}
+            {portalRole === "admin" ? "Enterprise Student Performance & Proctoring Hub" : "Batch Performance & Proctoring Analytics"}
           </h1>
           <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Real-time individual performance metrics, proctoring security logs, MCQ/Coding accuracy, and cohort management
+            Real-time individual performance metrics, proctoring security logs, MCQ/Coding accuracy, and batch management
           </p>
         </div>
 
-        <Button
-          onClick={() => setViewState("enroll")}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20"
-        >
-          <Plus className="h-4 w-4" /> Enroll New Student
-        </Button>
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <Button
+            onClick={() => {
+              setIsCreateBatchOpen(!isCreateBatchOpen);
+              setIsAssignBatchOpen(false);
+            }}
+            variant="outline"
+            className="h-[44px] border-[#2563EB] text-[#2563EB] dark:border-[#3B82F6] dark:text-[#3B82F6] hover:bg-[#2563EB]/10 font-bold gap-2 px-5 rounded-xl shadow-xs"
+          >
+            <FolderKanban className="h-4 w-4" /> Create New Batch
+          </Button>
+
+          <Button
+            onClick={() => {
+              setIsAssignBatchOpen(!isAssignBatchOpen);
+              setIsCreateBatchOpen(false);
+            }}
+            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shadow-md shadow-[#2563EB]/20"
+          >
+            <UserCheck className="h-4 w-4" /> Add Student to Batch
+          </Button>
+        </div>
       </div>
+
+      {/* ── CREATE NEW BATCH ── Inline Panel (renders right below header) ── */}
+      {isCreateBatchOpen && (
+        <Card className="bg-white dark:bg-[#18181B] border border-[#2563EB]/40 dark:border-[#2563EB]/30 rounded-2xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+          <CardContent className="p-6 space-y-5">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-[#2563EB]/10 rounded-xl">
+                  <FolderKanban className="h-5 w-5 text-[#2563EB]" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Create New Batch</p>
+                  <p className="text-[11px] text-[#6B7280]">Define a new student batch or bulk upload via CSV.</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => { setIsCreateBatchOpen(false); setCsvFileName(""); setCsvParsedBatches([]); }}
+                className="p-1.5 rounded-lg text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {/* Mode Switcher */}
+            <div className="grid grid-cols-2 bg-[#F3F4F6] dark:bg-[#09090B] p-1 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] w-fit">
+              <button type="button" onClick={() => setCreateBatchMode("manual")}
+                className={`px-5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${createBatchMode === "manual" ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm" : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"}`}>
+                <Plus className="h-3.5 w-3.5" /> Manual Setup
+              </button>
+              <button type="button" onClick={() => setCreateBatchMode("csv")}
+                className={`px-5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${createBatchMode === "csv" ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm" : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"}`}>
+                <FileSpreadsheet className="h-3.5 w-3.5 text-[#16A34A]" /> Bulk CSV Import
+              </button>
+            </div>
+            {/* Form */}
+            <form onSubmit={handleCreateBatchSubmit}>
+              {createBatchMode === "manual" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Batch Name</label>
+                    <Input placeholder="e.g. ABC College – Java – Batch 01" value={newBatchTitle} onChange={(e) => setNewBatchTitle(e.target.value)} required className="h-[42px] text-xs font-medium rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">College / Institution</label>
+                    <Input placeholder="e.g. PSG Tech" value={newBatchCollege} onChange={(e) => setNewBatchCollege(e.target.value)} required className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Course Track</label>
+                    <Select value={newBatchTrack} onValueChange={(val: string | null) => val && setNewBatchTrack(val)}>
+                      <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue placeholder="Select Track" /></SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-[#18181B]">
+                        <SelectItem value="Fullstack Enterprise React/Next.js">Fullstack React/Next.js</SelectItem>
+                        <SelectItem value="Core Java & Data Structures">Core Java & Data Structures</SelectItem>
+                        <SelectItem value="AI/ML & Python Engineering">AI/ML & Python</SelectItem>
+                        <SelectItem value="Cloud Engineering & DevOps">Cloud & DevOps</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Lead Trainer</label>
+                    <Input placeholder="e.g. Dr. Aris Thorne" value={newBatchTrainer} onChange={(e) => setNewBatchTrainer(e.target.value)} className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Start Date</label>
+                    <Input type="date" value={newBatchStartDate} onChange={(e) => setNewBatchStartDate(e.target.value)} className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">End Date</label>
+                    <Input type="date" value={newBatchEndDate} onChange={(e) => setNewBatchEndDate(e.target.value)} className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Joining Session</label>
+                    <Select value={newBatchSession} onValueChange={(val: string | null) => val && setNewBatchSession(val)}>
+                      <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Morning Session (09:00 AM)">Morning (09:00 AM)</SelectItem>
+                        <SelectItem value="Afternoon Session (02:00 PM)">Afternoon (02:00 PM)</SelectItem>
+                        <SelectItem value="Evening Session (05:00 PM)">Evening (05:00 PM)</SelectItem>
+                        <SelectItem value="Full-Day Bootcamp (09:00 AM - 05:00 PM)">Full-Day Bootcamp</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col md:flex-row gap-5 items-start">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5"><FileSpreadsheet className="h-4 w-4 text-[#16A34A]" /> Upload Batches CSV</h4>
+                        <p className="text-[11px] text-[#6B7280] mt-0.5">Columns: Batch Name, College, Track, Start, End, Session, Trainer</p>
+                      </div>
+                      <Button type="button" variant="outline" size="sm" onClick={handleDownloadBatchSampleCsv} className="h-8 text-[11px] font-bold gap-1 text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10 rounded-xl shrink-0">
+                        <Download className="h-3.5 w-3.5" /> Download Template
+                      </Button>
+                    </div>
+                    <div className="border-2 border-dashed border-[#2563EB]/40 rounded-xl p-5 text-center relative hover:bg-[#2563EB]/5 transition-colors cursor-pointer">
+                      <input type="file" accept=".csv" onChange={handleBatchCsvFileSelect} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                      <Upload className="h-7 w-7 text-[#2563EB] mx-auto mb-1.5 opacity-80" />
+                      <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{csvFileName ? `Selected: ${csvFileName}` : "Click or Drag & Drop Batch CSV File"}</p>
+                      <p className="text-[10px] text-[#6B7280] mt-1">Supports .CSV format for student batches</p>
+                    </div>
+                  </div>
+                  {csvParsedBatches.length > 0 && (
+                    <div className="w-full md:w-64 space-y-2">
+                      <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-xs font-bold px-3 py-1">✓ {csvParsedBatches.length} Batches Detected</Badge>
+                      <div className="max-h-40 overflow-y-auto border border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[11px] divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                        {csvParsedBatches.map((b, i) => (
+                          <div key={i} className="p-2.5"><p className="font-bold text-[#111827] dark:text-[#FAFAFA] truncate">{b.batchName}</p><p className="text-[10px] text-[#6B7280] truncate">{b.collegeName}</p></div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                <Button type="button" variant="outline" onClick={() => { setIsCreateBatchOpen(false); setCsvFileName(""); setCsvParsedBatches([]); }} className="h-[40px] px-5 rounded-xl font-bold text-xs">Cancel</Button>
+                <Button type="submit" className="h-[40px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl font-bold text-xs shadow-md shadow-[#2563EB]/20">
+                  {createBatchMode === "csv" && csvParsedBatches.length > 0 ? `Create ${csvParsedBatches.length} Batches from CSV` : "Create Batch"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── ADD / ASSIGN STUDENT ── Inline Panel (renders right below header) ── */}
+      {isAssignBatchOpen && (
+        <Card className="bg-white dark:bg-[#18181B] border border-[#2563EB]/40 dark:border-[#2563EB]/30 rounded-2xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+          <CardContent className="p-6 space-y-5">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-[#2563EB]/10 rounded-xl"><Users className="h-5 w-5 text-[#2563EB]" /></div>
+                <div>
+                  <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Add / Assign Student to Batch</p>
+                  <p className="text-[11px] text-[#6B7280]">Assign individual students or bulk upload via CSV file.</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => { setIsAssignBatchOpen(false); setCsvFileName(""); setCsvParsedStudents([]); setAssignStudentId(""); }}
+                className="p-1.5 rounded-lg text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {/* Mode Switcher */}
+            <div className="grid grid-cols-2 bg-[#F3F4F6] dark:bg-[#09090B] p-1 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] w-fit">
+              <button type="button" onClick={() => setAssignStudentMode("single")}
+                className={`px-5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${assignStudentMode === "single" ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm" : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"}`}>
+                <UserCheck className="h-3.5 w-3.5" /> Single Learner
+              </button>
+              <button type="button" onClick={() => setAssignStudentMode("csv")}
+                className={`px-5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${assignStudentMode === "csv" ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm" : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"}`}>
+                <FileSpreadsheet className="h-3.5 w-3.5 text-[#16A34A]" /> Bulk CSV Import
+              </button>
+            </div>
+            {/* Form */}
+            <form onSubmit={handleAssignStudentSubmit}>
+              {assignStudentMode === "single" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Student Batch</label>
+                    <Select value={assignTargetBatch} onValueChange={(val: string | null) => val && setAssignTargetBatch(val)}>
+                      <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue placeholder="Select target batch..." /></SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-[#18181B]">
+                        {availableBatches.map((b) => (<SelectItem key={b} value={b}>{b}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {students.length > 0 && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Select Existing Student</label>
+                      <Select value={assignStudentId} onValueChange={(val: string | null) => val && setAssignStudentId(val)}>
+                        <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue placeholder="Choose from directory..." /></SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-[#18181B]">
+                          {students.map((s) => (<SelectItem key={s.id} value={s.id}>{s.name} – {s.batch || "Not Assigned"}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {(!assignStudentId || students.length === 0) && (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Student Full Name</label>
+                        <Input placeholder="e.g. Dharunkumar S" value={assignStudentNameManual} onChange={(e) => setAssignStudentNameManual(e.target.value)} className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Corporate Email</label>
+                        <Input placeholder="e.g. student@college.com" value={assignStudentEmailManual} onChange={(e) => setAssignStudentEmailManual(e.target.value)} className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Student Batch</label>
+                      <Select value={assignTargetBatch} onValueChange={(val: string | null) => val && setAssignTargetBatch(val)}>
+                        <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue placeholder="Select target batch..." /></SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-[#18181B]">
+                          {availableBatches.map((b) => (<SelectItem key={b} value={b}>{b}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5"><FileSpreadsheet className="h-4 w-4 text-[#16A34A]" /> Upload Students CSV</h4>
+                        <p className="text-[11px] text-[#6B7280] mt-0.5">Columns: Full Name, Email, College, Course, Batch Name</p>
+                      </div>
+                      <Button type="button" variant="outline" size="sm" onClick={handleDownloadSampleCsv} className="h-8 text-[11px] font-bold gap-1 text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10 rounded-xl shrink-0">
+                        <Download className="h-3.5 w-3.5" /> Template
+                      </Button>
+                    </div>
+                    <div className="border-2 border-dashed border-[#2563EB]/40 rounded-xl p-5 text-center relative hover:bg-[#2563EB]/5 transition-colors cursor-pointer">
+                      <input type="file" accept=".csv" onChange={handleCsvFileSelect} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                      <Upload className="h-7 w-7 text-[#2563EB] mx-auto mb-1.5 opacity-80" />
+                      <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{csvFileName ? `Selected: ${csvFileName}` : "Click or Drag & Drop CSV File"}</p>
+                      <p className="text-[10px] text-[#6B7280] mt-1">Supports .CSV with optional Batch Name column</p>
+                    </div>
+                  </div>
+                  {csvParsedStudents.length > 0 && (
+                    <div className="space-y-2">
+                      <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-xs font-bold px-3 py-1">✓ {csvParsedStudents.length} Students Parsed</Badge>
+                      <div className="max-h-48 overflow-y-auto border border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[11px] divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                        {csvParsedStudents.map((s, i) => (
+                          <div key={i} className="p-2.5 flex justify-between items-center">
+                            <div><p className="font-bold text-[#111827] dark:text-[#FAFAFA] truncate">{s.name}</p><p className="text-[10px] text-[#6B7280] truncate">{s.email}</p></div>
+                            <Badge variant="outline" className="text-[10px] bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 shrink-0 ml-2">{s.batch || assignTargetBatch || "Auto-Assign"}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                <Button type="button" variant="outline" onClick={() => { setIsAssignBatchOpen(false); setCsvFileName(""); setCsvParsedStudents([]); setAssignStudentId(""); }} className="h-[40px] px-5 rounded-xl font-bold text-xs">Cancel</Button>
+                <Button type="submit" className="h-[40px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl font-bold text-xs shadow-md shadow-[#2563EB]/20">
+                  {assignStudentMode === "csv" && csvParsedStudents.length > 0 ? `Assign ${csvParsedStudents.length} CSV Students to Batch` : "Assign to Student Batch"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPI Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -1101,7 +1499,9 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
           </div>
           <div className="mt-3">
             <span className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">{students.length}</span>
-            <span className="text-xs text-[#16A34A] font-semibold ml-2">100% Active Cohort</span>
+            <span className={`text-xs font-semibold ml-2 ${students.length > 0 ? "text-[#16A34A]" : "text-[#6B7280]"}`}>
+              {students.length > 0 ? "100% Active Students" : "No active students"}
+            </span>
           </div>
         </Card>
 
@@ -1113,8 +1513,12 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">88.5%</span>
-            <span className="text-xs text-[#16A34A] font-semibold ml-2">+4.2% vs last week</span>
+            <span className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">
+              {students.length > 0 ? `${avgTestScore}%` : "0%"}
+            </span>
+            <span className={`text-xs font-semibold ml-2 ${students.length > 0 ? "text-[#16A34A]" : "text-[#6B7280]"}`}>
+              {students.length > 0 ? "Calculated Average" : "No test records"}
+            </span>
           </div>
         </Card>
 
@@ -1126,8 +1530,12 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">96.8%</span>
-            <span className="text-xs text-[#16A34A] font-semibold ml-2">High Trust Rating</span>
+            <span className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">
+              {students.length > 0 ? `${avgCompliance}%` : "0%"}
+            </span>
+            <span className={`text-xs font-semibold ml-2 ${students.length > 0 && avgCompliance >= 90 ? "text-[#16A34A]" : "text-[#6B7280]"}`}>
+              {students.length > 0 && avgCompliance >= 90 ? "High Trust Rating" : students.length > 0 ? "Standard Rating" : "No proctoring logs"}
+            </span>
           </div>
         </Card>
 
@@ -1140,9 +1548,11 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
           </div>
           <div className="mt-3">
             <span className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">
-              {students.filter((s) => s.status === "flagged").length}
+              {flaggedAlertsCount}
             </span>
-            <span className="text-xs text-[#DC2626] font-semibold ml-2">Requires Review</span>
+            <span className={`text-xs font-semibold ml-2 ${flaggedAlertsCount > 0 ? "text-[#DC2626]" : "text-[#6B7280]"}`}>
+              {flaggedAlertsCount > 0 ? "Requires Review" : "All clear"}
+            </span>
           </div>
         </Card>
       </div>
@@ -1164,11 +1574,11 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
             <Select value={batchFilter} onValueChange={(val) => setBatchFilter(val || "all")}>
               <SelectTrigger className="h-[44px] text-xs w-[170px] bg-[#F9FAFB] dark:bg-[#09090B]">
                 <SelectValue>
-                  {batchFilter === "all" ? "Cohort: All Batches" : batchFilter}
+                  {batchFilter === "all" ? "Batch: All Batches" : batchFilter}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Cohort: All Batches</SelectItem>
+                <SelectItem value="all">Batch: All Batches</SelectItem>
                 <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
                 <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
               </SelectContent>
@@ -1198,7 +1608,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
             <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-xs font-bold text-[#6B7280] uppercase tracking-wider">
               <tr>
                 <th className="p-4 pl-6 w-[28%]">Student Details</th>
-                <th className="p-4 w-[15%]">Assigned Cohort</th>
+                <th className="p-4 w-[15%]">Assigned Batch</th>
                 <th className="p-4 w-[15%]">Average Score</th>
                 <th className="p-4 w-[17%]">Proctoring Status</th>
                 <th className="p-4 w-[10%]">Account Status</th>
@@ -1220,7 +1630,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                           <span className="truncate">{std.name}</span>
                           <span className="font-mono text-[10px] text-[#2563EB] font-normal shrink-0">({std.employeeId})</span>
                         </p>
-                        <p className="text-[11px] text-[#6B7280] truncate">{std.email} • <span className="font-medium text-[#111827] dark:text-[#FAFAFA]">{std.designation}</span></p>
+                        <p className="text-[11px] text-[#6B7280] truncate">{std.email} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ <span className="font-medium text-[#111827] dark:text-[#FAFAFA]">{std.designation}</span></p>
                       </div>
                     </div>
                   </td>
@@ -1312,8 +1722,8 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
             <div className="space-y-6 pt-2">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">User Control (Role Access)</label>
-                <div className="flex flex-col gap-3 p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
-                  <label className="flex items-center justify-between cursor-pointer group">
+                <div className="flex flex-col gap-3 p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#2563EB]/40 dark:border-[#2563EB]/40 rounded-xl">
+                  <label className="flex items-center justify-between cursor-default group">
                     <div>
                       <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">Student Login</p>
                       <p className="text-xs text-[#6B7280]">Standard access to courses and exams</p>
@@ -1323,26 +1733,9 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                         type="radio" 
                         name="roleAccess" 
                         value="student" 
-                        defaultChecked={editingStudent?.role === "student" || true}
+                        defaultChecked
+                        readOnly
                         className="w-4 h-4 text-[#2563EB] focus:ring-[#2563EB] border-gray-300"
-                      />
-                    </div>
-                  </label>
-                  
-                  <div className="w-full h-[1px] bg-[#E5E7EB] dark:bg-[#27272A]"></div>
-                  
-                  <label className="flex items-center justify-between cursor-pointer group">
-                    <div>
-                      <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">Trainer Login</p>
-                      <p className="text-xs text-[#6B7280]">Access to grading and performance analytics</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="radio" 
-                        name="roleAccess" 
-                        value="trainer"
-                        defaultChecked={editingStudent?.role === "trainer"}
-                        className="w-4 h-4 text-[#9333EA] focus:ring-[#9333EA] border-gray-300"
                       />
                     </div>
                   </label>

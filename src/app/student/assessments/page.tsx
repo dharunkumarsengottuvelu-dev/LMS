@@ -36,34 +36,7 @@ interface PracticeCourseTrack {
   subModules: SubModuleItem[];
 }
 
-const defaultPracticeTracks: PracticeCourseTrack[] = [
-  {
-    id: "track-1",
-    title: "Data Structures & Algorithmic Problem Solving",
-    category: "Computer Science & Coding",
-    description: "Master Arrays, Strings, Hash Maps, Dynamic Programming, and Recursion with sandboxed Jobe execution evaluation.",
-    thumbnail: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop&q=80",
-    assignedBy: "Admin",
-    assignedByName: "EduNexus Enterprise",
-    subModules: [
-      { id: "sm-1", title: "Two Sum & Hash Maps", type: "coding", duration_minutes: 30, total_marks: 100, question_count: 4, status: "not_started" },
-      { id: "sm-2", title: "String Reversal & Pointers", type: "coding", duration_minutes: 25, total_marks: 100, question_count: 3, status: "not_started" },
-      { id: "sm-3", title: "Dynamic Programming Fibonacci", type: "coding", duration_minutes: 40, total_marks: 100, question_count: 3, status: "not_started" },
-    ]
-  },
-  {
-    id: "track-2",
-    title: "Java Object-Oriented Programming & Logic",
-    category: "Java Engineering",
-    description: "Practice Core Java OOP principles, Scanner I/O streams, Collection frameworks, and algorithmic edge cases.",
-    thumbnail: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
-    assignedBy: "Trainer",
-    assignedByName: "Dr. Aris Thorne",
-    subModules: [
-      { id: "sm-4", title: "Java Input Parsing & Collections", type: "coding", duration_minutes: 45, total_marks: 100, question_count: 5, status: "not_started" },
-    ]
-  }
-];
+const defaultPracticeTracks: PracticeCourseTrack[] = [];
 
 export default function StudentPracticePage() {
   const router = useRouter();

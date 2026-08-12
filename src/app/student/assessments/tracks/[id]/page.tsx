@@ -53,149 +53,7 @@ interface PracticeCourseTrack {
   mainModules: MainModuleItem[];
 }
 
-const mockPracticeTracksData: Record<string, PracticeCourseTrack> = {
-  "track-1": {
-    id: "track-1",
-    title: "React 19 & Next.js 16 Enterprise Masterclass",
-    category: "Frontend Development",
-    description: "Complete hands-on practice suite covering Server Components, App Router Navigation, and Custom Middleware.",
-    assignedBy: "Admin",
-    assignedByName: "Dharunkumar S",
-    mainModules: [
-      {
-        id: "mm1",
-        moduleNumber: 1,
-        title: "Module 1: React 19 Core Architecture & Server Components",
-        description: "Master React 19 Server Components, hydration boundaries, and zero-bundle server logic.",
-        subModules: [
-          {
-            id: "p1-sub1",
-            subModuleNumber: "1.1",
-            title: "Sub-Module 1.1: Server Component Rendering & Hydration",
-            description: "Evaluate your understanding of React 19 Server Components, hydration boundaries, and client component directives.",
-            type: "mcq",
-            duration_minutes: 30,
-            total_marks: 100,
-            question_count: 10,
-            status: "completed",
-            score: 90,
-            proctoring: {
-              enabled: true,
-              webcamTracking: true,
-              tabSwitchLock: true,
-              fullscreenLock: true,
-              safeExamBrowserRequired: true,
-              copyPasteRestricted: true,
-            },
-          },
-          {
-            id: "p1-sub2",
-            subModuleNumber: "1.2",
-            title: "Sub-Module 1.2: Server Actions & Mutating Form Data",
-            description: "Practice invoking server functions directly inside form actions without API endpoint boilerplate.",
-            type: "coding",
-            duration_minutes: 45,
-            total_marks: 120,
-            question_count: 5,
-            status: "in_progress",
-            proctoring: {
-              enabled: true,
-              webcamTracking: true,
-              tabSwitchLock: true,
-              fullscreenLock: true,
-              safeExamBrowserRequired: false,
-              copyPasteRestricted: true,
-            },
-          }
-        ]
-      },
-      {
-        id: "mm2",
-        moduleNumber: 2,
-        title: "Module 2: Custom Middleware & Session Security",
-        description: "Write production Next.js Middleware logic to intercept HTTP request headers and validate authentication session cookies.",
-        subModules: [
-          {
-            id: "p2-sub1",
-            subModuleNumber: "2.1",
-            title: "Sub-Module 2.1: Route Interception & JWT Cookie Validation",
-            description: "Implement middleware logic to restrict access based on student role session tokens.",
-            type: "coding",
-            duration_minutes: 40,
-            total_marks: 150,
-            question_count: 6,
-            status: "not_started",
-            proctoring: {
-              enabled: true,
-              webcamTracking: true,
-              tabSwitchLock: true,
-              fullscreenLock: true,
-              safeExamBrowserRequired: true,
-              copyPasteRestricted: true,
-            },
-          },
-          {
-            id: "p2-sub2",
-            subModuleNumber: "2.2",
-            title: "Sub-Module 2.2: Rate Limiting & Security Headers",
-            description: "Configure custom HTTP response headers and CORS origins inside Edge Middleware.",
-            type: "mcq",
-            duration_minutes: 25,
-            total_marks: 80,
-            question_count: 8,
-            status: "not_started",
-            proctoring: {
-              enabled: true,
-              webcamTracking: true,
-              tabSwitchLock: true,
-              fullscreenLock: true,
-              safeExamBrowserRequired: false,
-              copyPasteRestricted: true,
-            },
-          }
-        ]
-      }
-    ],
-  },
-  "track-2": {
-    id: "track-2",
-    title: "PostgreSQL & Supabase Row Level Security (RLS)",
-    category: "Database & Backend",
-    description: "Hands-on database security track covering RLS policies, foreign keys, and real-time WebSocket subscriptions.",
-    assignedBy: "Trainer",
-    assignedByName: "Dr. Arunkumar (Lead Trainer)",
-    mainModules: [
-      {
-        id: "mm3",
-        moduleNumber: 1,
-        title: "Module 1: Database Normalization & Index Optimization",
-        description: "Analyze 3NF normalization rules and B-Tree indexing strategies for enterprise PostgreSQL tables.",
-        subModules: [
-          {
-            id: "p3-sub1",
-            subModuleNumber: "1.1",
-            title: "Sub-Module 1.1: PostgreSQL Index Tuning & Query Plans",
-            description: "Practice optimizing SQL EXPLAIN ANALYZE execution trees using partial and composite indexes.",
-            type: "mixed",
-            duration_minutes: 60,
-            total_marks: 200,
-            question_count: 12,
-            status: "completed",
-            score: 180,
-            proctoring: {
-              enabled: true,
-              webcamTracking: true,
-              tabSwitchLock: true,
-              fullscreenLock: true,
-              safeExamBrowserRequired: false,
-              copyPasteRestricted: true,
-            },
-          }
-        ]
-      }
-    ],
-  }
-};
+const mockPracticeTracksData: Record<string, PracticeCourseTrack> = {};
 
 export default function StudentTrackDetailPage() {
   const params = useParams();
@@ -203,7 +61,15 @@ export default function StudentTrackDetailPage() {
   const { toast } = useToast();
 
   const trackId = (params?.id as string) || "track-1";
-  const track = mockPracticeTracksData[trackId] ?? mockPracticeTracksData["track-1"]!;
+  const track = mockPracticeTracksData[trackId] ?? mockPracticeTracksData["track-1"] ?? {
+    id: trackId,
+    title: "Practice Track",
+    category: "General",
+    description: "No practice track data available.",
+    assignedBy: "Admin",
+    assignedByName: "System",
+    mainModules: []
+  };
 
   // Flatten all submodules for progress calculation
   const allSubModules = track.mainModules.flatMap((m) => m.subModules);

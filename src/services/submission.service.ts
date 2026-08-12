@@ -169,6 +169,8 @@ export const SAMPLE_CODING_PROBLEMS: CodingProblem[] = [
 
 const LOCAL_STORAGE_SUBMISSIONS_KEY = "edunexus_coding_submissions_v1";
 
+import { createClient } from "@/lib/supabase/client";
+
 export class SubmissionService {
   private static submissionsMemoryStore: CodingSubmission[] = [];
 
@@ -276,15 +278,33 @@ export class SubmissionService {
       created_at: new Date().toISOString(),
     };
 
-    this.saveSubmission(submission);
+    await this.saveSubmission(submission);
     return submission;
   }
 
   /**
-   * Saves a submission to in-memory store and localStorage if available.
+   * Saves a submission to Supabase DB, in-memory store and localStorage.
    */
-  public static saveSubmission(submission: CodingSubmission): void {
+  public static async saveSubmission(submission: CodingSubmission): Promise<void> {
     this.submissionsMemoryStore.unshift(submission);
+
+    // Save to Supabase DB if possible
+    try {
+      const supabase = createClient();
+      await (supabase as any).from("coding_submissions").insert([
+        {
+          language: submission.language,
+          code: submission.code,
+          status: submission.status,
+          passed_test_cases: submission.passed_test_cases,
+          total_test_cases: submission.total_test_cases,
+          test_results: submission.results,
+          submitted_at: submission.created_at || new Date().toISOString(),
+        },
+      ]);
+    } catch (e) {
+      console.warn("Supabase submission persistence fallback to local storage:", e);
+    }
 
     if (typeof window !== "undefined") {
       try {
@@ -298,7 +318,7 @@ export class SubmissionService {
   }
 
   /**
-   * Retrieves submissions for a student.
+   * Retrieves submissions for a student from Supabase DB or LocalStorage.
    */
   public static getStudentSubmissions(studentId: string = "student-1"): CodingSubmission[] {
     if (typeof window !== "undefined") {

@@ -5,3 +5,4 @@ export type { CodingProblem, CodingSubmission, TestCase, TestCaseResult, CodeTem
 export { JUDGE0_LANGUAGE_MAP, LANGUAGE_DISPLAY_NAMES } from "./coding";
 export type { Assignment, AssignmentSubmission, Test, TestAttempt, Certificate, Notification, ActivityLog, AssignmentSubmissionType, TestType, TestStatus, CreateAssignmentInput, SubmitAssignmentInput, GradeAssignmentInput } from "./assignment";
 export type { ApiResponse, PaginatedResponse, PaginationParams, SortParams, SearchParams, FilterParams, QueryParams, SelectOption, TableColumn, StatCard, ChartDataPoint, BreadcrumbItem, NavigationItem, UploadResult, StudentProgress, DashboardStats, LeaderboardEntry } from "./common";
+export type { LMSBatch } from "./batch";

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { CourseService } from "@/services/course.service";
 import {
   BookOpen, Plus, Search, Edit, Trash2, Eye,
   Clock, Users, Sparkles, ArrowLeft, ArrowRight, Layers,
@@ -93,6 +94,37 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [viewState, setViewState] = useState<ViewState>("list");
   const [selectedCourse, setSelectedCourse] = useState<ManagedCourse | null>(null);
+
+  useEffect(() => {
+    async function loadCourses() {
+      try {
+        const dbCourses = await CourseService.getCourses();
+        if (dbCourses && dbCourses.length > 0) {
+          const mapped: ManagedCourse[] = dbCourses.map(c => ({
+            id: c.id,
+            title: c.title,
+            category: c.category?.name || "General",
+            level: c.difficulty === "beginner" ? "Beginner" : c.difficulty === "advanced" ? "Advanced" : "Intermediate",
+            status: c.status === "published" ? "published" : "draft",
+            enrolledStudents: c.enrollment_count || 0,
+            totalLessons: c.modules?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || 0,
+            instructor: c.trainer?.first_name ? `${c.trainer.first_name} ${c.trainer.last_name}` : "Admin",
+            durationHours: c.duration_hours || 0,
+            durationMins: 0,
+            description: c.description || "",
+            thumbnail: c.thumbnail_url || undefined,
+            modules: [],
+            assignedBatches: [],
+            assignedStudents: []
+          }));
+          setCourses(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to fetch courses:", err);
+      }
+    }
+    loadCourses();
+  }, []);
 
   // Assign Modal State
   const [assigningCourse, setAssigningCourse] = useState<ManagedCourse | null>(null);
@@ -304,6 +336,25 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         thumbnail: fThumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
         modules: draftModules,
       };
+
+      const difficultyMap: Record<string, "beginner" | "intermediate" | "advanced"> = {
+        "Beginner": "beginner",
+        "Intermediate": "intermediate",
+        "Advanced": "advanced"
+      };
+
+      CourseService.createCourse({
+        title: created.title,
+        description: created.description,
+        category_id: "00000000-0000-0000-0000-000000000000",
+        difficulty: difficultyMap[created.level] || "beginner",
+        visibility: "public"
+      }).then(dbCourse => {
+        if (dbCourse) {
+           created.id = dbCourse.id;
+        }
+      }).catch(err => console.error("Failed to save to Supabase", err));
+
       setCourses((prev) => [created, ...prev]);
       toast({ title: "Course Published", description: `"${fTitle}" is live.` });
     }

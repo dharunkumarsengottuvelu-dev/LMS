@@ -45,48 +45,7 @@ const allStudents = [
 
 const allBatches = ["Batch 2026-A", "Batch 2026-B"];
 
-const initialModules: CourseModuleItem[] = [
-  {
-    id: "m_1",
-    courseTitle: "Full Stack Next.js 16 & React 19 Enterprise Architecture",
-    title: "Next.js 16 App Router & Server Components Fundamentals",
-    duration: "45 mins",
-    type: "video",
-    sequenceOrder: 1,
-    contentSummary: "Deep dive into React Server Components (RSC), layout nesting, and streaming SSR.",
-    assignedBatches: ["Batch 2026-A"],
-    assignedStudents: ["std_101", "std_102", "std_105"],
-    videoUrl: "https://www.youtube.com/watch?v=example1",
-    notes: "# React Server Components\n\nKey concepts covered:\n- RSC vs Client Components\n- Data fetching patterns\n- Streaming SSR",
-  },
-  {
-    id: "m_2",
-    courseTitle: "Full Stack Next.js 16 & React 19 Enterprise Architecture",
-    title: "Server Actions & Supabase Authentication Integration",
-    duration: "60 mins",
-    type: "video",
-    sequenceOrder: 2,
-    contentSummary: "Implement secure server actions, JWT cookies, and Supabase RLS policies.",
-    assignedBatches: [],
-    assignedStudents: [],
-    videoUrl: "",
-    notes: "",
-  },
-  {
-    id: "m_3",
-    courseTitle: "Full Stack Next.js 16 & React 19 Enterprise Architecture",
-    title: "Monaco Code Editor & Judge0 Code Execution Challenge",
-    duration: "90 mins",
-    type: "coding",
-    sequenceOrder: 3,
-    contentSummary: "Interactive browser coding challenge with automated testcase assertions.",
-    assignedBatches: [],
-    assignedStudents: [],
-    practiceDescription: "Build a function that reverses a string and handles edge cases.",
-    practiceTestCases: "Input: 'hello' → Output: 'olleh'\nInput: '' → Output: ''\nInput: 'a' → Output: 'a'",
-    practiceStarterCode: "function reverseString(s) {\n  // Write your solution here\n  \n}",
-  },
-];
+const initialModules: CourseModuleItem[] = [];
 
 type ViewState = "list" | "create" | "assign";
 
@@ -111,9 +70,26 @@ function SectionCard({
   );
 }
 
+import { useLMSStore, ManagedModuleItem } from "@/lib/store/lms-store";
+import { useEffect } from "react";
+
 export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const [modules, setModules] = useState<CourseModuleItem[]>(initialModules);
+  const { modules: storeModules, updateModules } = useLMSStore();
+  const [modules, setModules] = useState<CourseModuleItem[]>(() => {
+    return storeModules.length > 0 ? (storeModules as unknown as CourseModuleItem[]) : initialModules;
+  });
+
+  useEffect(() => {
+    if (storeModules) {
+      setModules(storeModules as unknown as CourseModuleItem[]);
+    }
+  }, [storeModules]);
+
+  const syncModulesToStore = (newMods: CourseModuleItem[]) => {
+    setModules(newMods);
+    updateModules(newMods as unknown as ManagedModuleItem[]);
+  };
   const [search, setSearch] = useState("");
   const [courseFilter, setCourseFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -603,9 +579,27 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-4">
-            <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
-              <Users className="h-4 w-4 text-[#2563EB]" /> Assign by Cohort Batch
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
+                <Users className="h-4 w-4 text-[#2563EB]" /> Assign by Student Batch
+              </h2>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] font-bold text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10"
+                onClick={() => {
+                  if (selectedBatches.length === allBatches.length) {
+                    setSelectedBatches([]);
+                    setSelectedStudentIds([]);
+                  } else {
+                    setSelectedBatches([...allBatches]);
+                    setSelectedStudentIds(allStudents.map((s) => s.id));
+                  }
+                }}
+              >
+                {selectedBatches.length === allBatches.length ? "Deselect All" : "Select All Batches"}
+              </Button>
+            </div>
             {allBatches.map((batch) => {
               const isSelected = selectedBatches.includes(batch);
               const count = allStudents.filter((s) => s.batch === batch).length;
@@ -713,7 +707,7 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
             {role === "admin" ? "Enterprise Course Modules Directory" : "Curriculum Modules Directory"}
           </h1>
           <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Author and assign course modules to student cohorts
+            Author and assign course modules to student batches
           </p>
         </div>
         <Button onClick={() => { resetForm(); setViewState("create"); }}

@@ -4,22 +4,7 @@ import { Bell, Check, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-const mockNotifications = [
-  {
-    id: "n1",
-    title: "New Assessment Assigned",
-    message: "React 19 & Next.js App Router Evaluation has been assigned to your batch. Due: Aug 15.",
-    time: "2 hours ago",
-    read: false,
-  },
-  {
-    id: "n2",
-    title: "Certificate Issued!",
-    message: "Congratulations! You earned a completion certificate for Enterprise System Design.",
-    time: "3 days ago",
-    read: true,
-  },
-];
+const mockNotifications: any[] = [];
 
 export default function StudentNotificationsPage() {
   return (

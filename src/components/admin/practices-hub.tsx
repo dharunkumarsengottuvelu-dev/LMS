@@ -49,35 +49,7 @@ const allStudents = [
 ];
 const allBatches = ["Batch 2026-A", "Batch 2026-B"];
 
-const initialTracks: PracticeTrack[] = [
-  {
-    id: "track-1",
-    title: "React 19 & Next.js 16 Enterprise Masterclass",
-    category: "Frontend Development",
-    description: "Complete hands-on practice suite covering Server Components, App Router Navigation, and Custom Middleware.",
-    assignedByName: "Dharunkumar S",
-    subModules: [
-      { id: "p1", title: "Module 1: React 19 Server Components Architecture", type: "mcq", durationMinutes: 30, totalMarks: 100, questionCount: 10 },
-      { id: "p1-m2", title: "Module 2: Custom Middleware & JWT Auth Handshake", type: "coding", durationMinutes: 45, totalMarks: 150, questionCount: 2 },
-      { id: "p1-m3", title: "Module 3: Fullstack Server Action & PostgreSQL RLS", type: "mixed", durationMinutes: 60, totalMarks: 200, questionCount: 8 },
-    ],
-    assignedBatches: ["Batch 2026-A"],
-    assignedStudents: ["std_101", "std_102", "std_105"],
-  },
-  {
-    id: "track-2",
-    title: "Data Structures & Algorithms Problem Solving Track",
-    category: "Algorithms & Logic",
-    description: "Master essential algorithmic problem solving with live code execution and test cases.",
-    assignedByName: "Dr. Arunkumar",
-    subModules: [
-      { id: "p2", title: "Module 1: Arrays, Hash Maps & Two Pointer Technique", type: "coding", durationMinutes: 45, totalMarks: 150, questionCount: 3 },
-      { id: "p2-m2", title: "Module 2: Dynamic Programming & Recursion Fundamentals", type: "coding", durationMinutes: 60, totalMarks: 200, questionCount: 4 },
-    ],
-    assignedBatches: [],
-    assignedStudents: [],
-  },
-];
+const initialTracks: PracticeTrack[] = [];
 
 type ViewState = "list" | "create" | "edit" | "detail" | "add-module" | "assign";
 
@@ -495,9 +467,27 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-4">
-            <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
-              <Users className="h-4 w-4 text-[#9333EA]" /> Assign by Cohort Batch
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
+                <Users className="h-4 w-4 text-[#9333EA]" /> Assign by Student Batch
+              </h2>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] font-bold text-[#9333EA] border-[#9333EA]/30 hover:bg-[#9333EA]/10"
+                onClick={() => {
+                  if (selectedBatches.length === allBatches.length) {
+                    setSelectedBatches([]);
+                    setSelectedStudentIds([]);
+                  } else {
+                    setSelectedBatches([...allBatches]);
+                    setSelectedStudentIds(allStudents.map((s) => s.id));
+                  }
+                }}
+              >
+                {selectedBatches.length === allBatches.length ? "Deselect All" : "Select All Batches"}
+              </Button>
+            </div>
             {allBatches.map((batch) => {
               const isSel = selectedBatches.includes(batch);
               const count = allStudents.filter((s) => s.batch === batch).length;
@@ -591,7 +581,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             {role === "admin" ? "Practice Track Management" : "Practice Track Assignments"}
           </h1>
           <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Author practice tracks with MCQ, Coding, and Mixed assessments for student cohorts
+            Author practice tracks with MCQ, Coding, and Mixed assessments for student batches
           </p>
         </div>
         <Button onClick={openCreate}

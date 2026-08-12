@@ -9,7 +9,7 @@ export default function AdminNotificationsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div>
           <h1 className="text-[36px] font-semibold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">System Announcements</h1>
-          <p className="text-[16px] text-[#6B7280] dark:text-[#A1A1AA] mt-1">Broadcast notifications to student cohorts, trainers, or organization-wide</p>
+          <p className="text-[16px] text-[#6B7280] dark:text-[#A1A1AA] mt-1">Broadcast notifications to student batches, trainers, or organization-wide</p>
         </div>
         <Button className="h-[44px] bg-[#2563EB] text-white gap-2"><Plus className="h-4 w-4" /> Broadcast Notification</Button>
       </div>

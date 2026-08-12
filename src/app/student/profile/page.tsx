@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   User, Mail, Phone, Globe, Save, Lock, Shield, Edit3, X,
   BookOpen, CheckCircle2, Award, Calendar, Layers, Key, Code2, Link2,
@@ -18,9 +18,21 @@ import { useToast } from "@/hooks/use-toast";
 import { getInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
+import { useLMSStore } from "@/lib/store/lms-store";
+
 export default function StudentProfilePage() {
   const { profile, user } = useAuth();
   const { toast } = useToast();
+  const { students } = useLMSStore();
+
+  // Find matching student record from store
+  const currentStudent = useMemo(() => {
+    return (
+      students.find((s) => s.email.toLowerCase() === user?.email?.toLowerCase()) ||
+      students[0] ||
+      null
+    );
+  }, [students, user?.email]);
 
   const [activeTab, setActiveTab] = useState<"personal" | "coding" | "security">("personal");
 
@@ -93,12 +105,18 @@ export default function StudentProfilePage() {
     setConfirmPassword("");
   };
 
+  const batchName = currentStudent?.batch && currentStudent.batch !== "Not Assigned" ? currentStudent.batch : "Not Assigned";
+  const collegeVal = currentStudent?.college || "ABC College";
+  const courseVal = currentStudent?.course || "Fullstack Enterprise React/Next.js";
+  const joiningDate = currentStudent?.joinedDate || "2026-08-01";
+  const accountStatus = currentStudent?.status || "active";
+
   return (
     <div className="max-w-[1440px] mx-auto space-y-8 pb-12">
       {/* 1. Page Header */}
       <div className="pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <h1 className="text-[36px] font-semibold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-          Student Profile & Settings
+          Student Profile & Batch Settings
         </h1>
       </div>
 
@@ -118,7 +136,7 @@ export default function StudentProfilePage() {
                 </AvatarFallback>
               </Avatar>
 
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <div className="flex items-center justify-center gap-2">
                   <h2 className="text-[20px] font-bold text-[#111827] dark:text-[#FAFAFA]">
                     {firstName} {lastName}
@@ -128,7 +146,41 @@ export default function StudentProfilePage() {
                   </Badge>
                 </div>
                 <p className="text-xs font-medium text-[#4B5563] dark:text-[#9CA3AF]">{email}</p>
-                <p className="text-xs text-[#6B7280] font-semibold pt-1">Cohort Batch: Fullstack Engineering 2026</p>
+                
+                {/* Cohort Batch Badge */}
+                <div className="pt-1 flex flex-col items-center gap-1.5">
+                  {batchName !== "Not Assigned" ? (
+                    <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-xs font-bold px-3 py-1">
+                      Batch: {batchName}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30 text-xs font-bold px-3 py-1">
+                      Batch: Not Assigned
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Structured Profile Breakdown */}
+              <div className="text-left space-y-2 pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] text-xs text-[#6B7280]">
+                <div className="flex justify-between">
+                  <span>Institution / College:</span>
+                  <strong className="text-[#111827] dark:text-[#FAFAFA]">{collegeVal}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Course Program:</span>
+                  <strong className="text-[#111827] dark:text-[#FAFAFA]">{courseVal}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Joining Date:</span>
+                  <strong className="text-[#111827] dark:text-[#FAFAFA]">{joiningDate}</strong>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Account Status:</span>
+                  <Badge className={`text-[10px] font-bold capitalize ${accountStatus === "active" ? "bg-[#16A34A] text-white" : "bg-[#DC2626] text-white"}`}>
+                    {accountStatus}
+                  </Badge>
+                </div>
               </div>
 
               {/* Stats Summary */}
@@ -148,6 +200,7 @@ export default function StudentProfilePage() {
               </div>
             </CardContent>
           </Card>
+
 
           {/* Navigation Menu Options */}
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2 space-y-1">

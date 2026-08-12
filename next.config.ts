@@ -65,12 +65,16 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Experimental features
+  // Experimental features & compiler performance optimizations
   experimental: {
     optimizePackageImports: [
       "lucide-react",
       "recharts",
       "framer-motion",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-select",
+      "@radix-ui/react-avatar",
+      "@radix-ui/react-[#2563EB]"
     ],
   },
 

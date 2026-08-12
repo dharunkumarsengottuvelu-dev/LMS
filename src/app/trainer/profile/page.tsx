@@ -29,20 +29,20 @@ export default function TrainerProfilePage() {
   const [isEditingExpertise, setIsEditingExpertise] = useState(false);
 
   // Personal Info States
-  const [firstName, setFirstName] = useState(profile?.first_name || "Dr. Arunkumar");
-  const [lastName, setLastName] = useState(profile?.last_name || "Sengottuvelu");
-  const [email] = useState(user?.email || "arunkumar.trainer@edunexus.edu");
-  const [phone, setPhone] = useState("+91 94432 10987");
-  const [designation, setDesignation] = useState("Lead Technical Trainer & Systems Architect");
+  const [firstName, setFirstName] = useState(profile?.first_name || "");
+  const [lastName, setLastName] = useState(profile?.last_name || "");
+  const [email] = useState(user?.email || "");
+  const [phone, setPhone] = useState("");
+  const [designation, setDesignation] = useState("");
   const [bio, setBio] = useState(
-    profile?.bio || "Senior Corporate Instructor with 12+ years of experience training Fortune 500 engineering teams in Next.js 16, Data Structures & Algorithms, System Design, and Cloud DB Architecture."
+    profile?.bio || ""
   );
 
   // Expertise & Social Links States
-  const [specializations, setSpecializations] = useState("Fullstack Engineering, Distributed Systems, DSA, PostgreSQL, Cloud Security");
-  const [github, setGithub] = useState("https://github.com/arunkumar-lead-trainer");
-  const [linkedin, setLinkedin] = useState("https://linkedin.com/in/arunkumar-trainer");
-  const [portfolio, setPortfolio] = useState("https://arunkumar-tech.dev");
+  const [specializations, setSpecializations] = useState("");
+  const [github, setGithub] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const [portfolio, setPortfolio] = useState("");
 
   // Security States
   const [currentPassword, setCurrentPassword] = useState("");
@@ -197,7 +197,7 @@ export default function TrainerProfilePage() {
                 Instructor Details
               </CardTitle>
               <CardDescription className="text-xs text-[#6B7280]">
-                Update your contact details and bio visible to assigned student cohorts
+                Update your contact details and bio visible to assigned student batches
               </CardDescription>
             </div>
 

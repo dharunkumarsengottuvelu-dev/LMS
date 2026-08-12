@@ -60,7 +60,7 @@ const enterprisePillars = [
   },
   {
     title: "Actionable Capability Metrics",
-    desc: "Track student performance, test case pass rates, assignment submission quality, and cohort progress with real-time analytics.",
+    desc: "Track student performance, test case pass rates, assignment submission quality, and batch progress with real-time analytics.",
     icon: BarChart3,
     color: "#16A34A",
     badge: "REAL-TIME METRICS",

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ClipboardList, Plus, Search, ShieldAlert, ShieldCheck, Clock, Users,
@@ -40,48 +40,33 @@ export interface TestQuestion {
   section: string;
 }
 
-const initialTests: ScheduledTest[] = [
-  {
-    id: "t1",
-    title: "Mid-Term Proctored Evaluation",
-    batch: "Batch 2026-A",
-    duration: 60,
-    totalQuestions: 5,
-    maxMarks: 100,
-    status: "live",
-    submissionsCount: 48,
-    totalEnrolled: 50,
-    proctoringFlags: ["12 Camera Rules Face Monitoring", "Tab Switch Security", "Window Blur Detection", "Copy-Paste Lock"],
-    assignedBatches: ["Batch 2026-A"],
-    questions: [
-      { id: "q1", title: "Two Sum Problem", type: "coding", marks: 20, section: "Programming Task" },
-      { id: "q2", title: "Reverse Linked List", type: "coding", marks: 20, section: "Programming Task" },
-    ],
-    sections: ["Programming Task"]
-  },
-  {
-    id: "t2",
-    title: "React 19 & Next.js 16 Coding Assessment",
-    batch: "Batch 2026-B",
-    duration: 90,
-    totalQuestions: 10,
-    maxMarks: 100,
-    status: "scheduled",
-    submissionsCount: 0,
-    totalEnrolled: 45,
-    proctoringFlags: ["Face Monitoring", "Fullscreen Lock", "Judge0 Execution"],
-    assignedBatches: ["Batch 2026-B"],
-    questions: []
-  }
-];
+const initialTests: ScheduledTest[] = [];
 
 const allBatches = ["Batch 2026-A", "Batch 2026-B", "Batch 2026-C", "Enterprise FastTrack"];
 
 type ViewState = "list" | "wizard" | "exam-dashboard" | "add-question";
 
+import { useLMSStore } from "@/lib/store/lms-store";
+import type { Assessment } from "@/types/assessment";
+
 export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const [tests, setTests] = useState<ScheduledTest[]>(initialTests);
+  const { assessments: storeAssessments, updateAssessmentsList } = useLMSStore();
+  const [tests, setTests] = useState<ScheduledTest[]>(() => {
+    return storeAssessments.length > 0 ? (storeAssessments as unknown as ScheduledTest[]) : initialTests;
+  });
+
+  useEffect(() => {
+    if (storeAssessments) {
+      setTests(storeAssessments as unknown as ScheduledTest[]);
+    }
+  }, [storeAssessments]);
+
+  const syncTestsToStore = (newTests: ScheduledTest[]) => {
+    setTests(newTests);
+    updateAssessmentsList(newTests as unknown as Assessment[]);
+  };
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -234,7 +219,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       } : t
     ));
     setAssigningTest(null);
-    toast({ title: "Exam Assigned", description: `Assigned to ${selectedBatches.length} cohorts.` });
+    toast({ title: "Exam Assigned", description: `Assigned to ${selectedBatches.length} batches.` });
   };
 
   const renderAssignmentModal = () => {
@@ -245,7 +230,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
           <div className="p-5 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-between items-center">
             <div>
               <h2 className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Exam</h2>
-              <p className="text-xs text-[#6B7280] mt-0.5">Select cohorts to take "{assigningTest.title}"</p>
+              <p className="text-xs text-[#6B7280] mt-0.5">Select batches to take "{assigningTest.title}"</p>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-[#E5E7EB]" onClick={() => setAssigningTest(null)}>
               X
@@ -253,7 +238,23 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
           </div>
           
           <div className="p-6 space-y-4">
-            <h4 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Select Batches</h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Select Batches</h4>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-bold text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10"
+                onClick={() => {
+                  if (selectedBatches.length === allBatches.length) {
+                    setSelectedBatches([]);
+                  } else {
+                    setSelectedBatches([...allBatches]);
+                  }
+                }}
+              >
+                {selectedBatches.length === allBatches.length ? "Deselect All" : "Select All Batches (Assign to Everyone)"}
+              </Button>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               {allBatches.map(batch => {
                 const isSelected = selectedBatches.includes(batch);
@@ -413,7 +414,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
           </div>
           <div className="flex gap-3">
             <Button variant="outline" className="h-9 font-bold text-xs bg-white dark:bg-[#18181B]" onClick={() => openAssignModal(selectedTest)}>
-              <Users className="h-4 w-4 mr-2" /> Assign to Cohorts
+              <Users className="h-4 w-4 mr-2" /> Assign to Batches
             </Button>
           </div>
         </div>
@@ -711,7 +712,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             {role === "admin" ? "Proctored Examination Manager" : "Assessment & Test Creator"}
           </h1>
           <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Build proctored tests, assign them to cohorts, and monitor live submissions.
+            Build proctored tests, assign them to batches, and monitor live submissions.
           </p>
         </div>
 
@@ -766,7 +767,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-xs font-bold text-[#6B7280] uppercase tracking-wider">
               <tr>
                 <th className="p-4 pl-6">Assessment Title</th>
-                <th className="p-4">Assigned Cohorts</th>
+                <th className="p-4">Assigned Batches</th>
                 <th className="p-4">Duration & Marks</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 pr-6 text-right">Actions</th>
