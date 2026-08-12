@@ -67,7 +67,6 @@ export function AdminTopNav() {
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
-              <Icon className="h-4 w-4" />
               <span>{item.label}</span>
             </Link>
           );
@@ -108,7 +107,6 @@ export function AdminTopNav() {
                         : "text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                   >
-                    <Icon className="h-4 w-4" />
                     <span>{item.label}</span>
                   </Link>
                 );

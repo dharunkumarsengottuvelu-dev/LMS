@@ -9,6 +9,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layouts/page-header";
 
 export function LiveInspectionHub({ examId }: { examId: string }) {
   const [activeTab, setActiveTab] = useState("grid");
@@ -19,49 +20,41 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
 
   return (
     <div className="space-y-6 h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <Link href="/admin/tests">
-            <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl bg-white dark:bg-[#18181B]">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-                Live Proctored Session
-              </h1>
-              <Badge className="bg-[#16A34A] text-white gap-1.5 px-2.5 py-0.5 animate-pulse">
-                <div className="h-2 w-2 rounded-full bg-white"></div> LIVE
-              </Badge>
+      <PageHeader
+        title={
+          <div className="flex items-center gap-3">
+            Live Proctored Session
+            <Badge className="bg-[#16A34A] text-white gap-1.5 px-2.5 py-0.5 animate-pulse text-xs">
+              <div className="h-2 w-2 rounded-full bg-white"></div> LIVE
+            </Badge>
+          </div>
+        }
+        description={`Exam ID: ${examId} • Enterprise AI Proctoring Active`}
+        backAction={{ href: "/admin/tests", label: "Back" }}
+        actions={
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl p-1">
+              <Button 
+                onClick={() => setActiveTab("grid")}
+                variant={activeTab === "grid" ? "default" : "ghost"} 
+                className={`h-8 text-xs font-bold rounded-lg px-3 ${activeTab === "grid" ? "bg-[#111827] dark:bg-white text-white dark:text-[#111827]" : "text-[#6B7280]"}`}
+              >
+                <LayoutDashboard className="h-4 w-4 mr-2" /> Camera Grid
+              </Button>
+              <Button 
+                onClick={() => setActiveTab("logs")}
+                variant={activeTab === "logs" ? "default" : "ghost"} 
+                className={`h-8 text-xs font-bold rounded-lg px-3 ${activeTab === "logs" ? "bg-[#111827] dark:bg-white text-white dark:text-[#111827]" : "text-[#6B7280]"}`}
+              >
+                <Activity className="h-4 w-4 mr-2" /> Live Event Logs
+              </Button>
             </div>
-            <p className="text-xs text-[#6B7280] mt-1">Exam ID: {examId} • Enterprise AI Proctoring Active</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl p-1">
-            <Button 
-              onClick={() => setActiveTab("grid")}
-              variant={activeTab === "grid" ? "default" : "ghost"} 
-              className={`h-8 text-xs font-bold rounded-lg px-3 ${activeTab === "grid" ? "bg-[#111827] dark:bg-white text-white dark:text-[#111827]" : "text-[#6B7280]"}`}
-            >
-              <LayoutDashboard className="h-4 w-4 mr-2" /> Camera Grid
-            </Button>
-            <Button 
-              onClick={() => setActiveTab("logs")}
-              variant={activeTab === "logs" ? "default" : "ghost"} 
-              className={`h-8 text-xs font-bold rounded-lg px-3 ${activeTab === "logs" ? "bg-[#111827] dark:bg-white text-white dark:text-[#111827]" : "text-[#6B7280]"}`}
-            >
-              <Activity className="h-4 w-4 mr-2" /> Live Event Logs
+            <Button variant="destructive" className="h-10 text-xs font-bold rounded-xl gap-2 shadow-sm">
+              <ShieldAlert className="h-4 w-4" /> Halt Exam
             </Button>
           </div>
-          <Button variant="destructive" className="h-10 text-xs font-bold rounded-xl gap-2 shadow-sm">
-            <ShieldAlert className="h-4 w-4" /> Halt Exam
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-0">

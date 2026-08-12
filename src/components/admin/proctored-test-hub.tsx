@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+import { PageHeader } from "@/components/layouts/page-header";
 
 export interface ScheduledTest {
   id: string;
@@ -407,22 +408,16 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   if (viewState === "exam-dashboard" && selectedTest) {
     return (
       <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="flex items-center justify-between pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <div className="flex items-center gap-3">
-            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">{selectedTest.title}</h1>
-              <p className="text-xs text-[#6B7280]">Exam Dashboard • {selectedTest.totalQuestions} Questions • {selectedTest.maxMarks} Marks Total</p>
-            </div>
-          </div>
-          <div className="flex gap-3">
+        <PageHeader
+          title={selectedTest.title}
+          description={`Exam Dashboard • ${selectedTest.totalQuestions} Questions • ${selectedTest.maxMarks} Marks Total`}
+          backAction={{ label: "Back", onClick: () => setViewState("list") }}
+          actions={
             <Button variant="outline" className="h-9 font-bold text-xs bg-white dark:bg-[#18181B]" onClick={() => openAssignModal(selectedTest)}>
               <Users className="h-4 w-4 mr-2" /> Assign to Batches
             </Button>
-          </div>
-        </div>
+          }
+        />
 
         <div className="grid grid-cols-3 gap-6">
           <div className="col-span-2 space-y-4">
@@ -549,15 +544,15 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   if (viewState === "add-question" && selectedTest) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button onClick={() => setViewState("exam-dashboard")} variant="outline" size="sm" className="h-9 font-bold text-xs">
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">Build New Question</h1>
-            <p className="text-xs text-[#6B7280]">Adding question to: {selectedTest.title} {manualQuestionSection && <span className="font-bold text-[#2563EB] ml-2">• Section: {manualQuestionSection}</span>}</p>
-          </div>
-        </div>
+        <PageHeader
+          title="Build New Question"
+          description={
+            <>
+              Adding question to: {selectedTest.title} {manualQuestionSection && <span className="font-bold text-[#2563EB] ml-2">• Section: {manualQuestionSection}</span>}
+            </>
+          }
+          backAction={{ label: "Back", onClick: () => setViewState("exam-dashboard") }}
+        />
 
         <form onSubmit={handleAddQuestion} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm">
@@ -692,20 +687,15 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div>
-          <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            {role === "admin" ? "Proctored Examination Manager" : "Assessment & Test Creator"}
-          </h1>
-          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Build proctored tests, assign them to batches, and monitor live submissions.
-          </p>
-        </div>
-
-        <Button onClick={() => setViewState("wizard")} className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20">
-          <Plus className="h-4 w-4" /> Create New Exam
-        </Button>
-      </div>
+      <PageHeader
+        title={role === "admin" ? "Proctored Examination Manager" : "Assessment & Test Creator"}
+        description="Build proctored tests, assign them to batches, and monitor live submissions."
+        actions={
+          <Button onClick={() => setViewState("wizard")} className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20">
+            <Plus className="h-4 w-4" /> Create New Exam
+          </Button>
+        }
+      />
 
       {/* Premium MNC Level Filter Controls */}
       <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2 rounded-2xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 mb-2">

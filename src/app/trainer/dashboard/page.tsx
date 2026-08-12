@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLMSStore } from "@/lib/store/lms-store";
+import { PageHeader } from "@/components/layouts/page-header";
 
 export default function TrainerDashboardPage() {
   const { batches, students, assessments, assignments } = useLMSStore();
@@ -64,29 +65,24 @@ export default function TrainerDashboardPage() {
   return (
     <div className="space-y-8 animate-fade-up">
       {/* Top Welcome Banner & Batch Filter Dropdown */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-              Trainer Command Center
-            </h1>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            Trainer Command Center
             <Badge className="bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/30 font-bold text-xs">
               Live Trainer View
             </Badge>
-          </div>
-          <p className="text-sm text-[#6B7280] font-medium">
-            Monitor active batch assessments, review proctoring violation logs, and grade assignments
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
+          </span>
+        }
+        description="Monitor active batch assessments, review proctoring violation logs, and grade assignments"
+        actions={
           <Link href="/trainer/assessments">
             <Button className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs px-4 gap-2 rounded-xl shadow-md shadow-[#2563EB]/20">
               <Plus className="h-4 w-4" /> Create Assessment
             </Button>
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* Selected Batch Context Banner */}
       {selectedBatch && (

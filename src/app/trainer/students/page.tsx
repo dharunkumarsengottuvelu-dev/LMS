@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader } from "@/components/layouts/page-header";
 
 type UserStatus = "active" | "pending" | "suspended";
 
@@ -145,33 +147,32 @@ export default function TrainerStudentsPage() {
   return (
     <div className="space-y-8 max-w-[1440px] mx-auto pb-10 mt-[68px] p-6 lg:p-10">
       {/* Top Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div>
-          <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA] flex items-center gap-3">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-3">
             <Users className="h-8 w-8 text-[#9333EA]" />
             Student Batch Management
-          </h1>
-          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Manage your students, track their assigned batches, and provision access
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button 
-            onClick={() => setIsBulkUploadOpen(true)}
-            variant="outline"
-            className="h-[44px] text-[#4B5563] dark:text-[#D4D4D8] font-bold gap-2 px-5 rounded-xl border-[#E5E7EB] dark:border-[#27272A] shadow-sm transition-all"
-          >
-            <FileSpreadsheet className="h-4 w-4" /> Bulk Import
-          </Button>
-          <Button 
-            onClick={() => setIsAddOpen(true)}
-            className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold gap-2 px-5 rounded-xl shadow-md shadow-[#9333EA]/20 transition-all"
-          >
-            <Plus className="h-4 w-4" /> Add Student
-          </Button>
-        </div>
-      </div>
+          </span>
+        }
+        description="Manage your students, track their assigned batches, and provision access"
+        actions={
+          <>
+            <Button 
+              onClick={() => setIsBulkUploadOpen(true)}
+              variant="outline"
+              className="h-[44px] text-[#4B5563] dark:text-[#D4D4D8] font-bold gap-2 px-5 rounded-xl border-[#E5E7EB] dark:border-[#27272A] shadow-sm transition-all"
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Bulk Import
+            </Button>
+            <Button 
+              onClick={() => setIsAddOpen(true)}
+              className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold gap-2 px-5 rounded-xl shadow-md shadow-[#9333EA]/20 transition-all"
+            >
+              <Plus className="h-4 w-4" /> Add Student
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2 bg-[#F9FAFB] dark:bg-[#09090B] p-1.5 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl h-auto">

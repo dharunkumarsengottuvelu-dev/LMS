@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader } from "@/components/layouts/page-header";
 
 export interface TestSubmissionAnswer {
   questionId: string;
@@ -598,22 +599,11 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   if (viewState === "enroll") {
     return (
       <div className="space-y-8 max-w-3xl mx-auto">
-        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button
-            onClick={() => setViewState("list")}
-            variant="outline"
-            size="sm"
-            className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Student Directory
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-              Enterprise Student Onboarding
-            </h1>
-            <p className="text-xs text-[#6B7280]">Configure employee credentials, department, and custom cohort batch</p>
-          </div>
-        </div>
+        <PageHeader
+          title="Enterprise Student Onboarding"
+          description="Configure employee credentials, department, and custom cohort batch"
+          backAction={{ label: "Back to Student Directory", onClick: () => setViewState("list") }}
+        />
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
           <form onSubmit={handleEnrollStudent} className="space-y-6">
@@ -768,43 +758,31 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   if (viewState === "analytics" && selectedStudent) {
     return (
       <div className="space-y-8 max-w-5xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={() => setViewState("list")}
-              variant="outline"
-              size="sm"
-              className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
-            >
-              <ArrowLeft className="h-4 w-4" /> Back to Directory
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-                {selectedStudent.name} Performance & Security Sheet
-              </h1>
-              <p className="text-xs text-[#6B7280]">{selectedStudent.email} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ {selectedStudent.batch}</p>
+        <PageHeader
+          title={`${selectedStudent.name} Performance & Security Sheet`}
+          description={`${selectedStudent.email} • ${selectedStudent.batch}`}
+          backAction={{ label: "Back to Directory", onClick: () => setViewState("list") }}
+          actions={
+            <div className="flex flex-col items-end gap-1">
+              <Badge className={`text-xs font-bold capitalize px-3 py-1 ${selectedStudent.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#DC2626] text-white"}`}>
+                Account: {selectedStudent.status}
+              </Badge>
+              {selectedStudent.systemInfo && (
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="relative flex h-2.5 w-2.5">
+                    {selectedStudent.systemInfo.status === "Online" && (
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#16A34A] opacity-75"></span>
+                    )}
+                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${selectedStudent.systemInfo.status === "Online" ? "bg-[#16A34A]" : selectedStudent.systemInfo.status === "Idle" ? "bg-[#F59E0B]" : "bg-[#6B7280]"}`}></span>
+                  </span>
+                  <span className="text-[10px] text-[#6B7280] font-semibold">
+                    {selectedStudent.systemInfo.status} • {selectedStudent.systemInfo.os} • {selectedStudent.systemInfo.ipAddress}
+                  </span>
+                </div>
+              )}
             </div>
-          </div>
-
-          <div className="flex flex-col items-end gap-1">
-            <Badge className={`text-xs font-bold capitalize px-3 py-1 ${selectedStudent.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#DC2626] text-white"}`}>
-              Account: {selectedStudent.status}
-            </Badge>
-            {selectedStudent.systemInfo && (
-              <div className="flex items-center gap-2 mt-1">
-                <span className="relative flex h-2.5 w-2.5">
-                  {selectedStudent.systemInfo.status === "Online" && (
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#16A34A] opacity-75"></span>
-                  )}
-                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${selectedStudent.systemInfo.status === "Online" ? "bg-[#16A34A]" : selectedStudent.systemInfo.status === "Idle" ? "bg-[#F59E0B]" : "bg-[#6B7280]"}`}></span>
-                </span>
-                <span className="text-[10px] text-[#6B7280] font-semibold">
-                  {selectedStudent.systemInfo.status} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ {selectedStudent.systemInfo.os} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ {selectedStudent.systemInfo.ipAddress}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
+          }
+        />
 
         <Card className="p-6 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
@@ -1208,39 +1186,33 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   return (
     <div className="space-y-8">
       {/* Top Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div>
-          <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            {portalRole === "admin" ? "Enterprise Student Performance & Proctoring Hub" : "Batch Performance & Proctoring Analytics"}
-          </h1>
-          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Real-time individual performance metrics, proctoring security logs, MCQ/Coding accuracy, and batch management
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0 flex-wrap">
-          <Button
-            onClick={() => {
-              setIsCreateBatchOpen(!isCreateBatchOpen);
-              setIsAssignBatchOpen(false);
-            }}
-            variant="outline"
-            className="h-[44px] border-[#2563EB] text-[#2563EB] dark:border-[#3B82F6] dark:text-[#3B82F6] hover:bg-[#2563EB]/10 font-bold gap-2 px-5 rounded-xl shadow-xs"
-          >
-            <FolderKanban className="h-4 w-4" /> Create New Batch
-          </Button>
-
-          <Button
-            onClick={() => {
-              setIsAssignBatchOpen(!isAssignBatchOpen);
-              setIsCreateBatchOpen(false);
-            }}
-            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shadow-md shadow-[#2563EB]/20"
-          >
-            <UserCheck className="h-4 w-4" /> Add Student to Batch
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={portalRole === "admin" ? "Enterprise Student Performance & Proctoring Hub" : "Batch Performance & Proctoring Analytics"}
+        description="Real-time individual performance metrics, proctoring security logs, MCQ/Coding accuracy, and batch management"
+        actions={
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <Button
+              onClick={() => {
+                setIsCreateBatchOpen(!isCreateBatchOpen);
+                setIsAssignBatchOpen(false);
+              }}
+              variant="outline"
+              className="h-[44px] border-[#2563EB] text-[#2563EB] dark:border-[#3B82F6] dark:text-[#3B82F6] hover:bg-[#2563EB]/10 font-bold gap-2 px-5 rounded-xl shadow-xs"
+            >
+              <FolderKanban className="h-4 w-4" /> Create New Batch
+            </Button>
+            <Button
+              onClick={() => {
+                setIsAssignBatchOpen(!isAssignBatchOpen);
+                setIsCreateBatchOpen(false);
+              }}
+              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shadow-md shadow-[#2563EB]/20"
+            >
+              <UserCheck className="h-4 w-4" /> Add Student to Batch
+            </Button>
+          </div>
+        }
+      />
 
       {/* ── CREATE NEW BATCH ── Inline Panel (renders right below header) ── */}
       {isCreateBatchOpen && (

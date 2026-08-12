@@ -15,7 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+import { QuizMcqCreator } from "@/components/admin/quiz-mcq-creator";
 import { useLMSStore, ManagedModuleItem } from "@/lib/store/lms-store";
+import { PageHeader } from "@/components/layouts/page-header";
 
 // ─── Types ─────────────────────────────────────────────────
 export interface CourseModuleItem {
@@ -108,6 +110,8 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [videoUrl, setVideoUrl]   = useState("");
   const [videoNotes, setVideoNotes] = useState("");
   const [readingContent, setReadingContent] = useState("");
+  const [readingFile, setReadingFile] = useState<File | null>(null);
+  const [readingType, setReadingType] = useState<"text" | "pdf">("text");
 
   const [practiceDesc, setPracticeDesc]         = useState("");
   const [practiceTestCases, setPracticeTestCases] = useState("");
@@ -160,6 +164,8 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setNewType("video");
     setVideoUrl(""); setVideoNotes("");
     setReadingContent("");
+    setReadingFile(null);
+    setReadingType("text");
     setPracticeDesc(""); setPracticeTestCases(""); setPracticeStarter("");
     setQuizQuestions("");
   };
@@ -262,18 +268,11 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
   if (viewState === "create") {
     return (
       <div className="space-y-8 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button onClick={() => { resetForm(); setViewState("list"); }} variant="outline" size="sm"
-            className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
-            <ArrowLeft className="h-4 w-4" /> Back to Modules Directory
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-              Author New Module / Lesson
-            </h1>
-            <p className="text-xs text-[#6B7280]">Add video URL, lesson notes, or practice exercises</p>
-          </div>
-        </div>
+        <PageHeader
+          title="Author New Module / Lesson"
+          description="Add video URL, lesson notes, or practice exercises"
+          backAction={{ label: "Back to Modules Directory", onClick: () => { resetForm(); setViewState("list"); } }}
+        />
 
         <form onSubmit={handleCreateModule} className="space-y-6">
 
@@ -438,10 +437,23 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
               title="Reading Material Content"
               color="border-[#16A34A]/20 bg-[#16A34A]/5 dark:bg-[#16A34A]/10"
             >
-              <div className="space-y-2">
+              <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                  <PenLine className="h-3.5 w-3.5 text-[#16A34A]" /> Article Content
+                  <PenLine className="h-3.5 w-3.5 text-[#16A34A]" /> Article Document
                 </label>
+                <div className="flex items-center gap-1 p-1 bg-[#16A34A]/10 rounded-lg">
+                  <button type="button" onClick={() => setReadingType("text")}
+                    className={`px-3 py-1 text-[10px] font-bold rounded-md transition-colors ${readingType === "text" ? "bg-white dark:bg-[#27272A] text-[#16A34A] shadow-sm" : "text-[#16A34A]/70 hover:text-[#16A34A]"}`}>
+                    Write Text
+                  </button>
+                  <button type="button" onClick={() => setReadingType("pdf")}
+                    className={`px-3 py-1 text-[10px] font-bold rounded-md transition-colors ${readingType === "pdf" ? "bg-white dark:bg-[#27272A] text-[#16A34A] shadow-sm" : "text-[#16A34A]/70 hover:text-[#16A34A]"}`}>
+                    Upload File
+                  </button>
+                </div>
+              </div>
+
+              {readingType === "text" ? (
                 <Textarea
                   placeholder={"# Topic Title\nWrite content here..."}
                   value={readingContent}
@@ -449,7 +461,28 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   rows={14}
                   className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
                 />
-              </div>
+              ) : (
+                <div className="flex items-center justify-center border-2 border-dashed border-[#16A34A]/30 rounded-xl p-8 bg-white dark:bg-[#09090B] hover:bg-[#16A34A]/5 transition-colors group cursor-pointer relative overflow-hidden">
+                  <label htmlFor="reading-pdf-wizard-module" className="cursor-pointer w-full flex flex-col items-center justify-center">
+                    {readingFile ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <FileText className="h-8 w-8 text-[#16A34A]" />
+                        <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{readingFile.name}</p>
+                        <p className="text-[10px] text-[#6B7280]">{(readingFile.size / 1024).toFixed(1)} KB — click to replace</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2">
+                        <HardDrive className="h-8 w-8 text-[#16A34A]/50" />
+                        <p className="text-xs font-semibold text-[#6B7280]">Click to upload Document file</p>
+                        <p className="text-[10px] text-[#9CA3AF]">PDF, DOC, DOCX, PPT — max 20MB</p>
+                      </div>
+                    )}
+                  </label>
+                  <input id="reading-pdf-wizard-module" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx"
+                    className="sr-only"
+                    onChange={(e) => setReadingFile(e.target.files?.[0] ?? null)} />
+                </div>
+              )}
             </SectionCard>
           )}
 
@@ -482,14 +515,7 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
               color="border-[#D97706]/20 bg-[#D97706]/5 dark:bg-[#D97706]/10"
             >
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Quiz Items</label>
-                <Textarea
-                  placeholder={"Q1. Question?\nA) Option 1\nB) Option 2 (Correct)"}
-                  value={quizQuestions}
-                  onChange={(e) => setQuizQuestions(e.target.value)}
-                  rows={12}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-                />
+                <QuizMcqCreator value={quizQuestions} onChange={setQuizQuestions} />
               </div>
             </SectionCard>
           )}
@@ -519,26 +545,21 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
     return (
       <div className="space-y-8 max-w-5xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <div className="flex items-start gap-3">
-            <Button onClick={() => setViewState("list")} variant="outline" size="sm"
-              className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A] mt-0.5 shrink-0">
-              <ArrowLeft className="h-4 w-4" /> Back
+        <PageHeader
+          title="Assign Module as Practice Track"
+          description={
+            <>
+              Assigning <span className="font-semibold text-[#2563EB]">&quot;{selectedModule.title}&quot;</span> to students
+            </>
+          }
+          backAction={{ label: "Back", onClick: () => setViewState("list") }}
+          actions={
+            <Button onClick={handleSaveAssignment}
+              className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm shrink-0">
+              <CheckCircle2 className="h-4 w-4" /> Save Assignment ({selectedStudentIds.length})
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-                Assign Module as Practice Track
-              </h1>
-              <p className="text-xs text-[#6B7280] mt-0.5">
-                Assigning <span className="font-semibold text-[#2563EB]">"{selectedModule.title}"</span> to students
-              </p>
-            </div>
-          </div>
-          <Button onClick={handleSaveAssignment}
-            className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm shrink-0">
-            <CheckCircle2 className="h-4 w-4" /> Save Assignment ({selectedStudentIds.length})
-          </Button>
-        </div>
+          }
+        />
 
         <Card className="bg-[#2563EB]/5 border border-[#2563EB]/20 dark:bg-[#2563EB]/10 p-5 rounded-xl">
           <div className="flex items-center gap-4">
@@ -681,20 +702,16 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
   // VIEW: LIST MODULES
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div>
-          <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            {role === "admin" ? "Enterprise Course Modules Directory" : "Curriculum Modules Directory"}
-          </h1>
-          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Author and assign course modules to student batches
-          </p>
-        </div>
-        <Button onClick={() => { resetForm(); setViewState("create"); }}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm">
-          <Plus className="h-4 w-4" /> Author New Module
-        </Button>
-      </div>
+      <PageHeader
+        title={role === "admin" ? "Enterprise Course Modules Directory" : "Curriculum Modules Directory"}
+        description="Author and assign course modules to student batches"
+        actions={
+          <Button onClick={() => { resetForm(); setViewState("create"); }}
+            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm">
+            <Plus className="h-4 w-4" /> Author New Module
+          </Button>
+        }
+      />
 
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">

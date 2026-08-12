@@ -31,6 +31,14 @@ export function StudentTopNav() {
   const { theme, setTheme } = useTheme();
   const { profile, user, signOut } = useAuth();
 
+  const emailStr = user?.email || "";
+  const emailParts = (emailStr.split("@")[0] || "").split(/[\.\-_]/);
+  const defaultFirstName = emailParts[0] ? emailParts[0].charAt(0).toUpperCase() + emailParts[0].slice(1) : "Student";
+  const defaultLastName = emailParts.length > 1 && emailParts[1] ? emailParts[1].charAt(0).toUpperCase() : "";
+  const displayName = profile?.full_name && profile.full_name !== "User" && profile.full_name !== "Student User" 
+    ? profile.full_name 
+    : `${defaultFirstName} ${defaultLastName}`.trim();
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 sm:px-6 lg:px-10 transition-colors duration-200">
       {/* Brand Logo */}
@@ -43,9 +51,6 @@ export function StudentTopNav() {
             <span className="font-bold text-base tracking-tight text-foreground">
               EduNexus
             </span>
-            <Badge variant="outline" className="hidden sm:inline-flex bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0.5">
-              STUDENT
-            </Badge>
           </div>
         </Link>
       </div>
@@ -67,7 +72,6 @@ export function StudentTopNav() {
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
-              <Icon className="h-4 w-4" />
               <span>{item.label}</span>
             </Link>
           );
@@ -98,7 +102,6 @@ export function StudentTopNav() {
                   E
                 </div>
                 <span className="font-bold text-base text-foreground">EduNexus</span>
-                <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20">STUDENT</Badge>
               </SheetTitle>
             </SheetHeader>
 
@@ -117,7 +120,6 @@ export function StudentTopNav() {
                         : "text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                   >
-                    <Icon className="h-4 w-4" />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -132,18 +134,18 @@ export function StudentTopNav() {
             <Avatar className="h-9 w-9">
               <AvatarImage src={profile?.avatar_url ?? undefined} />
               <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                {getInitials(profile?.full_name ?? "Student User")}
+                {getInitials(displayName)}
               </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 bg-popover border-border p-1 rounded-xl shadow-modal">
             <DropdownMenuLabel className="font-normal p-3">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-semibold text-foreground">
-                  {profile?.full_name ?? "Student User"}
+                <p className="text-sm font-semibold text-foreground break-all">
+                  {displayName}
                 </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {user?.email || "student@edunexus.edu"}
+                <p className="text-[11px] text-muted-foreground break-all uppercase font-medium tracking-wider">
+                  {user?.email ? `@${user.email.split('@')[0]}` : "@student"}
                 </p>
               </div>
             </DropdownMenuLabel>

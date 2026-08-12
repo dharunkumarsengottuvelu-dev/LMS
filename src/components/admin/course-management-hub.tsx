@@ -18,7 +18,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+import { QuizMcqCreator } from "@/components/admin/quiz-mcq-creator";
 import { useLMSStore } from "@/lib/store/lms-store";
+import { PageHeader } from "@/components/layouts/page-header";
 
 // ─── Module Rich Item ──────────────────────────────────────
 export interface CourseSyllabusModule {
@@ -193,6 +195,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [modNotesFile, setModNotesFile] = useState<File | null>(null);
   const [modNotesType, setModNotesType] = useState<"text" | "pdf">("text");
   const [modReading, setModReading]     = useState("");
+  const [modReadingFile, setModReadingFile] = useState<File | null>(null);
+  const [modReadingType, setModReadingType] = useState<"text" | "pdf">("text");
   const [modDesc, setModDesc]           = useState("");
   const [modTestCases, setModTestCases] = useState("");
   const [modStarter, setModStarter]     = useState("");
@@ -246,6 +250,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setModNotesFile(null);
     setModNotesType("text");
     setModReading("");
+    setModReadingFile(null);
+    setModReadingType("text");
     setModDesc("");
     setModTestCases("");
     setModStarter("");
@@ -483,19 +489,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     return (
       <div className="space-y-8 max-w-4xl mx-auto pb-12">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <div className="flex items-center gap-3">
-            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
-              <ArrowLeft className="h-4 w-4" /> Exit Authoring
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-                {editingCourseId ? "Course Configuration Wizard" : "Enterprise Course Creation Wizard"}
-              </h1>
-              <p className="text-xs text-[#6B7280]">Structured multi-step curriculum authoring</p>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title={editingCourseId ? "Course Configuration Wizard" : "Enterprise Course Creation Wizard"}
+          description="Structured multi-step curriculum authoring"
+          backAction={{ label: "Exit Authoring", onClick: () => setViewState("list") }}
+        />
 
         {/* STEP PROGRESS INDICATOR */}
         <div className="grid grid-cols-3 gap-3">
@@ -945,11 +943,45 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
                   {modType === "reading" && (
                     <div className="p-5 rounded-xl border border-[#16A34A]/20 bg-[#16A34A]/5 space-y-4">
-                      <div className="space-y-2">
+                      <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Full Article Document</label>
+                        <div className="flex items-center gap-1 p-1 bg-[#16A34A]/10 rounded-lg">
+                          <button type="button" onClick={() => setModReadingType("text")}
+                            className={`px-3 py-1 text-[10px] font-bold rounded-md transition-colors ${modReadingType === "text" ? "bg-white dark:bg-[#27272A] text-[#16A34A] shadow-sm" : "text-[#16A34A]/70 hover:text-[#16A34A]"}`}>
+                            Write Text
+                          </button>
+                          <button type="button" onClick={() => setModReadingType("pdf")}
+                            className={`px-3 py-1 text-[10px] font-bold rounded-md transition-colors ${modReadingType === "pdf" ? "bg-white dark:bg-[#27272A] text-[#16A34A] shadow-sm" : "text-[#16A34A]/70 hover:text-[#16A34A]"}`}>
+                            Upload File
+                          </button>
+                        </div>
+                      </div>
+
+                      {modReadingType === "text" ? (
                         <Textarea placeholder="# Reading Document Content..." value={modReading} onChange={(e) => setModReading(e.target.value)} rows={8}
                           className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
-                      </div>
+                      ) : (
+                        <div className="flex items-center justify-center border-2 border-dashed border-[#16A34A]/30 rounded-xl p-8 bg-white dark:bg-[#09090B] hover:bg-[#16A34A]/5 transition-colors group cursor-pointer relative overflow-hidden">
+                          <label htmlFor="reading-pdf-wizard" className="cursor-pointer w-full flex flex-col items-center justify-center">
+                            {modReadingFile ? (
+                              <div className="flex flex-col items-center gap-2">
+                                <FileText className="h-8 w-8 text-[#16A34A]" />
+                                <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{modReadingFile.name}</p>
+                                <p className="text-[10px] text-[#6B7280]">{(modReadingFile.size / 1024).toFixed(1)} KB — click to replace</p>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2">
+                                <UploadCloud className="h-8 w-8 text-[#16A34A]/50" />
+                                <p className="text-xs font-semibold text-[#6B7280]">Click to upload Document file</p>
+                                <p className="text-[10px] text-[#9CA3AF]">PDF, DOC, DOCX, PPT — max 20MB</p>
+                              </div>
+                            )}
+                          </label>
+                          <input id="reading-pdf-wizard" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx"
+                            className="sr-only"
+                            onChange={(e) => setModReadingFile(e.target.files?.[0] ?? null)} />
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -973,11 +1005,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   )}
 
                   {((modType as string) === "quiz" || (modType as string) === "mixed") && (
-                    <div className="p-5 rounded-xl border border-[#D97706]/20 bg-[#D97706]/5 space-y-4">
+                    <div className="p-6 rounded-2xl border border-[#D97706]/20 bg-[#D97706]/5 space-y-6">
+                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#D97706]">
+                        <ListChecks className="h-4 w-4" /> Quiz / MCQ Specifications
+                      </div>
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Quiz MCQ Items</label>
-                        <Textarea placeholder={"Q1. Question?\nA) Option 1\nB) Option 2 (Correct)"} value={modQuiz} onChange={(e) => setModQuiz(e.target.value)} rows={6}
-                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+                        <QuizMcqCreator value={modQuiz} onChange={setModQuiz} />
                       </div>
                     </div>
                   )}
@@ -1070,21 +1104,17 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   // ════════════════════════════════════════════════════════════
   if (viewState === "syllabus" && selectedCourse) return (
     <div className="space-y-8 max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div className="flex items-center gap-3">
-          <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
-            <ArrowLeft className="h-4 w-4" /> Back to Courses
+      <PageHeader
+        title={selectedCourse.title}
+        description={`${selectedCourse.category} • ${selectedCourse.level} • Instructor: ${selectedCourse.instructor}`}
+        backAction={{ label: "Back to Courses", onClick: () => setViewState("list") }}
+        actions={
+          <Button onClick={openAddModuleFromSyllabus}
+            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs gap-2 px-5 rounded-xl shrink-0 shadow-sm">
+            <Plus className="h-4 w-4" /> Add Module
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">{selectedCourse.title}</h1>
-            <p className="text-xs text-[#6B7280]">{selectedCourse.category} • {selectedCourse.level} • Instructor: {selectedCourse.instructor}</p>
-          </div>
-        </div>
-        <Button onClick={openAddModuleFromSyllabus}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs gap-2 px-5 rounded-xl shrink-0 shadow-sm">
-          <Plus className="h-4 w-4" /> Add Module
-        </Button>
-      </div>
+        }
+      />
 
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-4">
         <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
@@ -1161,17 +1191,11 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     const isEditMod = viewState === "edit-module";
     return (
       <div className="space-y-8 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button onClick={() => setViewState("syllabus")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
-            <ArrowLeft className="h-4 w-4" /> Back to Syllabus
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-              {isEditMod ? "Edit Lesson Content" : "Author New Lesson"}
-            </h1>
-            <p className="text-xs text-[#6B7280]">{selectedCourse.title}</p>
-          </div>
-        </div>
+        <PageHeader
+          title={isEditMod ? "Edit Lesson Content" : "Author New Lesson"}
+          description={selectedCourse.title}
+          backAction={{ label: "Back to Syllabus", onClick: () => setViewState("syllabus") }}
+        />
 
         <form onSubmit={handleSaveModuleInSyllabus} className="space-y-6">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-5">
@@ -1364,11 +1388,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           )}
 
           {modType === "quiz" && (
-            <Card className="p-6 rounded-2xl border border-[#D97706]/20 bg-[#D97706]/5 space-y-5">
+            <Card className="p-6 rounded-2xl border border-[#D97706]/20 bg-[#D97706]/5 space-y-6">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#D97706]">
+                <ListChecks className="h-4 w-4" /> Quiz / MCQ Specifications
+              </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Quiz MCQ Items</label>
-                <Textarea placeholder={"Q1. Question?\nA) Option 1\nB) Option 2 (Correct)"} value={modQuiz} onChange={(e) => setModQuiz(e.target.value)} rows={8}
-                  className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+                <QuizMcqCreator value={modQuiz} onChange={setModQuiz} />
               </div>
             </Card>
           )}
@@ -1389,20 +1415,16 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   // ════════════════════════════════════════════════════════════
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div>
-          <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            {role === "admin" ? "Enterprise Course & Curriculum Management" : "Assigned Training Courses"}
-          </h1>
-          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Author courses with step-by-step wizard (Course Info → Curriculum Modules → Review & Deploy)
-          </p>
-        </div>
-        <Button onClick={openCreateWizard}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm">
-          <Plus className="h-4 w-4" /> Author New Course
-        </Button>
-      </div>
+      <PageHeader
+        title={role === "admin" ? "Enterprise Course & Curriculum Management" : "Assigned Training Courses"}
+        description="Author courses with step-by-step wizard (Course Info → Curriculum Modules → Review & Deploy)"
+        actions={
+          <Button onClick={openCreateWizard}
+            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm">
+            <Plus className="h-4 w-4" /> Author New Course
+          </Button>
+        }
+      />
 
       {/* Filter Bar */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2 rounded-xl shadow-sm">

@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLMSStore } from "@/lib/store/lms-store";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
 import type { PracticeTrackItem } from "@/services/assessment.service";
+import { PageHeader } from "@/components/layouts/page-header";
 
 // ─── Types aligned with Student Portal assessments page ────
 interface SubModuleItem {
@@ -436,17 +437,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     const isEdit = viewState === "edit";
     return (
       <div className="space-y-8 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
-            <ArrowLeft className="h-4 w-4" /> Back to Practices
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-              {isEdit ? "Edit Practice Track" : "Create New Practice Track"}
-            </h1>
-            <p className="text-xs text-[#6B7280]">Configure practice track parameters for student deployment</p>
-          </div>
-        </div>
+        <PageHeader 
+          title={isEdit ? "Edit Practice Track" : "Create New Practice Track"}
+          description="Configure practice track parameters for student deployment"
+          backAction={{ label: "Back to Practices", onClick: () => setViewState("list") }}
+        />
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm">
           <form onSubmit={isEdit ? handleEdit : handleCreate} className="space-y-6">
@@ -481,7 +476,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
             <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
               <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
-              <Button type="submit" className="h-[48px] px-8 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
+              <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
                 {isEdit ? <Save className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
                 {isEdit ? "Save Changes" : "Create Practice Track"}
               </Button>
@@ -498,21 +493,17 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   if (viewState === "detail" && selectedTrack) {
     return (
       <div className="space-y-8 max-w-5xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <div className="flex items-center gap-3">
-            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
-              <ArrowLeft className="h-4 w-4" /> Back
+        <PageHeader 
+          title={selectedTrack.title}
+          description={`${selectedTrack.category} • Instructor: ${selectedTrack.assignedByName}`}
+          backAction={{ label: "Back", onClick: () => setViewState("list") }}
+          actions={
+            <Button onClick={() => { setSmTitle(""); setViewState("add-module"); }}
+              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs gap-2 px-5 rounded-xl shrink-0 shadow-sm">
+              <Plus className="h-4 w-4" /> Add Sub-Module
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">{selectedTrack.title}</h1>
-              <p className="text-xs text-[#6B7280]">{selectedTrack.category} • Instructor: {selectedTrack.assignedByName}</p>
-            </div>
-          </div>
-          <Button onClick={() => { setSmTitle(""); setViewState("add-module"); }}
-            className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs gap-2 px-5 rounded-xl shrink-0 shadow-sm">
-            <Plus className="h-4 w-4" /> Add Sub-Module
-          </Button>
-        </div>
+          }
+        />
 
         <div className="space-y-3">
           {selectedTrack.subModules.length === 0 && (
@@ -561,15 +552,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   if (viewState === "add-module" && selectedTrack) {
     return (
       <div className="space-y-8 max-w-3xl mx-auto">
-        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button onClick={() => setViewState("detail")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
-            <ArrowLeft className="h-4 w-4" /> Back to Track Detail
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">Add Practice Sub-Module</h1>
-            <p className="text-xs text-[#6B7280]">{selectedTrack.title}</p>
-          </div>
-        </div>
+        <PageHeader 
+          title="Add Practice Sub-Module"
+          description={selectedTrack.title}
+          backAction={{ label: "Back to Track Detail", onClick: () => setViewState("detail") }}
+        />
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm">
           <form onSubmit={handleAddSubModule} className="space-y-6">
@@ -794,7 +781,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
             <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
               <Button type="button" variant="outline" onClick={() => setViewState("detail")} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
-              <Button type="submit" className="h-[48px] px-8 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
+              <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
                 Add Sub-Module
               </Button>
             </div>
@@ -810,23 +797,21 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   if (viewState === "assign" && selectedTrack) {
     return (
       <div className="space-y-8 max-w-5xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <div className="flex items-start gap-3">
-            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 mt-0.5 border-[#E5E7EB] dark:border-[#27272A]">
-              <ArrowLeft className="h-4 w-4" /> Back
+        <PageHeader 
+          title="Assign Practice Track"
+          description={
+            <>
+              Target Track: <span className="font-semibold text-[#2563EB]">"{selectedTrack.title}"</span>
+            </>
+          }
+          backAction={{ label: "Back", onClick: () => setViewState("list") }}
+          actions={
+            <Button onClick={handleSaveAssign}
+              className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm shrink-0">
+              <CheckCircle2 className="h-4 w-4" /> Save Assignment ({selectedStudentIds.length})
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">Assign Practice Track</h1>
-              <p className="text-xs text-[#6B7280] mt-0.5">
-                Target Track: <span className="font-semibold text-[#9333EA]">"{selectedTrack.title}"</span>
-              </p>
-            </div>
-          </div>
-          <Button onClick={handleSaveAssign}
-            className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm shrink-0">
-            <CheckCircle2 className="h-4 w-4" /> Save Assignment ({selectedStudentIds.length})
-          </Button>
-        </div>
+          }
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-4">
@@ -938,22 +923,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   // ════════════════════════════════════════════════════════════
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div>
-          <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            {role === "admin" ? "Practice Track Management" : "Practice Track Assignments"}
-          </h1>
-          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Author practice tracks with MCQ, Coding, and Mixed assessments for student batches
-          </p>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
+      <PageHeader
+        title={role === "admin" ? "Practice Track Management" : "Practice Track Assignments"}
+        description="Author practice tracks with MCQ, Coding, and Mixed assessments for student batches"
+        actions={
           <Button onClick={openCreate}
-            className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs">
+            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs">
             <Plus className="h-4 w-4" /> Create Practice Track
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-3 rounded-xl shadow-sm">
         <div className="relative w-full md:w-[450px]">

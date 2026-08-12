@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { useLMSStore } from "@/lib/store/lms-store";
 import type { LMSBatch } from "@/types/batch";
+import { PageHeader } from "@/components/layouts/page-header";
 import {
   Boxes, Plus, Search, Filter, Users, Calendar, Clock, GraduationCap,
   BookOpen, CheckCircle2, XCircle, MoreVertical, Edit, Trash2, ArrowRightLeft,
@@ -213,23 +214,18 @@ export default function AdminBatchesPage() {
   return (
     <div className="space-y-8 animate-fade-up">
       {/* 1. Header & Primary Action */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div>
-          <h1 className="text-[36px] font-semibold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            Batch Management
-          </h1>
-          <p className="text-[16px] text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Group learners by college, course, and schedule. Manage batch transfers and unassigned students seamlessly.
-          </p>
-        </div>
-
-        <Button
-          onClick={handleOpenCreateModal}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm px-5 gap-2 rounded-xl shadow-md shadow-[#2563EB]/20 shrink-0"
-        >
-          <Plus className="h-4 w-4" /> Create New Batch
-        </Button>
-      </div>
+      <PageHeader
+        title="Batch Management"
+        description="Group learners by college, course, and schedule. Manage batch transfers and unassigned students seamlessly."
+        actions={
+          <Button
+            onClick={handleOpenCreateModal}
+            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm px-5 gap-2 rounded-xl shadow-md shadow-[#2563EB]/20 shrink-0"
+          >
+            <Plus className="h-4 w-4" /> Create New Batch
+          </Button>
+        }
+      />
 
       {/* 2. Key Metrics Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

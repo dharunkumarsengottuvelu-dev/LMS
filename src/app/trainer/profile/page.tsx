@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PageHeader } from "@/components/layouts/page-header";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { getInitials } from "@/lib/utils";
@@ -94,14 +95,10 @@ export default function TrainerProfilePage() {
   return (
     <div className="max-w-[1440px] mx-auto space-y-8 pb-12">
       {/* 1. Page Header */}
-      <div className="pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <h1 className="text-[36px] font-semibold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-          Trainer Profile
-        </h1>
-        <p className="text-[16px] text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-          Manage your instructor credentials, assigned batches, technical specializations, and account security
-        </p>
-      </div>
+      <PageHeader 
+        title="Trainer Profile"
+        description="Manage your instructor credentials, assigned batches, technical specializations, and account security"
+      />
 
       {/* 2. Top Profile Hero Card */}
       <Card className="bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm">
@@ -115,15 +112,12 @@ export default function TrainerProfilePage() {
 
           <div className="flex-1 text-center md:text-left space-y-2">
             <div className="flex flex-col items-center justify-center md:items-start md:justify-start gap-2">
-              <h2 className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA] break-words text-center md:text-left">
+              <h2 className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA] break-all text-center md:text-left">
                 {firstName} {lastName ? lastName.charAt(0).toUpperCase() : ""}
               </h2>
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
                 <Badge className="bg-[#9333EA]/10 text-[#9333EA] border-[#9333EA]/30 text-xs font-bold px-2.5 py-0.5">
                   LEAD TRAINER
-                </Badge>
-                <Badge variant="outline" className="text-xs font-semibold border-[#E5E7EB] text-[#4B5563]">
-                  Batch 2026-A Instructor
                 </Badge>
               </div>
             </div>

@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { getInitials } from "@/lib/utils";
 import { timeAgo } from "@/utils/date";
+import { PageHeader } from "@/components/layouts/page-header";
 
 interface DashboardData {
   stats: {
@@ -97,29 +98,23 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
   return (
     <div className="space-y-8 animate-fade-up">
       {/* 1. Page Title & Description */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-foreground">
-            System Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1.5 font-medium">
-            Real-time organizational learning metrics and enterprise activity overview
-          </p>
-        </div>
-
-        {/* 2. Primary Actions (44px height buttons) */}
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="h-[44px] px-5" asChild>
-            <Link href="/admin/students">Student Hub</Link>
-          </Button>
-          <Button className="h-[44px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-2" asChild>
-            <Link href="/admin/users">
-              <Users className="h-5 w-5" />
-              User Directory
-            </Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="System Dashboard"
+        description="Real-time organizational learning metrics and enterprise activity overview"
+        actions={
+          <>
+            <Button variant="outline" className="h-[44px] px-5" asChild>
+              <Link href="/admin/students">Student Hub</Link>
+            </Button>
+            <Button className="h-[44px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-2" asChild>
+              <Link href="/admin/users">
+                <Users className="h-5 w-5" />
+                User Directory
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       {/* 3. Statistics Grid (Strict 4-Column Responsive Grid) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-up stagger-1">

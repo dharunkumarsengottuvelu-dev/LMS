@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Users, Search, Plus, UserCheck, Shield, Trash2, Edit, GraduationCap, Building2, Briefcase, Mail, Key, Upload, FileSpreadsheet } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Users, Search, Plus, UserCheck, Shield, Trash2, Edit, GraduationCap, Building2, Briefcase, Mail, Key, Upload, FileSpreadsheet, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLMSStore } from "@/lib/store/lms-store";
+import { PageHeader } from "@/components/layouts/page-header";
+import { createClient } from "@/lib/supabase/client";
 
-type UserRole = "manager" | "trainer" | "student";
+type UserRole = "admin" | "manager" | "trainer" | "student";
 type UserStatus = "active" | "pending" | "suspended";
 type UserType = "employee" | "student";
 
@@ -37,6 +39,33 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<SystemUser[]>(initialUsers);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("student");
+  
+  // Fetch users from DB
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (data && !error) {
+        const mappedUsers: SystemUser[] = data.map((p: any) => ({
+          id: p.id,
+          name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.email?.split("@")[0] || "Unknown",
+          email: p.email || "",
+          role: p.role as UserRole,
+          status: p.status as UserStatus || "active",
+          joined: p.created_at?.split("T")[0] || "",
+          type: p.role === "student" ? "student" : "employee",
+          department: p.department || undefined,
+          batch: p.batch_id || undefined,
+        }));
+        setUsers(mappedUsers);
+      }
+    };
+    fetchUsers();
+  }, []);
   
   // Dialog state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -137,37 +166,238 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-8 max-w-[1440px] mx-auto pb-10">
       {/* Top Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div>
-          <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA] flex items-center gap-3">
-            <UserCheck className="h-8 w-8 text-[#2563EB]" />
-            Enterprise Access & Directory
-          </h1>
-          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Manage system roles, secure access, and view complete directory profiles
-          </p>
-        </div>
+      <PageHeader
+        title="Enterprise Access & Directory"
+        description="Manage system roles, secure access, and view complete directory profiles"
+        actions={
+          <>
+            <Button 
+              onClick={() => setIsBulkUploadOpen(true)}
+              variant="outline"
+              className="h-[44px] text-[#4B5563] dark:text-[#D4D4D8] font-bold gap-2 px-5 rounded-xl border-[#E5E7EB] dark:border-[#27272A] shadow-sm transition-all"
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Bulk Import (CSV)
+            </Button>
+            <Button 
+              onClick={() => setIsAddOpen(true)}
+              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shadow-md shadow-[#2563EB]/20 transition-all"
+            >
+              <Plus className="h-4 w-4" /> Add New User
+            </Button>
+          </>
+        }
+      />
+      {/* ── ADD / EDIT USER ── Inline Panel ── */}
+      {(isAddOpen || isEditOpen) && (
+        <Card className="bg-white dark:bg-[#18181B] border border-[#2563EB]/40 dark:border-[#2563EB]/30 rounded-2xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+          <CardContent className="p-6 space-y-5">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+              <div className="flex items-center gap-2.5">
+                <div>
+                  <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
+                    {isEditOpen ? "Edit User Profile" : "Onboard New User"}
+                  </p>
+                  <p className="text-[11px] text-[#6B7280]">
+                    {isEditOpen ? "Update details and system role." : "Add a new person to the system and grant them role-based access."}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }}
+                className="p-1.5 rounded-lg text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-        <div className="flex items-center gap-3">
-          <Button 
-            onClick={() => setIsBulkUploadOpen(true)}
-            variant="outline"
-            className="h-[44px] text-[#4B5563] dark:text-[#D4D4D8] font-bold gap-2 px-5 rounded-xl border-[#E5E7EB] dark:border-[#27272A] shadow-sm transition-all"
-          >
-            <FileSpreadsheet className="h-4 w-4" /> Bulk Import (CSV)
-          </Button>
-          <Button 
-            onClick={() => setIsAddOpen(true)}
-            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shadow-md shadow-[#2563EB]/20 transition-all"
-          >
-            <Plus className="h-4 w-4" /> Add New User
-          </Button>
-        </div>
-      </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              {!isEditOpen && (
+                <div className="space-y-1.5 md:col-span-2 xl:col-span-3">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">User Classification</label>
+                  <div className="flex items-center gap-3 p-1 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl w-fit">
+                    <button
+                      type="button"
+                      onClick={() => { setNewUserType("student"); setNewUserRole("student"); }}
+                      className={`px-8 py-2 text-xs font-bold rounded-lg transition-all ${
+                        newUserType === "student"
+                          ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm border border-[#E5E7EB] dark:border-[#27272A]"
+                          : "text-[#6B7280] hover:text-[#111827]"
+                      }`}
+                    >
+                      Student
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setNewUserType("employee"); setNewUserRole("trainer"); }}
+                      className={`px-8 py-2 text-xs font-bold rounded-lg transition-all ${
+                        newUserType === "employee"
+                          ? "bg-white dark:bg-[#18181B] text-[#9333EA] shadow-sm border border-[#E5E7EB] dark:border-[#27272A]"
+                          : "text-[#6B7280] hover:text-[#111827]"
+                      }`}
+                    >
+                      Employee
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Full Name</label>
+                <Input
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
+                  placeholder="e.g. John Doe"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Email Address</label>
+                <Input
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
+                  placeholder="e.g. john@enterprise.com"
+                />
+              </div>
+
+              {!isEditOpen && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                    <Key className="h-3 w-3 text-[#2563EB]" /> Initial Account Password
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Set initial password"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    className="h-[42px] text-xs font-mono rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                  />
+                </div>
+              )}
+
+              {newUserType === "employee" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">System Role</label>
+                    <Select value={newUserRole} onValueChange={(val) => setNewUserRole(val as UserRole)}>
+                      <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="trainer">Trainer / Assessor</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Department</label>
+                    <Input
+                      value={newUserDept}
+                      onChange={(e) => setNewUserDept(e.target.value)}
+                      className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
+                      placeholder="e.g. AI Engineering"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Student Batch</label>
+                  <Select value={newUserBatch} onValueChange={(val) => val && setNewUserBatch(val)}>
+                    <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl">
+                      <SelectValue placeholder="Select Batch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {storeBatches.length > 0 ? (
+                        storeBatches.map(b => (
+                          <SelectItem key={b.id} value={b.batchName}>{b.batchName}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no_batches" disabled>No batches available</SelectItem>
+                      )}
+                      <SelectItem value="custom" className="text-[#2563EB] font-bold">+ Custom Batch...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {newUserBatch === "custom" && (
+                    <Input
+                      value={customBatch}
+                      onChange={(e) => setCustomBatch(e.target.value)}
+                      placeholder="Enter custom batch name"
+                      className="h-[42px] text-xs bg-[#F9FAFB] mt-2 border-[#2563EB]/40 focus:border-[#2563EB]"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {isEditOpen && (
+              <div className="space-y-2 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Password Management</label>
+                <div className="flex flex-col md:flex-row gap-4 md:items-center p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">Force Password Reset</p>
+                    <p className="text-[11px] text-[#6B7280]">Provide a temporary password for this user.</p>
+                  </div>
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <Input
+                      type="text"
+                      placeholder="Enter temp password..."
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      className="h-9 text-xs font-mono bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A]"
+                    />
+                    <Button
+                      onClick={() => {
+                        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+                        let pass = "";
+                        for (let i = 0; i < 10; i++) {
+                          pass += chars.charAt(Math.floor(Math.random() * chars.length));
+                        }
+                        setNewUserPassword(pass);
+                      }}
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 h-9"
+                    >
+                      Auto
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (!newUserPassword) {
+                          toast({ title: "Error", description: "Please enter a temporary password.", variant: "destructive" });
+                          return;
+                        }
+                        toast({
+                          title: "Password Reset Triggered",
+                          description: `Temp Password set. User will be prompted to change it on next login.`,
+                        });
+                        navigator.clipboard.writeText(newUserPassword);
+                      }}
+                      size="sm"
+                      className="shrink-0 h-9 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold"
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <Button variant="outline" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }} className="h-10 px-6 rounded-xl font-bold text-xs">Cancel</Button>
+              <Button onClick={isEditOpen ? saveEditUser : handleAddUser} className={`h-10 px-8 text-white rounded-xl font-bold text-xs shadow-md ${newUserType === 'student' ? 'bg-[#2563EB] hover:bg-[#1D4ED8]' : 'bg-[#9333EA] hover:bg-[#7E22CE]'}`}>
+                {isEditOpen ? "Save Changes" : "Provision Account"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
-          <TabsList className="bg-[#F9FAFB] dark:bg-[#09090B] p-1 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl h-auto">
+          <TabsList className="bg-[#F9FAFB] dark:bg-[#09090B] p-1 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl h-auto gap-2">
             <TabsTrigger 
               value="student" 
               className="data-[state=active]:bg-white data-[state=active]:text-[#2563EB] data-[state=active]:shadow-sm rounded-lg py-2.5 px-6 font-bold text-xs gap-2 transition-all"
@@ -332,212 +562,6 @@ export default function AdminUsersPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Add / Edit User Modal */}
-      <Dialog open={isAddOpen || isEditOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsAddOpen(false);
-          setIsEditOpen(false);
-        }
-      }}>
-        <DialogContent className="max-w-md bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">
-              {isEditOpen ? "Edit User Profile" : "Onboard New User"}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
-              {isEditOpen ? "Update details and system role." : "Add a new person to the system and grant them role-based access."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 pt-4">
-            {!isEditOpen && (
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">User Classification</label>
-                <div className="flex items-center gap-3 p-1 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewUserType("student");
-                      setNewUserRole("student");
-                    }}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                      newUserType === "student" 
-                        ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm border border-[#E5E7EB] dark:border-[#27272A]" 
-                        : "text-[#6B7280] hover:text-[#111827]"
-                    }`}
-                  >
-                    Student
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewUserType("employee");
-                      setNewUserRole("trainer");
-                    }}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                      newUserType === "employee" 
-                        ? "bg-white dark:bg-[#18181B] text-[#9333EA] shadow-sm border border-[#E5E7EB] dark:border-[#27272A]" 
-                        : "text-[#6B7280] hover:text-[#111827]"
-                    }`}
-                  >
-                    Employee
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Full Name</label>
-              <Input 
-                value={newUserName} 
-                onChange={(e) => setNewUserName(e.target.value)} 
-                className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
-                placeholder="e.g. John Doe"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Email Address</label>
-              <Input 
-                value={newUserEmail} 
-                onChange={(e) => setNewUserEmail(e.target.value)} 
-                className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
-                placeholder="e.g. john@enterprise.com"
-              />
-            </div>
-
-            {isEditOpen && (
-              <div className="space-y-2 mt-4 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Password Management</label>
-                <div className="flex flex-col gap-3 p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
-                  <div>
-                    <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">Force Password Reset</p>
-                    <p className="text-xs text-[#6B7280]">Provide a temporary password for this user.</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      type="text"
-                      placeholder="Enter temp password..."
-                      value={newUserPassword}
-                      onChange={(e) => setNewUserPassword(e.target.value)}
-                      className="h-9 text-xs font-mono bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A]"
-                    />
-                    <Button
-                      onClick={() => {
-                        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-                        let pass = "";
-                        for (let i = 0; i < 10; i++) {
-                          pass += chars.charAt(Math.floor(Math.random() * chars.length));
-                        }
-                        setNewUserPassword(pass);
-                      }}
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0 h-9"
-                    >
-                      Auto
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        if (!newUserPassword) {
-                          toast({ title: "Error", description: "Please enter a temporary password.", variant: "destructive" });
-                          return;
-                        }
-                        toast({ 
-                          title: "Password Reset Triggered", 
-                          description: `Temp Password set. User will be prompted to change it on next login.`,
-                        });
-                        navigator.clipboard.writeText(newUserPassword);
-                      }}
-                      size="sm"
-                      className="shrink-0 h-9 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold"
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {!isEditOpen && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                    <Key className="h-3.5 w-3.5 text-[#2563EB]" /> Initial Account Password
-                  </label>
-                </div>
-                <Input
-                  type="text"
-                  placeholder="Set initial password"
-                  value={newUserPassword}
-                  onChange={(e) => setNewUserPassword(e.target.value)}
-                  className="h-11 text-xs font-mono rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-                />
-              </div>
-            )}
-
-            {newUserType === "employee" ? (
-              <>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">System Role</label>
-                  <Select value={newUserRole} onValueChange={(val) => setNewUserRole(val as UserRole)}>
-                    <SelectTrigger className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="trainer">Trainer / Assessor</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Department</label>
-                  <Input 
-                    value={newUserDept} 
-                    onChange={(e) => setNewUserDept(e.target.value)} 
-                    className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
-                    placeholder="e.g. AI Engineering"
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Student Batch</label>
-                <Select value={newUserBatch} onValueChange={(val) => val && setNewUserBatch(val)}>
-                  <SelectTrigger className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl">
-                    <SelectValue placeholder="Select Batch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {storeBatches.length > 0 ? (
-                      storeBatches.map(b => (
-                        <SelectItem key={b.id} value={b.batchName}>{b.batchName}</SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no_batches" disabled>No batches available</SelectItem>
-                    )}
-                    <SelectItem value="custom" className="text-[#2563EB] font-bold">+ Custom Batch...</SelectItem>
-                  </SelectContent>
-                </Select>
-                {newUserBatch === "custom" && (
-                  <Input 
-                    value={customBatch}
-                    onChange={(e) => setCustomBatch(e.target.value)}
-                    placeholder="Enter custom batch name"
-                    className="h-11 text-sm bg-[#F9FAFB] mt-2 border-[#2563EB]/40 focus:border-[#2563EB]"
-                  />
-                )}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="pt-6 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
-            <Button variant="outline" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }} className="h-11 px-6 rounded-xl font-bold text-xs">Cancel</Button>
-            <Button onClick={isEditOpen ? saveEditUser : handleAddUser} className={`h-11 px-8 text-white rounded-xl font-bold text-xs shadow-md ${newUserType === 'student' ? 'bg-[#2563EB] hover:bg-[#1D4ED8]' : 'bg-[#9333EA] hover:bg-[#7E22CE]'}`}>
-              {isEditOpen ? "Save Changes" : "Provision Account"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Bulk Upload Modal */}
       <Dialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen}>

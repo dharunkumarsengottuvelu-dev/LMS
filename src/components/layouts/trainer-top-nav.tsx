@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, LayoutDashboard, Users, BookOpen, ClipboardList, FileText, Dumbbell, Activity, Menu, User, Settings } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, BookOpen, ClipboardList, FileText, Dumbbell, Activity, Menu, User, Settings, Bell } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,7 +29,15 @@ const trainerNavItems = [
 
 export function TrainerTopNav() {
   const pathname = usePathname();
-  const { profile, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
+
+  const emailStr = user?.email || "";
+  const emailParts = (emailStr.split("@")[0] || "").split(/[\.\-_]/);
+  const defaultFirstName = emailParts[0] ? emailParts[0].charAt(0).toUpperCase() + emailParts[0].slice(1) : "Trainer";
+  const defaultLastName = emailParts.length > 1 && emailParts[1] ? emailParts[1].charAt(0).toUpperCase() : "";
+  const displayName = profile?.first_name 
+    ? `${profile.first_name} ${profile.last_name || ""}`.trim() 
+    : `${defaultFirstName} ${defaultLastName}`.trim();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 sm:px-6 lg:px-10 transition-colors duration-200">
@@ -43,7 +51,7 @@ export function TrainerTopNav() {
             <span className="font-bold text-base tracking-tight text-foreground">
               EduNexus
             </span>
-            <Badge variant="outline" className="hidden sm:inline-flex bg-[#9333EA]/10 text-[#9333EA] border-[#9333EA]/30 text-[10px] font-bold px-2 py-0.5">
+            <Badge variant="outline" className="hidden sm:inline-flex bg-[#9333EA]/5 text-[#9333EA] border-[#9333EA]/20 text-[10px] font-bold px-2 py-0.5">
               TRAINER
             </Badge>
           </div>
@@ -63,24 +71,29 @@ export function TrainerTopNav() {
               className={cn(
                 "flex items-center gap-2 px-3 lg:px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap duration-200 ease-out hover:-translate-y-[1px]",
                 isActive
-                  ? "bg-[#9333EA]/10 text-[#9333EA] dark:bg-[#9333EA]/20 dark:text-[#C084FC]"
+                  ? "bg-[#9333EA]/10 text-[#9333EA]"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
-              <Icon className="h-4 w-4" />
               <span>{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      {/* Right Controls (Mobile Menu & Profile) */}
+      {/* Right Controls (Notification, Mobile Menu Drawer, User Profile) */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <Link
+          href="/trainer/notifications"
+          className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 border border-input shadow-sm"
+        >
+          <Bell className="h-4 w-4" />
+        </Link>
+
         {/* Mobile Hamburger Menu Trigger */}
         <Sheet>
           <SheetTrigger className="md:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-muted-foreground hover:bg-accent border border-input shadow-sm transition-all duration-200">
             <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle navigation menu</span>
           </SheetTrigger>
           <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-background border-l border-border p-6">
             <SheetHeader className="text-left pb-4 border-b border-border">
@@ -108,7 +121,6 @@ export function TrainerTopNav() {
                         : "text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                   >
-                    <Icon className="h-4 w-4" />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -124,7 +136,7 @@ export function TrainerTopNav() {
               <Avatar className="h-8 w-8">
                 <AvatarImage src={profile?.avatar_url ?? undefined} />
                 <AvatarFallback className="bg-[#9333EA]/10 text-[#9333EA] text-xs font-bold">
-                  {getInitials(`${profile?.first_name ?? "T"} ${profile?.last_name ?? ""}`)}
+                  {getInitials(displayName)}
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -132,8 +144,8 @@ export function TrainerTopNav() {
 
           <DropdownMenuContent align="end" className="w-56 bg-popover border-border p-1 rounded-xl shadow-modal">
             <DropdownMenuLabel className="font-normal p-3">
-              <p className="font-semibold text-sm text-foreground">
-                {profile?.first_name || "Trainer"} {profile?.last_name || "Instructor"}
+              <p className="font-semibold text-sm text-foreground break-all">
+                {displayName}
               </p>
               <p className="text-[11px] text-muted-foreground">Lead Technical Trainer</p>
             </DropdownMenuLabel>

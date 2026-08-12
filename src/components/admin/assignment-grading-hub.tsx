@@ -25,8 +25,8 @@ export interface StudentSubmission {
 }
 
 const initialSubmissions: StudentSubmission[] = [];
-
 import { useLMSStore, StudentSubmissionItem } from "@/lib/store/lms-store";
+import { PageHeader } from "@/components/layouts/page-header";
 
 export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
@@ -107,22 +107,11 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
   if (viewState === "create") {
     return (
       <div className="space-y-8 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button
-            onClick={() => setViewState("list")}
-            variant="outline"
-            size="sm"
-            className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Submissions
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-              Create & Publish Assignment
-            </h1>
-            <p className="text-xs text-[#6B7280]">Assign code challenges or practical project work to learners</p>
-          </div>
-        </div>
+        <PageHeader
+          title="Create & Publish Assignment"
+          description="Assign code challenges or practical project work to learners"
+          backAction={{ label: "Back to Submissions", onClick: () => setViewState("list") }}
+        />
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
           <form onSubmit={handleCreateAssignment} className="space-y-6">
@@ -169,22 +158,11 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
   if (viewState === "grade" && selectedSub) {
     return (
       <div className="space-y-8 max-w-3xl mx-auto">
-        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button
-            onClick={() => setViewState("list")}
-            variant="outline"
-            size="sm"
-            className="h-9 font-bold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Submissions
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-              Grade Submission: {selectedSub.studentName}
-            </h1>
-            <p className="text-xs text-[#6B7280]">{selectedSub.assignmentTitle} • {selectedSub.batch}</p>
-          </div>
-        </div>
+        <PageHeader
+          title={`Grade Submission: ${selectedSub.studentName}`}
+          description={`${selectedSub.assignmentTitle} • ${selectedSub.batch}`}
+          backAction={{ label: "Back to Submissions", onClick: () => setViewState("list") }}
+        />
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-3xl shadow-sm">
           <form onSubmit={handleSaveGrade} className="space-y-6">
@@ -229,23 +207,18 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
   return (
     <div className="space-y-8">
       {/* Top Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div>
-          <h1 className="text-[32px] font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            {role === "admin" ? "Enterprise Assignment & Evaluation Manager" : "Assignment Submissions & Grading"}
-          </h1>
-          <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] mt-1">
-            Review student code submissions, assign scores, provide feedback, and publish assignments
-          </p>
-        </div>
-
-        <Button
-          onClick={() => setViewState("create")}
-          className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20"
-        >
-          <Plus className="h-4 w-4" /> Create New Assignment
-        </Button>
-      </div>
+      <PageHeader
+        title={role === "admin" ? "Enterprise Assignment & Evaluation Manager" : "Assignment Submissions & Grading"}
+        description="Review student code submissions, assign scores, provide feedback, and publish assignments"
+        actions={
+          <Button
+            onClick={() => setViewState("create")}
+            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20"
+          >
+            <Plus className="h-4 w-4" /> Create New Assignment
+          </Button>
+        }
+      />
 
       {/* Filter Controls - Premium MNC Level */}
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-1 shadow-sm rounded-2xl">

@@ -164,7 +164,7 @@ export default function StudentProfilePage() {
       {/* 1. Page Header */}
       <div className="pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <h1 className="text-[36px] font-semibold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-          Student Profile & Batch Settings
+          Student Profile
         </h1>
       </div>
 
@@ -186,27 +186,18 @@ export default function StudentProfilePage() {
 
               <div className="space-y-2">
                 <div className="flex flex-col items-center justify-center gap-1.5">
-                  <h2 className="text-[20px] font-bold text-[#111827] dark:text-[#FAFAFA] text-center break-words">
+                  <h2 className="text-[20px] font-bold text-[#111827] dark:text-[#FAFAFA] text-center break-all">
                     {firstName} {lastName ? lastName.charAt(0).toUpperCase() : ""}
                   </h2>
                   <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2 py-0.5">
                     Student
                   </Badge>
                 </div>
-                <p className="text-xs font-medium text-[#4B5563] dark:text-[#9CA3AF] break-all px-2">{email}</p>
+                <p className="text-[11px] font-medium text-[#4B5563] dark:text-[#9CA3AF] break-all px-2 uppercase tracking-wider">
+                  {email ? `@${email.split('@')[0]}` : ""}
+                </p>
                 
-                {/* Cohort Batch Badge */}
-                <div className="pt-1 flex flex-col items-center gap-1.5">
-                  {batchName !== "Not Assigned" ? (
-                    <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-xs font-bold px-3 py-1">
-                      Batch: {batchName}
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30 text-xs font-bold px-3 py-1">
-                      Batch: Not Assigned
-                    </Badge>
-                  )}
-                </div>
+
               </div>
 
               {/* Structured Profile Breakdown */}
