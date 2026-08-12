@@ -37,7 +37,7 @@ export default function TrainerStudentsPage() {
       name: s.name,
       email: s.email,
       status: (s.status as UserStatus) || "active",
-      joined: s.joinedDate ? String(s.joinedDate) : new Date().toISOString().split("T")[0],
+      joined: String(s.joinedDate || "2026-01-01"),
       batch: s.batch || s.batchId || "Unassigned Batch",
     }));
   });
@@ -50,7 +50,7 @@ export default function TrainerStudentsPage() {
           name: s.name,
           email: s.email,
           status: (s.status as UserStatus) || "active",
-          joined: s.joinedDate ? String(s.joinedDate) : new Date().toISOString().split("T")[0],
+          joined: String(s.joinedDate || "2026-01-01"),
           batch: s.batch || s.batchId || "Unassigned Batch",
         }))
       );

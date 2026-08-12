@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useLMSStore } from "@/lib/store/lms-store";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+import type { PracticeTrackItem } from "@/services/assessment.service";
 
 // ─── Types aligned with Student Portal assessments page ────
 interface SubModuleItem {
