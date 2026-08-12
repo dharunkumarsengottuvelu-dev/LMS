@@ -38,108 +38,122 @@ const howItWorks = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white text-[#111827]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="min-h-screen bg-background text-foreground antialiased selection:bg-primary/10">
 
-      {/* ── Top Navigation ── */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#E5E7EB] h-[68px]">
-        <div className="max-w-[1280px] mx-auto px-6 h-full flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] flex items-center justify-center text-white font-bold text-base shadow-md">
+      {/* ── Top Navigation Bar ── */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border h-[68px] transition-colors duration-200">
+        <div className="mnc-container h-full flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-base shadow-sm group-hover:scale-105 transition-transform duration-200">
               E
             </div>
-            <span className="font-bold text-base text-[#111827] tracking-tight">EduNexus</span>
-            <span className="hidden sm:inline text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 rounded-full tracking-widest">ENTERPRISE LMS</span>
+            <span className="font-bold text-base text-foreground tracking-tight">EduNexus</span>
+            <Badge variant="outline" className="hidden sm:inline-flex bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0.5">
+              ENTERPRISE LMS
+            </Badge>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[#6B7280]">
-            <Link href="/" className="text-[#2563EB] font-bold border-b-2 border-[#2563EB] pb-0.5">Home</Link>
-            <Link href="/courses" className="hover:text-[#111827] transition-colors">Courses</Link>
-            <Link href="/about" className="hover:text-[#111827] transition-colors">About</Link>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-muted-foreground">
+            <Link href="/" className="text-primary font-bold border-b-2 border-primary pb-0.5">Home</Link>
+            <Link href="/courses" className="hover:text-foreground transition-colors">Courses</Link>
+            <Link href="/about" className="hover:text-foreground transition-colors">About</Link>
           </nav>
 
-          <Button className="h-[40px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg shadow-md" asChild>
-            <Link href="/login">Get Started <ArrowRight className="h-4 w-4 ml-1.5 inline" /></Link>
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" className="hidden sm:inline-flex" asChild>
+              <Link href="/login">Sign In</Link>
+            </Button>
+            <Button size="sm" className="bg-primary hover:bg-primary-hover text-white font-semibold gap-1.5 shadow-sm" asChild>
+              <Link href="/login">Get Started <ArrowRight className="h-4 w-4" /></Link>
+            </Button>
+          </div>
         </div>
       </header>
 
       {/* ── Hero Section ── */}
-      <section className="relative pt-40 pb-28 px-6 overflow-hidden bg-gradient-to-b from-[#EFF6FF] via-[#F5F3FF]/40 to-white">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-b from-[#BFDBFE]/40 via-[#DDD6FE]/20 to-transparent rounded-full blur-3xl pointer-events-none" />
-
-        <div className="max-w-[1280px] mx-auto text-center relative z-10 space-y-7">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#2563EB]/8 border border-[#2563EB]/20 text-xs font-semibold text-[#2563EB] tracking-wider">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
-            ENTERPRISE LEARNING MANAGEMENT SYSTEM
+      <section className="relative pt-36 pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden bg-gradient-to-b from-primary/5 via-background to-background">
+        <div className="mnc-container text-center relative z-10 space-y-8 animate-fade-up">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs font-bold text-primary tracking-wide">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            MNC-GRADE ENTERPRISE LEARNING MANAGEMENT PLATFORM
           </div>
 
-          <h1 className="text-5xl md:text-[72px] font-black leading-[1.05] tracking-tight max-w-4xl mx-auto">
-            <span className="text-[#111827]">The LMS Built for</span>
-            <br />
-            <span className="bg-gradient-to-r from-[#2563EB] via-[#7C3AED] to-[#16A34A] bg-clip-text text-transparent">
-              Modern Enterprises
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight max-w-4xl mx-auto text-foreground">
+            The Learning System Built for <br />
+            <span className="bg-gradient-to-r from-primary via-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              Modern Enterprises & Academies
             </span>
           </h1>
 
-          <p className="text-xl text-[#6B7280] max-w-2xl mx-auto leading-relaxed font-medium">
-            Structured learning, live code assessments, proctored exams, and real-time analytics — delivered through dedicated portals for Admins, Trainers, and Students.
+          <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-medium">
+            Structured course authoring, live code playgrounds, proctored exams, and real-time performance analytics — all in one unified, role-isolated platform.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-            <Button className="h-[52px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-base rounded-xl shadow-xl shadow-blue-200 gap-2 w-full sm:w-auto" asChild>
+            <Button className="h-[50px] px-8 bg-primary hover:bg-primary-hover text-white font-bold text-base rounded-xl shadow-lg gap-2.5 w-full sm:w-auto" asChild>
               <Link href="/login">
-                Start Your Portal <ArrowRight className="h-5 w-5" />
+                Access Portal <ArrowRight className="h-5 w-5" />
               </Link>
             </Button>
-            <Button variant="outline" className="h-[52px] px-8 border-[#E5E7EB] text-[#6B7280] hover:bg-[#F9FAFB] hover:text-[#111827] font-semibold text-base rounded-xl w-full sm:w-auto" asChild>
+            <Button variant="outline" className="h-[50px] px-8 border-border text-foreground hover:bg-accent font-semibold text-base rounded-xl w-full sm:w-auto" asChild>
               <Link href="/courses">Explore Courses</Link>
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-6 pt-4 text-xs text-[#6B7280]">
-            {["Role-Based Access Control", "Proctored Exam Engine", "Live Code Execution", "Assignment Grading"].map((t) => (
-              <div key={t} className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-[#16A34A]" />
-                <span className="font-medium">{t}</span>
+          <div className="flex flex-wrap items-center justify-center gap-6 pt-4 text-xs font-semibold text-muted-foreground">
+            {["Role-Based Access Control", "Proctored Exam Engine", "Live Code Execution", "Submission Grading"].map((t) => (
+              <div key={t} className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+                <span>{t}</span>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Stats ── */}
-      <section className="py-16 px-6 border-y border-[#E5E7EB] bg-white">
-        <div className="max-w-[1280px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
+      {/* ── Key Platform Stats ── */}
+      <section className="py-14 border-y border-border bg-card">
+        <div className="mnc-container grid grid-cols-2 md:grid-cols-4 gap-8">
           {stats.map((s) => (
-            <div key={s.label} className="text-center space-y-1.5">
-              <p className="text-5xl font-black text-[#2563EB]">{s.value}</p>
-              <p className="text-sm font-bold text-[#111827]">{s.label}</p>
-              <p className="text-xs text-[#9CA3AF]">{s.sub}</p>
+            <div key={s.label} className="text-center space-y-1">
+              <p className="text-4xl sm:text-5xl font-black text-primary tracking-tight">{s.value}</p>
+              <p className="text-sm font-bold text-foreground">{s.label}</p>
+              <p className="text-xs text-muted-foreground font-medium">{s.sub}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ── Platform Features ── */}
-      <section id="features" className="py-28 px-6 bg-[#F9FAFB]">
-        <div className="max-w-[1280px] mx-auto space-y-16">
+      {/* ── Platform Features Grid ── */}
+      <section id="features" className="py-24 bg-background">
+        <div className="mnc-container space-y-16">
           <div className="text-center space-y-3">
-            <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/20 text-xs font-semibold tracking-wider px-3 py-1">PLATFORM FEATURES</Badge>
-            <h2 className="text-4xl font-black text-[#111827] tracking-tight">Everything Your Teams Need</h2>
-            <p className="text-[#6B7280] text-lg max-w-xl mx-auto">From course authoring to proctored exams — every feature is built for real enterprise workflows.</p>
+            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs font-bold px-3 py-1">
+              PLATFORM FEATURES
+            </Badge>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+              Everything Your Organization Needs
+            </h2>
+            <p className="text-muted-foreground text-base max-w-xl mx-auto font-medium">
+              From course authoring to proctored assessments — purpose-built for enterprise workflows.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((f) => {
               const Icon = f.icon;
               return (
-                <div key={f.title} className="group bg-white border border-[#E5E7EB] hover:border-[#2563EB]/30 hover:shadow-lg rounded-2xl p-6 space-y-4 transition-all duration-200">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `${f.color}12`, border: `1px solid ${f.color}25` }}>
-                    <Icon className="h-5 w-5" style={{ color: f.color }} />
+                <div key={f.title} className="ui-card group hover:border-primary/40 space-y-4">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-primary/10 text-primary">
+                    <Icon className="h-6 w-6" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-base font-bold text-[#111827] group-hover:text-[#2563EB] transition-colors">{f.title}</h3>
-                    <p className="text-sm text-[#6B7280] leading-relaxed">{f.desc}</p>
+                    <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                      {f.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {f.desc}
+                    </p>
                   </div>
                 </div>
               );
@@ -147,24 +161,31 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
       {/* ── How It Works ── */}
-      <section id="how-it-works" className="py-28 px-6 bg-[#F9FAFB]">
-        <div className="max-w-[1280px] mx-auto space-y-16">
+      <section id="how-it-works" className="py-24 border-t border-border bg-card">
+        <div className="mnc-container space-y-16">
           <div className="text-center space-y-3">
-            <Badge className="bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/20 text-xs font-semibold tracking-wider px-3 py-1">HOW IT WORKS</Badge>
-            <h2 className="text-4xl font-black text-[#111827] tracking-tight">A Seamless Learning Cycle</h2>
-            <p className="text-[#6B7280] text-lg max-w-xl mx-auto">From setup to assessment — the entire workflow runs inside EduNexus.</p>
+            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs font-bold px-3 py-1">
+              WORKFLOW PIPELINE
+            </Badge>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+              A Seamless Learning Cycle
+            </h2>
+            <p className="text-muted-foreground text-base max-w-xl mx-auto font-medium">
+              From user provisioning to assessment grading — the entire lifecycle runs smoothly inside EduNexus.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {howItWorks.map((step) => (
-              <div key={step.step} className="space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#EFF6FF] to-[#F5F3FF] border border-[#BFDBFE] flex items-center justify-center">
-                  <span className="text-2xl font-black text-[#2563EB]">{step.step}</span>
+              <div key={step.step} className="ui-card space-y-4">
+                <div className="w-14 h-14 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                  <span className="text-2xl font-black text-primary">{step.step}</span>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-base font-bold text-[#111827]">{step.title}</h3>
-                  <p className="text-sm text-[#6B7280] leading-relaxed">{step.desc}</p>
+                  <h3 className="text-base font-bold text-foreground">{step.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
                 </div>
               </div>
             ))}
@@ -172,15 +193,21 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── CTA Banner ── */}
-      <section className="py-24 px-6 bg-white">
-        <div className="max-w-[1280px] mx-auto">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1E3A8A] via-[#2563EB] to-[#7C3AED] p-12 md:p-16 text-center space-y-6">
-            <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight relative z-10">Ready to Transform Your Training?</h2>
-            <p className="text-lg text-white/80 max-w-xl mx-auto relative z-10">Log in to your portal and start managing courses, conducting assessments, and tracking real-time performance today.</p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 relative z-10">
-              <Button className="h-[52px] px-10 bg-white text-[#1E3A8A] hover:bg-white/90 font-black text-base rounded-xl shadow-xl w-full sm:w-auto" asChild>
-                <Link href="/login">Go to Your Dashboard <ArrowRight className="h-5 w-5 ml-2 inline" /></Link>
+      {/* ── Call To Action Banner ── */}
+      <section className="py-20 bg-background">
+        <div className="mnc-container">
+          <div className="relative overflow-hidden rounded-2xl bg-primary p-10 sm:p-14 text-center space-y-6 shadow-elevated text-primary-foreground">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white relative z-10">
+              Ready to Upgrade Your Learning Operations?
+            </h2>
+            <p className="text-base sm:text-lg text-white/80 max-w-xl mx-auto relative z-10 font-medium">
+              Log in to your portal and start managing courses, conducting assessments, and tracking real-time performance today.
+            </p>
+            <div className="flex justify-center pt-2 relative z-10">
+              <Button className="h-[48px] px-8 bg-white text-primary hover:bg-white/90 font-bold text-base rounded-xl shadow-md" asChild>
+                <Link href="/login">
+                  Go to Your Dashboard <ArrowRight className="h-5 w-5 ml-2" />
+                </Link>
               </Button>
             </div>
           </div>
@@ -188,18 +215,19 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="py-12 px-6 border-t border-[#E5E7EB] bg-white">
-        <div className="max-w-[1280px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-[#9CA3AF]">
+      <footer className="py-12 border-t border-border bg-card">
+        <div className="mnc-container flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-muted-foreground font-medium">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] flex items-center justify-center text-white font-bold text-sm">E</div>
-            <span className="font-bold text-sm text-[#111827]">EduNexus</span>
-            <span className="text-[#9CA3AF]">Enterprise Learning Platform</span>
+            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
+              E
+            </div>
+            <span className="font-bold text-sm text-foreground">EduNexus Platform</span>
           </div>
-          <p>© {new Date().getFullYear()} EduNexus Platform. Built for modern engineering teams.</p>
+          <p>© {new Date().getFullYear()} EduNexus Platform. All rights reserved.</p>
           <div className="flex items-center gap-6">
-            <Link href="/about"  className="hover:text-[#111827] transition-colors">About</Link>
-            <Link href="/courses" className="hover:text-[#111827] transition-colors">Courses</Link>
-            <Link href="/login"  className="hover:text-[#111827] transition-colors">Sign In</Link>
+            <Link href="/about" className="hover:text-foreground transition-colors">About</Link>
+            <Link href="/courses" className="hover:text-foreground transition-colors">Courses</Link>
+            <Link href="/login" className="hover:text-foreground transition-colors">Sign In</Link>
           </div>
         </div>
       </footer>

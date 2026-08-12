@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Mail, Lock, Loader2, Globe } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
+  email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   remember: z.boolean(),
 });
@@ -127,89 +127,92 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="space-y-8 relative z-10 w-full max-w-[440px] mx-auto py-8">
-      {/* Header */}
+    <div className="space-y-6 relative z-10 w-full max-w-[440px] mx-auto py-8">
+      {/* Brand Header */}
       <div className="space-y-2 text-center">
-        <h1 className="text-[32px] sm:text-[36px] font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
           Welcome back
         </h1>
-        <p className="text-[14px] text-gray-500 dark:text-gray-400 font-medium">
+        <p className="text-sm text-muted-foreground font-medium">
           Sign in to your enterprise account to continue
         </p>
       </div>
 
-      {/* Google Login Button (Secondary 44px) */}
+      {/* Google Login Button */}
       <Button
         type="button"
-        variant="secondary"
-        className="w-full h-[48px] gap-3 font-semibold bg-white dark:bg-[#111827] border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-[#1f2937] shadow-sm rounded-xl transition-all"
+        variant="outline"
+        className="w-full h-[48px] gap-3 font-semibold bg-card border-border text-foreground hover:bg-accent shadow-sm rounded-xl transition-all"
         onClick={handleGoogleLogin}
         disabled={isGoogleLoading}
       >
         {isGoogleLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         ) : (
-          <svg viewBox="0 0 24 24" className="h-5 w-5" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/><path d="M1 1h22v22H1z" fill="none"/></svg>
+          <svg viewBox="0 0 24 24" className="h-5 w-5" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
         )}
         Continue with Google
       </Button>
 
-
-
       <div className="flex items-center gap-4 px-2">
-        <Separator className="flex-1 bg-gray-200 dark:bg-gray-800" />
-        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap uppercase tracking-wider">
-          or sign in with credentials
+        <Separator className="flex-1 bg-border" />
+        <span className="text-[11px] font-bold text-muted-foreground whitespace-nowrap uppercase tracking-wider">
+          or sign in with email
         </span>
-        <Separator className="flex-1 bg-gray-200 dark:bg-gray-800" />
+        <Separator className="flex-1 bg-border" />
       </div>
 
       {/* Login Form */}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {/* Email */}
         <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-xs font-bold text-gray-700 dark:text-gray-300">Email address</Label>
+          <Label htmlFor="email" className="text-xs font-bold text-foreground">Email address</Label>
           <div className="relative group">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input
               id="email"
               type="email"
               placeholder="you@company.com"
-              className="pl-10 h-[48px] bg-gray-50 dark:bg-[#111827] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 rounded-xl focus:border-blue-500 focus:ring-blue-500/20 transition-all"
+              className="pl-10 h-[46px] bg-card border-border text-foreground placeholder:text-muted-foreground rounded-xl focus:ring-2 focus:ring-primary/20 transition-all"
               autoComplete="email"
               {...register("email")}
             />
           </div>
           {errors.email && (
-            <p className="text-red-500 text-[11px] mt-1 font-medium">{errors.email.message}</p>
+            <p className="text-destructive text-[11px] mt-1 font-medium">{errors.email.message}</p>
           )}
         </div>
 
         {/* Password */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="password" className="text-xs font-bold text-gray-700 dark:text-gray-300">Password</Label>
+            <Label htmlFor="password" className="text-xs font-bold text-foreground">Password</Label>
             <Link
               href="/auth/forgot-password"
-              className="text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-700 font-bold hover:underline"
+              className="text-[11px] text-primary hover:underline font-bold"
             >
               Forgot password?
             </Link>
           </div>
           <div className="relative group">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
               placeholder="Enter your password"
-              className="pl-10 pr-10 h-[48px] bg-gray-50 dark:bg-[#111827] border-gray-200 dark:border-gray-800 text-gray-900 dark:text-white placeholder:text-gray-400 rounded-xl focus:border-blue-500 focus:ring-blue-500/20 transition-all"
+              className="pl-10 pr-10 h-[46px] bg-card border-border text-foreground placeholder:text-muted-foreground rounded-xl focus:ring-2 focus:ring-primary/20 transition-all"
               autoComplete="current-password"
               {...register("password")}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             >
               {showPassword ? (
                 <EyeOff className="h-4 w-4" />
@@ -219,7 +222,7 @@ export default function LoginPage() {
             </button>
           </div>
           {errors.password && (
-            <p className="text-red-500 text-[11px] mt-1 font-medium">{errors.password.message}</p>
+            <p className="text-destructive text-[11px] mt-1 font-medium">{errors.password.message}</p>
           )}
         </div>
 
@@ -231,17 +234,17 @@ export default function LoginPage() {
             onCheckedChange={(checked) =>
               setValue("remember", checked === true)
             }
-            className="rounded-[4px] border-gray-300 dark:border-gray-700 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+            className="rounded-[4px] border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
           />
-          <Label htmlFor="remember" className="text-[11px] font-medium text-gray-600 dark:text-gray-400 cursor-pointer select-none">
-            Remember me for 30 days
+          <Label htmlFor="remember" className="text-[11px] font-medium text-muted-foreground cursor-pointer select-none">
+            Remember me on this device
           </Label>
         </div>
 
         {/* Submit Primary Button */}
         <Button
           type="submit"
-          className="w-full h-[48px] bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-[13px] transition-all shadow-md shadow-blue-600/20 hover:shadow-lg hover:shadow-blue-600/30 mt-4"
+          className="w-full h-[48px] bg-primary hover:bg-primary-hover text-white font-bold rounded-xl text-sm transition-all shadow-md mt-2"
           disabled={isLoading}
         >
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -250,9 +253,9 @@ export default function LoginPage() {
       </form>
 
       {/* Register link */}
-      <p className="text-center text-sm font-medium text-gray-600 dark:text-gray-400 pt-2">
+      <p className="text-center text-sm font-medium text-muted-foreground pt-2">
         Don&apos;t have an account?{" "}
-        <Link href="/register" className="text-blue-600 dark:text-blue-400 font-bold hover:text-blue-700 hover:underline transition-colors">
+        <Link href="/register" className="text-primary font-bold hover:underline transition-colors">
           Request Access
         </Link>
       </p>

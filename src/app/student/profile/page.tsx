@@ -185,15 +185,15 @@ export default function StudentProfilePage() {
               </Avatar>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-center gap-2">
-                  <h2 className="text-[20px] font-bold text-[#111827] dark:text-[#FAFAFA]">
-                    {firstName} {lastName}
+                <div className="flex flex-col items-center justify-center gap-1.5">
+                  <h2 className="text-[20px] font-bold text-[#111827] dark:text-[#FAFAFA] text-center break-words">
+                    {firstName} {lastName ? lastName.charAt(0).toUpperCase() : ""}
                   </h2>
                   <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2 py-0.5">
                     Student
                   </Badge>
                 </div>
-                <p className="text-xs font-medium text-[#4B5563] dark:text-[#9CA3AF]">{email}</p>
+                <p className="text-xs font-medium text-[#4B5563] dark:text-[#9CA3AF] break-all px-2">{email}</p>
                 
                 {/* Cohort Batch Badge */}
                 <div className="pt-1 flex flex-col items-center gap-1.5">

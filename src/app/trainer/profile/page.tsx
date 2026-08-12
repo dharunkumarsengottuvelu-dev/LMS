@@ -114,16 +114,18 @@ export default function TrainerProfilePage() {
           </Avatar>
 
           <div className="flex-1 text-center md:text-left space-y-2">
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-              <h2 className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">
-                {firstName} {lastName}
+            <div className="flex flex-col items-center justify-center md:items-start md:justify-start gap-2">
+              <h2 className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA] break-words text-center md:text-left">
+                {firstName} {lastName ? lastName.charAt(0).toUpperCase() : ""}
               </h2>
-              <Badge className="bg-[#9333EA]/10 text-[#9333EA] border-[#9333EA]/30 text-xs font-bold px-2.5 py-0.5">
-                LEAD TRAINER
-              </Badge>
-              <Badge variant="outline" className="text-xs font-semibold border-[#E5E7EB] text-[#4B5563]">
-                Batch 2026-A Instructor
-              </Badge>
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                <Badge className="bg-[#9333EA]/10 text-[#9333EA] border-[#9333EA]/30 text-xs font-bold px-2.5 py-0.5">
+                  LEAD TRAINER
+                </Badge>
+                <Badge variant="outline" className="text-xs font-semibold border-[#E5E7EB] text-[#4B5563]">
+                  Batch 2026-A Instructor
+                </Badge>
+              </div>
             </div>
 
             <p className="text-sm font-semibold text-[#9333EA] dark:text-[#C084FC]">
