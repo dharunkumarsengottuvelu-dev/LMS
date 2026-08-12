@@ -2,8 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get("code");
+  const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get("code");
+
+  // Determine current origin safely (handles Vercel reverse proxy headers)
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = forwardedHost || request.headers.get("host") || requestUrl.host;
+  const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+  const origin = `${protocol}://${host}`;
 
   if (code) {
     const supabase = await createClient();
@@ -31,5 +37,5 @@ export async function GET(request: Request) {
   }
 
   // Return to login with error
-  return NextResponse.redirect(`${origin}/auth/login?error=oauth_error`);
+  return NextResponse.redirect(`${origin}/login?error=oauth_error`);
 }
