@@ -41,22 +41,20 @@ export default function StudentProfilePage() {
   const [isEditingCoding, setIsEditingCoding] = useState(false);
 
   // Personal Info States
-  const [firstName, setFirstName] = useState(profile?.first_name || "Dharunkumar");
-  const [lastName, setLastName] = useState(profile?.last_name || "Sengottuvelu");
-  const [email] = useState(user?.email || "dharunkumarsengottuvelu@gmail.com");
-  const [phone, setPhone] = useState("+91 98765 43210");
-  const [bio, setBio] = useState(
-    profile?.bio || "Enthusiastic fullstack enterprise software learner specializing in Next.js 16, React 19, Python, and PostgreSQL database architecture."
-  );
-  const [skills, setSkills] = useState("React, Next.js, TypeScript, Python, PostgreSQL, Supabase, Tailwind CSS");
+  const [firstName, setFirstName] = useState(profile?.first_name || "");
+  const [lastName, setLastName] = useState(profile?.last_name || "");
+  const [email] = useState(user?.email || "");
+  const [phone, setPhone] = useState(profile?.phone || "");
+  const [bio, setBio] = useState(profile?.bio || "");
+  const [skills, setSkills] = useState(profile?.skills || "");
 
   // Coding & Social Links States
-  const [leetcode, setLeetcode] = useState("https://leetcode.com/u/dharunkumar");
-  const [hackerrank, setHackerrank] = useState("https://www.hackerrank.com/profile/dharunkumar");
-  const [codechef, setCodechef] = useState("https://www.codechef.com/users/dharunkumar");
-  const [github, setGithub] = useState("https://github.com/dharunkumarsengottuvelu-dev");
-  const [linkedin, setLinkedin] = useState("https://linkedin.com/in/dharunkumar-dev");
-  const [portfolio, setPortfolio] = useState("https://dharunkumar.dev");
+  const [leetcode, setLeetcode] = useState(profile?.leetcode || "");
+  const [hackerrank, setHackerrank] = useState(profile?.hackerrank || "");
+  const [codechef, setCodechef] = useState(profile?.codechef || "");
+  const [github, setGithub] = useState(profile?.github || "");
+  const [linkedin, setLinkedin] = useState(profile?.linkedin || "");
+  const [portfolio, setPortfolio] = useState(profile?.portfolio || "");
 
   // Security States
   const [currentPassword, setCurrentPassword] = useState("");
@@ -106,9 +104,9 @@ export default function StudentProfilePage() {
   };
 
   const batchName = currentStudent?.batch && currentStudent.batch !== "Not Assigned" ? currentStudent.batch : "Not Assigned";
-  const collegeVal = currentStudent?.college || "ABC College";
-  const courseVal = currentStudent?.course || "Fullstack Enterprise React/Next.js";
-  const joiningDate = currentStudent?.joinedDate || "2026-08-01";
+  const collegeVal = currentStudent?.college || "Not provided";
+  const courseVal = currentStudent?.course || "Not provided";
+  const joiningDate = currentStudent?.joinedDate || "N/A";
   const accountStatus = currentStudent?.status || "active";
 
   return (
