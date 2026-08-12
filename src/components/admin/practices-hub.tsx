@@ -948,10 +948,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <Button onClick={() => setViewState("create-coding")} variant="outline"
-            className="h-[44px] border-[#9333EA] text-[#9333EA] hover:bg-[#9333EA]/10 font-semibold text-xs gap-2 px-5 rounded-xl">
-            <Code2 className="h-4 w-4" /> Create Coding Problem
-          </Button>
           <Button onClick={openCreate}
             className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs">
             <Plus className="h-4 w-4" /> Create Practice Track
