@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
 
 export interface ScheduledTest {
   id: string;
@@ -94,6 +95,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [manualQuestionSection, setManualQuestionSection] = useState("");
   const [customSectionName, setCustomSectionName] = useState("");
   const [manualQuestionMarks, setManualQuestionMarks] = useState(10);
+  const [showCodingProblemBuilder, setShowCodingProblemBuilder] = useState(false);
   const [manualTestCases, setManualTestCases] = useState([{ id: 1, input: "", output: "", isHidden: false }]);
   const [manualMCQOptions, setManualMCQOptions] = useState([
     { id: 1, text: "", isCorrect: false },
@@ -600,6 +602,14 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
               {(manualQuestionType === "coding" || manualQuestionType === "both") && (
                 <div className="space-y-4 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                  <Button
+                    type="button"
+                    onClick={() => setShowCodingProblemBuilder(true)}
+                    className="w-full bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 py-3 shadow-sm mb-2"
+                  >
+                    <Code2 className="h-4 w-4" /> Open Full Coding Problem Authoring (Title, Languages, Public/Hidden Test Cases, Limits)
+                  </Button>
+
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Test Cases & Hidden Validations</label>
                     <Button type="button" onClick={() => setManualTestCases([...manualTestCases, { id: Date.now(), input: "", output: "", isHidden: false }])} variant="outline" className="h-8 px-3 text-[10px] font-bold">
@@ -634,6 +644,27 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {showCodingProblemBuilder && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                  <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                    <CodingProblemCreator
+                      initialTitle={manualQuestionText || "Find the Largest Element"}
+                      onCancel={() => setShowCodingProblemBuilder(false)}
+                      onSave={(problem) => {
+                        if (!manualQuestionText) setManualQuestionText(problem.title);
+                        setManualTestCases(problem.test_cases.map((t, index) => ({
+                          id: index + 1,
+                          input: t.input,
+                          output: t.expected_output,
+                          isHidden: t.is_hidden
+                        })));
+                        setShowCodingProblemBuilder(false);
+                      }}
+                    />
                   </div>
                 </div>
               )}

@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
 
 // ─── Types ─────────────────────────────────────────────────
 export interface CourseModuleItem {
@@ -113,6 +114,8 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [practiceDesc, setPracticeDesc]         = useState("");
   const [practiceTestCases, setPracticeTestCases] = useState("");
   const [practiceStarter, setPracticeStarter]   = useState("");
+
+  const [showCodingProblemBuilder, setShowCodingProblemBuilder] = useState(false);
   const [quizQuestions, setQuizQuestions] = useState("");
 
   const [selectedBatches, setSelectedBatches]         = useState<string[]>([]);
@@ -459,6 +462,14 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
               title="Coding Challenge Practice"
               color="border-[#9333EA]/20 bg-[#9333EA]/5 dark:bg-[#9333EA]/10"
             >
+              <Button
+                type="button"
+                onClick={() => setShowCodingProblemBuilder(true)}
+                className="w-full bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 py-3 shadow-sm mb-2"
+              >
+                <Code2 className="h-4 w-4" /> Open Full Coding Problem Authoring (Title, Languages, Public/Hidden Test Cases, Limits)
+              </Button>
+
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement</label>
                 <Textarea
@@ -492,6 +503,25 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 />
               </div>
             </SectionCard>
+          )}
+
+          {showCodingProblemBuilder && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                <CodingProblemCreator
+                  initialTitle={newTitle || "Find the Largest Element"}
+                  initialDescription={practiceDesc}
+                  onCancel={() => setShowCodingProblemBuilder(false)}
+                  onSave={(problem) => {
+                    if (!newTitle) setNewTitle(problem.title);
+                    setPracticeDesc(problem.description);
+                    setPracticeStarter(Object.values(problem.templates)[0] || "");
+                    setPracticeTestCases(problem.test_cases.map((t) => `${t.input} -> ${t.expected_output}`).join("\n"));
+                    setShowCodingProblemBuilder(false);
+                  }}
+                />
+              </div>
+            </div>
           )}
 
           {/* QUIZ */}

@@ -175,18 +175,30 @@ echo $max . "\\n";
   }
 ];
 
-export function CodingProblemCreator({ onCancel }: { onCancel?: () => void }) {
+export interface CodingProblemCreatorProps {
+  onCancel?: () => void;
+  onSave?: (problem: CodingProblem) => void;
+  initialTitle?: string;
+  initialDescription?: string;
+}
+
+export function CodingProblemCreator({
+  onCancel,
+  onSave,
+  initialTitle,
+  initialDescription,
+}: CodingProblemCreatorProps) {
   const { toast } = useToast();
 
   // Problem Metadata State
-  const [title, setTitle] = useState("Find the Largest Element");
+  const [title, setTitle] = useState(initialTitle || "Find the Largest Element");
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [durationMinutes, setDurationMinutes] = useState(45);
   const [points, setPoints] = useState(10);
 
   // Specifications State
   const [description, setDescription] = useState(
-    "Given an array of integers, write a program to find and output the largest element in the array."
+    initialDescription || "Given an array of integers, write a program to find and output the largest element in the array."
   );
   const [inputFormat, setInputFormat] = useState(
     "First line contains an integer N representing the size of the array.\nSecond line contains N space-separated integers."
@@ -345,6 +357,10 @@ export function CodingProblemCreator({ onCancel }: { onCancel?: () => void }) {
 
       await SubmissionService.saveProblem(problemData);
       setPublishedProblems(SubmissionService.getAllProblems());
+
+      if (onSave) {
+        onSave(problemData);
+      }
 
       toast({
         title: status === "published" ? "Problem Published!" : "Problem Saved as Draft",
