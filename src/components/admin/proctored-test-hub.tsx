@@ -652,10 +652,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                 <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
                   <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">
                     <CodingProblemCreator
-                      initialTitle={manualQuestionText || "Find the Largest Element"}
+                      initialTitle={manualQuestionTitle || "Find the Largest Element"}
                       onCancel={() => setShowCodingProblemBuilder(false)}
                       onSave={(problem) => {
-                        if (!manualQuestionText) setManualQuestionText(problem.title);
+                        if (!manualQuestionTitle) setManualQuestionTitle(problem.title);
                         setManualTestCases(problem.test_cases.map((t, index) => ({
                           id: index + 1,
                           input: t.input,
