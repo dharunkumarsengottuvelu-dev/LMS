@@ -296,7 +296,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       title: fTitle, category: fCategory || "General",
       description: fDesc || "New practice track for students.",
       assignedByName: fAssignedBy || (role === "admin" ? "Admin" : "Trainer"),
-      subModules: [], assignedBatches: ["Batch 2026-A"], assignedStudents: ["std_101", "student-1"],
+      subModules: [], assignedBatches: [], assignedStudents: [],
     };
     const updated = [created, ...tracks];
     syncTracksToStore(updated);

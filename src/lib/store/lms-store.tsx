@@ -89,14 +89,14 @@ interface LMSContextType {
 const LMSContext = createContext<LMSContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  COURSES: "edunexus_courses_v2",
-  ASSESSMENTS: "edunexus_assessments_v2",
-  PRACTICE_TRACKS: "edunexus_practice_tracks_v2",
-  ASSIGNMENTS: "edunexus_assignments_v2",
-  MODULES: "edunexus_modules_v2",
-  STUDENTS: "edunexus_students_v3",
-  ATTEMPTS: "edunexus_attempts_v2",
-  BATCHES: "edunexus_batches_v3",
+  COURSES: "edunexus_courses_v5",
+  ASSESSMENTS: "edunexus_assessments_v5",
+  PRACTICE_TRACKS: "edunexus_practice_tracks_v5",
+  ASSIGNMENTS: "edunexus_assignments_v5",
+  MODULES: "edunexus_modules_v5",
+  STUDENTS: "edunexus_students_v5",
+  ATTEMPTS: "edunexus_attempts_v5",
+  BATCHES: "edunexus_batches_v5",
 };
 
 const INITIAL_MOCK_BATCHES: LMSBatch[] = [];
@@ -117,6 +117,10 @@ export function LMSProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
+        localStorage.removeItem("edunexus_practice_tracks_v1");
+        localStorage.removeItem("edunexus_practice_tracks_v2");
+        localStorage.removeItem("enterprise_lms_practice_tracks_v2");
+
         const c = localStorage.getItem(STORAGE_KEYS.COURSES);
         if (c) setCourses(JSON.parse(c));
 
