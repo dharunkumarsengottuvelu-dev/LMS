@@ -950,49 +950,21 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   )}
 
                   {modType === "coding" && (
-                    <div className="p-5 rounded-xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-4">
-                      <Button
-                        type="button"
-                        onClick={() => setShowCodingProblemBuilder(true)}
-                        className="w-full bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 py-3 shadow-sm"
-                      >
-                        <Code2 className="h-4 w-4" /> Open Full Coding Problem Authoring (Title, Languages, Public/Hidden Test Cases, Limits)
-                      </Button>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement</label>
-                        <Textarea placeholder="Problem requirements..." value={modDesc} onChange={(e) => setModDesc(e.target.value)} rows={4}
-                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+                    <div className="p-6 rounded-2xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-6">
+                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#9333EA]">
+                        <Code2 className="h-4 w-4" /> Coding Problem Specifications & Test Cases
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Test Cases (Input → Expected Output)</label>
-                        <Textarea placeholder="Input: 'hello' → Output: 'olleh'" value={modTestCases} onChange={(e) => setModTestCases(e.target.value)} rows={3}
-                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Starter Code Template</label>
-                        <Textarea placeholder="function solution(input) {}" value={modStarter} onChange={(e) => setModStarter(e.target.value)} rows={4}
-                          className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
-                      </div>
-                    </div>
-                  )}
-
-                  {showCodingProblemBuilder && (
-                    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-                      <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">
-                        <CodingProblemCreator
-                          initialTitle={modTitle || "Find the Largest Element"}
-                          initialDescription={modDesc}
-                          onCancel={() => setShowCodingProblemBuilder(false)}
-                          onSave={(problem) => {
-                            if (!modTitle) setModTitle(problem.title);
-                            setModDesc(problem.description);
-                            setModStarter(Object.values(problem.templates)[0] || "");
-                            setModTestCases(problem.test_cases.map((t) => `${t.input} -> ${t.expected_output}`).join("\n"));
-                            setShowCodingProblemBuilder(false);
-                          }}
-                        />
-                      </div>
+                      <CodingProblemCreator
+                        inline
+                        initialTitle={modTitle || "Find the Largest Element"}
+                        initialDescription={modDesc}
+                        onChange={(problem) => {
+                          if (!modTitle && problem.title) setModTitle(problem.title);
+                          setModDesc(problem.description);
+                          setModStarter(Object.values(problem.templates)[0] || "");
+                          setModTestCases(problem.publicTestCases.map((t) => `${t.input} -> ${t.expected_output}`).join("\n"));
+                        }}
+                      />
                     </div>
                   )}
 

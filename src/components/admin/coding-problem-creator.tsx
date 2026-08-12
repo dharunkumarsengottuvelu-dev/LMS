@@ -178,15 +178,31 @@ echo $max . "\\n";
 export interface CodingProblemCreatorProps {
   onCancel?: () => void;
   onSave?: (problem: CodingProblem) => void;
+  onChange?: (problemData: {
+    title: string;
+    description: string;
+    difficulty: Difficulty;
+    constraints: string;
+    inputFormat: string;
+    outputFormat: string;
+    templates: Record<string, string>;
+    publicTestCases: TestCase[];
+    hiddenTestCases: TestCase[];
+  }) => void;
   initialTitle?: string;
   initialDescription?: string;
+  hideHeader?: boolean;
+  inline?: boolean;
 }
 
 export function CodingProblemCreator({
   onCancel,
   onSave,
+  onChange,
   initialTitle,
   initialDescription,
+  hideHeader = false,
+  inline = false,
 }: CodingProblemCreatorProps) {
   const { toast } = useToast();
 
@@ -266,6 +282,26 @@ export function CodingProblemCreator({
     const all = SubmissionService.getAllProblems();
     setPublishedProblems(all);
   }, []);
+
+  useEffect(() => {
+    if (onChange) {
+      const filteredTemplates: Record<string, string> = {};
+      selectedLanguages.forEach((lang) => {
+        filteredTemplates[lang] = templates[lang] || SUPPORTED_LANGUAGES_LIST.find((l) => l.id === lang)?.defaultTemplate || "";
+      });
+      onChange({
+        title,
+        description,
+        difficulty,
+        constraints,
+        inputFormat,
+        outputFormat,
+        templates: filteredTemplates,
+        publicTestCases,
+        hiddenTestCases,
+      });
+    }
+  }, [title, description, difficulty, constraints, inputFormat, outputFormat, selectedLanguages, templates, publicTestCases, hiddenTestCases, onChange]);
 
   const toggleLanguage = (lang: CodingLanguage) => {
     setSelectedLanguages((prev) =>
@@ -377,46 +413,48 @@ export function CodingProblemCreator({
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-16">
+    <div className={inline ? "space-y-6 w-full" : "space-y-8 max-w-5xl mx-auto pb-16"}>
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div className="flex items-center gap-3">
-          {onCancel && (
-            <Button onClick={onCancel} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
-              <ArrowLeft className="h-4 w-4" /> Back
-            </Button>
-          )}
-          <div>
-            <div className="flex items-center gap-2">
-              <Code2 className="h-5 w-5 text-[#9333EA]" />
-              <h1 className="text-xl font-bold uppercase tracking-wider text-[#111827] dark:text-[#FAFAFA]">
-                Create Coding Problem
-              </h1>
+      {!hideHeader && !inline && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <div className="flex items-center gap-3">
+            {onCancel && (
+              <Button onClick={onCancel} variant="outline" size="sm" className="h-9 font-semibold text-xs gap-2 border-[#E5E7EB] dark:border-[#27272A]">
+                <ArrowLeft className="h-4 w-4" /> Back
+              </Button>
+            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <Code2 className="h-5 w-5 text-[#9333EA]" />
+                <h1 className="text-xl font-bold uppercase tracking-wider text-[#111827] dark:text-[#FAFAFA]">
+                  Create Coding Problem
+                </h1>
+              </div>
+              <p className="text-xs text-[#6B7280]">Author algorithmic coding problems, test cases, and starter templates</p>
             </div>
-            <p className="text-xs text-[#6B7280]">Author algorithmic coding problems, test cases, and starter templates</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleSaveProblem("draft")}
+              disabled={isSaving}
+              className="h-10 px-5 text-xs font-semibold rounded-xl border-[#E5E7EB] dark:border-[#27272A] gap-2"
+            >
+              <Save className="h-3.5 w-3.5" /> Save as Draft
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleSaveProblem("published")}
+              disabled={isSaving}
+              className="h-10 px-6 bg-[#9333EA] hover:bg-[#7E22CE] text-white text-xs font-semibold rounded-xl gap-2 shadow-sm"
+            >
+              <ShieldCheck className="h-4 w-4" /> Publish Problem
+            </Button>
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleSaveProblem("draft")}
-            disabled={isSaving}
-            className="h-10 px-5 text-xs font-semibold rounded-xl border-[#E5E7EB] dark:border-[#27272A] gap-2"
-          >
-            <Save className="h-3.5 w-3.5" /> Save as Draft
-          </Button>
-          <Button
-            type="button"
-            onClick={() => handleSaveProblem("published")}
-            disabled={isSaving}
-            className="h-10 px-6 bg-[#9333EA] hover:bg-[#7E22CE] text-white text-xs font-semibold rounded-xl gap-2 shadow-sm"
-          >
-            <ShieldCheck className="h-4 w-4" /> Publish Problem
-          </Button>
-        </div>
-      </div>
+      )}
 
       {/* Main Authoring Form */}
       <div className="space-y-8">
@@ -819,25 +857,27 @@ export function CodingProblemCreator({
         </Card>
 
         {/* Bottom Actions */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleSaveProblem("draft")}
-            disabled={isSaving}
-            className="h-12 px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]"
-          >
-            Save as Draft
-          </Button>
-          <Button
-            type="button"
-            onClick={() => handleSaveProblem("published")}
-            disabled={isSaving}
-            className="h-12 px-8 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm"
-          >
-            <ShieldCheck className="h-4 w-4" /> Publish Problem
-          </Button>
-        </div>
+        {!inline && (
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleSaveProblem("draft")}
+              disabled={isSaving}
+              className="h-12 px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]"
+            >
+              Save as Draft
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleSaveProblem("published")}
+              disabled={isSaving}
+              className="h-12 px-8 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm"
+            >
+              <ShieldCheck className="h-4 w-4" /> Publish Problem
+            </Button>
+          </div>
+        )}
 
       </div>
     </div>

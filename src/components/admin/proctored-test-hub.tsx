@@ -602,70 +602,22 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
               {(manualQuestionType === "coding" || manualQuestionType === "both") && (
                 <div className="space-y-4 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                  <Button
-                    type="button"
-                    onClick={() => setShowCodingProblemBuilder(true)}
-                    className="w-full bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 py-3 shadow-sm mb-2"
-                  >
-                    <Code2 className="h-4 w-4" /> Open Full Coding Problem Authoring (Title, Languages, Public/Hidden Test Cases, Limits)
-                  </Button>
-
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Test Cases & Hidden Validations</label>
-                    <Button type="button" onClick={() => setManualTestCases([...manualTestCases, { id: Date.now(), input: "", output: "", isHidden: false }])} variant="outline" className="h-8 px-3 text-[10px] font-bold">
-                      <Plus className="h-3 w-3 mr-1" /> Add Test Case
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {manualTestCases.map((tc, idx) => (
-                      <div key={tc.id} className="p-4 border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl space-y-3 relative group">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Test Case {idx + 1}</span>
-                          <div className="flex items-center gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <Switch checked={tc.isHidden} onCheckedChange={(checked) => setManualTestCases(manualTestCases.map(t => t.id === tc.id ? { ...t, isHidden: checked } : t))} className="scale-75" />
-                              <span className="text-xs font-medium text-[#4B5563] dark:text-[#D4D4D8]">Hidden Validation</span>
-                            </label>
-                            <button type="button" onClick={() => manualTestCases.length > 1 && setManualTestCases(manualTestCases.filter(t => t.id !== tc.id))} className="text-[#EF4444] opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-[#111827] dark:text-[#FAFAFA]">Input Data</label>
-                            <Input value={tc.input} onChange={(e) => setManualTestCases(manualTestCases.map(t => t.id === tc.id ? { ...t, input: e.target.value } : t))} placeholder="e.g. 5\n1 2 3 4 5" className="h-9 text-xs font-mono" />
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold text-[#111827] dark:text-[#FAFAFA]">Expected Output</label>
-                            <Input value={tc.output} onChange={(e) => setManualTestCases(manualTestCases.map(t => t.id === tc.id ? { ...t, output: e.target.value } : t))} placeholder="e.g. 15" className="h-9 text-xs font-mono" />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {showCodingProblemBuilder && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-                  <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">
-                    <CodingProblemCreator
-                      initialTitle={manualQuestionTitle || "Find the Largest Element"}
-                      onCancel={() => setShowCodingProblemBuilder(false)}
-                      onSave={(problem) => {
-                        if (!manualQuestionTitle) setManualQuestionTitle(problem.title);
-                        setManualTestCases(problem.test_cases.map((t, index) => ({
+                  <CodingProblemCreator
+                    inline
+                    initialTitle={manualQuestionTitle || "Find the Largest Element"}
+                    onChange={(problem) => {
+                      if (!manualQuestionTitle && problem.title) setManualQuestionTitle(problem.title);
+                      const allTC = [...problem.publicTestCases, ...problem.hiddenTestCases];
+                      if (allTC.length > 0) {
+                        setManualTestCases(allTC.map((t, index) => ({
                           id: index + 1,
                           input: t.input,
                           output: t.expected_output,
                           isHidden: t.is_hidden
                         })));
-                        setShowCodingProblemBuilder(false);
-                      }}
-                    />
-                  </div>
+                      }
+                    }}
+                  />
                 </div>
               )}
 

@@ -430,87 +430,26 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             </div>
 
             {(smType === "coding" || smType === "mixed") && (
-              <div className="p-5 rounded-xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-4">
-                <Button
-                  type="button"
-                  onClick={() => setShowCodingProblemBuilder(true)}
-                  className="w-full bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 py-3 shadow-sm"
-                >
-                  <Code2 className="h-4 w-4" /> Open Full Coding Problem Authoring (Title, Languages, Public/Hidden Test Cases, Limits)
-                </Button>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement</label>
-                  <Textarea
-                    placeholder="Problem statement requirements..."
-                    value={smProblemDesc}
-                    onChange={(e) => setSmProblemDesc(e.target.value)}
-                    rows={4}
-                    className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-                  />
+              <div className="p-6 rounded-2xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-6">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#9333EA]">
+                  <Code2 className="h-4 w-4" /> Coding Problem Specifications & Test Cases
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Public Test Cases (Input → Output)</label>
-                  <Textarea
-                    placeholder="Input: '5\n10 25 7 42 18' → Output: '42'"
-                    value={smPublicTestCases}
-                    onChange={(e) => setSmPublicTestCases(e.target.value)}
-                    rows={3}
-                    className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Starter Solution Template</label>
-                  <Textarea
-                    placeholder="import java.util.*; public class Solution { ... }"
-                    value={smStarterCode}
-                    onChange={(e) => setSmStarterCode(e.target.value)}
-                    rows={4}
-                    className="text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between bg-white dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl">
-                  <div>
-                    <label className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Enable Hidden Test Cases</label>
-                    <p className="text-xs text-[#6B7280]">Hidden test cases are used for final grading but kept hidden from the student during practice.</p>
-                  </div>
-                  <Switch checked={smHasHiddenTests} onCheckedChange={setSmHasHiddenTests} />
-                </div>
-                {smHasHiddenTests && (
-                  <div className="space-y-2 mt-3">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Hidden Test Cases (Input → Output format)</label>
-                    <Textarea placeholder="Input: '6\n-10 -25 -7 -42 -3 -100' → Output: '-3'"
-                      value={smHiddenTests} onChange={(e) => setSmHiddenTests(e.target.value)}
-                      className="min-h-[100px] text-xs font-mono rounded-xl bg-white dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {showCodingProblemBuilder && (
-              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-                <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">
-                  <CodingProblemCreator
-                    initialTitle={smTitle || "Find the Largest Element"}
-                    initialDescription={smProblemDesc}
-                    onCancel={() => setShowCodingProblemBuilder(false)}
-                    onSave={(problem) => {
-                      if (!smTitle) setSmTitle(problem.title);
-                      setSmProblemDesc(problem.description);
-                      setSmStarterCode(Object.values(problem.templates)[0] || "");
-                      setSmPublicTestCases(problem.test_cases.filter(t => !t.is_hidden).map(t => `${t.input} -> ${t.expected_output}`).join("\n"));
-                      const hidden = problem.test_cases.filter(t => t.is_hidden);
-                      if (hidden.length > 0) {
-                        setSmHasHiddenTests(true);
-                        setSmHiddenTests(hidden.map(t => `${t.input} -> ${t.expected_output}`).join("\n"));
-                      }
-                      setShowCodingProblemBuilder(false);
-                    }}
-                  />
-                </div>
+                <CodingProblemCreator
+                  inline
+                  initialTitle={smTitle || "Find the Largest Element"}
+                  initialDescription={smProblemDesc}
+                  onChange={(data) => {
+                    if (!smTitle && data.title) setSmTitle(data.title);
+                    setSmProblemDesc(data.description);
+                    setSmPublicTestCases(data.publicTestCases.map((t) => `${t.input} -> ${t.expected_output}`).join("\n"));
+                    if (data.hiddenTestCases.length > 0) {
+                      setSmHasHiddenTests(true);
+                      setSmHiddenTests(data.hiddenTestCases.map((t) => `${t.input} -> ${t.expected_output}`).join("\n"));
+                    }
+                    setSmStarterCode(Object.values(data.templates)[0] || "");
+                  }}
+                />
               </div>
             )}
 
