@@ -13,23 +13,26 @@ export default function PublicCoursesPage() {
   const [search, setSearch] = useState("");
   const { courses: storeCourses } = useLMSStore();
 
-  const coursesList = storeCourses.map((c) => ({
-    id: c.id,
-    title: c.title,
-    category: c.category || "General",
-    icon: Code2,
-    color: "#9333EA",
-    rating: 5.0,
-    students: "Enrolled",
-    duration: "Self-paced",
-    modules: c.modules?.length || 0,
-    level: c.level || "All Levels",
-    description: c.description || "Interactive course module.",
-    topics: ["Curriculum Modules", "Live Practice", "Proctored Tests"],
-  }));
+  const coursesList = storeCourses.map((c: any) => {
+    const catStr = typeof c.category === "string" ? c.category : (c.category?.name || "General");
+    return {
+      id: c.id,
+      title: c.title,
+      category: catStr,
+      icon: Code2,
+      color: "#9333EA",
+      rating: 5.0,
+      students: "Enrolled",
+      duration: "Self-paced",
+      modules: c.modules?.length || 0,
+      level: c.level || "All Levels",
+      description: c.description || "Interactive course module.",
+      topics: ["Curriculum Modules", "Live Practice", "Proctored Tests"],
+    };
+  });
 
   const filtered = coursesList.filter(
-    (c) => c.title.toLowerCase().includes(search.toLowerCase()) || c.category.toLowerCase().includes(search.toLowerCase())
+    (c) => c.title.toLowerCase().includes(search.toLowerCase()) || String(c.category).toLowerCase().includes(search.toLowerCase())
   );
 
   return (
