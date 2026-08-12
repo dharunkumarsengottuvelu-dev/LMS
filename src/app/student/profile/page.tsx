@@ -46,15 +46,16 @@ export default function StudentProfilePage() {
   const [email] = useState(user?.email || "");
   const [phone, setPhone] = useState(profile?.phone || "");
   const [bio, setBio] = useState(profile?.bio || "");
-  const [skills, setSkills] = useState(profile?.skills || "");
+  const [skills, setSkills] = useState(profile?.skills?.join(", ") || "");
 
   // Coding & Social Links States
-  const [leetcode, setLeetcode] = useState(profile?.leetcode || "");
-  const [hackerrank, setHackerrank] = useState(profile?.hackerrank || "");
-  const [codechef, setCodechef] = useState(profile?.codechef || "");
-  const [github, setGithub] = useState(profile?.github || "");
-  const [linkedin, setLinkedin] = useState(profile?.linkedin || "");
-  const [portfolio, setPortfolio] = useState(profile?.portfolio || "");
+  const pAny = profile as any;
+  const [leetcode, setLeetcode] = useState(pAny?.leetcode || "");
+  const [hackerrank, setHackerrank] = useState(pAny?.hackerrank || "");
+  const [codechef, setCodechef] = useState(pAny?.codechef || "");
+  const [github, setGithub] = useState(profile?.github_url || pAny?.github || "");
+  const [linkedin, setLinkedin] = useState(profile?.linkedin_url || pAny?.linkedin || "");
+  const [portfolio, setPortfolio] = useState(profile?.website_url || pAny?.portfolio || "");
 
   // Security States
   const [currentPassword, setCurrentPassword] = useState("");
