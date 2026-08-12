@@ -7,97 +7,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
-const publicCourses = [
-  {
-    id: "c1",
-    title: "React & Next.js Enterprise App Development",
-    category: "Web Development",
-    icon: Code2,
-    color: "#2563EB",
-    rating: 4.9,
-    students: "48",
-    duration: "18 Hours",
-    modules: 12,
-    level: "Advanced",
-    description: "Build production-grade enterprise apps using Next.js App Router, React Server Components, and Supabase backend integration.",
-    topics: ["App Router & Routing", "Server Components", "API Route Handlers", "Supabase Auth"],
-  },
-  {
-    id: "c2",
-    title: "Python for Data Science & Analytics",
-    category: "Data Science",
-    icon: BarChart3,
-    color: "#9333EA",
-    rating: 4.8,
-    students: "62",
-    duration: "22 Hours",
-    modules: 15,
-    level: "Intermediate",
-    description: "Hands-on data analysis using Pandas, NumPy, Matplotlib, and Scikit-learn for real-world business analytics workflows.",
-    topics: ["Pandas & NumPy", "Data Visualization", "Scikit-learn Basics", "Business Analytics"],
-  },
-  {
-    id: "c3",
-    title: "DSA & Problem Solving with Java",
-    category: "Computer Science",
-    icon: Code2,
-    color: "#D97706",
-    rating: 4.85,
-    students: "35",
-    duration: "16 Hours",
-    modules: 10,
-    level: "Intermediate",
-    description: "Master arrays, linked lists, trees, graphs, and sorting algorithms with hands-on coding challenges and LeetCode-style problems.",
-    topics: ["Arrays & Strings", "Trees & Graphs", "Dynamic Programming", "Interview Prep"],
-  },
-  {
-    id: "c4",
-    title: "SQL & Database Design Fundamentals",
-    category: "Database",
-    icon: FileText,
-    color: "#0891B2",
-    rating: 4.75,
-    students: "41",
-    duration: "12 Hours",
-    modules: 8,
-    level: "Beginner",
-    description: "Learn to design relational databases, write efficient SQL queries, and understand indexes, joins, and normalization for enterprise use.",
-    topics: ["SQL Queries", "Joins & Aggregations", "Indexing", "Schema Design"],
-  },
-  {
-    id: "c5",
-    title: "Proctored Assessment Preparation",
-    category: "Assessments",
-    icon: ClipboardList,
-    color: "#DC2626",
-    rating: 4.9,
-    students: "85",
-    duration: "8 Hours",
-    modules: 6,
-    level: "All Levels",
-    description: "Prepare for timed MCQ and coding exams with mock assessments, time management strategies, and best-practice checklists.",
-    topics: ["MCQ Strategies", "Coding Under Time", "Mock Tests", "Review Techniques"],
-  },
-  {
-    id: "c6",
-    title: "Coding Practice: Daily Challenges",
-    category: "Practice",
-    icon: Dumbbell,
-    color: "#16A34A",
-    rating: 4.95,
-    students: "110",
-    duration: "Self-paced",
-    modules: 30,
-    level: "All Levels",
-    description: "Daily coding challenges with live execution in the browser. Build problem-solving muscle with real test case validation.",
-    topics: ["Daily Problems", "Live Code Editor", "Test Case Validation", "Progress Tracking"],
-  },
-];
+import { useLMSStore } from "@/lib/store/lms-store";
 
 export default function PublicCoursesPage() {
   const [search, setSearch] = useState("");
+  const { courses: storeCourses } = useLMSStore();
 
-  const filtered = publicCourses.filter(
+  const coursesList = storeCourses.map((c) => ({
+    id: c.id,
+    title: c.title,
+    category: c.category || "General",
+    icon: Code2,
+    color: "#9333EA",
+    rating: 5.0,
+    students: "Enrolled",
+    duration: "Self-paced",
+    modules: c.modules?.length || 0,
+    level: c.level || "All Levels",
+    description: c.description || "Interactive course module.",
+    topics: ["Curriculum Modules", "Live Practice", "Proctored Tests"],
+  }));
+
+  const filtered = coursesList.filter(
     (c) => c.title.toLowerCase().includes(search.toLowerCase()) || c.category.toLowerCase().includes(search.toLowerCase())
   );
 
