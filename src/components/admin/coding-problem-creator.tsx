@@ -193,6 +193,7 @@ export interface CodingProblemCreatorProps {
   initialDescription?: string;
   hideHeader?: boolean;
   inline?: boolean;
+  onAddAnotherQuestion?: () => void;
 }
 
 export function CodingProblemCreator({
@@ -203,6 +204,7 @@ export function CodingProblemCreator({
   initialDescription,
   hideHeader = false,
   inline = false,
+  onAddAnotherQuestion,
 }: CodingProblemCreatorProps) {
   const { toast } = useToast();
 
@@ -461,9 +463,22 @@ export function CodingProblemCreator({
         
         {/* Section 1: Problem Overview */}
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-5">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#9333EA] flex items-center gap-2">
-            <Sparkles className="h-4 w-4" /> 1. Problem Overview & Parameters
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[#9333EA] flex items-center gap-2">
+              <Sparkles className="h-4 w-4" /> 1. Problem Overview & Parameters
+            </h2>
+            {onAddAnotherQuestion && (
+              <Button
+                type="button"
+                onClick={onAddAnotherQuestion}
+                variant="outline"
+                size="sm"
+                className="h-8 px-3 text-xs font-bold border-[#9333EA]/30 text-[#9333EA] hover:bg-[#9333EA]/10 gap-1 rounded-xl"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Another Coding Question
+              </Button>
+            )}
+          </div>
 
           <div className="space-y-4">
             <div className="space-y-2">

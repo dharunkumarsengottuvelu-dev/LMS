@@ -41,6 +41,19 @@ export interface MCQQuestionItem {
   explanation?: string;
 }
 
+export interface CodingQuestionItem {
+  id: string;
+  title: string;
+  description: string;
+  difficulty?: string;
+  constraints?: string;
+  inputFormat?: string;
+  outputFormat?: string;
+  templates?: Record<string, string>;
+  publicTestCases?: any[];
+  hiddenTestCases?: any[];
+}
+
 interface PracticeTrack {
   id: string;
   title: string;
@@ -109,6 +122,39 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [smStarterCode, setSmStarterCode] = useState("");
   const [smPublicTestCases, setSmPublicTestCases] = useState("");
   const [showCodingProblemBuilder, setShowCodingProblemBuilder] = useState(false);
+
+  // Coding Questions State
+  const [codingQuestions, setCodingQuestions] = useState<CodingQuestionItem[]>([
+    {
+      id: "cq1",
+      title: "Find the Largest Element",
+      description: "Given an array of integers, write a program to find and output the largest element in the array.",
+    },
+  ]);
+
+  const addCodingQuestion = () => {
+    const cqId = `cq_${Date.now()}`;
+    setCodingQuestions((prev) => [
+      ...prev,
+      {
+        id: cqId,
+        title: `Coding Problem ${prev.length + 1}`,
+        description: "",
+      },
+    ]);
+  };
+
+  const removeCodingQuestion = (cqId: string) => {
+    if (codingQuestions.length > 1) {
+      setCodingQuestions((prev) => prev.filter((cq) => cq.id !== cqId));
+    }
+  };
+
+  const updateCodingQuestion = (cqId: string, data: any) => {
+    setCodingQuestions((prev) =>
+      prev.map((cq) => (cq.id === cqId ? { ...cq, ...data } : cq))
+    );
+  };
 
   // MCQ Questions State
   const [mcqQuestions, setMcqQuestions] = useState<MCQQuestionItem[]>([
@@ -287,6 +333,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       starterCode?: string;
       publicTestCases?: string;
       mcqQuestions?: MCQQuestionItem[];
+      codingQuestions?: CodingQuestionItem[];
     } = {
       id: `sm_${Date.now()}`, title: smTitle, type: smType,
       durationMinutes: smDuration, totalMarks: smMarks, questionCount: smQuestions,
@@ -297,6 +344,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         problemDescription: smProblemDesc,
         starterCode: smStarterCode,
         publicTestCases: smPublicTestCases,
+        codingQuestions,
       } : {})
     };
     const updatedTrack = { ...selectedTrack, subModules: [...selectedTrack.subModules, newSm] };
@@ -306,6 +354,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
     setSmHasHiddenTests(false); setSmHiddenTests("");
     setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
+    setCodingQuestions([
+      {
+        id: "cq1",
+        title: "Find the Largest Element",
+        description: "Given an array of integers, write a program to find and output the largest element in the array.",
+      },
+    ]);
     setMcqQuestions([
       {
         id: "q1",
@@ -683,25 +738,60 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             {/* Coding Problem Specs for Coding and Mixed types */}
             {(smType === "coding" || smType === "mixed") && (
               <div className="p-6 rounded-2xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-6">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#9333EA]">
-                  <Code2 className="h-4 w-4" /> Coding Problem Specifications & Test Cases
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#9333EA]">
+                    <Code2 className="h-4 w-4" /> Coding Problem Specifications & Test Cases ({codingQuestions.length} Problems)
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={addCodingQuestion}
+                    variant="outline"
+                    className="h-8 px-3 text-xs font-bold border-[#9333EA]/30 text-[#9333EA] hover:bg-[#9333EA]/10 gap-1 rounded-xl"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Coding Question
+                  </Button>
                 </div>
 
-                <CodingProblemCreator
-                  inline
-                  initialTitle={smTitle || "Find the Largest Element"}
-                  initialDescription={smProblemDesc}
-                  onChange={(data) => {
-                    if (!smTitle && data.title) setSmTitle(data.title);
-                    setSmProblemDesc(data.description);
-                    setSmPublicTestCases(data.publicTestCases.map((t) => `${t.input} -> ${t.expected_output}`).join("\n"));
-                    if (data.hiddenTestCases.length > 0) {
-                      setSmHasHiddenTests(true);
-                      setSmHiddenTests(data.hiddenTestCases.map((t) => `${t.input} -> ${t.expected_output}`).join("\n"));
-                    }
-                    setSmStarterCode(Object.values(data.templates)[0] || "");
-                  }}
-                />
+                <div className="space-y-8">
+                  {codingQuestions.map((cq, cqIdx) => (
+                    <div key={cq.id} className="p-5 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl space-y-4 shadow-sm relative group">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#E5E7EB] dark:border-[#27272A]">
+                        <span className="text-xs font-bold px-3 py-1 rounded-lg bg-[#9333EA]/10 text-[#9333EA]">
+                          Coding Question {cqIdx + 1}
+                        </span>
+                        {codingQuestions.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeCodingQuestion(cq.id)}
+                            className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1.5 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      <CodingProblemCreator
+                        inline
+                        initialTitle={cq.title || `Coding Problem ${cqIdx + 1}`}
+                        initialDescription={cq.description}
+                        onAddAnotherQuestion={addCodingQuestion}
+                        onChange={(data) => {
+                          updateCodingQuestion(cq.id, data);
+                          if (cqIdx === 0) {
+                            if (!smTitle && data.title) setSmTitle(data.title);
+                            setSmProblemDesc(data.description);
+                            setSmPublicTestCases(data.publicTestCases.map((t) => `${t.input} -> ${t.expected_output}`).join("\n"));
+                            if (data.hiddenTestCases.length > 0) {
+                              setSmHasHiddenTests(true);
+                              setSmHiddenTests(data.hiddenTestCases.map((t) => `${t.input} -> ${t.expected_output}`).join("\n"));
+                            }
+                            setSmStarterCode(Object.values(data.templates)[0] || "");
+                          }
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
