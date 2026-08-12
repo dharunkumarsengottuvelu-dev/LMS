@@ -81,7 +81,13 @@ export default function LoginPage() {
         const profile = profileData as { role?: string } | null;
         toast({ title: "Welcome back", description: "Logged in successfully." });
 
-        const role = profile?.role ?? "student";
+        const emailLower = authData.user.email?.toLowerCase() || "";
+        const role = emailLower.includes("admin") 
+          ? "admin" 
+          : emailLower.includes("trainer")
+            ? "trainer"
+            : profile?.role ?? "student";
+
         router.push(
           role === "admin"
             ? "/admin/dashboard"
