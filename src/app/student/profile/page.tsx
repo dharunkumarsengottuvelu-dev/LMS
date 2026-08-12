@@ -23,7 +23,7 @@ import { useLMSStore } from "@/lib/store/lms-store";
 export default function StudentProfilePage() {
   const { profile, user } = useAuth();
   const { toast } = useToast();
-  const { students } = useLMSStore();
+  const { students, courses, practiceTracks, studentAttempts, assignments } = useLMSStore();
 
   // Find matching student record from store
   const currentStudent = useMemo(() => {
@@ -33,6 +33,23 @@ export default function StudentProfilePage() {
       null
     );
   }, [students, user?.email]);
+
+  const enrolledCount = useMemo(() => {
+    if (!currentStudent) return 0;
+    return courses.filter((c: any) => c.assignedStudents?.includes(currentStudent.id) || c.assignedBatches?.includes(currentStudent.batchId)).length;
+  }, [currentStudent, courses]);
+
+  const practiceCount = useMemo(() => {
+    if (!currentStudent) return 0;
+    return practiceTracks.filter((t: any) => t.assignedStudents?.includes(currentStudent.id) || t.assignedBatches?.includes(currentStudent.batchId)).length;
+  }, [currentStudent, practiceTracks]);
+
+  const submissionsCount = useMemo(() => {
+    if (!currentStudent) return 0;
+    const attempts = studentAttempts.filter((a: any) => a.studentId === currentStudent.id).length;
+    const assignmentSubs = assignments.filter((a: any) => a.studentId === currentStudent.id).length;
+    return attempts + assignmentSubs;
+  }, [currentStudent, studentAttempts, assignments]);
 
   const [activeTab, setActiveTab] = useState<"personal" | "coding" | "security">("personal");
 
@@ -219,15 +236,15 @@ export default function StudentProfilePage() {
               {/* Stats Summary */}
               <div className="grid grid-cols-3 gap-2 bg-[#F9FAFB] dark:bg-[#09090B] p-3 rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
                 <div>
-                  <p className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">4</p>
+                  <p className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">{enrolledCount}</p>
                   <p className="text-[10px] font-semibold text-[#6B7280]">Enrolled</p>
                 </div>
                 <div>
-                  <p className="text-base font-bold text-[#16A34A]">8</p>
+                  <p className="text-base font-bold text-[#16A34A]">{practiceCount}</p>
                   <p className="text-[10px] font-semibold text-[#6B7280]">Practice</p>
                 </div>
                 <div>
-                  <p className="text-base font-bold text-[#2563EB]">12</p>
+                  <p className="text-base font-bold text-[#2563EB]">{submissionsCount}</p>
                   <p className="text-[10px] font-semibold text-[#6B7280]">Submissions</p>
                 </div>
               </div>
