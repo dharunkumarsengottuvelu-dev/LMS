@@ -148,50 +148,7 @@ export default function LoginPage() {
         Continue with Google
       </Button>
 
-      {/* Quick Role Login Presets */}
-      <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30 space-y-3">
-        <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest text-center">Quick Demo Login Presets</p>
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setValue("email", "admin@edunexus.io");
-              setValue("password", "Password123");
-            }}
-            className="h-10 text-[11px] font-bold border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-xl"
-          >
-            👑 Admin
-          </Button>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setValue("email", "trainer@edunexus.io");
-              setValue("password", "Password123");
-            }}
-            className="h-10 text-[11px] font-bold border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-xl"
-          >
-            👨‍🏫 Trainer
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setValue("email", "student@gmail.com");
-              setValue("password", "Password123");
-            }}
-            className="h-10 text-[11px] font-bold border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-xl"
-          >
-            🎓 Student
-          </Button>
-        </div>
-      </div>
 
       <div className="flex items-center gap-4 px-2">
         <Separator className="flex-1 bg-gray-200 dark:bg-gray-800" />
