@@ -47,12 +47,17 @@ export default function LoginPage() {
   async function onSubmit(data: LoginFormData) {
     setIsLoading(true);
     try {
-      // 1. Call server API to auto-confirm email if unconfirmed & ensure profile exists
-      await fetch("/api/auth/login", {
+      // 1. Call server API to ensure profile exists
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: data.email, password: data.password }),
       });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Authentication failed");
+      }
 
       // 2. Sign in with password
       const { data: authData, error } = await supabase.auth.signInWithPassword({

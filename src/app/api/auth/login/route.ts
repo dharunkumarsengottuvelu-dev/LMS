@@ -36,6 +36,7 @@ export async function POST(request: Request) {
           user_id: existingUser.id,
           first_name: existingUser.user_metadata?.first_name || lowerEmail.split("@")[0],
           last_name: "",
+          email: lowerEmail,
           role: determinedRole,
           status: "active",
         });
@@ -44,27 +45,7 @@ export async function POST(request: Request) {
         await admin.from("profiles").update({ role: determinedRole }).eq("user_id", existingUser.id);
       }
     } else {
-      // Auto-register user seamlessly with role matching email
-      const { data: newUser } = await admin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          first_name: lowerEmail.split("@")[0],
-          last_name: "",
-          role: determinedRole,
-        },
-      });
-
-      if (newUser?.user) {
-        await admin.from("profiles").insert({
-          user_id: newUser.user.id,
-          first_name: lowerEmail.split("@")[0],
-          last_name: "",
-          role: determinedRole,
-          status: "active",
-        });
-      }
+      return NextResponse.json({ error: "Account not found. Please register first." }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, role: determinedRole });

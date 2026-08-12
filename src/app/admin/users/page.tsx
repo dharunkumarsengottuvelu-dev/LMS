@@ -62,6 +62,8 @@ export default function AdminUsersPage() {
           batch: p.batch_id || undefined,
         }));
         setUsers(mappedUsers);
+      } else if (error) {
+        console.error("Error fetching users:", error);
       }
     };
     fetchUsers();
