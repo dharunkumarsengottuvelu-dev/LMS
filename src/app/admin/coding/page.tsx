@@ -1,5 +1,12 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import React from "react";
+import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
 
 export default function AdminCodingPage() {
-  redirect("/admin/dashboard");
+  return (
+    <div className="p-6">
+      <CodingProblemCreator />
+    </div>
+  );
 }

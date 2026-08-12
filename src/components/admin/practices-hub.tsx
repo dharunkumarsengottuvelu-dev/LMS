@@ -47,11 +47,13 @@ const allStudents = [
   { id: "std_105", name: "Priya Nair",               email: "priya.nair@org.in",         batch: "Batch 2026-A" },
   { id: "std_106", name: "James Okafor",             email: "j.okafor@techcorp.com",     batch: "Batch 2026-B" },
 ];
+import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+
 const allBatches = ["Batch 2026-A", "Batch 2026-B"];
 
 const initialTracks: PracticeTrack[] = [];
 
-type ViewState = "list" | "create" | "edit" | "detail" | "add-module" | "assign";
+type ViewState = "list" | "create" | "edit" | "detail" | "add-module" | "assign" | "create-coding";
 
 import { useLMSStore } from "@/lib/store/lms-store";
 import { PracticeTrackItem } from "@/services/assessment.service";
@@ -221,6 +223,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     type === "mcq" ? "bg-[#2563EB] text-white font-medium"
     : type === "coding" ? "bg-[#9333EA] text-white font-medium"
     : "bg-[#D97706] text-white font-medium";
+
+  if (viewState === "create-coding") {
+    return <CodingProblemCreator onCancel={() => setViewState("list")} />;
+  }
 
   // ════════════════════════════════════════════════════════════
   // VIEW: CREATE / EDIT TRACK (MNC CORPORATE STYLING)
@@ -584,10 +590,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             Author practice tracks with MCQ, Coding, and Mixed assessments for student batches
           </p>
         </div>
-        <Button onClick={openCreate}
-          className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm">
-          <Plus className="h-4 w-4" /> Create Practice Track
-        </Button>
+        <div className="flex items-center gap-3 shrink-0">
+          <Button onClick={() => setViewState("create-coding")} variant="outline"
+            className="h-[44px] border-[#9333EA] text-[#9333EA] hover:bg-[#9333EA]/10 font-semibold text-xs gap-2 px-5 rounded-xl">
+            <Code2 className="h-4 w-4" /> Create Coding Problem
+          </Button>
+          <Button onClick={openCreate}
+            className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs">
+            <Plus className="h-4 w-4" /> Create Practice Track
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-3 rounded-xl shadow-sm">
