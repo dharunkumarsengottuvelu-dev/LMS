@@ -456,7 +456,7 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
           )}
 
           {/* CODING PRACTICE */}
-          {newType === "coding" && (
+          {(newType === "coding" || newType === "mixed") && (
             <SectionCard
               icon={<Code2 className="h-4 w-4 text-[#9333EA]" />}
               title="Coding Challenge Practice"
@@ -477,7 +477,7 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
           )}
 
           {/* QUIZ */}
-          {newType === "quiz" && (
+          {(newType === "quiz" || newType === "mixed") && (
             <SectionCard
               icon={<BookOpen className="h-4 w-4 text-[#D97706]" />}
               title="Quiz Questions"

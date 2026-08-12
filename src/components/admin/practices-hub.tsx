@@ -97,6 +97,112 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [smPublicTestCases, setSmPublicTestCases] = useState("");
   const [showCodingProblemBuilder, setShowCodingProblemBuilder] = useState(false);
 
+  // MCQ Questions State
+  const [mcqQuestions, setMcqQuestions] = useState<MCQQuestionItem[]>([
+    {
+      id: "q1",
+      questionText: "",
+      options: [
+        { id: "o1", text: "", isCorrect: true },
+        { id: "o2", text: "", isCorrect: false },
+        { id: "o3", text: "", isCorrect: false },
+        { id: "o4", text: "", isCorrect: false },
+      ],
+      explanation: "",
+    },
+  ]);
+
+  const addMcqQuestion = () => {
+    const qId = `q_${Date.now()}`;
+    setMcqQuestions((prev) => [
+      ...prev,
+      {
+        id: qId,
+        questionText: "",
+        options: [
+          { id: `o_${Date.now()}_1`, text: "", isCorrect: true },
+          { id: `o_${Date.now()}_2`, text: "", isCorrect: false },
+          { id: `o_${Date.now()}_3`, text: "", isCorrect: false },
+          { id: `o_${Date.now()}_4`, text: "", isCorrect: false },
+        ],
+        explanation: "",
+      },
+    ]);
+  };
+
+  const removeMcqQuestion = (qId: string) => {
+    if (mcqQuestions.length > 1) {
+      setMcqQuestions((prev) => prev.filter((q) => q.id !== qId));
+    }
+  };
+
+  const updateQuestionText = (qId: string, text: string) => {
+    setMcqQuestions((prev) =>
+      prev.map((q) => (q.id === qId ? { ...q, questionText: text } : q))
+    );
+  };
+
+  const updateOptionText = (qId: string, optId: string, text: string) => {
+    setMcqQuestions((prev) =>
+      prev.map((q) =>
+        q.id === qId
+          ? {
+              ...q,
+              options: q.options.map((o) => (o.id === optId ? { ...o, text } : o)),
+            }
+          : q
+      )
+    );
+  };
+
+  const setCorrectOption = (qId: string, optId: string) => {
+    setMcqQuestions((prev) =>
+      prev.map((q) =>
+        q.id === qId
+          ? {
+              ...q,
+              options: q.options.map((o) => ({ ...o, isCorrect: o.id === optId })),
+            }
+          : q
+      )
+    );
+  };
+
+  const addOptionToQuestion = (qId: string) => {
+    setMcqQuestions((prev) =>
+      prev.map((q) =>
+        q.id === qId
+          ? {
+              ...q,
+              options: [
+                ...q.options,
+                { id: `o_${Date.now()}`, text: "", isCorrect: false },
+              ],
+            }
+          : q
+      )
+    );
+  };
+
+  const removeOptionFromQuestion = (qId: string, optId: string) => {
+    setMcqQuestions((prev) =>
+      prev.map((q) =>
+        q.id === qId && q.options.length > 2
+          ? {
+              ...q,
+              options: q.options.filter((o) => o.id !== optId),
+            }
+          : q
+      )
+    );
+  };
+
+  const updateQuestionExplanation = (qId: string, exp: string) => {
+    setMcqQuestions((prev) =>
+      prev.map((q) => (q.id === qId ? { ...q, explanation: exp } : q))
+    );
+  };
+
   // Assign state
   const [selectedBatches, setSelectedBatches]       = useState<string[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -167,9 +273,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       problemDescription?: string;
       starterCode?: string;
       publicTestCases?: string;
+      mcqQuestions?: MCQQuestionItem[];
     } = {
       id: `sm_${Date.now()}`, title: smTitle, type: smType,
       durationMinutes: smDuration, totalMarks: smMarks, questionCount: smQuestions,
+      ...(smType === "mcq" || smType === "mixed" ? { mcqQuestions } : {}),
       ...(smType === "coding" || smType === "mixed" ? {
         hasHiddenTests: smHasHiddenTests,
         hiddenTestsCode: smHasHiddenTests ? smHiddenTests : undefined,
@@ -185,6 +293,19 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
     setSmHasHiddenTests(false); setSmHiddenTests("");
     setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
+    setMcqQuestions([
+      {
+        id: "q1",
+        questionText: "",
+        options: [
+          { id: "o1", text: "", isCorrect: true },
+          { id: "o2", text: "", isCorrect: false },
+          { id: "o3", text: "", isCorrect: false },
+          { id: "o4", text: "", isCorrect: false },
+        ],
+        explanation: "",
+      },
+    ]);
     setViewState("detail");
     toast({ title: "Sub-Module Added", description: `"${smTitle}" added.` });
   };
@@ -429,6 +550,124 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               </div>
             </div>
 
+            {/* MCQ Questions Builder for MCQ and Mixed types */}
+            {(smType === "mcq" || smType === "mixed") && (
+              <div className="p-6 rounded-2xl border border-[#2563EB]/20 bg-[#2563EB]/5 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#2563EB]">
+                    <HelpCircle className="h-4 w-4" /> Multiple Choice Questions Builder ({mcqQuestions.length} Questions)
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={addMcqQuestion}
+                    variant="outline"
+                    className="h-8 px-3 text-xs font-bold border-[#2563EB]/30 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1 rounded-xl"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Question
+                  </Button>
+                </div>
+
+                <div className="space-y-6">
+                  {mcqQuestions.map((q, qIdx) => (
+                    <div key={q.id} className="p-5 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl space-y-4 shadow-sm relative group">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold px-3 py-1 rounded-lg bg-[#2563EB]/10 text-[#2563EB]">
+                          Question {qIdx + 1}
+                        </span>
+                        {mcqQuestions.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeMcqQuestion(q.id)}
+                            className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1.5 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Question Prompt</label>
+                        <Input
+                          value={q.questionText}
+                          onChange={(e) => updateQuestionText(q.id, e.target.value)}
+                          placeholder={`Enter question ${qIdx + 1} text...`}
+                          className="h-10 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                        />
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Options & Correct Answer</label>
+                          <button
+                            type="button"
+                            onClick={() => addOptionToQuestion(q.id)}
+                            className="text-[10px] font-bold text-[#2563EB] hover:underline flex items-center gap-1"
+                          >
+                            <Plus className="h-3 w-3" /> Add Option
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {q.options.map((opt, oIdx) => (
+                            <div
+                              key={opt.id}
+                              className={`flex items-center gap-2 p-2.5 border rounded-xl transition-all ${
+                                opt.isCorrect
+                                  ? 'border-[#2563EB] bg-[#2563EB]/5 dark:bg-[#2563EB]/10'
+                                  : 'border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]'
+                              }`}
+                            >
+                              <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] text-[10px] font-bold text-[#6B7280] shrink-0">
+                                {String.fromCharCode(65 + oIdx)}
+                              </div>
+                              <Input
+                                value={opt.text}
+                                onChange={(e) => updateOptionText(q.id, opt.id, e.target.value)}
+                                placeholder={`Option ${String.fromCharCode(65 + oIdx)}`}
+                                className="h-8 text-xs flex-1 bg-white dark:bg-[#18181B] rounded-lg"
+                              />
+                              <label className="flex items-center gap-1.5 cursor-pointer pr-1 shrink-0">
+                                <input
+                                  type="radio"
+                                  name={`correct-opt-${q.id}`}
+                                  checked={opt.isCorrect}
+                                  onChange={() => setCorrectOption(q.id, opt.id)}
+                                  className="w-3.5 h-3.5 text-[#2563EB] cursor-pointer"
+                                />
+                                <span className={`text-[10px] font-bold ${opt.isCorrect ? 'text-[#2563EB]' : 'text-[#6B7280]'}`}>
+                                  Correct
+                                </span>
+                              </label>
+                              {q.options.length > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeOptionFromQuestion(q.id, opt.id)}
+                                  className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1 rounded transition-colors shrink-0"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">Explanation / Answer Hint (Optional)</label>
+                        <Input
+                          value={q.explanation || ""}
+                          onChange={(e) => updateQuestionExplanation(q.id, e.target.value)}
+                          placeholder="Provide explanation for the correct answer..."
+                          className="h-8 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Coding Problem Specs for Coding and Mixed types */}
             {(smType === "coding" || smType === "mixed") && (
               <div className="p-6 rounded-2xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-6">
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#9333EA]">
