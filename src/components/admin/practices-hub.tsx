@@ -774,7 +774,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         inline
                         initialTitle={cq.title || `Coding Problem ${cqIdx + 1}`}
                         initialDescription={cq.description}
-                        onAddAnotherQuestion={addCodingQuestion}
                         onChange={(data) => {
                           updateCodingQuestion(cq.id, data);
                           if (cqIdx === 0) {
