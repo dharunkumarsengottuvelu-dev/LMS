@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+import { useLMSStore } from "@/lib/store/lms-store";
 
 // ─── Module Rich Item ──────────────────────────────────────
 export interface CourseSyllabusModule {
@@ -78,18 +79,21 @@ const initialCourses: ManagedCourse[] = [];
 
 type ViewState = "list" | "wizard" | "syllabus" | "add-module" | "edit-module";
 
-const allBatches = ["Batch 2026-A", "Batch 2026-B", "Batch 2026-C"];
-const allStudents = [
-  { id: "std_101", name: "Dharunkumar Sengottuvelu", email: "dharunkumar@gmail.com", batch: "Batch 2026-A" },
-  { id: "std_102", name: "Alex Rivera",              email: "alex.rivera@techcorp.com", batch: "Batch 2026-A" },
-  { id: "std_103", name: "Sarah Chen",               email: "sarah.chen@techcorp.com", batch: "Batch 2026-B" },
-  { id: "std_104", name: "Michael Chang",            email: "m.chang@enterprise.com",  batch: "Batch 2026-B" },
-  { id: "std_105", name: "Priya Nair",               email: "priya.nair@org.in",       batch: "Batch 2026-A" },
-  { id: "std_106", name: "James Okafor",             email: "j.okafor@techcorp.com",   batch: "Batch 2026-B" },
-];
-
 export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
+  const { students: storeStudents, batches: storeBatches } = useLMSStore();
+
+  const allStudents = storeStudents.map((s) => ({
+    id: s.id,
+    name: s.name,
+    email: s.email,
+    batch: s.batch || s.batchId || "Unassigned Batch",
+  }));
+
+  const allBatches = storeBatches.length > 0
+    ? storeBatches.map((b: any) => b.batchName || b.id)
+    : Array.from(new Set(allStudents.map((s: any) => s.batch).filter(Boolean)));
+
   const [courses, setCourses] = useState<ManagedCourse[]>(initialCourses);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");

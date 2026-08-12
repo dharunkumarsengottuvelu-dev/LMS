@@ -43,8 +43,6 @@ export interface TestQuestion {
 
 const initialTests: ScheduledTest[] = [];
 
-const allBatches = ["Batch 2026-A", "Batch 2026-B", "Batch 2026-C", "Enterprise FastTrack"];
-
 type ViewState = "list" | "wizard" | "exam-dashboard" | "add-question";
 
 import { useLMSStore } from "@/lib/store/lms-store";
@@ -52,7 +50,12 @@ import type { Assessment } from "@/types/assessment";
 
 export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const { assessments: storeAssessments, updateAssessmentsList } = useLMSStore();
+  const { assessments: storeAssessments, updateAssessmentsList, batches: storeBatches, students: storeStudents } = useLMSStore();
+
+  const allBatches = storeBatches.length > 0
+    ? storeBatches.map((b: any) => b.batchName || b.id)
+    : Array.from(new Set(storeStudents.map((s) => s.batch || s.batchId).filter((b): b is string => Boolean(b))));
+
   const [tests, setTests] = useState<ScheduledTest[]>(() => {
     return storeAssessments.length > 0 ? (storeAssessments as unknown as ScheduledTest[]) : initialTests;
   });

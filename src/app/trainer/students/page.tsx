@@ -22,11 +22,40 @@ interface StudentUser {
   batch: string;
 }
 
+import { useEffect } from "react";
+import { useLMSStore, StudentUserRecord } from "@/lib/store/lms-store";
+
 const initialStudents: StudentUser[] = [];
 
 export default function TrainerStudentsPage() {
   const { toast } = useToast();
-  const [users, setUsers] = useState<StudentUser[]>(initialStudents);
+  const { students: storeStudents, updateStudents } = useLMSStore();
+
+  const [users, setUsers] = useState<StudentUser[]>(() => {
+    return storeStudents.map((s) => ({
+      id: s.id,
+      name: s.name,
+      email: s.email,
+      status: (s.status as UserStatus) || "active",
+      joined: s.joinedDate ? String(s.joinedDate) : new Date().toISOString().split("T")[0],
+      batch: s.batch || s.batchId || "Unassigned Batch",
+    }));
+  });
+
+  useEffect(() => {
+    if (storeStudents) {
+      setUsers(
+        storeStudents.map((s) => ({
+          id: s.id,
+          name: s.name,
+          email: s.email,
+          status: (s.status as UserStatus) || "active",
+          joined: s.joinedDate ? String(s.joinedDate) : new Date().toISOString().split("T")[0],
+          batch: s.batch || s.batchId || "Unassigned Batch",
+        }))
+      );
+    }
+  }, [storeStudents]);
   const [search, setSearch] = useState("");
   
   // Dialog state

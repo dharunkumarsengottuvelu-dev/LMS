@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { useLMSStore } from "@/lib/store/lms-store";
+import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
 
 // ─── Types aligned with Student Portal assessments page ────
 interface SubModuleItem {
@@ -65,30 +67,25 @@ interface PracticeTrack {
   assignedStudents: string[];
 }
 
-const allStudents = [
-  { id: "std_101", name: "Dharunkumar Sengottuvelu", email: "dharunkumar@gmail.com",  batch: "Batch 2026-A" },
-  { id: "std_102", name: "Alex Rivera",              email: "alex.rivera@techcorp.com",  batch: "Batch 2026-A" },
-  { id: "std_103", name: "Sarah Chen",               email: "sarah.chen@techcorp.com",   batch: "Batch 2026-B" },
-  { id: "std_104", name: "Michael Chang",            email: "m.chang@enterprise.com",    batch: "Batch 2026-B" },
-  { id: "std_105", name: "Priya Nair",               email: "priya.nair@org.in",         batch: "Batch 2026-A" },
-  { id: "std_106", name: "James Okafor",             email: "j.okafor@techcorp.com",     batch: "Batch 2026-B" },
-];
-import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
-
-const allBatches = ["Batch 2026-A", "Batch 2026-B"];
-
 const initialTracks: PracticeTrack[] = [];
 
 type ViewState = "list" | "create" | "edit" | "detail" | "add-module" | "assign" | "create-coding";
 
-import { useLMSStore } from "@/lib/store/lms-store";
-import { PracticeTrackItem } from "@/services/assessment.service";
-
-// ... existing code ...
-
 export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const { practiceTracks: storeTracks, updatePracticeTracks } = useLMSStore();
+  const { practiceTracks: storeTracks, updatePracticeTracks, students: storeStudents, batches: storeBatches } = useLMSStore();
+
+  const allStudents = storeStudents.map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    email: s.email,
+    batch: s.batch || s.batchId || "Unassigned Batch",
+  }));
+
+  const allBatches = storeBatches.length > 0
+    ? storeBatches.map((b: any) => b.batchName || b.id)
+    : Array.from(new Set(allStudents.map((s: any) => s.batch).filter(Boolean)));
+
   const [tracks, setTracks] = useState<PracticeTrack[]>(() => {
     return storeTracks.length > 0 ? (storeTracks as unknown as PracticeTrack[]) : initialTracks;
   });

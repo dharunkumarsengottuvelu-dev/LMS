@@ -35,17 +35,6 @@ export interface CourseModuleItem {
   quizQuestions?: string;
 }
 
-const allStudents = [
-  { id: "std_101", name: "Dharunkumar Sengottuvelu", email: "dharunkumar@gmail.com", batch: "Batch 2026-A" },
-  { id: "std_102", name: "Alex Rivera",              email: "alex.rivera@techcorp.com", batch: "Batch 2026-A" },
-  { id: "std_103", name: "Sarah Chen",               email: "sarah.chen@techcorp.com", batch: "Batch 2026-B" },
-  { id: "std_104", name: "Michael Chang",            email: "m.chang@enterprise.com",  batch: "Batch 2026-B" },
-  { id: "std_105", name: "Priya Nair",               email: "priya.nair@org.in",       batch: "Batch 2026-A" },
-  { id: "std_106", name: "James Okafor",             email: "j.okafor@techcorp.com",   batch: "Batch 2026-B" },
-];
-
-const allBatches = ["Batch 2026-A", "Batch 2026-B"];
-
 const initialModules: CourseModuleItem[] = [];
 
 type ViewState = "list" | "create" | "assign";
@@ -59,15 +48,13 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`p-5 rounded-2xl border-2 ${color} space-y-4`}>
-      <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/60 dark:bg-black/20">
-          {icon}
-        </div>
-        <span className="text-xs font-bold uppercase tracking-wider">{title}</span>
+    <Card className={`border ${color} rounded-2xl p-6 space-y-4 shadow-sm`}>
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#111827] dark:text-[#FAFAFA]">
+        {icon}
+        <span>{title}</span>
       </div>
       {children}
-    </div>
+    </Card>
   );
 }
 
@@ -76,7 +63,19 @@ import { useEffect } from "react";
 
 export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const { modules: storeModules, updateModules } = useLMSStore();
+  const { modules: storeModules, updateModules, students: storeStudents, batches: storeBatches } = useLMSStore();
+
+  const allStudents = storeStudents.map((s) => ({
+    id: s.id,
+    name: s.name,
+    email: s.email,
+    batch: s.batch || s.batchId || "Unassigned Batch",
+  }));
+
+  const allBatches = storeBatches.length > 0
+    ? storeBatches.map((b: any) => b.batchName || b.id)
+    : Array.from(new Set(allStudents.map((s: any) => s.batch).filter(Boolean)));
+
   const [modules, setModules] = useState<CourseModuleItem[]>(() => {
     return storeModules.length > 0 ? (storeModules as unknown as CourseModuleItem[]) : initialModules;
   });
