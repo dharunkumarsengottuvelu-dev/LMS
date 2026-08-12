@@ -55,13 +55,11 @@ function StatCard({ icon: Icon, value, label, href, badgeText }: {
   );
 }
 
-const mockEnrolledCourses: any[] = [];
-
-const mockUpcomingEvents: any[] = [];
 
 import { useLMSStore } from "@/lib/store/lms-store";
 
 export function StudentDashboardClient({ data }: { data: StudentDashboardData }) {
+  const upcomingEvents: any[] = [];
   const router = useRouter();
   const { profile } = data;
   const firstName = profile?.first_name ?? "Dharunkumar";
@@ -206,31 +204,38 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
             </CardHeader>
 
             <CardContent className="p-4 space-y-3">
-              {mockUpcomingEvents.map((evt) => (
-                <div key={evt.id} className="p-3.5 bg-background rounded-[var(--radius-lg)] border border-border space-y-2 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <Badge className="bg-primary text-primary-foreground text-[9px] font-bold uppercase">
-                      {evt.type}
-                    </Badge>
-                    <span className="text-[10px] font-bold text-[#9333EA]">{evt.badge}</span>
-                  </div>
-
-                  <h4 className="text-xs font-semibold text-foreground">
-                    {evt.title}
-                  </h4>
-
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                    <span>{evt.time}</span>
-                    <span>{evt.duration}</span>
-                  </div>
-
-                  <Button className="w-full h-8 text-xs font-semibold gap-1 mt-1" asChild>
-                    <Link href={evt.href}>
-                      Start Now <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </Button>
+              {upcomingEvents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-6 text-center bg-background rounded-[var(--radius-xl)] border border-border border-dashed">
+                  <Clock className="h-8 w-8 text-muted-foreground opacity-50 mb-2" />
+                  <p className="text-xs text-muted-foreground">No upcoming evaluations scheduled.</p>
                 </div>
-              ))}
+              ) : (
+                upcomingEvents.map((evt) => (
+                  <div key={evt.id} className="p-3.5 bg-background rounded-[var(--radius-lg)] border border-border space-y-2 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <Badge className="bg-primary text-primary-foreground text-[9px] font-bold uppercase">
+                        {evt.type}
+                      </Badge>
+                      <span className="text-[10px] font-bold text-[#9333EA]">{evt.badge}</span>
+                    </div>
+
+                    <h4 className="text-xs font-semibold text-foreground">
+                      {evt.title}
+                    </h4>
+
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                      <span>{evt.time}</span>
+                      <span>{evt.duration}</span>
+                    </div>
+
+                    <Button className="w-full h-8 text-xs font-semibold gap-1 mt-1" asChild>
+                      <Link href={evt.href}>
+                        Start Now <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
 

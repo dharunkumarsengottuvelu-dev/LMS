@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useLMSStore } from "@/lib/store/lms-store";
 
 type UserRole = "manager" | "trainer" | "student";
 type UserStatus = "active" | "pending" | "suspended";
@@ -32,6 +33,7 @@ const initialUsers: SystemUser[] = [];
 
 export default function AdminUsersPage() {
   const { toast } = useToast();
+  const { batches: storeBatches } = useLMSStore();
   const [users, setUsers] = useState<SystemUser[]>(initialUsers);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("student");
@@ -48,7 +50,7 @@ export default function AdminUsersPage() {
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState<UserRole>("student");
   const [newUserDept, setNewUserDept] = useState("");
-  const [newUserBatch, setNewUserBatch] = useState("Batch 2026-A");
+  const [newUserBatch, setNewUserBatch] = useState("");
   const [customBatch, setCustomBatch] = useState("");
 
   const filtered = users.filter(
@@ -96,12 +98,9 @@ export default function AdminUsersPage() {
       setNewUserDept(userToEdit.department || "");
       
       if (userToEdit.batch) {
-        if (["Batch 2026-A", "Batch 2026-B", "Enterprise FastTrack"].includes(userToEdit.batch)) {
-          setNewUserBatch(userToEdit.batch);
-        } else {
-          setNewUserBatch("custom");
-          setCustomBatch(userToEdit.batch);
-        }
+        setNewUserBatch(userToEdit.batch);
+      } else {
+        setNewUserBatch("");
       }
       setEditingUserId(id);
       setIsEditOpen(true);
@@ -506,12 +505,16 @@ export default function AdminUsersPage() {
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Student Batch</label>
                 <Select value={newUserBatch} onValueChange={(val) => val && setNewUserBatch(val)}>
                   <SelectTrigger className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl">
-                    <SelectValue />
+                    <SelectValue placeholder="Select Batch" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
-                    <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
-                    <SelectItem value="Enterprise FastTrack">Enterprise FastTrack</SelectItem>
+                    {storeBatches.length > 0 ? (
+                      storeBatches.map(b => (
+                        <SelectItem key={b.id} value={b.batchName}>{b.batchName}</SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no_batches" disabled>No batches available</SelectItem>
+                    )}
                     <SelectItem value="custom" className="text-[#2563EB] font-bold">+ Custom Batch...</SelectItem>
                   </SelectContent>
                 </Select>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Layers, Plus, Search, Trash2, ArrowLeft, Sparkles, UserCheck,
   Users, CheckCircle2, Clock, BookOpen, Code2, FileText, Video,
@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+import { useLMSStore, ManagedModuleItem } from "@/lib/store/lms-store";
 
 // ─── Types ─────────────────────────────────────────────────
 export interface CourseModuleItem {
@@ -58,8 +59,6 @@ function SectionCard({
   );
 }
 
-import { useLMSStore, ManagedModuleItem } from "@/lib/store/lms-store";
-import { useEffect } from "react";
 
 export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();

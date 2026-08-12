@@ -29,7 +29,7 @@ const initialStudents: StudentUser[] = [];
 
 export default function TrainerStudentsPage() {
   const { toast } = useToast();
-  const { students: storeStudents, updateStudents } = useLMSStore();
+  const { students: storeStudents, updateStudents, batches: storeBatches } = useLMSStore();
 
   const [users, setUsers] = useState<StudentUser[]>(() => {
     return storeStudents.map((s) => ({
@@ -67,7 +67,7 @@ export default function TrainerStudentsPage() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
-  const [newUserBatch, setNewUserBatch] = useState("Batch 2026-A");
+  const [newUserBatch, setNewUserBatch] = useState("");
   const [customBatch, setCustomBatch] = useState("");
 
   const filtered = users.filter(
@@ -108,12 +108,9 @@ export default function TrainerStudentsPage() {
       setNewUserEmail(userToEdit.email);
       
       if (userToEdit.batch) {
-        if (["Batch 2026-A", "Batch 2026-B", "Enterprise FastTrack"].includes(userToEdit.batch)) {
-          setNewUserBatch(userToEdit.batch);
-        } else {
-          setNewUserBatch("custom");
-          setCustomBatch(userToEdit.batch);
-        }
+        setNewUserBatch(userToEdit.batch);
+      } else {
+        setNewUserBatch("");
       }
       setEditingUserId(id);
       setIsEditOpen(true);
@@ -366,17 +363,21 @@ export default function TrainerStudentsPage() {
 
             <div className="space-y-2">
               <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Cohort Batch</label>
-              <Select value={newUserBatch} onValueChange={(val) => val && setNewUserBatch(val)}>
-                <SelectTrigger className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border-[#E5E7EB] dark:border-[#27272A]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
-                  <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
-                  <SelectItem value="Enterprise FastTrack">Enterprise FastTrack</SelectItem>
-                  <SelectItem value="custom" className="text-[#9333EA] font-bold">+ Custom Batch...</SelectItem>
-                </SelectContent>
-              </Select>
+                <Select value={newUserBatch} onValueChange={(val) => val && setNewUserBatch(val)}>
+                  <SelectTrigger className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border-[#E5E7EB] dark:border-[#27272A]">
+                    <SelectValue placeholder="Select Batch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {storeBatches.length > 0 ? (
+                      storeBatches.map(b => (
+                        <SelectItem key={b.id} value={b.batchName}>{b.batchName}</SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no_batches" disabled>No batches available</SelectItem>
+                    )}
+                    <SelectItem value="custom" className="text-[#9333EA] font-bold">+ Custom Batch...</SelectItem>
+                  </SelectContent>
+                </Select>
               {newUserBatch === "custom" && (
                 <Input 
                   value={customBatch}

@@ -27,8 +27,8 @@ export default function AssessmentTakePage() {
   const params = useParams();
   const router = useRouter();
 
-  const subModuleId = (params?.id as string) || "p1-sub1";
-  const currentSubModule: SubModuleMeta = mockSubModules[subModuleId] ?? mockSubModules["p1-sub1"] ?? {
+  const subModuleId = (params?.id as string) || "";
+  const currentSubModule: SubModuleMeta = mockSubModules[subModuleId] ?? {
     id: subModuleId,
     title: "Assessment",
     type: "mcq",

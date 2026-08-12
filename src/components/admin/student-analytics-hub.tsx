@@ -118,13 +118,11 @@ export interface StudentRecord {
 }
 
 
-const mockStudentsList: StudentRecord[] = [];
-
 export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const { students: storeStudents, updateStudents, batches: storeBatches, addBatch } = useLMSStore();
+  const { students: storeStudents, updateStudents, batches: storeBatches, addBatch, courses: storeCourses } = useLMSStore();
   const [students, setStudents] = useState<StudentRecord[]>(() => {
-    return storeStudents.length > 0 ? (storeStudents as unknown as StudentRecord[]) : mockStudentsList;
+    return storeStudents.length > 0 ? (storeStudents as unknown as StudentRecord[]) : [];
   });
 
   useEffect(() => {
@@ -142,14 +140,9 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   const [batchFilter, setBatchFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // Dynamic Batch Options from Store + Presets
+  // Dynamic Batch Options from Store
   const availableBatches = useMemo(() => {
-    const names = new Set<string>([
-      "Batch 2026-A",
-      "Batch 2026-B",
-      "Enterprise FastTrack 2026",
-      "Zoho Prep 2026",
-    ]);
+    const names = new Set<string>();
     if (storeBatches) {
       storeBatches.forEach((b) => names.add(b.batchName));
     }
@@ -190,16 +183,16 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
   const [isCreateBatchOpen, setIsCreateBatchOpen] = useState(false);
   const [newBatchTitle, setNewBatchTitle] = useState("");
-  const [newBatchCollege, setNewBatchCollege] = useState("ABC College");
-  const [newBatchTrack, setNewBatchTrack] = useState("Fullstack Enterprise React/Next.js");
+  const [newBatchCollege, setNewBatchCollege] = useState("");
+  const [newBatchTrack, setNewBatchTrack] = useState("");
   const [newBatchStartDate, setNewBatchStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [newBatchEndDate, setNewBatchEndDate] = useState(new Date(Date.now() + 120 * 86400000).toISOString().slice(0, 10));
   const [newBatchSession, setNewBatchSession] = useState("Morning Session (09:00 AM)");
-  const [newBatchTrainer, setNewBatchTrainer] = useState("Dr. Aris Thorne");
+  const [newBatchTrainer, setNewBatchTrainer] = useState("");
 
   const [isAssignBatchOpen, setIsAssignBatchOpen] = useState(false);
   const [assignStudentId, setAssignStudentId] = useState("");
-  const [assignTargetBatch, setAssignTargetBatch] = useState("Batch 2026-A");
+  const [assignTargetBatch, setAssignTargetBatch] = useState("");
   const [assignStudentEmailManual, setAssignStudentEmailManual] = useState("");
   const [assignStudentNameManual, setAssignStudentNameManual] = useState("");
 
@@ -531,12 +524,12 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   const [newStudentName, setNewStudentName] = useState("");
   const [newStudentEmail, setNewStudentEmail] = useState("");
   const [newStudentEmpId, setNewStudentEmpId] = useState("");
-  const [newStudentDept, setNewStudentDept] = useState("Computer Science & Engineering (CSE)");
-  const [newStudentDesignation, setNewStudentDesignation] = useState("B.E. Computer Science & Technology");
-  const [newStudentTrack, setNewStudentTrack] = useState("Fullstack Enterprise React/Next.js");
+  const [newStudentDept, setNewStudentDept] = useState("");
+  const [newStudentDesignation, setNewStudentDesignation] = useState("");
+  const [newStudentTrack, setNewStudentTrack] = useState("");
   const [batchInputMode, setBatchInputMode] = useState<"select" | "manual">("manual");
-  const [newStudentBatch, setNewStudentBatch] = useState("Batch 2026-A");
-  const [newStudentPassword, setNewStudentPassword] = useState("EduNexus@2026");
+  const [newStudentBatch, setNewStudentBatch] = useState("");
+  const [newStudentPassword, setNewStudentPassword] = useState("");
 
   const [editingStudent, setEditingStudent] = useState<StudentRecord | null>(null);
   const [editName, setEditName] = useState("");
@@ -719,15 +712,18 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                   className="h-[48px] text-sm font-semibold rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#2563EB]/40 focus:border-[#2563EB]"
                 />
               ) : (
-                <Select value={newStudentBatch} onValueChange={(val) => setNewStudentBatch(val || "Batch 2026-A")}>
+                <Select value={newStudentBatch} onValueChange={(val) => setNewStudentBatch(val || "")}>
                   <SelectTrigger className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                    <SelectValue />
+                    <SelectValue placeholder="Select Batch" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
-                    <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
-                    <SelectItem value="Batch 2026-C">Batch 2026-C</SelectItem>
-                    <SelectItem value="Enterprise FastTrack 2026">Enterprise FastTrack 2026</SelectItem>
+                    {availableBatches.length > 0 ? (
+                      availableBatches.map((batch) => (
+                        <SelectItem key={batch} value={batch}>{batch}</SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>No batches available</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               )}
@@ -1294,10 +1290,13 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                     <Select value={newBatchTrack} onValueChange={(val: string | null) => val && setNewBatchTrack(val)}>
                       <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue placeholder="Select Track" /></SelectTrigger>
                       <SelectContent className="bg-white dark:bg-[#18181B]">
-                        <SelectItem value="Fullstack Enterprise React/Next.js">Fullstack React/Next.js</SelectItem>
-                        <SelectItem value="Core Java & Data Structures">Core Java & Data Structures</SelectItem>
-                        <SelectItem value="AI/ML & Python Engineering">AI/ML & Python</SelectItem>
-                        <SelectItem value="Cloud Engineering & DevOps">Cloud & DevOps</SelectItem>
+                        {storeCourses && storeCourses.length > 0 ? (
+                          storeCourses.map((course) => (
+                            <SelectItem key={course.id} value={course.title}>{course.title}</SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>No tracks available</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1579,8 +1578,9 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Batch: All Batches</SelectItem>
-                <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
-                <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
+                {availableBatches.map((batch) => (
+                  <SelectItem key={batch} value={batch}>{batch}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

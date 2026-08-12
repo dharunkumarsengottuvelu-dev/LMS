@@ -15,12 +15,7 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
 
   const mockStudents: any[] = [];
 
-  const recentLogs = [
-    { time: "14:22:10", student: "Sarah Smith", event: "Multiple Faces Detected", type: "critical" },
-    { time: "14:20:05", student: "Maria Garcia", event: "Tab Switched", type: "warning" },
-    { time: "14:15:30", student: "Emily Davis", event: "Camera Disconnected", type: "critical" },
-    { time: "14:05:00", student: "System", event: "Proctoring AI Engine Started", type: "info" },
-  ];
+  const recentLogs: any[] = [];
 
   return (
     <div className="space-y-6 h-full flex flex-col">
@@ -74,59 +69,11 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
         {/* Left Side: Feeds */}
         <div className="lg:col-span-3 flex flex-col overflow-hidden space-y-4">
           <div className="grid grid-cols-3 gap-4 overflow-y-auto pr-2 pb-4">
-            {mockStudents.map(student => (
-              <div key={student.id} className="relative group rounded-2xl overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] shadow-sm flex flex-col">
-                <div className="relative aspect-video bg-[#F3F4F6] dark:bg-[#09090B] flex items-center justify-center overflow-hidden">
-                  {student.status === "Offline" ? (
-                    <Video className="h-10 w-10 text-[#9CA3AF] opacity-50" />
-                  ) : student.status === "Suspicious" ? (
-                    <div className="absolute inset-0 bg-red-500/10 flex items-center justify-center border-2 border-red-500 box-border">
-                      <AlertTriangle className="h-12 w-12 text-red-500 opacity-80" />
-                    </div>
-                  ) : (
-                    <div className="absolute inset-0 bg-[#E5E7EB] dark:bg-[#27272A] flex items-center justify-center">
-                      <Users className="h-12 w-12 text-[#9CA3AF] dark:text-[#52525B]" />
-                    </div>
-                  )}
-                  
-                  {/* Status Overlay */}
-                  <div className="absolute top-3 right-3 flex items-center gap-2">
-                    {student.warnings > 0 && (
-                      <Badge variant="destructive" className="text-[10px] font-bold px-2 shadow-sm backdrop-blur-md">
-                        {student.warnings} Warnings
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  {/* Bottom Action Bar */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end gap-2">
-                    <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-white/20 hover:bg-white/40 text-white backdrop-blur-md border-none">
-                      <VolumeX className="h-3 w-3" />
-                    </Button>
-                    <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-white/20 hover:bg-white/40 text-white backdrop-blur-md border-none">
-                      <Maximize className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{student.name}</h4>
-                    <span className={`h-2 w-2 rounded-full ${student.status === 'Active' ? 'bg-[#16A34A]' : student.status === 'Offline' ? 'bg-[#6B7280]' : student.status === 'Warning' ? 'bg-[#EAB308]' : 'bg-[#EF4444]'}`}></span>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-[#6B7280]">
-                      <span>Camera:</span>
-                      <span className={`font-medium ${student.camera !== 'Live' ? 'text-[#EF4444]' : 'text-[#16A34A]'}`}>{student.camera}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] text-[#6B7280]">
-                      <span>Screen:</span>
-                      <span className={`font-medium ${student.screen !== 'Live' ? 'text-[#EAB308]' : 'text-[#16A34A]'}`}>{student.screen}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            <div className="col-span-3 text-center py-20">
+              <Video className="h-12 w-12 text-[#9CA3AF] mx-auto mb-4" />
+              <h3 className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">No Live Streams</h3>
+              <p className="text-xs text-[#6B7280] mt-1">No students are currently active in this examination.</p>
+            </div>
           </div>
         </div>
 
@@ -139,30 +86,36 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
           </div>
           
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {recentLogs.map((log, i) => (
-              <div key={i} className="flex gap-3">
-                <div className="shrink-0 mt-0.5">
-                  {log.type === 'critical' ? (
-                    <div className="h-6 w-6 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                      <XCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
-                    </div>
-                  ) : log.type === 'warning' ? (
-                    <div className="h-6 w-6 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-                      <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400" />
-                    </div>
-                  ) : (
-                    <div className="h-6 w-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                  )}
+            {recentLogs.length > 0 ? (
+              recentLogs.map((log, i) => (
+                <div key={i} className="flex gap-3">
+                  <div className="shrink-0 mt-0.5">
+                    {log.type === 'critical' ? (
+                      <div className="h-6 w-6 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                        <XCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                      </div>
+                    ) : log.type === 'warning' ? (
+                      <div className="h-6 w-6 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+                        <AlertTriangle className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400" />
+                      </div>
+                    ) : (
+                      <div className="h-6 w-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{log.student}</p>
+                    <p className="text-[11px] text-[#6B7280] mt-0.5">{log.event}</p>
+                    <p className="text-[9px] font-mono text-[#9CA3AF] mt-1">{log.time}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{log.student}</p>
-                  <p className="text-[11px] text-[#6B7280] mt-0.5">{log.event}</p>
-                  <p className="text-[9px] font-mono text-[#9CA3AF] mt-1">{log.time}</p>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-6 text-sm text-[#6B7280]">
+                No recent logs available.
               </div>
-            ))}
+            )}
           </div>
           
           <div className="p-3 border-t border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]">

@@ -22,17 +22,25 @@ export default function StudentNotificationsPage() {
       </div>
 
       <div className="space-y-3">
-        {mockNotifications.map((n) => (
-          <Card key={n.id} className={n.read ? "opacity-75" : "border-l-4 border-l-[#2563EB]"}>
-            <CardContent className="p-6 flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">{n.title}</p>
-                <p className="text-xs text-[#6B7280] leading-relaxed">{n.message}</p>
-                <p className="text-[11px] text-[#6B7280] pt-1">{n.time}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {mockNotifications.length === 0 ? (
+          <div className="text-center py-20 bg-white dark:bg-[#18181B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A]">
+            <Bell className="h-10 w-10 text-[#9CA3AF] mx-auto mb-4" />
+            <h3 className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">No notifications yet</h3>
+            <p className="text-xs text-[#6B7280] mt-1">When you get notifications, they'll show up here.</p>
+          </div>
+        ) : (
+          mockNotifications.map((n) => (
+            <Card key={n.id} className={n.read ? "opacity-75" : "border-l-4 border-l-[#2563EB]"}>
+              <CardContent className="p-6 flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">{n.title}</p>
+                  <p className="text-xs text-[#6B7280] leading-relaxed">{n.message}</p>
+                  <p className="text-[11px] text-[#6B7280] pt-1">{n.time}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

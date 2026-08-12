@@ -416,50 +416,11 @@ export default function StudentCoursePlayerPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
-              {mockModules.map((mod) => (
-                <div key={mod.id} className="space-y-2">
-                  <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{mod.title}</p>
-                  <div className="space-y-1">
-                    {mod.lessons.map((les) => {
-                      const isActive = activeLesson.id === les.id;
-                      const hasNotes = les.resources && les.resources.length > 0;
-
-                      return (
-                        <button
-                          key={les.id}
-                          onClick={() => handleLessonSelect(les)}
-                          className={`w-full flex items-center justify-between p-3 rounded-lg text-xs text-left transition-all ${
-                            isActive
-                              ? "bg-[#2563EB]/10 border border-[#2563EB] text-[#2563EB] font-bold shadow-xs"
-                              : "hover:bg-[#F5F5F5] dark:hover:bg-[#27272A] text-[#4B5563] dark:text-[#D1D5DB]"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            {les.type === "video" && <Video className="h-4 w-4 text-[#2563EB] shrink-0" />}
-                            {les.type === "mcq" && <HelpCircle className="h-4 w-4 text-[#9333EA] shrink-0" />}
-                            {les.type === "coding" && <Code2 className="h-4 w-4 text-[#16A34A] shrink-0" />}
-                            <span className="truncate">{les.title}</span>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                            {hasNotes && (
-                              <FileText className="h-3.5 w-3.5 text-[#2563EB]" />
-                            )}
-                            <Badge variant="outline" className={`text-[9px] uppercase px-1.5 py-0 ${
-                              les.type === "video" ? "border-[#2563EB]/30 text-[#2563EB]" :
-                              les.type === "mcq" ? "border-[#9333EA]/30 text-[#9333EA]" :
-                              "border-[#16A34A]/30 text-[#16A34A]"
-                            }`}>
-                              {les.type}
-                            </Badge>
-                            {les.completed && <CheckCircle2 className="h-4 w-4 text-[#16A34A] shrink-0" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+              <div className="text-center py-10 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
+                <Video className="h-8 w-8 text-[#9CA3AF] mx-auto mb-3" />
+                <p className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">No curriculum available</p>
+                <p className="text-[10px] text-[#6B7280] mt-1">Course modules will appear here once assigned.</p>
+              </div>
             </CardContent>
           </Card>
         </div>

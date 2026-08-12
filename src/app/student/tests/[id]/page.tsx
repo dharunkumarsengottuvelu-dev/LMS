@@ -45,9 +45,9 @@ export default function StudentTestRunnerPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const testId = (params?.id as string) || "t1";
-  const currentTest = mockTestMeta[testId] ?? mockTestMeta["t1"] ?? { duration: 60, title: "Test", maxMarks: 100, proctoring: { enabled: false } };
-  const currentQuestions = mockQuestionSets[testId] ?? mockQuestionSets["t1"] ?? [];
+  const testId = (params?.id as string) || "";
+  const currentTest = mockTestMeta[testId] ?? { duration: 60, title: "Test", maxMarks: 100, proctoring: { enabled: false } };
+  const currentQuestions = mockQuestionSets[testId] ?? [];
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, any>>({});
@@ -56,7 +56,6 @@ export default function StudentTestRunnerPage() {
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [isExamSubmitted, setIsExamSubmitted] = useState<boolean>(() => {
-    if (testId === "t3") return true;
     if (typeof window !== "undefined") {
       try {
         const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");

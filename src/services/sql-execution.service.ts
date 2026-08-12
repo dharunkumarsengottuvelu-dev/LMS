@@ -1,61 +1,6 @@
 import type { SQLDatasetSchema, SQLQueryResult, SQLTableSchema } from "@/types/coding";
 
-export const SAMPLE_SQL_DATASETS: Record<string, SQLDatasetSchema> = {
-  university: {
-    name: "university",
-    tables: [
-      {
-        name: "students",
-        columns: [
-          { name: "id", type: "INT", isPrimary: true },
-          { name: "name", type: "VARCHAR(100)" },
-          { name: "department", type: "VARCHAR(50)" },
-          { name: "mark", type: "INT" },
-          { name: "grade", type: "VARCHAR(2)" },
-        ],
-        rows: [
-          { id: 1, name: "Arun Kumar", department: "Computer Science", mark: 85, grade: "A" },
-          { id: 2, name: "Bhavana Sharma", department: "Information Tech", mark: 92, grade: "A+" },
-          { id: 3, name: "Chetan Reddy", department: "Computer Science", mark: 74, grade: "B" },
-          { id: 4, name: "Divya Nair", department: "Electronics", mark: 88, grade: "A" },
-          { id: 5, name: "Ezhil Raj", department: "Information Tech", mark: 65, grade: "C" },
-          { id: 6, name: "Farhan Ali", department: "Mechanical", mark: 95, grade: "A+" },
-        ],
-      },
-      {
-        name: "courses",
-        columns: [
-          { name: "course_id", type: "VARCHAR(10)", isPrimary: true },
-          { name: "course_name", type: "VARCHAR(100)" },
-          { name: "credits", type: "INT" },
-          { name: "department", type: "VARCHAR(50)" },
-        ],
-        rows: [
-          { course_id: "CS101", course_name: "Data Structures & Algorithms", credits: 4, department: "Computer Science" },
-          { course_id: "CS102", course_name: "Database Management Systems", credits: 4, department: "Computer Science" },
-          { course_id: "IT201", course_name: "Web Application Development", credits: 3, department: "Information Tech" },
-          { course_id: "EC301", course_name: "Digital Signal Processing", credits: 4, department: "Electronics" },
-        ],
-      },
-      {
-        name: "enrollments",
-        columns: [
-          { name: "enrollment_id", type: "INT", isPrimary: true },
-          { name: "student_id", type: "INT" },
-          { name: "course_id", type: "VARCHAR(10)" },
-          { name: "score", type: "INT" },
-        ],
-        rows: [
-          { enrollment_id: 101, student_id: 1, course_id: "CS101", score: 88 },
-          { enrollment_id: 102, student_id: 1, course_id: "CS102", score: 90 },
-          { enrollment_id: 103, student_id: 2, course_id: "IT201", score: 95 },
-          { enrollment_id: 104, student_id: 3, course_id: "CS101", score: 72 },
-          { enrollment_id: 105, student_id: 4, course_id: "EC301", score: 85 },
-        ],
-      },
-    ],
-  },
-};
+export const SAMPLE_SQL_DATASETS: Record<string, SQLDatasetSchema> = {};
 
 export class SQLExecutionService {
   /**

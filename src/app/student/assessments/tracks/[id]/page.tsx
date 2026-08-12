@@ -60,8 +60,8 @@ export default function StudentTrackDetailPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const trackId = (params?.id as string) || "track-1";
-  const track = mockPracticeTracksData[trackId] ?? mockPracticeTracksData["track-1"] ?? {
+  const trackId = (params?.id as string) || "";
+  const track = mockPracticeTracksData[trackId] ?? {
     id: trackId,
     title: "Practice Track",
     category: "General",

@@ -220,7 +220,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         ...t, 
         assignedBatches: selectedBatches,
         batch: selectedBatches.length > 0 ? (selectedBatches[0] ?? "Unassigned") : "Unassigned",
-        totalEnrolled: selectedBatches.length * 50 // Mock enrollment count
+        totalEnrolled: 0 // Will be populated dynamically later
       } : t
     ));
     setAssigningTest(null);
