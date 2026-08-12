@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   User, Mail, Phone, Globe, Save, Lock, Shield, Edit3, X,
   BookOpen, CheckCircle2, Award, Calendar, Layers, Key, Code2, Link2,
@@ -41,9 +41,43 @@ export default function StudentProfilePage() {
   const [isEditingCoding, setIsEditingCoding] = useState(false);
 
   // Personal Info States
-  const [firstName, setFirstName] = useState(profile?.first_name || "");
-  const [lastName, setLastName] = useState(profile?.last_name || "");
-  const [email] = useState(user?.email || "");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  
+  useEffect(() => {
+    if (user?.email) setEmail(user.email);
+    
+    // Extract First Name
+    if (profile?.first_name && profile.first_name !== "User") {
+      setFirstName(profile.first_name);
+    } else if (user?.user_metadata?.full_name) {
+      const nameStr = String(user.user_metadata.full_name || "");
+      setFirstName(nameStr.split(" ")[0] || "");
+    } else if (user?.email) {
+      const emailStr = String(user?.email || "");
+      const parts = (emailStr.split("@")[0] || "").split(/[\.\-_]/);
+      if (parts[0]) setFirstName(parts[0].charAt(0).toUpperCase() + parts[0].slice(1));
+    }
+
+    // Extract Last Name
+    if (profile?.last_name) {
+      setLastName(profile.last_name);
+    } else if (user?.user_metadata?.full_name) {
+      const nameStr = String(user.user_metadata.full_name || "");
+      const parts = nameStr.split(" ") || [];
+      setLastName(parts.length > 1 ? parts.slice(1).join(" ") : "");
+    } else if (user?.email) {
+      const emailStr = String(user?.email || "");
+      const parts = (emailStr.split("@")[0] || "").split(/[\.\-_]/);
+      if (parts.length > 1 && parts[1]) {
+        setLastName(parts[1].charAt(0).toUpperCase() + parts[1].slice(1));
+      } else {
+        setLastName("");
+      }
+    }
+  }, [profile, user]);
+
   const [phone, setPhone] = useState(profile?.phone || "");
   const [bio, setBio] = useState(profile?.bio || "");
   const [skills, setSkills] = useState(profile?.skills?.join(", ") || "");
