@@ -28,6 +28,19 @@ interface SubModuleItem {
   questionCount: number;
 }
 
+export interface MCQQuestionOption {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+}
+
+export interface MCQQuestionItem {
+  id: string;
+  questionText: string;
+  options: MCQQuestionOption[];
+  explanation?: string;
+}
+
 interface PracticeTrack {
   id: string;
   title: string;
@@ -148,7 +161,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         q.id === qId
           ? {
               ...q,
-              options: q.options.map((o) => (o.id === optId ? { ...o, text } : o)),
+              options: q.options.map((o: MCQQuestionOption) => (o.id === optId ? { ...o, text } : o)),
             }
           : q
       )
@@ -161,7 +174,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         q.id === qId
           ? {
               ...q,
-              options: q.options.map((o) => ({ ...o, isCorrect: o.id === optId })),
+              options: q.options.map((o: MCQQuestionOption) => ({ ...o, isCorrect: o.id === optId })),
             }
           : q
       )
@@ -190,7 +203,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         q.id === qId && q.options.length > 2
           ? {
               ...q,
-              options: q.options.filter((o) => o.id !== optId),
+              options: q.options.filter((o: MCQQuestionOption) => o.id !== optId),
             }
           : q
       )
@@ -608,7 +621,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {q.options.map((opt, oIdx) => (
+                          {q.options.map((opt: MCQQuestionOption, oIdx: number) => (
                             <div
                               key={opt.id}
                               className={`flex items-center gap-2 p-2.5 border rounded-xl transition-all ${

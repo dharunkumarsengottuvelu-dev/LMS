@@ -949,7 +949,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     </div>
                   )}
 
-                  {(modType === "coding" || modType === "mixed") && (
+                  {((modType as string) === "coding" || (modType as string) === "mixed") && (
                     <div className="p-6 rounded-2xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-6">
                       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#9333EA]">
                         <Code2 className="h-4 w-4" /> Coding Problem Specifications & Test Cases
@@ -968,7 +968,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     </div>
                   )}
 
-                  {(modType === "quiz" || modType === "mixed") && (
+                  {((modType as string) === "quiz" || (modType as string) === "mixed") && (
                     <div className="p-5 rounded-xl border border-[#D97706]/20 bg-[#D97706]/5 space-y-4">
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Quiz MCQ Items</label>
