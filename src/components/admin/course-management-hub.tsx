@@ -228,6 +228,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   };
 
   const resetModuleBuilder = () => {
+    setEditingModuleId(null);
     setModTitle("");
     setModDurEnabled(true);
     setModStartTime("09:00");
@@ -243,6 +244,22 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setModTestCases("");
     setModStarter("");
     setModQuiz("");
+  };
+
+  const openEditDraftModule = (m: CourseSyllabusModule) => {
+    setEditingModuleId(m.id);
+    setModTitle(m.title);
+    setModDur(m.duration);
+    setModDurEnabled(m.duration !== "N/A" && m.duration !== "Disabled");
+    setModType(m.type);
+    setModVideoUrl(m.videoUrl || "");
+    setModNotes(m.notes || "");
+    setModReading(m.readingContent || "");
+    setModDesc(m.practiceDescription || "");
+    setModTestCases(m.practiceTestCases || "");
+    setModStarter(m.practiceStarterCode || "");
+    setModQuiz(m.quizQuestions || "");
+    setShowModuleBuilder(true);
   };
 
   const filtered = courses.filter((c) =>
@@ -276,7 +293,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     e.preventDefault();
     if (!modTitle) return;
     const newMod: CourseSyllabusModule = {
-      id: `mod_${Date.now()}`,
+      id: editingModuleId || `mod_${Date.now()}`,
       title: modTitle,
       duration: modDur,
       type: modType,
@@ -288,14 +305,23 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
       practiceStarterCode: modType === "coding" ? modStarter : undefined,
       quizQuestions: modType === "quiz" ? modQuiz : undefined,
     };
-    setDraftModules((prev) => [...prev, newMod]);
+    if (editingModuleId) {
+      setDraftModules((prev) => prev.map((m) => (m.id === editingModuleId ? newMod : m)));
+      toast({ title: "Module Updated", description: `"${modTitle}" updated in curriculum draft.` });
+    } else {
+      setDraftModules((prev) => [...prev, newMod]);
+      toast({ title: "Module Added", description: `"${modTitle}" appended to curriculum draft.` });
+    }
     resetModuleBuilder();
     setShowModuleBuilder(false);
-    toast({ title: "Module Added", description: `"${modTitle}" appended to curriculum draft.` });
   };
 
   const removeDraftModule = (id: string) => {
     setDraftModules((prev) => prev.filter((m) => m.id !== id));
+    if (editingModuleId === id) {
+      resetModuleBuilder();
+      setShowModuleBuilder(false);
+    }
   };
 
   const handlePublishCourse = () => {
@@ -715,10 +741,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       <Badge variant="outline" className="text-xs font-mono font-semibold px-3 py-1 border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]">
                         {m.duration}
                       </Badge>
+                      <Button type="button" onClick={() => openEditDraftModule(m)} variant="outline" size="sm" className="h-8 text-xs font-semibold gap-1 border-[#D97706] text-[#D97706] hover:bg-[#D97706]/10">
+                        <Edit className="h-3.5 w-3.5" /> Edit
+                      </Button>
                       <Button type="button" onClick={() => removeDraftModule(m.id)} variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626]">
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -733,9 +762,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               <Card className="bg-white dark:bg-[#18181B] border-2 border-[#9333EA] p-6 rounded-2xl space-y-5 shadow-sm">
                 <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[#9333EA] flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" /> Module Content Authoring
+                    <Sparkles className="h-4 w-4" /> {editingModuleId ? "Edit Module Content" : "Module Content Authoring"}
                   </h3>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setShowModuleBuilder(false)} className="text-xs">
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { resetModuleBuilder(); setShowModuleBuilder(false); }} className="text-xs">
                     Cancel
                   </Button>
                 </div>
@@ -949,8 +978,10 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   )}
 
                   <div className="flex justify-end gap-2 pt-2">
-                    <Button type="button" variant="outline" onClick={() => setShowModuleBuilder(false)} className="h-10 text-xs font-semibold">Cancel</Button>
-                    <Button type="submit" className="h-10 px-6 bg-[#9333EA] text-white font-semibold text-xs rounded-xl">Save Module</Button>
+                    <Button type="button" variant="outline" onClick={() => { resetModuleBuilder(); setShowModuleBuilder(false); }} className="h-10 text-xs font-semibold">Cancel</Button>
+                    <Button type="submit" className="h-10 px-6 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl">
+                      {editingModuleId ? "Update Module" : "Save Module"}
+                    </Button>
                   </div>
                 </form>
               </Card>
