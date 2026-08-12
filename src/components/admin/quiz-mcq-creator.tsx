@@ -62,25 +62,34 @@ export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
 
   const updateQuestion = (index: number, val: string) => {
     const newQs = [...questions];
-    newQs[index] = { ...newQs[index], question: val };
-    setQuestions(newQs);
-    saveToParent(newQs);
+    const q = newQs[index];
+    if (q) {
+      newQs[index] = { ...q, question: val };
+      setQuestions(newQs);
+      saveToParent(newQs);
+    }
   };
 
   const updateOption = (qIndex: number, optIndex: number, val: string) => {
     const newQs = [...questions];
-    const newOptions = [...newQs[qIndex].options];
-    newOptions[optIndex] = val;
-    newQs[qIndex] = { ...newQs[qIndex], options: newOptions };
-    setQuestions(newQs);
-    saveToParent(newQs);
+    const q = newQs[qIndex];
+    if (q) {
+      const newOptions = [...q.options];
+      newOptions[optIndex] = val;
+      newQs[qIndex] = { ...q, options: newOptions };
+      setQuestions(newQs);
+      saveToParent(newQs);
+    }
   };
 
   const setCorrectOption = (qIndex: number, optIndex: number) => {
     const newQs = [...questions];
-    newQs[qIndex] = { ...newQs[qIndex], correctIndex: optIndex };
-    setQuestions(newQs);
-    saveToParent(newQs);
+    const q = newQs[qIndex];
+    if (q) {
+      newQs[qIndex] = { ...q, correctIndex: optIndex };
+      setQuestions(newQs);
+      saveToParent(newQs);
+    }
   };
 
   const removeQuestion = (index: number) => {
