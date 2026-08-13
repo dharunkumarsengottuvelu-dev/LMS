@@ -21,14 +21,26 @@ async function syncProfiles() {
   let added = 0;
   for (const user of users) {
     const { first_name, last_name, role } = user.user_metadata || {};
-    
+    let inferredRole = role;
+    if (!inferredRole) {
+      if (user.email?.toLowerCase().includes("admin")) {
+        inferredRole = "admin";
+      } else if (user.email?.toLowerCase().includes("trainer")) {
+        inferredRole = "trainer";
+      } else if (user.email?.toLowerCase().includes("manager")) {
+        inferredRole = "manager";
+      } else {
+        inferredRole = "student";
+      }
+    }
+
     const { error: profileError } = await admin.from("profiles").upsert(
       {
         user_id: user.id,
         first_name: first_name || user.email?.split("@")[0] || "User",
         last_name: last_name || "",
         email: user.email,
-        role: role || "student",
+        role: inferredRole,
         status: "active",
         updated_at: new Date().toISOString(),
       },

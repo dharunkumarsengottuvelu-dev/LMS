@@ -42,8 +42,9 @@ export default function AdminUsersPage() {
   
   // Fetch users from DB
   useEffect(() => {
+    const supabase = createClient();
+    
     const fetchUsers = async () => {
-      const supabase = createClient();
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -66,7 +67,20 @@ export default function AdminUsersPage() {
         console.error("Error fetching users:", error);
       }
     };
+
     fetchUsers();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel("realtime-profiles")
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+        fetchUsers();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
   
   // Dialog state
@@ -138,26 +152,35 @@ export default function AdminUsersPage() {
     }
   };
 
-  const saveEditUser = () => {
-    setUsers(users.map(u => {
-      if (u.id === editingUserId) {
-        return {
-          ...u,
-          name: newUserName,
-          email: newUserEmail,
-          role: newUserRole,
-          department: newUserType === "employee" ? newUserDept || "General" : undefined,
-          batch: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) : undefined,
-        };
-      }
-      return u;
-    }));
+  const saveEditUser = async () => {
+    const supabase = createClient();
+    const [firstName, ...lastNameArr] = newUserName.split(" ");
+    const lastName = lastNameArr.join(" ");
+    
+    const { error } = await (supabase as any).from("profiles").update({
+      first_name: firstName || "Unknown",
+      last_name: lastName || "",
+      role: newUserRole,
+      department: newUserType === "employee" ? newUserDept || "General" : null,
+      batch_id: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null
+    }).eq("id", editingUserId as string);
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to update profile", variant: "destructive" });
+      return;
+    }
+
     setIsEditOpen(false);
     toast({ title: "Profile Updated", description: "User details saved successfully." });
   };
 
-  const handleDeleteUser = (id: string, name: string) => {
-    setUsers(users.filter(u => u.id !== id));
+  const handleDeleteUser = async (id: string, name: string) => {
+    const supabase = createClient();
+    const { error } = await (supabase as any).from("profiles").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete user", variant: "destructive" });
+      return;
+    }
     toast({
       title: "User Removed",
       description: `${name} has been removed from the system.`,
