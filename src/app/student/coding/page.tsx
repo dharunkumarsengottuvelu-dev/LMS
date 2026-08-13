@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  ChevronLeft, ChevronRight, Flag, CheckCircle2, XCircle,
+  ChevronLeft, ChevronRight, Flag, CheckCircle2, XCircle, Code2,
   Loader2, Server, RefreshCw, Clock, BarChart2, X, PanelRightOpen, PanelRightClose
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -101,8 +101,28 @@ export default function StudentCodingIDEPage() {
     }
   };
 
-  const isFlagged = flagged.has(selectedProblem.id);
-  const isAnswered = answeredIds.has(selectedProblem.id);
+  const isFlagged = selectedProblem ? flagged.has(selectedProblem.id) : false;
+  const isAnswered = selectedProblem ? answeredIds.has(selectedProblem.id) : false;
+
+  if (!selectedProblem) {
+    return (
+      <div className="h-screen flex flex-col bg-background pt-[68px]">
+        <StudentTopNav />
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+          <div className="bg-muted w-16 h-16 rounded-full flex items-center justify-center mb-4">
+            <Code2 className="h-8 w-8 text-muted-foreground opacity-50" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground mb-2">No Problems Available</h2>
+          <p className="text-muted-foreground max-w-md mx-auto mb-6">
+            There are currently no coding problems assigned or available for this track. Please check back later.
+          </p>
+          <Button onClick={() => window.history.back()} variant="outline">
+            <ChevronLeft className="mr-2 h-4 w-4" /> Go Back
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden pt-[68px]">

@@ -11,7 +11,34 @@ import { jobeService } from "@/services/jobe";
 import { SQLExecutionService } from "@/services/sql-execution.service";
 
 // Repository for user-authored coding problems (Starts completely fresh)
-export const SAMPLE_CODING_PROBLEMS: CodingProblem[] = [];
+export const SAMPLE_CODING_PROBLEMS: CodingProblem[] = [
+  {
+    id: "prob_1",
+    title: "Two Sum",
+    slug: "two-sum",
+    description: "Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.",
+    difficulty: "easy",
+    category: "Arrays",
+    constraints: "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9",
+    input_format: "First line contains n. Second line contains n integers. Third line contains the target.",
+    output_format: "Two integers representing the indices.",
+    points: 10,
+    sample_input: "4\n2 7 11 15\n9",
+    sample_output: "0 1",
+    templates: {
+      python3: "def twoSum(nums, target):\n    # Write your code here\n    pass",
+      java: "class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        // Write your code here\n        return new int[]{};\n    }\n}",
+      cpp: "class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        // Write your code here\n        return {};\n    }\n};",
+      javascript: "/**\n * @param {number[]} nums\n * @param {number} target\n * @return {number[]}\n */\nvar twoSum = function(nums, target) {\n    // Write your code here\n};"
+    },
+    test_cases: [
+      { id: "tc_1", input: "4\n2 7 11 15\n9", expected_output: "0 1", is_hidden: false },
+      { id: "tc_2", input: "3\n3 2 4\n6", expected_output: "1 2", is_hidden: true }
+    ],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
+];
 
 const LOCAL_STORAGE_SUBMISSIONS_KEY = "edunexus_coding_submissions_v1";
 const LOCAL_STORAGE_PROBLEMS_KEY = "edunexus_custom_coding_problems_v1";
