@@ -19,10 +19,45 @@ export default function StudentAssessmentsPage() {
   useEffect(() => {
     async function loadAssessments() {
       try {
-        const res = await fetch("/api/student/assessments");
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        setAssessments(data.assessments || []);
+        let items: any[] = [];
+        try {
+          const res = await fetch("/api/student/assessments");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.assessments && Array.isArray(data.assessments)) {
+              items = [...data.assessments];
+            }
+          }
+        } catch (e) {
+          console.warn("API assessments fetch error:", e);
+        }
+
+        if (typeof window !== "undefined") {
+          try {
+            const savedAssessmentsRaw = localStorage.getItem("enterprise_lms_assessments_v2") ||
+                                        localStorage.getItem("edunexus_assessments_v5");
+            if (savedAssessmentsRaw) {
+              const saved = JSON.parse(savedAssessmentsRaw);
+              if (Array.isArray(saved)) {
+                saved.forEach((a: any) => {
+                  if (!items.some(it => it.id === a.id)) {
+                    items.push({
+                      id: a.id,
+                      title: a.title,
+                      description: a.description || "Assessment",
+                      type: a.type || "mcq",
+                      duration_minutes: a.duration_minutes || 60,
+                      total_marks: a.total_marks || 100,
+                      my_attempts: []
+                    });
+                  }
+                });
+              }
+            }
+          } catch (e) {}
+        }
+
+        setAssessments(items);
       } catch (err: any) {
         toast({ title: "Error loading assessments", description: err.message, variant: "destructive" });
       } finally {
