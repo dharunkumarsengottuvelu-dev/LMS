@@ -84,23 +84,33 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
 
-      const { data: tracksData } = await supabase
-        .from("practice_tracks")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Try loading from localStorage first to prevent losing data
+      const savedTracks = localStorage.getItem("enterprise_lms_practice_tracks_v2");
+      if (savedTracks) {
+        try {
+          setTracks(JSON.parse(savedTracks));
+        } catch (e) {
+          console.error("Failed to parse saved tracks", e);
+        }
+      } else {
+        const { data: tracksData, error } = await supabase
+          .from("practice_tracks")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      if (tracksData) {
-        const mappedTracks: PracticeTrack[] = tracksData.map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          category: t.category,
-          description: "Practice Track", // Provide default or fetch if exists
-          assignedByName: "Admin",
-          subModules: [], // Can be fetched from a related table if needed
-          assignedBatches: [],
-          assignedStudents: []
-        }));
-        setTracks(mappedTracks);
+        if (tracksData && !error) {
+          const mappedTracks: PracticeTrack[] = tracksData.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            category: t.category,
+            description: t.description || "Practice Track",
+            assignedByName: "Admin",
+            subModules: [], // Can be fetched from a related table if needed
+            assignedBatches: [],
+            assignedStudents: []
+          }));
+          setTracks(mappedTracks);
+        }
       }
 
       const { data: studentsData } = await supabase.from("profiles").select("*").eq("role", "student");
@@ -309,6 +319,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const syncTracksToStore = (newTracks: PracticeTrack[]) => {
     setTracks(newTracks);
+    localStorage.setItem("enterprise_lms_practice_tracks_v2", JSON.stringify(newTracks));
   };
 
   const handleCreate = (e: React.FormEvent) => {
