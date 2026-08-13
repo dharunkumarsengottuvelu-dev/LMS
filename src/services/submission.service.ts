@@ -147,13 +147,18 @@ export class SubmissionService {
     input: SubmitCodeInput,
     studentId: string = "student-1"
   ): Promise<CodingSubmission> {
-    const problem = this.getProblemById(input.problem_id, false);
+    let testCases = input.test_cases;
+    let datasetName = "university";
 
-    if (!problem) {
-      throw new Error(`Problem not found: ${input.problem_id}`);
+    if (!testCases || testCases.length === 0) {
+      const problem = this.getProblemById(input.problem_id, false);
+      if (!problem) {
+        throw new Error(`Problem not found: ${input.problem_id}`);
+      }
+      testCases = problem.test_cases;
+      datasetName = problem.dataset_name ?? "university";
     }
 
-    const testCases = problem.test_cases;
     const testResults: TestCaseResult[] = [];
     let passedCount = 0;
     let overallStatus: SubmissionStatus = "accepted";
@@ -168,7 +173,7 @@ export class SubmissionService {
       let executionTime = 0.02;
 
       if (input.language === "sql") {
-        const sqlRes = SQLExecutionService.executeQuery(input.code, problem.dataset_name ?? "university");
+        const sqlRes = SQLExecutionService.executeQuery(input.code, datasetName);
         executionTime = sqlRes.executionTimeMs / 1000;
         if (sqlRes.error) {
           passed = false;
@@ -216,7 +221,7 @@ export class SubmissionService {
 
     const submission: CodingSubmission = {
       id: `sub-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      problem_id: problem.id,
+      problem_id: input.problem_id,
       student_id: studentId,
       language: input.language,
       code: input.code,

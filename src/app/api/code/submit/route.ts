@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       problem_id,
       language,
       code,
+      test_cases: body.test_cases
     });
 
     return NextResponse.json(submission, { status: 200 });

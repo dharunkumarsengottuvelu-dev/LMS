@@ -185,6 +185,7 @@ export interface SubmitCodeInput {
   language: CodingLanguage;
   code: string;
   files?: CodeFile[];
+  test_cases?: TestCase[];
 }
 
 export interface CreateCodingProblemInput {

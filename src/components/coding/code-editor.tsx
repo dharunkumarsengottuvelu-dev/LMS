@@ -253,6 +253,7 @@ export function CodeEditor({
             problem_id: problem?.id,
             language,
             code,
+            test_cases: problem?.test_cases
           }),
         });
 

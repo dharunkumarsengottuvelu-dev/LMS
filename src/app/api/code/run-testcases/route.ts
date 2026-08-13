@@ -8,18 +8,23 @@ import type { TestCaseResult } from "@/types/coding";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { problem_id, language, code } = body;
+    const { problem_id, language, code, test_cases } = body;
 
     if (!problem_id || !language || !code) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
-    const problem = SubmissionService.getProblemById(problem_id, true); // true = only public testcases
-    if (!problem) {
-      return NextResponse.json({ error: "Problem not found" }, { status: 404 });
-    }
+    let testCases = test_cases;
+    let datasetName = body.dataset_name || "university";
 
-    const testCases = problem.test_cases;
+    if (!testCases || testCases.length === 0) {
+      const problem = SubmissionService.getProblemById(problem_id, true); // true = only public testcases
+      if (!problem) {
+        return NextResponse.json({ error: "Problem not found" }, { status: 404 });
+      }
+      testCases = problem.test_cases;
+      datasetName = problem.dataset_name ?? "university";
+    }
     const testResults: TestCaseResult[] = [];
 
     // Evaluate each test case
@@ -30,7 +35,7 @@ export async function POST(request: NextRequest) {
       let resError: string | undefined;
 
       if (language === "sql") {
-        const sqlRes = SQLExecutionService.executeQuery(code, problem.dataset_name ?? "university");
+        const sqlRes = SQLExecutionService.executeQuery(code, datasetName);
         if (sqlRes.error) {
           passed = false;
           resError = sqlRes.error;

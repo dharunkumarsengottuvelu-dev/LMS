@@ -140,7 +140,12 @@ export default function StudentCodingIDEPage() {
       const res = await fetch("/api/code/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ problem_id: selectedProblem.id, language, code }),
+        body: JSON.stringify({ 
+          problem_id: selectedProblem.id, 
+          language, 
+          code,
+          test_cases: selectedProblem.test_cases 
+        }),
       });
       if (!res.ok) {
         const err = await res.json();
