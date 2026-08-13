@@ -135,6 +135,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [viewState, setViewState] = useState<ViewState>("list");
   const [selectedTrack, setSelectedTrack] = useState<PracticeTrack | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingSubModuleId, setEditingSubModuleId] = useState<string | null>(null);
 
   // Track form state
   const [fTitle, setFTitle]       = useState("");
@@ -367,7 +368,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       mcqQuestions?: MCQQuestionItem[];
       codingQuestions?: CodingQuestionItem[];
     } = {
-      id: `sm_${Date.now()}`, title: smTitle, type: smType,
+      id: editingSubModuleId || `sm_${Date.now()}`, title: smTitle, type: smType,
       durationMinutes: smDuration, totalMarks: smMarks, questionCount: smQuestions,
       ...(smType === "mcq" || smType === "mixed" ? { mcqQuestions } : {}),
       ...(smType === "coding" || smType === "mixed" ? {
@@ -379,13 +380,21 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         codingQuestions,
       } : {})
     };
-    const updatedTrack = { ...selectedTrack, subModules: [...selectedTrack.subModules, newSm] };
+    
+    let updatedTrack;
+    if (editingSubModuleId) {
+      updatedTrack = { ...selectedTrack, subModules: selectedTrack.subModules.map((s) => s.id === editingSubModuleId ? newSm : s) };
+    } else {
+      updatedTrack = { ...selectedTrack, subModules: [...selectedTrack.subModules, newSm] };
+    }
+    
     setSelectedTrack(updatedTrack);
     const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
     syncTracksToStore(updatedTracks);
     setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
     setSmHasHiddenTests(false); setSmHiddenTests("");
     setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
+    setEditingSubModuleId(null);
     setCodingQuestions([
       {
         id: "cq1",
@@ -407,7 +416,34 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       },
     ]);
     setViewState("detail");
-    toast({ title: "Sub-Module Added", description: `"${smTitle}" added.` });
+    toast({ title: editingSubModuleId ? "Sub-Module Updated" : "Sub-Module Added", description: `"${smTitle}" saved.` });
+  };
+
+  const handleEditSubModule = (trackId: string, smId: string) => {
+    const sm = tracks.find(t => t.id === trackId)?.subModules.find(s => s.id === smId) as any;
+    if (!sm) return;
+    
+    setEditingSubModuleId(sm.id);
+    setSmTitle(sm.title);
+    setSmType(sm.type);
+    setSmDuration(sm.durationMinutes);
+    setSmMarks(sm.totalMarks);
+    setSmQuestions(sm.questionCount);
+    
+    setSmHasHiddenTests(sm.hasHiddenTests || false);
+    setSmHiddenTests(sm.hiddenTestsCode || "");
+    setSmProblemDesc(sm.problemDescription || "");
+    setSmStarterCode(sm.starterCode || "");
+    setSmPublicTestCases(sm.publicTestCases || "");
+    if (sm.codingQuestions && sm.codingQuestions.length > 0) {
+      setCodingQuestions(sm.codingQuestions);
+    }
+    
+    if (sm.mcqQuestions && sm.mcqQuestions.length > 0) {
+      setMcqQuestions(sm.mcqQuestions);
+    }
+    
+    setViewState("add-module");
   };
 
   const handleDeleteSubModule = (trackId: string, smId: string) => {
@@ -531,7 +567,33 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           description={`${selectedTrack.category} • Instructor: ${selectedTrack.assignedByName}`}
           backAction={{ label: "Back", onClick: () => setViewState("list") }}
           actions={
-            <Button onClick={() => { setSmTitle(""); setViewState("add-module"); }}
+            <Button onClick={() => { 
+              setEditingSubModuleId(null);
+              setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
+              setSmHasHiddenTests(false); setSmHiddenTests("");
+              setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
+              setCodingQuestions([
+                {
+                  id: "cq1",
+                  title: "Find the Largest Element",
+                  description: "Given an array of integers, write a program to find and output the largest element in the array.",
+                },
+              ]);
+              setMcqQuestions([
+                {
+                  id: "q1",
+                  questionText: "",
+                  options: [
+                    { id: "o1", text: "", isCorrect: true },
+                    { id: "o2", text: "", isCorrect: false },
+                    { id: "o3", text: "", isCorrect: false },
+                    { id: "o4", text: "", isCorrect: false },
+                  ],
+                  explanation: "",
+                },
+              ]);
+              setViewState("add-module"); 
+            }}
               className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs gap-2 px-5 rounded-xl shrink-0 shadow-sm">
               <Plus className="h-4 w-4" /> Add Sub-Module
             </Button>
@@ -566,10 +628,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       </div>
                     </div>
                   </div>
-                  <Button onClick={() => handleDeleteSubModule(selectedTrack.id, sm.id)}
-                    variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626] shrink-0">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button onClick={() => handleEditSubModule(selectedTrack.id, sm.id)}
+                      variant="ghost" size="icon" className="h-8 w-8 text-[#2563EB]">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button onClick={() => handleDeleteSubModule(selectedTrack.id, sm.id)}
+                      variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626]">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -586,7 +654,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     return (
       <div className="space-y-8 max-w-3xl mx-auto">
         <PageHeader 
-          title="Add Practice Sub-Module"
+          title={editingSubModuleId ? "Edit Sub-Module" : "Add Practice Sub-Module"}
           description={selectedTrack.title}
           backAction={{ label: "Back to Track Detail", onClick: () => setViewState("detail") }}
         />
@@ -813,9 +881,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             )}
 
             <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-              <Button type="button" variant="outline" onClick={() => setViewState("detail")} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => { setEditingSubModuleId(null); setViewState("detail"); }} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
               <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
-                Add Sub-Module
+                {editingSubModuleId ? "Update Sub-Module" : "Add Sub-Module"}
               </Button>
             </div>
           </form>

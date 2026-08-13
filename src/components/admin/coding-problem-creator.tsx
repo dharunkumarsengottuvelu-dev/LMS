@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { SubmissionService } from "@/services/submission.service";
 import type { CodingProblem, TestCase, Difficulty, CodingLanguage } from "@/types/coding";
@@ -101,6 +102,7 @@ export function CodingProblemCreator({
   // Problem Metadata State
   const [title, setTitle] = useState(initialTitle || "Find the Largest Element");
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  const [isDurationEnabled, setIsDurationEnabled] = useState(true);
   const [durationMinutes, setDurationMinutes] = useState(45);
   const [points, setPoints] = useState(10);
 
@@ -377,12 +379,16 @@ export function CodingProblemCreator({
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Duration (Minutes)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Duration (Minutes)</label>
+                  <Switch checked={isDurationEnabled} onCheckedChange={setIsDurationEnabled} />
+                </div>
                 <Input
                   type="number"
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(parseInt(e.target.value, 10) || 30)}
-                  className="h-[44px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                  disabled={!isDurationEnabled}
+                  className="h-[44px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] disabled:opacity-50"
                 />
               </div>
 
