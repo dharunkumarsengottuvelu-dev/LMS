@@ -133,8 +133,7 @@ export function CodeEditor({
 }: CodeEditorProps) {
   const [language, setLanguage] = useState<CodingLanguage>(defaultLanguage);
   const [code, setCode] = useState<string>(
-    defaultCode ??
-    (problem?.templates?.[defaultLanguage] ?? STARTER_TEMPLATES[defaultLanguage as keyof typeof STARTER_TEMPLATES] ?? "")
+    defaultCode ?? (problem?.templates?.[defaultLanguage] || "")
   );
   const [stdin, setStdin] = useState(problem?.sample_input ?? "");
   const [output, setOutput] = useState<ExecuteCodeResult | null>(null);
@@ -166,7 +165,7 @@ export function CodeEditor({
         setLanguage(currentLang);
         return;
       }
-      const template = problem.templates?.[currentLang] ?? STARTER_TEMPLATES[currentLang] ?? "";
+      const template = problem.templates?.[currentLang] || "";
       setCode(template);
       if (problem.sample_input !== undefined) {
         setStdin(problem.sample_input);
@@ -217,7 +216,7 @@ export function CodeEditor({
 
   const handleLanguageChange = useCallback((newLang: CodingLanguage) => {
     setLanguage(newLang);
-    const template = problem?.templates?.[newLang] ?? STARTER_TEMPLATES[newLang] ?? "";
+    const template = problem?.templates?.[newLang] || "";
     setCode(template);
     if (problem?.sample_input) {
       setStdin(problem.sample_input);
@@ -298,7 +297,7 @@ export function CodeEditor({
   };
 
   const handleReset = () => {
-    const template = problem?.templates?.[language] ?? STARTER_TEMPLATES[language] ?? "";
+    const template = problem?.templates?.[language] || "";
     setCode(template);
     setOutput(null);
   };
@@ -335,18 +334,24 @@ export function CodeEditor({
            </div>
            
            <div className="flex items-center gap-2">
-             <Select value={language} onValueChange={(v) => handleLanguageChange(v as CodingLanguage)}>
-               <SelectTrigger className="h-7 w-[140px] text-[11px] border-gray-300 bg-white text-gray-700">
-                 <SelectValue />
-               </SelectTrigger>
-               <SelectContent>
-                 {allowedLanguages.map((lang) => (
-                   <SelectItem key={lang} value={lang} className="text-xs">
-                     {LANGUAGE_DISPLAY_NAMES[lang]}
-                   </SelectItem>
-                 ))}
-               </SelectContent>
-             </Select>
+             {allowedLanguages.length > 1 ? (
+               <Select value={language} onValueChange={(v) => handleLanguageChange(v as CodingLanguage)}>
+                 <SelectTrigger className="h-7 w-[140px] text-[11px] border-gray-300 bg-white text-gray-700">
+                   <SelectValue />
+                 </SelectTrigger>
+                 <SelectContent>
+                   {allowedLanguages.map((lang) => (
+                     <SelectItem key={lang} value={lang} className="text-xs">
+                       {LANGUAGE_DISPLAY_NAMES[lang]}
+                     </SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
+             ) : (
+               <div className="h-7 px-3 flex items-center justify-center text-[11px] border border-gray-300 bg-gray-50 text-gray-700 rounded-md font-medium">
+                 {LANGUAGE_DISPLAY_NAMES[language] || language}
+               </div>
+             )}
 
              <Button
                variant="ghost"

@@ -28,151 +28,42 @@ const SUPPORTED_LANGUAGES_LIST: SupportedLangOption[] = [
   {
     id: "c",
     label: "C",
-    defaultTemplate: `#include <stdio.h>
-
-int main() {
-    int n;
-    if (scanf("%d", &n) != 1) return 0;
-    int max_val = -2000000000;
-    for (int i = 0; i < n; i++) {
-        int x;
-        scanf("%d", &x);
-        if (x > max_val) max_val = x;
-    }
-    printf("%d\\n", max_val);
-    return 0;
-}`
+    defaultTemplate: ""
   },
   {
     id: "cpp",
     label: "C++",
-    defaultTemplate: `#include <iostream>
-#include <vector>
-using namespace std;
-
-int main() {
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
-    
-    int n;
-    if (!(cin >> n)) return 0;
-    int max_val = -2e9;
-    for (int i = 0; i < n; i++) {
-        int x;
-        cin >> x;
-        if (x > max_val) max_val = x;
-    }
-    cout << max_val << "\\n";
-    return 0;
-}`
+    defaultTemplate: ""
   },
   {
     id: "java",
     label: "Java",
-    defaultTemplate: `import java.util.Scanner;
-
-public class Solution {
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        if (!sc.hasNextInt()) return;
-        int n = sc.nextInt();
-        int max = Integer.MIN_VALUE;
-        for (int i = 0; i < n; i++) {
-            int val = sc.nextInt();
-            if (val > max) max = val;
-        }
-        System.out.println(max);
-    }
-}`
+    defaultTemplate: ""
   },
   {
     id: "python",
     label: "Python",
-    defaultTemplate: `import sys
-
-def main():
-    input_data = sys.stdin.read().split()
-    if not input_data:
-        return
-    n = int(input_data[0])
-    nums = [int(x) for x in input_data[1:n+1]]
-    print(max(nums))
-
-if __name__ == "__main__":
-    main()`
+    defaultTemplate: ""
   },
   {
     id: "javascript",
     label: "JavaScript",
-    defaultTemplate: `const fs = require('fs');
-
-function main() {
-    const input = fs.readFileSync(0, 'utf-8').trim().split(/\\s+/);
-    if (!input || input.length === 0 || input[0] === "") return;
-    const n = parseInt(input[0], 10);
-    const nums = input.slice(1, n + 1).map(Number);
-    console.log(Math.max(...nums));
-}
-
-main();`
+    defaultTemplate: ""
   },
   {
     id: "csharp",
     label: "C#",
-    defaultTemplate: `using System;
-using System.Linq;
-
-class Solution {
-    static void Main() {
-        var input = Console.In.ReadToEnd().Split(new[] { ' ', '\\n', '\\r', '\\t' }, StringSplitOptions.RemoveEmptyEntries);
-        if (input.Length == 0) return;
-        int n = int.Parse(input[0]);
-        int[] nums = input.Skip(1).Take(n).Select(int.Parse).ToArray();
-        Console.WriteLine(nums.Max());
-    }
-}`
+    defaultTemplate: ""
   },
   {
     id: "go",
     label: "Go",
-    defaultTemplate: `package main
-
-import (
-    "fmt"
-    "os"
-)
-
-func main() {
-    var n int
-    if _, err := fmt.Fscan(os.Stdin, &n); err != nil {
-        return
-    }
-    maxVal := -1000000000
-    for i := 0; i < n; i++ {
-        var x int
-        fmt.Fscan(os.Stdin, &x)
-        if x > maxVal {
-            maxVal = x
-        }
-    }
-    fmt.Println(maxVal)
-}`
+    defaultTemplate: ""
   },
   {
     id: "php",
     label: "PHP",
-    defaultTemplate: `<?php
-$input = file_get_contents('php://stdin');
-$tokens = preg_split('/\\s+/', trim($input));
-if (empty($tokens) || $tokens[0] === '') exit;
-$n = (int)$tokens[0];
-$max = -2000000000;
-for ($i = 1; $i <= $n; $i++) {
-    $val = (int)$tokens[$i];
-    if ($val > $max) $max = $val;
-}
-echo $max . "\\n";
-?>`
+    defaultTemplate: ""
   }
 ];
 
