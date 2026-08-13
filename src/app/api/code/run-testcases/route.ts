@@ -3,7 +3,8 @@ import { jobeService } from "@/services/jobe";
 import { SQLExecutionService } from "@/services/sql-execution.service";
 import { SubmissionService } from "@/services/submission.service";
 import { getErrorMessage } from "@/lib/utils";
-import type { TestCaseResult } from "@/types/coding";
+import type { TestCaseResult, TestCase } from "@/types/coding";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,15 +15,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
+    // 1. Language validation against database
+    const supabase = createAdminClient();
+    const { data: langData, error: langError } = await supabase
+      .from("compiler_languages")
+      .select("is_enabled")
+      .eq("jobe_language", language)
+      .single();
+
+    if (langError || !langData || !langData.is_enabled) {
+      return NextResponse.json(
+        { error: `Unsupported or disabled programming language: '${language}'` },
+        { status: 400 }
+      );
+    }
+
     let testCases = test_cases;
     let datasetName = body.dataset_name || "university";
 
     if (!testCases || testCases.length === 0) {
-      const problem = SubmissionService.getProblemById(problem_id, true); // true = only public testcases
-      if (!problem) {
-        return NextResponse.json({ error: "Problem not found" }, { status: 404 });
+      const { data: problem, error: problemError } = await supabase
+        .from("coding_problems")
+        .select("test_cases, dataset_name")
+        .eq("id", problem_id)
+        .single();
+
+      if (problemError || !problem) {
+        return NextResponse.json({ error: "Problem not found in database" }, { status: 404 });
       }
-      testCases = problem.test_cases;
+      
+      // true = only public testcases for the 'Run' feature
+      testCases = (problem.test_cases as TestCase[]).filter(tc => !tc.is_hidden);
       datasetName = problem.dataset_name ?? "university";
     }
     const testResults: TestCaseResult[] = [];

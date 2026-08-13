@@ -20,53 +20,10 @@ import type { CodingProblem, TestCase, Difficulty, CodingLanguage } from "@/type
 import { PageHeader } from "@/components/layouts/page-header";
 
 interface SupportedLangOption {
-  id: CodingLanguage;
+  id: string;
   label: string;
   defaultTemplate: string;
 }
-
-const SUPPORTED_LANGUAGES_LIST: SupportedLangOption[] = [
-  {
-    id: "c",
-    label: "C",
-    defaultTemplate: ""
-  },
-  {
-    id: "cpp",
-    label: "C++",
-    defaultTemplate: ""
-  },
-  {
-    id: "java",
-    label: "Java",
-    defaultTemplate: ""
-  },
-  {
-    id: "python",
-    label: "Python",
-    defaultTemplate: ""
-  },
-  {
-    id: "javascript",
-    label: "JavaScript",
-    defaultTemplate: ""
-  },
-  {
-    id: "csharp",
-    label: "C#",
-    defaultTemplate: ""
-  },
-  {
-    id: "go",
-    label: "Go",
-    defaultTemplate: ""
-  },
-  {
-    id: "php",
-    label: "PHP",
-    defaultTemplate: ""
-  }
-];
 
 export interface CodingProblemCreatorProps {
   onCancel?: () => void;
@@ -98,6 +55,24 @@ export function CodingProblemCreator({
   inline = false,
 }: CodingProblemCreatorProps) {
   const { toast } = useToast();
+  const [supportedLanguages, setSupportedLanguages] = useState<SupportedLangOption[]>([]);
+
+  useEffect(() => {
+    fetch("/api/compiler/languages?enabled=true")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.languages) {
+          setSupportedLanguages(
+            data.languages.map((l: any) => ({
+              id: l.jobe_language,
+              label: l.display_name,
+              defaultTemplate: "",
+            }))
+          );
+        }
+      })
+      .catch((err) => console.error("Failed to load languages", err));
+  }, []);
 
   // Problem Metadata State
   const [title, setTitle] = useState(initialTitle || "Find the Largest Element");
@@ -127,13 +102,7 @@ export function CodingProblemCreator({
 
   // Starter Code Templates by Language
   const [activeTemplateLang, setActiveTemplateLang] = useState<CodingLanguage>("java");
-  const [templates, setTemplates] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {};
-    SUPPORTED_LANGUAGES_LIST.forEach((l) => {
-      initial[l.id] = l.defaultTemplate;
-    });
-    return initial;
-  });
+  const [templates, setTemplates] = useState<Record<string, string>>({});
 
   // Public Test Cases
   const [publicTestCases, setPublicTestCases] = useState<TestCase[]>([
@@ -181,7 +150,7 @@ export function CodingProblemCreator({
     if (onChange) {
       const filteredTemplates: Record<string, string> = {};
       selectedLanguages.forEach((lang) => {
-        filteredTemplates[lang] = templates[lang] || SUPPORTED_LANGUAGES_LIST.find((l) => l.id === lang)?.defaultTemplate || "";
+        filteredTemplates[lang] = templates[lang] || supportedLanguages.find((l) => l.id === lang)?.defaultTemplate || "";
       });
       onChange({
         title,
@@ -195,11 +164,11 @@ export function CodingProblemCreator({
         hiddenTestCases,
       });
     }
-  }, [title, description, difficulty, constraints, inputFormat, outputFormat, selectedLanguages, templates, publicTestCases, hiddenTestCases, onChange]);
+  }, [title, description, difficulty, constraints, inputFormat, outputFormat, selectedLanguages, templates, publicTestCases, hiddenTestCases, onChange, supportedLanguages]);
 
-  const toggleLanguage = (lang: CodingLanguage) => {
+  const toggleLanguage = (lang: string) => {
     setSelectedLanguages((prev) =>
-      prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang]
+      prev.includes(lang as any) ? prev.filter((l) => l !== lang) : [...prev, lang as any]
     );
   };
 
@@ -263,7 +232,7 @@ export function CodingProblemCreator({
 
       const filteredTemplates: Record<string, string> = {};
       selectedLanguages.forEach((lang) => {
-        filteredTemplates[lang] = templates[lang] || SUPPORTED_LANGUAGES_LIST.find((l) => l.id === lang)?.defaultTemplate || "";
+        filteredTemplates[lang] = templates[lang] || supportedLanguages.find((l) => l.id === lang)?.defaultTemplate || "";
       });
 
       const problemData: CodingProblem = {
@@ -467,9 +436,9 @@ export function CodingProblemCreator({
           </h2>
           <p className="text-xs text-[#6B7280]">Select the programming languages students can use to submit their code:</p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {SUPPORTED_LANGUAGES_LIST.map((lang) => {
-              const isChecked = selectedLanguages.includes(lang.id);
+          <div className="flex flex-wrap gap-2">
+            {supportedLanguages.map((lang) => {
+              const isChecked = selectedLanguages.includes(lang.id as any);
               return (
                 <button
                   key={lang.id}
@@ -505,7 +474,7 @@ export function CodingProblemCreator({
 
             <div className="flex items-center gap-1.5 flex-wrap">
               {selectedLanguages.map((langId) => {
-                const langObj = SUPPORTED_LANGUAGES_LIST.find((l) => l.id === langId);
+                const langObj = supportedLanguages.find((l) => l.id === langId);
                 const isActive = activeTemplateLang === langId;
                 return (
                   <button
@@ -533,7 +502,7 @@ export function CodingProblemCreator({
               <button
                 type="button"
                 onClick={() => {
-                  const defaultCode = SUPPORTED_LANGUAGES_LIST.find((l) => l.id === activeTemplateLang)?.defaultTemplate || "";
+                  const defaultCode = supportedLanguages.find((l) => l.id === activeTemplateLang)?.defaultTemplate || "";
                   handleTemplateChange(defaultCode);
                 }}
                 className="text-[11px] text-[#2563EB] hover:underline"

@@ -78,28 +78,6 @@ class MonacoErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-const STARTER_TEMPLATES: Record<CodingLanguage, string> = {
-  javascript: `// JavaScript Solution\n\nfunction solution(input) {\n  // Write your solution here\n  \n}\n\n// Read input\nconst lines = require('fs').readFileSync('/dev/stdin', 'utf8').trim().split('\\n');\nconsole.log(solution(lines));`,
-  typescript: `// TypeScript Solution\n\nfunction solution(input: string[]): string {\n  // Write your solution here\n  return "";\n}\n\nconst lines = require('fs').readFileSync('/dev/stdin', 'utf8').trim().split('\\n');\nconsole.log(solution(lines));`,
-  python: `# Python Solution\nimport sys\n\ndef solution(lines):\n    # Write your solution here\n    pass\n\nlines = sys.stdin.read().strip().split('\\n')\nresult = solution(lines)\nif result is not None:\n    print(result)`,
-  java: `// Java Solution\nimport java.util.Scanner;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write your solution here\n    }\n}`,
-  cpp: `// C++ Solution\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios_base::sync_with_stdio(false);\n    cin.tie(NULL);\n    \n    // Write your solution here\n    \n    return 0;\n}`,
-  c: `// C Solution\n#include <stdio.h>\n\nint main() {\n    // Write your solution here\n    return 0;\n}`,
-  csharp: `// C# Solution\nusing System;\n\nclass Solution {\n    static void Main(string[] args) {\n        // Write your solution here\n    }\n}`,
-  go: `// Go Solution\npackage main\n\nimport (\n    "bufio"\n    "fmt"\n    "os"\n)\n\nfunc main() {\n    reader := bufio.NewReader(os.Stdin)\n    _ = reader\n    // Write your solution here\n}`,
-  rust: `// Rust Solution\nuse std::io::{self, BufRead};\n\nfn main() {\n    let stdin = io::stdin();\n    let _lines: Vec<String> = stdin.lock().lines()\n        .filter_map(|l| l.ok())\n        .collect();\n    // Write your solution here\n}`,
-  kotlin: `// Kotlin Solution\nfun main() {\n    val lines = generateSequence(::readLine).toList()\n    // Write your solution here\n}`,
-  swift: `// Swift Solution\nimport Foundation\n\nvar lines: [String] = []\nwhile let line = readLine() {\n    lines.append(line)\n}\n// Write your solution here`,
-  php: `<?php\n// PHP Solution\n$lines = [];\nwhile ($line = fgets(STDIN)) {\n    $lines[] = trim($line);\n}\n// Write your solution here\n?>`,
-  ruby: `# Ruby Solution\nlines = []\nwhile line = gets\n  lines << line.chomp\nend\n# Write your solution here`,
-  scala: `// Scala Solution\nobject Solution {\n    def main(args: Array[String]): Unit = {\n        val lines = io.Source.stdin.getLines().toList\n        // Write your solution here\n    }\n}`,
-  dart: `// Dart Solution\nimport 'dart:io';\n\nvoid main() {\n  // Write your solution here\n}`,
-  sql: `SELECT * FROM students WHERE mark > 80;`,
-  html: `<div className="container">\n  <h1>Hello EduNexus LMS</h1>\n  <p>Welcome to Live Web Preview mode!</p>\n</div>`,
-  css: `body { font-family: sans-serif; background: #f8fafc; padding: 20px; }\nh1 { color: #2563eb; }`,
-  react: `function App() {\n  const [count, setCount] = React.useState(0);\n  return (\n    <div style={{ padding: 20 }}>\n      <h2>React Counter Challenge</h2>\n      <p>Count: {count}</p>\n      <button onClick={() => setCount(count + 1)}>Increment</button>\n    </div>\n  );\n}`,
-};
-
 interface CodeEditorProps {
   submissionResult?: CodingSubmission | null;
   problem?: CodingProblem;
@@ -142,7 +120,22 @@ export function CodeEditor({
   const [activeTab, setActiveTab] = useState("testcases");
   const [showConsole, setShowConsole] = useState(false);
   const [useFallbackTextarea, setUseFallbackTextarea] = useState(false);
+  const [dbLanguages, setDbLanguages] = useState<{id: string, name: string}[]>([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetch("/api/compiler/languages?enabled=true")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.languages) {
+          setDbLanguages(data.languages.map((l: any) => ({
+            id: l.jobe_language,
+            name: l.display_name
+          })));
+        }
+      })
+      .catch((err) => console.error("Failed to fetch languages", err));
+  }, []);
 
   useEffect(() => {
     if (submissionResult) {
@@ -155,8 +148,8 @@ export function CodeEditor({
     if (problem?.templates && Object.keys(problem.templates).length > 0) {
       return Object.keys(problem.templates) as CodingLanguage[];
     }
-    return Object.keys(LANGUAGE_DISPLAY_NAMES) as CodingLanguage[];
-  }, [problem?.templates]);
+    return [defaultLanguage] as CodingLanguage[];
+  }, [problem, defaultLanguage]);
 
   useEffect(() => {
     if (problem) {
@@ -340,18 +333,18 @@ export function CodeEditor({
                    <SelectValue />
                  </SelectTrigger>
                  <SelectContent>
-                   {allowedLanguages.map((lang) => (
-                     <SelectItem key={lang} value={lang} className="text-xs">
-                       {LANGUAGE_DISPLAY_NAMES[lang]}
-                     </SelectItem>
-                   ))}
-                 </SelectContent>
-               </Select>
-             ) : (
-               <div className="h-7 px-3 flex items-center justify-center text-[11px] border border-gray-300 bg-gray-50 text-gray-700 rounded-md font-medium">
-                 {LANGUAGE_DISPLAY_NAMES[language] || language}
-               </div>
-             )}
+                    {allowedLanguages.map((lang) => (
+                      <SelectItem key={lang} value={lang} className="text-xs">
+                        {dbLanguages.find(l => l.id === lang)?.name || LANGUAGE_DISPLAY_NAMES[lang as CodingLanguage] || lang}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="h-7 px-3 flex items-center justify-center text-[11px] border border-gray-300 bg-gray-50 text-gray-700 rounded-md font-medium">
+                  {dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language}
+                </div>
+              )}
 
              <Button
                variant="ghost"

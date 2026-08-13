@@ -3,6 +3,7 @@ import { SubmissionService } from "@/services/submission.service";
 import { jobeService } from "@/services/jobe";
 import type { SubmitCodeInput } from "@/types/coding";
 import { getErrorMessage } from "@/lib/utils";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,11 +17,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Language validation
-    const langVal = jobeService.validateLanguage(language);
-    if (!langVal.valid) {
+    // 1. Language validation against database
+    const supabase = createAdminClient();
+    const { data: langData, error: langError } = await supabase
+      .from("compiler_languages")
+      .select("is_enabled")
+      .eq("jobe_language", language)
+      .single();
+
+    if (langError || !langData || !langData.is_enabled) {
       return NextResponse.json(
-        { error: `Unsupported programming language: '${language}'` },
+        { error: `Unsupported or disabled programming language: '${language}'` },
         { status: 400 }
       );
     }
@@ -34,12 +41,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Submit solution for automated evaluation against public & hidden test cases
+    // 3. Fetch test cases securely from Supabase
+    const { data: problem, error: problemError } = await supabase
+      .from("coding_problems")
+      .select("test_cases")
+      .eq("id", problem_id)
+      .single();
+
+    if (problemError || !problem) {
+      return NextResponse.json(
+        { error: "Problem not found in database." },
+        { status: 404 }
+      );
+    }
+
+    // 4. Submit solution for automated evaluation against public & hidden test cases
     const submission = await SubmissionService.submitSolution({
       problem_id,
       language,
       code,
-      test_cases: body.test_cases
+      test_cases: problem.test_cases
     });
 
     return NextResponse.json(submission, { status: 200 });

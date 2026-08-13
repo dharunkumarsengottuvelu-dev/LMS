@@ -3,6 +3,7 @@ import { jobeService } from "@/services/jobe";
 import { SQLExecutionService } from "@/services/sql-execution.service";
 import type { ExecuteCodeInput } from "@/types/coding";
 import { getErrorMessage } from "@/lib/utils";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,7 +63,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 1. Execute via Jobe API
+    // 1. Language validation against database
+    const supabase = createAdminClient();
+    const { data: langData, error: langError } = await supabase
+      .from("compiler_languages")
+      .select("is_enabled")
+      .eq("jobe_language", language)
+      .single();
+
+    if (langError || !langData || !langData.is_enabled) {
+      return NextResponse.json(
+        { error: `Unsupported or disabled programming language: '${language}'` },
+        { status: 400 }
+      );
+    }
+
+    // 2. Execute via Jobe API
     const result = await jobeService.executeCode(language, code, stdin);
 
     return NextResponse.json(result, { status: 200 });
