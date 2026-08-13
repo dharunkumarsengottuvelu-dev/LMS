@@ -119,7 +119,6 @@ export function LMSProvider({ children }: { children: React.ReactNode }) {
       try {
         localStorage.removeItem("edunexus_practice_tracks_v1");
         localStorage.removeItem("edunexus_practice_tracks_v2");
-        localStorage.removeItem("enterprise_lms_practice_tracks_v2");
 
         const c = localStorage.getItem(STORAGE_KEYS.COURSES);
         if (c) setCourses(JSON.parse(c));
