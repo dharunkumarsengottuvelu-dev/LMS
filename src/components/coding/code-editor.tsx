@@ -172,7 +172,7 @@ export function CodeEditor({
       }
       setOutput(null);
     }
-  }, [problem, language, allowedLanguages]);
+  }, [problem?.id]);
 
   useEffect(() => {
     const handleScriptEventError = (event: ErrorEvent | Event) => {

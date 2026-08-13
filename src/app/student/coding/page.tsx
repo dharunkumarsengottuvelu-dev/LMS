@@ -70,7 +70,7 @@ export default function StudentCodingIDEPage() {
               if (sm.codingQuestions && sm.codingQuestions.length > 0) {
                  sm.codingQuestions.forEach((cq: any) => {
                    codingProbs.push({
-                     id: cq.id,
+                     id: `${sm.id}_${cq.id}`,
                      title: cq.title,
                      slug: cq.title.toLowerCase().replace(/\\s+/g, '-'),
                      description: cq.description || sm.problemDescription || "",
