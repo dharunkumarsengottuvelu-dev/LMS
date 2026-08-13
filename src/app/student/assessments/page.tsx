@@ -192,7 +192,7 @@ export default function StudentPracticePage() {
 
                   <CardFooter className="p-4 pt-0 gap-3">
                     <Button
-                      onClick={() => router.push("/student/coding")}
+                      onClick={() => router.push(`/student/coding?track=${track.id}`)}
                       className="w-full h-8 text-[11px] font-semibold gap-2 transition-colors rounded-[var(--radius-md)]"
                     >
                       <Code2 className="h-3.5 w-3.5" /> Start Practice

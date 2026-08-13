@@ -12,7 +12,7 @@ import { CodeEditor } from "@/components/coding/code-editor";
 import { StudentTopNav } from "@/components/layouts/student-top-nav";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
-import type { CodingSubmission, CodingLanguage, TestCaseResult } from "@/types/coding";
+import type { CodingSubmission, CodingLanguage, TestCaseResult, CodingProblem, TestCase } from "@/types/coding";
 import { SubmissionService, SAMPLE_CODING_PROBLEMS } from "@/services/submission.service";
 
 type ProblemTab = "statement" | "solution";
@@ -35,8 +35,88 @@ export default function StudentCodingIDEPage() {
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
-  const problems = SAMPLE_CODING_PROBLEMS;
-  const selectedProblem = problems[currentIdx] ?? problems[0]!;
+  const [problems, setProblems] = useState<CodingProblem[]>(SAMPLE_CODING_PROBLEMS);
+  
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const trackId = params.get("track");
+    if (!trackId) return;
+
+    const localTracks = localStorage.getItem("enterprise_lms_practice_tracks_v2");
+    if (localTracks) {
+      try {
+        const parsed = JSON.parse(localTracks);
+        const track = parsed.find((t: any) => t.id === trackId);
+        if (track && track.subModules) {
+          const codingProbs: CodingProblem[] = [];
+          
+          const parseTestCases = (text?: string) => {
+            if (!text) return [{ id: "tc_1", input: "", expected_output: "", is_hidden: false }];
+            const cases: any[] = [];
+            const lines = text.split('\n');
+            lines.forEach((line, i) => {
+              if (line.includes('->')) {
+                 const [input, output] = line.split('->');
+                 cases.push({ id: `tc_${i}`, input: input?.trim() || "", expected_output: output?.trim() || "", is_hidden: false });
+              }
+            });
+            if (cases.length === 0) cases.push({ id: "tc_1", input: text, expected_output: "", is_hidden: false });
+            return cases;
+          };
+
+          track.subModules.forEach((sm: any) => {
+            if (sm.type === "coding" || sm.type === "mixed") {
+              if (sm.codingQuestions && sm.codingQuestions.length > 0) {
+                 sm.codingQuestions.forEach((cq: any) => {
+                   codingProbs.push({
+                     id: cq.id,
+                     title: cq.title,
+                     slug: cq.title.toLowerCase().replace(/\\s+/g, '-'),
+                     description: cq.description || sm.problemDescription || "",
+                     difficulty: cq.difficulty || "medium",
+                     created_at: new Date().toISOString(),
+                     updated_at: new Date().toISOString(),
+                     templates: cq.templates || { 
+                       "python3": sm.starterCode || "", 
+                       "java": sm.starterCode || "", 
+                       "javascript": sm.starterCode || "", 
+                       "cpp": sm.starterCode || "" 
+                     },
+                     test_cases: parseTestCases(sm.publicTestCases)
+                   });
+                 });
+              } else {
+                 codingProbs.push({
+                   id: sm.id,
+                   title: sm.title,
+                   slug: sm.title.toLowerCase().replace(/\\s+/g, '-'),
+                   description: sm.problemDescription || "Coding Problem",
+                   difficulty: "medium",
+                   created_at: new Date().toISOString(),
+                   updated_at: new Date().toISOString(),
+                   templates: { 
+                     "python3": sm.starterCode || "", 
+                     "java": sm.starterCode || "", 
+                     "javascript": sm.starterCode || "", 
+                     "cpp": sm.starterCode || "" 
+                   },
+                   test_cases: parseTestCases(sm.publicTestCases)
+                 });
+              }
+            }
+          });
+          if (codingProbs.length > 0) {
+            setProblems(codingProbs);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load track problems", e);
+      }
+    }
+  }, []);
+
+  const selectedProblem = problems[currentIdx] ?? problems[0];
   const totalProblems = problems.length;
 
   /* ---- Health check ---- */
@@ -291,12 +371,12 @@ export default function StudentCodingIDEPage() {
               </div>
 
               {/* Sample Test Cases */}
-              {selectedProblem.test_cases?.filter((tc) => !tc.is_hidden).length > 0 && (
+              {selectedProblem.test_cases?.filter((tc: TestCase) => !tc.is_hidden).length > 0 && (
                 <div>
                   <p className="text-[12px] font-bold text-muted-foreground mb-2">Sample Test Cases:</p>
                   {selectedProblem.test_cases
-                    .filter((tc) => !tc.is_hidden)
-                    .map((tc, i) => (
+                    .filter((tc: TestCase) => !tc.is_hidden)
+                    .map((tc: TestCase, i: number) => (
                       <div key={tc.id} className="mb-3 rounded-xl border border-border overflow-hidden">
                         <div className="bg-muted px-3 py-1.5 text-[11px] font-bold text-muted-foreground uppercase border-b border-border">
                           Test Case {i + 1}
