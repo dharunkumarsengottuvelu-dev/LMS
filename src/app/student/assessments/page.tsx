@@ -46,6 +46,18 @@ export default function StudentPracticePage() {
 
   useEffect(() => {
     async function loadTracks() {
+      // Load from local storage first (where admin saves it)
+      const local = localStorage.getItem("enterprise_lms_practice_tracks_v2");
+      if (local) {
+        try {
+          const parsed = JSON.parse(local);
+          setStorePracticeTracks(parsed);
+          return;
+        } catch (e) {
+          console.error("Failed to parse local tracks", e);
+        }
+      }
+
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       
@@ -62,10 +74,10 @@ export default function StudentPracticePage() {
     title: t.title,
     category: t.category,
     description: t.description || "Practice Track",
-    thumbnail: t.thumbnail_url || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
+    thumbnail: t.thumbnail_url || t.thumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
     assignedBy: "Admin",
-    assignedByName: "System Admin",
-    subModules: [] // Will need to fetch from a related table if applicable
+    assignedByName: t.assignedByName || "System Admin",
+    subModules: t.subModules || [] 
   }));
 
   const allTracks = storePracticeTracks.length > 0 ? formattedStoreTracks : defaultPracticeTracks;
