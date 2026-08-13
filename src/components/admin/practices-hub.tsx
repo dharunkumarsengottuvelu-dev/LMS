@@ -976,77 +976,92 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map((track) => {
-          const totalMods = track.subModules.length;
-          const totalMarks = track.subModules.reduce((s, m) => s + m.totalMarks, 0);
-          const totalDuration = track.subModules.reduce((s, m) => s + m.durationMinutes, 0);
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl bg-white dark:bg-[#18181B] shadow-sm">
+          <Dumbbell className="h-12 w-12 text-[#9CA3AF] mb-4 opacity-50" />
+          <h3 className="font-bold text-lg text-[#111827] dark:text-[#FAFAFA]">No practice tracks found</h3>
+          <p className="text-sm text-[#6B7280] mt-1 max-w-sm">
+            {search ? "No practice tracks match your search criteria. Try a different term." : "You haven't created any practice tracks yet. Click the button above to get started."}
+          </p>
+          {!search && (
+            <Button onClick={openCreate} className="mt-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-sm">
+              <Plus className="h-4 w-4 mr-2" /> Create First Track
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map((track) => {
+            const totalMods = track.subModules.length;
+            const totalMarks = track.subModules.reduce((s, m) => s + m.totalMarks, 0);
+            const totalDuration = track.subModules.reduce((s, m) => s + m.durationMinutes, 0);
 
-          return (
-            <Card key={track.id}
-              className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between hover:border-[#9333EA]/40 transition-colors">
-              <CardContent className="p-6 space-y-4">
-                <div className="flex items-center justify-between gap-2">
-                  <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#9333EA]/30 text-[#9333EA] bg-[#9333EA]/5">
-                    <FolderKanban className="h-3 w-3 mr-1 inline" /> {track.category}
-                  </Badge>
-                  <span className="text-[10px] font-semibold text-[#9333EA]">
-                    Instructor: {track.assignedByName}
-                  </span>
-                </div>
+            return (
+              <Card key={track.id}
+                className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between hover:border-[#9333EA]/40 transition-colors">
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#9333EA]/30 text-[#9333EA] bg-[#9333EA]/5">
+                      <FolderKanban className="h-3 w-3 mr-1 inline" /> {track.category}
+                    </Badge>
+                    <span className="text-[10px] font-semibold text-[#9333EA]">
+                      Instructor: {track.assignedByName}
+                    </span>
+                  </div>
 
-                <div>
-                  <h3 className="font-bold text-base text-[#111827] dark:text-[#FAFAFA] leading-snug">{track.title}</h3>
-                  <p className="text-xs text-[#6B7280] line-clamp-2 mt-1.5 leading-relaxed">{track.description}</p>
-                </div>
+                  <div>
+                    <h3 className="font-bold text-base text-[#111827] dark:text-[#FAFAFA] leading-snug">{track.title}</h3>
+                    <p className="text-xs text-[#6B7280] line-clamp-2 mt-1.5 leading-relaxed">{track.description}</p>
+                  </div>
 
-                <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#6B7280]">Sub-Modules:</span>
-                    <span className="font-bold text-[#9333EA]">{totalMods} Practice Modules</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#6B7280]">Total Duration:</span>
-                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{totalDuration} mins</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#6B7280]">Total Marks:</span>
-                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{totalMarks}</span>
-                  </div>
-                  {track.assignedStudents.length > 0 && (
-                    <div className="flex items-center justify-between pt-1 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                      <span className="text-[#6B7280]">Assigned to:</span>
-                      <Badge className="bg-[#16A34A] text-white text-[10px] font-semibold gap-1">
-                        <UserCheck className="h-3 w-3" /> {track.assignedStudents.length} Students
-                      </Badge>
+                  <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#6B7280]">Sub-Modules:</span>
+                      <span className="font-bold text-[#9333EA]">{totalMods} Practice Modules</span>
                     </div>
-                  )}
-                </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#6B7280]">Total Duration:</span>
+                      <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{totalDuration} mins</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#6B7280]">Total Marks:</span>
+                      <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{totalMarks}</span>
+                    </div>
+                    {track.assignedStudents.length > 0 && (
+                      <div className="flex items-center justify-between pt-1 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                        <span className="text-[#6B7280]">Assigned to:</span>
+                        <Badge className="bg-[#16A34A] text-white text-[10px] font-semibold gap-1">
+                          <UserCheck className="h-3 w-3" /> {track.assignedStudents.length} Students
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
 
-                <div className="pt-2 flex items-center gap-2 flex-wrap">
-                  <Button onClick={() => { setSelectedTrack(track); setViewState("detail"); }}
-                    variant="outline" size="sm"
-                    className="flex-1 h-8 text-xs font-semibold gap-1 border-[#9333EA] text-[#9333EA] min-w-0">
-                    <Dumbbell className="h-3.5 w-3.5" /> Modules ({totalMods})
-                  </Button>
-                  <Button onClick={() => openAssign(track)} size="sm"
-                    className="h-8 px-3 text-xs font-semibold bg-[#9333EA] hover:bg-[#7E22CE] text-white rounded-lg gap-1">
-                    <Users className="h-3.5 w-3.5" /> Assign
-                  </Button>
-                  <Button onClick={() => openEdit(track)} variant="outline" size="sm"
-                    className="h-8 text-xs font-semibold gap-1 border-[#D97706] text-[#D97706]">
-                    <Edit className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button onClick={() => handleDelete(track.id, track.title)} variant="ghost" size="icon"
-                    className="h-8 w-8 text-[#DC2626]">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                  <div className="pt-2 flex items-center gap-2 flex-wrap">
+                    <Button onClick={() => { setSelectedTrack(track); setViewState("detail"); }}
+                      variant="outline" size="sm"
+                      className="flex-1 h-8 text-xs font-semibold gap-1 border-[#9333EA] text-[#9333EA] min-w-0">
+                      <Dumbbell className="h-3.5 w-3.5" /> Modules ({totalMods})
+                    </Button>
+                    <Button onClick={() => openAssign(track)} size="sm"
+                      className="h-8 px-3 text-xs font-semibold bg-[#9333EA] hover:bg-[#7E22CE] text-white rounded-lg gap-1">
+                      <Users className="h-3.5 w-3.5" /> Assign
+                    </Button>
+                    <Button onClick={() => openEdit(track)} variant="outline" size="sm"
+                      className="h-8 text-xs font-semibold gap-1 border-[#D97706] text-[#D97706]">
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button onClick={() => handleDelete(track.id, track.title)} variant="ghost" size="icon"
+                      className="h-8 w-8 text-[#DC2626]">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
