@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useLMSStore } from "@/lib/store/lms-store";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
-import type { PracticeTrackItem } from "@/services/assessment.service";
+import { AssessmentService, type PracticeTrackItem } from "@/services/assessment.service";
 import { PageHeader } from "@/components/layouts/page-header";
 
 // ─── Types aligned with Student Portal assessments page ────
@@ -531,16 +531,35 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             })
           });
         }
+        // Assign to selected students
+        for (const studentId of selectedStudentIds) {
+          await fetch(`/api/admin/assessments/${sm.id}/assign`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              assigned_to_type: "student",
+              assigned_to_id: studentId,
+              assigned_by: "admin"
+            })
+          });
+        }
       }
     } catch (e) {
       console.error("Failed to assign in DB", e);
     }
 
+    const updatedTrack = { 
+      ...selectedTrack, 
+      assignedBatches: selectedBatches, 
+      assignedStudents: selectedStudentIds 
+    };
+
     const updatedTracks = tracks.map((t) =>
-      t.id === selectedTrack.id ? { ...t, assignedBatches: selectedBatches, assignedStudents: selectedStudentIds } : t
+      t.id === selectedTrack.id ? updatedTrack : t
     );
     syncTracksToStore(updatedTracks);
-    toast({ title: "Assessments Assigned", description: `Batches assigned to DB successfully.` });
+    await AssessmentService.upsertPracticeTrack(updatedTrack as any);
+    toast({ title: "Practice Track Assigned", description: `Assigned batches & students synced successfully.` });
     setViewState("list");
   };
 

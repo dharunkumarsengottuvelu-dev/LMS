@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, BookOpen, ClipboardList, Calendar,
-  FileText, Code2, Award, Bell, Settings, LogOut, Menu, X, User
+  FileText, Code2, Award, Bell, Settings, LogOut, Menu, X, User, Dumbbell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -17,8 +17,8 @@ import { getInitials } from "@/lib/utils";
 const studentNavItems = [
   { label: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
   { label: "My Courses", href: "/student/my-courses", icon: BookOpen },
-  { label: "Practice", href: "/student/assessments", icon: ClipboardList },
-  { label: "Tests", href: "/student/tests", icon: Calendar },
+  { label: "Practice", href: "/student/practices", icon: Dumbbell },
+  { label: "Assessments", href: "/student/assessments", icon: ClipboardList },
   { label: "Assignments", href: "/student/assignments", icon: FileText },
   { label: "Notifications", href: "/student/notifications", icon: Bell },
   { label: "Profile", href: "/student/profile", icon: User },

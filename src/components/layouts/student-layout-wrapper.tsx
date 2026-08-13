@@ -7,9 +7,10 @@ export function StudentLayoutWrapper({ children }: { children: React.ReactNode }
   const pathname = usePathname();
 
   const isInsideTestRunner = pathname?.startsWith("/student/tests/") && pathname !== "/student/tests";
-  const isInsidePracticeRunner = pathname?.startsWith("/student/assessments/") && pathname !== "/student/assessments";
+  const isInsideAssessmentRunner = pathname?.startsWith("/student/assessments/") && pathname !== "/student/assessments";
+  const isInsidePracticeCoding = pathname?.startsWith("/student/practices/coding/");
   const isInsideCoding = pathname?.startsWith("/student/coding");
-  const isRunner = isInsideTestRunner || isInsidePracticeRunner || isInsideCoding;
+  const isRunner = isInsideTestRunner || isInsideAssessmentRunner || isInsidePracticeCoding || isInsideCoding;
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">

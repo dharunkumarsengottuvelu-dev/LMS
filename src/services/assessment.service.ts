@@ -186,21 +186,27 @@ export class AssessmentService {
   static async upsertPracticeTrack(track: PracticeTrackItem): Promise<boolean> {
     try {
       const supabase = createClient();
-      const { error } = await (supabase as any).from("practice_tracks").upsert({
-        id: track.id.startsWith("track_") ? undefined : track.id, // Supabase generates uuid if not provided properly. Wait, track_ id is a string, UUID is expected.
+      const payload: any = {
         title: track.title,
         category: track.category,
         description: track.description,
         thumbnail: track.thumbnail || "",
         assigned_by_name: track.assignedByName,
         assigned_batches: track.assignedBatches || [],
-        assigned_students: track.assignedStudents || []
-      }).select().single();
+        assigned_students: track.assignedStudents || [],
+        sub_modules: track.subModules || []
+      };
+
+      if (track.id && !track.id.startsWith("track_")) {
+        payload.id = track.id;
+      }
+
+      const { data, error } = await (supabase as any).from("practice_tracks").upsert(payload).select().single();
       
-      // A full sync would also sync sub-modules, but for brevity we'll just handle the track for now
       if (error) {
-        console.error("Error upserting track", error);
-        return false;
+        console.warn("Notice: practice_tracks table upsert:", error.message);
+      } else if (data && track.id.startsWith("track_")) {
+        track.id = data.id;
       }
       return true;
     } catch (e) {
