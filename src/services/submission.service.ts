@@ -195,6 +195,7 @@ export class SubmissionService {
       id: `sub-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       problem_id: input.problem_id,
       student_id: studentId,
+      assessment_attempt_id: input.assessment_attempt_id,
       language: input.language,
       code: input.code,
       status: overallStatus,
@@ -216,9 +217,13 @@ export class SubmissionService {
 
     // Save to Supabase DB if possible
     try {
-      const supabase = createClient();
-      await (supabase as any).from("coding_submissions").insert([
+      const { createAdminClient } = await import("@/lib/supabase/admin");
+      const supabase = createAdminClient();
+      const { error } = await supabase.from("coding_submissions").insert([
         {
+          problem_id: submission.problem_id,
+          student_id: submission.student_id,
+          assessment_attempt_id: submission.assessment_attempt_id,
           language: submission.language,
           code: submission.code,
           status: submission.status,
@@ -228,6 +233,8 @@ export class SubmissionService {
           submitted_at: submission.created_at || new Date().toISOString(),
         },
       ]);
+      
+      if (error) console.error("Error inserting submission:", error);
     } catch (e) {
       console.warn("Supabase submission persistence fallback to local storage:", e);
     }

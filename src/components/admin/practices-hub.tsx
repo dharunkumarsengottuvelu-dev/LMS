@@ -356,67 +356,102 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     toast({ title: "Practice Track Removed", description: title, variant: "destructive" });
   };
 
-  const handleAddSubModule = (e: React.FormEvent) => {
+  const handleAddSubModule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrack || !smTitle) return;
-    const newSm: SubModuleItem & {
-      hasHiddenTests?: boolean;
-      hiddenTestsCode?: string;
-      problemDescription?: string;
-      starterCode?: string;
-      publicTestCases?: string;
-      mcqQuestions?: MCQQuestionItem[];
-      codingQuestions?: CodingQuestionItem[];
-    } = {
-      id: editingSubModuleId || `sm_${Date.now()}`, title: smTitle, type: smType,
-      durationMinutes: smDuration, totalMarks: smMarks, questionCount: smQuestions,
-      ...(smType === "mcq" || smType === "mixed" ? { mcqQuestions } : {}),
-      ...(smType === "coding" || smType === "mixed" ? {
-        hasHiddenTests: smHasHiddenTests,
-        hiddenTestsCode: smHasHiddenTests ? smHiddenTests : undefined,
-        problemDescription: smProblemDesc,
-        starterCode: smStarterCode,
-        publicTestCases: smPublicTestCases,
-        codingQuestions,
-      } : {})
+    
+    // Convert to DB payload
+    const payload = {
+      title: smTitle,
+      type: smType,
+      created_by: "admin", // Using a dummy or context
+      duration_minutes: smDuration,
+      passing_marks: Math.floor(smMarks * 0.4), // Example
+      total_marks: smMarks,
+      mcq_questions: smType !== "coding" ? mcqQuestions.map(q => ({
+        ...q,
+        marks: smMarks / (smQuestions || 1)
+      })) : [],
+      coding_questions: smType !== "mcq" ? codingQuestions.map(cq => ({
+        ...cq,
+        sampleTestCases: smPublicTestCases ? JSON.parse(smPublicTestCases || "[]") : [],
+        hiddenTestCases: smHiddenTests ? JSON.parse(smHiddenTests || "[]") : []
+      })) : []
     };
-    
-    let updatedTrack;
-    if (editingSubModuleId) {
-      updatedTrack = { ...selectedTrack, subModules: selectedTrack.subModules.map((s) => s.id === editingSubModuleId ? newSm : s) };
-    } else {
-      updatedTrack = { ...selectedTrack, subModules: [...selectedTrack.subModules, newSm] };
+
+    try {
+      const res = await fetch("/api/admin/assessments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error);
+
+      const dbId = data.assessment.id;
+
+      const newSm: SubModuleItem & {
+        hasHiddenTests?: boolean;
+        hiddenTestsCode?: string;
+        problemDescription?: string;
+        starterCode?: string;
+        publicTestCases?: string;
+        mcqQuestions?: MCQQuestionItem[];
+        codingQuestions?: CodingQuestionItem[];
+      } = {
+        id: dbId, title: smTitle, type: smType,
+        durationMinutes: smDuration, totalMarks: smMarks, questionCount: smQuestions,
+        ...(smType === "mcq" || smType === "mixed" ? { mcqQuestions } : {}),
+        ...(smType === "coding" || smType === "mixed" ? {
+          hasHiddenTests: smHasHiddenTests,
+          hiddenTestsCode: smHasHiddenTests ? smHiddenTests : undefined,
+          problemDescription: smProblemDesc,
+          starterCode: smStarterCode,
+          publicTestCases: smPublicTestCases,
+          codingQuestions,
+        } : {})
+      };
+      
+      let updatedTrack;
+      if (editingSubModuleId) {
+        updatedTrack = { ...selectedTrack, subModules: selectedTrack.subModules.map((s) => s.id === editingSubModuleId ? newSm : s) };
+      } else {
+        updatedTrack = { ...selectedTrack, subModules: [...selectedTrack.subModules, newSm] };
+      }
+      
+      setSelectedTrack(updatedTrack);
+      const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
+      syncTracksToStore(updatedTracks);
+      setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
+      setSmHasHiddenTests(false); setSmHiddenTests("");
+      setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
+      setEditingSubModuleId(null);
+      setCodingQuestions([
+        {
+          id: "cq1",
+          title: "Find the Largest Element",
+          description: "Given an array of integers, write a program to find and output the largest element in the array.",
+        },
+      ]);
+      setMcqQuestions([
+        {
+          id: "q1",
+          questionText: "",
+          options: [
+            { id: "o1", text: "", isCorrect: true },
+            { id: "o2", text: "", isCorrect: false },
+            { id: "o3", text: "", isCorrect: false },
+            { id: "o4", text: "", isCorrect: false },
+          ],
+          explanation: "",
+        },
+      ]);
+      setViewState("detail");
+      toast({ title: editingSubModuleId ? "Sub-Module Updated in DB" : "Sub-Module Added to DB", description: `"${smTitle}" saved securely.` });
+    } catch (err: any) {
+      toast({ title: "Error Saving Module", description: err.message, variant: "destructive" });
     }
-    
-    setSelectedTrack(updatedTrack);
-    const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
-    syncTracksToStore(updatedTracks);
-    setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
-    setSmHasHiddenTests(false); setSmHiddenTests("");
-    setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
-    setEditingSubModuleId(null);
-    setCodingQuestions([
-      {
-        id: "cq1",
-        title: "Find the Largest Element",
-        description: "Given an array of integers, write a program to find and output the largest element in the array.",
-      },
-    ]);
-    setMcqQuestions([
-      {
-        id: "q1",
-        questionText: "",
-        options: [
-          { id: "o1", text: "", isCorrect: true },
-          { id: "o2", text: "", isCorrect: false },
-          { id: "o3", text: "", isCorrect: false },
-          { id: "o4", text: "", isCorrect: false },
-        ],
-        explanation: "",
-      },
-    ]);
-    setViewState("detail");
-    toast({ title: editingSubModuleId ? "Sub-Module Updated" : "Sub-Module Added", description: `"${smTitle}" saved.` });
   };
 
   const handleEditSubModule = (trackId: string, smId: string) => {
@@ -478,13 +513,34 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const toggleStudent = (id: string) =>
     setSelectedStudentIds((p) => p.includes(id) ? p.filter((s) => s !== id) : [...p, id]);
 
-  const handleSaveAssign = () => {
+  const handleSaveAssign = async () => {
     if (!selectedTrack) return;
+    
+    // Assign in DB for each assessment (SubModule)
+    try {
+      for (const sm of selectedTrack.subModules) {
+        // Assign to selected batches
+        for (const batch of selectedBatches) {
+          await fetch(`/api/admin/assessments/${sm.id}/assign`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              assigned_to_type: "batch",
+              assigned_to_id: batch,
+              assigned_by: "admin"
+            })
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to assign in DB", e);
+    }
+
     const updatedTracks = tracks.map((t) =>
       t.id === selectedTrack.id ? { ...t, assignedBatches: selectedBatches, assignedStudents: selectedStudentIds } : t
     );
     syncTracksToStore(updatedTracks);
-    toast({ title: "Practice Track Assigned", description: `${selectedStudentIds.length} students assigned.` });
+    toast({ title: "Assessments Assigned", description: `Batches assigned to DB successfully.` });
     setViewState("list");
   };
 

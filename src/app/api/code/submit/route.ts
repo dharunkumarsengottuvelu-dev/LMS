@@ -4,12 +4,18 @@ import { jobeService } from "@/services/jobe";
 import type { SubmitCodeInput } from "@/types/coding";
 import { getErrorMessage } from "@/lib/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { isLanguageEnabled } from "@/services/compiler.service";
 
 export async function POST(request: NextRequest) {
   try {
+    const supabaseClient = await createClient();
+    const { data: { user } } = await supabaseClient.auth.getUser();
+
+    const studentId = user?.id || "student-1"; // Fallback for dev
+
     const body = (await request.json()) as SubmitCodeInput;
-    const { problem_id, language, code } = body;
+    const { problem_id, language, code, assessment_attempt_id } = body;
 
     if (!problem_id || !language || !code) {
       return NextResponse.json(
@@ -57,8 +63,9 @@ export async function POST(request: NextRequest) {
       problem_id,
       language,
       code,
-      test_cases: problem.test_cases
-    });
+      test_cases: problem.test_cases,
+      assessment_attempt_id
+    }, studentId);
 
     return NextResponse.json(submission, { status: 200 });
   } catch (error: unknown) {
