@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Component, ErrorInfo, ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, Component, ErrorInfo, ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { loader } from "@monaco-editor/react";
 import {
@@ -152,16 +152,28 @@ export function CodeEditor({
     }
   }, [submissionResult]);
 
+  const allowedLanguages = useMemo(() => {
+    if (problem?.templates && Object.keys(problem.templates).length > 0) {
+      return Object.keys(problem.templates) as CodingLanguage[];
+    }
+    return Object.keys(LANGUAGE_DISPLAY_NAMES) as CodingLanguage[];
+  }, [problem?.templates]);
+
   useEffect(() => {
     if (problem) {
-      const template = problem.templates?.[language] ?? STARTER_TEMPLATES[language] ?? "";
+      const currentLang = allowedLanguages.includes(language) ? language : (allowedLanguages[0] || "python");
+      if (currentLang !== language) {
+        setLanguage(currentLang);
+        return;
+      }
+      const template = problem.templates?.[currentLang] ?? STARTER_TEMPLATES[currentLang] ?? "";
       setCode(template);
       if (problem.sample_input !== undefined) {
         setStdin(problem.sample_input);
       }
       setOutput(null);
     }
-  }, [problem]);
+  }, [problem, language, allowedLanguages]);
 
   useEffect(() => {
     const handleScriptEventError = (event: ErrorEvent | Event) => {
@@ -328,7 +340,7 @@ export function CodeEditor({
                  <SelectValue />
                </SelectTrigger>
                <SelectContent>
-                 {(Object.keys(LANGUAGE_DISPLAY_NAMES) as CodingLanguage[]).map((lang) => (
+                 {allowedLanguages.map((lang) => (
                    <SelectItem key={lang} value={lang} className="text-xs">
                      {LANGUAGE_DISPLAY_NAMES[lang]}
                    </SelectItem>

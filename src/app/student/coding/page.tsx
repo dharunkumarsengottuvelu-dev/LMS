@@ -78,7 +78,7 @@ export default function StudentCodingIDEPage() {
                      created_at: new Date().toISOString(),
                      updated_at: new Date().toISOString(),
                      templates: cq.templates || { 
-                       "python3": sm.starterCode || "", 
+                       "python": sm.starterCode || "", 
                        "java": sm.starterCode || "", 
                        "javascript": sm.starterCode || "", 
                        "cpp": sm.starterCode || "" 
@@ -96,7 +96,7 @@ export default function StudentCodingIDEPage() {
                    created_at: new Date().toISOString(),
                    updated_at: new Date().toISOString(),
                    templates: { 
-                     "python3": sm.starterCode || "", 
+                     "python": sm.starterCode || "", 
                      "java": sm.starterCode || "", 
                      "javascript": sm.starterCode || "", 
                      "cpp": sm.starterCode || "" 
