@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin"; // Needed for evaluating answers securely
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 
 export async function POST(
@@ -19,24 +19,52 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const studentId = user.id;
+    const adminClient = createAdminClient();
+    const studentUserId = user.id;
+
+    // Get profile ID
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("id")
+      .eq("user_id", studentUserId)
+      .maybeSingle() as any;
+
+    const studentProfileId = profile?.id || studentUserId;
 
     if (action === "start") {
       // 1. Fetch Assessment duration to set expires_at
-      const { data: assessment, error: assessmentError } = await supabase
+      const { data: assessment, error: assessmentError } = await adminClient
         .from("assessments")
         .select("duration_minutes")
         .eq("id", assessmentId)
         .single() as any;
       
-      if (assessmentError || !assessment) throw assessmentError || new Error("Assessment not found");
+      if (assessmentError || !assessment) {
+        throw assessmentError || new Error("Assessment not found");
+      }
 
-      const expiresAt = new Date(Date.now() + assessment.duration_minutes * 60000);
+      const durationMinutes = assessment.duration_minutes || 60;
+      const expiresAt = new Date(Date.now() + durationMinutes * 60000);
 
-      const { data: attempt, error: attemptError } = await supabase
+      // Check for existing in_progress attempt
+      const { data: existingAttempt } = await adminClient
+        .from("assessment_attempts")
+        .select("*")
+        .eq("assessment_id", assessmentId)
+        .or(`student_id.eq.${studentProfileId},student_id.eq.${studentUserId}`)
+        .eq("status", "in_progress")
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle() as any;
+
+      if (existingAttempt) {
+        return NextResponse.json({ success: true, attempt: existingAttempt }, { status: 200 });
+      }
+
+      const { data: attempt, error: attemptError } = await adminClient
         .from("assessment_attempts")
         .insert({
-          student_id: studentId,
+          student_id: studentProfileId,
           assessment_id: assessmentId,
           status: "in_progress",
           answers: {},
@@ -55,21 +83,17 @@ export async function POST(
       if (!attemptId) return NextResponse.json({ error: "Missing attempt_id" }, { status: 400 });
 
       // Fetch the attempt
-      const { data: attempt, error: attemptError } = await supabase
+      const { data: attempt, error: attemptError } = await adminClient
         .from("assessment_attempts")
         .select("*")
         .eq("id", attemptId)
-        .eq("student_id", studentId)
         .single() as any;
 
       if (attemptError || !attempt) throw attemptError || new Error("Attempt not found");
 
       if (attempt.status !== "in_progress") {
-        return NextResponse.json({ error: "Attempt already submitted" }, { status: 400 });
+        return NextResponse.json({ success: true, result: attempt }, { status: 200 });
       }
-
-      // Use admin client to fetch real correct answers without exposing them
-      const adminClient = createAdminClient();
 
       // Fetch all MCQs for this assessment
       const { data: mcqQuestions } = await adminClient
@@ -80,20 +104,20 @@ export async function POST(
       let mcqScore = 0;
       let totalMcqMarks = 0;
 
-      const studentAnswers = attempt.answers as Record<string, string[]>;
+      const studentAnswers = (attempt.answers as Record<string, string[]>) || {};
 
       (mcqQuestions as any[])?.forEach((q: any) => {
-        totalMcqMarks += Number(q.marks);
+        const qMarks = Number(q.marks || 1);
+        totalMcqMarks += qMarks;
         const studentAns = studentAnswers[q.id] || [];
         
-        // Simple exact match logic for correct_answers array vs studentAns array
         const isCorrect = q.correct_answers && 
                           q.correct_answers.length > 0 && 
                           studentAns.length === q.correct_answers.length && 
                           q.correct_answers.every((a: any) => studentAns.includes(a));
 
         if (isCorrect) {
-          mcqScore += Number(q.marks);
+          mcqScore += qMarks;
         } else if (studentAns.length > 0 && q.negative_marks > 0) {
           mcqScore -= Number(q.negative_marks);
         }
@@ -103,19 +127,18 @@ export async function POST(
       const { data: codingSubmissions } = await adminClient
         .from("coding_submissions")
         .select("score, max_score")
-        .eq("assessment_attempt_id", attemptId)
-        .eq("student_id", studentId);
+        .eq("assessment_attempt_id", attemptId);
 
       let codingScore = 0;
       let totalCodingMarks = 0;
 
       codingSubmissions?.forEach(cs => {
         codingScore += Number(cs.score || 0);
-        totalCodingMarks += Number(cs.max_score || 100); // Wait, max_score might vary per problem. We should sum it.
+        totalCodingMarks += Number(cs.max_score || 100);
       });
 
-      const finalScore = Math.max(0, mcqScore + codingScore); // Ensure no negative total
-      const totalMarks = totalMcqMarks + totalCodingMarks;
+      const finalScore = Math.max(0, mcqScore + codingScore);
+      const totalMarks = Math.max(1, totalMcqMarks + totalCodingMarks);
 
       // Update attempt
       const { data: updatedAttempt, error: updateError } = await adminClient
@@ -124,7 +147,8 @@ export async function POST(
           status: "submitted",
           submitted_at: new Date().toISOString(),
           score: finalScore,
-          total_marks: totalMarks
+          total_marks: totalMarks,
+          percentage: Math.round((finalScore / totalMarks) * 100)
         })
         .eq("id", attemptId)
         .select()
@@ -165,14 +189,12 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const studentId = user.id;
+    const adminClient = createAdminClient();
 
-    // We can just merge the JSONB. But for safety, let's fetch current and update.
-    const { data: currentAttempt, error: fetchError } = await supabase
+    const { data: currentAttempt, error: fetchError } = await adminClient
       .from("assessment_attempts")
       .select("answers, status")
       .eq("id", attempt_id)
-      .eq("student_id", studentId)
       .single() as any;
 
     if (fetchError || !currentAttempt) throw fetchError || new Error("Attempt not found");
@@ -186,8 +208,8 @@ export async function PUT(
       ...answers
     };
 
-    const { error: updateError } = await (supabase
-      .from("assessment_attempts") as any)
+    const { error: updateError } = await adminClient
+      .from("assessment_attempts")
       .update({ answers: mergedAnswers })
       .eq("id", attempt_id);
 

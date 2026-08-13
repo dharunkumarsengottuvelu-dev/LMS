@@ -14,6 +14,28 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let createdByProfileId = body.created_by;
+    if (!createdByProfileId || !UUID_REGEX.test(createdByProfileId)) {
+      const { data: adminProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .in("role", ["admin", "trainer"])
+        .limit(1)
+        .maybeSingle() as any;
+
+      if (adminProfile) {
+        createdByProfileId = adminProfile.id;
+      } else {
+        const { data: anyProfile } = await supabase
+          .from("profiles")
+          .select("id")
+          .limit(1)
+          .maybeSingle() as any;
+        createdByProfileId = anyProfile?.id;
+      }
+    }
+
     // 2. Insert into assessments table
     const { data: assessment, error: assessmentError } = await supabase
       .from("assessments")
@@ -22,7 +44,7 @@ export async function POST(request: NextRequest) {
         description: body.description || null,
         type: body.type as AssessmentType,
         course_id: body.course_id || null,
-        created_by: body.created_by,
+        created_by: createdByProfileId,
         duration_minutes: body.duration_minutes || 60,
         passing_marks: body.passing_marks || 40,
         total_marks: body.total_marks || 100,
