@@ -134,6 +134,7 @@ export default function StudentCodingIDEPage() {
 
   /* ---- Submit ---- */
   const handleSubmit = async (code: string, language: CodingLanguage) => {
+    if (!selectedProblem) return;
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/code/submit", {
@@ -166,6 +167,7 @@ export default function StudentCodingIDEPage() {
   };
 
   const toggleFlag = () => {
+    if (!selectedProblem) return;
     setFlagged((prev) => {
       const next = new Set(prev);
       if (next.has(selectedProblem.id)) next.delete(selectedProblem.id);
