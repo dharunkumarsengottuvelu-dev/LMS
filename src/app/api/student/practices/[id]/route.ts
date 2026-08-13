@@ -172,6 +172,7 @@ export async function GET(
         status: isCompleted ? "completed" : "not_started",
         score: attempt ? attempt.score : isCompleted ? (sm.totalMarks || 100) : 0,
         codingProblems: problems,
+        mcqQuestions: sm.mcqQuestions || [],
       };
     });
 

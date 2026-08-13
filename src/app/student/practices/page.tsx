@@ -46,7 +46,20 @@ export default function StudentPracticesPage() {
 
   useEffect(() => {
     async function loadTracks() {
-      // Load from local storage first (where admin saves it)
+      try {
+        const res = await fetch("/api/student/practices");
+        if (!res.ok) throw new Error("Failed to fetch practices");
+        const data = await res.json();
+        
+        if (data.tracks && Array.isArray(data.tracks)) {
+          setStorePracticeTracks(data.tracks);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to load tracks from API, falling back to local/supabase", err);
+      }
+
+      // Fallback
       const local = localStorage.getItem("enterprise_lms_practice_tracks_v2");
       if (local) {
         try {
@@ -76,8 +89,8 @@ export default function StudentPracticesPage() {
     description: t.description || "Practice Track",
     thumbnail: t.thumbnail_url || t.thumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
     assignedBy: "Admin",
-    assignedByName: t.assignedByName || "System Admin",
-    subModules: t.subModules || [] 
+    assignedByName: t.assignedByName || t.assigned_by_name || "System Admin",
+    subModules: t.subModules || t.sub_modules || [] 
   }));
 
   const allTracks = storePracticeTracks.length > 0 ? formattedStoreTracks : defaultPracticeTracks;
@@ -192,10 +205,10 @@ export default function StudentPracticesPage() {
 
                   <CardFooter className="p-4 pt-0 gap-3">
                     <Button
-                      onClick={() => router.push(`/student/coding?track=${track.id}`)}
+                      onClick={() => router.push(`/student/practices/${track.id}`)}
                       className="w-full h-8 text-[11px] font-semibold gap-2 transition-colors rounded-[var(--radius-md)]"
                     >
-                      <Code2 className="h-3.5 w-3.5" /> Start Practice
+                      <Layers className="h-3.5 w-3.5" /> Explore Practice Track
                     </Button>
                   </CardFooter>
                 </Card>

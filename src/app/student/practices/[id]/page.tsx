@@ -81,7 +81,7 @@ export default function StudentTrackDetailPage() {
       const firstProblemId = subModule.codingProblems[0].id;
       router.push(`/student/practices/coding/${firstProblemId}?trackId=${trackId}&subModuleId=${subModule.id}`);
     } else {
-      router.push(`/student/assessments/${subModule.id}`);
+      router.push(`/student/assessments/${subModule.id}?trackId=${trackId}`);
     }
   };
 

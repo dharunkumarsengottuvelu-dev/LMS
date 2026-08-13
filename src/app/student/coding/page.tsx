@@ -269,9 +269,9 @@ export default function StudentCodingIDEPage() {
 
       {/* ── 3-Column Body ── */}
       <div className="flex flex-1 overflow-hidden w-full">
-        {/* ── LEFT: Problem Statement (280px) ── */}
+        {/* ── LEFT: Problem Statement (450px) ── */}
         {showQuestion && (
-        <div className="w-[300px] flex flex-col bg-card border-r border-border shrink-0 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="w-[450px] flex flex-col bg-card border-r border-border shrink-0 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex-1 overflow-y-auto flex flex-col h-full">
           {/* Question header */}
           <div className="px-4 py-4 border-b border-border">
