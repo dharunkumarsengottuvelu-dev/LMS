@@ -559,38 +559,36 @@ export function CodeEditor({
                       const tc = problem?.test_cases?.find(t => t.id === r.test_case_id);
                       const isHidden = !tc;
                       return (
-                        <div key={r.test_case_id} className="rounded-lg border border-gray-200 overflow-hidden shrink-0">
-                          <div className={cn(
-                            "px-3 py-1.5 text-[11px] font-bold border-b border-gray-200 flex justify-between items-center",
-                            r.passed ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                        <details key={r.test_case_id} className="rounded-lg border border-gray-200 overflow-hidden shrink-0 group">
+                          <summary className={cn(
+                            "px-3 py-1.5 text-[11px] font-bold border-b border-gray-200 flex justify-between items-center cursor-pointer select-none outline-none list-none [&::-webkit-details-marker]:hidden",
+                            r.passed ? "bg-green-50 text-green-700 hover:bg-green-100" : "bg-red-50 text-red-700 hover:bg-red-100"
                           )}>
                             <span>Test Case {i + 1} {isHidden && "(Hidden)"}</span>
                             <span>{r.passed ? "Passed" : "Failed"}</span>
-                          </div>
+                          </summary>
                           
-                          {!r.passed && (
-                            <div className="grid grid-cols-1 divide-y divide-gray-200 bg-white">
-                              {tc && (
-                                <div className="p-2.5 bg-gray-50">
-                                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Input:</p>
-                                  <pre className="text-[11px] font-mono text-gray-600 whitespace-pre-wrap max-h-24 overflow-y-auto">{tc.input}</pre>
-                                </div>
-                              )}
-                              <div className="p-2.5">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Error / Output:</p>
-                                <pre className="text-[11px] font-mono text-red-600 whitespace-pre-wrap max-h-32 overflow-y-auto">
-                                  {r.error || r.actual_output || "Unknown error"}
-                                </pre>
+                          <div className="grid grid-cols-1 divide-y divide-gray-200 bg-white">
+                            {tc && (
+                              <div className="p-2.5 bg-gray-50">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Input:</p>
+                                <pre className="text-[11px] font-mono text-gray-600 whitespace-pre-wrap max-h-24 overflow-y-auto">{tc.input}</pre>
                               </div>
-                              {tc && tc.expected_output && (
-                                <div className="p-2.5">
-                                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Expected Output:</p>
-                                  <pre className="text-[11px] font-mono text-green-700 whitespace-pre-wrap max-h-24 overflow-y-auto">{tc.expected_output}</pre>
-                                </div>
-                              )}
+                            )}
+                            <div className="p-2.5">
+                              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Error / Output:</p>
+                              <pre className={cn("text-[11px] font-mono whitespace-pre-wrap max-h-32 overflow-y-auto", r.passed ? "text-green-700" : "text-red-600")}>
+                                {r.error || r.actual_output || "Unknown error"}
+                              </pre>
                             </div>
-                          )}
-                        </div>
+                            {tc && tc.expected_output && (
+                              <div className="p-2.5">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Expected Output:</p>
+                                <pre className="text-[11px] font-mono text-green-700 whitespace-pre-wrap max-h-24 overflow-y-auto">{tc.expected_output}</pre>
+                              </div>
+                            )}
+                          </div>
+                        </details>
                       );
                     })}
                   </div>
