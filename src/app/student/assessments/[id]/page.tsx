@@ -1,61 +1,66 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { PracticeRunnerEngine, PracticeQuestion } from "@/components/quiz/practice-runner";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import { AssessmentEngine } from "@/components/assessment/AssessmentEngine";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
-export default function AssessmentPage() {
+interface SubModuleMeta {
+  id: string;
+  title: string;
+  type: "mcq" | "coding" | "mixed";
+  assignedBy: string;
+  durationMinutes: number;
+  totalMarks: number;
+  passingMarks: number;
+  proctoring: {
+    fullscreenLock: boolean;
+    copyPasteRestricted: boolean;
+  };
+}
+
+const mockSubModules: Record<string, SubModuleMeta> = {};
+
+const mockMixedQuestions: PracticeQuestion[] = [];
+
+export default function AssessmentTakePage() {
   const params = useParams();
   const router = useRouter();
-  const { toast } = useToast();
-  
-  const assessmentId = params.id as string;
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<{ assessment: any, questions: any[], attempt: any } | null>(null);
 
-  useEffect(() => {
-    if (!assessmentId) return;
+  const subModuleId = (params?.id as string) || "";
+  const currentSubModule: SubModuleMeta = mockSubModules[subModuleId] ?? {
+    id: subModuleId,
+    title: "Assessment",
+    type: "mcq",
+    assignedBy: "System",
+    durationMinutes: 60,
+    totalMarks: 100,
+    passingMarks: 50,
+    proctoring: { fullscreenLock: false, copyPasteRestricted: false }
+  };
 
-    const fetchAssessment = async () => {
-      try {
-        const res = await fetch(`/api/student/assessments/${assessmentId}`);
-        const result = await res.json();
-        
-        if (!res.ok) {
-          throw new Error(result.error || "Failed to load assessment");
-        }
-        
-        setData({
-          assessment: result.assessment,
-          questions: result.questions,
-          attempt: result.attempt
-        });
-      } catch (err: any) {
-        toast({ title: "Error", description: err.message, variant: "destructive" });
-        router.push("/student/assessments");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAssessment();
-  }, [assessmentId, router, toast]);
-
-  if (loading || !data) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#F9FAFB] dark:bg-[#09090B]">
-        <Loader2 className="h-10 w-10 text-[#2563EB] animate-spin" />
-      </div>
-    );
-  }
+  const handleSubmit = async (answers: Record<string, any>) => {
+    console.log("Practice sub-module submitted:", answers);
+    router.back();
+  };
 
   return (
-    <AssessmentEngine 
-      assessment={data.assessment} 
-      questions={data.questions} 
-      initialAttempt={data.attempt} 
-    />
+    <div className="py-4 space-y-4">
+      {/* Back Button */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A]"
+        onClick={() => router.back()}
+      >
+        <ArrowLeft className="h-4 w-4" /> Back
+      </Button>
+
+      <PracticeRunnerEngine
+        module={currentSubModule}
+        questions={mockMixedQuestions}
+        onSubmit={handleSubmit}
+      />
+    </div>
   );
 }

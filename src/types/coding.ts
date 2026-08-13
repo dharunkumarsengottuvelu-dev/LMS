@@ -145,7 +145,6 @@ export interface CodingSubmission {
   id: string;
   problem_id: string;
   student_id: string;
-  assessment_attempt_id?: string;
   language: CodingLanguage;
   code: string;
   status: SubmissionStatus;
@@ -187,7 +186,6 @@ export interface SubmitCodeInput {
   code: string;
   files?: CodeFile[];
   test_cases?: TestCase[];
-  assessment_attempt_id?: string;
 }
 
 export interface CreateCodingProblemInput {
