@@ -83,7 +83,7 @@ export default function StudentCodingIDEPage() {
                        "javascript": sm.starterCode || "", 
                        "cpp": sm.starterCode || "" 
                      },
-                     test_cases: parseTestCases(sm.publicTestCases)
+                     test_cases: (cq.publicTestCases || cq.hiddenTestCases) ? [...(cq.publicTestCases || []), ...(cq.hiddenTestCases || [])] : parseTestCases(sm.publicTestCases)
                    });
                  });
               } else {
