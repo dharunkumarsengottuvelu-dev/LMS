@@ -4,6 +4,7 @@ import { SQLExecutionService } from "@/services/sql-execution.service";
 import type { ExecuteCodeInput } from "@/types/coding";
 import { getErrorMessage } from "@/lib/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isLanguageEnabled } from "@/services/compiler.service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,15 +64,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 1. Language validation against database
-    const supabase = createAdminClient();
-    const { data: langData, error: langError } = await supabase
-      .from("compiler_languages")
-      .select("is_enabled")
-      .eq("jobe_language", language)
-      .single();
-
-    if (langError || !langData || !langData.is_enabled) {
+    // 1. Language validation against database (with fallback)
+    const languageEnabled = await isLanguageEnabled(language);
+    
+    if (!languageEnabled) {
       return NextResponse.json(
         { error: `Unsupported or disabled programming language: '${language}'` },
         { status: 400 }

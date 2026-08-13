@@ -5,6 +5,7 @@ import { SubmissionService } from "@/services/submission.service";
 import { getErrorMessage } from "@/lib/utils";
 import type { TestCaseResult, TestCase } from "@/types/coding";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isLanguageEnabled } from "@/services/compiler.service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,15 +16,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
-    // 1. Language validation against database
-    const supabase = createAdminClient();
-    const { data: langData, error: langError } = await supabase
-      .from("compiler_languages")
-      .select("is_enabled")
-      .eq("jobe_language", language)
-      .single();
-
-    if (langError || !langData || !langData.is_enabled) {
+    // 1. Language validation against database (with fallback)
+    const languageEnabled = await isLanguageEnabled(language);
+    
+    if (!languageEnabled) {
       return NextResponse.json(
         { error: `Unsupported or disabled programming language: '${language}'` },
         { status: 400 }
@@ -34,6 +30,7 @@ export async function POST(request: NextRequest) {
     let datasetName = body.dataset_name || "university";
 
     if (!testCases || testCases.length === 0) {
+      const supabase = createAdminClient();
       const { data: problem, error: problemError } = await supabase
         .from("coding_problems")
         .select("test_cases, dataset_name")

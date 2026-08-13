@@ -1,26 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
+import { getCompilerLanguages } from "@/services/compiler.service";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const enabledOnly = searchParams.get("enabled") === "true";
 
-    const supabase = createAdminClient();
-    
-    let query = supabase.from("compiler_languages").select("*").order("display_name");
-    if (enabledOnly) {
-      query = query.eq("is_enabled", true);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
-    return NextResponse.json({ languages: data || [] }, { status: 200 });
+    const languages = await getCompilerLanguages(enabledOnly);
+    return NextResponse.json({ languages }, { status: 200 });
   } catch (error: unknown) {
     console.error("GET /api/compiler/languages Error:", error);
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
