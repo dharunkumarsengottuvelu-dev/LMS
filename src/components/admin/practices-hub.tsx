@@ -75,28 +75,51 @@ type ViewState = "list" | "create" | "edit" | "detail" | "add-module" | "assign"
 
 export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const { practiceTracks: storeTracks, updatePracticeTracks, students: storeStudents, batches: storeBatches } = useLMSStore();
-
-  const allStudents = storeStudents.map((s: any) => ({
-    id: s.id,
-    name: s.name,
-    email: s.email,
-    batch: s.batch || s.batchId || "Unassigned Batch",
-  }));
-
-  const allBatches = storeBatches.length > 0
-    ? storeBatches.map((b: any) => b.batchName || b.id)
-    : Array.from(new Set(allStudents.map((s: any) => s.batch).filter(Boolean)));
-
-  const [tracks, setTracks] = useState<PracticeTrack[]>(() => {
-    return storeTracks.length > 0 ? (storeTracks as unknown as PracticeTrack[]) : initialTracks;
-  });
+  const [tracks, setTracks] = useState<PracticeTrack[]>([]);
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [allBatches, setAllBatches] = useState<string[]>([]);
 
   useEffect(() => {
-    if (storeTracks && storeTracks.length > 0) {
-      setTracks(storeTracks as unknown as PracticeTrack[]);
-    }
-  }, [storeTracks]);
+    const fetchData = async () => {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+
+      const { data: tracksData } = await supabase
+        .from("practice_tracks")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (tracksData) {
+        const mappedTracks: PracticeTrack[] = tracksData.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          category: t.category,
+          description: "Practice Track", // Provide default or fetch if exists
+          assignedByName: "Admin",
+          subModules: [], // Can be fetched from a related table if needed
+          assignedBatches: [],
+          assignedStudents: []
+        }));
+        setTracks(mappedTracks);
+      }
+
+      const { data: studentsData } = await supabase.from("profiles").select("*").eq("role", "student");
+      if (studentsData) {
+        setAllStudents(studentsData.map((s: any) => ({
+          id: s.id,
+          name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email?.split("@")[0] || "Unknown",
+          email: s.email,
+          batch: s.batch || "Unassigned Batch"
+        })));
+      }
+
+      const { data: batchesData } = await supabase.from("batches").select("batch_name");
+      if (batchesData) {
+        setAllBatches(batchesData.map((b: any) => b.batch_name));
+      }
+    };
+    fetchData();
+  }, []);
 
   const [search, setSearch] = useState("");
   const [viewState, setViewState] = useState<ViewState>("list");
@@ -286,7 +309,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const syncTracksToStore = (newTracks: PracticeTrack[]) => {
     setTracks(newTracks);
-    updatePracticeTracks(newTracks as unknown as PracticeTrackItem[]);
   };
 
   const handleCreate = (e: React.FormEvent) => {

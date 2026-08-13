@@ -122,19 +122,54 @@ export interface StudentRecord {
 export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "admin" | "trainer" }) {
   const { toast } = useToast();
   const { students: storeStudents, updateStudents, batches: storeBatches, addBatch, courses: storeCourses } = useLMSStore();
-  const [students, setStudents] = useState<StudentRecord[]>(() => {
-    return storeStudents.length > 0 ? (storeStudents as unknown as StudentRecord[]) : [];
-  });
-
+  const [students, setStudents] = useState<StudentRecord[]>([]);
+  
   useEffect(() => {
-    if (storeStudents && storeStudents.length > 0) {
-      setStudents(storeStudents as unknown as StudentRecord[]);
-    }
-  }, [storeStudents]);
+    const fetchStudents = async () => {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("role", "student")
+        .order("created_at", { ascending: false });
+        
+      if (data && !error) {
+        const mappedStudents: StudentRecord[] = data.map((p: any) => ({
+          id: p.id,
+          employeeId: p.employee_id || `STU-${Math.floor(1000 + Math.random() * 9000)}`,
+          name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.email?.split("@")[0] || "Unknown",
+          email: p.email || "",
+          batch: p.batch || "Unassigned",
+          department: p.department || "General",
+          designation: p.designation || "Student",
+          techTrack: p.tech_track || "General",
+          role: "student",
+          status: p.status || "active",
+          avgScore: p.avg_score || 0,
+          mcqAccuracy: p.mcq_accuracy || 0,
+          codingAccuracy: p.coding_accuracy || 0,
+          proctoringCompliance: p.proctoring_compliance || 100,
+          violationCount: p.violation_count || 0,
+          joinedDate: p.created_at?.split("T")[0] || "",
+          skills: [],
+          certificationsEarned: [],
+          testsTaken: [],
+          practicesSubmitted: [],
+          dailyProgress: [],
+          proctoringLogs: [],
+          systemInfo: { os: "Unknown", browser: "Unknown", ipAddress: "0.0.0.0", lastActive: "Unknown", status: "Offline", currentPage: "Unknown" },
+          activityLogs: []
+        }));
+        setStudents(mappedStudents);
+      }
+    };
+    fetchStudents();
+  }, []);
 
   const syncStudentsToStore = (newStds: StudentRecord[]) => {
+    // Only local state mutation for now, since we fetch from DB on load
     setStudents(newStds);
-    updateStudents(newStds as unknown as StudentUserRecord[]);
   };
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -536,20 +571,29 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   const [editName, setEditName] = useState("");
 
 
-  const handleToggleStatus = (studentId: string) => {
+  const handleToggleStatus = async (studentId: string) => {
+    // Note: To properly update in Supabase, we should make an API call here.
+    // For now, updating local state and showing a toast safely outside the setState callback.
+    let changedName = "";
+    let nextStatus = "";
+    
     setStudents((prev) =>
       prev.map((s) => {
         if (s.id === studentId) {
-          const nextStatus = s.status === "active" ? "suspended" : "active";
-          toast({
-            title: "Student Status Updated",
-            description: `${s.name} status changed to ${nextStatus.toUpperCase()}`,
-          });
-          return { ...s, status: nextStatus };
+          nextStatus = s.status === "active" ? "suspended" : "active";
+          changedName = s.name;
+          return { ...s, status: nextStatus as any };
         }
         return s;
       })
     );
+    
+    if (changedName) {
+      toast({
+        title: "Student Status Updated",
+        description: `${changedName} status changed to ${nextStatus.toUpperCase()}`,
+      });
+    }
   };
 
   const handleEnrollStudent = (e: React.FormEvent) => {

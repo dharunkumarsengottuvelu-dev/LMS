@@ -30,20 +30,37 @@ import { PageHeader } from "@/components/layouts/page-header";
 
 export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const { assignments: storeSubmissions, updateSubmissions } = useLMSStore();
-  const [submissions, setSubmissions] = useState<StudentSubmission[]>(() => {
-    return storeSubmissions.length > 0 ? (storeSubmissions as unknown as StudentSubmission[]) : initialSubmissions;
-  });
+  const [submissions, setSubmissions] = useState<StudentSubmission[]>([]);
 
   useEffect(() => {
-    if (storeSubmissions) {
-      setSubmissions(storeSubmissions as unknown as StudentSubmission[]);
-    }
-  }, [storeSubmissions]);
+    const fetchData = async () => {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      const { data } = await supabase
+        .from("assignments")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (data) {
+        const mappedSubmissions: StudentSubmission[] = data.map((s: any) => ({
+          id: s.id,
+          studentName: s.student_name || "Unknown Student",
+          assignmentTitle: s.title || "Untitled Assignment",
+          batch: "Unassigned", // Can join with batch_members if needed
+          submittedAt: s.submitted_at || new Date().toISOString(),
+          status: s.status?.toLowerCase() === "graded" ? "graded" : "pending",
+          gradeScore: s.score || undefined,
+          feedback: s.feedback || undefined
+        }));
+        setSubmissions(mappedSubmissions);
+      }
+    };
+    fetchData();
+  }, []);
 
   const syncSubmissionsToStore = (newSubs: StudentSubmission[]) => {
     setSubmissions(newSubs);
-    updateSubmissions(newSubs as unknown as StudentSubmissionItem[]);
   };
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");

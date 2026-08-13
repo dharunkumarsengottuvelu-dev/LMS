@@ -56,6 +56,7 @@ function StatCard({ icon: Icon, value, label, href, badgeText }: {
 }
 
 
+import { useState, useEffect } from "react";
 import { useLMSStore } from "@/lib/store/lms-store";
 
 export function StudentDashboardClient({ data }: { data: StudentDashboardData }) {
@@ -64,21 +65,40 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const { profile } = data;
   const firstName = profile?.first_name ?? "Dharunkumar";
 
-  const { courses: storeCourses, practiceTracks: storeTracks, assessments: storeAssessments } = useLMSStore();
+  const [storeCourses, setStoreCourses] = useState<any[]>([]);
+  const [storeTracks, setStoreTracks] = useState<any[]>([]);
+  const [storeAssessments, setStoreAssessments] = useState<any[]>([]);
 
-  const activeCourses = storeCourses.map((c) => ({
+  useEffect(() => {
+    async function loadData() {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      const { data: cData } = await supabase.from("courses").select("*");
+      if (cData) setStoreCourses(cData);
+
+      const { data: pData } = await supabase.from("practice_tracks").select("*");
+      if (pData) setStoreTracks(pData);
+      
+      const { data: aData } = await supabase.from("assessments").select("*");
+      if (aData) setStoreAssessments(aData);
+    }
+    loadData();
+  }, []);
+
+  const activeCourses = storeCourses.map((c: any) => ({
     id: c.id,
     title: c.title,
     category: (typeof c.category_id === 'string' ? c.category_id : (c.category_id as any)?.name) || "Technical Training",
     completedLessons: 0,
     totalLessons: c.modules?.length || 1,
-    progressPercentage: 0,
+    progressPercentage: c.progress || 0,
     nextLesson: c.modules?.[0]?.title || "Module 1 Overview",
     slug: c.slug || c.id,
   }));
 
   const displayEnrolledCount = activeCourses.length;
-  const displayCompletedCount = activeCourses.filter(c => c.progressPercentage === 100).length;
+  const displayCompletedCount = activeCourses.filter((c: any) => c.progressPercentage === 100).length;
   const displayAssessmentsCount = storeTracks.length;
   const displayUnreadNotifications = 0;
 

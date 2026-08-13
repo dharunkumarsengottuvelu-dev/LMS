@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -42,26 +42,30 @@ export default function StudentPracticePage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
-  const { practiceTracks: storePracticeTracks } = useLMSStore();
+  const [storePracticeTracks, setStorePracticeTracks] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadTracks() {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      const { data } = await supabase.from("practice_tracks").select("*");
+      if (data) {
+        setStorePracticeTracks(data);
+      }
+    }
+    loadTracks();
+  }, []);
 
   const formattedStoreTracks: PracticeCourseTrack[] = storePracticeTracks.map(t => ({
     id: t.id,
     title: t.title,
     category: t.category,
-    description: t.description,
-    thumbnail: t.thumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
-    assignedBy: t.assignedBy,
-    assignedByName: t.assignedByName,
-    subModules: t.subModules.map(sm => ({
-      id: sm.id,
-      title: sm.title,
-      type: sm.type,
-      duration_minutes: sm.durationMinutes,
-      total_marks: sm.totalMarks,
-      question_count: sm.questionCount,
-      status: sm.status || "not_started",
-      score: sm.score,
-    }))
+    description: t.description || "Practice Track",
+    thumbnail: t.thumbnail_url || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
+    assignedBy: "Admin",
+    assignedByName: "System Admin",
+    subModules: [] // Will need to fetch from a related table if applicable
   }));
 
   const allTracks = storePracticeTracks.length > 0 ? formattedStoreTracks : defaultPracticeTracks;

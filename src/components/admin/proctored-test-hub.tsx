@@ -51,25 +51,49 @@ import type { Assessment } from "@/types/assessment";
 
 export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const { assessments: storeAssessments, updateAssessmentsList, batches: storeBatches, students: storeStudents } = useLMSStore();
-
-  const allBatches = storeBatches.length > 0
-    ? storeBatches.map((b: any) => b.batchName || b.id)
-    : Array.from(new Set(storeStudents.map((s) => s.batch || s.batchId).filter((b): b is string => Boolean(b))));
-
-  const [tests, setTests] = useState<ScheduledTest[]>(() => {
-    return storeAssessments.length > 0 ? (storeAssessments as unknown as ScheduledTest[]) : initialTests;
-  });
+  const [tests, setTests] = useState<ScheduledTest[]>([]);
+  const [allBatches, setAllBatches] = useState<string[]>([]);
 
   useEffect(() => {
-    if (storeAssessments) {
-      setTests(storeAssessments as unknown as ScheduledTest[]);
-    }
-  }, [storeAssessments]);
+    const fetchData = async () => {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      const { data: assessmentsData, error: assessmentsError } = await supabase
+        .from("assessments")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (assessmentsData && !assessmentsError) {
+        const mappedTests: ScheduledTest[] = assessmentsData.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          batch: "Unassigned", // Fetch from assessment_assignments if needed
+          duration: a.duration || 60,
+          totalQuestions: a.total_questions || 0,
+          maxMarks: (a.total_questions || 0) * 10,
+          status: a.status === "active" ? "live" : a.status === "closed" ? "completed" : "scheduled",
+          submissionsCount: 0,
+          totalEnrolled: 0,
+          proctoringFlags: ["Fullscreen Lock", "Tab Switch Security"],
+          assignedBatches: [],
+          questions: [],
+          allowedQuestionTypes: a.type === "mcq" ? "mcq" : a.type === "coding" ? "coding" : "both",
+          sections: []
+        }));
+        setTests(mappedTests);
+      }
+
+      const { data: batchesData } = await supabase.from("batches").select("batch_name");
+      if (batchesData) {
+        setAllBatches(batchesData.map((b: any) => b.batch_name));
+      }
+    };
+    fetchData();
+  }, []);
 
   const syncTestsToStore = (newTests: ScheduledTest[]) => {
     setTests(newTests);
-    updateAssessmentsList(newTests as unknown as Assessment[]);
   };
 
   const [search, setSearch] = useState("");

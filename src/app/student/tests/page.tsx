@@ -43,41 +43,56 @@ interface ScheduledTest {
 
 const initialTestsData: ScheduledTest[] = [];
 
-import { useLMSStore } from "@/lib/store/lms-store";
-
 export default function StudentTestsPage() {
   const router = useRouter();
-  const { assessments: storeAssessments } = useLMSStore();
-
-  const formattedStoreTests: ScheduledTest[] = storeAssessments.map((a) => ({
-    id: a.id,
-    title: a.title,
-    type: a.type === "coding" ? "Coding Assessment" : "Proctored Examination",
-    scheduledAt: "Available Now",
-    duration: a.duration_minutes,
-    totalQuestions: a.question_count || 10,
-    totalMarks: a.total_marks || 100,
-    status: "live",
-    score: a.best_score,
-    maxScore: a.total_marks,
-    passed: (a.best_score || 0) >= (a.passing_marks || 70),
-    proctoring: {
-      enabled: true,
-      webcamTracking: true,
-      tabSwitchLock: true,
-      fullscreenLock: true,
-      safeExamBrowserRequired: true,
-      copyPasteRestricted: true,
-      assignedBy: "Admin",
-      assignedByName: "System Admin",
-    },
-  }));
-
-  const allTestsData = storeAssessments.length > 0 ? formattedStoreTests : initialTestsData;
-  const [tests, setTests] = useState<ScheduledTest[]>(allTestsData);
+  const [tests, setTests] = useState<ScheduledTest[]>([]);
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("all");
-  const [testsData, setTestsData] = useState<ScheduledTest[]>(allTestsData);
+  const [testsData, setTestsData] = useState<ScheduledTest[]>([]);
+
+  useEffect(() => {
+    async function loadTests() {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("assessments")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (data) {
+        const mappedTests: ScheduledTest[] = data.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          type: a.type === "coding" ? "Coding Assessment" : "Proctored Examination",
+          scheduledAt: "Available Now",
+          duration: a.duration || 60,
+          totalQuestions: a.total_questions || 10,
+          totalMarks: (a.total_questions || 10) * 10,
+          status: "live",
+          score: undefined,
+          maxScore: (a.total_questions || 10) * 10,
+          passed: false,
+          proctoring: {
+            enabled: true,
+            webcamTracking: true,
+            tabSwitchLock: true,
+            fullscreenLock: true,
+            safeExamBrowserRequired: true,
+            copyPasteRestricted: true,
+            assignedBy: "Admin",
+            assignedByName: "System Admin",
+          },
+        }));
+        setTests(mappedTests);
+        setTestsData(mappedTests);
+      }
+    }
+    loadTests();
+  }, []);
 
   // Modals for distinct card actions
   const [selectedLobbyTest, setSelectedLobbyTest] = useState<ScheduledTest | null>(null);

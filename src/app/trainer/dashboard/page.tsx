@@ -16,8 +16,50 @@ import { useLMSStore } from "@/lib/store/lms-store";
 import { PageHeader } from "@/components/layouts/page-header";
 
 export default function TrainerDashboardPage() {
-  const { batches, students, assessments, assignments } = useLMSStore();
+  const [batches, setBatches] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [assessments, setAssessments] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string>("all");
+
+  React.useEffect(() => {
+    async function loadData() {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      const { data: bData } = await supabase.from("batches").select("*");
+      if (bData) {
+        setBatches(bData.map((b: any) => ({
+          id: b.id,
+          batchName: b.batch_name,
+          collegeName: b.college_name,
+          course: b.course_id,
+          joiningTime: "Morning Session",
+          status: b.status,
+          studentIds: [] // Can join with batch_members later
+        })));
+      }
+
+      const { data: sData } = await supabase.from("profiles").select("*").eq("role", "student");
+      if (sData) {
+        setStudents(sData.map((s: any) => ({
+          id: s.id,
+          name: s.first_name + " " + s.last_name,
+          batchId: s.batch_id,
+          avgScore: 0,
+          status: s.status,
+          violationCount: 0
+        })));
+      }
+
+      const { data: aData } = await supabase.from("assessments").select("*");
+      if (aData) setAssessments(aData);
+      
+      const { data: asData } = await supabase.from("assignments").select("*");
+      if (asData) setAssignments(asData);
+    }
+    loadData();
+  }, []);
 
   // Selected Batch details
   const selectedBatch = useMemo(() => {

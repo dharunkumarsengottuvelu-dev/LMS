@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Users, Search, Plus, UserCheck, Trash2, Edit, GraduationCap, Mail, Key, Upload, FileSpreadsheet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,40 +23,33 @@ interface StudentUser {
   batch: string;
 }
 
-import { useEffect } from "react";
-import { useLMSStore, StudentUserRecord } from "@/lib/store/lms-store";
-
-const initialStudents: StudentUser[] = [];
-
 export default function TrainerStudentsPage() {
   const { toast } = useToast();
-  const { students: storeStudents, updateStudents, batches: storeBatches } = useLMSStore();
-
-  const [users, setUsers] = useState<StudentUser[]>(() => {
-    return storeStudents.map((s) => ({
-      id: s.id,
-      name: s.name,
-      email: s.email,
-      status: (s.status as UserStatus) || "active",
-      joined: String(s.joinedDate || "2026-01-01"),
-      batch: s.batch || s.batchId || "Unassigned Batch",
-    }));
-  });
+  const [users, setUsers] = useState<StudentUser[]>([]);
+  const [storeBatches, setStoreBatches] = useState<any[]>([]);
 
   useEffect(() => {
-    if (storeStudents) {
-      setUsers(
-        storeStudents.map((s) => ({
+    async function loadData() {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      const { data: sData } = await supabase.from("profiles").select("*").eq("role", "student");
+      if (sData) {
+        setUsers(sData.map((s: any) => ({
           id: s.id,
-          name: s.name,
+          name: s.first_name + " " + s.last_name,
           email: s.email,
-          status: (s.status as UserStatus) || "active",
-          joined: String(s.joinedDate || "2026-01-01"),
-          batch: s.batch || s.batchId || "Unassigned Batch",
-        }))
-      );
+          status: s.status as UserStatus || "active",
+          joined: String(s.created_at || new Date().toISOString()).split("T")[0] || "",
+          batch: s.batch_id || "Unassigned Batch",
+        })));
+      }
+
+      const { data: bData } = await supabase.from("batches").select("*");
+      if (bData) setStoreBatches(bData);
     }
-  }, [storeStudents]);
+    loadData();
+  }, []);
   const [search, setSearch] = useState("");
   
   // Dialog state

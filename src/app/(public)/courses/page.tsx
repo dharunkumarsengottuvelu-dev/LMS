@@ -11,10 +11,22 @@ import { useLMSStore } from "@/lib/store/lms-store";
 
 export default function PublicCoursesPage() {
   const [search, setSearch] = useState("");
-  const { courses: storeCourses } = useLMSStore();
+  const [storeCourses, setStoreCourses] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    async function loadCourses() {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data } = await supabase.from("courses").select("*");
+      if (data) {
+        setStoreCourses(data);
+      }
+    }
+    loadCourses();
+  }, []);
 
   const coursesList = storeCourses.map((c: any) => {
-    const catStr = typeof c.category === "string" ? c.category : (c.category?.name || "General");
+    const catStr = typeof c.category_id === "string" ? c.category_id : (c.category_id?.name || "General");
     return {
       id: c.id,
       title: c.title,
@@ -25,7 +37,7 @@ export default function PublicCoursesPage() {
       students: "Enrolled",
       duration: "Self-paced",
       modules: c.modules?.length || 0,
-      level: c.level || "All Levels",
+      level: c.difficulty || "All Levels",
       description: c.description || "Interactive course module.",
       topics: ["Curriculum Modules", "Live Practice", "Proctored Tests"],
     };

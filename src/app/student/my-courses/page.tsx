@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookOpen, Search, Filter, Clock, Play, CheckCircle2, ChevronRight, ArrowLeft } from "lucide-react";
@@ -19,17 +19,33 @@ export default function StudentCoursesPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("all");
   const router = useRouter();
-  const { courses: storeCourses } = useLMSStore();
+  const [storeCourses, setStoreCourses] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadCourses() {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase.from("courses").select("*");
+      if (data) {
+        setStoreCourses(data);
+      }
+    }
+    loadCourses();
+  }, []);
 
   const formattedStoreCourses = storeCourses.map(c => ({
     id: c.id,
-    slug: c.slug,
+    slug: c.slug || c.id,
     title: c.title,
     category: typeof c.category_id === 'string' ? c.category_id : 'General',
-    difficulty: c.difficulty,
-    progress: c.progress ?? 45,
-    completedLessons: 12,
-    totalLessons: c.modules?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || 15,
+    difficulty: c.difficulty || "Beginner",
+    progress: c.progress ?? 0,
+    completedLessons: 0,
+    totalLessons: c.modules?.reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0) || 15,
     instructor: "Lead Technical Trainer",
     thumbnail: c.thumbnail_url || "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
   }));

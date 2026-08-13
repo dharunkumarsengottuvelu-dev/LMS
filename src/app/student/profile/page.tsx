@@ -23,33 +23,29 @@ import { useLMSStore } from "@/lib/store/lms-store";
 export default function StudentProfilePage() {
   const { profile, user } = useAuth();
   const { toast } = useToast();
-  const { students, courses, practiceTracks, studentAttempts, assignments } = useLMSStore();
+  const [enrolledCount, setEnrolledCount] = useState(0);
+  const [practiceCount, setPracticeCount] = useState(0);
+  const [submissionsCount, setSubmissionsCount] = useState(0);
 
-  // Find matching student record from store
-  const currentStudent = useMemo(() => {
-    return (
-      students.find((s) => s.email.toLowerCase() === user?.email?.toLowerCase()) ||
-      students[0] ||
-      null
-    );
-  }, [students, user?.email]);
+  useEffect(() => {
+    async function fetchCounts() {
+      if (!user?.id) return;
+      
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      const { count: eCount } = await supabase.from("enrollments").select("*", { count: "exact", head: true }).eq("user_id", user.id);
+      setEnrolledCount(eCount || 0);
+      
+      const { count: pCount } = await supabase.from("practice_tracks").select("*", { count: "exact", head: true }); // Need a better join or relation if you assign tracks per user
+      setPracticeCount(0); // Set to 0 until relations are mapped for tracks
 
-  const enrolledCount = useMemo(() => {
-    if (!currentStudent) return 0;
-    return courses.filter((c: any) => c.assignedStudents?.includes(currentStudent.id) || c.assignedBatches?.includes(currentStudent.batchId)).length;
-  }, [currentStudent, courses]);
-
-  const practiceCount = useMemo(() => {
-    if (!currentStudent) return 0;
-    return practiceTracks.filter((t: any) => t.assignedStudents?.includes(currentStudent.id) || t.assignedBatches?.includes(currentStudent.batchId)).length;
-  }, [currentStudent, practiceTracks]);
-
-  const submissionsCount = useMemo(() => {
-    if (!currentStudent) return 0;
-    const attempts = studentAttempts.filter((a: any) => a.studentId === currentStudent.id).length;
-    const assignmentSubs = assignments.filter((a: any) => a.studentId === currentStudent.id).length;
-    return attempts + assignmentSubs;
-  }, [currentStudent, studentAttempts, assignments]);
+      const { count: sCount } = await supabase.from("assignment_submissions").select("*", { count: "exact", head: true }).eq("user_id", user.id);
+      const { count: aCount } = await supabase.from("assessment_attempts").select("*", { count: "exact", head: true }).eq("user_id", user.id);
+      setSubmissionsCount((sCount || 0) + (aCount || 0));
+    }
+    fetchCounts();
+  }, [user]);
 
   const [activeTab, setActiveTab] = useState<"personal" | "coding" | "security">("personal");
 
@@ -155,9 +151,9 @@ export default function StudentProfilePage() {
     setConfirmPassword("");
   };
 
-  const batchName = currentStudent?.batch && currentStudent.batch !== "Not Assigned" ? currentStudent.batch : "Not Assigned";
+  const batchName = (profile as any)?.batch_id || "Not Assigned";
   const loginDate = user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "N/A";
-  const accountStatus = currentStudent?.status || "active";
+  const accountStatus = (profile as any)?.status || "active";
 
   return (
     <div className="max-w-[1440px] mx-auto space-y-8 pb-12">

@@ -1,37 +1,75 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useLMSStore } from "@/lib/store/lms-store";
-import type { LMSBatch } from "@/types/batch";
-import { PageHeader } from "@/components/layouts/page-header";
-import {
-  Boxes, Plus, Search, Filter, Users, Calendar, Clock, GraduationCap,
-  BookOpen, CheckCircle2, XCircle, MoreVertical, Edit, Trash2, ArrowRightLeft,
-  UserPlus, UserMinus, ShieldAlert, Sparkles, X, ChevronRight, Eye, Building2, User
+import { 
+  Building2, Plus, Search, MoreVertical, Edit2, 
+  Trash2, Users, FileSpreadsheet, Lock, Unlock, 
+  MapPin, Clock, CalendarDays, RefreshCw, X, ArrowRight,
+  Boxes, CheckCircle2, GraduationCap, Calendar, Edit, XCircle, UserPlus, ArrowRightLeft, UserMinus, BookOpen, User
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
+  DropdownMenuTrigger, DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PageHeader } from "@/components/layouts/page-header";
+
+interface LMSBatch {
+  id: string;
+  batchName: string;
+  collegeName: string;
+  course?: string;
+  startDate?: string;
+  endDate?: string;
+  joiningTime?: string;
+  trainer?: string;
+  status: "active" | "inactive";
+  studentIds: string[];
+}
 
 export default function AdminBatchesPage() {
   const { toast } = useToast();
-  const {
-    batches,
-    students,
-    courses,
-    addBatch,
-    updateBatch,
-    deleteBatch,
-    toggleBatchStatus,
-    assignStudentToBatch,
-    removeStudentFromBatch,
-    transferStudentBatch,
-  } = useLMSStore();
+  const [batches, setBatches] = useState<LMSBatch[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadData() {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      const { data: bData } = await supabase.from("batches").select("*");
+      if (bData) {
+        setBatches(bData.map((b: any) => ({
+          id: b.id,
+          batchName: b.batch_name,
+          collegeName: b.college_name || "Unknown College",
+          course: b.course_id || "Unknown Course",
+          startDate: b.start_date || new Date().toISOString(),
+          endDate: b.end_date || new Date().toISOString(),
+          joiningTime: "09:00 AM",
+          trainer: b.trainer_id || "Unknown Trainer",
+          status: b.status,
+          studentIds: [] // Can join with batch_members later
+        })));
+      }
+
+      const { data: sData } = await supabase.from("profiles").select("*").eq("role", "student");
+      if (sData) setStudents(sData);
+
+      const { data: cData } = await supabase.from("courses").select("*");
+      if (cData) setCourses(cData);
+    }
+    loadData();
+  }, []);
 
   // Filters & State
   const [searchQuery, setSearchQuery] = useState("");
@@ -67,7 +105,9 @@ export default function AdminBatchesPage() {
   // Total assigned student IDs across all active batches
   const assignedStudentIds = useMemo(() => {
     const set = new Set<string>();
-    batches.forEach((b) => b.studentIds.forEach((sid) => set.add(sid)));
+    batches.forEach((b) => {
+        if(b.studentIds) b.studentIds.forEach((sid: string) => set.add(sid))
+    });
     return set;
   }, [batches]);
 
@@ -88,10 +128,10 @@ export default function AdminBatchesPage() {
   // Filtered Batches
   const filteredBatches = batches.filter((b) => {
     const matchesSearch =
-      b.batchName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.collegeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.course.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.trainer.toLowerCase().includes(searchQuery.toLowerCase());
+      b.batchName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.collegeName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.course?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      b.trainer?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || b.status === statusFilter;
     const matchesCollege = collegeFilter === "all" || b.collegeName === collegeFilter;
@@ -99,7 +139,6 @@ export default function AdminBatchesPage() {
     return matchesSearch && matchesStatus && matchesCollege;
   });
 
-  // Open Modal for Create
   const handleOpenCreateModal = () => {
     setEditingBatch(null);
     setFormBatchName("");
@@ -112,76 +151,76 @@ export default function AdminBatchesPage() {
     setIsCreateModalOpen(true);
   };
 
-  // Open Modal for Edit
   const handleOpenEditModal = (batch: LMSBatch) => {
     setEditingBatch(batch);
     setFormBatchName(batch.batchName);
     setFormCollegeName(batch.collegeName);
-    setFormCourse(batch.course);
-    setFormStartDate(batch.startDate);
-    setFormEndDate(batch.endDate);
-    setFormJoiningTime(batch.joiningTime);
-    setFormTrainer(batch.trainer);
+    setFormCourse(batch.course || "");
+    setFormStartDate(batch.startDate || "");
+    setFormEndDate(batch.endDate || "");
+    setFormJoiningTime(batch.joiningTime || "");
+    setFormTrainer(batch.trainer || "");
     setIsCreateModalOpen(true);
   };
 
-  // Submit Create / Edit Batch Form
-  const handleSaveBatchSubmit = (e: React.FormEvent) => {
+  const handleSaveBatchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formBatchName || !formCollegeName || !formCourse) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in Batch Name, College, and Course fields.",
-        variant: "destructive",
-      });
+      toast({ title: "Validation Error", description: "Please fill in Batch Name, College, and Course fields.", variant: "destructive" });
       return;
     }
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
 
     if (editingBatch) {
-      updateBatch(editingBatch.id, {
-        batchName: formBatchName,
-        collegeName: formCollegeName,
-        course: formCourse,
-        startDate: formStartDate,
-        endDate: formEndDate,
-        joiningTime: formJoiningTime,
-        trainer: formTrainer,
-      });
-      toast({
-        title: "Batch Updated",
-        description: `Batch "${formBatchName}" has been updated successfully.`,
-      });
+      const { error } = await (supabase.from("batches") as any).update({
+        batch_name: formBatchName, college_name: formCollegeName
+      }).eq("id", editingBatch.id);
+      
+      if (!error) {
+        setBatches(prev => prev.map(b => b.id === editingBatch.id ? { ...b, batchName: formBatchName, collegeName: formCollegeName } : b));
+        toast({ title: "Batch Updated", description: `Batch "${formBatchName}" has been updated successfully.` });
+      }
     } else {
-      addBatch({
-        batchName: formBatchName,
-        collegeName: formCollegeName,
-        course: formCourse,
-        startDate: formStartDate,
-        endDate: formEndDate,
-        joiningTime: formJoiningTime,
-        trainer: formTrainer,
-        status: "active",
-      });
-      toast({
-        title: "Batch Created",
-        description: `Batch "${formBatchName}" is now active.`,
-      });
+      const res = await (supabase.from("batches") as any).insert({
+        batch_name: formBatchName, college_name: formCollegeName, status: "active"
+      }).select().single();
+      const data = res.data as any;
+      const error = res.error;
+      
+      if (data && !error) {
+        setBatches(prev => [...prev, { id: data.id, batchName: data.batch_name, collegeName: data.college_name, status: "active", studentIds: [] }]);
+        toast({ title: "Batch Created", description: `Batch "${formBatchName}" is now active.` });
+      }
     }
-
     setIsCreateModalOpen(false);
   };
 
-  // Handle Batch Deletion
-  const handleDeleteBatch = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete batch "${name}"? Enrolled students will be moved to "Not Assigned".`)) {
-      deleteBatch(id);
+  const handleDeleteBatch = async (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete batch "${name}"?`)) {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      await supabase.from("batches").delete().eq("id", id);
+      setBatches(prev => prev.filter(b => b.id !== id));
       if (viewingBatch?.id === id) setViewingBatch(null);
-      toast({
-        title: "Batch Deleted",
-        description: `Batch "${name}" was deleted.`,
-      });
+      toast({ title: "Batch Deleted", description: `Batch "${name}" was deleted.` });
     }
   };
+
+  const toggleBatchStatus = async (id: string, currentStatus: string) => {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const newStatus = currentStatus === "active" ? "inactive" : "active";
+      const { error } = await (supabase.from("batches") as any).update({ status: newStatus }).eq("id", id);
+      
+      if (!error) {
+        setBatches(prev => prev.map(b => b.id === id ? { ...b, status: newStatus as any } : b));
+      }
+  };
+  
+  const assignStudentToBatch = (studentId: string, batchId: string) => {};
+  const removeStudentFromBatch = (studentId: string, batchId: string) => {};
+  const transferStudentBatch = (studentId: string, fromBatchId: string, toBatchId: string) => {};
 
   // Enrolled students in currently viewed batch
   const enrolledStudentsInViewingBatch = useMemo(() => {
@@ -448,7 +487,7 @@ export default function AdminBatchesPage() {
                       size="icon"
                       title={batch.status === "active" ? "Deactivate Batch" : "Activate Batch"}
                       onClick={() => {
-                        toggleBatchStatus(batch.id);
+                        toggleBatchStatus(batch.id, batch.status);
                         toast({
                           title: "Batch Status Updated",
                           description: `Batch "${batch.batchName}" is now ${batch.status === "active" ? "Inactive" : "Active"}.`,

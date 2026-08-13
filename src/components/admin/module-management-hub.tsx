@@ -64,32 +64,58 @@ function SectionCard({
 
 export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const { modules: storeModules, updateModules, students: storeStudents, batches: storeBatches } = useLMSStore();
-
-  const allStudents = storeStudents.map((s) => ({
-    id: s.id,
-    name: s.name,
-    email: s.email,
-    batch: s.batch || s.batchId || "Unassigned Batch",
-  }));
-
-  const allBatches = storeBatches.length > 0
-    ? storeBatches.map((b: any) => b.batchName || b.id)
-    : Array.from(new Set(allStudents.map((s: any) => s.batch).filter(Boolean)));
-
-  const [modules, setModules] = useState<CourseModuleItem[]>(() => {
-    return storeModules.length > 0 ? (storeModules as unknown as CourseModuleItem[]) : initialModules;
-  });
+  const [modules, setModules] = useState<CourseModuleItem[]>([]);
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [allBatches, setAllBatches] = useState<string[]>([]);
 
   useEffect(() => {
-    if (storeModules) {
-      setModules(storeModules as unknown as CourseModuleItem[]);
-    }
-  }, [storeModules]);
+    const fetchData = async () => {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+
+      const { data: modulesData } = await supabase
+        .from("modules")
+        .select(`
+          *,
+          course:courses ( title )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (modulesData) {
+        const mappedModules: CourseModuleItem[] = modulesData.map((m: any) => ({
+          id: m.id,
+          courseTitle: m.course?.title || "Unknown Course",
+          title: m.title,
+          duration: m.duration || "45 mins",
+          type: m.type as any,
+          sequenceOrder: m.order || 0,
+          contentSummary: m.content || "",
+          assignedBatches: [],
+          assignedStudents: []
+        }));
+        setModules(mappedModules);
+      }
+
+      const { data: studentsData } = await supabase.from("profiles").select("*").eq("role", "student");
+      if (studentsData) {
+        setAllStudents(studentsData.map((s: any) => ({
+          id: s.id,
+          name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email?.split("@")[0] || "Unknown",
+          email: s.email,
+          batch: s.batch || "Unassigned Batch"
+        })));
+      }
+
+      const { data: batchesData } = await supabase.from("batches").select("batch_name");
+      if (batchesData) {
+        setAllBatches(batchesData.map((b: any) => b.batch_name));
+      }
+    };
+    fetchData();
+  }, []);
 
   const syncModulesToStore = (newMods: CourseModuleItem[]) => {
     setModules(newMods);
-    updateModules(newMods as unknown as ManagedModuleItem[]);
   };
   const [search, setSearch] = useState("");
   const [courseFilter, setCourseFilter] = useState("all");

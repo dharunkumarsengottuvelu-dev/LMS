@@ -83,24 +83,40 @@ type ViewState = "list" | "wizard" | "syllabus" | "add-module" | "edit-module";
 
 export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const { students: storeStudents, batches: storeBatches } = useLMSStore();
-
-  const allStudents = storeStudents.map((s) => ({
-    id: s.id,
-    name: s.name,
-    email: s.email,
-    batch: s.batch || s.batchId || "Unassigned Batch",
-  }));
-
-  const allBatches = storeBatches.length > 0
-    ? storeBatches.map((b: any) => b.batchName || b.id)
-    : Array.from(new Set(allStudents.map((s: any) => s.batch).filter(Boolean)));
-
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [allBatches, setAllBatches] = useState<string[]>([]);
   const [courses, setCourses] = useState<ManagedCourse[]>(initialCourses);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [viewState, setViewState] = useState<ViewState>("list");
   const [selectedCourse, setSelectedCourse] = useState<ManagedCourse | null>(null);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+
+        const { data: studentsData } = await supabase.from("profiles").select("*").eq("role", "student");
+        if (studentsData) {
+          setAllStudents(studentsData.map((s: any) => ({
+            id: s.id,
+            name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email?.split("@")[0] || "Unknown",
+            email: s.email,
+            batch: s.batch || "Unassigned Batch"
+          })));
+        }
+
+        const { data: batchesData } = await supabase.from("batches").select("batch_name");
+        if (batchesData) {
+          setAllBatches(batchesData.map((b: any) => b.batch_name));
+        }
+      } catch(err) {
+        console.error(err);
+      }
+    }
+    loadData();
+  }, []);
 
   useEffect(() => {
     async function loadCourses() {
