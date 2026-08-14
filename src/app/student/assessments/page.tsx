@@ -73,59 +73,7 @@ export default function StudentAssessmentsPage() {
           console.warn("API practices fetch fallback:", e);
         }
 
-        // 3. Fallback to localStorage practice tracks saved by Admin/Trainer
-        if (typeof window !== "undefined") {
-          try {
-            const savedTracksRaw = localStorage.getItem("enterprise_lms_practice_tracks_v2") ||
-                                   localStorage.getItem("edunexus_practice_tracks_v5");
-            if (savedTracksRaw) {
-              const savedTracks = JSON.parse(savedTracksRaw);
-              if (Array.isArray(savedTracks)) {
-                savedTracks.forEach((track: any) => {
-                  if (track.subModules && Array.isArray(track.subModules)) {
-                    track.subModules.forEach((sm: any) => {
-                      if (!items.some(it => it.id === sm.id)) {
-                        items.push({
-                          id: sm.id,
-                          title: sm.title,
-                          description: `${track.title} GÇó ${track.category || "Practice"}`,
-                          type: sm.type || "coding",
-                          duration_minutes: sm.durationMinutes || sm.duration_minutes || 30,
-                          total_marks: sm.totalMarks || sm.total_marks || 100,
-                          my_attempts: []
-                        });
-                      }
-                    });
-                  }
-                });
-              }
-            }
 
-            // Also check saved assessments
-            const savedAssessmentsRaw = localStorage.getItem("enterprise_lms_assessments_v2") ||
-                                        localStorage.getItem("edunexus_assessments_v5");
-            if (savedAssessmentsRaw) {
-              const savedAssessments = JSON.parse(savedAssessmentsRaw);
-              if (Array.isArray(savedAssessments)) {
-                savedAssessments.forEach((a: any) => {
-                  if (!items.some(it => it.id === a.id)) {
-                    items.push({
-                      id: a.id,
-                      title: a.title,
-                      description: a.description || "Assigned Practice",
-                      type: a.type || "coding",
-                      duration_minutes: a.duration_minutes || a.duration || 45,
-                      total_marks: a.total_marks || 100,
-                      my_attempts: []
-                    });
-                  }
-                });
-              }
-            }
-          } catch (e) {
-            console.warn("LocalStorage practice fallback check:", e);
-          }
-        }
 
         setPractices(items);
       } catch (err: any) {

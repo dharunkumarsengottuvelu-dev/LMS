@@ -73,8 +73,10 @@ export default function AssessmentTakePage() {
             }
           }
         }
-      } catch (err: any) {
-        console.error("Error fetching MCQ sub-module:", err);
+    } catch (err: any) {
+        console.error("Error fetching MCQ sub-module from API:", err);
+
+
         toast({
           title: "Error",
           description: err.message || "Failed to load assessment data.",

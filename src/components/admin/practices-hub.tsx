@@ -84,33 +84,49 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
 
-      // Try loading from localStorage first to prevent losing data
-      const savedTracks = localStorage.getItem("enterprise_lms_practice_tracks_v2");
-      if (savedTracks) {
-        try {
-          setTracks(JSON.parse(savedTracks));
-        } catch (e) {
-          console.error("Failed to parse saved tracks", e);
-        }
-      } else {
-        const { data: tracksData, error } = await supabase
-          .from("practice_tracks")
-          .select("*")
-          .order("created_at", { ascending: false });
+      const { data: tracksData, error } = await supabase
+        .from("practice_tracks")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-        if (tracksData && !error) {
-          const mappedTracks: PracticeTrack[] = tracksData.map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            category: t.category,
-            description: t.description || "Practice Track",
-            assignedByName: "Admin",
-            subModules: [], // Can be fetched from a related table if needed
-            assignedBatches: [],
-            assignedStudents: []
-          }));
-          setTracks(mappedTracks);
+      if (tracksData && !error) {
+        let mappedTracks: PracticeTrack[] = tracksData.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          category: t.category,
+          description: t.description || "Practice Track",
+          assignedByName: t.assigned_by_name || t.assignedByName || "Admin",
+          subModules: t.sub_modules || t.subModules || [],
+          assignedBatches: t.assigned_batches || t.assignedBatches || [],
+          assignedStudents: t.assigned_students || t.assignedStudents || []
+        }));
+
+        if (mappedTracks.length === 0) {
+          const local = localStorage.getItem("enterprise_lms_practice_tracks_v2");
+          if (local) {
+            try {
+              const localTracks = JSON.parse(local);
+              if (localTracks && localTracks.length > 0) {
+                mappedTracks = localTracks;
+                const dbTracks = localTracks.map((t: any) => ({
+                  id: t.id,
+                  title: t.title,
+                  category: t.category,
+                  description: t.description,
+                  assigned_by_name: t.assignedByName,
+                  sub_modules: t.subModules,
+                  assigned_batches: t.assignedBatches,
+                  assigned_students: t.assignedStudents
+                }));
+                await supabase.from("practice_tracks").upsert(dbTracks as any);
+              }
+            } catch (e) {
+              console.error("Migration error", e);
+            }
+          }
         }
+
+        setTracks(mappedTracks);
       }
 
       const { data: studentsData } = await supabase.from("profiles").select("*").eq("role", "student");
@@ -318,12 +334,31 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setViewState("edit");
   };
 
-  const syncTracksToStore = (newTracks: PracticeTrack[]) => {
+  const syncTracksToStore = async (newTracks: PracticeTrack[]) => {
     setTracks(newTracks);
-    localStorage.setItem("enterprise_lms_practice_tracks_v2", JSON.stringify(newTracks));
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    
+    // Convert to DB format for upsert
+    const dbTracks = newTracks.map(t => ({
+      id: t.id,
+      title: t.title,
+      category: t.category,
+      description: t.description,
+      assigned_by_name: t.assignedByName,
+      sub_modules: t.subModules,
+      assigned_batches: t.assignedBatches,
+      assigned_students: t.assignedStudents
+    }));
+
+    const { error } = await supabase.from("practice_tracks").upsert(dbTracks as any);
+    if (error) {
+      console.error("Failed to sync practice tracks to Supabase", error);
+      toast({ title: "Database Error", description: "Failed to save track changes.", variant: "destructive" });
+    }
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fTitle) return;
     const created: PracticeTrack = {
@@ -334,29 +369,42 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       subModules: [], assignedBatches: [], assignedStudents: [],
     };
     const updated = [created, ...tracks];
-    syncTracksToStore(updated);
+    await syncTracksToStore(updated);
     setViewState("list");
     toast({ title: "Practice Track Created", description: `"${fTitle}" saved and assigned to students.` });
   };
 
-  const handleEdit = (e: React.FormEvent) => {
+  const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingId) return;
     const updated = tracks.map((t) =>
       t.id === editingId ? { ...t, title: fTitle, category: fCategory, description: fDesc, assignedByName: fAssignedBy } : t
     );
-    syncTracksToStore(updated);
+    await syncTracksToStore(updated);
     setViewState("list");
     toast({ title: "Practice Track Updated", description: `"${fTitle}" saved.` });
   };
 
-  const handleDelete = (id: string, title: string) => {
+  const handleDelete = async (id: string, title: string) => {
     const updated = tracks.filter((t) => t.id !== id);
-    syncTracksToStore(updated);
-    toast({ title: "Practice Track Removed", description: title, variant: "destructive" });
+    
+    // Update local state first
+    setTracks(updated);
+    
+    // Delete from DB directly
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    const { error } = await supabase.from("practice_tracks").delete().eq("id", id);
+    
+    if (error) {
+      console.error("Failed to delete track from Supabase", error);
+      toast({ title: "Database Error", description: "Failed to delete track.", variant: "destructive" });
+    } else {
+      toast({ title: "Practice Track Removed", description: title, variant: "destructive" });
+    }
   };
 
-  const handleAddSubModule = (e: React.FormEvent) => {
+  const handleAddSubModule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrack || !smTitle) return;
     const newSm: SubModuleItem & {
@@ -446,11 +494,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setViewState("add-module");
   };
 
-  const handleDeleteSubModule = (trackId: string, smId: string) => {
+  const handleDeleteSubModule = async (trackId: string, smId: string) => {
     const updatedTracks = tracks.map((t) =>
       t.id === trackId ? { ...t, subModules: t.subModules.filter((s) => s.id !== smId) } : t
     );
-    syncTracksToStore(updatedTracks);
+    await syncTracksToStore(updatedTracks);
     if (selectedTrack?.id === trackId) {
       setSelectedTrack((prev) => prev ? { ...prev, subModules: prev.subModules.filter((s) => s.id !== smId) } : prev);
     }
@@ -478,12 +526,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const toggleStudent = (id: string) =>
     setSelectedStudentIds((p) => p.includes(id) ? p.filter((s) => s !== id) : [...p, id]);
 
-  const handleSaveAssign = () => {
+  const handleSaveAssign = async () => {
     if (!selectedTrack) return;
     const updatedTracks = tracks.map((t) =>
       t.id === selectedTrack.id ? { ...t, assignedBatches: selectedBatches, assignedStudents: selectedStudentIds } : t
     );
-    syncTracksToStore(updatedTracks);
+    await syncTracksToStore(updatedTracks);
     toast({ title: "Practice Track Assigned", description: `${selectedStudentIds.length} students assigned.` });
     setViewState("list");
   };

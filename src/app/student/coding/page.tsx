@@ -43,11 +43,12 @@ export default function StudentCodingIDEPage() {
     const trackId = params.get("track");
     if (!trackId) return;
 
-    const localTracks = localStorage.getItem("enterprise_lms_practice_tracks_v2");
-    if (localTracks) {
+    async function fetchTrack() {
       try {
-        const parsed = JSON.parse(localTracks);
-        const track = parsed.find((t: any) => t.id === trackId);
+        const res = await fetch(`/api/student/practices/${trackId}`);
+        if (!res.ok) throw new Error("Failed to load");
+        const data = await res.json();
+        const track = data.track;
         if (track && track.subModules) {
           const codingProbs: CodingProblem[] = [];
           
@@ -72,7 +73,7 @@ export default function StudentCodingIDEPage() {
                    codingProbs.push({
                      id: `${sm.id}_${cq.id}`,
                      title: cq.title,
-                     slug: cq.title.toLowerCase().replace(/\\s+/g, '-'),
+                     slug: cq.title.toLowerCase().replace(/\s+/g, '-'),
                      description: cq.description || sm.problemDescription || "",
                      difficulty: cq.difficulty || "medium",
                      created_at: new Date().toISOString(),
@@ -90,7 +91,7 @@ export default function StudentCodingIDEPage() {
                  codingProbs.push({
                    id: sm.id,
                    title: sm.title,
-                   slug: sm.title.toLowerCase().replace(/\\s+/g, '-'),
+                   slug: sm.title.toLowerCase().replace(/\s+/g, '-'),
                    description: sm.problemDescription || "Coding Problem",
                    difficulty: "medium",
                    created_at: new Date().toISOString(),
@@ -114,6 +115,7 @@ export default function StudentCodingIDEPage() {
         console.error("Failed to load track problems", e);
       }
     }
+    fetchTrack();
   }, []);
 
   const selectedProblem = problems[currentIdx] ?? problems[0];

@@ -46,31 +46,24 @@ export default function StudentPracticesPage() {
 
   useEffect(() => {
     async function loadTracks() {
+      let apiTracks: any[] = [];
       try {
         const res = await fetch("/api/student/practices");
-        if (!res.ok) throw new Error("Failed to fetch practices");
         const data = await res.json();
         
         if (data.tracks && Array.isArray(data.tracks)) {
-          setStorePracticeTracks(data.tracks);
-          return;
+          apiTracks = data.tracks;
         }
       } catch (err) {
         console.error("Failed to load tracks from API, falling back to local/supabase", err);
       }
 
-      // Fallback
-      const local = localStorage.getItem("enterprise_lms_practice_tracks_v2");
-      if (local) {
-        try {
-          const parsed = JSON.parse(local);
-          setStorePracticeTracks(parsed);
-          return;
-        } catch (e) {
-          console.error("Failed to parse local tracks", e);
-        }
+      if (apiTracks.length > 0) {
+        setStorePracticeTracks(apiTracks);
+        return;
       }
 
+      // Supabase fallback if both empty
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       

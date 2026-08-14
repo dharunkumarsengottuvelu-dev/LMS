@@ -57,10 +57,16 @@ export default function StudentTrackDetailPage() {
     try {
       const res = await fetch(`/api/student/practices/${trackId}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to load practice track");
-      setTrack(data.track);
+      
+      if (res.ok && data.track) {
+        setTrack(data.track);
+        return;
+      }
+      
+      throw new Error(data.error || "Failed to load practice track");
     } catch (err: any) {
-      console.error("Error fetching practice track:", err);
+      console.error("Error fetching practice track from API:", err);
+      
       setErrorMsg(err.message || "Failed to load practice track.");
       toast({
         title: "Access Error",
