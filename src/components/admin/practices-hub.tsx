@@ -81,67 +81,36 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   useEffect(() => {
     const fetchData = async () => {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-
-      const { data: tracksData, error } = await supabase
-        .from("practice_tracks")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (tracksData && !error) {
-        let mappedTracks: PracticeTrack[] = tracksData.map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          category: t.category,
-          description: t.description || "Practice Track",
-          assignedByName: t.assigned_by_name || t.assignedByName || "Admin",
-          subModules: t.sub_modules || t.subModules || [],
-          assignedBatches: t.assigned_batches || t.assignedBatches || [],
-          assignedStudents: t.assigned_students || t.assignedStudents || []
-        }));
-
-        if (mappedTracks.length === 0) {
-          const local = localStorage.getItem("enterprise_lms_practice_tracks_v2");
-          if (local) {
-            try {
-              const localTracks = JSON.parse(local);
-              if (localTracks && localTracks.length > 0) {
-                mappedTracks = localTracks;
-                const dbTracks = localTracks.map((t: any) => ({
-                  id: t.id,
-                  title: t.title,
-                  category: t.category,
-                  description: t.description,
-                  assigned_by_name: t.assignedByName,
-                  sub_modules: t.subModules,
-                  assigned_batches: t.assignedBatches,
-                  assigned_students: t.assignedStudents
-                }));
-                await supabase.from("practice_tracks").upsert(dbTracks as any);
+      try {
+        const res = await fetch("/api/admin/practices");
+        const data = await res.json();
+        if (data.tracks) {
+          let loadedTracks = data.tracks;
+          // Check if local storage has any tracks to migrate
+          if (typeof window !== "undefined") {
+            const local = localStorage.getItem("enterprise_lms_practice_tracks_v2");
+            if (local) {
+              try {
+                const localTracks = JSON.parse(local);
+                if (localTracks && localTracks.length > 0 && loadedTracks.length === 0) {
+                  loadedTracks = localTracks;
+                  await fetch("/api/admin/practices", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ tracks: localTracks })
+                  });
+                }
+              } catch (e) {
+                console.error("Local tracks migration error", e);
               }
-            } catch (e) {
-              console.error("Migration error", e);
             }
           }
+          setTracks(loadedTracks);
         }
-
-        setTracks(mappedTracks);
-      }
-
-      const { data: studentsData } = await supabase.from("profiles").select("*").eq("role", "student");
-      if (studentsData) {
-        setAllStudents(studentsData.map((s: any) => ({
-          id: s.id,
-          name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email?.split("@")[0] || "Unknown",
-          email: s.email,
-          batch: s.batch || "Unassigned Batch"
-        })));
-      }
-
-      const { data: batchesData } = await supabase.from("batches").select("batch_name");
-      if (batchesData) {
-        setAllBatches(batchesData.map((b: any) => b.batch_name));
+        if (data.students) setAllStudents(data.students);
+        if (data.batches) setAllBatches(data.batches);
+      } catch (err) {
+        console.error("Failed to fetch admin practice data", err);
       }
     };
     fetchData();
@@ -336,24 +305,17 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const syncTracksToStore = async (newTracks: PracticeTrack[]) => {
     setTracks(newTracks);
-    const { createClient } = await import("@/lib/supabase/client");
-    const supabase = createClient();
-    
-    // Convert to DB format for upsert
-    const dbTracks = newTracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      category: t.category,
-      description: t.description,
-      assigned_by_name: t.assignedByName,
-      sub_modules: t.subModules,
-      assigned_batches: t.assignedBatches,
-      assigned_students: t.assignedStudents
-    }));
-
-    const { error } = await supabase.from("practice_tracks").upsert(dbTracks as any);
-    if (error) {
-      console.error("Failed to sync practice tracks to Supabase", error);
+    try {
+      const res = await fetch("/api/admin/practices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tracks: newTracks })
+      });
+      if (!res.ok) {
+        throw new Error("Failed to save tracks");
+      }
+    } catch (error) {
+      console.error("Failed to sync practice tracks", error);
       toast({ title: "Database Error", description: "Failed to save track changes.", variant: "destructive" });
     }
   };
@@ -387,20 +349,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const handleDelete = async (id: string, title: string) => {
     const updated = tracks.filter((t) => t.id !== id);
-    
-    // Update local state first
     setTracks(updated);
-    
-    // Delete from DB directly
-    const { createClient } = await import("@/lib/supabase/client");
-    const supabase = createClient();
-    const { error } = await supabase.from("practice_tracks").delete().eq("id", id);
-    
-    if (error) {
-      console.error("Failed to delete track from Supabase", error);
-      toast({ title: "Database Error", description: "Failed to delete track.", variant: "destructive" });
-    } else {
+    try {
+      const res = await fetch(`/api/admin/practices?id=${encodeURIComponent(id)}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) throw new Error("Failed to delete track");
       toast({ title: "Practice Track Removed", description: title, variant: "destructive" });
+    } catch (error) {
+      console.error("Failed to delete track", error);
+      toast({ title: "Database Error", description: "Failed to delete track.", variant: "destructive" });
     }
   };
 

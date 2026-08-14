@@ -94,16 +94,38 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 6. Filter authorized tracks
-    const allTracks = dbTracks || [];
+    // 6. Map and Filter authorized tracks
+    const allTracks = (dbTracks || []).map((t: any) => {
+      let meta: any = {};
+      if (t.tags && t.tags[0]) {
+        try {
+          meta = JSON.parse(t.tags[0]);
+        } catch {}
+      }
+
+      return {
+        id: t.id,
+        title: t.title,
+        category: t.category,
+        difficulty: t.difficulty || "medium",
+        description: meta.description || t.description || "Practice Track",
+        thumbnail: meta.thumbnail || t.thumbnail || "",
+        assigned_by_name: meta.assignedByName || t.assigned_by_name || t.assignedByName || "Admin",
+        assigned_batches: meta.assignedBatches || t.assigned_batches || t.assignedBatches || [],
+        assigned_students: meta.assignedStudents || t.assigned_students || t.assignedStudents || [],
+        sub_modules: meta.subModules || t.sub_modules || t.subModules || [],
+        created_at: t.created_at
+      };
+    });
+
     const authorizedTracks = allTracks.filter((track: any) => {
-      const assignedStudents = (track.assigned_students || track.assignedStudents || []).map((s: string) => String(s).toLowerCase());
-      const assignedBatches = (track.assigned_batches || track.assignedBatches || []).map((b: string) => String(b).toLowerCase());
-      const subModules = track.sub_modules || track.subModules || [];
+      const assignedStudents = (track.assigned_students || []).map((s: string) => String(s).toLowerCase());
+      const assignedBatches = (track.assigned_batches || []).map((b: string) => String(b).toLowerCase());
+      const subModules = track.sub_modules || [];
 
       // Check if student directly assigned
       const isStudentAssigned = assignedStudents.some((s: string) => 
-        studentTargetIdentifiers.has(s) || s === profileId || s === studentUserId || s === studentEmail.toLowerCase()
+        studentTargetIdentifiers.has(s) || s === profileId.toLowerCase() || s === studentUserId.toLowerCase() || s === studentEmail.toLowerCase()
       );
       if (isStudentAssigned) return true;
 

@@ -154,7 +154,7 @@ export default function StudentPracticesPage() {
             {filteredTracks.map((track) => {
               const completedCount = track.subModules.filter((m) => m.status === "completed").length;
               const totalCount = track.subModules.length;
-              const progressPercentage = Math.round((completedCount / totalCount) * 100);
+              const progressPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
               return (
                 <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-primary/40 transition-all duration-200 bg-card border border-border shadow-sm rounded-[var(--radius-xl)] group">

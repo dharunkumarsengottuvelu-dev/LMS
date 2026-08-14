@@ -31,19 +31,40 @@ export async function GET(
     const studentFullName = `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim();
 
     // 2. Fetch Practice Track
-    const { data: track, error: trackError } = await adminClient
+    const { data: dbTrack, error: trackError } = await adminClient
       .from("practice_tracks")
       .select("*")
       .eq("id", trackId)
       .single() as any;
 
-    if (trackError || !track) {
+    if (trackError || !dbTrack) {
       return NextResponse.json({ error: "Practice track not found" }, { status: 404 });
     }
 
+    let meta: any = {};
+    if (dbTrack.tags && dbTrack.tags[0]) {
+      try {
+        meta = JSON.parse(dbTrack.tags[0]);
+      } catch {}
+    }
+
+    const track = {
+      id: dbTrack.id,
+      title: dbTrack.title,
+      category: dbTrack.category,
+      difficulty: dbTrack.difficulty || "medium",
+      description: meta.description || dbTrack.description || "Practice Track",
+      thumbnail: meta.thumbnail || dbTrack.thumbnail || "",
+      assigned_by_name: meta.assignedByName || dbTrack.assigned_by_name || dbTrack.assignedByName || "Admin",
+      assigned_batches: meta.assignedBatches || dbTrack.assigned_batches || dbTrack.assignedBatches || [],
+      assigned_students: meta.assignedStudents || dbTrack.assigned_students || dbTrack.assignedStudents || [],
+      sub_modules: meta.subModules || dbTrack.sub_modules || dbTrack.subModules || [],
+      created_at: dbTrack.created_at
+    };
+
     // 3. Security: Check if student is authorized
-    const assignedStudents = (track.assigned_students || track.assignedStudents || []).map((s: string) => String(s).toLowerCase());
-    const assignedBatches = (track.assigned_batches || track.assignedBatches || []).map((b: string) => String(b).toLowerCase());
+    const assignedStudents = (track.assigned_students || []).map((s: string) => String(s).toLowerCase());
+    const assignedBatches = (track.assigned_batches || []).map((b: string) => String(b).toLowerCase());
 
     let isAuthorized = assignedStudents.length === 0 && assignedBatches.length === 0;
 
@@ -101,7 +122,7 @@ export async function GET(
     }
 
     // 4. Fetch SubModules & their coding problems / questions
-    const subModules = track.sub_modules || track.subModules || [];
+    const subModules = track.sub_modules || [];
     const subModuleIds = subModules.map((sm: any) => sm.id).filter(Boolean);
 
     // Fetch coding problems linked to these submodules
@@ -187,7 +208,7 @@ export async function GET(
         category: track.category || "General",
         description: track.description || "",
         thumbnail: track.thumbnail || "",
-        assignedByName: track.assigned_by_name || track.assignedByName || "Admin",
+        assignedByName: track.assigned_by_name || "Admin",
         subModules: enrichedSubModules,
         totalSubModules,
         completedCount,
