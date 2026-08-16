@@ -293,7 +293,7 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
   // VIEW: CREATE MODULE
   if (viewState === "create") {
     return (
-      <div className="space-y-8 max-w-4xl mx-auto">
+      <div className="space-y-8 w-full">
         <PageHeader
           title="Author New Module / Lesson"
           description="Add video URL, lesson notes, or practice exercises"
@@ -570,7 +570,7 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
         : allStudents.filter((s) => s.batch === assignBatchFilter);
 
     return (
-      <div className="space-y-8 max-w-5xl mx-auto">
+      <div className="space-y-8 w-full">
         <PageHeader
           title="Assign Module as Practice Track"
           description={

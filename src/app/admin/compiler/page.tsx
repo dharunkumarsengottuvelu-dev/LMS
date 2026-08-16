@@ -53,7 +53,7 @@ export default function AdminCompilerPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 w-full">
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Compiler Settings</h1>
         <p className="text-muted-foreground">Manage which programming languages are available for coding problems.</p>

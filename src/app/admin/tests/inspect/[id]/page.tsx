@@ -12,7 +12,7 @@ export default function InspectLiveTestPage({ params }: { params: Promise<{ id: 
       <AdminTopNav />
       <div className="flex pt-[68px]">
         <main className="flex-1 p-8 h-[calc(100vh-68px)] overflow-hidden">
-          <div className="max-w-[1440px] mx-auto h-full">
+          <div className="w-full h-full">
             <LiveInspectionHub examId={unwrappedParams.id} />
           </div>
         </main>

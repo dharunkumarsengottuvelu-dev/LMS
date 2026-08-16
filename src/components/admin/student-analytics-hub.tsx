@@ -341,9 +341,9 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   const handleDownloadBatchSampleCsv = () => {
     const csvContent =
       "data:text/csv;charset=utf-8," +
-      "Batch Name,College Name,Target Tech Track,Start Date,End Date,Joining Session,Lead Trainer\n" +
-      "ABC College ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Java Development ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Batch 01,ABC College,Core Java & Data Structures,2026-08-01,2026-12-31,Morning Session (09:00 AM),Dr. Aris Thorne\n" +
-      "PSG Tech ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ React ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Batch 02,PSG College of Technology,Fullstack Enterprise React/Next.js,2026-09-01,2027-01-31,Afternoon Session (02:00 PM),Dr. Aris Thorne\n";
+      "Batch Name,College Name,Target Tech Track,Start Date,Lead Trainer\n" +
+      "ABC College - Java Development - Batch 01,ABC College,Core Java & Data Structures,2026-08-01,Dr. Aris Thorne\n" +
+      "PSG Tech - React - Batch 02,PSG College of Technology,Fullstack Enterprise React/Next.js,2026-09-01,Dr. Aris Thorne\n";
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -374,7 +374,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
         });
       });
       toast({
-        title: `âœ… ${csvParsedBatches.length} Batches Created!`,
+        title: `${csvParsedBatches.length} Batches Created!`,
         description: `Successfully imported & activated ${csvParsedBatches.length} cohort batches from CSV.`,
       });
       setIsCreateBatchOpen(false);
@@ -384,26 +384,48 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     }
 
     if (!newBatchTitle.trim()) {
-      toast({ title: "Batch Name Required", description: "Please enter a name for the new batch.", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Batch name is required.", variant: "destructive" });
       return;
     }
     const trimmed = newBatchTitle.trim();
+    
+    try {
+      fetch("/api/admin/batches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: trimmed,
+          collegeName: newBatchCollege || "",
+          leadTrainer: newBatchTrainer || "",
+          courseTrack: newBatchTrack || "",
+          startDate: newBatchStartDate || "",
+        }),
+      }).catch(err => console.warn("Notice: Batch API call:", err));
+    } catch (e) {
+      console.warn(e);
+    }
+
     addBatch({
       batchName: trimmed,
-      collegeName: newBatchCollege || "ABC College",
-      course: newBatchTrack || "Fullstack Enterprise React/Next.js",
-      startDate: newBatchStartDate,
-      endDate: newBatchEndDate,
-      joiningTime: newBatchSession,
-      trainer: newBatchTrainer || "Dr. Aris Thorne",
+      collegeName: newBatchCollege || "",
+      course: newBatchTrack || "",
+      startDate: newBatchStartDate || "",
+      endDate: "",
+      joiningTime: "",
+      trainer: newBatchTrainer || "",
       status: "active",
     });
+
     toast({
-      title: `âœ… Batch Created!`,
+      title: "Batch Created Successfully",
       description: `"${trimmed}" is now active and ready for student assignments.`,
     });
     setIsCreateBatchOpen(false);
     setNewBatchTitle("");
+    setNewBatchCollege("");
+    setNewBatchTrainer("");
+    setNewBatchTrack("");
+    setNewBatchStartDate("");
     setCsvFileName("");
   };
 
@@ -642,7 +664,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   // FULL PAGE ENROLLMENT VIEW
   if (viewState === "enroll") {
     return (
-      <div className="space-y-8 max-w-3xl mx-auto">
+      <div className="space-y-8 w-full">
         <PageHeader
           title="Enterprise Student Onboarding"
           description="Configure employee credentials, department, and custom cohort batch"
@@ -801,7 +823,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   // FULL PAGE INDIVIDUAL PERFORMANCE ANALYTICS VIEW
   if (viewState === "analytics" && selectedStudent) {
     return (
-      <div className="space-y-8 max-w-5xl mx-auto">
+      <div className="space-y-8 w-full">
         <PageHeader
           title={`${selectedStudent.name} Performance & Security Sheet`}
           description={`${selectedStudent.email} • ${selectedStudent.batch}`}
@@ -839,7 +861,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               <div>
                 <h3 className="font-bold text-base text-[#111827] dark:text-[#FAFAFA]">{selectedStudent.name}</h3>
                 <p className="text-xs text-[#6B7280]">
-                  <span className="font-mono text-[#2563EB] font-semibold">{selectedStudent.employeeId}</span> ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ {selectedStudent.designation}
+                  <span className="font-mono text-[#2563EB] font-semibold">{selectedStudent.employeeId}</span> • {selectedStudent.designation}
                 </p>
               </div>
             </div>
@@ -1292,53 +1314,74 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
             {/* Form */}
             <form onSubmit={handleCreateBatchSubmit}>
               {createBatchMode === "manual" ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Batch Name</label>
-                    <Input placeholder="e.g. ABC College – Java – Batch 01" value={newBatchTitle} onChange={(e) => setNewBatchTitle(e.target.value)} required className="h-[42px] text-xs font-medium rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-1.5 md:col-span-2 lg:col-span-1">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      Batch Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g. Java Batch 01"
+                      value={newBatchTitle}
+                      onChange={(e) => setNewBatchTitle(e.target.value)}
+                      required
+                      className="h-[42px] text-xs font-medium rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"
+                    />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">College / Institution</label>
-                    <Input placeholder="e.g. PSG Tech" value={newBatchCollege} onChange={(e) => setNewBatchCollege(e.target.value)} required className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl" />
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      College / Institution <span className="text-[10px] text-[#6B7280] font-normal">(Optional)</span>
+                    </label>
+                    <Input
+                      placeholder="e.g. PSG Tech"
+                      value={newBatchCollege}
+                      onChange={(e) => setNewBatchCollege(e.target.value)}
+                      className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl"
+                    />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Course Track</label>
-                    <Select value={newBatchTrack} onValueChange={(val: string | null) => val && setNewBatchTrack(val)}>
-                      <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue placeholder="Select Track" /></SelectTrigger>
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      Lead Trainer <span className="text-[10px] text-[#6B7280] font-normal">(Optional)</span>
+                    </label>
+                    <Input
+                      placeholder="e.g. Dr. Aris Thorne"
+                      value={newBatchTrainer}
+                      onChange={(e) => setNewBatchTrainer(e.target.value)}
+                      className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      Course Track <span className="text-[10px] text-[#6B7280] font-normal">(Optional)</span>
+                    </label>
+                    <Select value={newBatchTrack} onValueChange={(val: string | null) => setNewBatchTrack(val || "")}>
+                      <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                        <SelectValue placeholder="Select Course Track" />
+                      </SelectTrigger>
                       <SelectContent className="bg-white dark:bg-[#18181B]">
                         {storeCourses && storeCourses.length > 0 ? (
                           storeCourses.map((course) => (
-                            <SelectItem key={course.id} value={course.title}>{course.title}</SelectItem>
+                            <SelectItem key={course.id} value={course.title}>
+                              {course.title}
+                            </SelectItem>
                           ))
                         ) : (
-                          <SelectItem value="none" disabled>No tracks available</SelectItem>
+                          <SelectItem value="none" disabled>
+                            No tracks available
+                          </SelectItem>
                         )}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Lead Trainer</label>
-                    <Input placeholder="e.g. Dr. Aris Thorne" value={newBatchTrainer} onChange={(e) => setNewBatchTrainer(e.target.value)} className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Start Date</label>
-                    <Input type="date" value={newBatchStartDate} onChange={(e) => setNewBatchStartDate(e.target.value)} className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">End Date</label>
-                    <Input type="date" value={newBatchEndDate} onChange={(e) => setNewBatchEndDate(e.target.value)} className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Joining Session</label>
-                    <Select value={newBatchSession} onValueChange={(val: string | null) => val && setNewBatchSession(val)}>
-                      <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Morning Session (09:00 AM)">Morning (09:00 AM)</SelectItem>
-                        <SelectItem value="Afternoon Session (02:00 PM)">Afternoon (02:00 PM)</SelectItem>
-                        <SelectItem value="Evening Session (05:00 PM)">Evening (05:00 PM)</SelectItem>
-                        <SelectItem value="Full-Day Bootcamp (09:00 AM - 05:00 PM)">Full-Day Bootcamp</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      Start Date <span className="text-[10px] text-[#6B7280] font-normal">(Optional)</span>
+                    </label>
+                    <Input
+                      type="date"
+                      value={newBatchStartDate}
+                      onChange={(e) => setNewBatchStartDate(e.target.value)}
+                      className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl"
+                    />
                   </div>
                 </div>
               ) : (
@@ -1347,7 +1390,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5"><FileSpreadsheet className="h-4 w-4 text-[#16A34A]" /> Upload Batches CSV</h4>
-                        <p className="text-[11px] text-[#6B7280] mt-0.5">Columns: Batch Name, College, Track, Start, End, Session, Trainer</p>
+                        <p className="text-[11px] text-[#6B7280] mt-0.5">Columns: Batch Name, College, Trainer, Course Track, Start Date</p>
                       </div>
                       <Button type="button" variant="outline" size="sm" onClick={handleDownloadBatchSampleCsv} className="h-8 text-[11px] font-bold gap-1 text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10 rounded-xl shrink-0">
                         <Download className="h-3.5 w-3.5" /> Download Template
@@ -1646,7 +1689,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                           <span className="truncate">{std.name}</span>
                           <span className="font-mono text-[10px] text-[#2563EB] font-normal shrink-0">({std.employeeId})</span>
                         </p>
-                        <p className="text-[11px] text-[#6B7280] truncate">{std.email} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ <span className="font-medium text-[#111827] dark:text-[#FAFAFA]">{std.designation}</span></p>
+                        <p className="text-[11px] text-[#6B7280] truncate">{std.email} • <span className="font-medium text-[#111827] dark:text-[#FAFAFA]">{std.designation}</span></p>
                       </div>
                     </div>
                   </td>

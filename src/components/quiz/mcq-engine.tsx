@@ -157,7 +157,7 @@ export function MCQAssessmentEngine({
   const currentAnswers = answers[currentQuestion.id] ?? [];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       {/* Sticky High-Contrast Assessment Header Bar */}
       <div className="sticky top-[72px] z-30 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-xl shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

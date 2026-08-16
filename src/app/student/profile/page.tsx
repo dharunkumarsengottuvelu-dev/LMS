@@ -156,7 +156,7 @@ export default function StudentProfilePage() {
   const accountStatus = (profile as any)?.status || "active";
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-8 pb-12">
+    <div className="w-full space-y-8 pb-12">
       {/* 1. Page Header */}
       <div className="pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <h1 className="text-[36px] font-semibold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">

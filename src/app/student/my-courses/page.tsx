@@ -23,15 +23,16 @@ export default function StudentCoursesPage() {
 
   useEffect(() => {
     async function loadCourses() {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data } = await supabase.from("courses").select("*");
-      if (data) {
-        setStoreCourses(data);
+      try {
+        const res = await fetch("/api/student/courses");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.courses) {
+            setStoreCourses(data.courses);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load student courses", err);
       }
     }
     loadCourses();
@@ -41,13 +42,13 @@ export default function StudentCoursesPage() {
     id: c.id,
     slug: c.slug || c.id,
     title: c.title,
-    category: typeof c.category_id === 'string' ? c.category_id : 'General',
+    category: c.category || 'General',
     difficulty: c.difficulty || "Beginner",
     progress: c.progress ?? 0,
     completedLessons: 0,
-    totalLessons: c.modules?.reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0) || 15,
-    instructor: "Lead Technical Trainer",
-    thumbnail: c.thumbnail_url || "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
+    totalLessons: c.totalLessons || (c.modules?.reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0)) || 15,
+    instructor: c.instructor || "Lead Technical Trainer",
+    thumbnail: c.thumbnail || c.thumbnail_url || "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
   }));
 
   const allCoursesList = storeCourses.length > 0 ? formattedStoreCourses : fallbackCourses;
@@ -60,7 +61,7 @@ export default function StudentCoursesPage() {
   });
 
   return (
-    <div className="space-y-8 max-w-[1440px] mx-auto pb-12 w-full">
+    <div className="space-y-8 w-full pb-12">
       {/* Back Button */}
       <Button
         variant="outline"

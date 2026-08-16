@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   FileText, Upload, CheckCircle2, Clock, Link as LinkIcon, FileCheck,
@@ -35,17 +35,37 @@ interface AssignmentItem {
   submittedAt?: string;
 }
 
-const mockAssignmentsData: AssignmentItem[] = [];
-
 export default function StudentAssignmentsPage() {
   const router = useRouter();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState("all");
-  const [assignments, setAssignments] = useState<AssignmentItem[]>(mockAssignmentsData);
+  const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedAssignment, setSelectedAssignment] = useState<AssignmentItem | null>(null);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isViewDetailsModalOpen, setIsViewDetailsModalOpen] = useState(false);
+
+  const fetchAssignments = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/student/assignments");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.assignments) {
+          setAssignments(data.assignments);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load student assignments", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAssignments();
+  }, []);
 
   // Form State
   const [repoUrl, setRepoUrl] = useState("");
@@ -76,7 +96,7 @@ export default function StudentAssignmentsPage() {
     }
   };
 
-  const handleFinalizeSubmission = () => {
+  const handleFinalizeSubmission = async () => {
     if (!selectedAssignment) return;
     if (!repoUrl && !uploadedFileName) {
       toast({
@@ -88,29 +108,37 @@ export default function StudentAssignmentsPage() {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setAssignments((prev) =>
-        prev.map((a) =>
-          a.id === selectedAssignment.id
-            ? {
-                ...a,
-                status: "submitted",
-                submittedUrl: repoUrl,
-                submittedFileName: uploadedFileName || "Solution_Document.pdf",
-                submittedNotes: remarksNotes,
-                submittedAt: new Date().toLocaleString(),
-              }
-            : a
-        )
-      );
+    try {
+      const res = await fetch(`/api/student/assignments/${selectedAssignment.id}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          githubUrl: repoUrl,
+          solutionFileUrl: uploadedFileName,
+          remarks: remarksNotes,
+        }),
+      });
 
-      setIsSubmitModalOpen(false);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to submit assignment");
+      }
+
       toast({
         title: "Assignment Solution Submitted",
         description: "Your submission has been sent to your trainer for evaluation.",
       });
-    }, 600);
+      setIsSubmitModalOpen(false);
+      fetchAssignments();
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Submission Failed",
+        description: err.message,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filteredAssignments = assignments.filter((item) => {
@@ -121,7 +149,7 @@ export default function StudentAssignmentsPage() {
   });
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-8 pb-12 w-full">
+    <div className="w-full space-y-8 pb-12">
       {/* Back Button */}
       <Button
         variant="outline"

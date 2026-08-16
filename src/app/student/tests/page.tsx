@@ -52,43 +52,17 @@ export default function StudentTestsPage() {
 
   useEffect(() => {
     async function loadTests() {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data } = await supabase
-        .from("assessments")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (data) {
-        const mappedTests: ScheduledTest[] = data.map((a: any) => ({
-          id: a.id,
-          title: a.title,
-          type: a.type === "coding" ? "Coding Assessment" : "Proctored Examination",
-          scheduledAt: "Available Now",
-          duration: a.duration || 60,
-          totalQuestions: a.total_questions || 10,
-          totalMarks: (a.total_questions || 10) * 10,
-          status: "live",
-          score: undefined,
-          maxScore: (a.total_questions || 10) * 10,
-          passed: false,
-          proctoring: {
-            enabled: true,
-            webcamTracking: true,
-            tabSwitchLock: true,
-            fullscreenLock: true,
-            safeExamBrowserRequired: true,
-            copyPasteRestricted: true,
-            assignedBy: "Admin",
-            assignedByName: "System Admin",
-          },
-        }));
-        setTests(mappedTests);
-        setTestsData(mappedTests);
+      try {
+        const res = await fetch("/api/student/tests");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.tests) {
+            setTests(data.tests);
+            setTestsData(data.tests);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load student tests", err);
       }
     }
     loadTests();
@@ -254,7 +228,7 @@ export default function StudentTestsPage() {
   });
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-8 pb-12 w-full">
+    <div className="space-y-8 pb-12 w-full">
       {/* Back Button */}
       <Button
         variant="outline"

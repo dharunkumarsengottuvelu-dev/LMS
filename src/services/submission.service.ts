@@ -156,14 +156,16 @@ export class SubmissionService {
           passed = SQLExecutionService.compareSQLResults(sqlRes, trimmedExpected);
         }
       } else {
-        const res = await jobeService.executeCode(input.language, input.code, tc.input);
+        const cleanInput = (tc.input || "").replace(/\\n/g, "\n");
+        const cleanExpected = (tc.expected_output || "").replace(/\\n/g, "\n").trim();
+
+        const res = await jobeService.executeCode(input.language, input.code, cleanInput);
         trimmedActual = (res.stdout || "").trim();
         executionTime = res.time ? parseFloat(res.time) : 0.02;
 
-        passed =
-          res.outcome === 15 || res.outcome === 0
-            ? trimmedActual === trimmedExpected
-            : false;
+        passed = (res.status?.id === 3 || res.outcome === 15 || res.outcome === 0)
+          ? trimmedActual === cleanExpected
+          : false;
 
         if (!passed) {
           resError = res.compile_output || res.stderr || res.message || "Output mismatch";

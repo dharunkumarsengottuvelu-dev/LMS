@@ -93,7 +93,7 @@ export default function TrainerProfilePage() {
   };
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-8 pb-12">
+    <div className="w-full space-y-8 pb-12">
       {/* 1. Page Header */}
       <PageHeader 
         title="Trainer Profile"

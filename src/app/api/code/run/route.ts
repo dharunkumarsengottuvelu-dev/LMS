@@ -74,10 +74,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Execute via Jobe API
-    const result = await jobeService.executeCode(language, code, stdin);
-
-    return NextResponse.json(result, { status: 200 });
+    // 2. Execute via Jobe API with server-side LocalCompiler fallback
+    try {
+      const result = await jobeService.executeCode(language, code, stdin);
+      if (result.status?.id !== 13 && result.outcome !== 20) {
+        return NextResponse.json(result, { status: 200 });
+      }
+      const { LocalCompilerService } = await import("@/services/local-compiler.service");
+      const localResult = await LocalCompilerService.execute(language, code, stdin);
+      return NextResponse.json(localResult, { status: 200 });
+    } catch (jobeErr) {
+      console.warn("Jobe execution failed, falling back to local compiler engine:", jobeErr);
+      const { LocalCompilerService } = await import("@/services/local-compiler.service");
+      const localResult = await LocalCompilerService.execute(language, code, stdin);
+      return NextResponse.json(localResult, { status: 200 });
+    }
   } catch (error: unknown) {
     const msg = getErrorMessage(error);
     console.error("API /api/code/run Error:", error);

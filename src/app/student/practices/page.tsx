@@ -95,7 +95,7 @@ export default function StudentPracticesPage() {
   });
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full">
+    <div className="w-full space-y-6 pb-12">
       {/* Back Button */}
       <Button
         variant="outline"
@@ -132,14 +132,6 @@ export default function StudentPracticesPage() {
 
       {/* Practice Tracks Cards Grid */}
       <div className="space-y-4 pt-2 animate-fade-up stagger-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">
-            Assigned Practice Tracks & Problem Sets
-          </h2>
-          <Badge variant="outline" className="text-xs font-semibold border-primary/30 text-primary">
-            {filteredTracks.length} Tracks Available
-          </Badge>
-        </div>
 
         {filteredTracks.length === 0 ? (
           <Card className="bg-card border border-border p-12 text-center rounded-[var(--radius-xl)] w-full shadow-sm">

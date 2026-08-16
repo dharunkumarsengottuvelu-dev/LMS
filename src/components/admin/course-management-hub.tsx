@@ -8,7 +8,8 @@ import {
   User, GraduationCap, ListChecks, PlayCircle,
   StickyNote, Code2, FileText, CheckCircle2,
   Check, ShieldCheck,
-  UploadCloud, PenSquare, HardDrive
+  UploadCloud, PenSquare, HardDrive, EyeOff,
+  Maximize2, Minimize2, ShieldAlert, Lock
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,8 @@ import { CodingProblemCreator } from "@/components/admin/coding-problem-creator"
 import { QuizMcqCreator } from "@/components/admin/quiz-mcq-creator";
 import { useLMSStore } from "@/lib/store/lms-store";
 import { PageHeader } from "@/components/layouts/page-header";
+import { VisibilitySelector } from "@/components/admin/visibility-selector";
+import { AutoSaveBadge } from "@/components/ui/auto-save-badge";
 
 // ─── Module Rich Item ──────────────────────────────────────
 export interface CourseSyllabusModule {
@@ -30,11 +33,19 @@ export interface CourseSyllabusModule {
   type: "video" | "reading" | "quiz" | "coding";
   videoUrl?: string;
   notes?: string;
+  readingMaterial?: string;
   readingContent?: string;
+  problemStatement?: string;
   practiceDescription?: string;
   practiceTestCases?: string;
   practiceStarterCode?: string;
+  testCases?: string;
+  starterCode?: string;
+  quizQuestion?: string;
   quizQuestions?: string;
+  quizOptions?: string[];
+  quizCorrect?: number;
+  quizExplanation?: string;
 }
 
 // ─── Managed Course ────────────────────────────────────────
@@ -52,6 +63,7 @@ export interface ManagedCourse {
   description: string;
   thumbnail?: string;
   modules: CourseSyllabusModule[];
+  isCommon?: boolean;
   assignedBatches?: string[];
   assignedStudents?: string[];
 }
@@ -94,91 +106,67 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   useEffect(() => {
     async function loadData() {
       try {
-        const { createClient } = await import("@/lib/supabase/client");
-        const supabase = createClient();
-
-        const { data: studentsData } = await supabase.from("profiles").select("*").eq("role", "student");
-        if (studentsData) {
-          setAllStudents(studentsData.map((s: any) => ({
-            id: s.id,
-            name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email?.split("@")[0] || "Unknown",
-            email: s.email,
-            batch: s.batch || "Unassigned Batch"
-          })));
+        const res = await fetch("/api/admin/courses");
+        const data = await res.json();
+        if (data.courses) {
+          setCourses(data.courses);
         }
-
-        const { data: batchesData } = await supabase.from("batches").select("batch_name");
-        if (batchesData) {
-          setAllBatches(batchesData.map((b: any) => b.batch_name));
+        if (data.students) {
+          setAllStudents(data.students);
+        }
+        if (data.batches) {
+          setAllBatches(data.batches);
         }
       } catch(err) {
-        console.error(err);
+        console.error("Failed to load admin courses", err);
       }
     }
     loadData();
   }, []);
 
-  useEffect(() => {
-    async function loadCourses() {
-      try {
-        const dbCourses = await CourseService.getCourses();
-        if (dbCourses && dbCourses.length > 0) {
-          const mapped: ManagedCourse[] = dbCourses.map(c => ({
-            id: c.id,
-            title: c.title,
-            category: c.category?.name || "General",
-            level: c.difficulty === "beginner" ? "Beginner" : c.difficulty === "advanced" ? "Advanced" : "Intermediate",
-            status: c.status === "published" ? "published" : "draft",
-            enrolledStudents: c.enrollment_count || 0,
-            totalLessons: c.modules?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || 0,
-            instructor: c.trainer?.first_name ? `${c.trainer.first_name} ${c.trainer.last_name}` : "Admin",
-            durationHours: c.duration_hours || 0,
-            durationMins: 0,
-            description: c.description || "",
-            thumbnail: c.thumbnail_url || undefined,
-            modules: [],
-            assignedBatches: [],
-            assignedStudents: []
-          }));
-          setCourses(mapped);
-        }
-      } catch (err) {
-        console.error("Failed to fetch courses:", err);
-      }
-    }
-    loadCourses();
-  }, []);
-
   // Assign Modal State
   const [assigningCourse, setAssigningCourse] = useState<ManagedCourse | null>(null);
+  const [isCommon, setIsCommon] = useState<boolean>(true);
   const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [assignBatchFilter, setAssignBatchFilter] = useState("all");
 
   const openAssignModal = (course: ManagedCourse) => {
     setAssigningCourse(course);
-    setSelectedBatches(course.assignedBatches || []);
+    const assigned = course.assignedBatches || [];
+    const common = course.isCommon !== undefined ? course.isCommon : assigned.length === 0;
+    setIsCommon(common);
+    setSelectedBatches(common ? [] : assigned);
     setSelectedStudentIds(course.assignedStudents || []);
     setAssignBatchFilter("all");
   };
 
-  const handleSaveAssignments = () => {
+  const handleSaveAssignments = async () => {
     if (!assigningCourse) return;
+    const updatedCourse = {
+      ...assigningCourse,
+      isCommon,
+      assignedBatches: isCommon ? [] : selectedBatches,
+      assignedStudents: selectedStudentIds,
+      enrolledStudents: selectedStudentIds.length || assigningCourse.enrolledStudents,
+    };
+
+    try {
+      await fetch("/api/admin/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ course: updatedCourse })
+      });
+    } catch (err) {
+      console.error("Failed to save course assignments to API", err);
+    }
+
     setCourses((prev) =>
-      prev.map((c) =>
-        c.id === assigningCourse.id
-          ? {
-              ...c,
-              assignedBatches: selectedBatches,
-              assignedStudents: selectedStudentIds,
-              enrolledStudents: selectedStudentIds.length || c.enrolledStudents,
-            }
-          : c
-      )
+      prev.map((c) => (c.id === assigningCourse.id ? updatedCourse : c))
     );
     toast({
-      title: "Course Assigned",
-      description: `Course "${assigningCourse.title}" assigned to ${selectedBatches.length} batch(es) and ${selectedStudentIds.length} student(s).`,
+      title: "Course Visibility Updated",
+      description: `Course "${assigningCourse.title}" configured as ${isCommon ? "Common (All Students)" : `${selectedBatches.length} batch(es)`}.`,
     });
     setAssigningCourse(null);
   };
@@ -219,6 +207,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [modQuiz, setModQuiz]           = useState("");
 
   const [showCodingProblemBuilder, setShowCodingProblemBuilder] = useState(false);
+  const [isFullScreenAuthoring, setIsFullScreenAuthoring] = useState(false);
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
 
   const calculateDuration = (start: string, end: string) => {
@@ -290,6 +279,57 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setShowModuleBuilder(true);
   };
 
+  // Course Draft State
+  const [lastSavedCourseDraft, setLastSavedCourseDraft] = useState<string | null>(null);
+  const [isSavedCourseDraft, setIsSavedCourseDraft] = useState<boolean>(true);
+
+  // Restore course draft on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("draft_course_wizard");
+      if (stored) {
+        const d = JSON.parse(stored);
+        if (d) {
+          if (d.fTitle) setFTitle(d.fTitle);
+          if (d.fCategory) setFCategory(d.fCategory);
+          if (d.fLevel) setFLevel(d.fLevel);
+          if (d.fInstructor) setFInstructor(d.fInstructor);
+          if (d.fDesc) setFDesc(d.fDesc);
+          if (d.fThumbnail) setFThumbnail(d.fThumbnail);
+          if (d.draftModules?.length) setDraftModules(d.draftModules);
+          if (d.isCommon !== undefined) setIsCommon(d.isCommon);
+          if (d.selectedBatches) setSelectedBatches(d.selectedBatches);
+          setLastSavedCourseDraft(d.savedAt || new Date().toLocaleTimeString());
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to restore course draft", e);
+    }
+  }, []);
+
+  // Auto-save draft on changes
+  useEffect(() => {
+    if (typeof window === "undefined" || viewState !== "wizard" || editingCourseId) return;
+    if (!fTitle && !fCategory && !fDesc && draftModules.length === 0) return;
+    setIsSavedCourseDraft(false);
+    const timer = setTimeout(() => {
+      try {
+        const d = {
+          fTitle, fCategory, fLevel, fInstructor, fDesc, fThumbnail,
+          draftModules, isCommon, selectedBatches,
+          savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        };
+        localStorage.setItem("draft_course_wizard", JSON.stringify(d));
+        setIsSavedCourseDraft(true);
+        setLastSavedCourseDraft(d.savedAt);
+      } catch (e) {
+        console.warn("Failed to auto-save course draft", e);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [fTitle, fCategory, fLevel, fInstructor, fDesc, fThumbnail, draftModules, isCommon, selectedBatches, viewState, editingCourseId]);
+
   const filtered = courses.filter((c) =>
     c.title.toLowerCase().includes(search.toLowerCase()) &&
     (categoryFilter === "all" || c.category.toLowerCase().includes(categoryFilter.toLowerCase()))
@@ -360,19 +400,25 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     }
 
     if (editingCourseId) {
-      setCourses((prev) => prev.map((c) =>
-        c.id === editingCourseId ? {
-          ...c,
-          title: fTitle,
-          category: fCategory || "General",
-          level: fLevel,
-          instructor: fInstructor || "Course Instructor",
-          description: fDesc,
-          thumbnail: fThumbnail || c.thumbnail,
-          modules: draftModules,
-          totalLessons: draftModules.length,
-        } : c
-      ));
+      const updatedCourse = {
+        id: editingCourseId,
+        title: fTitle,
+        category: fCategory || "General",
+        level: fLevel,
+        instructor: fInstructor || "Course Instructor",
+        description: fDesc,
+        thumbnail: fThumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
+        modules: draftModules,
+        totalLessons: draftModules.length,
+      };
+
+      fetch("/api/admin/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ course: updatedCourse })
+      }).catch(err => console.error("Failed to update course in API", err));
+
+      setCourses((prev) => prev.map((c) => (c.id === editingCourseId ? { ...c, ...updatedCourse } : c)));
       toast({ title: "Course Updated", description: `"${fTitle}" saved successfully.` });
     } else {
       const created: ManagedCourse = {
@@ -391,25 +437,21 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         modules: draftModules,
       };
 
-      const difficultyMap: Record<string, "beginner" | "intermediate" | "advanced"> = {
-        "Beginner": "beginner",
-        "Intermediate": "intermediate",
-        "Advanced": "advanced"
-      };
-
-      CourseService.createCourse({
-        title: created.title,
-        description: created.description,
-        category_id: "00000000-0000-0000-0000-000000000000",
-        difficulty: difficultyMap[created.level] || "beginner",
-        visibility: "public"
-      }).then(dbCourse => {
-        if (dbCourse) {
-           created.id = dbCourse.id;
+      fetch("/api/admin/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ course: created })
+      }).then(async (res) => {
+        const data = await res.json();
+        if (data.course) {
+          created.id = data.course.id;
         }
-      }).catch(err => console.error("Failed to save to Supabase", err));
+      }).catch(err => console.error("Failed to save to API", err));
 
       setCourses((prev) => [created, ...prev]);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("draft_course_wizard");
+      }
       toast({ title: "Course Published", description: `"${fTitle}" is live.` });
     }
 
@@ -503,12 +545,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   // ════════════════════════════════════════════════════════════
   if (viewState === "wizard") {
     return (
-      <div className="space-y-8 max-w-4xl mx-auto pb-12">
+      <div className="space-y-8 w-full pb-12">
         {/* Header */}
         <PageHeader
           title={editingCourseId ? "Course Configuration Wizard" : "Enterprise Course Creation Wizard"}
           description="Structured multi-step curriculum authoring"
           backAction={{ label: "Exit Authoring", onClick: () => setViewState("list") }}
+          actions={!editingCourseId ? <AutoSaveBadge isSaved={isSavedCourseDraft} lastSaved={lastSavedCourseDraft} /> : undefined}
         />
 
         {/* STEP PROGRESS INDICATOR */}
@@ -1119,7 +1162,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   // VIEW: SYLLABUS DIRECT VIEW
   // ════════════════════════════════════════════════════════════
   if (viewState === "syllabus" && selectedCourse) return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="space-y-8 w-full">
       <PageHeader
         title={selectedCourse.title}
         description={`${selectedCourse.category} • ${selectedCourse.level} • Instructor: ${selectedCourse.instructor}`}
@@ -1206,7 +1249,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   if ((viewState === "add-module" || viewState === "edit-module") && selectedCourse) {
     const isEditMod = viewState === "edit-module";
     return (
-      <div className="space-y-8 max-w-4xl mx-auto">
+      <div className="space-y-8 w-full">
         <PageHeader
           title={isEditMod ? "Edit Lesson Content" : "Author New Lesson"}
           description={selectedCourse.title}
@@ -1522,8 +1565,20 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     <Edit className="h-3 w-3 shrink-0" /> Edit
                   </Button>
                   <Button onClick={() => handleToggleStatus(course.id)} variant="outline" size="sm"
-                    className="flex-1 h-8 text-[11px] font-semibold text-[#6B7280] border-[#E5E7EB] dark:border-[#27272A] px-1 hover:bg-[#F9FAFB] dark:hover:bg-[#09090B] shadow-sm transition-colors">
-                    {course.status === "published" ? "Draft" : "Publish"}
+                    className={`flex-1 h-8 text-[11px] font-semibold px-1 shadow-xs transition-colors ${
+                      course.status === "published"
+                        ? "text-amber-600 dark:text-amber-400 border-amber-500/40 hover:bg-amber-500/10"
+                        : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10"
+                    }`}>
+                    {course.status === "published" ? (
+                      <>
+                        <EyeOff className="h-3 w-3 shrink-0 mr-1" /> Unpublish
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="h-3 w-3 shrink-0 mr-1" /> Publish
+                      </>
+                    )}
                   </Button>
                   <Button onClick={() => handleDeleteCourse(course.id, course.title)} variant="outline" size="icon"
                     className="h-8 w-8 shrink-0 text-[#DC2626] border-[#DC2626]/30 hover:bg-[#DC2626]/10 hover:border-[#DC2626]/50 shadow-sm transition-colors">
@@ -1552,40 +1607,17 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               </Button>
             </div>
 
-            {/* Batch Selection */}
+            {/* Visibility & Batch Selection */}
             <div className="space-y-3">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-                <span>Assign to Entire Batches</span>
-                <span className="text-[10px] text-[#6B7280] font-normal">{selectedBatches.length} batch(es) selected</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {allBatches.map((b) => {
-                  const isChecked = selectedBatches.includes(b);
-                  return (
-                    <label key={b} className={`flex items-center gap-2 p-3 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${isChecked ? "bg-[#9333EA]/10 border-[#9333EA] text-[#9333EA]" : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] text-[#111827] dark:text-[#FAFAFA]"}`}>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedBatches((prev) => [...prev, b]);
-                            // Select all students in this batch
-                            const bStudents = allStudents.filter((s) => s.batch === b).map((s) => s.id);
-                            setSelectedStudentIds((prev) => Array.from(new Set([...prev, ...bStudents])));
-                          } else {
-                            setSelectedBatches((prev) => prev.filter((item) => item !== b));
-                            // Also unselect all students in this batch
-                            const bStudents = new Set(allStudents.filter((s) => s.batch === b).map((s) => s.id));
-                            setSelectedStudentIds((prev) => prev.filter((id) => !bStudents.has(id)));
-                          }
-                        }}
-                        className="rounded text-[#9333EA] focus:ring-[#9333EA]"
-                      />
-                      {b}
-                    </label>
-                  );
-                })}
-              </div>
+              <VisibilitySelector
+                isCommon={isCommon}
+                selectedBatches={selectedBatches}
+                batches={allBatches}
+                onChange={({ isCommon: c, selectedBatches: b }) => {
+                  setIsCommon(c);
+                  setSelectedBatches(b);
+                }}
+              />
             </div>
 
             {/* Individual Student Selection */}
@@ -1600,9 +1632,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Batches</SelectItem>
-                    {allBatches.map((b) => (
-                      <SelectItem key={b} value={b}>{b}</SelectItem>
-                    ))}
+                    {allBatches.map((b: any) => {
+                      const bName = typeof b === "string" ? b : (b.name || b.batch_name || b.id || "Batch");
+                      const bKey = typeof b === "string" ? b : (b.id || b.name || Math.random().toString());
+                      return (
+                        <SelectItem key={bKey} value={bName}>{bName}</SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

@@ -21,7 +21,7 @@ export function StudentLayoutWrapper({ children }: { children: React.ReactNode }
             {children}
           </div>
         ) : (
-          <div key={pathname} className="max-w-[1440px] mx-auto px-4 md:px-8 py-4 md:py-8 animate-fade-up">
+          <div key={pathname} className="w-full px-4 sm:px-6 lg:px-8 py-4 md:py-8 animate-fade-up">
             {children}
           </div>
         )}

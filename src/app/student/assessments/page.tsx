@@ -17,6 +17,7 @@ interface PracticeItem {
   type: "mcq" | "coding" | "mixed";
   duration_minutes: number;
   total_marks: number;
+  trackId?: string;
   my_attempts?: any[];
 }
 
@@ -57,7 +58,7 @@ export default function StudentAssessmentsPage() {
                       items.push({
                         id: sm.id,
                         title: sm.title,
-                        description: `${track.title} GÇó ${sm.description || "Practice Module"}`,
+                        description: `${track.title} • ${sm.description || "Practice Module"}`,
                         type: sm.type || "coding",
                         duration_minutes: sm.durationMinutes || sm.duration_minutes || 30,
                         total_marks: sm.totalMarks || sm.total_marks || 100,
@@ -88,7 +89,7 @@ export default function StudentAssessmentsPage() {
   }, [toast]);
 
   return (
-    <div className="space-y-8 max-w-[1440px] mx-auto w-full">
+    <div className="space-y-8 w-full pb-12">
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl bg-[#2563EB]/10 flex items-center justify-center">
           <Dumbbell className="h-5 w-5 text-[#2563EB]" />
@@ -156,7 +157,7 @@ export default function StudentAssessmentsPage() {
                 <CardFooter className="pt-0 pb-4 px-4">
                   <Button 
                     className={`w-full font-bold h-10 ${isCompleted ? 'bg-muted text-foreground' : 'bg-[#111827] dark:bg-white text-white dark:text-black hover:bg-[#2563EB] dark:hover:bg-[#2563EB] hover:text-white transition-colors'}`}
-                    onClick={() => router.push(`/student/assessments/${practice.id}`)}
+                    onClick={() => router.push(`/student/assessments/${practice.id}${practice.trackId ? `?trackId=${practice.trackId}` : ''}`)}
                   >
                     {isCompleted ? "View Result" : inProgress ? "Resume Practice" : "Start Practice"}
                     {!isCompleted && <ArrowRight className="h-4 w-4 ml-2" />}

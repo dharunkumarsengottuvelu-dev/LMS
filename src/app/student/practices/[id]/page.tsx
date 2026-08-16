@@ -83,12 +83,7 @@ export default function StudentTrackDetailPage() {
   }, [trackId]);
 
   const handleStartSubModule = (subModule: SubModuleItem) => {
-    if (subModule.type === "coding" && subModule.codingProblems && subModule.codingProblems.length > 0) {
-      const firstProblemId = subModule.codingProblems[0].id;
-      router.push(`/student/practices/coding/${firstProblemId}?trackId=${trackId}&subModuleId=${subModule.id}`);
-    } else {
-      router.push(`/student/assessments/${subModule.id}?trackId=${trackId}`);
-    }
+    router.push(`/student/assessments/${subModule.id}?trackId=${trackId}`);
   };
 
   if (loading) {
@@ -101,7 +96,7 @@ export default function StudentTrackDetailPage() {
 
   if (errorMsg || !track) {
     return (
-      <div className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full">
+      <div className="w-full space-y-6 pb-12">
         <Button
           variant="outline"
           size="sm"
@@ -124,7 +119,7 @@ export default function StudentTrackDetailPage() {
   }
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-8 pb-12 w-full">
+    <div className="w-full space-y-8 pb-12">
       {/* Back Button */}
       <Button
         variant="outline"

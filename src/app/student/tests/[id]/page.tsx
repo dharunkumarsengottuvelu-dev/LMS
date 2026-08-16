@@ -499,7 +499,7 @@ export default function StudentTestRunnerPage() {
       onCopy={handleCopyPasteAttempt}
       onPaste={handleCopyPasteAttempt}
       onContextMenu={handleCopyPasteAttempt}
-      className="max-w-[1440px] mx-auto space-y-6 pb-12 w-full select-none"
+      className="space-y-6 pb-12 w-full select-none"
     >
       {/* Back Button */}
       <Button

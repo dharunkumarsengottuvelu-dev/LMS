@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Code2, Plus, Trash2, CheckCircle2, Clock, Play,
   Sparkles, Save, ShieldCheck, Layers, FileText,
   AlertCircle, Check, Eye, ChevronRight, Terminal,
-  Cpu, HardDrive, HelpCircle, ArrowLeft
+  Cpu, HardDrive, HelpCircle, ArrowLeft,
+  Maximize2, Minimize2, ShieldAlert, Lock
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SubmissionService } from "@/services/submission.service";
 import type { CodingProblem, TestCase, Difficulty, CodingLanguage } from "@/types/coding";
 import { PageHeader } from "@/components/layouts/page-header";
+import { AutoSaveBadge } from "@/components/ui/auto-save-badge";
 
 interface SupportedLangOption {
   id: string;
@@ -75,25 +77,17 @@ export function CodingProblemCreator({
   }, []);
 
   // Problem Metadata State
-  const [title, setTitle] = useState(initialTitle || "Find the Largest Element");
+  const [title, setTitle] = useState(initialTitle || "");
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [isDurationEnabled, setIsDurationEnabled] = useState(true);
   const [durationMinutes, setDurationMinutes] = useState(45);
   const [points, setPoints] = useState(10);
 
   // Specifications State
-  const [description, setDescription] = useState(
-    initialDescription || "Given an array of integers, write a program to find and output the largest element in the array."
-  );
-  const [inputFormat, setInputFormat] = useState(
-    "First line contains an integer N representing the size of the array.\nSecond line contains N space-separated integers."
-  );
-  const [outputFormat, setOutputFormat] = useState(
-    "Print a single integer representing the maximum value found in the array."
-  );
-  const [constraints, setConstraints] = useState(
-    "1 <= N <= 10^5\n-10^9 <= A[i] <= 10^9"
-  );
+  const [description, setDescription] = useState(initialDescription || "");
+  const [inputFormat, setInputFormat] = useState("");
+  const [outputFormat, setOutputFormat] = useState("");
+  const [constraints, setConstraints] = useState("");
 
   // Supported Languages
   const [selectedLanguages, setSelectedLanguages] = useState<CodingLanguage[]>([
@@ -105,33 +99,10 @@ export function CodingProblemCreator({
   const [templates, setTemplates] = useState<Record<string, string>>({});
 
   // Public Test Cases
-  const [publicTestCases, setPublicTestCases] = useState<TestCase[]>([
-    {
-      id: "tc_pub_1",
-      input: "5\n10 25 7 42 18",
-      expected_output: "42",
-      is_hidden: false,
-      explanation: "Among 10, 25, 7, 42, 18, the maximum number is 42."
-    }
-  ]);
+  const [publicTestCases, setPublicTestCases] = useState<TestCase[]>([]);
 
   // Hidden Test Cases
-  const [hiddenTestCases, setHiddenTestCases] = useState<TestCase[]>([
-    {
-      id: "tc_hid_1",
-      input: "6\n-10 -25 -7 -42 -3 -100",
-      expected_output: "-3",
-      is_hidden: true,
-      explanation: "Edge case: negative values."
-    },
-    {
-      id: "tc_hid_2",
-      input: "1\n99999",
-      expected_output: "99999",
-      is_hidden: true,
-      explanation: "Single element array."
-    }
-  ]);
+  const [hiddenTestCases, setHiddenTestCases] = useState<TestCase[]>([]);
 
   // Execution Limits
   const [timeLimit, setTimeLimit] = useState(2);
@@ -140,6 +111,92 @@ export function CodingProblemCreator({
   // Published Problems List
   const [publishedProblems, setPublishedProblems] = useState<CodingProblem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState<boolean>(true);
+  const hasRestoredDraft = useRef(false);
+
+  const onChangeRef = React.useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Restore draft on mount
+  useEffect(() => {
+    if (typeof window === "undefined" || hasRestoredDraft.current) return;
+    try {
+      const savedDraft = localStorage.getItem("draft_coding_problem");
+      if (savedDraft) {
+        const d = JSON.parse(savedDraft);
+        if (d) {
+          if (d.title && !initialTitle) setTitle(d.title);
+          if (d.description && !initialDescription) setDescription(d.description);
+          if (d.difficulty) setDifficulty(d.difficulty);
+          if (d.inputFormat) setInputFormat(d.inputFormat);
+          if (d.outputFormat) setOutputFormat(d.outputFormat);
+          if (d.constraints) setConstraints(d.constraints);
+          if (d.templates) setTemplates(d.templates);
+          if (d.publicTestCases?.length) setPublicTestCases(d.publicTestCases);
+          if (d.hiddenTestCases?.length) setHiddenTestCases(d.hiddenTestCases);
+          setLastSaved(d.savedAt || new Date().toLocaleTimeString());
+        }
+      }
+    } catch (e) {
+      console.warn("Could not restore draft", e);
+    } finally {
+      hasRestoredDraft.current = true;
+    }
+  }, [initialTitle, initialDescription]);
+
+  // Auto-save draft on changes (debounced)
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasRestoredDraft.current) return;
+    setIsSaved(false);
+    const timer = setTimeout(() => {
+      try {
+        const draftData = {
+          title,
+          description,
+          difficulty,
+          inputFormat,
+          outputFormat,
+          constraints,
+          templates,
+          publicTestCases,
+          hiddenTestCases,
+          savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        };
+        localStorage.setItem("draft_coding_problem", JSON.stringify(draftData));
+        setIsSaved(true);
+        setLastSaved(draftData.savedAt);
+      } catch (err) {
+        console.warn("Auto-save failed", err);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [title, description, difficulty, inputFormat, outputFormat, constraints, templates, publicTestCases, hiddenTestCases]);
+
+  const saveDraftNow = () => {
+    if (typeof window === "undefined") return;
+    try {
+      const draftData = {
+        title,
+        description,
+        difficulty,
+        inputFormat,
+        outputFormat,
+        constraints,
+        templates,
+        publicTestCases,
+        hiddenTestCases,
+        savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      };
+      localStorage.setItem("draft_coding_problem", JSON.stringify(draftData));
+      setIsSaved(true);
+      setLastSaved(draftData.savedAt);
+      toast({ title: "Draft Saved", description: `Coding problem draft saved at ${draftData.savedAt}` });
+    } catch (err) {
+      console.warn("Draft save failed", err);
+    }
+  };
 
   useEffect(() => {
     const all = SubmissionService.getAllProblems();
@@ -147,12 +204,12 @@ export function CodingProblemCreator({
   }, []);
 
   useEffect(() => {
-    if (onChange) {
+    if (onChangeRef.current) {
       const filteredTemplates: Record<string, string> = {};
       selectedLanguages.forEach((lang) => {
         filteredTemplates[lang] = templates[lang] || supportedLanguages.find((l) => l.id === lang)?.defaultTemplate || "";
       });
-      onChange({
+      onChangeRef.current({
         title,
         description,
         difficulty,
@@ -164,7 +221,7 @@ export function CodingProblemCreator({
         hiddenTestCases,
       });
     }
-  }, [title, description, difficulty, constraints, inputFormat, outputFormat, selectedLanguages, templates, publicTestCases, hiddenTestCases, onChange, supportedLanguages]);
+  }, [title, description, difficulty, constraints, inputFormat, outputFormat, selectedLanguages, templates, publicTestCases, hiddenTestCases]);
 
   const toggleLanguage = (lang: string) => {
     setSelectedLanguages((prev) =>
@@ -261,6 +318,10 @@ export function CodingProblemCreator({
         onSave(problemData);
       }
 
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("draft_coding_problem");
+      }
+
       toast({
         title: status === "published" ? "Problem Published!" : "Problem Saved as Draft",
         description: `"${title}" has been successfully saved to the compiler sandbox.`,
@@ -276,7 +337,7 @@ export function CodingProblemCreator({
   };
 
   return (
-    <div className={inline ? "space-y-6 w-full" : "space-y-8 max-w-5xl mx-auto pb-16"}>
+    <div className={inline ? "space-y-6 w-full" : "space-y-8 w-full pb-16"}>
       {/* Top Header */}
       {!hideHeader && !inline && (
         <PageHeader
@@ -289,7 +350,8 @@ export function CodingProblemCreator({
           description="Author algorithmic coding problems, test cases, and starter templates"
           backAction={onCancel ? { label: "Back", onClick: onCancel } : undefined}
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <AutoSaveBadge isSaved={isSaved} lastSaved={lastSaved} onManualSave={saveDraftNow} />
               <Button
                 type="button"
                 variant="outline"
@@ -310,6 +372,14 @@ export function CodingProblemCreator({
             </div>
           }
         />
+      )}
+
+      {/* Inline Auto-Save Bar */}
+      {inline && (
+        <div className="flex items-center justify-between pb-2 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <span className="text-xs font-bold text-[#6B7280]">Problem Configuration Form</span>
+          <AutoSaveBadge isSaved={isSaved} lastSaved={lastSaved} onManualSave={saveDraftNow} />
+        </div>
       )}
 
       {/* Main Authoring Form */}
@@ -387,7 +457,7 @@ export function CodingProblemCreator({
                 rows={5}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Write full problem description..."
+                placeholder="e.g. Given an array of integers, write a program to find and output the largest element in the array."
                 className="text-xs leading-relaxed rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
               />
             </div>
@@ -399,7 +469,7 @@ export function CodingProblemCreator({
                   rows={3}
                   value={inputFormat}
                   onChange={(e) => setInputFormat(e.target.value)}
-                  placeholder="Format of inputs..."
+                  placeholder="e.g. First line contains an integer N representing the size of the array.&#10;Second line contains N space-separated integers."
                   className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
                 />
               </div>
@@ -410,7 +480,7 @@ export function CodingProblemCreator({
                   rows={3}
                   value={outputFormat}
                   onChange={(e) => setOutputFormat(e.target.value)}
-                  placeholder="Format of outputs..."
+                  placeholder="e.g. Print a single integer representing the maximum value found in the array."
                   className="text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
                 />
               </div>
@@ -422,7 +492,7 @@ export function CodingProblemCreator({
                 rows={2}
                 value={constraints}
                 onChange={(e) => setConstraints(e.target.value)}
-                placeholder="e.g. 1 <= N <= 10^5"
+                placeholder="e.g. 1 <= N <= 10^5&#10;-10^9 <= A[i] <= 10^9"
                 className="text-xs font-mono rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
               />
             </div>
@@ -541,73 +611,87 @@ export function CodingProblemCreator({
           </div>
 
           <div className="space-y-4">
-            {publicTestCases.map((tc, idx) => (
-              <div key={tc.id} className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <Badge className="bg-[#2563EB] text-white text-[10px] font-bold">Public Case #{idx + 1}</Badge>
-                  {publicTestCases.length > 1 && (
+            {publicTestCases.length === 0 ? (
+              <div className="text-center py-8 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[#6B7280] space-y-2">
+                <p className="text-xs font-semibold">No public test cases added.</p>
+                <Button
+                  type="button"
+                  onClick={addPublicTestCase}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs font-semibold border-[#2563EB] text-[#2563EB] gap-1"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add First Test Case
+                </Button>
+              </div>
+            ) : (
+              publicTestCases.map((tc, idx) => (
+                <div key={tc.id} className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Badge className="bg-[#2563EB] text-white text-[10px] font-bold">Public Case #{idx + 1}</Badge>
                     <Button
                       type="button"
                       onClick={() => removePublicTestCase(tc.id)}
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-[#DC2626]"
+                      className="h-7 w-7 text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg transition-colors"
+                      title="Delete Public Test Case"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                  )}
-                </div>
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-[#6B7280]">Input (STDIN)</label>
-                    <Textarea
-                      rows={3}
-                      value={tc.input}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setPublicTestCases((prev) =>
-                          prev.map((item) => (item.id === tc.id ? { ...item, input: val } : item))
-                        );
-                      }}
-                      placeholder="e.g. 5&#10;10 25 7 42 18"
-                      className="font-mono text-xs bg-white dark:bg-[#18181B] rounded-lg"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-[#6B7280]">Input (STDIN)</label>
+                      <Textarea
+                        rows={3}
+                        value={tc.input}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPublicTestCases((prev) =>
+                            prev.map((item) => (item.id === tc.id ? { ...item, input: val } : item))
+                          );
+                        }}
+                        placeholder="e.g. 5&#10;10 25 7 42 18"
+                        className="font-mono text-xs bg-white dark:bg-[#18181B] rounded-lg"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-[#6B7280]">Expected Output (STDOUT)</label>
+                      <Textarea
+                        rows={3}
+                        value={tc.expected_output}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPublicTestCases((prev) =>
+                            prev.map((item) => (item.id === tc.id ? { ...item, expected_output: val } : item))
+                          );
+                        }}
+                        placeholder="e.g. 42"
+                        className="font-mono text-xs bg-white dark:bg-[#18181B] rounded-lg"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-[#6B7280]">Expected Output (STDOUT)</label>
-                    <Textarea
-                      rows={3}
-                      value={tc.expected_output}
+                    <label className="text-[11px] font-bold text-[#6B7280]">Explanation (Optional)</label>
+                    <Input
+                      value={tc.explanation || ""}
                       onChange={(e) => {
                         const val = e.target.value;
                         setPublicTestCases((prev) =>
-                          prev.map((item) => (item.id === tc.id ? { ...item, expected_output: val } : item))
+                          prev.map((item) => (item.id === tc.id ? { ...item, explanation: val } : item))
                         );
                       }}
-                      placeholder="e.g. 42"
-                      className="font-mono text-xs bg-white dark:bg-[#18181B] rounded-lg"
+                      placeholder="Explanation of test case..."
+                      className="text-xs bg-white dark:bg-[#18181B] rounded-lg h-9"
                     />
                   </div>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-[#6B7280]">Explanation (Optional)</label>
-                  <Input
-                    value={tc.explanation || ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setPublicTestCases((prev) =>
-                        prev.map((item) => (item.id === tc.id ? { ...item, explanation: val } : item))
-                      );
-                    }}
-                    placeholder="Explanation of test case..."
-                    className="text-xs bg-white dark:bg-[#18181B] rounded-lg h-9"
-                  />
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </Card>
 
@@ -632,58 +716,72 @@ export function CodingProblemCreator({
           </div>
 
           <div className="space-y-4">
-            {hiddenTestCases.map((tc, idx) => (
-              <div key={tc.id} className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <Badge className="bg-[#D97706] text-white text-[10px] font-bold">Hidden Case #{idx + 1}</Badge>
-                  {hiddenTestCases.length > 1 && (
+            {hiddenTestCases.length === 0 ? (
+              <div className="text-center py-8 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[#6B7280] space-y-2">
+                <p className="text-xs font-semibold">No hidden test cases added.</p>
+                <Button
+                  type="button"
+                  onClick={addHiddenTestCase}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs font-semibold border-[#D97706] text-[#D97706] gap-1"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add First Hidden Case
+                </Button>
+              </div>
+            ) : (
+              hiddenTestCases.map((tc, idx) => (
+                <div key={tc.id} className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Badge className="bg-[#D97706] text-white text-[10px] font-bold">Hidden Case #{idx + 1}</Badge>
                     <Button
                       type="button"
                       onClick={() => removeHiddenTestCase(tc.id)}
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-[#DC2626]"
+                      className="h-7 w-7 text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg transition-colors"
+                      title="Delete Hidden Test Case"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-[#6B7280]">Input (STDIN)</label>
-                    <Textarea
-                      rows={3}
-                      value={tc.input}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setHiddenTestCases((prev) =>
-                          prev.map((item) => (item.id === tc.id ? { ...item, input: val } : item))
-                        );
-                      }}
-                      placeholder="Input..."
-                      className="font-mono text-xs bg-white dark:bg-[#18181B] rounded-lg"
-                    />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-[#6B7280]">Expected Output (STDOUT)</label>
-                    <Textarea
-                      rows={3}
-                      value={tc.expected_output}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setHiddenTestCases((prev) =>
-                          prev.map((item) => (item.id === tc.id ? { ...item, expected_output: val } : item))
-                        );
-                      }}
-                      placeholder="Expected Output..."
-                      className="font-mono text-xs bg-white dark:bg-[#18181B] rounded-lg"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-[#6B7280]">Input (STDIN)</label>
+                      <Textarea
+                        rows={3}
+                        value={tc.input}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setHiddenTestCases((prev) =>
+                            prev.map((item) => (item.id === tc.id ? { ...item, input: val } : item))
+                          );
+                        }}
+                        placeholder="Input..."
+                        className="font-mono text-xs bg-white dark:bg-[#18181B] rounded-lg"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-[#6B7280]">Expected Output (STDOUT)</label>
+                      <Textarea
+                        rows={3}
+                        value={tc.expected_output}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setHiddenTestCases((prev) =>
+                            prev.map((item) => (item.id === tc.id ? { ...item, expected_output: val } : item))
+                          );
+                        }}
+                        placeholder="Expected Output..."
+                        className="font-mono text-xs bg-white dark:bg-[#18181B] rounded-lg"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </Card>
 

@@ -71,17 +71,27 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
 
   useEffect(() => {
     async function loadData() {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      
-      const { data: cData } = await supabase.from("courses").select("*");
-      if (cData) setStoreCourses(cData);
-
-      const { data: pData } = await supabase.from("practice_tracks").select("*");
-      if (pData) setStoreTracks(pData);
-      
-      const { data: aData } = await supabase.from("assessments").select("*");
-      if (aData) setStoreAssessments(aData);
+      try {
+        const [cRes, pRes, aRes] = await Promise.all([
+          fetch("/api/student/courses"),
+          fetch("/api/student/practices"),
+          fetch("/api/student/tests")
+        ]);
+        if (cRes.ok) {
+          const cData = await cRes.json();
+          if (cData.courses) setStoreCourses(cData.courses);
+        }
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          if (pData.tracks) setStoreTracks(pData.tracks);
+        }
+        if (aRes.ok) {
+          const aData = await aRes.json();
+          if (aData.tests) setStoreAssessments(aData.tests);
+        }
+      } catch (err) {
+        console.error("Dashboard data load error", err);
+      }
     }
     loadData();
   }, []);
@@ -89,9 +99,9 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const activeCourses = storeCourses.map((c: any) => ({
     id: c.id,
     title: c.title,
-    category: (typeof c.category_id === 'string' ? c.category_id : (c.category_id as any)?.name) || "Technical Training",
+    category: c.category || "Technical Training",
     completedLessons: 0,
-    totalLessons: c.modules?.length || 1,
+    totalLessons: c.totalLessons || (c.modules?.length || 1),
     progressPercentage: c.progress || 0,
     nextLesson: c.modules?.[0]?.title || "Module 1 Overview",
     slug: c.slug || c.id,
@@ -103,7 +113,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const displayUnreadNotifications = 0;
 
   return (
-    <div className="space-y-8 max-w-[1440px] mx-auto pb-12 w-full">
+    <div className="space-y-8 w-full pb-12">
       {/* 1. Welcome Banner Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border animate-fade-up">
         <div>

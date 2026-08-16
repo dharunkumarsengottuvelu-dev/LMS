@@ -156,7 +156,7 @@ export default function StudentCoursePlayerPage() {
   };
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-6 pb-12">
+    <div className="w-full space-y-6 pb-12">
       {/* Top Header */}
       <div className="flex items-center justify-between pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div className="flex items-center gap-3">

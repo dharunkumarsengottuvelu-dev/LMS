@@ -16,6 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
 import { PageHeader } from "@/components/layouts/page-header";
+import { VisibilitySelector } from "@/components/admin/visibility-selector";
+import { AutoSaveBadge } from "@/components/ui/auto-save-badge";
 
 export interface ScheduledTest {
   id: string;
@@ -28,6 +30,7 @@ export interface ScheduledTest {
   submissionsCount: number;
   totalEnrolled: number;
   proctoringFlags: string[];
+  isCommon?: boolean;
   assignedBatches?: string[];
   questions?: TestQuestion[];
   allowedQuestionTypes?: "coding" | "mcq" | "both";
@@ -56,37 +59,17 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   useEffect(() => {
     const fetchData = async () => {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      
-      const { data: assessmentsData, error: assessmentsError } = await supabase
-        .from("assessments")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (assessmentsData && !assessmentsError) {
-        const mappedTests: ScheduledTest[] = assessmentsData.map((a: any) => ({
-          id: a.id,
-          title: a.title,
-          batch: "Unassigned", // Fetch from assessment_assignments if needed
-          duration: a.duration || 60,
-          totalQuestions: a.total_questions || 0,
-          maxMarks: (a.total_questions || 0) * 10,
-          status: a.status === "active" ? "live" : a.status === "closed" ? "completed" : "scheduled",
-          submissionsCount: 0,
-          totalEnrolled: 0,
-          proctoringFlags: ["Fullscreen Lock", "Tab Switch Security"],
-          assignedBatches: [],
-          questions: [],
-          allowedQuestionTypes: a.type === "mcq" ? "mcq" : a.type === "coding" ? "coding" : "both",
-          sections: []
-        }));
-        setTests(mappedTests);
-      }
-
-      const { data: batchesData } = await supabase.from("batches").select("batch_name");
-      if (batchesData) {
-        setAllBatches(batchesData.map((b: any) => b.batch_name));
+      try {
+        const res = await fetch("/api/admin/tests");
+        const data = await res.json();
+        if (data.tests) {
+          setTests(data.tests);
+        }
+        if (data.batches) {
+          setAllBatches(data.batches);
+        }
+      } catch (err) {
+        console.error("Failed to load admin tests", err);
       }
     };
     fetchData();
@@ -130,13 +113,69 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     { id: 2, text: "", isCorrect: false }
   ]);
 
-  // Assign Modal State
+  // Assignment Modal State
   const [assigningTest, setAssigningTest] = useState<ScheduledTest | null>(null);
+  const [isCommon, setIsCommon] = useState<boolean>(true);
   const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
   
   // Section Management State
   const [isAddingSection, setIsAddingSection] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState("");
+
+  // Auto-save test wizard draft
+  const [lastSavedExamDraft, setLastSavedExamDraft] = useState<string | null>(null);
+  const [isSavedExamDraft, setIsSavedExamDraft] = useState<boolean>(true);
+
+  // Restore exam wizard draft
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("draft_proctored_test");
+      if (stored) {
+        const d = JSON.parse(stored);
+        if (d) {
+          if (d.newTitle) setNewTitle(d.newTitle);
+          if (d.newDate) setNewDate(d.newDate);
+          if (d.newStartTime) setNewStartTime(d.newStartTime);
+          if (d.newEndTime) setNewEndTime(d.newEndTime);
+          if (d.newDuration) setNewDuration(d.newDuration);
+          if (d.newStatus) setNewStatus(d.newStatus);
+          if (d.newAllowedTypes) setNewAllowedTypes(d.newAllowedTypes);
+          if (d.secWebcam !== undefined) setSecWebcam(d.secWebcam);
+          if (d.secFullscreen !== undefined) setSecFullscreen(d.secFullscreen);
+          if (d.secTabSwitch !== undefined) setSecTabSwitch(d.secTabSwitch);
+          if (d.secCopyPaste !== undefined) setSecCopyPaste(d.secCopyPaste);
+          if (d.secMultipleScreens !== undefined) setSecMultipleScreens(d.secMultipleScreens);
+          if (d.secSEB !== undefined) setSecSEB(d.secSEB);
+          setLastSavedExamDraft(d.savedAt || new Date().toLocaleTimeString());
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load test draft", e);
+    }
+  }, []);
+
+  // Auto-save exam wizard draft
+  useEffect(() => {
+    if (typeof window === "undefined" || viewState !== "wizard") return;
+    if (!newTitle) return;
+    setIsSavedExamDraft(false);
+    const timer = setTimeout(() => {
+      try {
+        const d = {
+          newTitle, newDate, newStartTime, newEndTime, newDuration, newStatus, newAllowedTypes,
+          secWebcam, secFullscreen, secTabSwitch, secCopyPaste, secMultipleScreens, secSEB,
+          savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        };
+        localStorage.setItem("draft_proctored_test", JSON.stringify(d));
+        setIsSavedExamDraft(true);
+        setLastSavedExamDraft(d.savedAt);
+      } catch (e) {
+        console.warn("Auto-save exam failed", e);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [newTitle, newDate, newStartTime, newEndTime, newDuration, newStatus, newAllowedTypes, secWebcam, secFullscreen, secTabSwitch, secCopyPaste, secMultipleScreens, secSEB, viewState]);
 
   const filtered = tests.filter((t) => {
     const matchesSearch = t.title.toLowerCase().includes(search.toLowerCase());
@@ -144,7 +183,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     return matchesSearch && matchesStatus;
   });
 
-  const handleCreateTest = (e: React.FormEvent) => {
+  const handleCreateTest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle) return;
 
@@ -171,12 +210,29 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       allowedQuestionTypes: newAllowedTypes
     };
 
+    try {
+      const res = await fetch("/api/admin/tests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test: newExam })
+      });
+      const data = await res.json();
+      if (data.test) {
+        newExam.id = data.test.id;
+      }
+    } catch (err) {
+      console.error("Failed to save test to API", err);
+    }
+
     setTests((prev) => [newExam, ...prev]);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("draft_proctored_test");
+    }
     setViewState("list");
     setNewTitle("");
     toast({
       title: "Proctored Exam Created",
-      description: `"${newTitle}" has been created. You can now add questions and assign it.`,
+      description: `"${newTitle}" has been created and saved.`,
     });
   };
 
@@ -199,6 +255,12 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       maxMarks: (selectedTest.maxMarks || 0) + manualQuestionMarks,
       questions: [...(selectedTest.questions || []), newQ]
     };
+
+    fetch("/api/admin/tests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ test: updatedTest })
+    }).catch(err => console.error("Failed to update test question", err));
 
     setTests(prev => prev.map(t => t.id === selectedTest.id ? updatedTest : t));
     setSelectedTest(updatedTest);
@@ -224,8 +286,13 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     toast({ title: "Section Created", description: `Added section: ${newSectionTitle.trim()}` });
   };
 
-  const handleDeleteTest = (id: string, title: string) => {
+  const handleDeleteTest = async (id: string, title: string) => {
     setTests((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await fetch(`/api/admin/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    } catch (err) {
+      console.error("Failed to delete test", err);
+    }
     toast({
       title: "Exam Cancelled",
       description: `${title} removed from schedule.`,
@@ -235,85 +302,73 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   const openAssignModal = (test: ScheduledTest) => {
     setAssigningTest(test);
-    setSelectedBatches(test.assignedBatches || []);
+    const assigned = test.assignedBatches || [];
+    const common = test.isCommon !== undefined ? test.isCommon : assigned.length === 0;
+    setIsCommon(common);
+    setSelectedBatches(common ? [] : assigned);
   };
 
-  const handleSaveAssignments = () => {
+  const handleSaveAssignments = async () => {
     if (!assigningTest) return;
-    setTests(prev => prev.map(t => 
-      t.id === assigningTest.id ? { 
-        ...t, 
-        assignedBatches: selectedBatches,
-        batch: selectedBatches.length > 0 ? (selectedBatches[0] ?? "Unassigned") : "Unassigned",
-        totalEnrolled: 0 // Will be populated dynamically later
-      } : t
-    ));
+    const updatedTest = { 
+      ...assigningTest,
+      isCommon,
+      assignedBatches: isCommon ? [] : selectedBatches,
+      batch: isCommon ? "Common (All Batches)" : selectedBatches.join(", ") || "Unassigned",
+    };
+
+    try {
+      await fetch("/api/admin/tests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test: updatedTest })
+      });
+    } catch (err) {
+      console.error("Failed to save assignments", err);
+    }
+
+    setTests(prev => prev.map(t => t.id === assigningTest.id ? updatedTest : t));
     setAssigningTest(null);
-    toast({ title: "Exam Assigned", description: `Assigned to ${selectedBatches.length} batches.` });
+    toast({
+      title: "Exam Visibility Updated",
+      description: `Exam configured as ${isCommon ? "Common (All Students)" : `${selectedBatches.length} batch(es)`}.`,
+    });
   };
 
   const renderAssignmentModal = () => {
     if (!assigningTest) return null;
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <Card className="w-full max-w-lg bg-white dark:bg-[#18181B] border-none shadow-2xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+        <Card className="w-full max-w-xl bg-white dark:bg-[#18181B] border-none shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
           <div className="p-5 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-between items-center">
             <div>
-              <h2 className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Exam</h2>
-              <p className="text-xs text-[#6B7280] mt-0.5">Select batches to take "{assigningTest.title}"</p>
+              <h2 className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Exam Visibility</h2>
+              <p className="text-xs text-[#6B7280] mt-0.5">Configure access for &quot;{assigningTest.title}&quot;</p>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-[#E5E7EB]" onClick={() => setAssigningTest(null)}>
-              X
+              ✕
             </Button>
           </div>
           
           <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Select Batches</h4>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs font-bold text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10"
-                onClick={() => {
-                  if (selectedBatches.length === allBatches.length) {
-                    setSelectedBatches([]);
-                  } else {
-                    setSelectedBatches([...allBatches]);
-                  }
-                }}
-              >
-                {selectedBatches.length === allBatches.length ? "Deselect All" : "Select All Batches (Assign to Everyone)"}
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {allBatches.map(batch => {
-                const isSelected = selectedBatches.includes(batch);
-                return (
-                  <div 
-                    key={batch} 
-                    onClick={() => {
-                      if (isSelected) setSelectedBatches(prev => prev.filter(b => b !== batch));
-                      else setSelectedBatches(prev => [...prev, batch]);
-                    }}
-                    className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                      isSelected 
-                        ? 'border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20' 
-                        : 'border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF]'
-                    }`}
-                  >
-                    <span className={`text-xs font-bold ${isSelected ? 'text-[#2563EB] dark:text-[#60A5FA]' : 'text-[#4B5563] dark:text-[#D4D4D8]'}`}>
-                      {batch}
-                    </span>
-                    {isSelected && <Check className="h-4 w-4 text-[#2563EB] dark:text-[#60A5FA]" />}
-                  </div>
-                );
-              })}
-            </div>
+            <VisibilitySelector
+              isCommon={isCommon}
+              selectedBatches={selectedBatches}
+              batches={allBatches.map(b => typeof b === "string" ? { id: b, name: b } : b)}
+              onChange={({ isCommon: c, selectedBatches: b }) => {
+                setIsCommon(c);
+                setSelectedBatches(b);
+              }}
+            />
           </div>
 
           <div className="p-4 border-t border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setAssigningTest(null)} className="h-9 text-xs font-bold">Cancel</Button>
-            <Button onClick={handleSaveAssignments} className="h-9 text-xs font-bold bg-[#2563EB] hover:bg-[#1D4ED8] text-white">Save Assignments</Button>
+            <Button variant="outline" onClick={() => setAssigningTest(null)} className="h-9 text-xs font-bold rounded-xl">
+              Cancel
+            </Button>
+            <Button onClick={handleSaveAssignments} className="h-9 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl shadow-md shadow-[#2563EB]/20">
+              Save Visibility Configuration
+            </Button>
           </div>
         </Card>
       </div>
@@ -324,15 +379,18 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   if (viewState === "wizard") {
     return (
-      <div className="space-y-6 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-          <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs">
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">Create New Proctored Exam</h1>
-            <p className="text-xs text-[#6B7280]">Define basics and security rules. You can add questions later.</p>
+      <div className="space-y-6 w-full">
+        <div className="flex items-center justify-between gap-3 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex-wrap">
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setViewState("list")} variant="outline" size="sm" className="h-9 font-bold text-xs">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">Create New Proctored Exam</h1>
+              <p className="text-xs text-[#6B7280]">Define basics and security rules. You can add questions later.</p>
+            </div>
           </div>
+          <AutoSaveBadge isSaved={isSavedExamDraft} lastSaved={lastSavedExamDraft} />
         </div>
 
         <form onSubmit={handleCreateTest} className="space-y-6">
@@ -431,7 +489,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   if (viewState === "exam-dashboard" && selectedTest) {
     return (
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="space-y-6 w-full">
         <PageHeader
           title={selectedTest.title}
           description={`Exam Dashboard • ${selectedTest.totalQuestions} Questions • ${selectedTest.maxMarks} Marks Total`}
@@ -567,7 +625,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   if (viewState === "add-question" && selectedTest) {
     return (
-      <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="space-y-6 w-full">
         <PageHeader
           title="Build New Question"
           description={
@@ -819,7 +877,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                       >
                         Manage Exam
                       </Button>
-                      <Button onClick={() => handleDeleteTest(t.id, t.title)} variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626] opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button onClick={() => handleDeleteTest(t.id, t.title)} variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626] hover:bg-red-500/10 rounded-lg transition-colors" title="Delete Exam">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

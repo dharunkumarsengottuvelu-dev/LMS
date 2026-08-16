@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, Component, ErrorInfo, ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Component, ErrorInfo, ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { loader } from "@monaco-editor/react";
 import {
@@ -82,6 +82,7 @@ interface CodeEditorProps {
   submissionResult?: CodingSubmission | null;
   problem?: CodingProblem;
   onSubmit?: (code: string, language: CodingLanguage) => Promise<void>;
+  onCodeChange?: (code: string, language: CodingLanguage) => void;
   isSubmitting?: boolean;
   readOnly?: boolean;
   showQuestionToggle?: boolean;
@@ -98,6 +99,7 @@ export function CodeEditor({
   problem,
   submissionResult,
   onSubmit,
+  onCodeChange,
   isSubmitting = false,
   readOnly = false,
   showQuestionToggle = false,
@@ -121,7 +123,30 @@ export function CodeEditor({
   const [showConsole, setShowConsole] = useState(false);
   const [useFallbackTextarea, setUseFallbackTextarea] = useState(false);
   const [dbLanguages, setDbLanguages] = useState<{id: string, name: string}[]>([]);
+  const consoleRef = useRef<HTMLDivElement>(null);
+  const consoleContentRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const handleTabClick = (tab: "testcases" | "testresult" | "customtest") => {
+    setActiveTab(tab);
+    setShowConsole(true);
+    setTimeout(() => {
+      consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      if (consoleContentRef.current) {
+        consoleContentRef.current.scrollTop = 0;
+      }
+    }, 60);
+  };
+
+  const handleConsoleToggle = () => {
+    const nextState = !showConsole;
+    setShowConsole(nextState);
+    if (nextState) {
+      setTimeout(() => {
+        consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 60);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/compiler/languages?enabled=true")
@@ -141,6 +166,12 @@ export function CodeEditor({
     if (submissionResult) {
       setActiveTab("testresult");
       setShowConsole(true);
+      setTimeout(() => {
+        consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        if (consoleContentRef.current) {
+          consoleContentRef.current.scrollTop = 0;
+        }
+      }, 80);
     }
   }, [submissionResult]);
 
@@ -158,14 +189,14 @@ export function CodeEditor({
         setLanguage(currentLang);
         return;
       }
-      const template = problem.templates?.[currentLang] || "";
-      setCode(template);
+      const initialCode = defaultCode !== undefined ? defaultCode : (problem.templates?.[currentLang] || "");
+      setCode(initialCode);
       if (problem.sample_input !== undefined) {
         setStdin(problem.sample_input);
       }
       setOutput(null);
     }
-  }, [problem?.id]);
+  }, [problem?.id, defaultCode]);
 
   useEffect(() => {
     const handleScriptEventError = (event: ErrorEvent | Event) => {
@@ -269,7 +300,14 @@ export function CodeEditor({
         const result = await response.json();
         setMultiOutput(result);
       }
+      setShowConsole(true);
       setActiveTab(activeTab === "customtest" ? "customtest" : "testcases");
+      setTimeout(() => {
+        consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        if (consoleContentRef.current) {
+          consoleContentRef.current.scrollTop = 0;
+        }
+      }, 80);
     } catch (error) {
       const msg = getErrorMessage(error);
       toast({ title: "Run failed", description: msg, variant: "destructive" });
@@ -281,6 +319,11 @@ export function CodeEditor({
   const handleSubmit = async () => {
     if (onSubmit) {
       try {
+        setShowConsole(true);
+        setActiveTab("testresult");
+        setTimeout(() => {
+          consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 80);
         await onSubmit(code, language);
       } catch (err) {
         const msg = getErrorMessage(err);
@@ -308,12 +351,13 @@ export function CodeEditor({
   return (
     <div
       className={cn(
-        "flex flex-col overflow-hidden bg-white",
+        "flex flex-col overflow-hidden bg-white w-full",
         isFillMode ? "h-full" : "border border-gray-200 rounded-xl"
       )}
+      style={!isFillMode ? { height: height || "600px", minHeight: height || "600px" } : { height: "100%", minHeight: "550px" }}
     >
       {/* ── Top Pane: Code Editor ── */}
-      <div className="flex flex-col flex-[3] min-h-0 border-b border-gray-200">
+      <div className="flex flex-col flex-[3] min-h-[340px] border-b border-gray-200">
         {/* Editor Toolbar */}
         <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200 shrink-0">
            <div className="text-xs font-bold text-gray-700 flex items-center gap-2">
@@ -323,13 +367,13 @@ export function CodeEditor({
                </Button>
              )}
              <span className="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span>
-             Code Editor
+             <span>Code Editor</span>
            </div>
            
            <div className="flex items-center gap-2">
              {allowedLanguages.length > 1 ? (
                <Select value={language} onValueChange={(v) => handleLanguageChange(v as CodingLanguage)}>
-                 <SelectTrigger className="h-7 w-[140px] text-[11px] border-gray-300 bg-white text-gray-700">
+                 <SelectTrigger className="h-7 w-[125px] text-[11px] border-gray-300 bg-white text-gray-700">
                    <SelectValue />
                  </SelectTrigger>
                  <SelectContent>
@@ -341,7 +385,7 @@ export function CodeEditor({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="h-7 px-3 flex items-center justify-center text-[11px] border border-gray-300 bg-gray-50 text-gray-700 rounded-md font-medium">
+                <div className="h-7 px-2.5 flex items-center justify-center text-[11px] border border-gray-300 bg-gray-50 text-gray-700 rounded-md font-medium">
                   {dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language}
                 </div>
               )}
@@ -353,8 +397,36 @@ export function CodeEditor({
                onClick={handleReset}
                title="Reset to template"
              >
-               <RotateCcw className="h-3 w-3" />
+               <RotateCcw className="h-3.5 w-3.5" />
              </Button>
+
+             {/* Run Code Button */}
+             <Button
+               size="sm"
+               className="h-7 px-3 text-[11px] font-bold bg-[#16A34A] hover:bg-[#15803D] text-white gap-1 rounded-lg shadow-xs"
+               onClick={() => handleRun()}
+               disabled={isRunning || readOnly}
+             >
+               {isRunning ? (
+                 <Loader2 className="h-3 w-3 animate-spin" />
+               ) : (
+                 <Play className="h-3 w-3 fill-current" />
+               )}
+               {isRunning ? "Running..." : "Run Code"}
+             </Button>
+
+             {/* Submit Button */}
+             {showSubmit && onSubmit && (
+               <Button
+                 size="sm"
+                 className="h-7 px-3 text-[11px] font-bold bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1 rounded-lg shadow-xs"
+                 onClick={() => handleSubmit()}
+                 disabled={isSubmitting || readOnly}
+               >
+                 {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                 {isSubmitting ? "Submitting..." : "Submit"}
+               </Button>
+             )}
 
              {showNavigatorToggle && onToggleNavigator && (
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-blue-600" onClick={onToggleNavigator} title="Show Question Navigator">
@@ -365,7 +437,7 @@ export function CodeEditor({
         </div>
 
         {/* Monaco Editor */}
-        <div className="flex-1 min-h-0 relative">
+        <div className="flex-1 min-h-[300px] relative">
             {language === "sql" ? (
               <SQLEditor
                 datasetName={problem?.dataset_name ?? "university"}
@@ -433,29 +505,34 @@ export function CodeEditor({
               <MonacoErrorBoundary fallback={
                 <textarea
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  onChange={(e) => {
+                    setCode(e.target.value);
+                    onCodeChange?.(e.target.value, language);
+                  }}
                   className="w-full h-full font-mono text-sm p-4 resize-none bg-white"
                 />
               }>
                 <MonacoEditor
                   language={language === "cpp" ? "cpp" : language === "csharp" ? "csharp" : language}
                   value={code}
-                  onChange={(v) => !readOnly && setCode(v ?? "")}
+                  onChange={(v) => {
+                    if (!readOnly) {
+                      setCode(v ?? "");
+                      onCodeChange?.(v ?? "", language);
+                    }
+                  }}
                   theme="vs"
                   onMount={() => setUseFallbackTextarea(false)}
                   height="100%"
                   options={{
                     fontSize: 14,
                     fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                    fontLigatures: true,
                     minimap: { enabled: false },
                     scrollBeyondLastLine: false,
                     lineNumbers: "on",
-                    renderLineHighlight: "line",
                     tabSize: 2,
                     readOnly,
                     wordWrap: "on",
-                    formatOnPaste: true,
                     automaticLayout: true,
                     padding: { top: 12, bottom: 12 },
                   }}
@@ -470,14 +547,14 @@ export function CodeEditor({
         {/* Tabs for Bottom Pane */}
         <div className="flex items-center space-x-1 py-1">
           <button
-            onClick={() => setShowConsole(!showConsole)}
+            onClick={handleConsoleToggle}
             className="px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors shrink-0 rounded-md hover:bg-muted-foreground/10"
           >
             Console
             {showConsole ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
           </button>
           
-          {showConsole && (["testcases", "testresult", "customtest"] as const).map((tab) => {
+          {(["testcases", "testresult", "customtest"] as const).map((tab) => {
             const labels: Record<string, string> = {
               testcases: "Sample Testcases",
               testresult: "Test Result",
@@ -486,10 +563,10 @@ export function CodeEditor({
             return (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => handleTabClick(tab)}
                 className={cn(
                   "px-3 py-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0 rounded-md",
-                  activeTab === tab
+                  showConsole && activeTab === tab
                     ? "bg-white text-blue-600 shadow-sm border border-gray-200"
                     : "bg-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                 )}
@@ -499,43 +576,14 @@ export function CodeEditor({
             );
           })}
         </div>
-        
-        {/* Run / Submit Actions */}
-        <div className="flex items-center gap-2 pl-4 py-1 shrink-0">
-           <Button
-             size="sm"
-             className="h-7 px-4 text-[11px] font-bold bg-green-500 hover:bg-green-600 text-white gap-1 rounded-md"
-             onClick={() => handleRun()}
-             disabled={isRunning || readOnly}
-           >
-             {isRunning ? (
-               <Loader2 className="h-3 w-3 animate-spin" />
-             ) : (
-               <Play className="h-3 w-3" />
-             )}
-             {isRunning ? "Running..." : "Run Code"}
-           </Button>
-
-           {showSubmit && onSubmit && (
-             <Button
-               size="sm"
-               className="h-7 px-4 text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white gap-1 rounded-md"
-               onClick={() => handleSubmit()}
-               disabled={isSubmitting || readOnly}
-             >
-               {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-               {isSubmitting ? "Submitting..." : "Submit"}
-             </Button>
-           )}
-        </div>
       </div>
 
       {/* ── Bottom Pane: Test Console ── */}
       {showConsole && (
-        <div className="flex flex-col flex-[2] min-h-0 bg-card overflow-hidden relative">
+        <div ref={consoleRef} className="flex flex-col flex-[2] min-h-0 bg-card overflow-hidden relative">
         
         {activeTab === "testresult" && (
-        <div className="flex-1 overflow-y-auto p-4 bg-white">
+        <div ref={consoleContentRef} className="flex-1 overflow-y-auto p-4 bg-white">
           {submissionResult ? (
             <div className="space-y-4">
                <div className="flex items-center gap-3 flex-wrap">

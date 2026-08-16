@@ -137,7 +137,7 @@ export default function TrainerStudentsPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-[1440px] mx-auto pb-10 mt-[68px] p-6 lg:p-10">
+    <div className="space-y-8 w-full pb-10 mt-[68px] p-6 lg:p-10">
       {/* Top Banner */}
       <PageHeader
         title={

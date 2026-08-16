@@ -37,19 +37,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Fetch test cases securely from Supabase
-    const supabase = createAdminClient();
-    const { data: problem, error: problemError } = await supabase
-      .from("coding_problems")
-      .select("test_cases")
-      .eq("id", problem_id)
-      .single();
+    // 3. Resolve test cases from payload, coding_problems table, or practice_tracks
+    let testCasesToRun: any[] = (body as any).test_cases || (body as any).custom_test_cases || [];
 
-    if (problemError || !problem) {
-      return NextResponse.json(
-        { error: "Problem not found in database." },
-        { status: 404 }
-      );
+    if (testCasesToRun.length === 0) {
+      const supabase = createAdminClient();
+      const { data: problem } = await supabase
+        .from("coding_problems")
+        .select("test_cases")
+        .eq("id", problem_id)
+        .maybeSingle();
+
+      if (problem && problem.test_cases) {
+        testCasesToRun = problem.test_cases;
+      } else {
+        // Search in practice_tracks
+        const { data: tracks } = await supabase.from("practice_tracks").select("tags");
+        (tracks || []).forEach((t: any) => {
+          if (t.tags && t.tags[0]) {
+            try {
+              const meta = JSON.parse(t.tags[0]);
+              (meta.subModules || []).forEach((sm: any) => {
+                (sm.codingQuestions || []).forEach((cq: any) => {
+                  if (cq.id === problem_id || `${sm.id}_${cq.id}` === problem_id) {
+                    testCasesToRun = [
+                      ...(cq.publicTestCases || []),
+                      ...(cq.hiddenTestCases || [])
+                    ];
+                  }
+                });
+              });
+            } catch {}
+          }
+        });
+      }
+    }
+
+    if (testCasesToRun.length === 0) {
+      testCasesToRun = [
+        {
+          id: "tc_default",
+          input: "",
+          expected_output: "",
+          is_hidden: false
+        }
+      ];
     }
 
     // 4. Submit solution for automated evaluation against public & hidden test cases
@@ -57,7 +89,7 @@ export async function POST(request: NextRequest) {
       problem_id,
       language,
       code,
-      test_cases: problem.test_cases
+      test_cases: testCasesToRun
     });
 
     return NextResponse.json(submission, { status: 200 });
