@@ -1,3 +1,120 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Calendar, Clock, ShieldCheck, Play, CheckCircle2, AlertCircle,
+  FileCheck, Shield, ArrowRight, Eye, UserCheck, Lock, MonitorCheck, CopyX, Maximize, ArrowLeft, Camera, RefreshCw, X
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+
+interface ProctoringConfig {
+  enabled: boolean;
+  webcamTracking: boolean;
+  tabSwitchLock: boolean;
+  fullscreenLock: boolean;
+  safeExamBrowserRequired: boolean;
+  copyPasteRestricted: boolean;
+  assignedBy: "Admin" | "Trainer";
+  assignedByName: string;
+}
+
+interface ScheduledAssessment {
+  id: string;
+  title: string;
+  type: string;
+  scheduledAt: string;
+  duration: number; // in minutes
+  totalQuestions: number;
+  totalMarks: number;
+  status: "live" | "upcoming" | "completed";
+  proctoring: ProctoringConfig;
+  score?: number;
+  maxScore?: number;
+  passed?: boolean;
+}
+
+export default function StudentAssessmentsPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("all");
+  const [assessments, setAssessments] = useState<ScheduledAssessment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Modals for distinct card actions
+  const [selectedLobbyTest, setSelectedLobbyTest] = useState<ScheduledAssessment | null>(null);
+  const [isLobbyOpen, setIsLobbyOpen] = useState(false);
+
+  const [selectedUpcomingTest, setSelectedUpcomingTest] = useState<ScheduledAssessment | null>(null);
+  const [isUpcomingModalOpen, setIsUpcomingModalOpen] = useState(false);
+
+  // Candidate Reference Photo Verification state & camera stream
+  const [referencePhoto, setReferencePhoto] = useState<string | null>(null);
+  const [lobbyStream, setLobbyStream] = useState<MediaStream | null>(null);
+  const [lobbyCameraError, setLobbyCameraError] = useState<string | null>(null);
+  const lobbyVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    async function loadAssessments() {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/student/tests");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.tests && Array.isArray(data.tests)) {
+            setAssessments(data.tests);
+          }
+        }
+      } catch (err: any) {
+        console.error("Failed to load student assessments:", err);
+        toast({
+          title: "Error Loading Assessments",
+          description: err.message || "Failed to retrieve your scheduled assessments.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadAssessments();
+  }, [toast]);
+
+  // Sync completed test scores from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");
+        if (Object.keys(completedMap).length > 0) {
+          setAssessments((prev) =>
+            prev.map((t) => {
+              if (completedMap[t.id]) {
+                return {
+                  ...t,
+                  status: "completed",
+                  score: completedMap[t.id].score,
+                  passed: completedMap[t.id].score >= 60,
+                };
+              }
+              return t;
+            })
+          );
+        }
+      } catch (e) {
+        console.warn("Could not read completed tests from localStorage:", e);
+      }
+    }
+  }, []);
+
+  // Dedicated Webcam Access Handler for Lobby
+  const startLobbyCamera = async () => {
+    setLobbyCameraError(null);
     try {
       if (typeof window !== "undefined" && navigator.mediaDevices?.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({

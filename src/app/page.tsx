@@ -653,13 +653,13 @@ export default function LandingPage() {
                 We are building more than a training platform. We are building an ecosystem where learners can discover knowledge, develop skills, demonstrate capability, and prepare for the opportunities of tomorrow.
               </p>
               <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
-                <Button className="h-[48px] px-8 bg-white text-primary hover:bg-white/90 font-extrabold rounded-xl shadow-md" asChild>
+                <Button className="h-[48px] px-8 bg-white text-primary hover:bg-white/90 font-extrabold rounded-xl shadow-md transition-all hover:scale-[1.02]" asChild>
                   <Link href="/login">
                     Access FALCON Portal <ArrowRight className="h-4 w-4 ml-2" />
                   </Link>
                 </Button>
-                <Button variant="outline" className="h-[48px] px-8 border-white/30 text-white hover:bg-white/10 font-bold rounded-xl" asChild>
-                  <Link href="/login">Get Started</Link>
+                <Button className="h-[48px] px-8 bg-primary-hover/60 hover:bg-white hover:text-primary text-white border border-white/40 font-extrabold rounded-xl transition-all shadow-sm" asChild>
+                  <Link href="/register">Create Account</Link>
                 </Button>
               </div>
             </div>
