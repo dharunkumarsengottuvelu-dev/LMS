@@ -46,7 +46,7 @@ export function ExamGuardian({
         );
 
         toast({
-          title: "⚠️ Security Violation Detected",
+          title: "Security Violation Detected",
           description: `${reason}. Warning ${nextCount}/${maxViolationsAllowed}. Repeated violations will auto-submit your test.`,
           variant: "destructive",
         });
@@ -63,7 +63,7 @@ export function ExamGuardian({
           );
 
           toast({
-            title: "🚫 Exam Auto-Submitted",
+            title: "Exam Auto-Submitted",
             description: `Test terminated due to ${maxViolationsAllowed} security violations. Your responses have been saved.`,
             variant: "destructive",
           });

@@ -233,7 +233,7 @@ export default function StudentTestsPage() {
       <Button
         variant="outline"
         size="sm"
-        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A]"
+        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] rounded-xl hover:bg-muted"
         onClick={() => router.back()}
       >
         <ArrowLeft className="h-4 w-4" /> Back
@@ -242,9 +242,12 @@ export default function StudentTestsPage() {
       {/* 1. Header */}
       <div className="pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-[36px] font-bold leading-[44px] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.15] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
             Scheduled Tests & Proctored Exams
           </h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-2 font-normal">
+            View your assigned examinations, live proctored assessments, and test schedules
+          </p>
         </div>
       </div>
 

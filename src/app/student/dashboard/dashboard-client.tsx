@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/types";
 
 interface StudentDashboardData {
@@ -26,7 +27,9 @@ interface StudentDashboardData {
   stats: { enrolledCourses: number; completedCourses: number; certificates: number };
 }
 
-function StatCard({ icon: Icon, value, label, href, badgeText }: {
+function StatCard({
+  icon: Icon, value, label, href, badgeText
+}: {
   icon: React.ElementType; value: number; label: string; href: string; badgeText?: string;
 }) {
   return (
@@ -105,11 +108,68 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
     progressPercentage: c.progress || 0,
     nextLesson: c.modules?.[0]?.title || "Module 1 Overview",
     slug: c.slug || c.id,
+    type: "course",
   }));
 
-  const displayEnrolledCount = activeCourses.length;
-  const displayCompletedCount = activeCourses.filter((c: any) => c.progressPercentage === 100).length;
-  const displayAssessmentsCount = storeTracks.length;
+  // Enrich practice tracks with live dynamic progress and in-progress submodule detection
+  const enrichedPracticeTracks = storeTracks.map((track: any) => {
+    const subModules = track.subModules || track.sub_modules || [];
+    let completedCount = 0;
+    let nextSubModuleToContinue: any = null;
+    let hasActiveSession = false;
+
+    subModules.forEach((sm: any, idx: number) => {
+      let isDone = sm.status === "completed";
+      let isInProgress = false;
+
+      if (typeof window !== "undefined") {
+        if (localStorage.getItem(`lms_completed_assessment_${sm.id}`)) {
+          isDone = true;
+        }
+        const session = localStorage.getItem(`lms_practice_session_${sm.id}`);
+        if (session) {
+          try {
+            const parsed = JSON.parse(session);
+            if (
+              (parsed.answers && Object.keys(parsed.answers).length > 0) ||
+              (parsed.codeAnswers && Object.keys(parsed.codeAnswers).length > 0)
+            ) {
+              isInProgress = true;
+              hasActiveSession = true;
+            }
+          } catch {}
+        }
+      }
+
+      if (isDone) {
+        completedCount++;
+      } else if (!nextSubModuleToContinue) {
+        nextSubModuleToContinue = { ...sm, subModuleIndex: idx + 1, isInProgress };
+      }
+    });
+
+    const totalCount = subModules.length || 1;
+    const progressPercentage = Math.round((completedCount / totalCount) * 100);
+    const targetSubModule = nextSubModuleToContinue || subModules[0];
+
+    return {
+      id: track.id,
+      title: track.title,
+      category: track.category || "Practice Track",
+      type: "practice",
+      completedCount,
+      totalCount,
+      progressPercentage,
+      targetSubModule,
+      hasActiveSession,
+      isCompleted: progressPercentage === 100 && totalCount > 0,
+    };
+  });
+
+  const allActiveLearning = [...enrichedPracticeTracks, ...activeCourses];
+  const displayEnrolledCount = activeCourses.length + enrichedPracticeTracks.length;
+  const displayCompletedCount = enrichedPracticeTracks.reduce((acc, t) => acc + t.completedCount, 0);
+  const displayAssessmentsCount = enrichedPracticeTracks.length;
   const displayUnreadNotifications = 0;
 
   return (
@@ -117,18 +177,18 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
       {/* 1. Welcome Banner Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border animate-fade-up">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-foreground">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.15] tracking-tight text-foreground">
             Welcome back, {firstName}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1.5 font-medium">
-            Track your active courses, practice modules, and upcoming proctored evaluations.
+          <p className="text-sm sm:text-base text-muted-foreground mt-2 font-normal">
+            Track your active courses, practice modules, and ongoing technical learning tracks.
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
           <Button className="h-[44px] px-6 gap-2" asChild>
-            <Link href="/student/my-courses">
-              <BookOpen className="h-4 w-4" /> My Courses Catalog
+            <Link href="/student/practices">
+              <Code2 className="h-4 w-4" /> Practice Hub
             </Link>
           </Button>
           <Button variant="outline" className="h-[44px] px-5 gap-2" asChild>
@@ -141,82 +201,130 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
 
       {/* 2. Statistics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-up stagger-1">
-        <StatCard icon={BookOpen} value={displayEnrolledCount} label="Enrolled Courses" href="/student/my-courses" badgeText="Active" />
-        <StatCard icon={CheckCircle2} value={displayCompletedCount} label="Completed Lessons" href="/student/my-courses" badgeText="100% Verified" />
-        <StatCard icon={ClipboardList} value={displayAssessmentsCount} label="Active Practice Modules" href="/student/assessments" badgeText="In Progress" />
+        <StatCard icon={Code2} value={enrichedPracticeTracks.length} label="Active Practice Tracks" href="/student/practices" badgeText="Assigned" />
+        <StatCard icon={CheckCircle2} value={displayCompletedCount} label="Completed Modules" href="/student/practices" badgeText="Verified" />
+        <StatCard icon={BookOpen} value={activeCourses.length} label="Enrolled Courses" href="/student/my-courses" badgeText="Catalog" />
         <StatCard icon={Bell} value={displayUnreadNotifications} label="Unread Notifications" href="/student/dashboard" badgeText="New Alerts" />
       </div>
 
       {/* 3. Main Workspace Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fade-up stagger-2">
         
-        {/* LEFT COLUMN: Continue Learning (8 cols) */}
+        {/* LEFT COLUMN: Continue Learning & Practices (8 cols) */}
         <div className="lg:col-span-8 space-y-6">
           <Card className="bg-card border-border shadow-card">
             <CardHeader className="p-6 pb-4 border-b border-border flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-lg font-bold text-foreground">
-                  Continue Learning
+                  Continue Learning & Practice
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground mt-1 font-medium">
-                  Pick up right where you left off in your ongoing technical tracks
+                  Pick up right where you left off in your ongoing technical tracks and coding exercises
                 </CardDescription>
               </div>
 
               <Button variant="ghost" size="sm" className="text-xs font-semibold text-primary" asChild>
-                <Link href="/student/my-courses">View All ({activeCourses.length}) →</Link>
+                <Link href="/student/practices">View All Tracks ({enrichedPracticeTracks.length}) →</Link>
               </Button>
             </CardHeader>
 
             <CardContent className="p-6 space-y-4">
-              {activeCourses.length === 0 ? (
+              {allActiveLearning.length === 0 ? (
                 <div className="py-8 text-center space-y-3">
-                  <BookOpen className="h-10 w-10 text-primary mx-auto opacity-80" />
-                  <p className="text-sm font-semibold text-foreground">No Active Courses Enrolled</p>
+                  <Code2 className="h-10 w-10 text-primary mx-auto opacity-80" />
+                  <p className="text-sm font-semibold text-foreground">No Active Practices or Courses Assigned</p>
                   <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                    Courses created or assigned in the Admin or Trainer panel will appear here automatically.
+                    Practice tracks and courses assigned by your Trainer or Admin will appear here automatically.
                   </p>
+                  <Button variant="outline" size="sm" className="mt-2" asChild>
+                    <Link href="/student/practices">Explore Practice Hub</Link>
+                  </Button>
                 </div>
               ) : (
-                activeCourses.map((course) => (
-                  <div
-                    key={course.id}
-                    className="p-5 bg-background rounded-[var(--radius-xl)] border border-border flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-primary/40 transition-all shadow-sm"
-                  >
-                    <div className="space-y-2 min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px] font-bold text-primary border-primary/30 bg-primary/5">
-                          {course.category}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground font-medium">
-                          Lesson {course.completedLessons}/{course.totalLessons}
-                        </span>
-                      </div>
+                allActiveLearning.map((item: any) => {
+                  if (item.type === "practice") {
+                    const isInProgress = (item.progressPercentage > 0 && item.progressPercentage < 100) || item.hasActiveSession;
+                    const isDone = item.isCompleted;
 
-                      <h3 className="text-base font-bold text-foreground leading-snug">
-                        {course.title}
-                      </h3>
+                    return (
+                      <div
+                        key={`track-${item.id}`}
+                        className="p-4 bg-background rounded-2xl border border-border flex items-center justify-between gap-4 hover:border-primary/40 transition-all shadow-xs group"
+                      >
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div>
+                            <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-border text-muted-foreground bg-muted/40">
+                              {item.category}
+                            </Badge>
+                          </div>
 
-                      <p className="text-xs text-muted-foreground font-medium">
-                        Next Topic: <strong className="text-foreground">{course.nextLesson}</strong>
-                      </p>
+                          <h3 className="text-sm md:text-base font-bold text-foreground truncate">
+                            {item.title}
+                          </h3>
 
-                      <div className="space-y-1.5 pt-1 max-w-md">
-                        <div className="flex justify-between text-[11px] font-medium">
-                          <span className="text-muted-foreground">Course Progress</span>
-                          <span className="text-primary">{course.progressPercentage}%</span>
+                          <div className="flex items-center gap-2.5 text-xs text-muted-foreground pt-0.5">
+                            <span>{item.completedCount}/{item.totalCount} Modules</span>
+                            <span>•</span>
+                            <span className={isDone ? "text-[#16A34A] font-bold" : isInProgress ? "text-[#F59E0B] font-bold" : "text-foreground font-semibold"}>
+                              {item.progressPercentage}% Completed
+                            </span>
+                          </div>
                         </div>
-                        <Progress value={course.progressPercentage} className="h-1.5 bg-border" />
-                      </div>
-                    </div>
 
-                    <Button className="h-[40px] px-5 text-xs gap-1.5 shrink-0" asChild>
-                      <Link href={`/student/course/${course.slug}`}>
-                        Resume <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </Button>
-                  </div>
-                ))
+                        <div className="shrink-0 flex items-center gap-3">
+                          <Button
+                            size="sm"
+                            className={`h-9 px-4 text-xs font-bold gap-1.5 rounded-xl shadow-xs ${
+                              isDone
+                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                : isInProgress
+                                ? "bg-amber-600 hover:bg-amber-700 text-white"
+                                : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                            }`}
+                            asChild
+                          >
+                            <Link href={`/student/practices/${item.id}`}>
+                              <Play className="h-3 w-3 fill-current" />
+                              {isDone ? "Review" : isInProgress ? "Continue" : "Start"}
+                            </Link>
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Render Course
+                  return (
+                    <div
+                      key={`course-${item.id}`}
+                      className="p-4 bg-background rounded-2xl border border-border flex items-center justify-between gap-4 hover:border-primary/40 transition-all shadow-xs"
+                    >
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div>
+                          <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-border text-muted-foreground bg-muted/40">
+                            {item.category}
+                          </Badge>
+                        </div>
+
+                        <h3 className="text-sm md:text-base font-bold text-foreground truncate">
+                          {item.title}
+                        </h3>
+
+                        <div className="flex items-center gap-2.5 text-xs text-muted-foreground pt-0.5">
+                          <span>Course</span>
+                          <span>•</span>
+                          <span className="text-primary font-bold">{item.progressPercentage}% Progress</span>
+                        </div>
+                      </div>
+
+                      <Button size="sm" className="h-9 px-4 text-xs font-bold gap-1.5 shrink-0 rounded-xl" asChild>
+                        <Link href={`/student/course/${item.slug}`}>
+                          Resume <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </Button>
+                    </div>
+                  );
+                })
               )}
             </CardContent>
           </Card>
@@ -277,23 +385,23 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-2 text-xs">
+              <Link href="/student/practices" className="flex items-center justify-between p-3 rounded-[var(--radius-lg)] bg-background hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all font-semibold text-foreground">
+                <span className="flex items-center gap-2">
+                  <Code2 className="h-4 w-4 text-primary" /> Practice Tracks Hub
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+
               <Link href="/student/assessments" className="flex items-center justify-between p-3 rounded-[var(--radius-lg)] bg-background hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all font-semibold text-foreground">
                 <span className="flex items-center gap-2">
-                  <ClipboardList className="h-4 w-4 text-primary" /> Practice Modules Hub
+                  <ClipboardList className="h-4 w-4 text-[#2563EB]" /> Scheduled Assessments
                 </span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </Link>
 
               <Link href="/student/assignments" className="flex items-center justify-between p-3 rounded-[var(--radius-lg)] bg-background hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all font-semibold text-foreground">
                 <span className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-[#16A34A]" /> Assignments Portal
-                </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-
-              <Link href="/student/tests" className="flex items-center justify-between p-3 rounded-[var(--radius-lg)] bg-background hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all font-semibold text-foreground">
-                <span className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-[#9333EA]" /> Proctored Tests Hub
+                  <FileText className="h-4 w-4 text-[#16A34A]" /> Submissions Portal
                 </span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </Link>

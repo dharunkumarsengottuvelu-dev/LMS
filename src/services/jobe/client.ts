@@ -164,16 +164,24 @@ export class JobeService {
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        return this.createErrorResult(`Jobe execution service returned HTTP ${response.status}`, response.status);
+      if (response.ok) {
+        const jobeResult = (await response.json()) as JobeRunResult;
+        return this.normalizeResult(jobeResult);
       }
-
-      const jobeResult = (await response.json()) as JobeRunResult;
-      return this.normalizeResult(jobeResult);
+      
+      console.warn(`Jobe execution service returned HTTP ${response.status}, falling back to local compiler engine.`);
     } catch (error: unknown) {
       clearTimeout(timeoutId);
-      const msg = getErrorMessage(error);
-      return this.createErrorResult(`Jobe execution server unreachable: ${msg}`, 503);
+      console.warn("Jobe execution server unreachable, seamlessly executing via local compiler engine:", getErrorMessage(error));
+    }
+
+    // Seamless automatic fallback to local compiler runtime
+    try {
+      const { LocalCompilerService } = await import("@/services/local-compiler.service");
+      return await LocalCompilerService.execute(language, code, stdin ?? "", (limits?.timeLimit ?? 5) * 1000);
+    } catch (localErr) {
+      const msg = getErrorMessage(localErr);
+      return this.createErrorResult(`Execution failed: ${msg}`, 500);
     }
   }
 

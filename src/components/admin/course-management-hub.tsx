@@ -599,8 +599,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         {/* STEP 1: METADATA */}
         {wizardStep === 1 && (
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm space-y-6">
-            <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
-              <BookOpen className="h-4 w-4 text-[#2563EB]" /> Course Overview & Identity
+            <h2 className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA] uppercase tracking-wider">
+              Course Overview & Identity
             </h2>
 
             <div className="space-y-2">
@@ -1176,15 +1176,14 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
       />
 
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-4">
-        <h2 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-[#2563EB]" /> Course Syllabus ({selectedCourse.modules.length} Lessons)
+        <h2 className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA] uppercase tracking-wider flex items-center justify-between">
+          <span>
+            Course Syllabus ({selectedCourse.modules.length} Lessons)
           </span>
         </h2>
 
         {selectedCourse.modules.length === 0 && (
           <div className="text-center py-12 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[#9CA3AF]">
-            <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-30" />
             <p className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">No modules configured for this course yet.</p>
             <Button onClick={openAddModuleFromSyllabus} size="sm" className="mt-3 bg-[#2563EB] text-white font-semibold text-xs">
               <Plus className="h-3.5 w-3.5 mr-1" /> Add First Module

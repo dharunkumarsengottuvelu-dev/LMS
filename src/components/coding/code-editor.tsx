@@ -750,7 +750,7 @@ export function CodeEditor({
                     output.stderr?.includes("EOFError") ||
                     output.message?.includes("NoSuchElementException")) ? (
                     <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-700 flex items-start gap-2">
-                      <span className="font-bold text-blue-600 shrink-0">💡 Input Notice:</span>
+                      <span className="font-semibold text-blue-600 shrink-0">Input Notice:</span>
                       <span>
                         The program requested input, but Custom Test input is empty. Go to <strong>Custom Testcase</strong> tab and enter input.
                       </span>

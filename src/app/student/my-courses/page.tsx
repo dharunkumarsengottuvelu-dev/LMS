@@ -66,7 +66,7 @@ export default function StudentCoursesPage() {
       <Button
         variant="outline"
         size="sm"
-        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-border"
+        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] rounded-xl hover:bg-muted"
         onClick={() => router.back()}
       >
         <ArrowLeft className="h-4 w-4" /> Back
@@ -75,11 +75,11 @@ export default function StudentCoursesPage() {
       {/* Title */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border animate-fade-up">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-foreground">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.15] tracking-tight text-foreground">
             My Enrolled Courses
           </h1>
-          <p className="text-sm text-muted-foreground mt-1.5 font-medium">
-            Access your active training modules with playable YouTube video lessons and practice labs
+          <p className="text-sm sm:text-base text-muted-foreground mt-2 font-normal">
+            Access your active training modules with playable video lessons and practice labs
           </p>
         </div>
 
@@ -90,14 +90,14 @@ export default function StudentCoursesPage() {
             placeholder="Search my courses..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-[44px] bg-background"
+            className="pl-10 h-[44px] text-xs bg-background"
           />
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="all" onValueChange={setTab} className="animate-fade-up stagger-1">
-        <TabsList className="h-[44px] bg-background border border-border p-1">
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <TabsList className="bg-muted p-1 rounded-xl h-auto">
           <TabsTrigger value="all" className="text-xs font-semibold">
             All Courses ({allCoursesList.length})
           </TabsTrigger>
@@ -113,9 +113,8 @@ export default function StudentCoursesPage() {
       {/* Course Cards Grid */}
       {filteredCourses.length === 0 ? (
         <Card className="bg-card border border-border p-12 text-center rounded-[var(--radius-xl)] animate-fade-up stagger-2 shadow-sm">
-          <BookOpen className="h-12 w-12 text-primary mx-auto mb-4 opacity-80" />
-          <h3 className="text-xl font-bold text-foreground">No Courses Assigned Yet</h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
+          <h3 className="text-lg font-semibold text-foreground">No Courses Assigned Yet</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto mt-1.5 font-normal">
             Courses created or assigned in the Admin or Trainer panel will appear here automatically in real-time.
           </p>
         </Card>

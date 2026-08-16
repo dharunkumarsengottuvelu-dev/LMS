@@ -13,7 +13,7 @@ import { StudentTopNav } from "@/components/layouts/student-top-nav";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
 import type { CodingSubmission, CodingLanguage, TestCaseResult, CodingProblem, TestCase } from "@/types/coding";
-import { SubmissionService, SAMPLE_CODING_PROBLEMS } from "@/services/submission.service";
+import { SAMPLE_CODING_PROBLEMS } from "@/services/coding-problems.service";
 
 type ProblemTab = "statement" | "solution";
 
@@ -158,10 +158,10 @@ export default function StudentCodingIDEPage() {
 
       if (sub.status === "accepted") {
         setAnsweredIds((prev) => new Set([...prev, selectedProblem.id]));
-        toast({ title: "🎉 Accepted!", description: `All ${sub.total_test_cases} test cases passed.` });
+        toast({ title: "Accepted", description: `All ${sub.total_test_cases} test cases passed.` });
       } else {
         toast({
-          title: `❌ ${sub.status.replace("_", " ").toUpperCase()}`,
+          title: sub.status.replace("_", " ").toUpperCase(),
           description: `Passed ${sub.passed_test_cases}/${sub.total_test_cases} test cases.`,
           variant: "destructive",
         });
@@ -261,10 +261,10 @@ export default function StudentCodingIDEPage() {
 
           <Button
             size="sm"
-            className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground hover:-translate-y-0.5 transition-all duration-200 ease-out text-xs font-bold px-5 rounded-lg shadow-sm hover:shadow"
+            className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground hover:-translate-y-0.5 transition-all duration-200 ease-out text-xs font-semibold px-5 rounded-lg shadow-sm hover:shadow"
             onClick={() => toast({ title: "Assessment submitted!", description: "Your answers have been recorded." })}
           >
-            ✓ Submit Assessment
+            Submit Assessment
           </Button>
         </div>
       </div>

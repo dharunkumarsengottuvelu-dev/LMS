@@ -80,7 +80,7 @@ export default function PracticeCodingRunnerPage() {
 
       if (data.status === "accepted" || data.status === "passed") {
         toast({
-          title: "🎉 Practice Problem Solved!",
+          title: "Practice Problem Solved",
           description: `All test cases passed! Score: ${data.score || 100} / ${data.max_score || 100}`,
         });
       } else {

@@ -1405,7 +1405,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                   </div>
                   {csvParsedBatches.length > 0 && (
                     <div className="w-full md:w-64 space-y-2">
-                      <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-xs font-bold px-3 py-1">✓ {csvParsedBatches.length} Batches Detected</Badge>
+                      <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-xs font-semibold px-3 py-1">{csvParsedBatches.length} Batches Detected</Badge>
                       <div className="max-h-40 overflow-y-auto border border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[11px] divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
                         {csvParsedBatches.map((b, i) => (
                           <div key={i} className="p-2.5"><p className="font-bold text-[#111827] dark:text-[#FAFAFA] truncate">{b.batchName}</p><p className="text-[10px] text-[#6B7280] truncate">{b.collegeName}</p></div>
@@ -1522,7 +1522,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                   </div>
                   {csvParsedStudents.length > 0 && (
                     <div className="space-y-2">
-                      <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-xs font-bold px-3 py-1">✓ {csvParsedStudents.length} Students Parsed</Badge>
+                      <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-xs font-semibold px-3 py-1">{csvParsedStudents.length} Students Parsed</Badge>
                       <div className="max-h-48 overflow-y-auto border border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[11px] divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
                         {csvParsedStudents.map((s, i) => (
                           <div key={i} className="p-2.5 flex justify-between items-center">

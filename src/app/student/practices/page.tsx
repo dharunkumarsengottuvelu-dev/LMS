@@ -100,7 +100,7 @@ export default function StudentPracticesPage() {
       <Button
         variant="outline"
         size="sm"
-        className="h-9 px-3.5 text-xs font-semibold gap-1.5"
+        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] rounded-xl hover:bg-muted"
         onClick={() => router.back()}
       >
         <ArrowLeft className="h-4 w-4" /> Back
@@ -109,10 +109,10 @@ export default function StudentPracticesPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-border animate-fade-up">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-foreground">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.15] tracking-tight text-foreground">
             Practice Tracks & Coding Hub
           </h1>
-          <p className="text-sm text-muted-foreground mt-1.5 font-medium">
+          <p className="text-sm sm:text-base text-muted-foreground mt-2 font-normal">
             Access interactive coding IDE practice, algorithmic problem sets, and assigned practice tracks.
           </p>
         </div>
@@ -135,18 +135,23 @@ export default function StudentPracticesPage() {
 
         {filteredTracks.length === 0 ? (
           <Card className="bg-card border border-border p-12 text-center rounded-[var(--radius-xl)] w-full shadow-sm">
-            <Dumbbell className="h-12 w-12 text-primary mx-auto mb-4 opacity-80" />
-            <h3 className="text-xl font-bold text-foreground">No Matching Practice Tracks</h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
+            <h3 className="text-lg font-semibold text-foreground">No Matching Practice Tracks</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto mt-1.5 font-normal">
               Try adjusting your search criteria.
             </p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
             {filteredTracks.map((track) => {
-              const completedCount = track.subModules.filter((m) => m.status === "completed").length;
-              const totalCount = track.subModules.length;
-              const progressPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+              const completedCount = track.subModules.filter((m) => {
+                if (m.status === "completed") return true;
+                if (typeof window !== "undefined") {
+                  return Boolean(localStorage.getItem(`lms_completed_assessment_${m.id}`));
+                }
+                return false;
+              }).length;
+              const totalCount = track.subModules.length || 1;
+              const progressPercentage = Math.round((completedCount / totalCount) * 100);
 
               return (
                 <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-primary/40 transition-all duration-200 bg-card border border-border shadow-sm rounded-[var(--radius-xl)] group">

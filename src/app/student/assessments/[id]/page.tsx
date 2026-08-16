@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { PracticeRunnerEngine, PracticeQuestion } from "@/components/quiz/practice-runner";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, AlertCircle, RefreshCw } from "lucide-react";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Loader2, AlertCircle, RefreshCw, CheckCircle2, RotateCcw, Check, X, Copy } from "lucide-react";
+import { Card, CardContent, CardTitle, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { WaveLoader } from "@/components/ui/wave-loader";
+import { cn } from "@/lib/utils";
 
 interface SubModuleMeta {
   id: string;
@@ -24,8 +25,46 @@ interface SubModuleMeta {
     fullscreenLock: boolean;
     copyPasteRestricted: boolean;
   };
+  allowReviewBeforeSubmit?: boolean;
   mcqSectionTitle?: string;
   codingSectionTitle?: string;
+}
+
+interface CompletedRecord {
+  score: number;
+  bestScore?: number;
+  totalMarks: number;
+  attemptsCount: number;
+  submittedAt: string;
+  timeSpentSeconds?: number;
+  answers?: Record<string, any>;
+}
+
+function formatCompletedDateTime(isoStr?: string): string {
+  if (!isoStr) return "Just now";
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return isoStr;
+  }
+}
+
+function formatDuration(seconds?: number): string {
+  if (!seconds || seconds <= 0) return "Less than 1 min";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins === 0) return `${secs}s`;
+  if (secs === 0) return `${mins}m`;
+  return `${mins}m ${secs}s`;
 }
 
 export default function AssessmentTakePage() {
@@ -41,6 +80,18 @@ export default function AssessmentTakePage() {
   const [currentSubModule, setCurrentSubModule] = useState<SubModuleMeta | null>(null);
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [reviewFilter, setReviewFilter] = useState<"all" | "mcq" | "coding">("all");
+  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+
+  const [completedRecord, setCompletedRecord] = useState<CompletedRecord | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const resStr = localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
+        if (resStr) return JSON.parse(resStr);
+      } catch {}
+    }
+    return null;
+  });
 
   const loadData = async () => {
     if (!subModuleId) {
@@ -49,6 +100,16 @@ export default function AssessmentTakePage() {
     }
     setLoading(true);
     setErrorMsg(null);
+
+    // Check completion status from storage on load
+    if (typeof window !== "undefined") {
+      try {
+        const resStr = localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
+        if (resStr) {
+          setCompletedRecord(JSON.parse(resStr));
+        }
+      } catch {}
+    }
 
     try {
       let targetTrack: any = null;
@@ -182,6 +243,7 @@ export default function AssessmentTakePage() {
           fullscreenLock: Boolean(targetSubModule.enforceFullScreen || targetSubModule.fullscreenLock),
           copyPasteRestricted: Boolean(targetSubModule.restrictCopyPaste || targetSubModule.copyPasteRestricted),
         },
+        allowReviewBeforeSubmit: targetSubModule.allowReviewBeforeSubmit ?? targetTrack?.allowReviewBeforeSubmit ?? true,
         mcqSectionTitle: targetSubModule.mcqSectionTitle || targetSubModule.mcq_section_title || "Section 1: MCQs",
         codingSectionTitle: targetSubModule.codingSectionTitle || targetSubModule.coding_section_title || "Section 2: Coding",
       });
@@ -290,7 +352,10 @@ export default function AssessmentTakePage() {
     loadData();
   }, [subModuleId, trackIdParam]);
 
-  const handleSubmit = async (answers: Record<string, any>) => {
+  const handleSubmit = async (
+    answers: Record<string, any>,
+    meta?: { timeSpentSeconds: number; completedAt: string; timeLeft: number }
+  ) => {
     let obtainedMarks = 0;
     questions.forEach(q => {
       if (q.type === "coding") {
@@ -305,11 +370,17 @@ export default function AssessmentTakePage() {
       }
     });
 
+    const completedAt = meta?.completedAt || new Date().toISOString();
+    const timeSpentSeconds = meta?.timeSpentSeconds ?? 0;
+
+    let attemptsCount = 1;
+    let bestScore = obtainedMarks;
+
     if (typeof window !== "undefined") {
       localStorage.removeItem(`lms_practice_session_${subModuleId}`);
+      localStorage.setItem(`lms_practice_session_${subModuleId}_submitted`, "true");
+      
       const prevCompleted = localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
-      let attemptsCount = 1;
-      let bestScore = obtainedMarks;
       if (prevCompleted) {
         try {
           const parsed = JSON.parse(prevCompleted);
@@ -317,44 +388,65 @@ export default function AssessmentTakePage() {
           bestScore = Math.max(parsed.score || 0, obtainedMarks);
         } catch {}
       }
-      localStorage.setItem(`lms_completed_assessment_${subModuleId}`, JSON.stringify({
+
+      const rec: CompletedRecord = {
         score: obtainedMarks,
         bestScore,
         totalMarks: currentSubModule?.totalMarks || 100,
         attemptsCount,
-        submittedAt: new Date().toISOString()
-      }));
+        submittedAt: completedAt,
+        timeSpentSeconds,
+        answers,
+      };
+
+      localStorage.setItem(`lms_completed_assessment_${subModuleId}`, JSON.stringify(rec));
+      setCompletedRecord(rec);
     }
 
     try {
       await fetch(`/api/student/assessments/${subModuleId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, score: obtainedMarks })
+        body: JSON.stringify({ answers, score: obtainedMarks, completedAt, timeSpentSeconds })
       });
     } catch {}
 
     toast({
-      title: "Practice Completed! 🎉",
+      title: "Practice Completed",
       description: `Your submission has been recorded. Score: ${obtainedMarks} / ${currentSubModule?.totalMarks || 100}`,
     });
-    router.back();
   };
+
+  const handleRetake = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(`lms_completed_assessment_${subModuleId}`);
+      localStorage.removeItem(`lms_practice_session_${subModuleId}`);
+      localStorage.removeItem(`lms_practice_session_${subModuleId}_submitted`);
+    }
+    setCompletedRecord(null);
+  };
+
+  const mcqQuestionsCount = useMemo(() => 
+    questions.filter(q => q.type !== "coding" && q.section !== "coding").length,
+    [questions]
+  );
+
+  const codingQuestionsCount = useMemo(() => 
+    questions.filter(q => q.type === "coding" || q.section === "coding").length,
+    [questions]
+  );
 
   if (loading) {
     return (
-      <div className="flex min-h-[420px] items-center justify-center">
-        <WaveLoader
-          label="Preparing Assessment Environment..."
-          subLabel="Loading questions, test suites and live code execution runtime"
-        />
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-10 w-10 text-[#2563EB] animate-spin" />
       </div>
     );
   }
 
   if (errorMsg || !currentSubModule || questions.length === 0) {
     return (
-      <div className="w-full py-12 space-y-6">
+      <div className="w-full py-12 space-y-6 max-w-7xl mx-auto px-4">
         <Button
           variant="outline"
           size="sm"
@@ -374,6 +466,387 @@ export default function AssessmentTakePage() {
             </Button>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  // If already completed and submitted, show the completed results & question review on full page
+  if (completedRecord) {
+    const isPassed = completedRecord.score >= (currentSubModule.passingMarks || 50);
+    const submittedAnswers = completedRecord.answers || {};
+
+    const filteredQuestions = questions.filter(q => {
+      const isCoding = q.type === "coding" || q.section === "coding";
+      if (reviewFilter === "mcq") return !isCoding;
+      if (reviewFilter === "coding") return isCoding;
+      return true;
+    });
+
+    return (
+      <div className="w-full max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6 animate-in fade-in duration-300">
+        {/* Navigation Bar */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-3 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] rounded-xl hover:bg-muted"
+            onClick={() => {
+              if (trackIdParam) {
+                router.push(`/student/practices/${trackIdParam}`);
+              } else {
+                router.push("/student/practices");
+              }
+            }}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to Practice Track
+          </Button>
+        </div>
+
+        {/* Overview Card */}
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-xs overflow-hidden">
+          <div className="p-6 md:p-8 space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-6 border-b border-[#E5E7EB] dark:border-[#27272A]">
+              <div className="space-y-3 flex-1 min-w-0">
+                <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/20 text-xs font-semibold px-2.5 py-0.5">
+                  Completed
+                </Badge>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[#0F172A] dark:text-[#F8FAFC] leading-[1.15] max-w-4xl">
+                  {currentSubModule.title}
+                </h1>
+                <p className="text-sm sm:text-base text-muted-foreground pt-1 font-normal">
+                  Assigned by <span className="font-semibold text-foreground">{currentSubModule.assignedBy}</span> • {questions.length} Total Questions
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetake}
+                  className="h-9 px-3.5 text-xs font-semibold gap-1.5 rounded-xl border-[#E5E7EB] dark:border-[#27272A] text-foreground hover:bg-muted"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Retake Practice
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (trackIdParam) {
+                      router.push(`/student/practices/${trackIdParam}`);
+                    } else {
+                      router.push("/student/practices");
+                    }
+                  }}
+                  className="h-9 px-4 text-xs font-semibold gap-1.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+
+            {/* Metrics Row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-3 rounded-xl bg-[#F8FAFC] dark:bg-[#1E293B]/50 border border-[#E2E8F0] dark:border-[#334155]">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">Final Score</p>
+                <p className="text-lg font-bold text-[#0F172A] dark:text-[#F8FAFC] mt-0.5">
+                  {completedRecord.score} <span className="text-xs font-medium text-muted-foreground">/ {completedRecord.totalMarks}</span>
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#16A34A]/5 border border-[#16A34A]/20">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#16A34A]">Result Status</p>
+                <p className="text-lg font-bold text-[#16A34A] mt-0.5">
+                  {isPassed ? "Passed" : "Completed"}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#F8FAFC] dark:bg-[#1E293B]/50 border border-[#E2E8F0] dark:border-[#334155]">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">Time Taken</p>
+                <p className="text-lg font-bold text-[#0F172A] dark:text-[#F8FAFC] mt-0.5">
+                  {formatDuration(completedRecord.timeSpentSeconds)}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#F8FAFC] dark:bg-[#1E293B]/50 border border-[#E2E8F0] dark:border-[#334155]">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">Completed At</p>
+                <p className="text-xs font-semibold text-[#0F172A] dark:text-[#F8FAFC] mt-1 truncate" title={formatCompletedDateTime(completedRecord.submittedAt)}>
+                  {formatCompletedDateTime(completedRecord.submittedAt)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Question Review Section Header & Filters */}
+        <div className="space-y-4 pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A] dark:text-[#FAFAFA] tracking-tight">
+              Question Review & Answers ({questions.length})
+            </h2>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setReviewFilter("all")}
+                className={cn(
+                  "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                  reviewFilter === "all"
+                    ? "bg-[#2563EB] text-white shadow-xs"
+                    : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-foreground"
+                )}
+              >
+                All ({questions.length})
+              </button>
+              {mcqQuestionsCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setReviewFilter("mcq")}
+                  className={cn(
+                    "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                    reviewFilter === "mcq"
+                      ? "bg-[#2563EB] text-white shadow-xs"
+                      : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-foreground"
+                  )}
+                >
+                  MCQs ({mcqQuestionsCount})
+                </button>
+              )}
+              {codingQuestionsCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setReviewFilter("coding")}
+                  className={cn(
+                    "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                    reviewFilter === "coding"
+                      ? "bg-[#9333EA] text-white shadow-xs"
+                      : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-foreground"
+                  )}
+                >
+                  Coding ({codingQuestionsCount})
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Questions Review List */}
+          <div className="space-y-4">
+            {filteredQuestions.map((q, idx) => {
+              const isCoding = q.type === "coding" || q.section === "coding";
+              const origIndex = questions.findIndex(item => item.id === q.id);
+              const qNum = origIndex >= 0 ? origIndex + 1 : idx + 1;
+
+              if (isCoding) {
+                const codeData = submittedAnswers[q.id];
+                const submittedCode = typeof codeData === "string" ? codeData : codeData?.code || "";
+                const codeLang = typeof codeData === "object" ? codeData?.language || "java" : "java";
+
+                return (
+                  <Card
+                    key={q.id || idx}
+                    className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-xs overflow-hidden"
+                  >
+                    {/* Header */}
+                    <div className="p-4 sm:p-5 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col sm:flex-row sm:items-start justify-between gap-3 bg-[#F8FAFC]/50 dark:bg-[#1E293B]/30">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <span className="w-7 h-7 rounded-lg bg-[#9333EA] text-white flex items-center justify-center font-extrabold text-xs shrink-0 mt-0.5">
+                          {qNum}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-[11px] font-bold text-[#9333EA] uppercase tracking-wider">
+                              {currentSubModule.codingSectionTitle || "Coding Challenge"}
+                            </span>
+                            {q.marks && (
+                              <span className="text-[10px] font-bold text-[#64748B] dark:text-[#94A3B8] px-1.5 py-0.5 rounded bg-[#F1F5F9] dark:bg-[#334155]">
+                                +{q.marks} Marks
+                              </span>
+                            )}
+                            <span className="text-[10px] font-bold text-[#9333EA] px-1.5 py-0.5 rounded bg-[#9333EA]/10 uppercase">
+                              {codeLang}
+                            </span>
+                          </div>
+                          <h3 className="text-sm font-bold text-[#0F172A] dark:text-[#F8FAFC] leading-snug">
+                            {q.title || q.text}
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {submittedCode ? (
+                          <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-[#16A34A]/10 text-[#16A34A]">
+                            Code Submitted
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-[#EF4444]/10 text-[#EF4444]">
+                            No Code
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-4 sm:p-5 space-y-4">
+                      {q.text && q.text !== q.title && (
+                        <p className="text-xs text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed">
+                          {q.text}
+                        </p>
+                      )}
+
+                      {/* Code Solution Display */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">
+                            Submitted Code ({codeLang.toUpperCase()})
+                          </span>
+                          {submittedCode && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(submittedCode);
+                                setCopiedCodeId(q.id);
+                                setTimeout(() => setCopiedCodeId(null), 2000);
+                              }}
+                              className="text-[11px] font-semibold text-[#64748B] dark:text-[#94A3B8] hover:text-[#2563EB] transition-colors"
+                            >
+                              {copiedCodeId === q.id ? "Copied" : "Copy"}
+                            </button>
+                          )}
+                        </div>
+
+                        {submittedCode ? (
+                          <div className="rounded-xl border border-[#1E293B] bg-[#090D16] p-4 overflow-x-auto max-h-72">
+                            <pre className="font-mono text-[12px] leading-relaxed text-[#E2E8F0] whitespace-pre">{submittedCode}</pre>
+                          </div>
+                        ) : (
+                          <div className="p-4 rounded-xl border border-dashed border-[#E2E8F0] dark:border-[#334155] text-center text-xs text-[#94A3B8] bg-[#F8FAFC] dark:bg-[#1E293B]/20">
+                            No code was written for this challenge.
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Test Cases Count */}
+                      {q.testCases && q.testCases.length > 0 && (
+                        <div className="pt-2 border-t border-[#E2E8F0] dark:border-[#1E293B] flex items-center justify-between text-xs">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">
+                            Test Cases Configured
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            {q.testCases.length} {q.testCases.length === 1 ? "case" : "cases"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                );
+              }
+
+              // MCQ Question Review
+              const studentChoice = submittedAnswers[q.id];
+              const selectedIds: string[] = Array.isArray(studentChoice)
+                ? studentChoice
+                : typeof studentChoice === "string"
+                ? [studentChoice]
+                : [];
+
+              return (
+                <Card
+                  key={q.id || idx}
+                  className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-xs overflow-hidden"
+                >
+                  {/* Header */}
+                  <div className="p-4 sm:p-5 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col sm:flex-row sm:items-start justify-between gap-3 bg-[#F8FAFC]/50 dark:bg-[#1E293B]/30">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span className="w-7 h-7 rounded-lg bg-[#2563EB] text-white flex items-center justify-center font-extrabold text-xs shrink-0 mt-0.5">
+                        {qNum}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider">
+                            {currentSubModule.mcqSectionTitle || "Multiple Choice"}
+                          </span>
+                          {q.marks && (
+                            <span className="text-[10px] font-bold text-[#64748B] dark:text-[#94A3B8] px-1.5 py-0.5 rounded bg-[#F1F5F9] dark:bg-[#334155]">
+                              +{q.marks} Marks
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-sm font-bold text-[#0F172A] dark:text-[#F8FAFC] leading-snug">
+                          {q.text || q.title}
+                        </h3>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {selectedIds.length > 0 ? (
+                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-[#16A34A]/10 text-[#16A34A]">
+                          Answered
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-[#EF4444]/10 text-[#EF4444]">
+                          Unattempted
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Options List */}
+                  <div className="p-4 sm:p-5 space-y-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">
+                      Options & Response
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                      {(q.options || []).map((opt, oIdx) => {
+                        const isSelected = selectedIds.includes(opt.id);
+                        const isCorrect = Boolean(opt.isCorrect);
+
+                        return (
+                          <div
+                            key={opt.id || oIdx}
+                            className={cn(
+                              "p-3 rounded-xl border text-xs flex items-center justify-between gap-3 transition-all",
+                              isSelected
+                                ? "border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB] font-bold"
+                                : "border-[#E2E8F0] dark:border-[#27272A] bg-[#F8FAFC] dark:bg-[#1E293B]/40 text-[#64748B] dark:text-[#94A3B8]"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div
+                                className={cn(
+                                  "w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-extrabold shrink-0",
+                                  isSelected
+                                    ? "bg-[#2563EB] text-white"
+                                    : "bg-white dark:bg-[#090D16] border border-[#E2E8F0] dark:border-[#334155] text-[#64748B]"
+                                )}
+                              >
+                                {String.fromCharCode(65 + oIdx)}
+                              </div>
+                              <span className={cn("truncate font-medium", isSelected && "text-[#0F172A] dark:text-white font-bold")}>
+                                {opt.text}
+                              </span>
+                            </div>
+
+                            {isSelected && (
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-[#2563EB] text-white shrink-0">
+                                Selected
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {q.explanation && (
+                      <div className="mt-3 p-3 bg-muted/40 rounded-xl border border-border/50 text-xs text-muted-foreground">
+                        <strong className="text-foreground font-bold">Explanation: </strong>
+                        {q.explanation}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   }

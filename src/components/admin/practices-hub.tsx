@@ -48,6 +48,7 @@ interface SubModuleItem {
   maxAttempts?: number;
   allowResume?: boolean;
   scoreRetentionPolicy?: "best" | "latest" | "average";
+  allowReviewBeforeSubmit?: boolean;
 }
 
 export interface MCQQuestionOption {
@@ -91,6 +92,7 @@ interface PracticeTrack {
   maxAttempts?: number;
   allowResume?: boolean;
   scoreRetentionPolicy?: "best" | "latest" | "average";
+  allowReviewBeforeSubmit?: boolean;
 }
 
 const initialTracks: PracticeTrack[] = [];
@@ -154,6 +156,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [fMaxAttempts, setFMaxAttempts] = useState<number>(0); // 0 = unlimited
   const [fAllowResume, setFAllowResume] = useState<boolean>(true);
   const [fScorePolicy, setFScorePolicy] = useState<"best" | "latest" | "average">("best");
+  const [fAllowReviewBeforeSubmit, setFAllowReviewBeforeSubmit] = useState<boolean>(true);
 
   // Sub-module form state
   const [smTitle, setSmTitle]           = useState("");
@@ -173,6 +176,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [smMaxAttempts, setSmMaxAttempts] = useState<number>(0);
   const [smAllowResume, setSmAllowResume] = useState<boolean>(true);
   const [smScorePolicy, setSmScorePolicy] = useState<"best" | "latest" | "average">("best");
+  const [smAllowReviewBeforeSubmit, setSmAllowReviewBeforeSubmit] = useState<boolean>(true);
   const [isFullScreenAuthoring, setIsFullScreenAuthoring] = useState(false);
   const [showCodingProblemBuilder, setShowCodingProblemBuilder] = useState(false);
 
@@ -557,6 +561,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const resetForm = () => {
     setFTitle(""); setFCategory(""); setFDesc(""); setFAssignedBy("");
     setFMaxAttempts(0); setFAllowResume(true); setFScorePolicy("best");
+    setFAllowReviewBeforeSubmit(true);
   };
 
   const openCreate = () => { resetForm(); setEditingId(null); setViewState("create"); };
@@ -568,6 +573,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setFMaxAttempts(t.maxAttempts ?? 0);
     setFAllowResume(t.allowResume ?? true);
     setFScorePolicy(t.scoreRetentionPolicy ?? "best");
+    setFAllowReviewBeforeSubmit(t.allowReviewBeforeSubmit ?? true);
     setViewState("edit");
   };
 
@@ -607,6 +613,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       maxAttempts: fMaxAttempts,
       allowResume: fAllowResume,
       scoreRetentionPolicy: fScorePolicy,
+      allowReviewBeforeSubmit: fAllowReviewBeforeSubmit,
     };
     const updated = [created, ...tracks];
     await syncTracksToStore(updated);
@@ -630,6 +637,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         maxAttempts: fMaxAttempts,
         allowResume: fAllowResume,
         scoreRetentionPolicy: fScorePolicy,
+        allowReviewBeforeSubmit: fAllowReviewBeforeSubmit,
       } : t
     );
     await syncTracksToStore(updated);
@@ -698,6 +706,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       maxAttempts: smMaxAttempts,
       allowResume: smAllowResume,
       scoreRetentionPolicy: smScorePolicy,
+      allowReviewBeforeSubmit: smAllowReviewBeforeSubmit,
       sections: sections,
       mcqQuestions: allMcqs,
       codingQuestions: allCoding,
@@ -733,6 +742,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setSmMaxAttempts(0);
     setSmAllowResume(true);
     setSmScorePolicy("best");
+    setSmAllowReviewBeforeSubmit(true);
     setIsFullScreenAuthoring(false);
     setEditingSubModuleId(null);
     setSections([
@@ -776,6 +786,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setSmMaxAttempts(sm.maxAttempts ?? selectedTrack?.maxAttempts ?? 0);
     setSmAllowResume(sm.allowResume ?? selectedTrack?.allowResume ?? true);
     setSmScorePolicy(sm.scoreRetentionPolicy ?? selectedTrack?.scoreRetentionPolicy ?? "best");
+    setSmAllowReviewBeforeSubmit(sm.allowReviewBeforeSubmit ?? selectedTrack?.allowReviewBeforeSubmit ?? true);
     
     setSmHasHiddenTests(sm.hasHiddenTests || false);
     setSmHiddenTests(sm.hiddenTestsCode || "");
@@ -959,35 +970,35 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     <button
                       type="button"
                       onClick={() => setFMaxAttempts(0)}
-                      className={`p-2 rounded-lg text-center text-xs font-bold border transition-all ${
+                      className={`p-2 rounded-lg text-center text-xs font-semibold border transition-all ${
                         fMaxAttempts === 0
                           ? "border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB]"
                           : "border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:bg-gray-50 dark:hover:bg-[#27272A]"
                       }`}
                     >
-                      🔄 Unlimited
+                      Unlimited
                     </button>
                     <button
                       type="button"
                       onClick={() => setFMaxAttempts(1)}
-                      className={`p-2 rounded-lg text-center text-xs font-bold border transition-all ${
+                      className={`p-2 rounded-lg text-center text-xs font-semibold border transition-all ${
                         fMaxAttempts === 1
                           ? "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444]"
                           : "border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:bg-gray-50 dark:hover:bg-[#27272A]"
                       }`}
                     >
-                      🔒 1 Attempt
+                      1 Attempt
                     </button>
                     <button
                       type="button"
                       onClick={() => setFMaxAttempts(fMaxAttempts <= 1 ? 3 : fMaxAttempts)}
-                      className={`p-2 rounded-lg text-center text-xs font-bold border transition-all ${
+                      className={`p-2 rounded-lg text-center text-xs font-semibold border transition-all ${
                         fMaxAttempts > 1
                           ? "border-[#9333EA] bg-[#9333EA]/10 text-[#9333EA]"
                           : "border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:bg-gray-50 dark:hover:bg-[#27272A]"
                       }`}
                     >
-                      🔢 Custom
+                      Custom
                     </button>
                   </div>
 
@@ -1028,6 +1039,24 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       <SelectItem value="average">Average of All Attempts</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Review Answers Before Final Submit Switch */}
+                <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-3 shadow-xs md:col-span-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <ListChecks className="h-3.5 w-3.5 text-[#2563EB]" />
+                      <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Review Answers Before Final Submission</span>
+                    </div>
+                    <p className="text-[11px] text-[#6B7280]">
+                      Allow students to review answered, marked, and unanswered questions in a summary modal before final submission.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={fAllowReviewBeforeSubmit}
+                    onCheckedChange={setFAllowReviewBeforeSubmit}
+                    className="shrink-0 data-[state=checked]:bg-[#2563EB]"
+                  />
                 </div>
               </div>
             </div>
@@ -1092,7 +1121,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         <div className="space-y-3">
           {selectedTrack.subModules.length === 0 && (
             <div className="text-center py-16 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF]">
-              <Dumbbell className="h-10 w-10 mx-auto mb-3 opacity-30" />
               <p className="font-semibold text-sm text-[#111827] dark:text-[#FAFAFA]">No practice sub-modules configured yet.</p>
               <p className="text-xs mt-1 text-[#6B7280]">Click "Add Sub-Module" above to configure MCQ, Coding, or Mixed items.</p>
             </div>
@@ -1213,35 +1241,35 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     <button
                       type="button"
                       onClick={() => setSmMaxAttempts(0)}
-                      className={`p-2 rounded-lg text-center text-xs font-bold border transition-all ${
+                      className={`p-2 rounded-lg text-center text-xs font-semibold border transition-all ${
                         smMaxAttempts === 0
                           ? "border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB]"
                           : "border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:bg-gray-50 dark:hover:bg-[#27272A]"
                       }`}
                     >
-                      🔄 Unlimited
+                      Unlimited
                     </button>
                     <button
                       type="button"
                       onClick={() => setSmMaxAttempts(1)}
-                      className={`p-2 rounded-lg text-center text-xs font-bold border transition-all ${
+                      className={`p-2 rounded-lg text-center text-xs font-semibold border transition-all ${
                         smMaxAttempts === 1
                           ? "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444]"
                           : "border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:bg-gray-50 dark:hover:bg-[#27272A]"
                       }`}
                     >
-                      🔒 1 Attempt
+                      1 Attempt
                     </button>
                     <button
                       type="button"
                       onClick={() => setSmMaxAttempts(smMaxAttempts <= 1 ? 3 : smMaxAttempts)}
-                      className={`p-2 rounded-lg text-center text-xs font-bold border transition-all ${
+                      className={`p-2 rounded-lg text-center text-xs font-semibold border transition-all ${
                         smMaxAttempts > 1
                           ? "border-[#9333EA] bg-[#9333EA]/10 text-[#9333EA]"
                           : "border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:bg-gray-50 dark:hover:bg-[#27272A]"
                       }`}
                     >
-                      🔢 Custom
+                      Custom
                     </button>
                   </div>
                   {smMaxAttempts > 1 && (
@@ -1258,6 +1286,24 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       <span className="text-xs text-[#6B7280]">attempts max</span>
                     </div>
                   )}
+                </div>
+
+                {/* Review Answers Before Final Submit Switch */}
+                <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-3 shadow-xs md:col-span-2">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <ListChecks className="h-3.5 w-3.5 text-[#2563EB]" />
+                      <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Review Answers Before Final Submission</span>
+                    </div>
+                    <p className="text-[11px] text-[#6B7280]">
+                      Allow students to review answered, marked, and unanswered questions in a summary modal before submitting.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={smAllowReviewBeforeSubmit}
+                    onCheckedChange={setSmAllowReviewBeforeSubmit}
+                    className="shrink-0 data-[state=checked]:bg-[#2563EB]"
+                  />
                 </div>
               </div>
             </div>
@@ -1535,7 +1581,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                         ? q.questionType === "multiple" ? "text-[#9333EA]" : "text-[#2563EB]"
                                         : "text-[#6B7280]"
                                     }`}>
-                                      {q.questionType === "multiple" ? (opt.isCorrect ? "Correct ✓" : "Mark") : "Correct"}
+                                      {q.questionType === "multiple" ? (opt.isCorrect ? "Correct" : "Mark") : "Correct"}
                                     </span>
                                   </label>
                                   {q.options.length > 2 && (
@@ -1750,9 +1796,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl bg-white dark:bg-[#18181B] shadow-sm">
-          <Dumbbell className="h-12 w-12 text-[#9CA3AF] mb-4 opacity-50" />
-          <h3 className="font-bold text-lg text-[#111827] dark:text-[#FAFAFA]">No practice tracks found</h3>
-          <p className="text-sm text-[#6B7280] mt-1 max-w-sm">
+          <h3 className="font-semibold text-lg text-[#111827] dark:text-[#FAFAFA]">No practice tracks found</h3>
+          <p className="text-sm text-[#6B7280] mt-1 max-w-sm font-normal">
             {search ? "No practice tracks match your search criteria. Try a different term." : "You haven't created any practice tracks yet. Click the button above to get started."}
           </p>
           {!search && (
@@ -1834,8 +1879,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   <div className="pt-3 border-t border-[#E5E7EB] dark:border-[#27272A] space-y-2">
                     <div className="flex items-center gap-2">
                       <Button onClick={() => { setSelectedTrack(track); setViewState("detail"); }}
-                        className="flex-1 h-9 text-xs font-bold gap-1.5 bg-[#9333EA] hover:bg-[#7E22CE] text-white rounded-xl shadow-xs">
-                        <Dumbbell className="h-4 w-4" /> Modules ({totalMods})
+                        className="flex-1 h-9 text-xs font-semibold bg-[#9333EA] hover:bg-[#7E22CE] text-white rounded-xl shadow-xs">
+                        Modules ({totalMods})
                       </Button>
                       <Button onClick={() => openAssign(track)} variant="outline"
                         className="h-9 px-3.5 text-xs font-bold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 rounded-xl gap-1.5">

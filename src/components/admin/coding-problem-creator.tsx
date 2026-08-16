@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { SubmissionService } from "@/services/submission.service";
+import { CodingProblemsService } from "@/services/coding-problems.service";
 import type { CodingProblem, TestCase, Difficulty, CodingLanguage } from "@/types/coding";
 import { PageHeader } from "@/components/layouts/page-header";
 import { AutoSaveBadge } from "@/components/ui/auto-save-badge";
@@ -199,7 +199,7 @@ export function CodingProblemCreator({
   };
 
   useEffect(() => {
-    const all = SubmissionService.getAllProblems();
+    const all = CodingProblemsService.getAllProblems();
     setPublishedProblems(all);
   }, []);
 
@@ -311,8 +311,8 @@ export function CodingProblemCreator({
         updated_at: new Date().toISOString()
       };
 
-      await SubmissionService.saveProblem(problemData);
-      setPublishedProblems(SubmissionService.getAllProblems());
+      await CodingProblemsService.saveProblem(problemData);
+      setPublishedProblems(CodingProblemsService.getAllProblems());
 
       if (onSave) {
         onSave(problemData);
