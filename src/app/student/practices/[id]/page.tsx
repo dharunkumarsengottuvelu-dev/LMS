@@ -182,8 +182,40 @@ export default function StudentTrackDetailPage() {
 
         <div className="space-y-4">
           {track.subModules.map((sub, idx) => {
-            const isCompleted = sub.status === "completed";
-            const isInProgress = sub.status === "in_progress";
+            let isLocalInProgress = false;
+            let isLocalCompleted = false;
+            let localScore: number | null = null;
+            let localAttemptsCount = 0;
+
+            if (typeof window !== "undefined") {
+              try {
+                const sessionKey = `lms_practice_session_${sub.id}`;
+                const session = localStorage.getItem(sessionKey);
+                if (session) {
+                  const parsed = JSON.parse(session);
+                  if (
+                    (parsed.answers && Object.keys(parsed.answers).length > 0) ||
+                    (parsed.codeAnswers && Object.keys(parsed.codeAnswers).length > 0)
+                  ) {
+                    isLocalInProgress = true;
+                  }
+                }
+
+                const resultKey = `lms_completed_assessment_${sub.id}`;
+                const resStr = localStorage.getItem(resultKey);
+                if (resStr) {
+                  const parsedRes = JSON.parse(resStr);
+                  isLocalCompleted = true;
+                  localScore = parsedRes.score ?? null;
+                  localAttemptsCount = parsedRes.attemptsCount || 1;
+                }
+              } catch {}
+            }
+
+            const isCompleted = sub.status === "completed" || isLocalCompleted;
+            const isInProgress = !isCompleted && (sub.status === "in_progress" || isLocalInProgress);
+            const maxAtt = (sub as any).maxAttempts ?? (track as any).maxAttempts ?? 0;
+            const isLocked = isCompleted && maxAtt === 1;
 
             return (
               <Card
@@ -206,11 +238,11 @@ export default function StudentTrackDetailPage() {
 
                       {isCompleted && (
                         <Badge className="bg-[#16A34A] text-white text-[10px] font-bold flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3" /> Completed {sub.score ? `(${sub.score} Marks)` : ""}
+                          <CheckCircle2 className="h-3 w-3" /> Completed {sub.score || localScore !== null ? `(${sub.score ?? localScore} Marks)` : ""}
                         </Badge>
                       )}
                       {isInProgress && (
-                        <Badge className="bg-[#F59E0B] text-white text-[10px] font-bold">
+                        <Badge className="bg-[#F59E0B] text-white text-[10px] font-bold animate-pulse">
                           In Progress
                         </Badge>
                       )}
@@ -233,15 +265,26 @@ export default function StudentTrackDetailPage() {
                   {/* Action Button */}
                   <div className="shrink-0">
                     <Button
-                      className={`h-11 px-6 font-bold gap-2 rounded-xl ${
-                        isCompleted
-                          ? "bg-muted text-foreground hover:bg-muted/80"
+                      className={`h-11 px-6 font-bold gap-2 rounded-xl transition-all ${
+                        isLocked
+                          ? "bg-muted text-muted-foreground cursor-not-allowed border border-[#E5E7EB] dark:border-[#27272A]"
+                          : isCompleted
+                          ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                          : isInProgress
+                          ? "bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
                           : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-sm"
                       }`}
+                      disabled={isLocked}
                       onClick={() => handleStartSubModule(sub)}
                     >
                       <Play className="h-4 w-4" />
-                      {isCompleted ? "Re-take Module" : isInProgress ? "Continue Practice" : "Start Module"}
+                      {isLocked
+                        ? "Completed (1/1 Attempt)"
+                        : isCompleted
+                        ? "Retake Module"
+                        : isInProgress
+                        ? "Continue Module"
+                        : "Start Module"}
                     </Button>
                   </div>
                 </div>

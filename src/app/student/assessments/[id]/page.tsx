@@ -291,10 +291,52 @@ export default function AssessmentTakePage() {
   }, [subModuleId, trackIdParam]);
 
   const handleSubmit = async (answers: Record<string, any>) => {
-    console.log("Practice sub-module submitted:", answers);
+    let obtainedMarks = 0;
+    questions.forEach(q => {
+      if (q.type === "coding") {
+        const cqAns = answers[q.id];
+        if (cqAns && cqAns.code) obtainedMarks += (q.marks || 20);
+      } else {
+        const studentAns = answers[q.id];
+        const correctOpts = q.options?.filter(o => o.isCorrect).map(o => o.id) || [];
+        if (Array.isArray(studentAns) && studentAns.length === correctOpts.length && studentAns.every(id => correctOpts.includes(id))) {
+          obtainedMarks += (q.marks || 10);
+        }
+      }
+    });
+
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(`lms_practice_session_${subModuleId}`);
+      const prevCompleted = localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
+      let attemptsCount = 1;
+      let bestScore = obtainedMarks;
+      if (prevCompleted) {
+        try {
+          const parsed = JSON.parse(prevCompleted);
+          attemptsCount = (parsed.attemptsCount || 1) + 1;
+          bestScore = Math.max(parsed.score || 0, obtainedMarks);
+        } catch {}
+      }
+      localStorage.setItem(`lms_completed_assessment_${subModuleId}`, JSON.stringify({
+        score: obtainedMarks,
+        bestScore,
+        totalMarks: currentSubModule?.totalMarks || 100,
+        attemptsCount,
+        submittedAt: new Date().toISOString()
+      }));
+    }
+
+    try {
+      await fetch(`/api/student/assessments/${subModuleId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers, score: obtainedMarks })
+      });
+    } catch {}
+
     toast({
-      title: "Practice Completed!",
-      description: "Your responses and code submissions have been recorded successfully.",
+      title: "Practice Completed! 🎉",
+      description: `Your submission has been recorded. Score: ${obtainedMarks} / ${currentSubModule?.totalMarks || 100}`,
     });
     router.back();
   };
