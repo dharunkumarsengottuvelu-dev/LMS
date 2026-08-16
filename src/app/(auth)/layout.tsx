@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Sparkles, Code2, Globe2 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Authentication — EduNexus",
+  title: "Authentication — FALCON Learning Technologies",
 };
 
 export default function AuthLayout({
@@ -35,11 +35,11 @@ export default function AuthLayout({
 
         {/* Top Logo */}
         <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold text-xl shadow-[0_0_20px_rgba(37,99,235,0.4)]">
-            E
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-[0_0_20px_rgba(37,99,235,0.4)]">
+            F
           </div>
           <span className="text-xl font-bold tracking-tight text-white" style={{ fontFamily: "Inter, sans-serif" }}>
-            EduNexus <span className="text-blue-400">Enterprise</span>
+            FALCON <span className="text-blue-400 font-semibold text-sm">SENSI Group</span>
           </span>
         </div>
 
@@ -47,26 +47,26 @@ export default function AuthLayout({
         <div className="my-auto py-12 space-y-10 max-w-[520px] relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-blue-100 backdrop-blur-md shadow-xl">
             <Sparkles className="w-4 h-4 text-blue-300" />
-            Next-Gen Enterprise Learning Platform
+            Next-Gen Capability Development Platform
           </div>
 
           <h1 
             className="text-[44px] font-bold leading-[1.15] tracking-tight text-white"
             style={{ color: "#ffffff", textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
           >
-            Elevate your engineering workforce.
+            Transforming Learning Into Capability.
           </h1>
 
           <p className="text-gray-200 text-lg leading-relaxed font-medium max-w-[480px] drop-shadow">
-            The world's most advanced learning ecosystem for modern MNCs. Featuring AI-driven coding assessments, capability mapping, and real-time analytics.
+            Focused. Adaptive. Learning. Curated. Organized. Next-Gen. Structured curriculum, practical training, continuous assessment, and project-based execution.
           </p>
 
           {/* Stats Bar (Glassmorphic) */}
           <div className="grid grid-cols-3 gap-5 pt-4">
             {[
               { value: "50,000+", label: "Active Learners", icon: Globe2 },
-              { value: "1,200+", label: "Masterclasses", icon: Code2 },
-              { value: "99.9%", label: "Uptime SLA", icon: Sparkles },
+              { value: "1,200+", label: "Practical Modules", icon: Code2 },
+              { value: "99.9%", label: "Platform Uptime", icon: Sparkles },
             ].map((stat) => (
               <div
                 key={stat.label}
@@ -87,7 +87,7 @@ export default function AuthLayout({
         {/* Testimonial Quote Card (Glassmorphic) */}
         <div className="p-6 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md space-y-4 relative z-10 shadow-2xl">
           <p className="text-sm text-white leading-relaxed font-medium drop-shadow-sm">
-            "EduNexus completely transformed how we upskill our 2,000-person engineering organization. The automated coding assessments and real-time capability analytics are unmatched in the enterprise space."
+            "FALCON completely transformed how we bridge academic theory and production-grade engineering skills. The hands-on practice tracks and real-time assessments deliver true capability."
           </p>
           <div className="flex items-center gap-3 pt-2">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-lg ring-2 ring-white/30">

@@ -33,10 +33,10 @@ export default function PublicContactPage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center text-white font-bold">
-              E
+              F
             </div>
             <span className="font-bold text-lg text-[#111827] dark:text-[#FAFAFA]">
-              EduNexus
+              FALCON
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-[#4B5563] dark:text-[#A1A1AA]">

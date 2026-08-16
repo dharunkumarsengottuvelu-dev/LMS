@@ -9,26 +9,29 @@ import { LMSProvider } from "@/lib/store/lms-store";
 
 export const metadata: Metadata = {
   title: {
-    default: "EduNexus — Enterprise Learning Platform",
-    template: "%s | EduNexus",
+    default: "FALCON Learning Technologies — Enterprise Learning Platform",
+    template: "%s | FALCON",
   },
   description:
-    "EduNexus is a world-class enterprise LMS for corporate training. Interactive courses, coding assessments, AI-powered learning, and detailed analytics.",
+    "FALCON Learning Technologies is a next-generation learning and technology-driven training company under SENSI Group. Focused. Adaptive. Learning. Curated. Organized. Next-Gen.",
   keywords: [
+    "FALCON",
+    "FALCON Learning Technologies",
+    "SENSI Group",
     "LMS",
     "e-learning",
     "corporate training",
     "online courses",
     "coding assessment",
   ],
-  authors: [{ name: "EduNexus Team" }],
+  authors: [{ name: "FALCON Learning Technologies" }],
   openGraph: {
     type: "website",
     locale: "en_US",
     url: process.env["NEXT_PUBLIC_APP_URL"],
-    title: "EduNexus — Enterprise Learning Platform",
-    description: "World-class enterprise LMS for corporate training",
-    siteName: "EduNexus",
+    title: "FALCON Learning Technologies — Enterprise Learning Platform",
+    description: "Next-generation enterprise learning platform under SENSI Group.",
+    siteName: "FALCON",
   },
   robots: {
     index: true,

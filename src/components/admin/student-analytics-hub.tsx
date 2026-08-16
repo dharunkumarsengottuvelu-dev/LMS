@@ -654,7 +654,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     setNewStudentName("");
     setNewStudentEmail("");
     setNewStudentEmpId("");
-    setNewStudentPassword("EduNexus@2026");
+    setNewStudentPassword("Falcon@2026");
     toast({
       title: "Student Enrolled Successfully",
       description: `${newStudentName} (${newRecord.employeeId}) enrolled with temp password: ${newStudentPassword}`,

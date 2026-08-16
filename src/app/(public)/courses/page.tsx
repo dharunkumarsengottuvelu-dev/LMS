@@ -54,11 +54,11 @@ export default function PublicCoursesPage() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#E5E7EB] h-[68px]">
         <div className="max-w-[1280px] mx-auto px-6 h-full flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] flex items-center justify-center text-white font-bold text-base shadow-md">
-              E
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2563EB] to-indigo-600 flex items-center justify-center text-white font-black text-base shadow-md">
+              F
             </div>
-            <span className="font-bold text-base text-[#111827] tracking-tight">EduNexus</span>
-            <span className="hidden sm:inline text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 rounded-full tracking-widest">ENTERPRISE LMS</span>
+            <span className="font-extrabold text-base text-[#111827] tracking-tight">FALCON</span>
+            <span className="hidden sm:inline text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 rounded-full tracking-widest">LEARNING TECH</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[#6B7280]">
@@ -158,11 +158,11 @@ export default function PublicCoursesPage() {
       <footer className="py-10 px-6 border-t border-[#E5E7EB] bg-white">
         <div className="max-w-[1280px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-[#6B7280]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#7C3AED] flex items-center justify-center text-white font-bold text-sm">E</div>
-            <span className="font-bold text-sm text-[#111827]">EduNexus</span>
-            <span className="text-[#9CA3AF]">Enterprise Learning Platform</span>
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2563EB] to-indigo-600 flex items-center justify-center text-white font-bold text-sm">F</div>
+            <span className="font-bold text-sm text-[#111827]">FALCON</span>
+            <span className="text-[#9CA3AF]">Learning Technologies • SENSI Group</span>
           </div>
-          <p>© {new Date().getFullYear()} EduNexus Platform. Built for modern engineering teams.</p>
+          <p>© {new Date().getFullYear()} FALCON Learning Technologies. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <Link href="/" className="hover:text-[#111827] transition-colors">Home</Link>
             <Link href="/courses" className="hover:text-[#111827] transition-colors">Courses</Link>

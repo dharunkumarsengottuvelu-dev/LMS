@@ -317,7 +317,7 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
 
       {/* 6. Footer */}
       <div className="pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-medium text-muted-foreground animate-fade-up stagger-3">
-        <p>© {new Date().getFullYear()} EduNexus Enterprise Platform. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} FALCON Learning Technologies. All rights reserved.</p>
         <div className="flex items-center gap-4">
           <Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-foreground">Terms of Service</Link>

@@ -45,11 +45,11 @@ export function StudentTopNav() {
       <div className="flex items-center gap-3">
         <Link href="/student/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0 group">
           <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-base shadow-sm transition-transform duration-200 group-hover:scale-105">
-            E
+            F
           </div>
           <div className="flex items-center gap-2">
             <span className="font-bold text-base tracking-tight text-foreground">
-              EduNexus
+              FALCON
             </span>
           </div>
         </Link>
@@ -101,9 +101,9 @@ export function StudentTopNav() {
             <SheetHeader className="text-left pb-4 border-b border-border">
               <SheetTitle className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-                  E
+                  F
                 </div>
-                <span className="font-bold text-base text-foreground">EduNexus</span>
+                <span className="font-bold text-base text-foreground">FALCON</span>
               </SheetTitle>
             </SheetHeader>
 

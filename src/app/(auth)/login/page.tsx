@@ -253,7 +253,7 @@ export default function LoginPage() {
           disabled={isLoading}
         >
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Sign in to EduNexus
+          Sign in to FALCON
         </Button>
       </form>
 

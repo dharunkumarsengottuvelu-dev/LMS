@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: { template: "%s | EduNexus", default: "Student Portal — EduNexus" },
+  title: { template: "%s | FALCON", default: "Student Portal — FALCON" },
 };
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: { template: "%s | Enterprise Admin", default: "Enterprise Admin — EduNexus" },
+  title: { template: "%s | Enterprise Admin", default: "Enterprise Admin — FALCON" },
 };
 
 export default async function AdminLayout({

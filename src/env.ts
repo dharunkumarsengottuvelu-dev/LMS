@@ -15,8 +15,8 @@ const envSchema = z.object({
 
   // App
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
-  NEXT_PUBLIC_APP_NAME: z.string().default("EduNexus"),
-  NEXT_PUBLIC_APP_DESCRIPTION: z.string().default("Enterprise Learning Management System"),
+  NEXT_PUBLIC_APP_NAME: z.string().default("FALCON"),
+  NEXT_PUBLIC_APP_DESCRIPTION: z.string().default("FALCON Learning Technologies — Enterprise Learning Platform"),
 
   // Node
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),

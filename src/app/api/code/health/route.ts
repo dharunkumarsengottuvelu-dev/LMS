@@ -7,7 +7,7 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        service: "EduNexus Hybrid Code Execution Engine",
+        service: "FALCON Hybrid Code Execution Engine",
         status: "healthy",
         available: true,
         jobe_url: status.url,
@@ -22,7 +22,7 @@ export async function GET() {
     const msg = error instanceof Error ? error.message : "Health check operational";
     return NextResponse.json(
       {
-        service: "EduNexus Hybrid Code Execution Engine",
+        service: "FALCON Hybrid Code Execution Engine",
         status: "healthy",
         available: true,
         jobe_url: "Local Engine Sandbox",

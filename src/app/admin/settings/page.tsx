@@ -15,7 +15,7 @@ export default function AdminSettingsPage() {
       <Card className="max-w-xl">
         <CardHeader className="p-6 pb-4"><CardTitle className="text-[18px]">Organization Config</CardTitle></CardHeader>
         <CardContent className="p-6 pt-0 space-y-4">
-          <Input className="h-[44px]" defaultValue="EduNexus Enterprise" />
+          <Input className="h-[44px]" defaultValue="FALCON Learning Technologies" />
           <Button className="h-[44px] bg-[#2563EB] text-white gap-2"><Save className="h-4 w-4" /> Save Settings</Button>
         </CardContent>
       </Card>
