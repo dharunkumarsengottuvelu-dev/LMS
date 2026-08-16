@@ -176,19 +176,11 @@ export default function LandingPage() {
       {/* ── Top Navigation Bar ── */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-b border-border h-[72px] transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3.5 group">
+          <Link href="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary via-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-primary/25 group-hover:scale-105 transition-transform duration-200">
               F
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg text-foreground tracking-tight">FALCON</span>
-                <Badge variant="outline" className="hidden sm:inline-flex bg-primary/10 text-primary border-primary/20 text-[10px] font-extrabold px-2 py-0.5 tracking-wider">
-                  LEARNING TECHNOLOGIES
-                </Badge>
-              </div>
-              <span className="text-[10px] text-muted-foreground font-semibold hidden sm:block tracking-tight">Part of SENSI Group</span>
-            </div>
+            <span className="font-extrabold text-xl text-foreground tracking-tight">FALCON</span>
           </Link>
 
           <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold text-muted-foreground">
@@ -197,7 +189,6 @@ export default function LandingPage() {
             <Link href="#why-falcon" className="hover:text-foreground transition-colors">Why FALCON</Link>
             <Link href="#what-we-do" className="hover:text-foreground transition-colors">What We Do</Link>
             <Link href="#ecosystem" className="hover:text-foreground transition-colors">Ecosystem</Link>
-            <Link href="/courses" className="hover:text-foreground transition-colors">Courses</Link>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -668,7 +659,7 @@ export default function LandingPage() {
                   </Link>
                 </Button>
                 <Button variant="outline" className="h-[48px] px-8 border-white/30 text-white hover:bg-white/10 font-bold rounded-xl" asChild>
-                  <Link href="/courses">Explore Courses</Link>
+                  <Link href="/login">Get Started</Link>
                 </Button>
               </div>
             </div>
@@ -685,7 +676,7 @@ export default function LandingPage() {
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-white font-black text-base shadow-sm">
                   F
                 </div>
-                <span className="font-extrabold text-lg text-foreground tracking-tight">FALCON Learning Technologies</span>
+                <span className="font-extrabold text-xl text-foreground tracking-tight">FALCON</span>
               </div>
               <p className="text-xs text-muted-foreground font-medium">
                 Focused. Adaptive. Learning. Curated. Organized. Next-Gen.
@@ -698,7 +689,6 @@ export default function LandingPage() {
             <div className="flex flex-wrap items-center gap-6 text-sm font-semibold text-muted-foreground">
               <Link href="#about" className="hover:text-foreground transition-colors">Who We Are</Link>
               <Link href="#approach" className="hover:text-foreground transition-colors">Approach</Link>
-              <Link href="/courses" className="hover:text-foreground transition-colors">Courses</Link>
               <Link href="/about" className="hover:text-foreground transition-colors">About</Link>
               <Link href="/login" className="hover:text-foreground transition-colors">Sign In</Link>
             </div>
