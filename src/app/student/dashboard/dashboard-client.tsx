@@ -33,7 +33,7 @@ function StatCard({
   icon: React.ElementType; value: number; label: string; href: string; badgeText?: string;
 }) {
   return (
-    <Link href={href} className="block h-full">
+    <Link href={href} prefetch={true} className="block h-full">
       <Card className="h-full hover:border-border transition-all bg-card border border-border shadow-sm group">
         <CardContent className="p-6 flex items-center gap-4 h-full">
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 transition-transform group-hover:scale-105 duration-200">
@@ -187,12 +187,12 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
 
         <div className="flex items-center gap-3 shrink-0">
           <Button className="h-[44px] px-6 gap-2" asChild>
-            <Link href="/student/practices">
+            <Link href="/student/practices" prefetch={true}>
               <Code2 className="h-4 w-4" /> Practice Hub
             </Link>
           </Button>
           <Button variant="outline" className="h-[44px] px-5 gap-2" asChild>
-            <Link href="/student/tests">
+            <Link href="/student/tests" prefetch={true}>
               <Calendar className="h-4 w-4 text-primary" /> Scheduled Tests
             </Link>
           </Button>

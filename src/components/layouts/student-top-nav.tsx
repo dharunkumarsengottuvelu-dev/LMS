@@ -65,6 +65,7 @@ export function StudentTopNav() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               className={cn(
                 "flex items-center gap-2 px-3 lg:px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap duration-200 ease-out hover:-translate-y-[1px]",
                 isActive
@@ -83,6 +84,7 @@ export function StudentTopNav() {
         {/* Notifications Icon */}
         <Link
           href="/student/notifications"
+          prefetch={true}
           className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 border border-input shadow-sm"
           title="Notifications"
         >
@@ -113,6 +115,7 @@ export function StudentTopNav() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={true}
                     className={cn(
                       "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
                       isActive

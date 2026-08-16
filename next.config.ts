@@ -74,7 +74,8 @@ const nextConfig: NextConfig = {
       "@radix-ui/react-dialog",
       "@radix-ui/react-select",
       "@radix-ui/react-avatar",
-      "@radix-ui/react-[#2563EB]"
+      "@radix-ui/react-slot",
+      "@radix-ui/react-tooltip"
     ],
   },
 
