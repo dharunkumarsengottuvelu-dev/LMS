@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { PracticeRunnerEngine, PracticeQuestion } from "@/components/quiz/practice-runner";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { ArrowLeft, AlertCircle, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { WaveLoader } from "@/components/ui/wave-loader";
 
 interface SubModuleMeta {
   id: string;
@@ -53,7 +54,7 @@ export default function AssessmentTakePage() {
       let targetTrack: any = null;
       let targetSubModule: any = null;
 
-      // 1. If trackId provided, fetch that specific track
+      // 1. Direct Track Param check
       if (trackIdParam) {
         try {
           const res = await fetch(`/api/student/practices/${trackIdParam}`);
@@ -61,7 +62,8 @@ export default function AssessmentTakePage() {
             const data = await res.json();
             if (data.track) {
               targetTrack = data.track;
-              targetSubModule = (data.track.subModules || []).find((s: any) => s.id === subModuleId);
+              const subs = data.track.sub_modules || data.track.subModules || [];
+              targetSubModule = subs.find((s: any) => s.id === subModuleId) || (trackIdParam === subModuleId ? subs[0] : null);
             }
           }
         } catch (e) {
@@ -69,37 +71,107 @@ export default function AssessmentTakePage() {
         }
       }
 
-      // 2. If submodule not found yet, scan all authorized student tracks
+      // 2. Direct Submodule / Track ID API fetch
       if (!targetSubModule) {
-        const resAll = await fetch("/api/student/practices");
-        if (resAll.ok) {
-          const allData = await resAll.json();
-          const tracks = allData.tracks || [];
-          for (const t of tracks) {
-            const found = (t.subModules || []).find((s: any) => s.id === subModuleId);
-            if (found) {
-              // Fetch full track detail to get questions
-              const detailRes = await fetch(`/api/student/practices/${t.id}`);
-              if (detailRes.ok) {
-                const detailData = await detailRes.json();
-                targetTrack = detailData.track;
-                targetSubModule = (detailData.track?.subModules || []).find((s: any) => s.id === subModuleId) || found;
-              }
-              break;
+        try {
+          const res = await fetch(`/api/student/practices/${subModuleId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.track) {
+              targetTrack = data.track;
+              const subs = data.track.sub_modules || data.track.subModules || [];
+              targetSubModule = subs.find((s: any) => s.id === subModuleId) || subs[0] || data.track;
             }
           }
+        } catch (e) {
+          console.warn("Direct practice ID lookup notice:", e);
+        }
+      }
+
+      // 3. Scan all authorized student practice tracks
+      if (!targetSubModule) {
+        try {
+          const resAll = await fetch("/api/student/practices");
+          if (resAll.ok) {
+            const allData = await resAll.json();
+            const tracks = allData.tracks || [];
+            for (const t of tracks) {
+              const subs = t.sub_modules || t.subModules || [];
+              const found = subs.find((s: any) => s.id === subModuleId);
+              if (found || t.id === subModuleId) {
+                const detailRes = await fetch(`/api/student/practices/${t.id}`);
+                if (detailRes.ok) {
+                  const detailData = await detailRes.json();
+                  targetTrack = detailData.track;
+                  const detailSubs = detailData.track?.sub_modules || detailData.track?.subModules || [];
+                  targetSubModule = detailSubs.find((s: any) => s.id === subModuleId) || detailSubs[0] || found || t;
+                }
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("All practices scan notice:", e);
+        }
+      }
+
+      // 4. Scan student assessments endpoint
+      if (!targetSubModule) {
+        try {
+          const resAssess = await fetch("/api/student/assessments");
+          if (resAssess.ok) {
+            const assessData = await resAssess.json();
+            const assessments = assessData.assessments || [];
+            const foundAssess = assessments.find((a: any) => a.id === subModuleId);
+            if (foundAssess) {
+              targetSubModule = {
+                id: foundAssess.id,
+                title: foundAssess.title,
+                type: foundAssess.type || "mixed",
+                durationMinutes: foundAssess.duration_minutes || foundAssess.duration || 60,
+                totalMarks: foundAssess.total_marks || 100,
+                mcqQuestions: foundAssess.mcqQuestions || foundAssess.questions || [],
+                codingQuestions: foundAssess.codingQuestions || [],
+              };
+            }
+          }
+        } catch (e) {
+          console.warn("Assessments scan notice:", e);
+        }
+      }
+
+      // 5. Local Storage fallback (for development / offline tracks)
+      if (!targetSubModule && typeof window !== "undefined") {
+        try {
+          const localStr = localStorage.getItem("enterprise_lms_practice_tracks_v2");
+          if (localStr) {
+            const localTracks = JSON.parse(localStr);
+            for (const t of localTracks) {
+              const subs = t.subModules || t.sub_modules || [];
+              const found = subs.find((s: any) => s.id === subModuleId);
+              if (found || t.id === subModuleId) {
+                targetTrack = t;
+                targetSubModule = found || subs[0] || t;
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Local storage lookup warning:", e);
         }
       }
 
       if (!targetSubModule) {
-        throw new Error("Practice module not found or you are not assigned to it.");
+        setErrorMsg("This practice module was not found or is currently not assigned to your batch.");
+        setLoading(false);
+        return;
       }
 
       setCurrentSubModule({
         id: targetSubModule.id,
         title: targetSubModule.title || "Interactive Practice Module",
         type: targetSubModule.type || "mixed",
-        assignedBy: targetTrack?.assignedByName || "Admin",
+        assignedBy: targetTrack?.assignedByName || targetTrack?.assigned_by_name || "Admin",
         durationMinutes: targetSubModule.durationMinutes || targetSubModule.duration_minutes || 60,
         totalMarks: targetSubModule.totalMarks || targetSubModule.total_marks || 100,
         passingMarks: Math.floor((targetSubModule.totalMarks || targetSubModule.total_marks || 100) / 2),
@@ -229,8 +301,11 @@ export default function AssessmentTakePage() {
 
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-10 w-10 text-[#2563EB] animate-spin" />
+      <div className="flex min-h-[420px] items-center justify-center">
+        <WaveLoader
+          label="Preparing Assessment Environment..."
+          subLabel="Loading questions, test suites and live code execution runtime"
+        />
       </div>
     );
   }

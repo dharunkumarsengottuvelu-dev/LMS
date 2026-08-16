@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { WaveLoader } from "@/components/ui/wave-loader";
 
 interface SubModuleItem {
   id: string;
@@ -88,8 +89,11 @@ export default function StudentTrackDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-10 w-10 text-[#2563EB] animate-spin" />
+      <div className="flex min-h-[420px] items-center justify-center">
+        <WaveLoader
+          label="Loading Practice Track Details..."
+          subLabel="Fetching sub-modules, coding challenges and curriculum structure"
+        />
       </div>
     );
   }
