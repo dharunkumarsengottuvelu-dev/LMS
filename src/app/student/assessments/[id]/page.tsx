@@ -244,138 +244,259 @@ export default function AssessmentTakePage() {
           copyPasteRestricted: Boolean(targetSubModule.restrictCopyPaste || targetSubModule.copyPasteRestricted),
         },
         allowReviewBeforeSubmit: targetSubModule.allowReviewBeforeSubmit ?? targetTrack?.allowReviewBeforeSubmit ?? true,
-        mcqSectionTitle: targetSubModule.mcqSectionTitle || targetSubModule.mcq_section_title || "Section 1: MCQs",
-        codingSectionTitle: targetSubModule.codingSectionTitle || targetSubModule.coding_section_title || "Section 2: Coding",
+        mcqSectionTitle:
+          targetSubModule.mcqSectionTitle ||
+          targetSubModule.mcq_section_title ||
+          (targetSubModule.sections?.[0]?.title) ||
+          "Section 1: MCQs",
+        codingSectionTitle:
+          targetSubModule.codingSectionTitle ||
+          targetSubModule.coding_section_title ||
+          (targetSubModule.sections?.find((s: any) => (s.codingQuestions?.length || 0) > 0)?.title) ||
+          "Section 2: Coding",
       });
 
       const formattedQuestions: PracticeQuestion[] = [];
       const totalSubModuleMarks = targetSubModule.totalMarks || targetSubModule.total_marks || 100;
+      const rawSections = targetSubModule.sections && Array.isArray(targetSubModule.sections) ? targetSubModule.sections : [];
 
-      // A. Extract MCQ Questions (from direct list or sub-module sections)
-      let mcqs = targetSubModule.mcqQuestions || [];
-      if (mcqs.length === 0 && targetSubModule.sections && Array.isArray(targetSubModule.sections)) {
-        mcqs = targetSubModule.sections.flatMap((s: any) => s.mcqQuestions || []);
-      }
+      if (rawSections.length > 0) {
+        let totalCount = 0;
+        rawSections.forEach((s: any) => {
+          totalCount += (s.mcqQuestions?.length || 0) + (s.codingQuestions?.length || 0);
+        });
+        const perQuestionBaseMarks = totalCount > 0 ? Math.max(5, Math.floor(totalSubModuleMarks / totalCount)) : 10;
 
-      // B. Extract Coding Questions (from direct list, sub-module sections, or problems)
-      let codingProbs = targetSubModule.codingQuestions || targetSubModule.codingProblems || [];
-      if (codingProbs.length === 0 && targetSubModule.sections && Array.isArray(targetSubModule.sections)) {
-        codingProbs = targetSubModule.sections.flatMap((s: any) => s.codingQuestions || []);
-      }
+        let globalMcqIdx = 0;
+        let globalCodingIdx = 0;
 
-      // Mark allocation calculation:
-      const totalQuestionCount = mcqs.length + (codingProbs.length > 0 ? codingProbs.length : (targetSubModule.type === "coding" || targetSubModule.problemDescription ? 1 : 0));
-      const perQuestionBaseMarks = totalQuestionCount > 0 ? Math.max(5, Math.floor(totalSubModuleMarks / totalQuestionCount)) : 10;
+        rawSections.forEach((sec: any, sIdx: number) => {
+          const customSecTitle = sec.title || `Section ${sIdx + 1}`;
 
-      mcqs.forEach((q: any, idx: number) => {
-        const rawOptions = q.options || [];
-        const normalizedOptions = rawOptions.map((opt: any, oIdx: number) => {
-          if (typeof opt === "string") {
-            return { id: `opt_${oIdx}`, text: opt, isCorrect: false };
+          // MCQs in this section
+          const secMcqs = sec.mcqQuestions || [];
+          secMcqs.forEach((q: any) => {
+            const rawOptions = q.options || [];
+            const normalizedOptions = rawOptions.map((opt: any, oIdx: number) => {
+              if (typeof opt === "string") {
+                return { id: `opt_${oIdx}`, text: opt, isCorrect: false };
+              }
+              return {
+                id: opt.id || `opt_${oIdx}`,
+                text: opt.text || opt.optionText || opt.title || "",
+                isCorrect: Boolean(opt.isCorrect)
+              };
+            });
+
+            const correctCount = normalizedOptions.filter((o: any) => o.isCorrect).length;
+            const isMulti = q.questionType === "multiple" || correctCount > 1;
+            formattedQuestions.push({
+              id: q.id || `mcq_${globalMcqIdx}`,
+              type: isMulti ? "multiple_choice" : "single_choice",
+              section: "mcq",
+              sectionTitle: customSecTitle,
+              sectionIndex: sIdx,
+              title: q.title || `Question ${globalMcqIdx + 1}`,
+              text: q.questionText || q.text || q.title || "Choose the correct option:",
+              marks: q.marks || perQuestionBaseMarks,
+              options: normalizedOptions,
+              explanation: q.explanation || ""
+            });
+            globalMcqIdx++;
+          });
+
+          // Coding in this section
+          const secCoding = sec.codingQuestions || [];
+          secCoding.forEach((cq: any) => {
+            const rawPub = Array.isArray(cq.publicTestCases) ? cq.publicTestCases : [];
+            const rawHid = Array.isArray(cq.hiddenTestCases) ? cq.hiddenTestCases : [];
+            const rawAll = Array.isArray(cq.test_cases)
+              ? cq.test_cases
+              : Array.isArray(cq.testCases)
+              ? cq.testCases
+              : Array.isArray(cq.sample_test_cases)
+              ? cq.sample_test_cases
+              : [];
+
+            let combinedTestCases: any[] = [];
+            if (rawPub.length > 0 || rawHid.length > 0) {
+              combinedTestCases = [
+                ...rawPub.map((tc: any, tcIdx: number) => ({
+                  id: tc.id || `tc_pub_${tcIdx}`,
+                  input: tc.input || "",
+                  expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
+                  is_hidden: false
+                })),
+                ...rawHid.map((tc: any, tcIdx: number) => ({
+                  id: tc.id || `tc_hid_${tcIdx}`,
+                  input: tc.input || "",
+                  expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
+                  is_hidden: true
+                }))
+              ];
+            } else if (rawAll.length > 0) {
+              combinedTestCases = rawAll.map((tc: any, tcIdx: number) => ({
+                id: tc.id || `tc_${tcIdx}`,
+                input: tc.input || "",
+                expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
+                is_hidden: Boolean(tc.is_hidden)
+              }));
+            }
+
+            formattedQuestions.push({
+              id: cq.id || `cq_${globalCodingIdx}`,
+              type: "coding",
+              section: "coding",
+              sectionTitle: customSecTitle,
+              sectionIndex: sIdx,
+              title: cq.title || `Coding Challenge ${globalCodingIdx + 1}`,
+              text: cq.description || cq.problemDescription || "Implement the algorithm as specified.",
+              marks: cq.marks || cq.points || (perQuestionBaseMarks * 2),
+              difficulty: cq.difficulty || "medium",
+              constraints: cq.constraints || "",
+              inputFormat: cq.inputFormat || "",
+              outputFormat: cq.outputFormat || "",
+              starterCode: cq.templates || {
+                python: targetSubModule.starterCode || "# Write Python code here\n",
+                java: targetSubModule.starterCode || "// Write Java code here\n",
+                cpp: targetSubModule.starterCode || "// Write C++ code here\n",
+                javascript: targetSubModule.starterCode || "// Write JavaScript code here\n",
+                c: targetSubModule.starterCode || "/* Write C code here */\n"
+              },
+              testCases: combinedTestCases
+            });
+            globalCodingIdx++;
+          });
+        });
+      } else {
+        // Fallback for direct MCQ and Coding questions
+        let mcqs = targetSubModule.mcqQuestions || [];
+        let codingProbs = targetSubModule.codingQuestions || targetSubModule.codingProblems || [];
+        const customMcqTitle = targetSubModule.mcqSectionTitle || targetSubModule.mcq_section_title || "Section 1: MCQs";
+        const customCodingTitle = targetSubModule.codingSectionTitle || targetSubModule.coding_section_title || "Section 2: Coding";
+
+        const totalQuestionCount = mcqs.length + (codingProbs.length > 0 ? codingProbs.length : (targetSubModule.type === "coding" || targetSubModule.problemDescription ? 1 : 0));
+        const perQuestionBaseMarks = totalQuestionCount > 0 ? Math.max(5, Math.floor(totalSubModuleMarks / totalQuestionCount)) : 10;
+
+        mcqs.forEach((q: any, idx: number) => {
+          const rawOptions = q.options || [];
+          const normalizedOptions = rawOptions.map((opt: any, oIdx: number) => {
+            if (typeof opt === "string") {
+              return { id: `opt_${oIdx}`, text: opt, isCorrect: false };
+            }
+            return {
+              id: opt.id || `opt_${oIdx}`,
+              text: opt.text || opt.optionText || opt.title || "",
+              isCorrect: Boolean(opt.isCorrect)
+            };
+          });
+
+          const correctCount = normalizedOptions.filter((o: any) => o.isCorrect).length;
+          const isMulti = q.questionType === "multiple" || correctCount > 1;
+          formattedQuestions.push({
+            id: q.id || `mcq_${idx}`,
+            type: isMulti ? "multiple_choice" : "single_choice",
+            section: "mcq",
+            sectionTitle: customMcqTitle,
+            title: `Question ${idx + 1}`,
+            text: q.questionText || q.text || q.title || "Choose the correct option:",
+            marks: q.marks || perQuestionBaseMarks,
+            options: normalizedOptions,
+            explanation: q.explanation || ""
+          });
+        });
+
+        if (codingProbs.length > 0) {
+          codingProbs.forEach((cq: any, idx: number) => {
+            const rawPub = Array.isArray(cq.publicTestCases) ? cq.publicTestCases : [];
+            const rawHid = Array.isArray(cq.hiddenTestCases) ? cq.hiddenTestCases : [];
+            const rawAll = Array.isArray(cq.test_cases)
+              ? cq.test_cases
+              : Array.isArray(cq.testCases)
+              ? cq.testCases
+              : Array.isArray(cq.sample_test_cases)
+              ? cq.sample_test_cases
+              : [];
+
+            let combinedTestCases: any[] = [];
+            if (rawPub.length > 0 || rawHid.length > 0) {
+              combinedTestCases = [
+                ...rawPub.map((tc: any, tcIdx: number) => ({
+                  id: tc.id || `tc_pub_${tcIdx}`,
+                  input: tc.input || "",
+                  expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
+                  is_hidden: false
+                })),
+                ...rawHid.map((tc: any, tcIdx: number) => ({
+                  id: tc.id || `tc_hid_${tcIdx}`,
+                  input: tc.input || "",
+                  expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
+                  is_hidden: true
+                }))
+              ];
+            } else if (rawAll.length > 0) {
+              combinedTestCases = rawAll.map((tc: any, tcIdx: number) => ({
+                id: tc.id || `tc_${tcIdx}`,
+                input: tc.input || "",
+                expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
+                is_hidden: Boolean(tc.is_hidden)
+              }));
+            }
+
+            formattedQuestions.push({
+              id: cq.id || `cq_${idx}`,
+              type: "coding",
+              section: "coding",
+              sectionTitle: customCodingTitle,
+              title: cq.title || `Coding Challenge ${idx + 1}`,
+              text: cq.description || cq.problemDescription || "Implement the algorithm as specified.",
+              marks: cq.marks || cq.points || (perQuestionBaseMarks * 2),
+              difficulty: cq.difficulty || "medium",
+              constraints: cq.constraints || "",
+              inputFormat: cq.inputFormat || "",
+              outputFormat: cq.outputFormat || "",
+              starterCode: cq.templates || {
+                python: targetSubModule.starterCode || "# Write Python code here\n",
+                java: targetSubModule.starterCode || "// Write Java code here\n",
+                cpp: targetSubModule.starterCode || "// Write C++ code here\n",
+                javascript: targetSubModule.starterCode || "// Write JavaScript code here\n",
+                c: targetSubModule.starterCode || "/* Write C code here */\n"
+              },
+              testCases: combinedTestCases
+            });
+          });
+        } else if (targetSubModule.type === "coding" || targetSubModule.problemDescription) {
+          // Single coding task in submodule
+          const testCases: any[] = [];
+          if (targetSubModule.publicTestCases) {
+            testCases.push({ id: "tc_pub_1", input: targetSubModule.publicTestCases, expected_output: "1", is_hidden: false });
           }
-          return {
-            id: opt.id || `opt_${oIdx}`,
-            text: opt.text || opt.optionText || opt.title || "",
-            isCorrect: Boolean(opt.isCorrect)
-          };
-        });
-
-        const correctCount = normalizedOptions.filter((o: any) => o.isCorrect).length;
-        const isMulti = q.questionType === "multiple" || correctCount > 1;
-        formattedQuestions.push({
-          id: q.id || `mcq_${idx}`,
-          type: isMulti ? "multiple_choice" : "single_choice",
-          section: "mcq",
-          title: `Question ${idx + 1}`,
-          text: q.questionText || q.text || q.title || "Choose the correct option:",
-          marks: q.marks || perQuestionBaseMarks,
-          options: normalizedOptions,
-          explanation: q.explanation || ""
-        });
-      });
-
-      if (codingProbs.length > 0) {
-        codingProbs.forEach((cq: any, idx: number) => {
-          const rawPub = Array.isArray(cq.publicTestCases) ? cq.publicTestCases : [];
-          const rawHid = Array.isArray(cq.hiddenTestCases) ? cq.hiddenTestCases : [];
-          const rawAll = Array.isArray(cq.test_cases)
-            ? cq.test_cases
-            : Array.isArray(cq.testCases)
-            ? cq.testCases
-            : Array.isArray(cq.sample_test_cases)
-            ? cq.sample_test_cases
-            : [];
-
-          let combinedTestCases: any[] = [];
-          if (rawPub.length > 0 || rawHid.length > 0) {
-            combinedTestCases = [
-              ...rawPub.map((tc: any, tcIdx: number) => ({
-                id: tc.id || `tc_pub_${tcIdx}`,
-                input: tc.input || "",
-                expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
-                is_hidden: false
-              })),
-              ...rawHid.map((tc: any, tcIdx: number) => ({
-                id: tc.id || `tc_hid_${tcIdx}`,
-                input: tc.input || "",
-                expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
-                is_hidden: true
-              }))
-            ];
-          } else if (rawAll.length > 0) {
-            combinedTestCases = rawAll.map((tc: any, tcIdx: number) => ({
-              id: tc.id || `tc_${tcIdx}`,
-              input: tc.input || "",
-              expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
-              is_hidden: Boolean(tc.is_hidden)
-            }));
+          if (targetSubModule.hasHiddenTests && targetSubModule.hiddenTestsCode) {
+            testCases.push({ id: "tc_hid_1", input: targetSubModule.hiddenTestsCode, expected_output: "1", is_hidden: true });
           }
 
           formattedQuestions.push({
-            id: cq.id || `cq_${idx}`,
+            id: `${targetSubModule.id}_prob`,
             type: "coding",
             section: "coding",
-            title: cq.title || `Coding Challenge ${idx + 1}`,
-            text: cq.description || cq.problemDescription || "Implement the algorithm as specified.",
-            marks: cq.marks || cq.points || (perQuestionBaseMarks * 2),
-            difficulty: cq.difficulty || "medium",
-            constraints: cq.constraints || "",
-            inputFormat: cq.inputFormat || "",
-            outputFormat: cq.outputFormat || "",
-            starterCode: cq.templates || {
-              python: targetSubModule.starterCode || "# Write Python code here\n",
-              java: targetSubModule.starterCode || "// Write Java code here\n",
-              cpp: targetSubModule.starterCode || "// Write C++ code here\n",
-              javascript: targetSubModule.starterCode || "// Write JavaScript code here\n",
-              c: targetSubModule.starterCode || "/* Write C code here */\n"
+            sectionTitle: customCodingTitle,
+            title: targetSubModule.title || "Coding Problem",
+            text: targetSubModule.problemDescription || targetSubModule.description || "Solve the problem according to requirements.",
+            marks: totalSubModuleMarks,
+            difficulty: targetSubModule.difficulty || "medium",
+            constraints: targetSubModule.constraints || "",
+            inputFormat: targetSubModule.inputFormat || "",
+            outputFormat: targetSubModule.outputFormat || "",
+            starterCode: targetSubModule.starterCode || {
+              python: "# Write Python code here\n",
+              java: "// Write Java code here\n",
+              cpp: "// Write C++ code here\n",
+              javascript: "// Write JavaScript code here\n",
+              c: "/* Write C code here */\n"
             },
-            testCases: combinedTestCases
+            testCases: testCases.length > 0 ? testCases : [{ id: "tc_1", input: "1", expected_output: "1", is_hidden: false }]
           });
-        });
-      } else if (targetSubModule.type === "coding" || targetSubModule.problemDescription) {
-        // Single coding task in submodule
-        const testCases: any[] = [];
-        if (targetSubModule.publicTestCases) {
-          testCases.push({ id: "tc_pub_1", input: targetSubModule.publicTestCases, expected_output: "1", is_hidden: false });
         }
-        if (targetSubModule.hasHiddenTests && targetSubModule.hiddenTestsCode) {
-          testCases.push({ id: "tc_hid_1", input: targetSubModule.hiddenTestsCode, expected_output: "1", is_hidden: true });
-        }
-
-        formattedQuestions.push({
-          id: `${targetSubModule.id}_prob`,
-          type: "coding",
-          section: "coding",
-          title: targetSubModule.title || "Coding Problem",
-          text: targetSubModule.problemDescription || targetSubModule.description || "Solve the problem according to requirements.",
-          marks: targetSubModule.totalMarks || 100,
-          difficulty: "medium",
-          starterCode: {
-            python: targetSubModule.starterCode || "# Write code here\n",
-            java: targetSubModule.starterCode || "// Write Java code here\n"
-          },
-          testCases: testCases.length > 0 ? testCases : [{ id: "tc_1", input: "1", expected_output: "1", is_hidden: false }]
-        });
       }
 
       setQuestions(formattedQuestions);

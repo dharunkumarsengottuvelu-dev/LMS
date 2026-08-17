@@ -29,6 +29,8 @@ export interface PracticeQuestion {
   id: string;
   type: "single_choice" | "multiple_choice" | "coding" | "mcq";
   section?: "mcq" | "coding" | string;
+  sectionTitle?: string;
+  sectionIndex?: number;
   title: string;
   text: string;
   marks: number;
@@ -583,7 +585,7 @@ export function PracticeRunnerEngine({
           <div className="space-y-2">
             <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5 truncate">
               <ClipboardList className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
-              <span className="truncate">{(module as any).mcqSectionTitle || "Section 1: MCQs"}</span>
+              <span className="truncate">{mcqQuestions[0]?.sectionTitle || (module as any).mcqSectionTitle || "Multiple Choice"}</span>
               <span className="text-[10px] text-muted-foreground shrink-0">({mcqQuestions.length})</span>
             </span>
             <div className="grid grid-cols-5 gap-2">
@@ -618,7 +620,7 @@ export function PracticeRunnerEngine({
           <div className="space-y-2 pt-2 border-t border-border">
             <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5 truncate">
               <Code2 className="h-3.5 w-3.5 text-[#9333EA] shrink-0" />
-              <span className="truncate">{(module as any).codingSectionTitle || "Section 2: Coding"}</span>
+              <span className="truncate">{codingQuestions[0]?.sectionTitle || (module as any).codingSectionTitle || "Coding Challenges"}</span>
               <span className="text-[10px] text-muted-foreground shrink-0">({codingQuestions.length})</span>
             </span>
             <div className="grid grid-cols-5 gap-2">
@@ -742,7 +744,7 @@ export function PracticeRunnerEngine({
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-bold tracking-wider uppercase text-[#2563EB]">
-                      {(module as any).mcqSectionTitle || "Section 1: MCQs"} • Question {mcqIndex + 1} of {mcqQuestions.length}
+                      {currentQuestion.sectionTitle || (module as any).mcqSectionTitle || "Multiple Choice"} • Question {mcqIndex + 1} of {mcqQuestions.length}
                     </span>
                     <Badge
                       className={cn(
@@ -845,9 +847,9 @@ export function PracticeRunnerEngine({
               <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden h-full flex flex-col">
                 <CardHeader className="p-4 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] bg-muted/20 shrink-0">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge className="bg-[#9333EA] text-white text-xs font-bold px-3 py-1">
-                        Problem {codingIndex + 1} of {codingQuestions.length}
+                        {currentQuestion.sectionTitle ? `${currentQuestion.sectionTitle} • ` : ""}Problem {codingIndex + 1} of {codingQuestions.length}
                       </Badge>
                       <Badge variant="outline" className={cn(
                         "text-[10px] font-bold uppercase px-2.5 py-0.5",
@@ -1263,7 +1265,7 @@ export function PracticeRunnerEngine({
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider">
-                                  {q.section === "mcq" ? (module as any).mcqSectionTitle || "MCQ Question" : "Multiple Choice"}
+                                  {q.sectionTitle || (module as any).mcqSectionTitle || "Multiple Choice"}
                                 </span>
                                 {q.marks && (
                                   <Badge variant="outline" className="text-[10px] font-bold bg-white dark:bg-[#090D16]">
@@ -1375,7 +1377,7 @@ export function PracticeRunnerEngine({
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap mb-1">
                                 <span className="text-[11px] font-bold text-[#9333EA] uppercase tracking-wider">
-                                  {(module as any).codingSectionTitle || "Coding Challenge"}
+                                  {q.sectionTitle || (module as any).codingSectionTitle || "Coding Challenge"}
                                 </span>
                                 {q.marks && (
                                   <span className="text-[10px] font-bold text-[#64748B] dark:text-[#94A3B8] px-1.5 py-0.5 rounded bg-[#F1F5F9] dark:bg-[#334155]">
