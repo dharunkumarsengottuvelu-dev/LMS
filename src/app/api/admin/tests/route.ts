@@ -19,11 +19,40 @@ export async function GET() {
       .from("batches")
       .select("id, name, batch_name, college_name");
 
-    const mappedBatches: any[] = (batchesData || []).map((b: any) => ({
-      id: b.id,
-      name: b.name || b.batch_name,
-      collegeName: b.college_name || "",
-    }));
+    const { data: profilesData } = await adminClient
+      .from("profiles")
+      .select("batch, batch_name, batch_id");
+
+    const batchNamesSet = new Set<string>();
+    const mappedBatches: any[] = [];
+
+    (batchesData || []).forEach((b: any) => {
+      const bName = b.name || b.batch_name;
+      if (bName) {
+        batchNamesSet.add(bName);
+        mappedBatches.push({
+          id: b.id,
+          name: bName,
+          collegeName: b.college_name || "",
+        });
+      }
+    });
+
+    (profilesData || []).forEach((p: any) => {
+      const pb = p.batch || p.batch_name || p.batch_id;
+      if (pb && !batchNamesSet.has(pb)) {
+        batchNamesSet.add(pb);
+        mappedBatches.push({
+          id: pb,
+          name: pb,
+          collegeName: "Student Cohort",
+        });
+      }
+    });
+
+    if (mappedBatches.length === 0) {
+      mappedBatches.push({ id: "General Cohort", name: "General Cohort", collegeName: "All Students" });
+    }
 
     const mappedTests = (assessmentsData || []).map((a: any) => {
       let meta: any = {};

@@ -54,30 +54,119 @@ export async function GET() {
       };
     });
 
-    // 2. Fetch Students
-    const { data: studentsData } = await adminClient
+    // 2. Fetch all profiles & auth users to ensure real students always load
+    const { data: profilesData } = await adminClient
       .from("profiles")
       .select("*")
-      .eq("role", "student");
+      .order("created_at", { ascending: false });
 
-    const mappedStudents = (studentsData || []).map((s: any) => ({
-      id: s.id,
-      userId: s.user_id,
-      name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email?.split("@")[0] || "Student",
-      email: s.email,
-      batch: s.batch || s.batch_name || "Unassigned Batch",
-    }));
+    let authUsers: any[] = [];
+    try {
+      const { data: authData } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+      authUsers = authData?.users || [];
+    } catch (e) {
+      console.warn("Could not list auth users in practices route:", e);
+    }
+
+    const profileUserIdSet = new Set((profilesData || []).map((p: any) => p.user_id));
+    const mergedProfiles: any[] = [...(profilesData || [])];
+
+    for (const au of authUsers) {
+      if (!profileUserIdSet.has(au.id)) {
+        const meta = au.user_metadata || {};
+        const fullName = (meta.full_name || meta.name || "").trim();
+        const nameParts = fullName.split(" ");
+        const emailPrefix = au.email ? au.email.split("@")[0] : "User";
+        const formattedEmailName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+        const firstName = meta.first_name || nameParts[0] || formattedEmailName;
+        const lastName = meta.last_name || nameParts.slice(1).join(" ") || "";
+        const role = au.email?.includes("admin")
+          ? "admin"
+          : au.email?.includes("trainer")
+          ? "trainer"
+          : (meta.role || "student");
+
+        const newProfile = {
+          user_id: au.id,
+          first_name: firstName,
+          last_name: lastName,
+          email: au.email,
+          role,
+          status: "active",
+          created_at: au.created_at || new Date().toISOString(),
+          updated_at: au.updated_at || new Date().toISOString(),
+        };
+
+        const { data: inserted } = await adminClient
+          .from("profiles")
+          .insert(newProfile)
+          .select("*")
+          .maybeSingle();
+
+        if (inserted) {
+          mergedProfiles.push(inserted);
+        } else {
+          mergedProfiles.push({ ...newProfile, id: au.id });
+        }
+      }
+    }
+
+    // Filter students
+    const studentProfiles = mergedProfiles.filter((p: any) => {
+      const r = (p.role || "").toLowerCase();
+      const em = (p.email || "").toLowerCase();
+      return r === "student" || (!em.includes("admin") && !em.includes("trainer") && r !== "admin" && r !== "trainer");
+    });
+
+    const mappedStudents = studentProfiles.map((s: any) => {
+      const first = s.first_name || "";
+      const last = s.last_name || "";
+      const fullName = (first || last) ? `${first} ${last}`.trim() : (s.email?.split("@")[0] || "Student");
+      return {
+        id: s.id || s.user_id,
+        userId: s.user_id || s.id,
+        name: fullName,
+        email: s.email || "",
+        batch: s.batch || s.batch_name || s.batch_id || "General Cohort",
+      };
+    });
 
     // 3. Fetch Batches
     const { data: batchesData } = await adminClient
       .from("batches")
       .select("id, name, batch_name, college_name");
 
-    const mappedBatches: any[] = (batchesData || []).map((b: any) => ({
-      id: b.id,
-      name: b.name || b.batch_name,
-      collegeName: b.college_name || "",
-    }));
+    const batchNamesSet = new Set<string>();
+    const mappedBatches: any[] = [];
+
+    (batchesData || []).forEach((b: any) => {
+      const bName = b.name || b.batch_name;
+      if (bName) {
+        batchNamesSet.add(bName);
+        mappedBatches.push({
+          id: b.id,
+          name: bName,
+          collegeName: b.college_name || "",
+        });
+      }
+    });
+
+    // Also include any distinct batches assigned to students
+    studentProfiles.forEach((s: any) => {
+      const sb = s.batch || s.batch_name || s.batch_id;
+      if (sb && !batchNamesSet.has(sb)) {
+        batchNamesSet.add(sb);
+        mappedBatches.push({
+          id: sb,
+          name: sb,
+          collegeName: "Student Cohort",
+        });
+      }
+    });
+
+    if (mappedBatches.length === 0) {
+      mappedBatches.push({ id: "General Cohort", name: "General Cohort", collegeName: "All Students" });
+    }
 
     return NextResponse.json({
       tracks: mappedTracks,
@@ -103,18 +192,16 @@ export async function POST(request: NextRequest) {
       const isCommon: boolean =
         t.isCommon !== undefined ? t.isCommon : assignedBatches.length === 0;
 
+      const subModulesArray = t.subModules || [];
+      const assignedStudentsArray = t.assignedStudents || [];
+
       const meta = {
         description: t.description || "",
         thumbnail: t.thumbnail || "",
-        assignedByName: t.assignedByName || "Admin",
-        isCommon,
-        assignedBatches: isCommon ? [] : assignedBatches,
-        assignedStudents: t.assignedStudents || [],
-        subModules: t.subModules || [],
         status: t.status || "published",
       };
 
-      const problemsCount = (t.subModules || []).reduce(
+      const problemsCount = subModulesArray.reduce(
         (acc: number, sm: any) => acc + (sm.questionCount || 1),
         0
       );
@@ -123,9 +210,14 @@ export async function POST(request: NextRequest) {
         title: t.title,
         category: t.category || "General",
         difficulty: t.difficulty || "medium",
-        problems_count: problemsCount,
+        description: t.description || "",
+        thumbnail: t.thumbnail || "",
         assigned_batches: isCommon ? [] : assignedBatches,
+        assigned_students: assignedStudentsArray,
         is_common: isCommon,
+        assigned_by_name: t.assignedByName || "Admin",
+        sub_modules: subModulesArray,
+        status: t.status || "published",
         tags: [JSON.stringify(meta)],
       };
 
@@ -178,29 +270,6 @@ export async function POST(request: NextRequest) {
           console.warn("Insert track warning:", error);
         }
         savedTrack = data;
-      }
-
-      const finalTrackId = savedTrack?.id || trackId;
-      if (finalTrackId && t.subModules && t.subModules.length > 0) {
-        for (const sm of t.subModules) {
-          const isSmUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sm.id);
-          const smPayload: any = {
-            track_id: finalTrackId,
-            title: sm.title,
-            type: sm.type || "coding",
-            duration_minutes: sm.durationMinutes || sm.duration_minutes || 30,
-            total_marks: sm.totalMarks || sm.total_marks || 100,
-            question_count: sm.questionCount || sm.question_count || 1,
-          };
-          if (isSmUUID) {
-            smPayload.id = sm.id;
-          }
-          try {
-            await adminClient.from("practice_sub_modules").upsert(smPayload);
-          } catch (smErr) {
-            console.warn("Submodule save warning:", smErr);
-          }
-        }
       }
     }
 

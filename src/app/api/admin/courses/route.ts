@@ -15,30 +15,115 @@ export async function GET() {
       throw error;
     }
 
+    // Fetch all profiles & auth users
+    const { data: profilesData } = await adminClient
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    let authUsers: any[] = [];
+    try {
+      const { data: authData } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+      authUsers = authData?.users || [];
+    } catch (e) {
+      console.warn("Could not list auth users in courses route:", e);
+    }
+
+    const profileUserIdSet = new Set((profilesData || []).map((p: any) => p.user_id));
+    const mergedProfiles: any[] = [...(profilesData || [])];
+
+    for (const au of authUsers) {
+      if (!profileUserIdSet.has(au.id)) {
+        const meta = au.user_metadata || {};
+        const fullName = (meta.full_name || meta.name || "").trim();
+        const nameParts = fullName.split(" ");
+        const emailPrefix = au.email ? au.email.split("@")[0] : "User";
+        const formattedEmailName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+        const firstName = meta.first_name || nameParts[0] || formattedEmailName;
+        const lastName = meta.last_name || nameParts.slice(1).join(" ") || "";
+        const role = au.email?.includes("admin")
+          ? "admin"
+          : au.email?.includes("trainer")
+          ? "trainer"
+          : (meta.role || "student");
+
+        const newProfile = {
+          user_id: au.id,
+          first_name: firstName,
+          last_name: lastName,
+          email: au.email,
+          role,
+          status: "active",
+          created_at: au.created_at || new Date().toISOString(),
+          updated_at: au.updated_at || new Date().toISOString(),
+        };
+
+        const { data: inserted } = await adminClient
+          .from("profiles")
+          .insert(newProfile)
+          .select("*")
+          .maybeSingle();
+
+        if (inserted) {
+          mergedProfiles.push(inserted);
+        } else {
+          mergedProfiles.push({ ...newProfile, id: au.id });
+        }
+      }
+    }
+
+    const studentProfiles = mergedProfiles.filter((p: any) => {
+      const r = (p.role || "").toLowerCase();
+      const em = (p.email || "").toLowerCase();
+      return r === "student" || (!em.includes("admin") && !em.includes("trainer") && r !== "admin" && r !== "trainer");
+    });
+
+    const mappedStudents = studentProfiles.map((s: any) => {
+      const first = s.first_name || "";
+      const last = s.last_name || "";
+      const fullName = (first || last) ? `${first} ${last}`.trim() : (s.email?.split("@")[0] || "Student");
+      return {
+        id: s.id || s.user_id,
+        name: fullName,
+        email: s.email || "",
+        batch: s.batch || s.batch_name || s.batch_id || "General Cohort",
+      };
+    });
+
     const { data: batchesData } = await adminClient
       .from("batches")
       .select("id, name, batch_name, college_name");
 
+    const batchNamesSet = new Set<string>();
     const mappedBatches: any[] = [];
+
     (batchesData || []).forEach((b: any) => {
-      mappedBatches.push({
-        id: b.id,
-        name: b.name || b.batch_name,
-        collegeName: b.college_name || "",
-      });
+      const bName = b.name || b.batch_name;
+      if (bName) {
+        batchNamesSet.add(bName);
+        mappedBatches.push({
+          id: b.id,
+          name: bName,
+          collegeName: b.college_name || "",
+        });
+      }
     });
 
-    const { data: studentsData } = await adminClient
-      .from("profiles")
-      .select("id, first_name, last_name, email, batch, batch_name")
-      .eq("role", "student");
+    studentProfiles.forEach((s: any) => {
+      const sb = s.batch || s.batch_name || s.batch_id;
+      if (sb && !batchNamesSet.has(sb)) {
+        batchNamesSet.add(sb);
+        mappedBatches.push({
+          id: sb,
+          name: sb,
+          collegeName: "Student Cohort",
+        });
+      }
+    });
 
-    const mappedStudents = (studentsData || []).map((s: any) => ({
-      id: s.id,
-      name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email?.split("@")[0] || "Student",
-      email: s.email,
-      batch: s.batch || s.batch_name || "Unassigned",
-    }));
+    if (mappedBatches.length === 0) {
+      mappedBatches.push({ id: "General Cohort", name: "General Cohort", collegeName: "All Students" });
+    }
 
     const mappedCourses = (coursesData || []).map((c: any) => {
       let meta: any = {};
