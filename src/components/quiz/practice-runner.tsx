@@ -1571,6 +1571,7 @@ export function PracticeRunnerEngine({
                     );
                   }
                 })}
+              </div>
             </div>
           </div>
 
