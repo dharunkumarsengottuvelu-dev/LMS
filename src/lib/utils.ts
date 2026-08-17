@@ -107,3 +107,47 @@ export function normalizeError(error: unknown): Error {
 
   return new Error("Unknown runtime error");
 }
+
+export function getTopicThumbnail(title?: string, category?: string, customThumbnail?: string): string {
+  if (customThumbnail && customThumbnail.trim() && !customThumbnail.includes("photo-1633356122544-f134324a6cee")) {
+    return customThumbnail;
+  }
+
+  const combined = `${title || ""} ${category || ""}`.toLowerCase();
+
+  if (combined.includes("java") || combined.includes("jvm") || combined.includes("spring") || combined.includes("hibernate") || combined.includes("oops")) {
+    // Java Programming
+    return "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop&q=80";
+  }
+  if (combined.includes("python") || combined.includes("django") || combined.includes("flask") || combined.includes("data science") || combined.includes("machine learning") || combined.includes("ai") || combined.includes("pandas") || combined.includes("numpy")) {
+    // Python & AI/ML
+    return "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80";
+  }
+  if (combined.includes("c++") || combined.includes("cpp") || combined.includes(" c ") || combined.startsWith("c ") || combined.endsWith(" c") || combined.includes("embedded") || combined.includes("algorithm") || combined.includes("dsa") || combined.includes("data structure")) {
+    // C / C++ / DSA
+    return "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80";
+  }
+  if (combined.includes("javascript") || combined.includes("typescript") || combined.includes("node") || combined.includes("express") || combined.includes("fullstack")) {
+    // JavaScript / TypeScript / Node
+    return "https://images.unsplash.com/photo-1579468118864-1b9ea3c0db4a?w=800&auto=format&fit=crop&q=80";
+  }
+  if (combined.includes("react") || combined.includes("frontend") || combined.includes("next") || combined.includes("vue") || combined.includes("angular") || combined.includes("html") || combined.includes("css") || combined.includes("web")) {
+    // React & Web UI
+    return "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80";
+  }
+  if (combined.includes("sql") || combined.includes("database") || combined.includes("dbms") || combined.includes("postgres") || combined.includes("mysql") || combined.includes("mongo")) {
+    // SQL & Database
+    return "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=800&auto=format&fit=crop&q=80";
+  }
+  if (combined.includes("cloud") || combined.includes("devops") || combined.includes("aws") || combined.includes("docker") || combined.includes("kubernetes") || combined.includes("linux")) {
+    // Cloud & DevOps
+    return "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80";
+  }
+  if (combined.includes("aptitude") || combined.includes("reasoning") || combined.includes("verbal") || combined.includes("soft skills") || combined.includes("interview")) {
+    // Aptitude & Interview Prep
+    return "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&fit=crop&q=80";
+  }
+
+  // Default clean programming workspace
+  return "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=800&auto=format&fit=crop&q=80";
+}

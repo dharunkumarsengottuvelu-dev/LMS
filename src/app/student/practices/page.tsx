@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { useLMSStore } from "@/lib/store/lms-store";
+import { getTopicThumbnail } from "@/lib/utils";
 
 interface SubModuleItem {
   id: string;
@@ -80,7 +81,7 @@ export default function StudentPracticesPage() {
     title: t.title,
     category: t.category,
     description: t.description || "Practice Track",
-    thumbnail: t.thumbnail_url || t.thumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
+    thumbnail: getTopicThumbnail(t.title, t.category, t.thumbnail_url || t.thumbnail),
     assignedBy: "Admin",
     assignedByName: t.assignedByName || t.assigned_by_name || "System Admin",
     subModules: t.subModules || t.sub_modules || [] 

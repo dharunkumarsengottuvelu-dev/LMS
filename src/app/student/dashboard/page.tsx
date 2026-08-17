@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { StudentDashboardClient } from "./dashboard-client";
 import { redirect } from "next/navigation";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
+import { getTopicThumbnail } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -107,7 +108,7 @@ async function getStudentData() {
         category: t.category,
         difficulty: t.difficulty || "medium",
         description: meta.description || t.description || "Practice Track",
-        thumbnail: meta.thumbnail || t.thumbnail || "",
+        thumbnail: getTopicThumbnail(t.title, t.category, meta.thumbnail || t.thumbnail),
         assigned_by_name: meta.assignedByName || t.assigned_by_name || "Admin",
         assigned_batches: assignedBatches,
         assigned_students: assignedStudents,

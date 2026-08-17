@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getErrorMessage } from "@/lib/utils";
+import { getErrorMessage, getTopicThumbnail } from "@/lib/utils";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
 
 export async function GET(request: NextRequest) {
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         category: t.category,
         difficulty: t.difficulty || "medium",
         description: meta.description || t.description || "Practice Track",
-        thumbnail: meta.thumbnail || t.thumbnail || "",
+        thumbnail: getTopicThumbnail(t.title, t.category, meta.thumbnail || t.thumbnail),
         assigned_by_name: meta.assignedByName || t.assigned_by_name || t.assignedByName || "Admin",
         assigned_batches: assignedBatches,
         assigned_students: assignedStudents,
