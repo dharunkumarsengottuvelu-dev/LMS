@@ -601,17 +601,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   );
 
   const openCreateWizard = () => {
+    try {
+      localStorage.removeItem("draft_course_wizard");
+    } catch {}
     setEditingCourseId(null);
     setFTitle(""); setFCategory(""); setFLevel("Intermediate");
     setFInstructor(""); setFDesc(""); setFThumbnail("");
-    setDraftModules([
-      {
-        id: `mod_${Date.now()}`,
-        title: "Module 1: Introduction & Fundamentals",
-        description: "Core conceptual lessons, environment setup, and introductory exercises.",
-        subModules: [],
-      }
-    ]);
+    setDraftModules([]);
     resetSubModuleBuilder();
     setShowModuleBuilder(false);
     setWizardStep(1);
