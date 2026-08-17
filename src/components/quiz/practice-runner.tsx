@@ -744,7 +744,7 @@ export function PracticeRunnerEngine({
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-bold tracking-wider uppercase text-[#2563EB]">
-                      {currentQuestion.sectionTitle || (module as any).mcqSectionTitle || "Multiple Choice"} • Question {mcqIndex + 1} of {mcqQuestions.length}
+                      Question {mcqIndex + 1} of {mcqQuestions.length}
                     </span>
                     <Badge
                       className={cn(
@@ -847,9 +847,9 @@ export function PracticeRunnerEngine({
               <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden h-full flex flex-col">
                 <CardHeader className="p-4 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] bg-muted/20 shrink-0">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
                       <Badge className="bg-[#9333EA] text-white text-xs font-bold px-3 py-1">
-                        {currentQuestion.sectionTitle ? `${currentQuestion.sectionTitle} • ` : ""}Problem {codingIndex + 1} of {codingQuestions.length}
+                        Problem {codingIndex + 1} of {codingQuestions.length}
                       </Badge>
                       <Badge variant="outline" className={cn(
                         "text-[10px] font-bold uppercase px-2.5 py-0.5",
