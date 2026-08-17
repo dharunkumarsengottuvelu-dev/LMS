@@ -68,9 +68,9 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const { profile } = data;
   const firstName = profile?.first_name || profile?.full_name?.split(" ")[0] || "Student";
 
-  const [storeCourses, setStoreCourses] = useState<any[]>([]);
-  const [storeTracks, setStoreTracks] = useState<any[]>([]);
-  const [storeAssessments, setStoreAssessments] = useState<any[]>([]);
+  const [storeCourses, setStoreCourses] = useState<any[]>((data as any).initialCourses || (data as any).enrollments || []);
+  const [storeTracks, setStoreTracks] = useState<any[]>((data as any).initialTracks || []);
+  const [storeAssessments, setStoreAssessments] = useState<any[]>(data.tests || []);
 
   useEffect(() => {
     async function loadData() {
@@ -82,15 +82,15 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
         ]);
         if (cRes.ok) {
           const cData = await cRes.json();
-          if (cData.courses) setStoreCourses(cData.courses);
+          if (cData.courses && cData.courses.length > 0) setStoreCourses(cData.courses);
         }
         if (pRes.ok) {
           const pData = await pRes.json();
-          if (pData.tracks) setStoreTracks(pData.tracks);
+          if (pData.tracks && pData.tracks.length > 0) setStoreTracks(pData.tracks);
         }
         if (aRes.ok) {
           const aData = await aRes.json();
-          if (aData.tests) setStoreAssessments(aData.tests);
+          if (aData.tests && aData.tests.length > 0) setStoreAssessments(aData.tests);
         }
       } catch (err) {
         console.error("Dashboard data load error", err);

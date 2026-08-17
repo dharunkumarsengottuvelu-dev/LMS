@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { StudentDashboardClient } from "./dashboard-client";
 import { redirect } from "next/navigation";
+import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
 
 export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -11,12 +13,16 @@ async function getStudentData() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
-  // Get profile from database
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select("*")
-    .or(`user_id.eq.${user.id},id.eq.${user.id}${user.email ? `,email.eq.${user.email}` : ""}`)
-    .maybeSingle();
+  let adminClient;
+  try {
+    adminClient = createAdminClient();
+  } catch {
+    adminClient = supabase;
+  }
+
+  // 1. Resolve student batch & profile
+  const batchContext = await getStudentBatchAccess(adminClient, user);
+  const pData = (batchContext.profile || {}) as any;
 
   const userMeta = user.user_metadata || {};
   const metaFullName = (userMeta.full_name || userMeta.name || "").trim();
@@ -24,7 +30,6 @@ async function getStudentData() {
   const emailName = (user.email || "").split("@")[0] || "Student";
   const formattedEmailName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
 
-  const pData = profileData as any;
   const firstName =
     pData?.first_name ||
     userMeta.first_name ||
@@ -38,8 +43,8 @@ async function getStudentData() {
   const fullDisplayName = `${firstName} ${lastName}`.trim() || formattedEmailName;
 
   const resolvedProfile = {
-    ...(pData || {}),
-    id: pData?.id || user.id,
+    ...pData,
+    id: batchContext.profileId || user.id,
     user_id: user.id,
     first_name: firstName,
     last_name: lastName,
@@ -49,50 +54,78 @@ async function getStudentData() {
     status: pData?.status || "active",
   };
 
-  const profileId = (resolvedProfile.id as string) || user.id;
+  // 2. Fetch live data from database with batch authorization
+  const [coursesRes, tracksRes, testsRes, notificationsRes] = await Promise.all([
+    adminClient.from("courses").select("*").order("created_at", { ascending: false }),
+    adminClient.from("practice_tracks").select("*").order("created_at", { ascending: false }),
+    adminClient.from("assessments").select("*").order("created_at", { ascending: false }),
+    adminClient.from("notifications").select("*").order("created_at", { ascending: false }).limit(8),
+  ]);
 
-  // Parallel data fetching
-  const [enrollmentsRes, testsRes, notificationsRes] =
-    await Promise.all([
-      supabase
-        .from("enrollments")
-        .select("id, course_id, progress_percentage, status, enrolled_at")
-        .eq("student_id", profileId)
-        .neq("status", "dropped")
-        .order("enrolled_at", { ascending: false })
-        .limit(6),
-      supabase
-        .from("tests")
-        .select("id, title, type, scheduled_at, duration_minutes, status")
-        .gte("scheduled_at", new Date().toISOString())
-        .eq("status", "scheduled")
-        .order("scheduled_at", { ascending: true })
-        .limit(5),
-      supabase
-        .from("notifications")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(8),
-    ]);
+  const rawCourses = ((coursesRes.data as any[]) || [])
+    .map((c: any) => {
+      let meta: any = {};
+      if (c.tags && c.tags[0]) {
+        try { meta = JSON.parse(c.tags[0]); } catch {}
+      }
+      const assignedBatches = c.assigned_batches || meta.assignedBatches || [];
+      const isCommon = c.is_common !== undefined ? c.is_common : (assignedBatches.length === 0);
+      return {
+        id: c.id,
+        slug: c.slug || c.id,
+        title: c.title,
+        category: meta.category || "Technical Training",
+        assigned_batches: assignedBatches,
+        is_common: isCommon,
+        status: c.status || meta.status || "published",
+        modules: meta.modules || [],
+      };
+    })
+    .filter((c: any) => c.status !== "draft" && isContentVisibleToStudent(c, batchContext));
 
-  const enrollments = enrollmentsRes.data ?? [];
-  const tests = testsRes.data ?? [];
-  const notifications = notificationsRes.data ?? [];
-
-  const enrolledCount = enrollments.length;
-  const completedCount = enrollments.filter((e: any) => e.progress_percentage === 100).length;
+  const rawTracks = ((tracksRes.data as any[]) || [])
+    .map((t: any) => {
+      let meta: any = {};
+      if (t.tags && t.tags[0]) {
+        try { meta = JSON.parse(t.tags[0]); } catch {}
+      }
+      const assignedBatches = t.assigned_batches || meta.assignedBatches || [];
+      const assignedStudents = t.assigned_students || meta.assignedStudents || [];
+      const isCommon =
+        t.is_common !== undefined
+          ? t.is_common
+          : assignedBatches.length === 0 && assignedStudents.length === 0;
+      return {
+        id: t.id,
+        title: t.title,
+        category: t.category,
+        difficulty: t.difficulty || "medium",
+        description: meta.description || t.description || "Practice Track",
+        thumbnail: meta.thumbnail || t.thumbnail || "",
+        assigned_by_name: meta.assignedByName || t.assigned_by_name || "Admin",
+        assigned_batches: assignedBatches,
+        assigned_students: assignedStudents,
+        sub_modules: meta.subModules || t.sub_modules || [],
+        is_common: isCommon,
+        status: t.status || meta.status || "published",
+        created_at: t.created_at,
+      };
+    })
+    .filter((track: any) => track.status !== "draft" && isContentVisibleToStudent(track, batchContext));
 
   return {
     profile: resolvedProfile as any,
-    enrollments: enrollments as any,
-    assessments: [],
-    tests: tests as any,
+    initialCourses: rawCourses,
+    initialTracks: rawTracks,
+    enrollments: rawCourses as any,
+    assessments: ((testsRes.data as any[]) || []) as any,
+    tests: ((testsRes.data as any[]) || []) as any,
     assignments: [],
-    notifications: notifications as any,
+    notifications: ((notificationsRes.data as any[]) || []) as any,
     certificates: [],
     stats: {
-      enrolledCourses: enrolledCount,
-      completedCourses: completedCount,
+      enrolledCourses: rawCourses.length,
+      completedCourses: 0,
       certificates: 0,
     },
   };
