@@ -155,11 +155,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [fAllowReviewBeforeSubmit, setFAllowReviewBeforeSubmit] = useState<boolean>(true);
 
   // Sub-module form state
-  const [smTitle, setSmTitle]           = useState("");
-  const [smType, setSmType]             = useState<"mcq" | "coding" | "mixed">("mcq");
-  const [smDuration, setSmDuration]     = useState(30);
-  const [smMarks, setSmMarks]           = useState(100);
-  const [smQuestions, setSmQuestions]    = useState(10);
+  const [smTitle, setSmTitle]                     = useState("");
+  const [smType, setSmType]                       = useState<"mcq" | "coding" | "mixed">("mcq");
+  const [smDuration, setSmDuration]               = useState(30);
+  const [smDurationEnabled, setSmDurationEnabled] = useState<boolean>(true);
+  const [smMarks, setSmMarks]                     = useState(100);
+  const [smQuestions, setSmQuestions]             = useState(10);
   const [smHasHiddenTests, setSmHasHiddenTests] = useState(false);
   const [smHiddenTests, setSmHiddenTests] = useState("");
   const [smProblemDesc, setSmProblemDesc] = useState("");
@@ -487,7 +488,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         if (parsedSm) {
           if (parsedSm.smTitle) setSmTitle(parsedSm.smTitle);
           if (parsedSm.smType) setSmType(parsedSm.smType);
-          if (parsedSm.smDuration) setSmDuration(parsedSm.smDuration);
+          if (parsedSm.smDuration !== undefined) setSmDuration(parsedSm.smDuration);
+          if (parsedSm.smDurationEnabled !== undefined) setSmDurationEnabled(parsedSm.smDurationEnabled);
           if (parsedSm.smMarks) setSmMarks(parsedSm.smMarks);
           if (parsedSm.sections?.length) setSections(parsedSm.sections);
           setLastSavedSmDraft(parsedSm.savedAt || new Date().toLocaleTimeString());
@@ -527,7 +529,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     const timer = setTimeout(() => {
       try {
         const data = {
-          smTitle, smType, smDuration, smMarks, smQuestions,
+          smTitle, smType, smDuration, smDurationEnabled, smMarks, smQuestions,
           smMcqSectionTitle, smCodingSectionTitle, smHasHiddenTests, smHiddenTests,
           smProblemDesc, smStarterCode, smPublicTestCases,
           sections,
@@ -541,7 +543,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [smTitle, smType, smDuration, smMarks, smQuestions, smMcqSectionTitle, smCodingSectionTitle, smHasHiddenTests, smHiddenTests, smProblemDesc, smStarterCode, smPublicTestCases, sections, viewState, editingSubModuleId]);
+  }, [smTitle, smType, smDuration, smDurationEnabled, smMarks, smQuestions, smMcqSectionTitle, smCodingSectionTitle, smHasHiddenTests, smHiddenTests, smProblemDesc, smStarterCode, smPublicTestCases, sections, viewState, editingSubModuleId]);
 
   // Assign state
   const [isCommon, setIsCommon]                     = useState<boolean>(true);
@@ -764,7 +766,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       id: editingSubModuleId || `sm_${Date.now()}`,
       title: smTitle,
       type: smType,
-      durationMinutes: smDuration,
+      durationMinutes: smDurationEnabled ? Math.max(1, smDuration) : 0,
       totalMarks: smMarks,
       questionCount: computedQCount > 0 ? computedQCount : smQuestions,
       mcqSectionTitle: smMcqSectionTitle || "Section 1: MCQs",
@@ -803,7 +805,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       if (typeof window !== "undefined") {
         localStorage.removeItem("draft_practice_submodule");
       }
-      setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
+      setSmTitle(""); setSmDuration(30); setSmDurationEnabled(true); setSmMarks(100); setSmQuestions(10);
       setSmHasHiddenTests(false); setSmHiddenTests("");
       setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
       setSmMcqSectionTitle("Section 1: MCQs");
@@ -850,7 +852,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setEditingSubModuleId(sm.id);
     setSmTitle(sm.title);
     setSmType(sm.type);
-    setSmDuration(sm.durationMinutes);
+    const hasDuration = sm.durationMinutes !== undefined ? sm.durationMinutes > 0 : true;
+    setSmDurationEnabled(hasDuration);
+    setSmDuration(hasDuration ? sm.durationMinutes : 30);
     setSmMarks(sm.totalMarks);
     setSmQuestions(sm.questionCount);
     setSmMcqSectionTitle(sm.mcqSectionTitle || sm.mcq_section_title || "Section 1: MCQs");
@@ -1176,7 +1180,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           actions={
             <Button onClick={() => { 
               setEditingSubModuleId(null);
-              setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
+              setSmTitle(""); setSmDuration(30); setSmDurationEnabled(true); setSmMarks(100); setSmQuestions(10);
               setSmHasHiddenTests(false); setSmHiddenTests("");
               setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
               setSections([
@@ -1227,7 +1231,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <Badge className={`text-[10px] uppercase ${typeBadgeColor(sm.type)}`}>{sm.type}</Badge>
                         <span className="text-[10px] text-[#6B7280]">
-                          <Clock className="h-2.5 w-2.5 inline mr-0.5" />{sm.durationMinutes} mins
+                          <Clock className="h-2.5 w-2.5 inline mr-0.5" />{sm.durationMinutes > 0 ? `${sm.durationMinutes} mins` : "No Time Limit"}
                         </span>
                         <span className="text-[10px] text-[#6B7280]">{sm.totalMarks} marks</span>
                         <span className="text-[10px] text-[#6B7280]">{sm.questionCount} questions</span>
@@ -1418,10 +1422,35 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration (mins)</label>
-                <Input type="number" min={1} value={smDuration}
-                  onChange={(e) => setSmDuration(Math.max(1, Number(e.target.value)))}
-                  className="h-[48px] text-sm font-bold rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration (mins)</label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-[#6B7280]">
+                      {smDurationEnabled ? "Timed" : "No Limit"}
+                    </span>
+                    <Switch
+                      checked={smDurationEnabled}
+                      onCheckedChange={(checked) => {
+                        setSmDurationEnabled(checked);
+                        if (checked && smDuration <= 0) {
+                          setSmDuration(30);
+                        }
+                      }}
+                      className="data-[state=checked]:bg-[#2563EB]"
+                    />
+                  </div>
+                </div>
+                {smDurationEnabled ? (
+                  <Input type="number" min={1} value={smDuration}
+                    onChange={(e) => setSmDuration(Math.max(1, Number(e.target.value)))}
+                    placeholder="e.g. 30"
+                    className="h-[48px] text-sm font-bold rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]" />
+                ) : (
+                  <div className="h-[48px] flex items-center px-4 rounded-xl bg-[#F3F4F6] dark:bg-[#09090B] border border-dashed border-[#E5E7EB] dark:border-[#27272A] text-xs font-semibold text-[#6B7280] gap-2">
+                    <Clock className="h-4 w-4 text-[#9CA3AF]" />
+                    <span>∞ Untimed (No time limit)</span>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

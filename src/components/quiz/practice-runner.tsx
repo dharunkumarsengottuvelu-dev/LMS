@@ -276,9 +276,11 @@ export function PracticeRunnerEngine({
     }
   }, [answers, codeAnswers, onSubmit, storageKey, module.durationMinutes, timeLeft]);
 
-  // Countdown Timer — stops immediately when submitted
+  const isUntimed = !module.durationMinutes || module.durationMinutes <= 0;
+
+  // Countdown Timer — stops immediately when submitted or if untimed
   useEffect(() => {
-    if (isSubmitted || isAlreadySubmitted) return;
+    if (isSubmitted || isAlreadySubmitted || isUntimed) return;
     if (timeLeft <= 0) {
       handleFinalSubmit();
       return;
@@ -287,7 +289,7 @@ export function PracticeRunnerEngine({
       setTimeLeft((prev) => prev - 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, [timeLeft, handleFinalSubmit, isSubmitted, isAlreadySubmitted]);
+  }, [timeLeft, handleFinalSubmit, isSubmitted, isAlreadySubmitted, isUntimed]);
 
   // Anti-Cheating: Plagiarism & Clipboard Lock
   useEffect(() => {
@@ -685,7 +687,7 @@ export function PracticeRunnerEngine({
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
             <Clock className="h-4 w-4 text-[#2563EB]" />
-            <span>{formatTimerDisplay(timeLeft)}</span>
+            <span>{isUntimed ? "No Time Limit" : formatTimerDisplay(timeLeft)}</span>
           </div>
           <Button
             onClick={handleInitiateSubmit}
