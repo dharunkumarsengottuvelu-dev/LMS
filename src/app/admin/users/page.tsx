@@ -39,38 +39,30 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<SystemUser[]>(initialUsers);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("student");
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Fetch users from DB
-  useEffect(() => {
-    const supabase = createClient();
-    
-    const fetchUsers = async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (data && !error) {
-        const mappedUsers: SystemUser[] = data.map((p: any) => ({
-          id: p.id,
-          name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.email?.split("@")[0] || "Unknown",
-          email: p.email || "",
-          role: p.role as UserRole,
-          status: p.status as UserStatus || "active",
-          joined: p.created_at?.split("T")[0] || "",
-          type: p.role === "student" ? "student" : "employee",
-          department: p.department || undefined,
-          batch: p.batch_id || undefined,
-        }));
-        setUsers(mappedUsers);
-      } else if (error) {
-        console.error("Error fetching users:", error);
+  // Fetch users from API (connects auth.users and profiles)
+  const fetchUsers = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/admin/users");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.users) {
+          setUsers(data.users);
+        }
       }
-    };
+    } catch (err) {
+      console.error("Error fetching users:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchUsers();
 
-    // Subscribe to real-time changes
+    const supabase = createClient();
     const channel = supabase
       .channel("realtime-profiles")
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
@@ -105,32 +97,49 @@ export default function AdminUsersPage() {
        u.email.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!newUserName || !newUserEmail) return;
 
-    const newUser: SystemUser = {
-      id: `u_${Date.now()}`,
-      name: newUserName,
-      email: newUserEmail,
-      role: newUserRole,
-      status: "active",
-      joined: new Date().toISOString().split("T")[0] ?? "",
-      type: newUserType,
-      department: newUserType === "employee" ? newUserDept || "General" : undefined,
-      batch: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) : undefined,
-    };
+    try {
+      const selectedBatch = newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) : undefined;
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newUserName,
+          email: newUserEmail,
+          password: newUserPassword || "Falcon@2026",
+          role: newUserRole,
+          batch_id: selectedBatch,
+          department: newUserType === "employee" ? newUserDept || "General" : undefined,
+        }),
+      });
 
-    setUsers([newUser, ...users]);
-    setIsAddOpen(false);
-    setNewUserName("");
-    setNewUserEmail("");
-    setNewUserPassword("");
-    setCustomBatch("");
-    
-    toast({
-      title: "User Successfully Added",
-      description: `${newUserName} has been added as a ${newUserRole}.`,
-    });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        toast({ title: "Error Creating User", description: data.error || "Failed to create user in database", variant: "destructive" });
+        return;
+      }
+
+      if (data.user) {
+        setUsers((prev) => [data.user, ...prev.filter(u => u.email !== newUserEmail)]);
+      } else {
+        fetchUsers();
+      }
+
+      setIsAddOpen(false);
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setCustomBatch("");
+      
+      toast({
+        title: "User Successfully Created",
+        description: `${newUserName} (${newUserEmail}) is now registered in the system.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to create user", variant: "destructive" });
+    }
   };
 
   const handleEditUser = (id: string) => {
@@ -162,7 +171,9 @@ export default function AdminUsersPage() {
       last_name: lastName || "",
       role: newUserRole,
       department: newUserType === "employee" ? newUserDept || "General" : null,
-      batch_id: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null
+      batch_id: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null,
+      batch_name: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null,
+      batch: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null
     }).eq("id", editingUserId as string);
 
     if (error) {
@@ -170,22 +181,31 @@ export default function AdminUsersPage() {
       return;
     }
 
+    fetchUsers();
     setIsEditOpen(false);
     toast({ title: "Profile Updated", description: "User details saved successfully." });
   };
 
   const handleDeleteUser = async (id: string, name: string) => {
-    const supabase = createClient();
-    const { error } = await (supabase as any).from("profiles").delete().eq("id", id);
-    if (error) {
-      toast({ title: "Error", description: "Failed to delete user", variant: "destructive" });
-      return;
+    try {
+      const res = await fetch(`/api/admin/users?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        toast({ title: "Error", description: "Failed to delete user", variant: "destructive" });
+        return;
+      }
+
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+      toast({
+        title: "User Removed",
+        description: `${name} has been removed from the system.`,
+        variant: "destructive"
+      });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to delete user", variant: "destructive" });
     }
-    toast({
-      title: "User Removed",
-      description: `${name} has been removed from the system.`,
-      variant: "destructive"
-    });
   };
 
   return (
