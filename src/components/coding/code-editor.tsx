@@ -738,9 +738,11 @@ export function CodeEditor({
             <span className="font-mono text-slate-600 text-[11px] font-medium tracking-tight">
               Ln {cursorPos.line} : Col {cursorPos.col}
             </span>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-slate-200 shadow-2xs">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-2xs">
               <span className="h-2 w-2 rounded-full bg-[#2563EB]" />
-              <span className="text-[11px] font-medium text-slate-700">Code</span>
+              <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-200">
+                {LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || dbLanguages.find(l => l.id === language)?.name || (language ? String(language).toUpperCase() : "Code")}
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-3 font-mono text-slate-500 text-[11px]">

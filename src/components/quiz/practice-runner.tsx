@@ -946,7 +946,13 @@ export function PracticeRunnerEngine({
               <CodeEditor
                 key={activeCodingProblem.id}
                 problem={activeCodingProblem}
-                defaultLanguage="java"
+                defaultLanguage={
+                  (currentQuestion?.allowedLanguages && currentQuestion.allowedLanguages.length > 0
+                    ? (currentQuestion.allowedLanguages[0] as CodingLanguage)
+                    : null) ||
+                  (codeAnswers[activeCodingProblem.id]?.language as CodingLanguage) ||
+                  "java"
+                }
                 defaultCode={codeAnswers[activeCodingProblem.id]?.code}
                 submissionResult={submissionResults[activeCodingProblem.id]}
                 isSubmitting={isSubmittingCode}
