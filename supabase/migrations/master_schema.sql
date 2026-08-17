@@ -7,11 +7,15 @@
 DROP SCHEMA IF EXISTS public CASCADE;
 CREATE SCHEMA public;
 
-GRANT ALL ON SCHEMA public TO postgres;
-GRANT ALL ON SCHEMA public TO public;
-GRANT ALL ON SCHEMA public TO anon;
-GRANT ALL ON SCHEMA public TO authenticated;
-GRANT ALL ON SCHEMA public TO service_role;
+GRANT ALL ON SCHEMA public TO postgres, anon, authenticated, service_role, public;
+
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role, public;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role, public;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, anon, authenticated, service_role, public;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role, public;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role, public;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO postgres, anon, authenticated, service_role, public;
 
 -- 2. ENABLE EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
@@ -399,6 +403,10 @@ ON CONFLICT (user_id) DO NOTHING;
 -- ============================================================
 -- 5. ENABLE ROW LEVEL SECURITY & OPEN PERMISSIVE POLICIES
 -- ============================================================
+
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role, public;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role, public;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, anon, authenticated, service_role, public;
 
 DO $$ 
 DECLARE
