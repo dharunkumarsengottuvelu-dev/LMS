@@ -92,9 +92,15 @@ async function getStudentData() {
       const assignedBatches = t.assigned_batches || meta.assignedBatches || [];
       const assignedStudents = t.assigned_students || meta.assignedStudents || [];
       const isCommon =
-        t.is_common !== undefined
-          ? t.is_common
-          : assignedBatches.length === 0 && assignedStudents.length === 0;
+        t.is_common === true ||
+        String(t.is_common) === "true" ||
+        meta.isCommon === true ||
+        String(meta.isCommon) === "true" ||
+        meta.is_common === true ||
+        String(meta.is_common) === "true" ||
+        (assignedBatches.length === 0 && assignedStudents.length === 0) ||
+        assignedBatches.includes("common") ||
+        assignedBatches.includes("all");
       return {
         id: t.id,
         title: t.title,

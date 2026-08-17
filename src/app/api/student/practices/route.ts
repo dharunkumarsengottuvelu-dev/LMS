@@ -48,11 +48,15 @@ export async function GET(request: NextRequest) {
         [];
 
       const isCommon =
-        t.is_common !== undefined
-          ? t.is_common
-          : meta.isCommon !== undefined
-          ? meta.isCommon
-          : assignedBatches.length === 0 && assignedStudents.length === 0;
+        t.is_common === true ||
+        String(t.is_common) === "true" ||
+        meta.isCommon === true ||
+        String(meta.isCommon) === "true" ||
+        meta.is_common === true ||
+        String(meta.is_common) === "true" ||
+        (assignedBatches.length === 0 && assignedStudents.length === 0) ||
+        assignedBatches.includes("common") ||
+        assignedBatches.includes("all");
 
       return {
         id: t.id,

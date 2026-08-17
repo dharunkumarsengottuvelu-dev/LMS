@@ -55,11 +55,15 @@ export async function GET(
       [];
 
     const isCommon =
-      dbTrack.is_common !== undefined
-        ? dbTrack.is_common
-        : meta.isCommon !== undefined
-        ? meta.isCommon
-        : assignedBatches.length === 0 && assignedStudents.length === 0;
+      dbTrack.is_common === true ||
+      String(dbTrack.is_common) === "true" ||
+      meta.isCommon === true ||
+      String(meta.isCommon) === "true" ||
+      meta.is_common === true ||
+      String(meta.is_common) === "true" ||
+      (assignedBatches.length === 0 && assignedStudents.length === 0) ||
+      assignedBatches.includes("common") ||
+      assignedBatches.includes("all");
 
     const track = {
       id: dbTrack.id,

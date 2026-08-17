@@ -111,7 +111,9 @@ export function isContentVisibleToStudent(
 ): boolean {
   const isExplicitlyCommon =
     content.is_common === true ||
+    String(content.is_common) === "true" ||
     content.isCommon === true ||
+    String(content.isCommon) === "true" ||
     content.visibility_scope === "common";
 
   const rawAssignedBatches = content.assigned_batches || content.assignedBatches || [];
@@ -120,7 +122,7 @@ export function isContentVisibleToStudent(
   const assignedBatches = rawAssignedBatches.map((b) => String(b).trim().toLowerCase());
   const assignedStudents = rawAssignedStudents.map((s) => String(s).trim().toLowerCase());
 
-  // Rule 3: If marked Common or contains "common" / "all", it is visible to ALL students
+  // Rule 3: If marked Common or contains "common" / "all" or has no specific batch/student restriction, it is visible to ALL students
   if (
     isExplicitlyCommon ||
     assignedBatches.includes("common") ||

@@ -931,10 +931,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const openAssign = (t: PracticeTrack) => {
     setSelectedTrack(t);
     const assigned = t.assignedBatches || [];
-    const common = t.isCommon !== undefined ? t.isCommon : assigned.length === 0;
+    const common =
+      t.isCommon === true ||
+      (t as any).is_common === true ||
+      assigned.length === 0;
     setIsCommon(common);
     setSelectedBatches(common ? [] : assigned);
-    setSelectedStudentIds([...(t.assignedStudents || [])]);
+    setSelectedStudentIds(common ? [] : [...(t.assignedStudents || [])]);
     setBatchFilter("all");
     setViewState("assign");
   };
@@ -952,8 +955,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           ? {
               ...t,
               isCommon,
+              is_common: isCommon,
               assignedBatches: isCommon ? [] : selectedBatches,
-              assignedStudents: selectedStudentIds,
+              assignedStudents: isCommon ? [] : selectedStudentIds,
             }
           : t
       );

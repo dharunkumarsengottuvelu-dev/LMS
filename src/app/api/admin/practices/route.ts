@@ -69,12 +69,22 @@ export async function GET() {
         meta.assigned_batches ||
         [];
 
+      const assignedStudents =
+        t.assigned_students ||
+        meta.assignedStudents ||
+        meta.assigned_students ||
+        [];
+
       const isCommon =
-        t.is_common !== undefined
-          ? t.is_common
-          : meta.isCommon !== undefined
-          ? meta.isCommon
-          : assignedBatches.length === 0;
+        t.is_common === true ||
+        String(t.is_common) === "true" ||
+        meta.isCommon === true ||
+        String(meta.isCommon) === "true" ||
+        meta.is_common === true ||
+        String(meta.is_common) === "true" ||
+        (assignedBatches.length === 0 && assignedStudents.length === 0) ||
+        assignedBatches.includes("common") ||
+        assignedBatches.includes("all");
 
       return {
         id: t.id,
@@ -85,7 +95,7 @@ export async function GET() {
         thumbnail: meta.thumbnail || t.thumbnail || "",
         assignedByName: meta.assignedByName || t.assigned_by_name || t.assignedByName || "Admin",
         assignedBatches,
-        assignedStudents: meta.assignedStudents || t.assigned_students || [],
+        assignedStudents,
         subModules: meta.subModules || t.sub_modules || t.subModules || [],
         isCommon,
         status: t.status || meta.status || "published",
@@ -238,17 +248,29 @@ export async function POST(request: NextRequest) {
     }
 
     for (const t of deduplicatedTracksToSave) {
-      const assignedBatches: string[] = t.assignedBatches || t.assigned_batches || [];
       const isCommon: boolean =
-        t.isCommon !== undefined ? t.isCommon : assignedBatches.length === 0;
+        t.isCommon === true ||
+        String(t.isCommon) === "true" ||
+        t.is_common === true ||
+        String(t.is_common) === "true" ||
+        (t.assignedBatches || t.assigned_batches || []).length === 0;
 
-      const subModulesArray = t.subModules || [];
-      const assignedStudentsArray = t.assignedStudents || [];
+      const assignedBatches: string[] = isCommon ? [] : (t.assignedBatches || t.assigned_batches || []);
+      const assignedStudentsArray: string[] = isCommon ? [] : (t.assignedStudents || t.assigned_students || []);
+      const subModulesArray = t.subModules || t.sub_modules || [];
 
       const meta = {
         description: t.description || "",
         thumbnail: t.thumbnail || "",
         status: t.status || "published",
+        isCommon: isCommon,
+        is_common: isCommon,
+        assignedBatches: assignedBatches,
+        assigned_batches: assignedBatches,
+        assignedStudents: assignedStudentsArray,
+        assigned_students: assignedStudentsArray,
+        assignedByName: t.assignedByName || t.assigned_by_name || "Admin",
+        subModules: subModulesArray,
       };
 
       const payload: any = {
@@ -257,10 +279,10 @@ export async function POST(request: NextRequest) {
         difficulty: t.difficulty || "medium",
         description: t.description || "",
         thumbnail: t.thumbnail || "",
-        assigned_batches: isCommon ? [] : assignedBatches,
+        assigned_batches: assignedBatches,
         assigned_students: assignedStudentsArray,
         is_common: isCommon,
-        assigned_by_name: t.assignedByName || "Admin",
+        assigned_by_name: t.assignedByName || t.assigned_by_name || "Admin",
         sub_modules: subModulesArray,
         status: t.status || "published",
         tags: [JSON.stringify(meta)],
