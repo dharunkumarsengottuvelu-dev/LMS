@@ -21,6 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
 import { ProctoringEngine } from "@/components/proctoring/proctoring-engine";
+import { useAuth } from "@/components/providers/auth-provider";
 
 interface QuestionItem {
   id: number;
@@ -44,6 +45,10 @@ export default function StudentTestRunnerPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { profile, user } = useAuth();
+  const candidateName = profile?.first_name
+    ? `${profile.first_name} ${profile.last_name || ""}`.trim()
+    : (user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Student Candidate");
 
   const testId = (params?.id as string) || "";
   const currentTest = mockTestMeta[testId] ?? { duration: 60, title: "Test", maxMarks: 100, proctoring: { enabled: false } };
@@ -529,7 +534,7 @@ export default function StudentTestRunnerPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-[#6B7280]">
-              <span>Candidate: <strong className="text-[#111827] dark:text-[#FAFAFA]">Dharunkumar S</strong></span>
+              <span>Candidate: <strong className="text-[#111827] dark:text-[#FAFAFA]">{candidateName}</strong></span>
               <span>•</span>
               <span>Questions: <strong className="text-[#111827] dark:text-[#FAFAFA]">{currentQuestions.length} Items</strong></span>
               <span>•</span>

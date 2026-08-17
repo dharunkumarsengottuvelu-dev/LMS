@@ -11,15 +11,45 @@ async function getStudentData() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
-  // Get profile first
+  // Get profile from database
   const { data: profileData } = await supabase
     .from("profiles")
     .select("*")
-    .eq("user_id", user.id)
+    .or(`user_id.eq.${user.id},id.eq.${user.id}${user.email ? `,email.eq.${user.email}` : ""}`)
     .maybeSingle();
 
-  const profile = profileData as Record<string, unknown> | null;
-  const profileId = (profile?.id as string) ?? user.id;
+  const userMeta = user.user_metadata || {};
+  const metaFullName = (userMeta.full_name || userMeta.name || "").trim();
+  const nameParts = metaFullName.split(" ");
+  const emailName = (user.email || "").split("@")[0] || "Student";
+  const formattedEmailName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+
+  const pData = profileData as any;
+  const firstName =
+    pData?.first_name ||
+    userMeta.first_name ||
+    (nameParts[0] || formattedEmailName);
+
+  const lastName =
+    pData?.last_name ||
+    userMeta.last_name ||
+    (nameParts.slice(1).join(" ") || "");
+
+  const fullDisplayName = `${firstName} ${lastName}`.trim() || formattedEmailName;
+
+  const resolvedProfile = {
+    ...(pData || {}),
+    id: pData?.id || user.id,
+    user_id: user.id,
+    first_name: firstName,
+    last_name: lastName,
+    full_name: fullDisplayName,
+    email: user.email,
+    role: pData?.role || "student",
+    status: pData?.status || "active",
+  };
+
+  const profileId = (resolvedProfile.id as string) || user.id;
 
   // Parallel data fetching
   const [enrollmentsRes, testsRes, notificationsRes] =
@@ -53,7 +83,7 @@ async function getStudentData() {
   const completedCount = enrollments.filter((e: any) => e.progress_percentage === 100).length;
 
   return {
-    profile: profile as any,
+    profile: resolvedProfile as any,
     enrollments: enrollments as any,
     assessments: [],
     tests: tests as any,

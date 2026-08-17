@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("user_id", userId)
+        .or(`user_id.eq.${userId},id.eq.${userId}${email ? `,email.eq.${email}` : ""}`)
         .maybeSingle();
 
       if (error) {
@@ -43,16 +43,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ? "trainer" 
           : "student";
 
-      setProfile((data as UserProfile | null) ?? {
-        id: userId,
-        user_id: userId,
-        first_name: userEmail.split("@")[0] || "User",
-        last_name: "",
-        role: defaultRole,
-        status: "active",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as UserProfile);
+      const currentAuthUser = user || (await supabase.auth.getUser()).data.user;
+      const meta = currentAuthUser?.user_metadata || {};
+      const fullName = (meta.full_name || meta.name || "").trim();
+      const nameParts = fullName.split(" ");
+      const emailPrefix = userEmail.split("@")[0] || "User";
+      const formattedEmailName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+      const metaFirstName = meta.first_name || nameParts[0] || formattedEmailName;
+      const metaLastName = meta.last_name || nameParts.slice(1).join(" ") || "";
+
+      if (data) {
+        const dAny = data as any;
+        const resolvedFirst = dAny.first_name || metaFirstName;
+        const resolvedLast = dAny.last_name || metaLastName;
+        setProfile({
+          ...dAny,
+          first_name: resolvedFirst,
+          last_name: resolvedLast,
+          full_name: dAny.full_name || `${resolvedFirst} ${resolvedLast}`.trim(),
+        } as UserProfile);
+      } else {
+        setProfile({
+          id: userId,
+          user_id: userId,
+          first_name: metaFirstName,
+          last_name: metaLastName,
+          full_name: `${metaFirstName} ${metaLastName}`.trim(),
+          role: defaultRole,
+          status: "active",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as UserProfile);
+      }
     } catch (err) {
       console.error("Profile fetch exception:", err);
     }

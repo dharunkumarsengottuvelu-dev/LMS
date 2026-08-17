@@ -66,7 +66,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const upcomingEvents: any[] = [];
   const router = useRouter();
   const { profile } = data;
-  const firstName = profile?.first_name ?? "Dharunkumar";
+  const firstName = profile?.first_name || profile?.full_name?.split(" ")[0] || "Student";
 
   const [storeCourses, setStoreCourses] = useState<any[]>([]);
   const [storeTracks, setStoreTracks] = useState<any[]>([]);
