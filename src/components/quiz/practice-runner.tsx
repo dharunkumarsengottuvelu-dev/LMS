@@ -264,7 +264,7 @@ export function PracticeRunnerEngine({
     try {
       await onSubmit(
         { ...answers, ...codeAnswers },
-        { timeSpentSeconds, completedAt, timeLeft }
+        { timeSpentSeconds, completedAt, timeLeft, submissionResults }
       );
     } finally {
       // Always clear session after submit — prevents refresh from restoring the editor

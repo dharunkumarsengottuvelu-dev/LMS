@@ -43,6 +43,13 @@ export interface CodingProblemCreatorProps {
   }) => void;
   initialTitle?: string;
   initialDescription?: string;
+  initialDifficulty?: Difficulty;
+  initialConstraints?: string;
+  initialInputFormat?: string;
+  initialOutputFormat?: string;
+  initialTemplates?: Record<string, string>;
+  initialPublicTestCases?: TestCase[];
+  initialHiddenTestCases?: TestCase[];
   hideHeader?: boolean;
   inline?: boolean;
 }
@@ -53,6 +60,13 @@ export function CodingProblemCreator({
   onChange,
   initialTitle,
   initialDescription,
+  initialDifficulty,
+  initialConstraints,
+  initialInputFormat,
+  initialOutputFormat,
+  initialTemplates,
+  initialPublicTestCases,
+  initialHiddenTestCases,
   hideHeader = false,
   inline = false,
 }: CodingProblemCreatorProps) {
@@ -78,16 +92,16 @@ export function CodingProblemCreator({
 
   // Problem Metadata State
   const [title, setTitle] = useState(initialTitle || "");
-  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  const [difficulty, setDifficulty] = useState<Difficulty>(initialDifficulty || "easy");
   const [isDurationEnabled, setIsDurationEnabled] = useState(true);
   const [durationMinutes, setDurationMinutes] = useState(45);
   const [points, setPoints] = useState(10);
 
   // Specifications State
   const [description, setDescription] = useState(initialDescription || "");
-  const [inputFormat, setInputFormat] = useState("");
-  const [outputFormat, setOutputFormat] = useState("");
-  const [constraints, setConstraints] = useState("");
+  const [inputFormat, setInputFormat] = useState(initialInputFormat || "");
+  const [outputFormat, setOutputFormat] = useState(initialOutputFormat || "");
+  const [constraints, setConstraints] = useState(initialConstraints || "");
 
   // Supported Languages
   const [selectedLanguages, setSelectedLanguages] = useState<CodingLanguage[]>([
@@ -96,13 +110,13 @@ export function CodingProblemCreator({
 
   // Starter Code Templates by Language
   const [activeTemplateLang, setActiveTemplateLang] = useState<CodingLanguage>("java");
-  const [templates, setTemplates] = useState<Record<string, string>>({});
+  const [templates, setTemplates] = useState<Record<string, string>>(initialTemplates || {});
 
   // Public Test Cases
-  const [publicTestCases, setPublicTestCases] = useState<TestCase[]>([]);
+  const [publicTestCases, setPublicTestCases] = useState<TestCase[]>(initialPublicTestCases || []);
 
   // Hidden Test Cases
-  const [hiddenTestCases, setHiddenTestCases] = useState<TestCase[]>([]);
+  const [hiddenTestCases, setHiddenTestCases] = useState<TestCase[]>(initialHiddenTestCases || []);
 
   // Execution Limits
   const [timeLimit, setTimeLimit] = useState(2);
@@ -118,8 +132,9 @@ export function CodingProblemCreator({
   const onChangeRef = React.useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Restore draft on mount
+  // Restore draft on mount (only for standalone creator page, never overwrite inline submodule problem data)
   useEffect(() => {
+    if (inline) return;
     if (typeof window === "undefined" || hasRestoredDraft.current) return;
     try {
       const savedDraft = localStorage.getItem("draft_coding_problem");
@@ -143,7 +158,7 @@ export function CodingProblemCreator({
     } finally {
       hasRestoredDraft.current = true;
     }
-  }, [initialTitle, initialDescription]);
+  }, [initialTitle, initialDescription, inline]);
 
   // Auto-save draft on changes (debounced)
   useEffect(() => {

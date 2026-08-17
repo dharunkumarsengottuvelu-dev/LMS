@@ -1755,6 +1755,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                             inline
                             initialTitle={cq.title || `Coding Problem ${cqIdx + 1}`}
                             initialDescription={cq.description}
+                            initialDifficulty={cq.difficulty}
+                            initialConstraints={cq.constraints}
+                            initialInputFormat={cq.inputFormat}
+                            initialOutputFormat={cq.outputFormat}
+                            initialTemplates={cq.templates}
+                            initialPublicTestCases={cq.publicTestCases}
+                            initialHiddenTestCases={cq.hiddenTestCases}
                             onChange={(data) => {
                               updateSectionCodingQuestion(section.id, cq.id, data);
                               if (cqIdx === 0 && !smTitle && data.title) {

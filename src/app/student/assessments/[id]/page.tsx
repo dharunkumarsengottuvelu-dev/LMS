@@ -249,12 +249,23 @@ export default function AssessmentTakePage() {
       });
 
       const formattedQuestions: PracticeQuestion[] = [];
+      const totalSubModuleMarks = targetSubModule.totalMarks || targetSubModule.total_marks || 100;
 
       // A. Extract MCQ Questions (from direct list or sub-module sections)
       let mcqs = targetSubModule.mcqQuestions || [];
       if (mcqs.length === 0 && targetSubModule.sections && Array.isArray(targetSubModule.sections)) {
         mcqs = targetSubModule.sections.flatMap((s: any) => s.mcqQuestions || []);
       }
+
+      // B. Extract Coding Questions (from direct list, sub-module sections, or problems)
+      let codingProbs = targetSubModule.codingQuestions || targetSubModule.codingProblems || [];
+      if (codingProbs.length === 0 && targetSubModule.sections && Array.isArray(targetSubModule.sections)) {
+        codingProbs = targetSubModule.sections.flatMap((s: any) => s.codingQuestions || []);
+      }
+
+      // Mark allocation calculation:
+      const totalQuestionCount = mcqs.length + (codingProbs.length > 0 ? codingProbs.length : (targetSubModule.type === "coding" || targetSubModule.problemDescription ? 1 : 0));
+      const perQuestionBaseMarks = totalQuestionCount > 0 ? Math.max(5, Math.floor(totalSubModuleMarks / totalQuestionCount)) : 10;
 
       mcqs.forEach((q: any, idx: number) => {
         const rawOptions = q.options || [];
@@ -277,26 +288,48 @@ export default function AssessmentTakePage() {
           section: "mcq",
           title: `Question ${idx + 1}`,
           text: q.questionText || q.text || q.title || "Choose the correct option:",
-          marks: 10,
+          marks: q.marks || perQuestionBaseMarks,
           options: normalizedOptions,
           explanation: q.explanation || ""
         });
       });
 
-      // B. Extract Coding Questions (from direct list, sub-module sections, or problems)
-      let codingProbs = targetSubModule.codingQuestions || targetSubModule.codingProblems || [];
-      if (codingProbs.length === 0 && targetSubModule.sections && Array.isArray(targetSubModule.sections)) {
-        codingProbs = targetSubModule.sections.flatMap((s: any) => s.codingQuestions || []);
-      }
-
       if (codingProbs.length > 0) {
         codingProbs.forEach((cq: any, idx: number) => {
-          const testCases = (cq.publicTestCases || cq.testCases || cq.sample_test_cases || []).map((tc: any, tcIdx: number) => ({
-            id: tc.id || `tc_${tcIdx}`,
-            input: tc.input || "",
-            expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
-            is_hidden: Boolean(tc.is_hidden)
-          }));
+          const rawPub = Array.isArray(cq.publicTestCases) ? cq.publicTestCases : [];
+          const rawHid = Array.isArray(cq.hiddenTestCases) ? cq.hiddenTestCases : [];
+          const rawAll = Array.isArray(cq.test_cases)
+            ? cq.test_cases
+            : Array.isArray(cq.testCases)
+            ? cq.testCases
+            : Array.isArray(cq.sample_test_cases)
+            ? cq.sample_test_cases
+            : [];
+
+          let combinedTestCases: any[] = [];
+          if (rawPub.length > 0 || rawHid.length > 0) {
+            combinedTestCases = [
+              ...rawPub.map((tc: any, tcIdx: number) => ({
+                id: tc.id || `tc_pub_${tcIdx}`,
+                input: tc.input || "",
+                expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
+                is_hidden: false
+              })),
+              ...rawHid.map((tc: any, tcIdx: number) => ({
+                id: tc.id || `tc_hid_${tcIdx}`,
+                input: tc.input || "",
+                expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
+                is_hidden: true
+              }))
+            ];
+          } else if (rawAll.length > 0) {
+            combinedTestCases = rawAll.map((tc: any, tcIdx: number) => ({
+              id: tc.id || `tc_${tcIdx}`,
+              input: tc.input || "",
+              expected_output: tc.expected_output || tc.expectedOutput || tc.output || "",
+              is_hidden: Boolean(tc.is_hidden)
+            }));
+          }
 
           formattedQuestions.push({
             id: cq.id || `cq_${idx}`,
@@ -304,7 +337,7 @@ export default function AssessmentTakePage() {
             section: "coding",
             title: cq.title || `Coding Challenge ${idx + 1}`,
             text: cq.description || cq.problemDescription || "Implement the algorithm as specified.",
-            marks: 20,
+            marks: cq.marks || cq.points || (perQuestionBaseMarks * 2),
             difficulty: cq.difficulty || "medium",
             constraints: cq.constraints || "",
             inputFormat: cq.inputFormat || "",
@@ -316,26 +349,32 @@ export default function AssessmentTakePage() {
               javascript: targetSubModule.starterCode || "// Write JavaScript code here\n",
               c: targetSubModule.starterCode || "/* Write C code here */\n"
             },
-            testCases
+            testCases: combinedTestCases
           });
         });
       } else if (targetSubModule.type === "coding" || targetSubModule.problemDescription) {
         // Single coding task in submodule
+        const testCases: any[] = [];
+        if (targetSubModule.publicTestCases) {
+          testCases.push({ id: "tc_pub_1", input: targetSubModule.publicTestCases, expected_output: "1", is_hidden: false });
+        }
+        if (targetSubModule.hasHiddenTests && targetSubModule.hiddenTestsCode) {
+          testCases.push({ id: "tc_hid_1", input: targetSubModule.hiddenTestsCode, expected_output: "1", is_hidden: true });
+        }
+
         formattedQuestions.push({
           id: `${targetSubModule.id}_prob`,
           type: "coding",
           section: "coding",
           title: targetSubModule.title || "Coding Problem",
           text: targetSubModule.problemDescription || targetSubModule.description || "Solve the problem according to requirements.",
-          marks: 50,
+          marks: targetSubModule.totalMarks || 100,
           difficulty: "medium",
           starterCode: {
             python: targetSubModule.starterCode || "# Write code here\n",
             java: targetSubModule.starterCode || "// Write Java code here\n"
           },
-          testCases: targetSubModule.publicTestCases ? [
-            { id: "tc_1", input: targetSubModule.publicTestCases, expected_output: "1", is_hidden: false }
-          ] : []
+          testCases: testCases.length > 0 ? testCases : [{ id: "tc_1", input: "1", expected_output: "1", is_hidden: false }]
         });
       }
 
@@ -354,13 +393,27 @@ export default function AssessmentTakePage() {
 
   const handleSubmit = async (
     answers: Record<string, any>,
-    meta?: { timeSpentSeconds: number; completedAt: string; timeLeft: number }
+    meta?: { timeSpentSeconds: number; completedAt: string; timeLeft: number; submissionResults?: Record<string, any> }
   ) => {
     let obtainedMarks = 0;
+    const subResults = meta?.submissionResults || {};
+
     questions.forEach(q => {
+      const qMarks = q.marks || 10;
       if (q.type === "coding") {
         const cqAns = answers[q.id];
-        if (cqAns && cqAns.code) obtainedMarks += (q.marks || 20);
+        const sub = subResults[q.id];
+        if (sub) {
+          if (sub.status === "accepted" || (sub.total_test_cases > 0 && sub.passed_test_cases === sub.total_test_cases)) {
+            obtainedMarks += qMarks;
+          } else if (sub.total_test_cases > 0) {
+            obtainedMarks += Math.round(qMarks * (sub.passed_test_cases / sub.total_test_cases));
+          } else if (cqAns && cqAns.code && cqAns.code.trim().length > 0) {
+            obtainedMarks += Math.round(qMarks * 0.5);
+          }
+        } else if (cqAns && cqAns.code && cqAns.code.trim().length > 0) {
+          obtainedMarks += Math.round(qMarks * 0.5);
+        }
       } else {
         const rawStudentAns = answers[q.id];
         const studentAnsArray: string[] = Array.isArray(rawStudentAns)
@@ -374,7 +427,7 @@ export default function AssessmentTakePage() {
           studentAnsArray.length === correctOpts.length &&
           studentAnsArray.every(id => correctOpts.includes(id))
         ) {
-          obtainedMarks += (q.marks || 10);
+          obtainedMarks += qMarks;
         }
       }
     });
