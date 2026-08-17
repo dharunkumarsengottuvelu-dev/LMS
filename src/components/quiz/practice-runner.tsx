@@ -65,7 +65,7 @@ interface PracticeRunnerProps {
   questions: PracticeQuestion[];
   onSubmit: (
     answers: Record<string, any>,
-    metadata?: { timeSpentSeconds: number; completedAt: string; timeLeft: number }
+    metadata?: { timeSpentSeconds: number; completedAt: string; timeLeft: number; submissionResults?: Record<string, any> }
   ) => Promise<void>;
 }
 

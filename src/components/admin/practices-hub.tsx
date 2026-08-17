@@ -1755,7 +1755,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                             inline
                             initialTitle={cq.title || `Coding Problem ${cqIdx + 1}`}
                             initialDescription={cq.description}
-                            initialDifficulty={cq.difficulty}
+                            initialDifficulty={cq.difficulty as any}
                             initialConstraints={cq.constraints}
                             initialInputFormat={cq.inputFormat}
                             initialOutputFormat={cq.outputFormat}
