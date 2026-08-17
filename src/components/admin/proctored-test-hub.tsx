@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ClipboardList, Plus, Search, ShieldAlert, ShieldCheck, Clock, Users,
   Award, Eye, Trash2, Play, ArrowLeft, Sparkles, Lock, FileText, CheckSquare, Settings,
-  CheckCircle2, AlertCircle, Send, Check, Code2
+  CheckCircle2, AlertCircle, Send, Check, Code2, Edit
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,9 @@ export interface ScheduledTest {
   id: string;
   title: string;
   batch: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
   duration: number;
   totalQuestions: number;
   maxMarks: number;
@@ -105,7 +108,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [secAutoSubmit, setSecAutoSubmit] = useState(true);
   const [newAllowedTypes, setNewAllowedTypes] = useState<"coding" | "mcq" | "both">("both");
 
-  // Form State for Add Question
+  // Form State for Add / Edit Question
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [manualQuestionTitle, setManualQuestionTitle] = useState("");
   const [manualQuestionType, setManualQuestionType] = useState("coding");
   const [manualQuestionSection, setManualQuestionSection] = useState("");
@@ -163,20 +167,21 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   // Auto-save exam wizard draft
   useEffect(() => {
     if (typeof window === "undefined" || viewState !== "wizard") return;
-    if (!newTitle) return;
+    if (!newTitle && !newDate && !newStartTime) return;
     setIsSavedExamDraft(false);
     const timer = setTimeout(() => {
       try {
         const d = {
-          newTitle, newDate, newStartTime, newEndTime, newDuration, newStatus, newAllowedTypes,
-          secWebcam, secFullscreen, secTabSwitch, secCopyPaste, secMultipleScreens, secSEB,
+          newTitle, newDate, newStartTime, newEndTime, newDuration, newStatus,
+          newAllowedTypes, secWebcam, secFullscreen, secTabSwitch, secCopyPaste,
+          secMultipleScreens, secSEB,
           savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         };
         localStorage.setItem("draft_proctored_test", JSON.stringify(d));
         setIsSavedExamDraft(true);
         setLastSavedExamDraft(d.savedAt);
       } catch (e) {
-        console.warn("Auto-save exam failed", e);
+        console.warn("Failed to auto-save test draft", e);
       }
     }, 500);
     return () => clearTimeout(timer);
@@ -188,77 +193,162 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     return matchesSearch && matchesStatus;
   });
 
-  const handleCreateTest = async (e: React.FormEvent) => {
+  const handleCreateTest = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle) return;
+    if (!newTitle) {
+      toast({ title: "Title Required", description: "Please enter an exam title.", variant: "destructive" });
+      return;
+    }
 
-    const newExam: ScheduledTest = {
-      id: `t_${Date.now()}`,
+    const newTest: ScheduledTest = {
+      id: `test_${Date.now()}`,
       title: newTitle,
-      batch: "Unassigned",
+      date: newDate || new Date().toISOString().split("T")[0]!,
+      startTime: newStartTime || "09:00 AM",
+      endTime: newEndTime || "11:00 AM",
+      batch: "Common (All Batches)",
       duration: newDuration,
       totalQuestions: 0,
       maxMarks: 0,
       status: newStatus,
       submissionsCount: 0,
-      totalEnrolled: 0,
+      totalEnrolled: 120,
       proctoringFlags: [
-        ...(secWebcam ? ["12 Camera Rules Face Monitoring"] : []),
-        ...(secFullscreen ? ["Fullscreen Lock"] : []),
-        ...(secTabSwitch ? ["Tab Switch Security"] : []),
-        ...(secCopyPaste ? ["Copy-Paste Lock"] : []),
-        ...(secMultipleScreens ? ["Multi-Screen Detection"] : []),
-        ...(secSEB ? ["Safe Exam Browser (SEB)"] : []),
+        ...(secWebcam ? ["AI Facial Tracking Active"] : []),
+        ...(secFullscreen ? ["Fullscreen Locked"] : []),
+        ...(secTabSwitch ? ["Anti-Tab Switch"] : []),
+        ...(secCopyPaste ? ["Clipboard Blocked"] : []),
+        ...(secSEB ? ["Safe Exam Browser Enforced"] : []),
       ],
-      assignedBatches: [],
+      allowedQuestionTypes: newAllowedTypes,
+      sections: ["General Assessment"],
       questions: [],
-      allowedQuestionTypes: newAllowedTypes
     };
 
-    try {
-      const res = await fetch("/api/admin/tests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ test: newExam })
-      });
-      const data = await res.json();
-      if (data.test) {
-        newExam.id = data.test.id;
-      }
-    } catch (err) {
-      console.error("Failed to save test to API", err);
-    }
-
-    setTests((prev) => [newExam, ...prev]);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("draft_proctored_test");
-    }
-    setViewState("list");
-    setNewTitle("");
+    setTests([newTest, ...tests]);
+    setSelectedTest(newTest);
+    setViewState("exam-dashboard");
     toast({
-      title: "Proctored Exam Created",
+      title: "Exam Setup Created",
       description: `"${newTitle}" has been created and saved.`,
     });
   };
 
+  const openCreateQuestion = (section: string) => {
+    setEditingQuestionId(null);
+    setManualQuestionTitle("");
+    setManualQuestionType(selectedTest?.allowedQuestionTypes === "coding" ? "coding" : selectedTest?.allowedQuestionTypes === "mcq" ? "mcq" : "coding");
+    setManualQuestionMarks(10);
+    setManualQuestionSection(section);
+    setCustomSectionName("");
+    setViewState("add-question");
+  };
+
+  const openEditQuestion = (q: TestQuestion) => {
+    setEditingQuestionId(q.id);
+    setManualQuestionTitle(q.title);
+    setManualQuestionType(q.type);
+    setManualQuestionMarks(q.marks);
+    setManualQuestionSection(q.section);
+    setCustomSectionName("");
+    setViewState("add-question");
+  };
+
+  const handleDeleteQuestion = (qId: string) => {
+    if (!selectedTest) return;
+    const deletedQ = selectedTest.questions?.find((q) => q.id === qId);
+    const markDiff = deletedQ ? deletedQ.marks : 0;
+    const updatedQuestions = (selectedTest.questions || []).filter((q) => q.id !== qId);
+    const updatedTest = {
+      ...selectedTest,
+      totalQuestions: updatedQuestions.length,
+      maxMarks: Math.max(0, (selectedTest.maxMarks || 0) - markDiff),
+      questions: updatedQuestions,
+    };
+
+    fetch("/api/admin/tests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ test: updatedTest }),
+    }).catch((err) => console.error("Failed to delete question", err));
+
+    setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
+    setSelectedTest(updatedTest);
+    toast({ title: "Question Deleted", description: "Question removed from test pool.", variant: "destructive" });
+  };
+
+  const handleDeleteSection = (sectionName: string) => {
+    if (!selectedTest) return;
+    const remainingSections = (selectedTest.sections || []).filter((s) => s !== sectionName);
+    const remainingQuestions = (selectedTest.questions || []).filter((q) => q.section !== sectionName);
+    const updatedTest = {
+      ...selectedTest,
+      sections: remainingSections,
+      totalQuestions: remainingQuestions.length,
+      maxMarks: remainingQuestions.reduce((acc, q) => acc + (q.marks || 0), 0),
+      questions: remainingQuestions,
+    };
+
+    fetch("/api/admin/tests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ test: updatedTest }),
+    }).catch((err) => console.error("Failed to delete section", err));
+
+    setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
+    setSelectedTest(updatedTest);
+    toast({ title: "Section Removed", description: `Section "${sectionName}" and its questions were removed.`, variant: "destructive" });
+  };
+
   const handleAddQuestion = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTest || !manualQuestionTitle) return;
+    if (!selectedTest || !manualQuestionTitle.trim()) return;
 
     const finalSection = manualQuestionSection === "custom" ? customSectionName.trim() : manualQuestionSection.trim();
-    const newQ: TestQuestion = {
-      id: `q_${Date.now()}`,
-      title: manualQuestionTitle,
-      type: manualQuestionType as "coding" | "mcq" | "msq" | "both",
-      marks: manualQuestionMarks,
-      section: finalSection || (manualQuestionType === "coding" ? "Programming Task" : manualQuestionType === "both" ? "Hybrid Task" : "Multiple Choice")
-    };
+    const sectionName =
+      finalSection ||
+      (manualQuestionType === "coding"
+        ? "Programming Task"
+        : manualQuestionType === "both"
+        ? "Hybrid Task"
+        : "Multiple Choice");
+
+    let updatedQuestions: TestQuestion[];
+
+    if (editingQuestionId) {
+      // Edit existing question
+      updatedQuestions = (selectedTest.questions || []).map((q) =>
+        q.id === editingQuestionId
+          ? {
+              ...q,
+              title: manualQuestionTitle.trim(),
+              type: manualQuestionType as "coding" | "mcq" | "msq" | "both",
+              marks: manualQuestionMarks,
+              section: sectionName,
+            }
+          : q
+      );
+      toast({ title: "Question Updated", description: "Question saved successfully." });
+    } else {
+      // Add new question
+      const newQ: TestQuestion = {
+        id: `q_${Date.now()}`,
+        title: manualQuestionTitle.trim(),
+        type: manualQuestionType as "coding" | "mcq" | "msq" | "both",
+        marks: manualQuestionMarks,
+        section: sectionName,
+      };
+      updatedQuestions = [...(selectedTest.questions || []), newQ];
+      toast({ title: "Question Added", description: "Successfully added to the test pool." });
+    }
+
+    const totalMarks = updatedQuestions.reduce((acc, q) => acc + (q.marks || 0), 0);
 
     const updatedTest = {
       ...selectedTest,
-      totalQuestions: (selectedTest.totalQuestions || 0) + 1,
-      maxMarks: (selectedTest.maxMarks || 0) + manualQuestionMarks,
-      questions: [...(selectedTest.questions || []), newQ]
+      totalQuestions: updatedQuestions.length,
+      maxMarks: totalMarks,
+      questions: updatedQuestions,
     };
 
     fetch("/api/admin/tests", {
@@ -270,10 +360,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     setTests(prev => prev.map(t => t.id === selectedTest.id ? updatedTest : t));
     setSelectedTest(updatedTest);
     setViewState("exam-dashboard");
+    setEditingQuestionId(null);
     setManualQuestionTitle("");
     setManualQuestionSection("");
     setCustomSectionName("");
-    toast({ title: "Question Added", description: "Successfully added to the test pool." });
   };
   
   const handleAddSection = () => {
@@ -597,35 +687,112 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                 (selectedTest.sections || []).map((section) => {
                   const sectionQuestions = selectedTest.questions?.map((q, idx) => ({ ...q, originalIndex: idx })).filter(q => q.section === section) || [];
                   return (
-                    <div key={section} className="mb-6 last:mb-0">
-                      <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-2 mb-4">
-                        <h4 className="text-xs font-bold text-[#6B7280] uppercase tracking-wider">{section}</h4>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-7 text-[11px] font-bold text-[#2563EB] hover:bg-[#2563EB]/10"
-                          onClick={() => {
-                            setManualQuestionSection(section);
-                            setViewState("add-question");
-                          }}
-                        >
-                          <Plus className="h-3 w-3 mr-1" /> Add Question to {section}
-                        </Button>
+                    <div key={section} className="mb-6 last:mb-0 p-5 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB]/50 dark:bg-[#09090B]/50 space-y-4">
+                      <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] uppercase tracking-wider">{section}</h4>
+                          <Badge variant="outline" className="text-[10px] font-bold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
+                            {sectionQuestions.length} {sectionQuestions.length === 1 ? "Question" : "Questions"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-7 text-[11px] font-bold text-[#2563EB] hover:bg-[#2563EB]/10"
+                            onClick={() => openCreateQuestion(section)}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> Add Question to {section}
+                          </Button>
+                          {(selectedTest.sections || []).length > 1 && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-[11px] font-bold text-[#DC2626] hover:bg-[#DC2626]/10"
+                              onClick={() => handleDeleteSection(section)}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" /> Delete Section
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       
                       {sectionQuestions.length === 0 ? (
-                        <p className="text-[11px] text-[#6B7280] italic">No questions in this section yet.</p>
+                        <div className="text-center py-6 border border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
+                          <p className="text-xs text-[#6B7280]">No questions in this section yet.</p>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="mt-2 h-7 text-xs font-bold text-[#2563EB] border-[#2563EB]/30"
+                            onClick={() => openCreateQuestion(section)}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> Add First Question
+                          </Button>
+                        </div>
                       ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {sectionQuestions.map((q) => (
-                            <div 
-                              key={q.id} 
-                              className="w-10 h-10 border border-[#E5E7EB] dark:border-[#27272A] rounded-lg flex items-center justify-center text-xs font-bold text-[#4B5563] dark:text-[#D4D4D8] bg-white dark:bg-[#18181B] hover:border-[#2563EB] hover:text-[#2563EB] cursor-pointer transition-colors shadow-sm"
-                              title={`${q.originalIndex + 1}. ${q.title} (${q.marks} Marks)`}
-                            >
-                              {q.originalIndex + 1}
-                            </div>
-                          ))}
+                        <div className="space-y-3">
+                          {/* Numbered Quick Navigation Bar */}
+                          <div className="flex flex-wrap items-center gap-2 pb-2">
+                            <span className="text-[11px] font-bold text-[#6B7280] mr-1">Questions:</span>
+                            {sectionQuestions.map((q) => (
+                              <button 
+                                key={q.id} 
+                                onClick={() => openEditQuestion(q)}
+                                className="w-9 h-9 border border-[#2563EB]/30 bg-white dark:bg-[#18181B] text-[#2563EB] hover:bg-[#2563EB] hover:text-white rounded-lg flex items-center justify-center text-xs font-bold transition-all shadow-xs cursor-pointer group"
+                                title={`Question ${q.originalIndex + 1}: ${q.title} (${q.marks} Marks) - Click to Edit`}
+                              >
+                                {q.originalIndex + 1}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Detailed Question Cards */}
+                          <div className="space-y-2">
+                            {sectionQuestions.map((q) => (
+                              <div
+                                key={q.id}
+                                className="flex items-center justify-between p-3.5 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl shadow-2xs hover:border-[#2563EB]/50 transition-colors"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <span className="w-7 h-7 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center text-xs font-bold shrink-0">
+                                    {q.originalIndex + 1}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] truncate">
+                                      {q.title}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <Badge variant="outline" className="text-[9px] uppercase font-bold text-[#6B7280] border-[#E5E7EB] dark:border-[#27272A]">
+                                        {q.type}
+                                      </Badge>
+                                      <span className="text-[10px] font-bold text-[#2563EB]">
+                                        {q.marks} Marks
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0 ml-3">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openEditQuestion(q)}
+                                    className="h-7 px-2.5 text-[11px] font-bold border-[#2563EB]/30 text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg"
+                                  >
+                                    <Edit className="h-3 w-3 mr-1" /> Edit
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleDeleteQuestion(q.id)}
+                                    className="h-7 px-2 text-[11px] font-bold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -707,20 +874,23 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     return (
       <div className="space-y-6 w-full">
         <PageHeader
-          title="Build New Question"
+          title={editingQuestionId ? "Edit Question" : "Build New Question"}
           description={
             <>
-              Adding question to: {selectedTest.title} {manualQuestionSection && <span className="font-bold text-[#2563EB] ml-2">• Section: {manualQuestionSection}</span>}
+              {editingQuestionId ? "Modify question statement, marks, and configuration" : "Adding question to"}: <strong className="text-[#111827] dark:text-[#FAFAFA]">{selectedTest.title}</strong> {manualQuestionSection && <span className="font-bold text-[#2563EB] ml-2">• Section: {manualQuestionSection}</span>}
             </>
           }
-          backAction={{ label: "Back", onClick: () => setViewState("exam-dashboard") }}
+          backAction={{ label: "Back to Dashboard", onClick: () => {
+            setEditingQuestionId(null);
+            setViewState("exam-dashboard");
+          }}}
         />
 
         <form onSubmit={handleAddQuestion} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                <Code2 className="h-4 w-4 text-[#2563EB]" /> Inline Question Builder
+                <Code2 className="h-4 w-4 text-[#2563EB]" /> {editingQuestionId ? "Edit Question Parameters" : "Inline Question Builder"}
               </h3>
               <Select value={manualQuestionType} onValueChange={(val) => val && setManualQuestionType(val as any)}>
                 <SelectTrigger className="h-9 text-xs w-[160px] bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue /></SelectTrigger>
@@ -834,10 +1004,43 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               )}
             </div>
             
-            <div className="flex justify-end pt-8">
-              <Button type="submit" className="h-10 px-6 bg-[#111827] dark:bg-white text-white dark:text-[#111827] text-xs font-bold rounded-xl shadow-sm gap-2">
-                <CheckCircle2 className="h-4 w-4" /> Save Question to Exam
-              </Button>
+            <div className="flex items-center justify-between pt-8 border-t border-[#E5E7EB] dark:border-[#27272A] mt-6">
+              <div>
+                {editingQuestionId && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      handleDeleteQuestion(editingQuestionId);
+                      setEditingQuestionId(null);
+                      setViewState("exam-dashboard");
+                    }}
+                    className="h-10 px-4 border-[#DC2626]/30 text-[#DC2626] hover:bg-[#DC2626]/10 text-xs font-bold rounded-xl gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" /> Delete Question
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingQuestionId(null);
+                    setViewState("exam-dashboard");
+                  }}
+                  className="h-10 px-5 text-xs font-bold rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl shadow-sm gap-2"
+                >
+                  <CheckCircle2 className="h-4 w-4" /> {editingQuestionId ? "Save Changes" : "Save Question to Exam"}
+                </Button>
+              </div>
             </div>
           </Card>
         </form>
