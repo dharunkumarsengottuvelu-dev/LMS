@@ -336,12 +336,24 @@ export default function StudentTestRunnerPage() {
     }
   };
 
-  // Countdown Timer Effect
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Countdown Timer Effect — stops immediately when submitted, dialog is open, or expired
   useEffect(() => {
-    if (isExamSubmitted || timeLeft <= 0) return;
-    const timer = setInterval(() => {
+    if (isExamSubmitted || timeLeft <= 0 || isSubmitDialogOpen) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
+    timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
           setIsExamSubmitted(true);
           setAutoSubmittedReason("Exam duration limit reached (Timer Expired).");
           toast({
@@ -353,8 +365,13 @@ export default function StudentTestRunnerPage() {
         return prev - 1;
       });
     }, 1000);
-    return () => clearInterval(timer);
-  }, [timeLeft, isExamSubmitted, toast]);
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [timeLeft, isExamSubmitted, isSubmitDialogOpen, toast]);
 
   const handleCopyPasteAttempt = (e: React.SyntheticEvent) => {
     if (isCopyPasteBlocked) {
@@ -403,6 +420,10 @@ export default function StudentTestRunnerPage() {
   };
 
   const handleSubmitExam = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     setIsSubmitDialogOpen(false);
     setIsExamSubmitted(true);
 

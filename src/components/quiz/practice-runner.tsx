@@ -193,6 +193,19 @@ export function PracticeRunnerEngine({
     return new Set();
   });
 
+  const [sessionStartTime] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.sessionStartTime) return parsed.sessionStartTime;
+        }
+      } catch {}
+    }
+    return Date.now();
+  });
+
   const [timeLeft, setTimeLeft] = useState<number>(() => {
     if (!isAlreadySubmitted && typeof window !== "undefined") {
       try {
@@ -222,7 +235,17 @@ export function PracticeRunnerEngine({
   const [showProblemStatement, setShowProblemStatement] = useState(true);
   const [showQuestionPalette, setShowQuestionPalette] = useState(true);
 
+  const [isSubmitted, setIsSubmitted] = useState<boolean>(() => isAlreadySubmitted);
+  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const timeLeftRef = React.useRef<number>(timeLeft);
+  timeLeftRef.current = timeLeft;
+
   const handleInitiateSubmit = () => {
+    // Stop/pause timer immediately when user opens review/submit
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     if (module.allowReviewBeforeSubmit !== false) {
       setShowReviewModal(true);
     } else {
@@ -230,11 +253,9 @@ export function PracticeRunnerEngine({
     }
   };
 
-  const [isSubmitted, setIsSubmitted] = useState<boolean>(() => isAlreadySubmitted);
-
   // Auto-persist all progress to localStorage
   useEffect(() => {
-    if (typeof window === "undefined" || isSubmitted || isAlreadySubmitted) return;
+    if (typeof window !== "undefined" || isSubmitted || isAlreadySubmitted) return;
     try {
       const dataToSave = {
         answers,
@@ -245,28 +266,40 @@ export function PracticeRunnerEngine({
         mcqIndex,
         codingIndex,
         timeLeft,
+        sessionStartTime,
         savedAt: new Date().toISOString()
       };
       localStorage.setItem(storageKey, JSON.stringify(dataToSave));
     } catch (e) {
       console.warn("Failed to persist practice progress:", e);
     }
-  }, [answers, codeAnswers, submissionResults, markedForReview, activeSection, mcqIndex, codingIndex, timeLeft, storageKey, isSubmitted, isAlreadySubmitted]);
+  }, [answers, codeAnswers, submissionResults, markedForReview, activeSection, mcqIndex, codingIndex, timeLeft, sessionStartTime, storageKey, isSubmitted, isAlreadySubmitted]);
 
   const currentQuestion = currentSectionQuestions[currentSectionIndex] || questions[0];
 
   const handleFinalSubmit = useCallback(async () => {
+    // 1. Immediately halt and clear the countdown timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setIsSubmitted(true);
     setShowSubmitDialog(false);
     setShowReviewModal(false);
-    setIsSubmitted(true);
 
     const completedAt = new Date().toISOString();
-    const timeSpentSeconds = Math.max(0, (module.durationMinutes * 60) - timeLeft);
+    const finalRemainingTime = timeLeftRef.current;
+    
+    // Compute elapsed time accurately
+    const elapsedFromStart = Math.max(1, Math.floor((Date.now() - sessionStartTime) / 1000));
+    const timeSpentSeconds = module.durationMinutes > 0
+      ? Math.max(1, (module.durationMinutes * 60) - finalRemainingTime)
+      : elapsedFromStart;
 
     try {
       await onSubmit(
         { ...answers, ...codeAnswers },
-        { timeSpentSeconds, completedAt, timeLeft, submissionResults }
+        { timeSpentSeconds, completedAt, timeLeft: finalRemainingTime, submissionResults }
       );
     } finally {
       // Always clear session after submit — prevents refresh from restoring the editor
@@ -276,22 +309,41 @@ export function PracticeRunnerEngine({
         localStorage.setItem(`${storageKey}_submitted`, "true");
       } catch {}
     }
-  }, [answers, codeAnswers, onSubmit, storageKey, module.durationMinutes, timeLeft]);
+  }, [answers, codeAnswers, onSubmit, storageKey, module.durationMinutes, sessionStartTime, submissionResults]);
 
   const isUntimed = !module.durationMinutes || module.durationMinutes <= 0;
 
-  // Countdown Timer — stops immediately when submitted or if untimed
+  // Countdown Timer — stops immediately when submitted, untimed, completed, or reviewing submission
   useEffect(() => {
-    if (isSubmitted || isAlreadySubmitted || isUntimed) return;
-    if (timeLeft <= 0) {
-      handleFinalSubmit();
+    if (isSubmitted || isAlreadySubmitted || isUntimed || showReviewModal || showSubmitDialog) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       return;
     }
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          handleFinalSubmit();
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
-    return () => clearInterval(timer);
-  }, [timeLeft, handleFinalSubmit, isSubmitted, isAlreadySubmitted, isUntimed]);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [isSubmitted, isAlreadySubmitted, isUntimed, showReviewModal, showSubmitDialog, handleFinalSubmit]);
 
   // Anti-Cheating: Plagiarism & Clipboard Lock
   useEffect(() => {
@@ -1092,35 +1144,35 @@ export function PracticeRunnerEngine({
                 variant="outline"
                 size="sm"
                 onClick={() => setShowReviewModal(false)}
-                className="h-8 px-3 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] rounded-xl hover:bg-muted"
+                className="h-8 px-4 text-xs font-semibold gap-2 border-slate-200 dark:border-zinc-800 rounded-full hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-300 shadow-xs"
               >
                 <ArrowLeft className="h-3.5 w-3.5" /> Back to Practice
               </Button>
             </div>
 
             {/* Overview Card */}
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-xs overflow-hidden">
+            <Card className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-xs overflow-hidden">
               <div className="p-6 md:p-8 space-y-6">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-6 border-b border-[#E5E7EB] dark:border-[#27272A]">
-                  <div className="space-y-3 flex-1 min-w-0">
-                    <Badge className="bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 text-xs font-semibold px-2.5 py-0.5">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-2">
+                  <div className="space-y-2.5 flex-1 min-w-0">
+                    <span className="inline-block bg-blue-50 text-[#2563EB] border border-blue-200/70 text-xs font-semibold px-3 py-1 rounded-full">
                       Submission Review
-                    </Badge>
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[#0F172A] dark:text-[#F8FAFC] leading-[1.15] max-w-4xl">
+                    </span>
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.15] max-w-4xl">
                       {module.title}
                     </h1>
-                    <p className="text-sm sm:text-base text-muted-foreground pt-1 font-normal">
-                      Assigned by <span className="font-semibold text-foreground">{module.assignedBy || (module as any).assignedByName || "Instructor"}</span> • {questions.length} Total Questions
+                    <p className="text-sm text-slate-500 dark:text-slate-400 font-normal pt-0.5">
+                      Assigned by <span className="font-semibold text-slate-800 dark:text-slate-200">{module.assignedBy || (module as any).assignedByName || "Instructor"}</span> • {questions.length} Total Questions
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                  <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setShowReviewModal(false)}
-                      className="h-9 px-3.5 text-xs font-semibold gap-1.5 rounded-xl border-[#E5E7EB] dark:border-[#27272A] text-foreground hover:bg-muted"
+                      className="h-9 px-4 text-xs font-semibold gap-1.5 rounded-full border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
                     >
                       <RotateCcw className="h-3.5 w-3.5" /> Continue Practice
                     </Button>
@@ -1130,7 +1182,7 @@ export function PracticeRunnerEngine({
                         setShowReviewModal(false);
                         handleFinalSubmit();
                       }}
-                      className="h-9 px-5 text-xs font-bold gap-1.5 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white shadow-sm"
+                      className="h-9 px-5 text-xs font-semibold gap-1.5 rounded-full bg-[#16A34A] hover:bg-[#15803D] text-white shadow-xs"
                     >
                       <CheckCircle2 className="h-4 w-4" /> Confirm & Final Submit
                     </Button>
@@ -1138,30 +1190,30 @@ export function PracticeRunnerEngine({
                 </div>
 
                 {/* Metrics Row */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="p-3 rounded-xl bg-[#F8FAFC] dark:bg-[#1E293B]/50 border border-[#E2E8F0] dark:border-[#334155]">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">Total Questions</p>
-                    <p className="text-lg font-bold text-[#0F172A] dark:text-[#F8FAFC] mt-0.5">{totalQuestions}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 pt-2">
+                  <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
+                    <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">TOTAL QUESTIONS</p>
+                    <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1">{totalQuestions}</p>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-[#16A34A]/5 border border-[#16A34A]/20">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#16A34A]">Completed</p>
-                    <p className="text-lg font-bold text-[#16A34A] mt-0.5">
-                      {answeredCount} <span className="text-xs font-medium text-muted-foreground">/ {totalQuestions}</span>
+                  <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
+                    <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-500">COMPLETED</p>
+                    <p className="text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-500 mt-1">
+                      {answeredCount} <span className="text-xs font-medium text-slate-400">/ {totalQuestions}</span>
                     </p>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-[#9333EA]/5 border border-[#9333EA]/20">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9333EA]">Coding Solved</p>
-                    <p className="text-lg font-bold text-[#9333EA] mt-0.5">
-                      {codingQuestions.filter(cq => isQuestionAnswered(cq.id)).length} <span className="text-xs font-medium text-muted-foreground">/ {codingQuestions.length}</span>
+                  <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
+                    <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">CODING SOLVED</p>
+                    <p className="text-base sm:text-lg font-bold text-purple-600 dark:text-purple-400 mt-1">
+                      {codingQuestions.filter(cq => isQuestionAnswered(cq.id)).length} <span className="text-xs font-medium text-slate-400">/ {codingQuestions.length}</span>
                     </p>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-[#F8FAFC] dark:bg-[#1E293B]/50 border border-[#E2E8F0] dark:border-[#334155]">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">Time Remaining</p>
-                    <p className="text-lg font-bold text-[#0F172A] dark:text-[#F8FAFC] mt-0.5 font-mono">
-                      {formatTimerDisplay(timeLeft)}
+                  <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
+                    <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">TIME REMAINING</p>
+                    <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1 font-mono">
+                      {isUntimed ? "Unlimited" : formatTimerDisplay(timeLeft)}
                     </p>
                   </div>
                 </div>
@@ -1171,7 +1223,7 @@ export function PracticeRunnerEngine({
             {/* Question Review Section Header & Filters */}
             <div className="space-y-4 pt-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A] dark:text-[#FAFAFA] tracking-tight">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                   Question Review & Answers ({questions.length})
                 </h2>
 
@@ -1180,10 +1232,10 @@ export function PracticeRunnerEngine({
                     type="button"
                     onClick={() => setReviewFilter("all")}
                     className={cn(
-                      "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                      "px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all",
                       reviewFilter === "all"
                         ? "bg-[#2563EB] text-white shadow-xs"
-                        : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-foreground"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
                     )}
                   >
                     All ({questions.length})
@@ -1193,10 +1245,10 @@ export function PracticeRunnerEngine({
                       type="button"
                       onClick={() => setReviewFilter("mcq")}
                       className={cn(
-                        "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                        "px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all",
                         reviewFilter === "mcq"
                           ? "bg-[#2563EB] text-white shadow-xs"
-                          : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-foreground"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
                       )}
                     >
                       MCQs ({mcqQuestions.length})
@@ -1207,10 +1259,10 @@ export function PracticeRunnerEngine({
                       type="button"
                       onClick={() => setReviewFilter("coding")}
                       className={cn(
-                        "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                        "px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all",
                         reviewFilter === "coding"
-                          ? "bg-[#9333EA] text-white shadow-xs"
-                          : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-foreground"
+                          ? "bg-[#2563EB] text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
                       )}
                     >
                       Coding ({codingQuestions.length})
@@ -1221,10 +1273,10 @@ export function PracticeRunnerEngine({
                       type="button"
                       onClick={() => setReviewFilter("marked")}
                       className={cn(
-                        "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                        "px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all",
                         reviewFilter === "marked"
                           ? "bg-[#F59E0B] text-white shadow-xs"
-                          : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#F59E0B] hover:bg-[#F59E0B]/10"
+                          : "text-[#F59E0B] hover:bg-[#F59E0B]/10"
                       )}
                     >
                       Marked ({markedForReview.size})
@@ -1235,10 +1287,10 @@ export function PracticeRunnerEngine({
                       type="button"
                       onClick={() => setReviewFilter("unanswered")}
                       className={cn(
-                        "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                        "px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all",
                         reviewFilter === "unanswered"
                           ? "bg-[#EF4444] text-white shadow-xs"
-                          : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#EF4444] hover:bg-[#EF4444]/10"
+                          : "text-[#EF4444] hover:bg-[#EF4444]/10"
                       )}
                     >
                       Unanswered ({totalQuestions - answeredCount})
@@ -1275,103 +1327,105 @@ export function PracticeRunnerEngine({
                     return (
                       <Card
                         key={q.id || qIndex}
-                        className="bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-[#1E293B] rounded-2xl shadow-xs overflow-hidden transition-all hover:border-[#2563EB]/40"
+                        className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl shadow-xs overflow-hidden"
                       >
-                        {/* MCQ Question Header */}
-                        <div className="p-5 sm:p-6 border-b border-[#E2E8F0] dark:border-[#1E293B] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#F8FAFC]/50 dark:bg-[#1E293B]/30">
-                          <div className="flex items-center gap-3">
-                            <span className="w-8 h-8 rounded-xl bg-[#2563EB] text-white flex items-center justify-center font-extrabold text-xs shrink-0 shadow-xs">
-                              {originalIndex + 1}
-                            </span>
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider">
-                                  {q.sectionTitle || (module as any).mcqSectionTitle || "Multiple Choice"}
+                        <div className="p-6 sm:p-7 space-y-4">
+                          {/* Top Row: Section, Marks, Status, Edit */}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <span className="w-6 h-6 rounded-full bg-[#2563EB] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                                {originalIndex + 1}
+                              </span>
+                              <span className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider">
+                                {q.sectionTitle || (module as any).mcqSectionTitle || "SECTION 1: MCQS"}
+                              </span>
+                              {q.marks && (
+                                <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+                                  +{q.marks} Marks
                                 </span>
-                                {q.marks && (
-                                  <Badge variant="outline" className="text-[10px] font-bold bg-white dark:bg-[#090D16]">
-                                    +{q.marks} Marks
-                                  </Badge>
-                                )}
-                              </div>
-                              <h3 className="text-sm sm:text-base font-bold text-[#0F172A] dark:text-[#F8FAFC] mt-0.5">
-                                {q.text || q.title}
-                              </h3>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {marked && (
+                                <span className="bg-amber-50 text-amber-600 border border-amber-200/70 text-xs font-semibold px-3 py-0.5 rounded-full flex items-center gap-1">
+                                  <Flag className="h-3 w-3" /> Flagged
+                                </span>
+                              )}
+                              {answered ? (
+                                <span className="bg-emerald-50 text-emerald-600 border border-emerald-200/70 text-xs font-semibold px-3 py-0.5 rounded-full">
+                                  Answered
+                                </span>
+                              ) : (
+                                <span className="bg-rose-50 text-rose-600 border border-rose-200/70 text-xs font-semibold px-3 py-0.5 rounded-full">
+                                  Unattempted
+                                </span>
+                              )}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setActiveSection("mcq");
+                                  setMcqIndex(mcqIdx >= 0 ? mcqIdx : 0);
+                                  setShowReviewModal(false);
+                                }}
+                                className="h-7 px-3 rounded-full border-slate-200 dark:border-zinc-700 text-xs font-semibold text-[#2563EB] hover:bg-[#2563EB]/10 gap-1"
+                              >
+                                <Edit3 className="h-3 w-3" /> Edit
+                              </Button>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                            {marked && (
-                              <Badge className="bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30 text-xs font-bold">
-                                <Flag className="h-3.5 w-3.5 mr-1" /> Flagged
-                              </Badge>
-                            )}
-                            {answered ? (
-                              <Badge className="bg-[#16A34A] text-white text-xs font-bold gap-1">
-                                <Check className="h-3.5 w-3.5" /> Answered
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs font-bold text-[#EF4444] border-[#EF4444]/30 bg-[#EF4444]/5">
-                                Unattempted
-                              </Badge>
-                            )}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setActiveSection("mcq");
-                                setMcqIndex(mcqIdx >= 0 ? mcqIdx : 0);
-                                setShowReviewModal(false);
-                              }}
-                              className="h-8 px-3 rounded-xl border-[#E2E8F0] dark:border-[#334155] text-xs font-bold text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5"
-                            >
-                              <Edit3 className="h-3.5 w-3.5" /> Change Answer
-                            </Button>
-                          </div>
-                        </div>
+                          {/* Question Text */}
+                          <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug">
+                            {q.text || q.title}
+                          </h3>
 
-                        {/* MCQ Options Display */}
-                        <div className="p-5 sm:p-6 space-y-3">
-                          <p className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">
-                            Options & Selected Response
-                          </p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {(q.options || []).map((opt, oIdx) => {
-                              const isSelected = selectedIds.includes(opt.id);
-                              return (
-                                <div
-                                  key={opt.id || oIdx}
-                                  className={cn(
-                                    "p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between gap-3 transition-all",
-                                    isSelected
-                                      ? "border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB] shadow-xs"
-                                      : "border-[#E2E8F0] dark:border-[#1E293B] bg-[#F8FAFC] dark:bg-[#1E293B]/40 text-[#64748B] dark:text-[#94A3B8]"
-                                  )}
-                                >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div
-                                      className={cn(
-                                        "w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-extrabold shrink-0",
-                                        isSelected
-                                          ? "bg-[#2563EB] text-white"
-                                          : "bg-white dark:bg-[#090D16] border border-[#E2E8F0] dark:border-[#334155] text-[#64748B]"
-                                      )}
-                                    >
-                                      {String.fromCharCode(65 + oIdx)}
+                          {/* Options List */}
+                          <div className="space-y-2 pt-1">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                              OPTIONS & RESPONSE
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {(q.options || []).map((opt, oIdx) => {
+                                const isSelected = selectedIds.includes(opt.id);
+
+                                return (
+                                  <div
+                                    key={opt.id || oIdx}
+                                    className={cn(
+                                      "p-3.5 rounded-xl border text-xs flex items-center justify-between gap-3 transition-all",
+                                      isSelected
+                                        ? "border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xs"
+                                        : "border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 text-slate-600 dark:text-slate-400"
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div
+                                        className={cn(
+                                          "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                                          isSelected
+                                            ? "bg-[#2563EB] text-white"
+                                            : "bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-slate-400"
+                                        )}
+                                      >
+                                        {String.fromCharCode(65 + oIdx)}
+                                      </div>
+                                      <span className={cn("truncate text-xs", isSelected ? "text-slate-900 dark:text-white font-bold" : "font-medium text-slate-700 dark:text-slate-300")}>
+                                        {opt.text}
+                                      </span>
                                     </div>
-                                    <span className={cn("truncate font-medium", isSelected && "text-[#0F172A] dark:text-white font-bold")}>
-                                      {opt.text}
-                                    </span>
+
+                                    {isSelected && (
+                                      <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-[#2563EB] text-white shrink-0">
+                                        Selected
+                                      </span>
+                                    )}
                                   </div>
-                                  {isSelected && (
-                                    <Badge className="bg-[#2563EB] text-white text-[10px] font-extrabold shrink-0 gap-1">
-                                      <Check className="h-3 w-3" /> Selected
-                                    </Badge>
-                                  )}
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       </Card>
@@ -1387,77 +1441,80 @@ export function PracticeRunnerEngine({
                     return (
                       <Card
                         key={q.id || qIndex}
-                        className="bg-white dark:bg-[#0F172A] border border-[#E2E8F0] dark:border-[#1E293B] rounded-2xl shadow-xs overflow-hidden transition-all hover:border-[#9333EA]/40"
+                        className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl shadow-xs overflow-hidden"
                       >
-                        {/* Coding Header */}
-                        <div className="p-5 sm:p-6 border-b border-[#E2E8F0] dark:border-[#1E293B] flex flex-col sm:flex-row sm:items-start justify-between gap-3 bg-[#F8FAFC]/50 dark:bg-[#1E293B]/30">
-                          <div className="flex items-start gap-3 min-w-0">
-                            <span className="w-7 h-7 rounded-lg bg-[#9333EA] text-white flex items-center justify-center font-extrabold text-xs shrink-0 mt-0.5">
-                              {originalIndex + 1}
-                            </span>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <span className="text-[11px] font-bold text-[#9333EA] uppercase tracking-wider">
-                                  {q.sectionTitle || (module as any).codingSectionTitle || "Coding Challenge"}
+                        <div className="p-6 sm:p-7 space-y-4">
+                          {/* Coding Header */}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                              <span className="w-6 h-6 rounded-full bg-[#9333EA] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                                {originalIndex + 1}
+                              </span>
+                              <span className="text-[11px] font-bold text-[#9333EA] uppercase tracking-wider">
+                                {q.sectionTitle || (module as any).codingSectionTitle || "SECTION 2: CODING"}
+                              </span>
+                              {q.marks && (
+                                <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+                                  +{q.marks} Marks
                                 </span>
-                                {q.marks && (
-                                  <span className="text-[10px] font-bold text-[#64748B] dark:text-[#94A3B8] px-1.5 py-0.5 rounded bg-[#F1F5F9] dark:bg-[#334155]">
-                                    +{q.marks} Marks
+                              )}
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200/70 uppercase">
+                                {cqLang}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {submission ? (
+                                submission.status === "accepted" ? (
+                                  <span className="bg-emerald-50 text-emerald-600 border border-emerald-200/70 text-xs font-semibold px-3 py-0.5 rounded-full">
+                                    {submission.passed_test_cases}/{submission.total_test_cases} Passed
                                   </span>
-                                )}
-                                <span className="text-[10px] font-bold text-[#9333EA] px-1.5 py-0.5 rounded bg-[#9333EA]/10 uppercase">
-                                  {cqLang}
+                                ) : (
+                                  <span className="bg-rose-50 text-rose-600 border border-rose-200/70 text-xs font-semibold px-3 py-0.5 rounded-full">
+                                    {submission.passed_test_cases}/{submission.total_test_cases} Passed
+                                  </span>
+                                )
+                              ) : answered ? (
+                                <span className="bg-blue-50 text-[#2563EB] border border-blue-200/70 text-xs font-semibold px-3 py-0.5 rounded-full">
+                                  Code Saved
                                 </span>
-                              </div>
-                              <h3 className="text-sm font-bold text-[#0F172A] dark:text-[#F8FAFC] leading-snug">
-                                {q.title || q.text}
-                              </h3>
+                              ) : (
+                                <span className="bg-rose-50 text-rose-600 border border-rose-200/70 text-xs font-semibold px-3 py-0.5 rounded-full">
+                                  No Code
+                                </span>
+                              )}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setActiveSection("coding");
+                                  setCodingIndex(cqIdx >= 0 ? cqIdx : 0);
+                                  setShowReviewModal(false);
+                                }}
+                                className="h-7 px-3 rounded-full border-slate-200 dark:border-zinc-700 text-xs font-semibold text-[#9333EA] hover:bg-[#9333EA]/10 gap-1"
+                              >
+                                <Edit3 className="h-3 w-3" /> Edit in IDE
+                              </Button>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-                            {submission ? (
-                              submission.status === "accepted" ? (
-                                <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-[#16A34A]/10 text-[#16A34A]">
-                                  {submission.passed_test_cases}/{submission.total_test_cases} Passed
-                                </span>
-                              ) : (
-                                <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-[#EF4444]/10 text-[#EF4444]">
-                                  {submission.passed_test_cases}/{submission.total_test_cases} Passed
-                                </span>
-                              )
-                            ) : answered ? (
-                              <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-blue-600/10 text-blue-600">
-                                Saved (Not Tested)
-                              </span>
-                            ) : (
-                              <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-[#EF4444]/10 text-[#EF4444]">
-                                No Code
-                              </span>
-                            )}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setActiveSection("coding");
-                                setCodingIndex(cqIdx >= 0 ? cqIdx : 0);
-                                setShowReviewModal(false);
-                              }}
-                              className="h-8 px-3 rounded-xl border-[#E2E8F0] dark:border-[#334155] text-xs font-bold text-[#9333EA] hover:bg-[#9333EA]/10"
-                            >
-                              Modify in IDE
-                            </Button>
-                          </div>
-                        </div>
+                          {/* Question Text */}
+                          <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug">
+                            {q.title || q.text}
+                          </h3>
 
-                        <div className="p-5 sm:p-6 space-y-4">
+                          {q.text && q.text !== q.title && (
+                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                              {q.text}
+                            </p>
+                          )}
 
-                          {/* Code Viewer — static, read-only */}
-                          <div className="space-y-1.5">
+                          {/* Code Viewer */}
+                          <div className="space-y-1.5 pt-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">
-                                Your Code Solution ({cqLang.toUpperCase()})
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                                SUBMITTED CODE ({cqLang.toUpperCase()})
                               </span>
                               {cqCode && (
                                 <button
@@ -1467,7 +1524,7 @@ export function PracticeRunnerEngine({
                                     setCopiedCodeId(q.id);
                                     setTimeout(() => setCopiedCodeId(null), 2000);
                                   }}
-                                  className="text-[11px] font-semibold text-[#64748B] dark:text-[#94A3B8] hover:text-[#2563EB] transition-colors"
+                                  className="text-[11px] font-semibold text-slate-500 hover:text-[#2563EB] transition-colors flex items-center gap-1"
                                 >
                                   {copiedCodeId === q.id ? "Copied" : "Copy"}
                                 </button>
@@ -1475,98 +1532,44 @@ export function PracticeRunnerEngine({
                             </div>
 
                             {cqCode ? (
-                              <div className="rounded-xl border border-[#1E293B] bg-[#090D16] p-4 overflow-x-auto max-h-64">
-                                <pre className="font-mono text-[12px] leading-relaxed text-[#E2E8F0] whitespace-pre">{cqCode}</pre>
+                              <div className="rounded-2xl border border-slate-800 bg-[#090D16] p-4 overflow-x-auto max-h-64">
+                                <pre className="font-mono text-[12px] leading-relaxed text-slate-200 whitespace-pre">{cqCode}</pre>
                               </div>
                             ) : (
-                              <div className="p-4 rounded-xl border border-dashed border-[#E2E8F0] dark:border-[#334155] text-center text-xs text-[#94A3B8] bg-[#F8FAFC] dark:bg-[#1E293B]/20">
-                                No code written yet. Click "Modify in IDE" to write your solution.
+                              <div className="p-4 rounded-2xl border border-dashed border-slate-200 dark:border-zinc-800 text-center text-xs text-slate-400 bg-slate-50 dark:bg-zinc-900/20">
+                                No code written yet. Click "Edit in IDE" to write your solution.
                               </div>
                             )}
                           </div>
 
-                          {/* Test Cases — summary only */}
-                          <div className="pt-1 border-t border-[#E2E8F0] dark:border-[#1E293B]">
-                            <div className="flex items-center justify-between py-2.5">
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">
-                                Test Cases ({testCases.length} {testCases.length === 1 ? "case" : "cases"})
+                          {/* Test Cases */}
+                          <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-xs">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                              TEST CASES ({testCases.length} {testCases.length === 1 ? "case" : "cases"})
+                            </span>
+
+                            {submission ? (
+                              <span
+                                className={cn(
+                                  "text-xs font-semibold px-2.5 py-0.5 rounded-full",
+                                  submission.status === "accepted"
+                                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200/70"
+                                    : "bg-rose-50 text-rose-600 border border-rose-200/70"
+                                )}
+                              >
+                                {submission.passed_test_cases}/{submission.total_test_cases} Passed
                               </span>
-
-                              {submission ? (
-                                <span
-                                  className={cn(
-                                    "text-xs font-bold px-3 py-1 rounded-lg",
-                                    submission.status === "accepted"
-                                      ? "bg-[#16A34A]/10 text-[#16A34A]"
-                                      : "bg-[#EF4444]/10 text-[#EF4444]"
-                                  )}
-                                >
-                                  {submission.passed_test_cases}/{submission.total_test_cases} Passed
-                                  {submission.status === "accepted" ? " — All Passed" : " — Some Failed"}
-                                </span>
-                              ) : cqCode ? (
-                                <span className="text-xs font-semibold text-[#64748B] dark:text-[#94A3B8] px-3 py-1 rounded-lg bg-[#F1F5F9] dark:bg-[#1E293B]">
-                                  Not Tested
-                                </span>
-                              ) : (
-                                <span className="text-xs font-semibold text-[#94A3B8] px-3 py-1 rounded-lg bg-[#F1F5F9] dark:bg-[#1E293B]">
-                                  No Code
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Per-test-case pass/fail row — name + badge only, no inputs/outputs */}
-                            {submission && (submission.results || (submission as any).test_results) && (
-                              <div className="space-y-1.5">
-                                {(submission.results || (submission as any).test_results).map((tr: any, tIdx: number) => (
-                                  <div
-                                    key={tIdx}
-                                    className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#F8FAFC] dark:bg-[#1E293B]/50 border border-[#E2E8F0] dark:border-[#334155]"
-                                  >
-                                    <span className="text-xs font-semibold text-[#0F172A] dark:text-[#F8FAFC]">
-                                      Test Case {tIdx + 1}
-                                      {testCases[tIdx]?.is_hidden && (
-                                        <span className="ml-1.5 text-[10px] font-bold text-[#64748B]">(Hidden)</span>
-                                      )}
-                                    </span>
-                                    <span
-                                      className={cn(
-                                        "text-[11px] font-bold px-2.5 py-0.5 rounded-md",
-                                        tr.passed
-                                          ? "bg-[#16A34A]/10 text-[#16A34A]"
-                                          : "bg-[#EF4444]/10 text-[#EF4444]"
-                                      )}
-                                    >
-                                      {tr.passed ? "Passed" : "Failed"}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Not tested yet */}
-                            {!submission && testCases.length > 0 && cqCode && (
-                              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#F8FAFC] dark:bg-[#1E293B]/50 border border-[#E2E8F0] dark:border-[#334155]">
-                                <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">
-                                  Code saved but not evaluated. Run tests in the IDE.
-                                </p>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  onClick={() => {
-                                    setActiveSection("coding");
-                                    setCodingIndex(cqIdx >= 0 ? cqIdx : 0);
-                                    setShowReviewModal(false);
-                                  }}
-                                  className="h-7 px-3 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold text-[11px] rounded-lg shrink-0 ml-3"
-                                >
-                                  Run Tests
-                                </Button>
-                              </div>
+                            ) : cqCode ? (
+                              <span className="text-xs font-semibold text-slate-400">
+                                Not Evaluated
+                              </span>
+                            ) : (
+                              <span className="text-xs font-semibold text-slate-400">
+                                No Code
+                              </span>
                             )}
                           </div>
                         </div>
-
                       </Card>
                     );
                   }
@@ -1576,12 +1579,12 @@ export function PracticeRunnerEngine({
           </div>
 
           {/* Sticky Bottom Confirmation Bar */}
-          <div className="h-16 px-4 sm:px-8 border-t border-[#E2E8F0] dark:border-[#1E293B] bg-white/95 dark:bg-[#0F172A]/95 backdrop-blur-md flex items-center justify-between shrink-0 shadow-lg z-20">
+          <div className="h-16 px-4 sm:px-8 border-t border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md flex items-center justify-between shrink-0 shadow-lg z-20">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-[#64748B] dark:text-[#94A3B8] hidden sm:inline">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 hidden sm:inline">
                 {answeredCount} of {totalQuestions} items answered
               </span>
-              <span className="text-xs font-bold text-[#0F172A] dark:text-white">
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
                 • Ready to submit your attempt?
               </span>
             </div>
@@ -1591,7 +1594,7 @@ export function PracticeRunnerEngine({
                 type="button"
                 variant="outline"
                 onClick={() => setShowReviewModal(false)}
-                className="h-10 px-5 text-xs font-bold rounded-xl border-[#E2E8F0] dark:border-[#334155]"
+                className="h-9 px-4 text-xs font-semibold rounded-full border-slate-200 dark:border-zinc-700 hover:bg-slate-50"
               >
                 ← Back to Practice
               </Button>
@@ -1601,7 +1604,7 @@ export function PracticeRunnerEngine({
                   setShowReviewModal(false);
                   handleFinalSubmit();
                 }}
-                className="h-10 px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs gap-1.5 rounded-xl shadow-sm"
+                className="h-9 px-5 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs gap-1.5 rounded-full shadow-xs"
               >
                 <CheckCircle2 className="h-4 w-4" /> Confirm & Final Submit
               </Button>

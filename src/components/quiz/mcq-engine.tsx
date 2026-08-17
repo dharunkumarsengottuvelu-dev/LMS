@@ -54,13 +54,16 @@ export function MCQAssessmentEngine({
   });
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
 
   // Auto-save answers every 30 seconds
   useEffect(() => {
+    if (isSubmitting || isSubmitted) return;
     autoSaveRef.current = setInterval(() => {
       if (typeof window !== "undefined") {
         localStorage.setItem(`assessment_draft_${attempt.id}`, JSON.stringify(answers));
@@ -69,19 +72,39 @@ export function MCQAssessmentEngine({
     return () => {
       if (autoSaveRef.current) clearInterval(autoSaveRef.current);
     };
-  }, [answers, attempt.id]);
+  }, [answers, attempt.id, isSubmitting, isSubmitted]);
 
-  // Countdown Timer
+  // Countdown Timer — halts on submit, submit dialog, or completion
   useEffect(() => {
-    if (timeLeft <= 0) {
-      handleFinalSubmit();
+    if (isSubmitting || isSubmitted || showSubmitDialog || timeLeft <= 0) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       return;
     }
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          handleFinalSubmit();
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
-    return () => clearInterval(timer);
-  }, [timeLeft]);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [timeLeft, isSubmitting, isSubmitted, showSubmitDialog]);
 
   const handleSingleAnswer = (questionId: string, optionId: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: [optionId] }));
@@ -126,6 +149,15 @@ export function MCQAssessmentEngine({
   };
 
   const handleFinalSubmit = async () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (autoSaveRef.current) {
+      clearInterval(autoSaveRef.current);
+      autoSaveRef.current = null;
+    }
+    setIsSubmitted(true);
     setShowSubmitDialog(false);
     await onSubmit(answers);
   };
