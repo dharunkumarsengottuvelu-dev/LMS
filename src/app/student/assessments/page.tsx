@@ -347,7 +347,7 @@ export default function StudentAssessmentsPage() {
                           </Badge>
                         )}
                         {test.proctoring.safeExamBrowserRequired && (
-                          <Badge variant="outline" className="text-[9px] border-[#9333EA]/30 text-[#9333EA] bg-[#9333EA]/5">
+                          <Badge variant="outline" className="text-[9px] border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
                             SEB Required
                           </Badge>
                         )}

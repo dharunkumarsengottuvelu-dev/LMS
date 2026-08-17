@@ -450,7 +450,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm">
             <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] mb-6 flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-[#9333EA]" /> Anti-Cheating & Security
+              <ShieldAlert className="h-4 w-4 text-[#2563EB]" /> Anti-Cheating & Security
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex justify-between p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
@@ -608,7 +608,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                 <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Security Posture</h3>
                 <div className="flex flex-wrap gap-2">
                   {selectedTest.proctoringFlags.map(flag => (
-                    <Badge key={flag} variant="outline" className="bg-[#9333EA]/10 text-[#9333EA] border-[#9333EA]/30 text-[10px] font-bold">
+                    <Badge key={flag} variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 text-[10px] font-bold">
                       <ShieldCheck className="h-3 w-3 mr-1" /> {flag}
                     </Badge>
                   ))}

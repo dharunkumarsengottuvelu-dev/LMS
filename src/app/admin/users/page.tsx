@@ -278,7 +278,7 @@ export default function AdminUsersPage() {
                       onClick={() => { setNewUserType("employee"); setNewUserRole("trainer"); }}
                       className={`px-8 py-2 text-xs font-bold rounded-lg transition-all ${
                         newUserType === "employee"
-                          ? "bg-white dark:bg-[#18181B] text-[#9333EA] shadow-sm border border-[#E5E7EB] dark:border-[#27272A]"
+                          ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm border border-[#E5E7EB] dark:border-[#27272A]"
                           : "text-[#6B7280] hover:text-[#111827]"
                       }`}
                     >
@@ -432,7 +432,7 @@ export default function AdminUsersPage() {
 
             <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
               <Button variant="outline" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }} className="h-10 px-6 rounded-xl font-bold text-xs">Cancel</Button>
-              <Button onClick={isEditOpen ? saveEditUser : handleAddUser} className={`h-10 px-8 text-white rounded-xl font-bold text-xs shadow-md ${newUserType === 'student' ? 'bg-[#2563EB] hover:bg-[#1D4ED8]' : 'bg-[#9333EA] hover:bg-[#7E22CE]'}`}>
+              <Button onClick={isEditOpen ? saveEditUser : handleAddUser} className={`h-10 px-8 text-white rounded-xl font-bold text-xs shadow-md ${newUserType === 'student' ? 'bg-[#2563EB] hover:bg-[#1D4ED8]' : 'bg-[#2563EB] hover:bg-[#1D4ED8]'}`}>
                 {isEditOpen ? "Save Changes" : "Provision Account"}
               </Button>
             </div>
@@ -451,7 +451,7 @@ export default function AdminUsersPage() {
             </TabsTrigger>
             <TabsTrigger 
               value="employee" 
-              className="data-[state=active]:bg-white data-[state=active]:text-[#9333EA] data-[state=active]:shadow-sm rounded-lg py-2.5 px-6 font-bold text-xs gap-2 transition-all"
+              className="data-[state=active]:bg-white data-[state=active]:text-[#2563EB] data-[state=active]:shadow-sm rounded-lg py-2.5 px-6 font-bold text-xs gap-2 transition-all"
             >
               <Briefcase className="h-4 w-4" /> Employees & Trainers
             </TabsTrigger>
@@ -554,7 +554,7 @@ export default function AdminUsersPage() {
                         <td className="p-4 pl-6">
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10 border border-[#E5E7EB] dark:border-[#27272A]">
-                              <AvatarFallback className="bg-[#9333EA]/10 text-[#9333EA] font-bold text-sm">
+                              <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] font-bold text-sm">
                                 {user.name.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
@@ -576,7 +576,7 @@ export default function AdminUsersPage() {
                           <Badge variant="outline" className={`capitalize text-[10px] font-bold ${
                             user.role === "manager" 
                               ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/20" 
-                              : "bg-[#9333EA]/10 text-[#9333EA] border-[#9333EA]/20"
+                              : "bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/20"
                           }`}>
                             {user.role === "manager" ? <Shield className="h-3 w-3 mr-1" /> : null}
                             {user.role}

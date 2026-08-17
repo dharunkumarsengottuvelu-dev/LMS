@@ -671,7 +671,7 @@ export function PracticeRunnerEngine({
         {codingQuestions.length > 0 && (
           <div className="space-y-2 pt-2 border-t border-border">
             <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5 truncate">
-              <Code2 className="h-3.5 w-3.5 text-[#9333EA] shrink-0" />
+              <Code2 className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
               <span className="truncate">{codingQuestions[0]?.sectionTitle || (module as any).codingSectionTitle || "Coding Challenges"}</span>
               <span className="text-[10px] text-muted-foreground shrink-0">({codingQuestions.length})</span>
             </span>
@@ -681,8 +681,8 @@ export function PracticeRunnerEngine({
                 const marked = markedForReview.has(cq.id);
                 const isCurrent = activeSection === "coding" && codingIndex === idx;
 
-                let style = "bg-[#F9FAFB] dark:bg-[#09090B] text-[#4B5563] dark:text-[#A1A1AA] border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9333EA]/50";
-                if (isCurrent) style = "ring-2 ring-[#9333EA] bg-[#9333EA] text-white font-bold shadow-xs";
+                let style = "bg-[#F9FAFB] dark:bg-[#09090B] text-[#4B5563] dark:text-[#A1A1AA] border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB]/50";
+                if (isCurrent) style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold shadow-xs";
                 else if (marked) style = "bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B] font-bold";
                 else if (answered) style = "bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/40 font-bold";
 
@@ -802,7 +802,7 @@ export function PracticeRunnerEngine({
                       className={cn(
                         "text-[10px] font-bold px-2.5 py-0.5 rounded-lg",
                         isMultiSelectQuestion(currentQuestion)
-                          ? "bg-[#9333EA]/10 text-[#9333EA] border border-[#9333EA]/30"
+                          ? "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/30"
                           : "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/30"
                       )}
                     >
@@ -813,7 +813,7 @@ export function PracticeRunnerEngine({
                     {currentQuestion.text || currentQuestion.title}
                   </CardTitle>
                   {isMultiSelectQuestion(currentQuestion) && (
-                    <p className="text-[11px] font-semibold text-[#9333EA]">
+                    <p className="text-[11px] font-semibold text-[#2563EB]">
                       * You can select multiple correct options for this question.
                     </p>
                   )}
@@ -843,9 +843,7 @@ export function PracticeRunnerEngine({
                           className={cn(
                             "w-full p-4 rounded-xl text-left border transition-all duration-200 flex items-center justify-between group text-xs font-medium cursor-pointer",
                             isSelected
-                              ? isMulti
-                                ? "border-[#9333EA] bg-[#9333EA]/5 text-[#9333EA] ring-1 ring-[#9333EA] shadow-xs"
-                                : "border-[#2563EB] bg-[#2563EB]/5 text-[#2563EB] ring-1 ring-[#2563EB] shadow-xs"
+                              ? "border-[#2563EB] bg-[#2563EB]/5 text-[#2563EB] ring-1 ring-[#2563EB] shadow-xs"
                               : "border-[#E5E7EB] dark:border-[#27272A] hover:border-slate-300 dark:hover:border-zinc-700 bg-white dark:bg-[#18181B] text-[#374151] dark:text-[#D1D5DB]"
                           )}
                         >
@@ -853,9 +851,7 @@ export function PracticeRunnerEngine({
                             <div className={cn(
                               "w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold border transition-colors shrink-0",
                               isSelected
-                                ? isMulti
-                                  ? "bg-[#9333EA] text-white border-[#9333EA]"
-                                  : "bg-[#2563EB] text-white border-[#2563EB]"
+                                ? "bg-[#2563EB] text-white border-[#2563EB]"
                                 : "bg-muted border-border text-muted-foreground group-hover:border-foreground/40"
                             )}>
                               {String.fromCharCode(65 + idx)}
@@ -864,7 +860,7 @@ export function PracticeRunnerEngine({
                           </div>
                           {isSelected ? (
                             isMulti ? (
-                              <div className="w-5 h-5 rounded-md bg-[#9333EA] text-white flex items-center justify-center shrink-0 shadow-xs">
+                              <div className="w-5 h-5 rounded-md bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-xs">
                                 <Check className="h-3.5 w-3.5 stroke-[3]" />
                               </div>
                             ) : (
@@ -900,7 +896,7 @@ export function PracticeRunnerEngine({
                 <CardHeader className="p-4 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] bg-muted/20 shrink-0">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge className="bg-[#9333EA] text-white text-xs font-bold px-3 py-1">
+                      <Badge className="bg-[#2563EB] text-white text-xs font-bold px-3 py-1">
                         Problem {codingIndex + 1} of {codingQuestions.length}
                       </Badge>
                       <Badge variant="outline" className={cn(
@@ -1025,10 +1021,10 @@ export function PracticeRunnerEngine({
             <button
               type="button"
               onClick={() => setShowQuestionPalette(true)}
-              className="h-full w-9 shrink-0 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] hover:border-[#9333EA] text-[#6B7280] hover:text-[#9333EA] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
+              className="h-full w-9 shrink-0 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-[#6B7280] hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
               title="Show Question Palette"
             >
-              <div className="w-6 h-6 rounded-full bg-muted group-hover:bg-[#9333EA]/10 flex items-center justify-center transition-colors">
+              <div className="w-6 h-6 rounded-full bg-muted group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
                 <ChevronLeft className="h-4 w-4" />
               </div>
               <span className="text-[11px] font-bold tracking-wider uppercase [writing-mode:vertical-rl] rotate-180">
@@ -1072,7 +1068,7 @@ export function PracticeRunnerEngine({
           )}
           {activeSection === "coding" && (
             <div className="flex items-center gap-2">
-              <Badge className="bg-[#9333EA]/10 text-[#9333EA] border-[#9333EA]/30 font-bold uppercase text-[10px]">
+              <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 font-bold uppercase text-[10px]">
                 Problem {codingIndex + 1} of {codingQuestions.length}
               </Badge>
               <span className="text-xs font-bold text-slate-700 dark:text-zinc-200 truncate max-w-xs">
@@ -1096,7 +1092,7 @@ export function PracticeRunnerEngine({
           </Button>
 
           <div className="inline-flex items-center gap-2 px-4 h-9 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
-            <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" />
+            <span className="h-2 w-2 rounded-full bg-[#3B82F6]" />
             <span>
               {activeSection === "mcq"
                 ? `${mcqIndex + 1} of ${mcqQuestions.length}`
@@ -1106,7 +1102,7 @@ export function PracticeRunnerEngine({
 
           <Button
             size="sm"
-            className="rounded-full px-5 h-9 font-bold text-xs bg-[#8B5CF6] hover:bg-[#7C3AED] text-white gap-1.5 shadow-sm"
+            className="rounded-full px-5 h-9 font-bold text-xs bg-[#3B82F6] hover:bg-[#1D4ED8] text-white gap-1.5 shadow-sm"
             disabled={activeSection === "coding" && codingIndex === codingQuestions.length - 1}
             onClick={handleNextClick}
           >
@@ -1204,8 +1200,8 @@ export function PracticeRunnerEngine({
                   </div>
 
                   <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
-                    <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">CODING SOLVED</p>
-                    <p className="text-base sm:text-lg font-bold text-purple-600 dark:text-purple-400 mt-1">
+                    <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">CODING SOLVED</p>
+                    <p className="text-base sm:text-lg font-bold text-blue-600 dark:text-blue-400 mt-1">
                       {codingQuestions.filter(cq => isQuestionAnswered(cq.id)).length} <span className="text-xs font-medium text-slate-400">/ {codingQuestions.length}</span>
                     </p>
                   </div>
@@ -1447,10 +1443,10 @@ export function PracticeRunnerEngine({
                           {/* Coding Header */}
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2.5 flex-wrap">
-                              <span className="w-6 h-6 rounded-full bg-[#9333EA] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                              <span className="w-6 h-6 rounded-full bg-[#2563EB] text-white flex items-center justify-center font-bold text-xs shrink-0">
                                 {originalIndex + 1}
                               </span>
-                              <span className="text-[11px] font-bold text-[#9333EA] uppercase tracking-wider">
+                              <span className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider">
                                 {q.sectionTitle || (module as any).codingSectionTitle || "SECTION 2: CODING"}
                               </span>
                               {q.marks && (
@@ -1458,7 +1454,7 @@ export function PracticeRunnerEngine({
                                   +{q.marks} Marks
                                 </span>
                               )}
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200/70 uppercase">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#2563EB] border border-blue-200/70 uppercase">
                                 {cqLang}
                               </span>
                             </div>
@@ -1492,7 +1488,7 @@ export function PracticeRunnerEngine({
                                   setCodingIndex(cqIdx >= 0 ? cqIdx : 0);
                                   setShowReviewModal(false);
                                 }}
-                                className="h-7 px-3 rounded-full border-slate-200 dark:border-zinc-700 text-xs font-semibold text-[#9333EA] hover:bg-[#9333EA]/10 gap-1"
+                                className="h-7 px-3 rounded-full border-slate-200 dark:border-zinc-700 text-xs font-semibold text-[#2563EB] hover:bg-[#2563EB]/10 gap-1"
                               >
                                 <Edit3 className="h-3 w-3" /> Edit in IDE
                               </Button>

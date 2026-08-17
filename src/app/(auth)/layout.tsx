@@ -15,7 +15,7 @@ export default function AuthLayout({
       {/* Background Gradients for the whole page (subtle) */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-500/10 blur-[120px]" />
-        <div className="absolute top-[60%] -right-[10%] w-[40%] h-[40%] rounded-full bg-purple-500/10 blur-[120px]" />
+        <div className="absolute top-[60%] -right-[10%] w-[40%] h-[40%] rounded-full bg-blue-500/10 blur-[120px]" />
       </div>
 
       {/* Left: Premium MNC Brand Panel */}
@@ -31,7 +31,7 @@ export default function AuthLayout({
         <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-[2px] z-0" />
         
         {/* Subtle internal gradient over the image */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/40 via-transparent to-purple-900/40 pointer-events-none z-0" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/40 via-transparent to-blue-900/40 pointer-events-none z-0" />
 
         {/* Top Logo */}
         <div className="flex items-center gap-2 relative z-10">

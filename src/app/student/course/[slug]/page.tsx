@@ -182,7 +182,7 @@ export default function StudentCoursePlayerPage() {
         <div className="hidden sm:flex items-center gap-2">
           <Badge className={`px-3 py-1 text-xs font-semibold uppercase ${
             activeLesson.type === "video" ? "bg-[#2563EB] text-white" :
-            activeLesson.type === "mcq" ? "bg-[#9333EA] text-white" :
+            activeLesson.type === "mcq" ? "bg-[#2563EB] text-white" :
             "bg-[#16A34A] text-white"
           }`}>
             {activeLesson.type === "video" && "Video Lesson"}
@@ -201,7 +201,7 @@ export default function StudentCoursePlayerPage() {
               <div>
                 <div className="flex items-center gap-2">
                   {activeLesson.type === "video" && <Video className="h-5 w-5 text-[#2563EB]" />}
-                  {activeLesson.type === "mcq" && <HelpCircle className="h-5 w-5 text-[#9333EA]" />}
+                  {activeLesson.type === "mcq" && <HelpCircle className="h-5 w-5 text-[#2563EB]" />}
                   {activeLesson.type === "coding" && <Code2 className="h-5 w-5 text-[#16A34A]" />}
                   <CardTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA]">
                     {activeLesson.title}
@@ -236,8 +236,8 @@ export default function StudentCoursePlayerPage() {
             {/* FORMAT 2: MCQ QUIZ LESSON */}
             {activeLesson.type === "mcq" && activeLesson.mcqData && (
               <div className="p-6 space-y-6">
-                <div className="p-4 bg-[#9333EA]/5 border border-[#9333EA]/20 rounded-xl space-y-2">
-                  <p className="text-xs font-bold text-[#9333EA] uppercase tracking-wider">Module Quiz Question</p>
+                <div className="p-4 bg-[#2563EB]/5 border border-[#2563EB]/20 rounded-xl space-y-2">
+                  <p className="text-xs font-bold text-[#2563EB] uppercase tracking-wider">Module Quiz Question</p>
                   <p className="text-base font-semibold text-[#111827] dark:text-[#FAFAFA]">
                     {activeLesson.mcqData.question}
                   </p>
@@ -253,7 +253,7 @@ export default function StudentCoursePlayerPage() {
                       if (isCorrect) optionStyle = "border-[#16A34A] bg-[#16A34A]/10 text-[#16A34A] font-semibold";
                       else if (isSelected && !isCorrect) optionStyle = "border-[#DC2626] bg-[#DC2626]/10 text-[#DC2626]";
                     } else if (isSelected) {
-                      optionStyle = "border-[#9333EA] bg-[#9333EA]/10 font-semibold text-[#9333EA]";
+                      optionStyle = "border-[#2563EB] bg-[#2563EB]/10 font-semibold text-[#2563EB]";
                     }
 
                     return (
@@ -263,7 +263,7 @@ export default function StudentCoursePlayerPage() {
                         className={`w-full text-left p-4 rounded-xl border text-sm transition-all flex items-center justify-between ${optionStyle}`}
                       >
                         <span>{opt}</span>
-                        {isSelected && !mcqSubmitted && <CheckCircle2 className="h-4 w-4 text-[#9333EA]" />}
+                        {isSelected && !mcqSubmitted && <CheckCircle2 className="h-4 w-4 text-[#2563EB]" />}
                         {mcqSubmitted && isCorrect && <CheckCircle2 className="h-5 w-5 text-[#16A34A]" />}
                       </button>
                     );
@@ -271,7 +271,7 @@ export default function StudentCoursePlayerPage() {
                 </div>
 
                 {!mcqSubmitted ? (
-                  <Button className="h-[44px] px-6 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold" onClick={handleMcqSubmit}>
+                  <Button className="h-[44px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold" onClick={handleMcqSubmit}>
                     Submit Answer
                   </Button>
                 ) : (

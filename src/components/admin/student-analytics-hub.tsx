@@ -869,7 +869,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               <Badge variant="outline" className="text-xs font-semibold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
                 {selectedStudent.department}
               </Badge>
-              <Badge variant="outline" className="text-xs font-semibold text-[#9333EA] border-[#9333EA]/30 bg-[#9333EA]/5">
+              <Badge variant="outline" className="text-xs font-semibold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
                 {selectedStudent.batch}
               </Badge>
             </div>
@@ -903,7 +903,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
           </Card>
           <Card className="p-6 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-center space-y-1">
             <span className="text-xs text-[#6B7280]">Coding Challenge Rate</span>
-            <p className="text-3xl font-bold text-[#9333EA]">{selectedStudent.codingAccuracy}%</p>
+            <p className="text-3xl font-bold text-[#2563EB]">{selectedStudent.codingAccuracy}%</p>
           </Card>
         </div>
 
@@ -1001,7 +1001,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                   <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <Code2 className="h-4 w-4 text-[#9333EA]" />
+                        <Code2 className="h-4 w-4 text-[#2563EB]" />
                         <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">{p.title}</p>
                       </div>
                       <div className="flex items-center gap-4 text-[10px] text-[#6B7280]">
@@ -1036,7 +1036,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                       
                       <div className="flex items-center justify-between mt-2">
                         {p.feedback ? (
-                          <div className="text-[11px] text-[#9333EA] bg-[#9333EA]/5 p-2 rounded-md flex-1">
+                          <div className="text-[11px] text-[#2563EB] bg-[#2563EB]/5 p-2 rounded-md flex-1">
                             <strong>Trainer Feedback:</strong> {p.feedback}
                           </div>
                         ) : (
@@ -1045,7 +1045,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
                         {portalRole === "trainer" || portalRole === "admin" ? (
                           <Dialog>
-                            <DialogTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground h-7 text-[10px] px-2 font-bold gap-1 ml-3 text-[#9333EA] hover:text-[#7E22CE] hover:bg-[#9333EA]/10">
+                            <DialogTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground h-7 text-[10px] px-2 font-bold gap-1 ml-3 text-[#2563EB] hover:text-[#1D4ED8] hover:bg-[#2563EB]/10">
                               <Edit className="h-3 w-3" /> Evaluate
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-md">
@@ -1061,7 +1061,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                                 <div>
                                   <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] mb-2 block">Trainer Feedback</label>
                                   <textarea 
-                                    className="w-full text-xs p-3 rounded-md border border-[#E5E7EB] dark:border-[#27272A] bg-transparent focus:outline-none focus:ring-1 focus:ring-[#9333EA]" 
+                                    className="w-full text-xs p-3 rounded-md border border-[#E5E7EB] dark:border-[#27272A] bg-transparent focus:outline-none focus:ring-1 focus:ring-[#2563EB]" 
                                     rows={3} 
                                     defaultValue={p.feedback || ""}
                                     placeholder="Add feedback for the practice lab..."
@@ -1070,7 +1070,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                               </div>
                               <DialogFooter>
                                 <DialogClose render={<Button variant="outline">Cancel</Button>} />
-                                <DialogClose render={<Button className="bg-[#9333EA] hover:bg-[#7E22CE] text-white" onClick={() => {
+                                <DialogClose render={<Button className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" onClick={() => {
                                   toast({ title: "Evaluation Saved", description: "Practice lab evaluation updated." });
                                 }}>Save Evaluation</Button>} />
                               </DialogFooter>
@@ -1583,7 +1583,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[#6B7280]">Proctoring Compliance</span>
-            <div className="w-8 h-8 rounded-lg bg-[#9333EA]/10 text-[#9333EA] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
               <ShieldCheck className="h-4 w-4" />
             </div>
           </div>

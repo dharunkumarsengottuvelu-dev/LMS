@@ -286,7 +286,7 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
   };
   const typeBg = (type: string) =>
     type === "video"   ? "bg-[#2563EB] text-white font-medium"
-    : type === "coding"  ? "bg-[#9333EA] text-white font-medium"
+    : type === "coding"  ? "bg-[#2563EB] text-white font-medium"
     : type === "quiz"    ? "bg-[#D97706] text-white font-medium"
     : "bg-[#16A34A] text-white font-medium";
 
@@ -435,7 +435,7 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   <HardDrive className="h-3.5 w-3.5 text-[#2563EB] mt-0.5 shrink-0" />
                   <div className="text-[10px] text-[#6B7280] leading-relaxed">
                     <p className="font-semibold text-[#2563EB] mb-0.5">Google Drive format:</p>
-                    <p className="font-mono break-all">https://drive.google.com/file/d/<span className="text-[#9333EA]">FILE_ID</span>/view?usp=sharing</p>
+                    <p className="font-mono break-all">https://drive.google.com/file/d/<span className="text-[#2563EB]">FILE_ID</span>/view?usp=sharing</p>
                     <p className="mt-1">Make sure the file is shared as <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">&quot;Anyone with the link&quot;</span> in Drive settings.</p>
                   </div>
                 </div>
@@ -515,9 +515,9 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
           {/* CODING PRACTICE */}
           {((newType as string) === "coding" || (newType as string) === "mixed") && (
             <SectionCard
-              icon={<Code2 className="h-4 w-4 text-[#9333EA]" />}
+              icon={<Code2 className="h-4 w-4 text-[#2563EB]" />}
               title="Coding Challenge Practice"
-              color="border-[#9333EA]/20 bg-[#9333EA]/5 dark:bg-[#9333EA]/10"
+              color="border-[#2563EB]/20 bg-[#2563EB]/5 dark:bg-[#2563EB]/10"
             >
               <CodingProblemCreator
                 inline
@@ -658,7 +658,7 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
-                <UserCheck className="h-4 w-4 text-[#9333EA]" /> Individual Students
+                <UserCheck className="h-4 w-4 text-[#2563EB]" /> Individual Students
               </h2>
               <Select value={assignBatchFilter} onValueChange={(v) => setAssignBatchFilter(v || "all")}>
                 <SelectTrigger className="h-9 text-xs w-[160px] bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
@@ -820,7 +820,7 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   <td className="p-4 pr-6 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button onClick={() => openAssignView(m)} size="sm"
-                        className="h-8 px-3 text-xs font-semibold bg-[#9333EA] hover:bg-[#7E22CE] text-white rounded-lg gap-1">
+                        className="h-8 px-3 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-lg gap-1">
                         <Users className="h-3.5 w-3.5" /> Assign
                       </Button>
                       <Button onClick={() => handleDeleteModule(m.id, m.title)}

@@ -142,7 +142,7 @@ export default function TrainerStudentsPage() {
       <PageHeader
         title={
           <span className="flex items-center gap-3">
-            <Users className="h-8 w-8 text-[#9333EA]" />
+            <Users className="h-8 w-8 text-[#2563EB]" />
             Student Batch Management
           </span>
         }
@@ -158,7 +158,7 @@ export default function TrainerStudentsPage() {
             </Button>
             <Button 
               onClick={() => setIsAddOpen(true)}
-              className="h-[44px] bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold gap-2 px-5 rounded-xl shadow-md shadow-[#9333EA]/20 transition-all"
+              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shadow-md shadow-[#2563EB]/20 transition-all"
             >
               <Plus className="h-4 w-4" /> Add Student
             </Button>
@@ -168,7 +168,7 @@ export default function TrainerStudentsPage() {
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2 bg-[#F9FAFB] dark:bg-[#09090B] p-1.5 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl h-auto">
-          <div className="bg-white dark:bg-[#18181B] text-[#9333EA] shadow-sm rounded-lg py-2 px-6 font-bold text-xs flex items-center gap-2">
+          <div className="bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm rounded-lg py-2 px-6 font-bold text-xs flex items-center gap-2">
             <GraduationCap className="h-4 w-4" /> All Students
           </div>
         </div>
@@ -179,7 +179,7 @@ export default function TrainerStudentsPage() {
             placeholder="Search students by name or email..."
             value={search} 
             onChange={(e) => setSearch(e.target.value)} 
-            className="pl-10 h-11 text-xs bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl focus-visible:ring-1 focus-visible:ring-[#9333EA] shadow-sm transition-all" 
+            className="pl-10 h-11 text-xs bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl focus-visible:ring-1 focus-visible:ring-[#2563EB] shadow-sm transition-all" 
           />
         </div>
       </div>
@@ -205,7 +205,7 @@ export default function TrainerStudentsPage() {
                     <td className="p-4 pl-6">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 border border-[#E5E7EB] dark:border-[#27272A]">
-                          <AvatarFallback className="bg-[#9333EA]/10 text-[#9333EA] font-bold text-sm">
+                          <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] font-bold text-sm">
                             {user.name.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
@@ -218,7 +218,7 @@ export default function TrainerStudentsPage() {
                       </div>
                     </td>
                     <td className="p-4">
-                      <Badge variant="outline" className="text-xs font-semibold border-[#9333EA]/30 text-[#9333EA] bg-[#9333EA]/5">
+                      <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
                         {user.batch}
                       </Badge>
                     </td>
@@ -229,9 +229,9 @@ export default function TrainerStudentsPage() {
                         {user.status}
                       </Badge>
                     </td>
-                    <td className="p-4 text-xs font-mono text-[#6B7280]">{user.joined}</td>
+                    <td className="p-4 text-xs font-medium text-[#6B7280]">{user.joined}</td>
                     <td className="p-4 pr-6 text-right space-x-2">
-                      <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] dark:border-[#27272A] hover:bg-white shadow-sm">
+                      <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] dark:border-[#27272A] hover:text-[#2563EB] hover:bg-[#2563EB]/10 shadow-sm">
                         <Edit className="h-3.5 w-3.5" />
                       </Button>
                       <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-sm">
@@ -246,17 +246,12 @@ export default function TrainerStudentsPage() {
         </CardContent>
       </Card>
 
-      {/* Add / Edit User Modal */}
-      <Dialog open={isAddOpen || isEditOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsAddOpen(false);
-          setIsEditOpen(false);
-        }
-      }}>
+      {/* Add/Edit Student Modal */}
+      <Dialog open={isAddOpen || isEditOpen} onOpenChange={(open) => { if (!open) { setIsAddOpen(false); setIsEditOpen(false); } }}>
         <DialogContent className="max-w-md bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">
-              {isEditOpen ? "Edit Student Profile" : "Add New Student"}
+              {isEditOpen ? "Edit Student Account" : "Add Student"}
             </DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
               {isEditOpen ? "Update details for this student." : "Add a new student to your assigned batches."}
@@ -269,7 +264,7 @@ export default function TrainerStudentsPage() {
               <Input 
                 value={newUserName} 
                 onChange={(e) => setNewUserName(e.target.value)} 
-                className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl focus:border-[#9333EA]"
+                className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl focus:border-[#2563EB]"
                 placeholder="e.g. John Doe"
               />
             </div>
@@ -279,7 +274,7 @@ export default function TrainerStudentsPage() {
               <Input 
                 value={newUserEmail} 
                 onChange={(e) => setNewUserEmail(e.target.value)} 
-                className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl focus:border-[#9333EA]"
+                className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl focus:border-[#2563EB]"
                 placeholder="e.g. john@enterprise.com"
               />
             </div>
@@ -328,7 +323,7 @@ export default function TrainerStudentsPage() {
                         navigator.clipboard.writeText(newUserPassword);
                       }}
                       size="sm"
-                      className="shrink-0 h-9 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold"
+                      className="shrink-0 h-9 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold"
                     >
                       Reset
                     </Button>
@@ -341,7 +336,7 @@ export default function TrainerStudentsPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                    <Key className="h-3.5 w-3.5 text-[#9333EA]" /> Initial Account Password
+                    <Key className="h-3.5 w-3.5 text-[#2563EB]" /> Initial Account Password
                   </label>
                 </div>
                 <Input
@@ -368,7 +363,7 @@ export default function TrainerStudentsPage() {
                     ) : (
                       <SelectItem value="no_batches" disabled>No batches available</SelectItem>
                     )}
-                    <SelectItem value="custom" className="text-[#9333EA] font-bold">+ Custom Batch...</SelectItem>
+                    <SelectItem value="custom" className="text-[#2563EB] font-bold">+ Custom Batch...</SelectItem>
                   </SelectContent>
                 </Select>
               {newUserBatch === "custom" && (
@@ -376,7 +371,7 @@ export default function TrainerStudentsPage() {
                   value={customBatch}
                   onChange={(e) => setCustomBatch(e.target.value)}
                   placeholder="Enter custom batch name"
-                  className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] mt-2 border-[#9333EA]/40 focus:border-[#9333EA]"
+                  className="h-11 text-sm bg-[#F9FAFB] dark:bg-[#09090B] mt-2 border-[#2563EB]/40 focus:border-[#2563EB]"
                 />
               )}
             </div>
@@ -384,7 +379,7 @@ export default function TrainerStudentsPage() {
 
           <DialogFooter className="pt-6 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
             <Button variant="outline" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }} className="h-11 px-6 rounded-xl font-bold text-xs border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
-            <Button onClick={isEditOpen ? saveEditUser : handleAddUser} className={`h-11 px-8 text-white rounded-xl font-bold text-xs shadow-md bg-[#9333EA] hover:bg-[#7E22CE]`}>
+            <Button onClick={isEditOpen ? saveEditUser : handleAddUser} className={`h-11 px-8 text-white rounded-xl font-bold text-xs shadow-md bg-[#2563EB] hover:bg-[#1D4ED8]`}>
               {isEditOpen ? "Save Changes" : "Provision Account"}
             </Button>
           </DialogFooter>
@@ -410,12 +405,12 @@ export default function TrainerStudentsPage() {
                 Browse Files
               </Button>
             </div>
-            <div className="bg-[#FAF5FF] dark:bg-[#9333EA]/10 border border-[#E9D5FF] dark:border-[#9333EA]/30 p-3 rounded-xl flex items-start gap-3">
+            <div className="bg-[#EFF6FF] dark:bg-[#2563EB]/10 border border-[#DBEAFE] dark:border-[#2563EB]/30 p-3 rounded-xl flex items-start gap-3">
               <div className="bg-white dark:bg-[#18181B] p-1.5 rounded-md mt-0.5">
-                <FileSpreadsheet className="h-4 w-4 text-[#9333EA]" />
+                <FileSpreadsheet className="h-4 w-4 text-[#2563EB]" />
               </div>
               <div>
-                <p className="text-xs font-bold text-[#6B21A8] dark:text-[#D8B4FE]">Need a template?</p>
+                <p className="text-xs font-bold text-[#1E40AF] dark:text-[#93C5FD]">Need a template?</p>
                 <p 
                   onClick={() => {
                     const csvContent = "data:text/csv;charset=utf-8,Name,Email,Batch\nJane Smith,jane@example.com,Batch 2026-A\nAlice Doe,alice@example.com,Enterprise FastTrack";
@@ -427,7 +422,7 @@ export default function TrainerStudentsPage() {
                     link.click();
                     document.body.removeChild(link);
                   }}
-                  className="text-[10px] text-[#9333EA] dark:text-[#D8B4FE] mt-0.5 cursor-pointer hover:underline font-semibold"
+                  className="text-[10px] text-[#2563EB] dark:text-[#93C5FD] mt-0.5 cursor-pointer hover:underline font-semibold"
                 >
                   Download CSV Template
                 </p>
@@ -440,7 +435,7 @@ export default function TrainerStudentsPage() {
             <Button onClick={() => {
               setIsBulkUploadOpen(false);
               toast({ title: "Import Started", description: "Your file is being processed. Students will appear shortly." });
-            }} className="h-11 px-8 text-white rounded-xl font-bold text-xs shadow-md bg-[#9333EA] hover:bg-[#7E22CE]">
+            }} className="h-11 px-8 text-white rounded-xl font-bold text-xs shadow-md bg-[#2563EB] hover:bg-[#1D4ED8]">
               Upload & Import
             </Button>
           </DialogFooter>

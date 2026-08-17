@@ -483,7 +483,7 @@ export default function StudentTestRunnerPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <Button
-              className="w-full sm:w-auto h-[44px] px-6 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-bold gap-2"
+              className="w-full sm:w-auto h-[44px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2"
               onClick={() => {
                 if (typeof window !== "undefined") {
                   const protocol = window.location.protocol === "https:" ? "sebs://" : "seb://";
@@ -549,7 +549,7 @@ export default function StudentTestRunnerPage() {
               <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
                 Test ID: {testId.toUpperCase()}
               </Badge>
-              <Badge className="bg-[#9333EA] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
+              <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold px-2 py-0.5 shrink-0">
                 SEB Active
               </Badge>
             </div>
@@ -823,14 +823,14 @@ export default function StudentTestRunnerPage() {
                   </Button>
 
                   <div className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
-                    <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" />
+                    <span className="h-2 w-2 rounded-full bg-[#3B82F6]" />
                     <span>{currentIndex + 1} of {currentQuestions.length}</span>
                   </div>
 
                   <Button
                     disabled={currentIndex === currentQuestions.length - 1}
                     size="sm"
-                    className="rounded-full px-4 h-9 font-bold text-xs bg-[#8B5CF6] hover:bg-[#7C3AED] text-white gap-1 shadow-xs"
+                    className="rounded-full px-4 h-9 font-bold text-xs bg-[#3B82F6] hover:bg-[#1D4ED8] text-white gap-1 shadow-xs"
                     onClick={() => setCurrentIndex((prev) => Math.min(currentQuestions.length - 1, prev + 1))}
                   >
                     <span>Next</span>
@@ -953,14 +953,14 @@ export default function StudentTestRunnerPage() {
             </div>
           </DialogHeader>
 
-          <div className="p-4 bg-[#9333EA]/5 rounded-2xl border border-[#9333EA]/20 space-y-3">
-            <p className="font-bold text-[#9333EA] flex items-center gap-1.5 text-xs">
+          <div className="p-4 bg-[#2563EB]/5 rounded-2xl border border-[#2563EB]/20 space-y-3">
+            <p className="font-bold text-[#2563EB] flex items-center gap-1.5 text-xs">
               <ShieldCheck className="h-4 w-4" /> Active Security Enforcement Summary
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
-                <span className="text-[#6B7280] flex items-center gap-1.5"><MonitorCheck className="h-3.5 w-3.5 text-[#9333EA]" /> Safe Exam Browser:</span>
+                <span className="text-[#6B7280] flex items-center gap-1.5"><MonitorCheck className="h-3.5 w-3.5 text-[#2563EB]" /> Safe Exam Browser:</span>
                 <span className="font-bold text-[#16A34A]">Auto Active</span>
               </div>
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">

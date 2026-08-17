@@ -42,7 +42,7 @@ const falconApproach = [
     tag: "PRACTICE",
     title: "Hands-On Exercises",
     desc: "Strengthen understanding through hands-on exercises, coding challenges, and guided practice.",
-    color: "from-indigo-600 to-violet-600",
+    color: "from-indigo-600 to-blue-600",
     border: "border-indigo-500/20",
     bg: "bg-indigo-500/5",
     icon: Code2,
@@ -52,9 +52,9 @@ const falconApproach = [
     tag: "APPLY",
     title: "Problem Solving",
     desc: "Use acquired knowledge to solve practical and real-world problems with intent.",
-    color: "from-violet-600 to-purple-600",
-    border: "border-violet-500/20",
-    bg: "bg-violet-500/5",
+    color: "from-blue-600 to-blue-600",
+    border: "border-blue-500/20",
+    bg: "bg-blue-500/5",
     icon: Target,
   },
   {
@@ -528,7 +528,7 @@ export default async function LandingPage({
       <section id="ecosystem" className="py-24 px-4 sm:px-6 lg:px-8 bg-background border-b border-border">
         <div className="max-w-6xl mx-auto space-y-16">
           <div className="text-center space-y-4 max-w-3xl mx-auto">
-            <Badge className="bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20 text-xs font-bold tracking-wider px-3 py-1">
+            <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-xs font-bold tracking-wider px-3 py-1">
               OUR LEARNING ECOSYSTEM
             </Badge>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">

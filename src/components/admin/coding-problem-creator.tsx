@@ -358,7 +358,7 @@ export function CodingProblemCreator({
         <PageHeader
           title={
             <div className="flex items-center gap-2">
-              <Code2 className="h-5 w-5 text-[#9333EA]" />
+              <Code2 className="h-5 w-5 text-[#2563EB]" />
               <span className="uppercase tracking-wider">Create Coding Problem</span>
             </div>
           }
@@ -380,7 +380,7 @@ export function CodingProblemCreator({
                 type="button"
                 onClick={() => handleSaveProblem("published")}
                 disabled={isSaving}
-                className="h-10 px-6 bg-[#9333EA] hover:bg-[#7E22CE] text-white text-xs font-semibold rounded-xl gap-2 shadow-sm"
+                className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl gap-2 shadow-sm"
               >
                 <ShieldCheck className="h-4 w-4" /> Publish Problem
               </Button>
@@ -402,7 +402,7 @@ export function CodingProblemCreator({
         
         {/* Section 1: Problem Overview */}
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-5">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#9333EA] flex items-center gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-[#2563EB] flex items-center gap-2">
             <Sparkles className="h-4 w-4" /> 1. Problem Overview & Parameters
           </h2>
 
@@ -461,7 +461,7 @@ export function CodingProblemCreator({
 
         {/* Section 2: Problem Specifications */}
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-5">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#9333EA] flex items-center gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-[#2563EB] flex items-center gap-2">
             <FileText className="h-4 w-4" /> 2. Problem Statement & Specifications
           </h2>
 
@@ -516,7 +516,7 @@ export function CodingProblemCreator({
 
         {/* Section 3: Supported Languages */}
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-4">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#9333EA] flex items-center gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-[#2563EB] flex items-center gap-2">
             <Cpu className="h-4 w-4" /> 3. Supported Execution Languages
           </h2>
           <p className="text-xs text-[#6B7280]">Select the programming languages students can use to submit their code:</p>
@@ -531,12 +531,12 @@ export function CodingProblemCreator({
                   onClick={() => toggleLanguage(lang.id)}
                   className={`p-3 rounded-xl border flex items-center gap-3 text-xs font-bold transition-all text-left ${
                     isChecked
-                      ? "bg-[#9333EA]/10 border-[#9333EA] text-[#9333EA] dark:text-[#C084FC]"
+                      ? "bg-[#2563EB]/10 border-[#2563EB] text-[#2563EB] dark:text-[#93C5FD]"
                       : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
                   }`}
                 >
                   <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
-                    isChecked ? "bg-[#9333EA] border-[#9333EA] text-white" : "border-[#9CA3AF]"
+                    isChecked ? "bg-[#2563EB] border-[#2563EB] text-white" : "border-[#9CA3AF]"
                   }`}>
                     {isChecked && <Check className="h-3 w-3 stroke-[3]" />}
                   </div>
@@ -551,7 +551,7 @@ export function CodingProblemCreator({
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
             <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-[#9333EA] flex items-center gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[#2563EB] flex items-center gap-2">
                 <Terminal className="h-4 w-4" /> 4. Starter Code Templates
               </h2>
               <p className="text-xs text-[#6B7280] mt-0.5">Author standard I/O template code for each language</p>
@@ -568,7 +568,7 @@ export function CodingProblemCreator({
                     onClick={() => setActiveTemplateLang(langId)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       isActive
-                        ? "bg-[#9333EA] text-white shadow-sm"
+                        ? "bg-[#2563EB] text-white shadow-sm"
                         : "bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:text-[#111827]"
                     }`}
                   >
@@ -582,7 +582,7 @@ export function CodingProblemCreator({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-[#6B7280]">
               <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">
-                Language Template: <span className="text-[#9333EA] font-mono">{activeTemplateLang.toUpperCase()}</span>
+                Language Template: <span className="text-[#2563EB] font-mono">{activeTemplateLang.toUpperCase()}</span>
               </span>
               <button
                 type="button"
@@ -802,7 +802,7 @@ export function CodingProblemCreator({
 
         {/* Section 7: Execution Limits */}
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-4">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#9333EA] flex items-center gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-[#2563EB] flex items-center gap-2">
             <Clock className="h-4 w-4" /> 7. Execution Environment Limits
           </h2>
 
@@ -845,7 +845,7 @@ export function CodingProblemCreator({
               type="button"
               onClick={() => handleSaveProblem("published")}
               disabled={isSaving}
-              className="h-12 px-8 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm"
+              className="h-12 px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm"
             >
               <ShieldCheck className="h-4 w-4" /> Publish Problem
             </Button>

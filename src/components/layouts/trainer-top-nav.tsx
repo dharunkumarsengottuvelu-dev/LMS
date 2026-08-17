@@ -45,9 +45,9 @@ export function TrainerTopNav() {
       <div className="flex items-center gap-3">
         <Link href="/trainer/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0 group">
           <span className="font-extrabold text-xl tracking-tight text-foreground">
-            FALCON<span className="text-[#9333EA] font-black">.</span>
+            FALCON<span className="text-[#2563EB] font-black">.</span>
           </span>
-          <Badge variant="outline" className="hidden sm:inline-flex bg-[#9333EA]/5 text-[#9333EA] border-[#9333EA]/20 text-[10px] font-bold px-2 py-0.5">
+          <Badge variant="outline" className="hidden sm:inline-flex bg-[#2563EB]/5 text-[#2563EB] border-[#2563EB]/20 text-[10px] font-bold px-2 py-0.5">
             TRAINER
           </Badge>
         </Link>
@@ -66,7 +66,7 @@ export function TrainerTopNav() {
               className={cn(
                 "flex items-center gap-2 px-3 lg:px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap duration-200 ease-out hover:-translate-y-[1px]",
                 isActive
-                  ? "bg-[#9333EA]/10 text-[#9333EA]"
+                  ? "bg-[#2563EB]/10 text-[#2563EB]"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
@@ -94,9 +94,9 @@ export function TrainerTopNav() {
             <SheetHeader className="text-left pb-4 border-b border-border">
               <SheetTitle className="flex items-center gap-2.5">
                 <span className="font-extrabold text-xl text-foreground">
-                  FALCON<span className="text-[#9333EA] font-black">.</span>
+                  FALCON<span className="text-[#2563EB] font-black">.</span>
                 </span>
-                <Badge variant="outline" className="bg-[#9333EA]/10 text-[#9333EA] text-[9px] font-bold border-[#9333EA]/30">TRAINER</Badge>
+                <Badge variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] text-[9px] font-bold border-[#2563EB]/30">TRAINER</Badge>
               </SheetTitle>
             </SheetHeader>
 
@@ -111,7 +111,7 @@ export function TrainerTopNav() {
                     className={cn(
                       "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
                       isActive
-                        ? "bg-[#9333EA]/10 text-[#9333EA] dark:bg-[#9333EA]/20 dark:text-[#C084FC]"
+                        ? "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#93C5FD]"
                         : "text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                   >
@@ -129,7 +129,7 @@ export function TrainerTopNav() {
             <div className="flex items-center gap-2.5 p-1 rounded-full hover:bg-accent transition-colors cursor-pointer border border-input">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={profile?.avatar_url ?? undefined} />
-                <AvatarFallback className="bg-[#9333EA]/10 text-[#9333EA] text-xs font-bold">
+                <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] text-xs font-bold">
                   {getInitials(displayName)}
                 </AvatarFallback>
               </Avatar>
@@ -145,8 +145,8 @@ export function TrainerTopNav() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem className="cursor-pointer font-medium text-xs">
-              <Link href="/trainer/profile" className="flex items-center w-full text-foreground hover:text-[#9333EA] transition-colors">
-                <User className="h-4 w-4 mr-2 text-[#9333EA]" /> My Profile
+              <Link href="/trainer/profile" className="flex items-center w-full text-foreground hover:text-[#2563EB] transition-colors">
+                <User className="h-4 w-4 mr-2 text-[#2563EB]" /> My Profile
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />

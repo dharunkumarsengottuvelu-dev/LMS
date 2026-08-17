@@ -746,12 +746,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
-                    <Layers className="h-4 w-4 text-[#9333EA]" /> Step 2: Curriculum Structure ({draftModules.length} Modules)
+                    <Layers className="h-4 w-4 text-[#2563EB]" /> Step 2: Curriculum Structure ({draftModules.length} Modules)
                   </h2>
                   <p className="text-xs text-[#6B7280] mt-0.5">Author video links, notes, coding challenges or assessments</p>
                 </div>
                 <Button type="button" onClick={() => { resetModuleBuilder(); setShowModuleBuilder(true); }}
-                  className="h-10 px-4 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl gap-2">
+                  className="h-10 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2">
                   <Plus className="h-4 w-4" /> Add Module
                 </Button>
               </div>
@@ -768,13 +768,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 {draftModules.map((m, idx) => (
                   <div key={m.id} className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <span className="w-8 h-8 rounded-lg bg-[#9333EA]/10 text-[#9333EA] font-bold text-xs flex items-center justify-center border border-[#9333EA]/20 shrink-0">
+                      <span className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs flex items-center justify-center border border-[#2563EB]/20 shrink-0">
                         {idx + 1}
                       </span>
                       <div className="min-w-0">
                         <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm truncate">{m.title}</p>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <Badge className="text-[10px] font-bold capitalize bg-[#9333EA] text-white">{m.type}</Badge>
+                          <Badge className="text-[10px] font-bold capitalize bg-[#2563EB] text-white">{m.type}</Badge>
                           {m.videoUrl && (
                             <Badge variant="outline" className="text-[9px] font-semibold text-[#2563EB] border-[#2563EB]/30 gap-1">
                               <PlayCircle className="h-2.5 w-2.5" /> Video URL Configured
@@ -791,7 +791,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                             </Badge>
                           )}
                           {m.practiceDescription && (
-                            <Badge variant="outline" className="text-[9px] font-semibold text-[#9333EA] border-[#9333EA]/30 gap-1">
+                            <Badge variant="outline" className="text-[9px] font-semibold text-[#2563EB] border-[#2563EB]/30 gap-1">
                               <Code2 className="h-2.5 w-2.5" /> Monaco Code Specs
                             </Badge>
                           )}
@@ -822,9 +822,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
             {/* MODULE BUILDER */}
             {showModuleBuilder && (
-              <Card className="bg-white dark:bg-[#18181B] border-2 border-[#9333EA] p-6 rounded-2xl space-y-5 shadow-sm">
+              <Card className="bg-white dark:bg-[#18181B] border-2 border-[#2563EB] p-6 rounded-2xl space-y-5 shadow-sm">
                 <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#9333EA] flex items-center gap-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#2563EB] flex items-center gap-2">
                     <Sparkles className="h-4 w-4" /> {editingModuleId ? "Edit Module Content" : "Module Content Authoring"}
                   </h3>
                   <Button type="button" variant="ghost" size="sm" onClick={() => { resetModuleBuilder(); setShowModuleBuilder(false); }} className="text-xs">
@@ -934,7 +934,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                           <HardDrive className="h-3.5 w-3.5 text-[#2563EB] mt-0.5 shrink-0" />
                           <div className="text-[10px] text-[#6B7280] leading-relaxed">
                             <p className="font-semibold text-[#2563EB] mb-0.5">Google Drive format:</p>
-                            <p className="font-mono break-all">https://drive.google.com/file/d/<span className="text-[#9333EA]">FILE_ID</span>/view?usp=sharing</p>
+                            <p className="font-mono break-all">https://drive.google.com/file/d/<span className="text-[#2563EB]">FILE_ID</span>/view?usp=sharing</p>
                             <p className="mt-1">Make sure the file is shared as <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">&quot;Anyone with the link&quot;</span> in Drive settings.</p>
                           </div>
                         </div>
@@ -1045,8 +1045,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   )}
 
                   {((modType as string) === "coding" || (modType as string) === "mixed") && (
-                    <div className="p-6 rounded-2xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-6">
-                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#9333EA]">
+                    <div className="p-6 rounded-2xl border border-[#2563EB]/20 bg-[#2563EB]/5 space-y-6">
+                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#2563EB]">
                         <Code2 className="h-4 w-4" /> Coding Problem Specifications & Test Cases
                       </div>
                       <CodingProblemCreator
@@ -1077,7 +1077,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
                   <div className="flex justify-end gap-2 pt-2">
                     <Button type="button" variant="outline" onClick={() => { resetModuleBuilder(); setShowModuleBuilder(false); }} className="h-10 text-xs font-semibold">Cancel</Button>
-                    <Button type="submit" className="h-10 px-6 bg-[#9333EA] hover:bg-[#7E22CE] text-white font-semibold text-xs rounded-xl">
+                    <Button type="submit" className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl">
                       {editingModuleId ? "Update Module" : "Save Module"}
                     </Button>
                   </div>
@@ -1138,7 +1138,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 {draftModules.map((m, idx) => (
                   <div key={m.id} className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between text-xs">
                     <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{idx + 1}. {m.title}</span>
-                    <Badge className="text-[10px] bg-[#9333EA] text-white capitalize">{m.type} ({m.duration})</Badge>
+                    <Badge className="text-[10px] bg-[#2563EB] text-white capitalize">{m.type} ({m.duration})</Badge>
                   </div>
                 ))}
               </div>
@@ -1213,7 +1213,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                       </Badge>
                     )}
                     {m.practiceDescription && (
-                      <Badge variant="outline" className="text-[9px] font-semibold text-[#9333EA] border-[#9333EA]/30 gap-1">
+                      <Badge variant="outline" className="text-[9px] font-semibold text-[#2563EB] border-[#2563EB]/30 gap-1">
                         <Code2 className="h-2.5 w-2.5" /> Code Challenge
                       </Badge>
                     )}
@@ -1359,7 +1359,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   <HardDrive className="h-3.5 w-3.5 text-[#2563EB] mt-0.5 shrink-0" />
                   <div className="text-[10px] text-[#6B7280] leading-relaxed">
                     <p className="font-semibold text-[#2563EB] mb-0.5">Google Drive format:</p>
-                    <p className="font-mono break-all">https://drive.google.com/file/d/<span className="text-[#9333EA]">FILE_ID</span>/view?usp=sharing</p>
+                    <p className="font-mono break-all">https://drive.google.com/file/d/<span className="text-[#2563EB]">FILE_ID</span>/view?usp=sharing</p>
                     <p className="mt-1">Make sure the file is shared as <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">&quot;Anyone with the link&quot;</span> in Drive settings.</p>
                   </div>
                 </div>
@@ -1426,7 +1426,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           )}
 
           {modType === "coding" && (
-            <Card className="p-6 rounded-2xl border border-[#9333EA]/20 bg-[#9333EA]/5 space-y-5">
+            <Card className="p-6 rounded-2xl border border-[#2563EB]/20 bg-[#2563EB]/5 space-y-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement</label>
                 <Textarea placeholder="Problem statement..." value={modDesc} onChange={(e) => setModDesc(e.target.value)} rows={4}
@@ -1541,7 +1541,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   <Users className="h-3.5 w-3.5 text-[#2563EB]" /> {course.enrolledStudents} Learners
                 </span>
                 <span className="flex items-center gap-1">
-                  <GraduationCap className="h-3.5 w-3.5 text-[#9333EA]" /> {course.totalLessons} Lessons
+                  <GraduationCap className="h-3.5 w-3.5 text-[#2563EB]" /> {course.totalLessons} Lessons
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5 text-[#16A34A]" /> {calculateModulesTotalDuration(course.modules)}
@@ -1550,7 +1550,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
               <div className="pt-4 flex flex-col gap-3">
                 <Button onClick={() => openAssignModal(course)} size="sm"
-                  className="w-full h-9 text-[13px] font-bold gap-2 bg-[#9333EA] hover:bg-[#7E22CE] text-white shadow-sm transition-all hover:-translate-y-[1px]">
+                  className="w-full h-9 text-[13px] font-bold gap-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-sm transition-all hover:-translate-y-[1px]">
                   <Users className="h-4 w-4" /> Assign Course
                 </Button>
                 <div className="flex items-center justify-between gap-2 w-full">
@@ -1597,7 +1597,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             <div className="flex items-center justify-between pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
               <div>
                 <h3 className="font-bold text-lg text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                  <Users className="h-5 w-5 text-[#9333EA]" /> Assign Course
+                  <Users className="h-5 w-5 text-[#2563EB]" /> Assign Course
                 </h3>
                 <p className="text-xs text-[#6B7280] mt-0.5">{assigningCourse.title}</p>
               </div>
@@ -1678,7 +1678,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               <Button variant="outline" onClick={() => setAssigningCourse(null)} className="h-10 text-xs font-semibold">
                 Cancel
               </Button>
-              <Button onClick={handleSaveAssignments} className="h-10 px-6 bg-[#9333EA] hover:bg-[#7E22CE] text-white text-xs font-semibold rounded-xl gap-2">
+              <Button onClick={handleSaveAssignments} className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl gap-2">
                 <Check className="h-4 w-4" /> Save Assignments
               </Button>
             </div>

@@ -190,12 +190,12 @@ export default function TrainerDashboardPage() {
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 shadow-xs rounded-2xl">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[#6B7280]">Batch Average Score</span>
-            <div className="w-9 h-9 rounded-xl bg-[#9333EA]/10 text-[#9333EA] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
               <Award className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-3xl font-bold text-[#9333EA]">{cohortAvgScore}%</span>
+            <span className="text-3xl font-bold text-[#2563EB]">{cohortAvgScore}%</span>
             <span className="text-xs text-[#6B7280] font-semibold ml-2">Overall Accuracy</span>
           </div>
         </Card>

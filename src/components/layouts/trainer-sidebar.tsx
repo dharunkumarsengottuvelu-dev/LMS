@@ -37,7 +37,7 @@ export function TrainerSidebar() {
       <div className="flex items-center gap-3 px-4 py-5 border-b border-border">
         <div>
           <p className="font-extrabold text-xl tracking-tight" style={{ fontFamily: "Sora, sans-serif" }}>
-            FALCON<span className="text-[#9333EA] font-black">.</span>
+            FALCON<span className="text-[#2563EB] font-black">.</span>
           </p>
           <p className="text-xs text-muted-foreground">Trainer Panel</p>
         </div>

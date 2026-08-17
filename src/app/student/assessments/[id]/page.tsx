@@ -832,10 +832,10 @@ export default function AssessmentTakePage() {
                       {/* Top Row: Section, Marks, Status */}
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2.5 flex-wrap">
-                          <span className="w-6 h-6 rounded-full bg-[#9333EA] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                          <span className="w-6 h-6 rounded-full bg-[#2563EB] text-white flex items-center justify-center font-bold text-xs shrink-0">
                             {qNum}
                           </span>
-                          <span className="text-[11px] font-bold text-[#9333EA] uppercase tracking-wider">
+                          <span className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider">
                             SECTION 2: CODING
                           </span>
                           {q.marks && (
@@ -843,7 +843,7 @@ export default function AssessmentTakePage() {
                               +{q.marks} Marks
                             </span>
                           )}
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200/70 uppercase">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-[#2563EB] border border-blue-200/70 uppercase">
                             {codeLang}
                           </span>
                         </div>

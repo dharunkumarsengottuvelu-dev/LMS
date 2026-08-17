@@ -103,9 +103,9 @@ export default function TrainerProfilePage() {
       {/* 2. Top Profile Hero Card */}
       <Card className="bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm">
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-          <Avatar className="h-24 w-24 border-2 border-[#9333EA]/30 ring-4 ring-[#9333EA]/10 shadow-md">
+          <Avatar className="h-24 w-24 border-2 border-[#2563EB]/30 ring-4 ring-[#2563EB]/10 shadow-md">
             <AvatarImage src={profile?.avatar_url ?? undefined} />
-            <AvatarFallback className="bg-[#9333EA]/10 text-[#9333EA] text-2xl font-bold">
+            <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] text-2xl font-bold">
               {getInitials(`${firstName} ${lastName}`)}
             </AvatarFallback>
           </Avatar>
@@ -116,13 +116,13 @@ export default function TrainerProfilePage() {
                 {firstName} {lastName ? lastName.charAt(0).toUpperCase() : ""}
               </h2>
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-                <Badge className="bg-[#9333EA]/10 text-[#9333EA] border-[#9333EA]/30 text-xs font-bold px-2.5 py-0.5">
+                <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 text-xs font-bold px-2.5 py-0.5">
                   LEAD TRAINER
                 </Badge>
               </div>
             </div>
 
-            <p className="text-sm font-semibold text-[#9333EA] dark:text-[#C084FC]">
+            <p className="text-sm font-semibold text-[#2563EB] dark:text-[#93C5FD]">
               {designation}
             </p>
             <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA] max-w-3xl leading-relaxed">
@@ -132,13 +132,13 @@ export default function TrainerProfilePage() {
             {/* Quick Metrics */}
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 pt-3 text-xs text-[#4B5563] dark:text-[#A1A1AA]">
               <span className="flex items-center gap-1.5 font-medium">
-                <BookOpen className="h-4 w-4 text-[#9333EA]" /> 4 Assigned Courses
+                <BookOpen className="h-4 w-4 text-[#2563EB]" /> 4 Assigned Courses
               </span>
               <span className="flex items-center gap-1.5 font-medium">
-                <GraduationCap className="h-4 w-4 text-[#9333EA]" /> 128 Enrolled Students
+                <GraduationCap className="h-4 w-4 text-[#2563EB]" /> 128 Enrolled Students
               </span>
               <span className="flex items-center gap-1.5 font-medium">
-                <Award className="h-4 w-4 text-[#9333EA]" /> 98.4% Passing Benchmark Rate
+                <Award className="h-4 w-4 text-[#2563EB]" /> 98.4% Passing Benchmark Rate
               </span>
             </div>
           </div>
@@ -152,7 +152,7 @@ export default function TrainerProfilePage() {
           className={cn(
             "pb-3.5 text-sm font-bold transition-all relative",
             activeTab === "personal"
-              ? "text-[#9333EA] border-b-2 border-[#9333EA]"
+              ? "text-[#2563EB] border-b-2 border-[#2563EB]"
               : "text-[#6B7280] dark:text-[#A1A1AA] hover:text-[#111827]"
           )}
         >
@@ -164,7 +164,7 @@ export default function TrainerProfilePage() {
           className={cn(
             "pb-3.5 text-sm font-bold transition-all relative",
             activeTab === "expertise"
-              ? "text-[#9333EA] border-b-2 border-[#9333EA]"
+              ? "text-[#2563EB] border-b-2 border-[#2563EB]"
               : "text-[#6B7280] dark:text-[#A1A1AA] hover:text-[#111827]"
           )}
         >
@@ -176,7 +176,7 @@ export default function TrainerProfilePage() {
           className={cn(
             "pb-3.5 text-sm font-bold transition-all relative",
             activeTab === "security"
-              ? "text-[#9333EA] border-b-2 border-[#9333EA]"
+              ? "text-[#2563EB] border-b-2 border-[#2563EB]"
               : "text-[#6B7280] dark:text-[#A1A1AA] hover:text-[#111827]"
           )}
         >
@@ -204,7 +204,7 @@ export default function TrainerProfilePage() {
                 onClick={() => setIsEditingPersonal(true)}
                 className="h-9 px-4 font-semibold text-xs border-[#E5E7EB] dark:border-[#27272A]"
               >
-                <Edit3 className="h-4 w-4 mr-2 text-[#9333EA]" /> Edit Profile
+                <Edit3 className="h-4 w-4 mr-2 text-[#2563EB]" /> Edit Profile
               </Button>
             ) : (
               <div className="flex items-center gap-2">
@@ -219,7 +219,7 @@ export default function TrainerProfilePage() {
                 <Button
                   size="sm"
                   onClick={handleSavePersonal}
-                  className="h-9 px-4 text-xs font-semibold bg-[#9333EA] hover:bg-[#7E22CE] text-white"
+                  className="h-9 px-4 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                 >
                   <Save className="h-4 w-4 mr-1.5" /> Save Changes
                 </Button>
@@ -313,7 +313,7 @@ export default function TrainerProfilePage() {
                 onClick={() => setIsEditingExpertise(true)}
                 className="h-9 px-4 font-semibold text-xs border-[#E5E7EB] dark:border-[#27272A]"
               >
-                <Edit3 className="h-4 w-4 mr-2 text-[#9333EA]" /> Edit Profiles
+                <Edit3 className="h-4 w-4 mr-2 text-[#2563EB]" /> Edit Profiles
               </Button>
             ) : (
               <div className="flex items-center gap-2">
@@ -328,7 +328,7 @@ export default function TrainerProfilePage() {
                 <Button
                   size="sm"
                   onClick={handleSaveExpertise}
-                  className="h-9 px-4 text-xs font-semibold bg-[#9333EA] hover:bg-[#7E22CE] text-white"
+                  className="h-9 px-4 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                 >
                   <Save className="h-4 w-4 mr-1.5" /> Save Profiles
                 </Button>
@@ -430,7 +430,7 @@ export default function TrainerProfilePage() {
 
             <Button
               onClick={handleUpdatePassword}
-              className="h-11 px-6 font-semibold bg-[#9333EA] hover:bg-[#7E22CE] text-white text-xs"
+              className="h-11 px-6 font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs"
             >
               <Key className="h-4 w-4 mr-2" /> Update Trainer Password
             </Button>

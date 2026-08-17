@@ -32,7 +32,7 @@ export default function PublicCoursesPage() {
       title: c.title,
       category: catStr,
       icon: Code2,
-      color: "#9333EA",
+      color: "#2563EB",
       rating: 5.0,
       students: "Enrolled",
       duration: "Self-paced",
@@ -78,7 +78,7 @@ export default function PublicCoursesPage() {
         <div className="max-w-[1280px] mx-auto space-y-5">
           <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/20 text-xs font-bold tracking-widest px-3 py-1">COURSE CATALOG</Badge>
           <h1 className="text-4xl md:text-5xl font-black tracking-tight text-[#111827]">
-            Courses Built for <span className="bg-gradient-to-r from-[#2563EB] via-[#7C3AED] to-[#16A34A] bg-clip-text text-transparent">Your Role</span>
+            Courses Built for <span className="bg-gradient-to-r from-[#2563EB] via-[#1D4ED8] to-[#16A34A] bg-clip-text text-transparent">Your Role</span>
           </h1>
           <p className="text-[#6B7280] text-lg max-w-xl mx-auto">
             Assigned by your trainer, tracked by your admin — access courses built exactly for your learning path.

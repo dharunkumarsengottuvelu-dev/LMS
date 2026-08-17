@@ -976,7 +976,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const typeBadgeColor = (type: string) =>
     type === "mcq" ? "bg-[#2563EB] text-white font-medium"
-    : type === "coding" ? "bg-[#9333EA] text-white font-medium"
+    : type === "coding" ? "bg-[#2563EB] text-white font-medium"
     : "bg-[#D97706] text-white font-medium";
 
   if (viewState === "create-coding") {
@@ -1029,15 +1029,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             </div>
 
             {/* Attempt Limits & Session Continuation Rules */}
-            <div className="p-6 rounded-2xl bg-gradient-to-r from-purple-500/5 via-blue-500/5 to-amber-500/5 border border-[#E5E7EB] dark:border-[#27272A] space-y-5">
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-500/5 via-blue-500/5 to-amber-500/5 border border-[#E5E7EB] dark:border-[#27272A] space-y-5">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <RotateCcw className="h-4 w-4 text-[#9333EA]" />
+                  <RotateCcw className="h-4 w-4 text-[#2563EB]" />
                   <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] uppercase tracking-wider">
                     Attempt Limits & Retake Policies
                   </h4>
                 </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-[#9333EA] border-[#9333EA]/30">
+                <Badge variant="outline" className="text-[10px] font-bold text-[#2563EB] border-[#2563EB]/30">
                   {fMaxAttempts === 0 ? "Unlimited Attempts" : fMaxAttempts === 1 ? "Single Attempt Only" : `${fMaxAttempts} Attempts Allowed`}
                 </Badge>
               </div>
@@ -1082,7 +1082,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       onClick={() => setFMaxAttempts(fMaxAttempts <= 1 ? 3 : fMaxAttempts)}
                       className={`p-2 rounded-lg text-center text-xs font-semibold border transition-all ${
                         fMaxAttempts > 1
-                          ? "border-[#9333EA] bg-[#9333EA]/10 text-[#9333EA]"
+                          ? "border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB]"
                           : "border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:bg-gray-50 dark:hover:bg-[#27272A]"
                       }`}
                     >
@@ -1227,7 +1227,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               <CardContent className="p-5">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <span className="w-8 h-8 rounded-lg bg-[#9333EA]/10 text-[#9333EA] font-bold text-xs flex items-center justify-center border border-[#9333EA]/20 shrink-0">
+                    <span className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs flex items-center justify-center border border-[#2563EB]/20 shrink-0">
                       {idx + 1}
                     </span>
                     <div className="min-w-0">
@@ -1278,9 +1278,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           <form onSubmit={handleAddSubModule} className="space-y-6">
 
             {/* Assessment Environment & Anti-Cheating Controls */}
-            <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-amber-500/5 border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-500/5 via-blue-500/5 to-slate-500/5 border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
               <div className="flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4 text-[#9333EA]" />
+                <ShieldAlert className="h-4 w-4 text-[#2563EB]" />
                 <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] uppercase tracking-wider">
                   Assessment Environment, Retake & Plagiarism Controls
                 </h4>
@@ -1301,7 +1301,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   <Switch
                     checked={smRestrictCopyPaste}
                     onCheckedChange={setSmRestrictCopyPaste}
-                    className="shrink-0 data-[state=checked]:bg-[#9333EA]"
+                    className="shrink-0 data-[state=checked]:bg-[#2563EB]"
                   />
                 </div>
 
@@ -1362,7 +1362,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       onClick={() => setSmMaxAttempts(smMaxAttempts <= 1 ? 3 : smMaxAttempts)}
                       className={`p-2 rounded-lg text-center text-xs font-semibold border transition-all ${
                         smMaxAttempts > 1
-                          ? "border-[#9333EA] bg-[#9333EA]/10 text-[#9333EA]"
+                          ? "border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB]"
                           : "border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:bg-gray-50 dark:hover:bg-[#27272A]"
                       }`}
                     >
@@ -1536,7 +1536,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           variant="outline"
                           size="sm"
                           onClick={() => addCodingToSection(section.id)}
-                          className="h-8 px-3 text-xs font-bold rounded-lg border-[#9333EA]/40 text-[#9333EA] hover:bg-[#9333EA]/10 gap-1.5 shadow-xs"
+                          className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs"
                         >
                           <Code2 className="h-3.5 w-3.5" /> + Coding Problem
                         </Button>
@@ -1576,7 +1576,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               variant="outline"
                               size="sm"
                               onClick={() => addCodingToSection(section.id)}
-                              className="h-8 text-xs font-bold border-[#9333EA]/40 text-[#9333EA] hover:bg-[#9333EA]/10 gap-1.5 rounded-xl"
+                              className="h-8 text-xs font-bold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 rounded-xl"
                             >
                               <Code2 className="h-3.5 w-3.5" /> Add Coding Problem
                             </Button>
@@ -1614,7 +1614,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                   onClick={() => toggleSectionQuestionType(section.id, q.id, "multiple")}
                                   className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
                                     q.questionType === "multiple"
-                                      ? "bg-[#9333EA] text-white shadow-xs"
+                                      ? "bg-[#2563EB] text-white shadow-xs"
                                       : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
                                   }`}
                                 >
@@ -1654,7 +1654,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
                               <label className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">
-                                Options & Correct Answer {q.questionType === "multiple" && <span className="text-[#9333EA] lowercase font-normal">(check all that apply)</span>}
+                                Options & Correct Answer {q.questionType === "multiple" && <span className="text-[#2563EB] lowercase font-normal">(check all that apply)</span>}
                               </label>
                               <button
                                 type="button"
@@ -1672,7 +1672,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                   className={`flex items-center gap-2 p-2.5 border rounded-xl transition-all ${
                                     opt.isCorrect
                                       ? q.questionType === "multiple"
-                                        ? "border-[#9333EA] bg-[#9333EA]/5 dark:bg-[#9333EA]/10"
+                                        ? "border-[#2563EB] bg-[#2563EB]/5 dark:bg-[#2563EB]/10"
                                         : "border-[#2563EB] bg-[#2563EB]/5 dark:bg-[#2563EB]/10"
                                       : "border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B]"
                                   }`}
@@ -1694,13 +1694,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                       onChange={() => toggleSectionOptionCorrect(section.id, q.id, opt.id)}
                                       className={`w-3.5 h-3.5 ${
                                         q.questionType === "multiple"
-                                          ? "rounded text-[#9333EA] accent-[#9333EA]"
+                                          ? "rounded text-[#2563EB] accent-[#2563EB]"
                                           : "text-[#2563EB] accent-[#2563EB]"
                                       } cursor-pointer`}
                                     />
                                     <span className={`text-[10px] font-bold ${
                                       opt.isCorrect
-                                        ? q.questionType === "multiple" ? "text-[#9333EA]" : "text-[#2563EB]"
+                                        ? q.questionType === "multiple" ? "text-[#2563EB]" : "text-[#2563EB]"
                                         : "text-[#6B7280]"
                                     }`}>
                                       {q.questionType === "multiple" ? (opt.isCorrect ? "Correct" : "Mark") : "Correct"}
@@ -1741,7 +1741,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           className="p-5 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl space-y-4 shadow-xs"
                         >
                           <div className="flex items-center justify-between pb-2 border-b border-[#E5E7EB] dark:border-[#27272A]">
-                            <span className="text-xs font-bold px-3 py-1 rounded-lg bg-[#9333EA]/10 text-[#9333EA]">
+                            <span className="text-xs font-bold px-3 py-1 rounded-lg bg-[#2563EB]/10 text-[#2563EB]">
                               Coding Problem #{cqIdx + 1}
                             </span>
                             <div className="flex items-center gap-2">
@@ -1859,7 +1859,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
-                <UserCheck className="h-4 w-4 text-[#9333EA]" /> Individual Student Selection
+                <UserCheck className="h-4 w-4 text-[#2563EB]" /> Individual Student Selection
               </h2>
               <Select value={batchFilter} onValueChange={(v) => setBatchFilter(v || "all")}>
                 <SelectTrigger className="h-9 text-xs w-[160px] bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl"><SelectValue placeholder="All" /></SelectTrigger>
@@ -1876,11 +1876,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   return (
                     <button key={s.id} type="button" onClick={() => toggleStudent(s.id)}
                       className={`w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 transition-all ${
-                        isSel ? "bg-[#9333EA]/5" : "hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60"
+                        isSel ? "bg-[#2563EB]/5" : "hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60"
                       }`}>
                       <div className="flex items-center gap-3 min-w-0">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                          isSel ? "bg-[#9333EA] text-white" : "bg-[#9333EA]/10 text-[#9333EA]"
+                          isSel ? "bg-[#2563EB] text-white" : "bg-[#2563EB]/10 text-[#2563EB]"
                         }`}>{s.name.charAt(0)}</div>
                         <div className="min-w-0">
                           <p className="font-bold text-xs text-[#111827] dark:text-[#FAFAFA] truncate">{s.name}</p>
@@ -1888,9 +1888,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="outline" className="text-[10px] border-[#9333EA]/30 text-[#9333EA]">{s.batch}</Badge>
+                        <Badge variant="outline" className="text-[10px] border-[#2563EB]/30 text-[#2563EB]">{s.batch}</Badge>
                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${
-                          isSel ? "border-[#9333EA] bg-[#9333EA]" : "border-[#D1D5DB]"
+                          isSel ? "border-[#2563EB] bg-[#2563EB]" : "border-[#D1D5DB]"
                         }`}>
                           {isSel && <CheckCircle2 className="h-3 w-3 text-white" />}
                         </div>
@@ -1960,12 +1960,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
             return (
               <Card key={track.id}
-                className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between hover:border-[#9333EA]/40 transition-colors">
+                className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between hover:border-[#2563EB]/40 transition-colors">
                 <CardContent className="p-6 space-y-4 flex flex-col justify-between h-full">
                   <div className="space-y-3">
                     {/* Top Row: Category Pill */}
                     <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-xs font-semibold px-3 py-1 border-[#9333EA]/30 text-[#9333EA] bg-[#9333EA]/5 rounded-lg flex items-center gap-1.5 whitespace-normal">
+                      <Badge variant="outline" className="text-xs font-semibold px-3 py-1 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5 rounded-lg flex items-center gap-1.5 whitespace-normal">
                         <FolderKanban className="h-3.5 w-3.5 shrink-0" />
                         <span>{track.category}</span>
                       </Badge>
@@ -1974,7 +1974,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     {/* Instructor & Status Row */}
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-1.5 text-xs text-[#6B7280]">
-                        <User className="h-3.5 w-3.5 text-[#9333EA] shrink-0" />
+                        <User className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
                         <span>Instructor: <strong className="text-[#111827] dark:text-[#FAFAFA] font-semibold">{track.assignedByName}</strong></span>
                       </div>
 
@@ -1999,7 +1999,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-xs">
                       <div className="flex items-center justify-between">
                         <span className="text-[#6B7280]">Sub-Modules:</span>
-                        <span className="font-bold text-[#9333EA]">{totalMods} Practice Modules</span>
+                        <span className="font-bold text-[#2563EB]">{totalMods} Practice Modules</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[#6B7280]">Total Duration:</span>
@@ -2024,7 +2024,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   <div className="pt-3 border-t border-[#E5E7EB] dark:border-[#27272A] space-y-2">
                     <div className="flex items-center gap-2">
                       <Button onClick={() => { setSelectedTrack(track); setViewState("detail"); }}
-                        className="flex-1 h-9 text-xs font-semibold bg-[#9333EA] hover:bg-[#7E22CE] text-white rounded-xl shadow-xs">
+                        className="flex-1 h-9 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl shadow-xs">
                         Modules ({totalMods})
                       </Button>
                       <Button onClick={() => openAssign(track)} variant="outline"

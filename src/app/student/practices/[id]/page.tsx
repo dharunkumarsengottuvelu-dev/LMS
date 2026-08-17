@@ -321,7 +321,7 @@ export default function StudentTrackDetailPage() {
                       </Badge>
 
                       <Badge className={`text-[10px] font-semibold uppercase ${
-                        sub.type === "coding" ? "bg-[#9333EA] text-white" : sub.type === "mcq" ? "bg-[#2563EB] text-white" : "bg-[#F59E0B] text-white"
+                        sub.type === "coding" ? "bg-[#2563EB] text-white" : sub.type === "mcq" ? "bg-[#2563EB] text-white" : "bg-[#F59E0B] text-white"
                       }`}>
                         {sub.type === "coding" ? "Coding Exercise" : sub.type === "mcq" ? "MCQ Suite" : "Mixed Practice"}
                       </Badge>

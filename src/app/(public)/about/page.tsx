@@ -25,7 +25,7 @@ const team = [
     name: "Kaaviya Dharun",
     role: "Platform Lead & Full-Stack Engineer",
     initials: "KD",
-    color: "#7C3AED",
+    color: "#1D4ED8",
     bio: "Architecting modern next-gen learning engines, real-time code sandboxes, and secure proctoring ecosystems.",
     skills: ["Next.js", "React", "Supabase", "System Design"],
   },

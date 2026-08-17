@@ -363,7 +363,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                       <Badge className="bg-primary text-primary-foreground text-[9px] font-bold uppercase">
                         {evt.type}
                       </Badge>
-                      <span className="text-[10px] font-bold text-[#9333EA]">{evt.badge}</span>
+                      <span className="text-[10px] font-bold text-[#2563EB]">{evt.badge}</span>
                     </div>
 
                     <h4 className="text-xs font-semibold text-foreground">

@@ -370,14 +370,14 @@ export function MCQAssessmentEngine({
         </Button>
 
         <div className="inline-flex items-center gap-2 px-4 h-10 rounded-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
-          <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" />
+          <span className="h-2 w-2 rounded-full bg-[#3B82F6]" />
           <span>{currentIndex + 1} of {totalQuestions}</span>
         </div>
 
         <Button
           onClick={() => setCurrentIndex((prev) => Math.min(totalQuestions - 1, prev + 1))}
           disabled={currentIndex === totalQuestions - 1}
-          className="rounded-full px-5 h-10 font-bold text-xs bg-[#8B5CF6] hover:bg-[#7C3AED] text-white gap-1.5 shadow-sm"
+          className="rounded-full px-5 h-10 font-bold text-xs bg-[#3B82F6] hover:bg-[#1D4ED8] text-white gap-1.5 shadow-sm"
         >
           <span>Next</span>
           <ChevronRight className="h-4 w-4" />

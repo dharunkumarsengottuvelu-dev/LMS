@@ -431,7 +431,7 @@ export default function AdminBatchesPage() {
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA]">Assigned Students</span>
-            <div className="w-9 h-9 rounded-xl bg-[#9333EA]/10 text-[#9333EA] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
               <Users className="h-5 w-5" />
             </div>
           </div>
