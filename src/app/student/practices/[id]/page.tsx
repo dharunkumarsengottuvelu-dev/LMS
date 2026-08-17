@@ -50,6 +50,7 @@ export default function StudentTrackDetailPage() {
   const [track, setTrack] = useState<PracticeTrack | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [storageTick, setStorageTick] = useState(0);
 
   const fetchTrackDetails = async () => {
     if (!trackId) return;
@@ -81,11 +82,22 @@ export default function StudentTrackDetailPage() {
 
   useEffect(() => {
     fetchTrackDetails();
+    setStorageTick((t) => t + 1);
+
     const handleFocus = () => {
       fetchTrackDetails();
+      setStorageTick((t) => t + 1);
     };
+    const handleStorage = () => {
+      setStorageTick((t) => t + 1);
+    };
+
     window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, [trackId]);
 
   const handleStartSubModule = (subModule: SubModuleItem) => {
@@ -124,7 +136,7 @@ export default function StudentTrackDetailPage() {
     );
   }
 
-  // Calculate live dynamic statuses for all submodules
+  // Calculate live dynamic statuses for all submodules (storageTick: ${storageTick})
   const subModulesWithStatus = (track.subModules || []).map((sub) => {
     let isLocalInProgress = false;
     let isLocalCompleted = false;
@@ -157,6 +169,7 @@ export default function StudentTrackDetailPage() {
         const submittedMarker = localStorage.getItem(`${sessionKey}_submitted`);
 
         if (session && !submittedMarker) {
+          isLocalInProgress = true;
           const parsed = JSON.parse(session);
           
           // Use a Set to avoid double-counting questions between answers and codeAnswers
@@ -176,9 +189,6 @@ export default function StudentTrackDetailPage() {
           });
 
           answeredQuestionsCount = Math.min(totalQuestionsCount, answeredKeys.size);
-          if (answeredQuestionsCount > 0) {
-            isLocalInProgress = true;
-          }
         }
 
         const resultKey = `lms_completed_assessment_${sub.id}`;
@@ -205,7 +215,7 @@ export default function StudentTrackDetailPage() {
     const moduleProgressPercent = isCompleted
       ? 100
       : isInProgress
-      ? Math.min(99, Math.max(1, rawPercent))
+      ? Math.min(99, Math.max(0, rawPercent))
       : 0;
 
     return {

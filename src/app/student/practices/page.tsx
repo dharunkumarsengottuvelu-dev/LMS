@@ -44,6 +44,7 @@ export default function StudentPracticesPage() {
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [storePracticeTracks, setStorePracticeTracks] = useState<any[]>([]);
+  const [storageTick, setStorageTick] = useState(0);
 
   useEffect(() => {
     async function loadTracks() {
@@ -74,6 +75,22 @@ export default function StudentPracticesPage() {
       }
     }
     loadTracks();
+    setStorageTick((t) => t + 1);
+
+    const handleFocus = () => {
+      loadTracks();
+      setStorageTick((t) => t + 1);
+    };
+    const handleStorage = () => {
+      setStorageTick((t) => t + 1);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   const formattedStoreTracks: PracticeCourseTrack[] = storePracticeTracks.map(t => ({
@@ -160,10 +177,10 @@ export default function StudentPracticesPage() {
                   } else {
                     const sess = localStorage.getItem(`lms_practice_session_${m.id}`);
                     if (sess) {
+                      inProg = true;
                       try {
                         const parsed = JSON.parse(sess);
                         ansCount = Object.keys(parsed.answers || {}).length + Object.keys(parsed.codeAnswers || {}).length;
-                        if (ansCount > 0) inProg = true;
                       } catch {}
                     }
                   }
@@ -174,7 +191,7 @@ export default function StudentPracticesPage() {
                   totalProgressSum += 100;
                 } else if (inProg) {
                   const qCount = m.question_count || (m as any).questionCount || 1;
-                  totalProgressSum += Math.min(99, Math.max(1, Math.round((ansCount / qCount) * 100)));
+                  totalProgressSum += Math.min(99, Math.max(0, Math.round((ansCount / qCount) * 100)));
                 }
               });
 

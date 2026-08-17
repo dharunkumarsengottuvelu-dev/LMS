@@ -255,7 +255,7 @@ export function PracticeRunnerEngine({
 
   // Auto-persist all progress to localStorage
   useEffect(() => {
-    if (typeof window !== "undefined" || isSubmitted || isAlreadySubmitted) return;
+    if (typeof window === "undefined" || isSubmitted || isAlreadySubmitted) return;
     try {
       const dataToSave = {
         answers,
