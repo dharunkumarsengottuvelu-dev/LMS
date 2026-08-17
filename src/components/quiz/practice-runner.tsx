@@ -1083,157 +1083,172 @@ export function PracticeRunnerEngine({
 
       {/* Full-Page Comprehensive Answer Review & Code / Test Case Verification Dashboard */}
       {showReviewModal && (
-        <div className="fixed inset-0 z-50 bg-[#F8FAFC] dark:bg-[#090D16] flex flex-col h-screen w-screen overflow-hidden animate-in fade-in-0 duration-200">
-          {/* Top Sticky Header */}
-          <div className="h-16 px-4 sm:px-8 border-b border-[#E2E8F0] dark:border-[#1E293B] bg-white/95 dark:bg-[#0F172A]/95 backdrop-blur-md flex items-center justify-between shrink-0 shadow-xs z-20">
-            <div className="flex items-center gap-3 min-w-0">
+        <div className="fixed inset-0 z-50 bg-[#F8FAFC] dark:bg-[#09090B] flex flex-col h-screen w-screen overflow-y-auto animate-in fade-in-0 duration-200">
+          <div className="w-full max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
+            {/* Top Navigation Back Button */}
+            <div className="flex items-center justify-between">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setShowReviewModal(false)}
-                className="h-9 px-3 rounded-xl border-[#E2E8F0] dark:border-[#334155] text-xs font-bold gap-1.5 shrink-0 hover:bg-muted"
+                className="h-8 px-3 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] rounded-xl hover:bg-muted"
               >
-                <ArrowLeft className="h-4 w-4" /> Back to Practice
+                <ArrowLeft className="h-3.5 w-3.5" /> Back to Practice
               </Button>
-              <div className="h-4 w-[1px] bg-[#E2E8F0] dark:border-[#334155] hidden sm:block" />
-              <div className="min-w-0 flex items-center gap-2">
-                <h2 className="text-sm sm:text-base font-extrabold text-[#0F172A] dark:text-[#F8FAFC] truncate">
-                  {module.title}
+            </div>
+
+            {/* Overview Card */}
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-xs overflow-hidden">
+              <div className="p-6 md:p-8 space-y-6">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-6 border-b border-[#E5E7EB] dark:border-[#27272A]">
+                  <div className="space-y-3 flex-1 min-w-0">
+                    <Badge className="bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 text-xs font-semibold px-2.5 py-0.5">
+                      Submission Review
+                    </Badge>
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[#0F172A] dark:text-[#F8FAFC] leading-[1.15] max-w-4xl">
+                      {module.title}
+                    </h1>
+                    <p className="text-sm sm:text-base text-muted-foreground pt-1 font-normal">
+                      Assigned by <span className="font-semibold text-foreground">{module.assignedBy || (module as any).assignedByName || "Instructor"}</span> • {questions.length} Total Questions
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowReviewModal(false)}
+                      className="h-9 px-3.5 text-xs font-semibold gap-1.5 rounded-xl border-[#E5E7EB] dark:border-[#27272A] text-foreground hover:bg-muted"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Continue Practice
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setShowReviewModal(false);
+                        handleFinalSubmit();
+                      }}
+                      className="h-9 px-5 text-xs font-bold gap-1.5 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white shadow-sm"
+                    >
+                      <CheckCircle2 className="h-4 w-4" /> Confirm & Final Submit
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Metrics Row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-xl bg-[#F8FAFC] dark:bg-[#1E293B]/50 border border-[#E2E8F0] dark:border-[#334155]">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">Total Questions</p>
+                    <p className="text-lg font-bold text-[#0F172A] dark:text-[#F8FAFC] mt-0.5">{totalQuestions}</p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#16A34A]/5 border border-[#16A34A]/20">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#16A34A]">Completed</p>
+                    <p className="text-lg font-bold text-[#16A34A] mt-0.5">
+                      {answeredCount} <span className="text-xs font-medium text-muted-foreground">/ {totalQuestions}</span>
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#9333EA]/5 border border-[#9333EA]/20">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9333EA]">Coding Solved</p>
+                    <p className="text-lg font-bold text-[#9333EA] mt-0.5">
+                      {codingQuestions.filter(cq => isQuestionAnswered(cq.id)).length} <span className="text-xs font-medium text-muted-foreground">/ {codingQuestions.length}</span>
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#F8FAFC] dark:bg-[#1E293B]/50 border border-[#E2E8F0] dark:border-[#334155]">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">Time Remaining</p>
+                    <p className="text-lg font-bold text-[#0F172A] dark:text-[#F8FAFC] mt-0.5 font-mono">
+                      {formatTimerDisplay(timeLeft)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Question Review Section Header & Filters */}
+            <div className="space-y-4 pt-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h2 className="text-xl sm:text-2xl font-bold text-[#0F172A] dark:text-[#FAFAFA] tracking-tight">
+                  Question Review & Answers ({questions.length})
                 </h2>
-                <Badge className="bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 text-[10px] font-bold shrink-0 hidden sm:inline-flex">
-                  Submission Review
-                </Badge>
-              </div>
 
-            </div>
-
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F1F5F9] dark:bg-[#1E293B] border border-[#E2E8F0] dark:border-[#334155] text-xs font-bold text-[#0F172A] dark:text-[#F8FAFC]">
-                <Clock className="h-3.5 w-3.5 text-[#2563EB]" />
-                <span>{formatTimerDisplay(timeLeft)}</span>
-              </div>
-              <Button
-                type="button"
-                onClick={() => {
-                  setShowReviewModal(false);
-                  handleFinalSubmit();
-                }}
-                className="h-9 px-4 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs gap-1.5 rounded-xl shadow-sm"
-              >
-                <CheckCircle2 className="h-4 w-4" /> Confirm & Final Submit
-              </Button>
-            </div>
-          </div>
-
-          {/* KPI Metrics Summary Row */}
-          <div className="px-4 sm:px-8 py-4 bg-white dark:bg-[#0F172A] border-b border-[#E2E8F0] dark:border-[#1E293B] shrink-0">
-            <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-3">
-              {/* Total Questions */}
-              <div className="p-2.5 rounded-xl bg-[#F8FAFC] dark:bg-[#1E293B]/50 border border-[#E2E8F0] dark:border-[#334155]">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#64748B] dark:text-[#94A3B8]">Total Items</p>
-                <p className="text-base font-extrabold text-[#0F172A] dark:text-[#F8FAFC] mt-0.5">{totalQuestions}</p>
-              </div>
-
-              {/* Answered */}
-              <div className="p-2.5 rounded-xl bg-[#16A34A]/5 border border-[#16A34A]/20">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#16A34A]">Completed</p>
-                <p className="text-base font-extrabold text-[#16A34A] mt-0.5">
-                  {answeredCount} <span className="text-xs font-semibold text-[#16A34A]/80">/ {totalQuestions}</span>
-                </p>
-              </div>
-
-              {/* Coding Pass Status */}
-              <div className="p-2.5 rounded-xl bg-[#9333EA]/5 border border-[#9333EA]/20">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#9333EA]">Coding Solved</p>
-                <p className="text-base font-extrabold text-[#9333EA] mt-0.5">
-                  {codingQuestions.filter(cq => isQuestionAnswered(cq.id)).length} <span className="text-xs font-semibold text-[#9333EA]/80">/ {codingQuestions.length}</span>
-                </p>
-              </div>
-
-              {/* Marked for Review */}
-              <div className="p-2.5 rounded-xl bg-[#F59E0B]/5 border border-[#F59E0B]/20">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#F59E0B]">Marked Review</p>
-                <p className="text-base font-extrabold text-[#F59E0B] mt-0.5">{markedForReview.size}</p>
-              </div>
-            </div>
-
-            {/* Filter Tabs */}
-            <div className="max-w-7xl mx-auto flex items-center gap-2 pt-4 overflow-x-auto">
-              <button
-                type="button"
-                onClick={() => setReviewFilter("all")}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0",
-                  reviewFilter === "all"
-                    ? "bg-[#2563EB] text-white shadow-xs"
-                    : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-white"
-                )}
-              >
-                All Questions ({questions.length})
-              </button>
-              {mcqQuestions.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setReviewFilter("mcq")}
-                  className={cn(
-                    "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0",
-                    reviewFilter === "mcq"
-                      ? "bg-[#2563EB] text-white shadow-xs"
-                      : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-white"
+                <div className="flex items-center gap-1.5 overflow-x-auto">
+                  <button
+                    type="button"
+                    onClick={() => setReviewFilter("all")}
+                    className={cn(
+                      "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                      reviewFilter === "all"
+                        ? "bg-[#2563EB] text-white shadow-xs"
+                        : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-foreground"
+                    )}
+                  >
+                    All ({questions.length})
+                  </button>
+                  {mcqQuestions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setReviewFilter("mcq")}
+                      className={cn(
+                        "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                        reviewFilter === "mcq"
+                          ? "bg-[#2563EB] text-white shadow-xs"
+                          : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-foreground"
+                      )}
+                    >
+                      MCQs ({mcqQuestions.length})
+                    </button>
                   )}
-                >
-                  MCQs ({mcqQuestions.length})
-                </button>
-              )}
-              {codingQuestions.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setReviewFilter("coding")}
-                  className={cn(
-                    "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0",
-                    reviewFilter === "coding"
-                      ? "bg-[#9333EA] text-white shadow-xs"
-                      : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-white"
+                  {codingQuestions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setReviewFilter("coding")}
+                      className={cn(
+                        "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                        reviewFilter === "coding"
+                          ? "bg-[#9333EA] text-white shadow-xs"
+                          : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#64748B] dark:text-[#94A3B8] hover:text-foreground"
+                      )}
+                    >
+                      Coding ({codingQuestions.length})
+                    </button>
                   )}
-                >
-                  Coding Challenges ({codingQuestions.length})
-                </button>
-              )}
-              {markedForReview.size > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setReviewFilter("marked")}
-                  className={cn(
-                    "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0",
-                    reviewFilter === "marked"
-                      ? "bg-[#F59E0B] text-white shadow-xs"
-                      : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#F59E0B] hover:bg-[#F59E0B]/10"
+                  {markedForReview.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setReviewFilter("marked")}
+                      className={cn(
+                        "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                        reviewFilter === "marked"
+                          ? "bg-[#F59E0B] text-white shadow-xs"
+                          : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#F59E0B] hover:bg-[#F59E0B]/10"
+                      )}
+                    >
+                      Marked ({markedForReview.size})
+                    </button>
                   )}
-                >
-                  Marked for Review ({markedForReview.size})
-                </button>
-              )}
-              {totalQuestions - answeredCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setReviewFilter("unanswered")}
-                  className={cn(
-                    "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0",
-                    reviewFilter === "unanswered"
-                      ? "bg-[#EF4444] text-white shadow-xs"
-                      : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#EF4444] hover:bg-[#EF4444]/10"
+                  {totalQuestions - answeredCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setReviewFilter("unanswered")}
+                      className={cn(
+                        "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                        reviewFilter === "unanswered"
+                          ? "bg-[#EF4444] text-white shadow-xs"
+                          : "bg-[#F1F5F9] dark:bg-[#1E293B] text-[#EF4444] hover:bg-[#EF4444]/10"
+                      )}
+                    >
+                      Unanswered ({totalQuestions - answeredCount})
+                    </button>
                   )}
-                >
-                  Unanswered ({totalQuestions - answeredCount})
-                </button>
-              )}
-            </div>
-          </div>
+                </div>
+              </div>
 
-          {/* Scrollable Questions Deep Review Feed */}
-          <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
-            <div className="max-w-7xl mx-auto space-y-6">
+              {/* Questions Review List */}
+              <div className="space-y-4">
               {questions
                 .filter((q) => {
                   const isMcq = q.type !== "coding" && q.section !== "coding";
