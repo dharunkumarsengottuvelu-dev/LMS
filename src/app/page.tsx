@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -169,7 +170,16 @@ const ecosystemSteps = [
   { label: "Improvement", sub: "Continuous Growth" },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ code?: string }>;
+}) {
+  const params = await searchParams;
+  if (params?.code) {
+    redirect(`/api/auth/callback?code=${encodeURIComponent(params.code)}`);
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground antialiased selection:bg-primary/20">
 
