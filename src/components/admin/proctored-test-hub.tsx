@@ -98,6 +98,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [secCopyPaste, setSecCopyPaste] = useState(true);
   const [secMultipleScreens, setSecMultipleScreens] = useState(false);
   const [secSEB, setSecSEB] = useState(false);
+  const [maxWarningsLimit, setMaxWarningsLimit] = useState(3);
+  const [secMultipleFaces, setSecMultipleFaces] = useState(true);
+  const [secLookingAway, setSecLookingAway] = useState(true);
+  const [secFacePosition, setSecFacePosition] = useState(true);
+  const [secAutoSubmit, setSecAutoSubmit] = useState(true);
   const [newAllowedTypes, setNewAllowedTypes] = useState<"coding" | "mcq" | "both">("both");
 
   // Form State for Add Question
@@ -448,29 +453,104 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             </div>
           </Card>
 
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm">
-            <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] mb-6 flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-[#2563EB]" /> Anti-Cheating & Security
-            </h3>
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-4">
+              <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-[#2563EB]" /> AI Proctoring & Anti-Cheating Policy
+              </h3>
+              <Badge variant="outline" className="text-xs font-semibold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
+                Real-Time Computer Vision Active
+              </Badge>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex justify-between p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                <div><p className="text-sm font-bold">Webcam Monitoring</p><p className="text-[11px] text-[#6B7280]">Enforce 12-point facial tracking.</p></div>
+              <div className="flex justify-between items-center p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <div>
+                  <p className="text-sm font-bold">Webcam & Face Detection</p>
+                  <p className="text-[11px] text-[#6B7280]">Continuously verify candidate facial presence.</p>
+                </div>
                 <Switch checked={secWebcam} onCheckedChange={setSecWebcam} />
               </div>
-              <div className="flex justify-between p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                <div><p className="text-sm font-bold">Fullscreen Lock</p><p className="text-[11px] text-[#6B7280]">Force full screen mode.</p></div>
+
+              <div className="flex justify-between items-center p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <div>
+                  <p className="text-sm font-bold">Max Warning Count Limit</p>
+                  <p className="text-[11px] text-[#6B7280]">Allowed violations before policy escalation.</p>
+                </div>
+                <Select value={String(maxWarningsLimit)} onValueChange={(v) => setMaxWarningsLimit(Number(v))}>
+                  <SelectTrigger className="w-24 h-9 text-xs rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 Alerts</SelectItem>
+                    <SelectItem value="3">3 Alerts</SelectItem>
+                    <SelectItem value="4">4 Alerts</SelectItem>
+                    <SelectItem value="5">5 Alerts</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex justify-between items-center p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <div>
+                  <p className="text-sm font-bold">Multiple Faces Alert</p>
+                  <p className="text-[11px] text-[#6B7280]">Flag when unauthorized extra persons appear.</p>
+                </div>
+                <Switch checked={secMultipleFaces} onCheckedChange={setSecMultipleFaces} />
+              </div>
+
+              <div className="flex justify-between items-center p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <div>
+                  <p className="text-sm font-bold">Looking Away & Head Pose Tracking</p>
+                  <p className="text-[11px] text-[#6B7280]">Monitor sustained eye/head gaze deviations.</p>
+                </div>
+                <Switch checked={secLookingAway} onCheckedChange={setSecLookingAway} />
+              </div>
+
+              <div className="flex justify-between items-center p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <div>
+                  <p className="text-sm font-bold">Face Position & Distance Guard</p>
+                  <p className="text-[11px] text-[#6B7280]">Enforce centered, well-lit camera alignment.</p>
+                </div>
+                <Switch checked={secFacePosition} onCheckedChange={setSecFacePosition} />
+              </div>
+
+              <div className="flex justify-between items-center p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <div>
+                  <p className="text-sm font-bold">Auto-Submit on Warning Limit</p>
+                  <p className="text-[11px] text-[#6B7280]">Terminate exam when max warnings exceeded.</p>
+                </div>
+                <Switch checked={secAutoSubmit} onCheckedChange={setSecAutoSubmit} />
+              </div>
+
+              <div className="flex justify-between items-center p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <div>
+                  <p className="text-sm font-bold">Fullscreen Lock</p>
+                  <p className="text-[11px] text-[#6B7280]">Force full screen mode during test.</p>
+                </div>
                 <Switch checked={secFullscreen} onCheckedChange={setSecFullscreen} />
               </div>
-              <div className="flex justify-between p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                <div><p className="text-sm font-bold">Tab Switch Security</p><p className="text-[11px] text-[#6B7280]">Flag tab switches.</p></div>
+
+              <div className="flex justify-between items-center p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <div>
+                  <p className="text-sm font-bold">Tab Switch Security</p>
+                  <p className="text-[11px] text-[#6B7280]">Flag tab switching and focus loss.</p>
+                </div>
                 <Switch checked={secTabSwitch} onCheckedChange={setSecTabSwitch} />
               </div>
-              <div className="flex justify-between p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                <div><p className="text-sm font-bold">Copy-Paste Lock</p><p className="text-[11px] text-[#6B7280]">Disable clipboard.</p></div>
+
+              <div className="flex justify-between items-center p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <div>
+                  <p className="text-sm font-bold">Copy-Paste Lock</p>
+                  <p className="text-[11px] text-[#6B7280]">Disable clipboard operations.</p>
+                </div>
                 <Switch checked={secCopyPaste} onCheckedChange={setSecCopyPaste} />
               </div>
-              <div className="flex justify-between p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                <div><p className="text-sm font-bold text-[#2563EB]">Safe Exam Browser (SEB)</p><p className="text-[11px] text-[#6B7280]">Force strict OS-level lock down.</p></div>
+
+              <div className="flex justify-between items-center p-4 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                <div>
+                  <p className="text-sm font-bold text-[#2563EB]">Safe Exam Browser (SEB)</p>
+                  <p className="text-[11px] text-[#6B7280]">Force strict OS-level lock down.</p>
+                </div>
                 <Switch checked={secSEB} onCheckedChange={setSecSEB} />
               </div>
             </div>
