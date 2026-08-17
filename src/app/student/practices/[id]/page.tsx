@@ -132,15 +132,50 @@ export default function StudentTrackDetailPage() {
     let localAttemptsCount = 0;
     let answeredQuestionsCount = 0;
 
+    // Accurate calculation of total questions for this submodule
+    const directMcqs = (sub as any).mcqQuestions?.length || (sub as any).mcqs?.length || 0;
+    const directCoding = (sub as any).codingQuestions?.length || (sub as any).codingProblems?.length || 0;
+    const sectionMcqs = (sub as any).sections?.flatMap((s: any) => s.mcqQuestions || []).length || 0;
+    const sectionCoding = (sub as any).sections?.flatMap((s: any) => s.codingQuestions || []).length || 0;
+
+    const mcqsCount = Math.max(directMcqs, sectionMcqs);
+    const codingCount = Math.max(
+      directCoding,
+      sectionCoding,
+      (sub.type === "coding" || (sub as any).problemDescription) && (mcqsCount + directCoding + sectionCoding === 0) ? 1 : 0
+    );
+
+    let totalQuestionsCount = mcqsCount + codingCount;
+    if (totalQuestionsCount === 0) {
+      totalQuestionsCount = sub.questionCount || 1;
+    }
+
     if (typeof window !== "undefined") {
       try {
         const sessionKey = `lms_practice_session_${sub.id}`;
         const session = localStorage.getItem(sessionKey);
-        if (session) {
+        const submittedMarker = localStorage.getItem(`${sessionKey}_submitted`);
+
+        if (session && !submittedMarker) {
           const parsed = JSON.parse(session);
-          const ansLen = Object.keys(parsed.answers || {}).length;
-          const codeLen = Object.keys(parsed.codeAnswers || {}).length;
-          answeredQuestionsCount = ansLen + codeLen;
+          
+          // Use a Set to avoid double-counting questions between answers and codeAnswers
+          const answeredKeys = new Set<string>();
+
+          Object.entries(parsed.answers || {}).forEach(([k, v]) => {
+            if (!v) return;
+            if (Array.isArray(v) && v.length > 0) answeredKeys.add(k);
+            else if (typeof v === "string" && v.trim().length > 0) answeredKeys.add(k);
+            else if (typeof v === "object" && (v as any).code && (v as any).code.trim().length > 0) answeredKeys.add(k);
+          });
+
+          Object.entries(parsed.codeAnswers || {}).forEach(([k, v]: any) => {
+            if (v && v.code && v.code.trim().length > 0) {
+              answeredKeys.add(k);
+            }
+          });
+
+          answeredQuestionsCount = Math.min(totalQuestionsCount, answeredKeys.size);
           if (answeredQuestionsCount > 0) {
             isLocalInProgress = true;
           }
@@ -148,11 +183,15 @@ export default function StudentTrackDetailPage() {
 
         const resultKey = `lms_completed_assessment_${sub.id}`;
         const resStr = localStorage.getItem(resultKey);
-        if (resStr) {
-          const parsedRes = JSON.parse(resStr);
+        if (resStr || submittedMarker === "true") {
           isLocalCompleted = true;
-          localScore = parsedRes.score ?? null;
-          localAttemptsCount = parsedRes.attemptsCount || 1;
+          if (resStr) {
+            try {
+              const parsedRes = JSON.parse(resStr);
+              localScore = parsedRes.score ?? null;
+              localAttemptsCount = parsedRes.attemptsCount || 1;
+            } catch {}
+          }
         }
       } catch {}
     }
@@ -161,8 +200,8 @@ export default function StudentTrackDetailPage() {
     const isInProgress = !isCompleted && (sub.status === "in_progress" || isLocalInProgress);
     const maxAtt = (sub as any).maxAttempts ?? (track as any).maxAttempts ?? 0;
     const isLocked = isCompleted && maxAtt === 1;
-    const totalQ = sub.questionCount || (sub as any).codingQuestions?.length || (sub as any).mcqQuestions?.length || (sub.codingProblems?.length || 0) || 1;
-    const rawPercent = Math.round((answeredQuestionsCount / totalQ) * 100);
+
+    const rawPercent = totalQuestionsCount > 0 ? Math.round((answeredQuestionsCount / totalQuestionsCount) * 100) : 0;
     const moduleProgressPercent = isCompleted
       ? 100
       : isInProgress
@@ -176,6 +215,9 @@ export default function StudentTrackDetailPage() {
       localScore,
       localAttemptsCount,
       isLocked,
+      mcqsCount,
+      codingCount,
+      totalQuestionsCount,
       moduleProgressPercent,
       answeredQuestionsCount,
     };
@@ -183,10 +225,17 @@ export default function StudentTrackDetailPage() {
 
   const totalSubModulesCount = subModulesWithStatus.length || track.totalSubModules || 1;
   const completedSubModulesCount = subModulesWithStatus.filter((s) => s.isCompleted).length;
-  // Calculate dynamic overall track completion based on all sub-module progresses (both in-progress and completed)
-  const totalModuleProgressSum = subModulesWithStatus.reduce((acc, s) => acc + s.moduleProgressPercent, 0);
-  const dynamicProgressPercentage = totalSubModulesCount > 0
-    ? Math.round(totalModuleProgressSum / totalSubModulesCount)
+
+  const totalTrackQuestions = subModulesWithStatus.reduce((acc, s) => acc + s.totalQuestionsCount, 0);
+  const totalAnsweredQuestions = subModulesWithStatus.reduce(
+    (acc, s) => acc + (s.isCompleted ? s.totalQuestionsCount : s.answeredQuestionsCount),
+    0
+  );
+
+  const dynamicProgressPercentage = totalTrackQuestions > 0
+    ? Math.round((totalAnsweredQuestions / totalTrackQuestions) * 100)
+    : completedSubModulesCount === totalSubModulesCount
+    ? 100
     : 0;
 
   return (
@@ -220,10 +269,12 @@ export default function StudentTrackDetailPage() {
               <span>Assigned By: <strong className="text-foreground font-semibold">{track.assignedByName}</strong></span>
               <span>•</span>
               <span>{totalSubModulesCount} Practice Modules</span>
+              <span>•</span>
+              <span>{totalTrackQuestions} Total Questions</span>
             </div>
           </div>
 
-          <div className="p-4 bg-white dark:bg-[#18181B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] shadow-sm shrink-0 space-y-2.5 min-w-[260px]">
+          <div className="p-4 bg-white dark:bg-[#18181B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] shadow-sm shrink-0 space-y-2.5 min-w-[280px]">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground font-medium">Track Completion:</span>
               <span className="font-bold text-[#16A34A]">{dynamicProgressPercentage}%</span>
@@ -232,7 +283,9 @@ export default function StudentTrackDetailPage() {
             <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
               <span>
                 {completedSubModulesCount} of {totalSubModulesCount} Modules Completed
-                {dynamicProgressPercentage > 0 && completedSubModulesCount === 0 ? ` (${dynamicProgressPercentage}% in progress)` : ""}
+                {dynamicProgressPercentage > 0 && completedSubModulesCount < totalSubModulesCount
+                  ? ` (${totalAnsweredQuestions}/${totalTrackQuestions} Qs Answered)`
+                  : ""}
               </span>
             </div>
           </div>
@@ -246,13 +299,13 @@ export default function StudentTrackDetailPage() {
             Practice Modules ({subModulesWithStatus.length})
           </h2>
           <Badge variant="outline" className="text-xs font-semibold border-[#2563EB] text-[#2563EB]">
-            {totalSubModulesCount} Total Modules
+            {totalTrackQuestions} Total Questions ({totalSubModulesCount} Modules)
           </Badge>
         </div>
 
         <div className="space-y-4">
           {subModulesWithStatus.map((sub, idx) => {
-            const { isCompleted, isInProgress, localScore, isLocked, moduleProgressPercent } = sub;
+            const { isCompleted, isInProgress, localScore, isLocked, moduleProgressPercent, totalQuestionsCount, mcqsCount, codingCount, answeredQuestionsCount } = sub;
 
             return (
               <Card
@@ -275,12 +328,12 @@ export default function StudentTrackDetailPage() {
 
                       {isCompleted && (
                         <Badge className="bg-[#16A34A] text-white text-[10px] font-semibold">
-                          Completed {sub.score || localScore !== null ? `(${sub.score ?? localScore} Marks)` : ""}
+                          Completed {sub.score || localScore !== null ? `(${sub.score ?? localScore}/${sub.totalMarks || 100} Marks)` : ""}
                         </Badge>
                       )}
                       {isInProgress && (
-                        <Badge className="bg-[#F59E0B] text-white text-[10px] font-bold animate-pulse">
-                          In Progress
+                        <Badge className="bg-[#F59E0B] text-white text-[10px] font-bold">
+                          In Progress ({answeredQuestionsCount}/{totalQuestionsCount} Qs)
                         </Badge>
                       )}
                     </div>
@@ -293,9 +346,9 @@ export default function StudentTrackDetailPage() {
                     </p>
 
                     <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-1">
-                      <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-[#2563EB]" /> {sub.durationMinutes} mins</span>
+                      <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-[#2563EB]" /> {sub.durationMinutes > 0 ? `${sub.durationMinutes} mins` : "No Time Limit"}</span>
                       <span>•</span>
-                      <span className="flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-[#2563EB]" /> {sub.questionCount} Problems ({sub.totalMarks} Marks)</span>
+                      <span className="flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-[#2563EB]" /> {totalQuestionsCount} Questions ({mcqsCount} MCQs, {codingCount} Coding) • {sub.totalMarks} Marks</span>
                     </div>
                   </div>
 
