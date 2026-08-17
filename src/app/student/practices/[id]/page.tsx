@@ -161,8 +161,13 @@ export default function StudentTrackDetailPage() {
     const isInProgress = !isCompleted && (sub.status === "in_progress" || isLocalInProgress);
     const maxAtt = (sub as any).maxAttempts ?? (track as any).maxAttempts ?? 0;
     const isLocked = isCompleted && maxAtt === 1;
-    const totalQ = sub.questionCount || 1;
-    const moduleProgressPercent = isCompleted ? 100 : isInProgress ? Math.min(99, Math.max(25, Math.round((answeredQuestionsCount / totalQ) * 100))) : 0;
+    const totalQ = sub.questionCount || (sub as any).codingQuestions?.length || (sub as any).mcqQuestions?.length || (sub.codingProblems?.length || 0) || 1;
+    const rawPercent = Math.round((answeredQuestionsCount / totalQ) * 100);
+    const moduleProgressPercent = isCompleted
+      ? 100
+      : isInProgress
+      ? Math.min(99, Math.max(1, rawPercent))
+      : 0;
 
     return {
       ...sub,
@@ -178,7 +183,11 @@ export default function StudentTrackDetailPage() {
 
   const totalSubModulesCount = subModulesWithStatus.length || track.totalSubModules || 1;
   const completedSubModulesCount = subModulesWithStatus.filter((s) => s.isCompleted).length;
-  const dynamicProgressPercentage = Math.round((completedSubModulesCount / totalSubModulesCount) * 100);
+  // Calculate dynamic overall track completion based on all sub-module progresses (both in-progress and completed)
+  const totalModuleProgressSum = subModulesWithStatus.reduce((acc, s) => acc + s.moduleProgressPercent, 0);
+  const dynamicProgressPercentage = totalSubModulesCount > 0
+    ? Math.round(totalModuleProgressSum / totalSubModulesCount)
+    : 0;
 
   return (
     <div className="w-full space-y-8 pb-12">
@@ -221,7 +230,10 @@ export default function StudentTrackDetailPage() {
             </div>
             <Progress value={dynamicProgressPercentage} className="h-2.5 bg-muted rounded-full" />
             <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-              <span>{completedSubModulesCount} of {totalSubModulesCount} Modules Completed</span>
+              <span>
+                {completedSubModulesCount} of {totalSubModulesCount} Modules Completed
+                {dynamicProgressPercentage > 0 && completedSubModulesCount === 0 ? ` (${dynamicProgressPercentage}% in progress)` : ""}
+              </span>
             </div>
           </div>
         </div>

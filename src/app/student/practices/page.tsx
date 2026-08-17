@@ -143,15 +143,41 @@ export default function StudentPracticesPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
             {filteredTracks.map((track) => {
-              const completedCount = track.subModules.filter((m) => {
-                if (m.status === "completed") return true;
+              const subMods = track.subModules || [];
+              const totalCount = subMods.length || 1;
+              let totalProgressSum = 0;
+              let completedCount = 0;
+
+              subMods.forEach((m) => {
+                let isComp = m.status === "completed";
+                let inProg = false;
+                let ansCount = 0;
+
                 if (typeof window !== "undefined") {
-                  return Boolean(localStorage.getItem(`lms_completed_assessment_${m.id}`));
+                  if (localStorage.getItem(`lms_completed_assessment_${m.id}`)) {
+                    isComp = true;
+                  } else {
+                    const sess = localStorage.getItem(`lms_practice_session_${m.id}`);
+                    if (sess) {
+                      try {
+                        const parsed = JSON.parse(sess);
+                        ansCount = Object.keys(parsed.answers || {}).length + Object.keys(parsed.codeAnswers || {}).length;
+                        if (ansCount > 0) inProg = true;
+                      } catch {}
+                    }
+                  }
                 }
-                return false;
-              }).length;
-              const totalCount = track.subModules.length || 1;
-              const progressPercentage = Math.round((completedCount / totalCount) * 100);
+
+                if (isComp) {
+                  completedCount++;
+                  totalProgressSum += 100;
+                } else if (inProg) {
+                  const qCount = m.question_count || (m as any).questionCount || 1;
+                  totalProgressSum += Math.min(99, Math.max(1, Math.round((ansCount / qCount) * 100)));
+                }
+              });
+
+              const progressPercentage = Math.round(totalProgressSum / totalCount);
 
               return (
                 <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-primary/40 transition-all duration-200 bg-card border border-border shadow-sm rounded-[var(--radius-xl)] group">

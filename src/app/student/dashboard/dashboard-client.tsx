@@ -117,10 +117,12 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
     let completedCount = 0;
     let nextSubModuleToContinue: any = null;
     let hasActiveSession = false;
+    let totalProgressSum = 0;
 
     subModules.forEach((sm: any, idx: number) => {
       let isDone = sm.status === "completed";
       let isInProgress = false;
+      let ansCount = 0;
 
       if (typeof window !== "undefined") {
         if (localStorage.getItem(`lms_completed_assessment_${sm.id}`)) {
@@ -130,10 +132,10 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
         if (session) {
           try {
             const parsed = JSON.parse(session);
-            if (
-              (parsed.answers && Object.keys(parsed.answers).length > 0) ||
-              (parsed.codeAnswers && Object.keys(parsed.codeAnswers).length > 0)
-            ) {
+            const ansLen = Object.keys(parsed.answers || {}).length;
+            const codeLen = Object.keys(parsed.codeAnswers || {}).length;
+            ansCount = ansLen + codeLen;
+            if (ansCount > 0) {
               isInProgress = true;
               hasActiveSession = true;
             }
@@ -143,13 +145,20 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
 
       if (isDone) {
         completedCount++;
-      } else if (!nextSubModuleToContinue) {
-        nextSubModuleToContinue = { ...sm, subModuleIndex: idx + 1, isInProgress };
+        totalProgressSum += 100;
+      } else {
+        if (isInProgress) {
+          const qCount = sm.questionCount || (sm.codingQuestions?.length || 0) + (sm.mcqQuestions?.length || 0) || 1;
+          totalProgressSum += Math.min(99, Math.max(1, Math.round((ansCount / qCount) * 100)));
+        }
+        if (!nextSubModuleToContinue) {
+          nextSubModuleToContinue = { ...sm, subModuleIndex: idx + 1, isInProgress };
+        }
       }
     });
 
     const totalCount = subModules.length || 1;
-    const progressPercentage = Math.round((completedCount / totalCount) * 100);
+    const progressPercentage = Math.round(totalProgressSum / totalCount);
     const targetSubModule = nextSubModuleToContinue || subModules[0];
 
     return {

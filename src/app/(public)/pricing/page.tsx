@@ -14,11 +14,8 @@ export default function PublicPricingPage() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-[#18181B]/80 backdrop-blur-md border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center text-white font-bold">
-              F
-            </div>
-            <span className="font-bold text-lg text-[#111827] dark:text-[#FAFAFA]">
-              FALCON
+            <span className="font-extrabold text-xl text-[#111827] dark:text-[#FAFAFA] tracking-tight">
+              FALCON<span className="text-[#2563EB] font-black">.</span>
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-[#4B5563] dark:text-[#A1A1AA]">

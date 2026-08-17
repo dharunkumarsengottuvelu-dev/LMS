@@ -34,12 +34,9 @@ export default function AuthLayout({
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/40 via-transparent to-purple-900/40 pointer-events-none z-0" />
 
         {/* Top Logo */}
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-[0_0_20px_rgba(37,99,235,0.4)]">
-            F
-          </div>
-          <span className="text-xl font-bold tracking-tight text-white" style={{ fontFamily: "Inter, sans-serif" }}>
-            FALCON <span className="text-blue-400 font-semibold text-sm">SENSI Group</span>
+        <div className="flex items-center gap-2 relative z-10">
+          <span className="text-2xl font-extrabold tracking-tight text-white" style={{ fontFamily: "Inter, sans-serif" }}>
+            FALCON<span className="text-blue-500 font-black">.</span> <span className="text-blue-400 font-semibold text-sm">SENSI Group</span>
           </span>
         </div>
 

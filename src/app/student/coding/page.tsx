@@ -467,8 +467,37 @@ export default function StudentCodingIDEPage() {
             )}
           </Tabs>
           </div>
-        </div>
-        )}
+
+            {/* ── Pill Navigation Footer ── */}
+            <div className="p-3 border-t border-border bg-slate-50/80 dark:bg-zinc-900/80 flex items-center justify-center gap-2.5 shrink-0 select-none">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full px-4 h-9 font-semibold text-xs border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 gap-1 shadow-2xs"
+                disabled={currentIdx === 0}
+                onClick={() => goTo(currentIdx - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span>Prev</span>
+              </Button>
+
+              <div className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
+                <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" />
+                <span>{currentIdx + 1} of {totalProblems}</span>
+              </div>
+
+              <Button
+                size="sm"
+                className="rounded-full px-4 h-9 font-bold text-xs bg-[#8B5CF6] hover:bg-[#7C3AED] text-white gap-1 shadow-xs"
+                disabled={currentIdx === totalProblems - 1}
+                onClick={() => goTo(currentIdx + 1)}
+              >
+                <span>Next</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          )}
 
         {/* ── MIDDLE: Code Editor (flex-1) ── */}
         <div className="flex-1 flex flex-col overflow-hidden bg-card min-w-0 relative animate-in fade-in slide-in-from-bottom-4 duration-500 delay-75 fill-mode-both">
@@ -573,30 +602,27 @@ export default function StudentCodingIDEPage() {
           </div>
 
           {/* Navigation buttons */}
-            <div className="mt-2 border-t border-border pt-4 pb-2 px-1">
-              <div className="flex items-center justify-between gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 text-[11px] h-7"
-                  disabled={currentIdx === 0}
-                  onClick={() => goTo(currentIdx - 1)}
-                >
-                  <ChevronLeft className="h-3 w-3 mr-1" /> Prev
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 text-[11px] h-7"
-                  disabled={currentIdx === totalProblems - 1}
-                  onClick={() => goTo(currentIdx + 1)}
-                >
-                  Next <ChevronRight className="h-3 w-3 ml-1" />
-                </Button>
-              </div>
+            <div className="mt-auto border-t border-border p-3 flex items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full flex-1 h-8 text-[11px] font-semibold border-slate-200 dark:border-zinc-700 gap-1"
+                disabled={currentIdx === 0}
+                onClick={() => goTo(currentIdx - 1)}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Prev
+              </Button>
+              <Button
+                size="sm"
+                className="rounded-full flex-1 h-8 text-[11px] font-bold bg-[#8B5CF6] hover:bg-[#7C3AED] text-white gap-1"
+                disabled={currentIdx === totalProblems - 1}
+                onClick={() => goTo(currentIdx + 1)}
+              >
+                Next <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
-          </div>
+        </div>
         )}
       </div>
     </div>

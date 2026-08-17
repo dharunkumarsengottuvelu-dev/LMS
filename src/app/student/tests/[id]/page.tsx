@@ -757,46 +757,60 @@ export default function StudentTestRunnerPage() {
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-6 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <div className="sticky bottom-3 z-20 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md p-3 px-4 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] shadow-md flex flex-wrap items-center justify-between gap-3 mt-4">
                 <div className="flex items-center gap-2">
                   <Button
-                    disabled={currentIndex === 0}
                     variant="outline"
-                    className="h-10 px-4 text-xs font-semibold gap-1"
-                    onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-                  >
-                    <ChevronLeft className="h-4 w-4" /> Previous
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className={`h-10 px-3 text-xs font-semibold gap-1.5 ${
+                    size="sm"
+                    className={`h-9 px-3 text-xs font-semibold gap-1.5 rounded-full ${
                       markedForReview[currentQ.id] ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]" : "text-[#4B5563]"
                     }`}
                     onClick={() => toggleMarkForReview(currentQ.id)}
                   >
                     <Flag className="h-3.5 w-3.5" />
-                    {markedForReview[currentQ.id] ? "Marked for Review" : "Mark for Review"}
+                    {markedForReview[currentQ.id] ? "Marked" : "Review"}
                   </Button>
 
                   {answers[currentQ.id] !== undefined && (
                     <Button
                       variant="ghost"
-                      className="h-10 px-3 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 gap-1"
+                      size="sm"
+                      className="h-9 px-3 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 gap-1 rounded-full"
                       onClick={() => handleClearAnswer(currentQ.id)}
                     >
-                      <RotateCcw className="h-3.5 w-3.5" /> Clear Response
+                      <RotateCcw className="h-3.5 w-3.5" /> Clear
                     </Button>
                   )}
                 </div>
 
-                <Button
-                  disabled={currentIndex === currentQuestions.length - 1}
-                  className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-1"
-                  onClick={() => setCurrentIndex((prev) => Math.min(currentQuestions.length - 1, prev + 1))}
-                >
-                  Next Question <ChevronRight className="h-4 w-4" />
-                </Button>
+                {/* Grouped Pill Navigation */}
+                <div className="inline-flex items-center gap-2 select-none">
+                  <Button
+                    disabled={currentIndex === 0}
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full px-4 h-9 font-semibold text-xs border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 gap-1 shadow-2xs"
+                    onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span>Prev</span>
+                  </Button>
+
+                  <div className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
+                    <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" />
+                    <span>{currentIndex + 1} of {currentQuestions.length}</span>
+                  </div>
+
+                  <Button
+                    disabled={currentIndex === currentQuestions.length - 1}
+                    size="sm"
+                    className="rounded-full px-4 h-9 font-bold text-xs bg-[#8B5CF6] hover:bg-[#7C3AED] text-white gap-1 shadow-xs"
+                    onClick={() => setCurrentIndex((prev) => Math.min(currentQuestions.length - 1, prev + 1))}
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

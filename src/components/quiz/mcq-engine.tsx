@@ -326,26 +326,29 @@ export function MCQAssessmentEngine({
       </Card>
 
       {/* Sticky Bottom Controls */}
-      <div className="sticky bottom-6 z-30 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl shadow-lg flex items-center justify-between gap-4">
+      <div className="sticky bottom-6 z-30 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#E5E7EB] dark:border-[#27272A] p-3 rounded-2xl shadow-lg flex items-center justify-center gap-3">
         <Button
           variant="outline"
           onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
           disabled={currentIndex === 0}
-          className="h-[44px] px-6 font-semibold text-sm gap-2 border-[#E5E7EB] dark:border-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
+          className="rounded-full px-5 h-10 font-semibold text-xs border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 gap-1.5 shadow-xs"
         >
-          <ChevronLeft className="h-4 w-4" /> Previous
+          <ChevronLeft className="h-4 w-4" />
+          <span>Prev</span>
         </Button>
 
-        <span className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
-          {currentIndex + 1} / {totalQuestions}
-        </span>
+        <div className="inline-flex items-center gap-2 px-4 h-10 rounded-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
+          <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" />
+          <span>{currentIndex + 1} of {totalQuestions}</span>
+        </div>
 
         <Button
           onClick={() => setCurrentIndex((prev) => Math.min(totalQuestions - 1, prev + 1))}
           disabled={currentIndex === totalQuestions - 1}
-          className="h-[44px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm gap-2"
+          className="rounded-full px-5 h-10 font-bold text-xs bg-[#8B5CF6] hover:bg-[#7C3AED] text-white gap-1.5 shadow-sm"
         >
-          Next <ChevronRight className="h-4 w-4" />
+          <span>Next</span>
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
 

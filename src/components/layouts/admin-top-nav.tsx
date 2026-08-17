@@ -36,17 +36,12 @@ export function AdminTopNav() {
       {/* Brand Logo */}
       <div className="flex items-center gap-3">
         <Link href="/admin/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0 group">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-base shadow-sm transition-transform duration-200 group-hover:scale-105">
-            F
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-base tracking-tight text-foreground">
-              FALCON
-            </span>
-            <Badge variant="outline" className="hidden sm:inline-flex bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0.5">
-              ADMIN
-            </Badge>
-          </div>
+          <span className="font-extrabold text-xl tracking-tight text-foreground">
+            FALCON<span className="text-primary font-black">.</span>
+          </span>
+          <Badge variant="outline" className="hidden sm:inline-flex bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0.5">
+            ADMIN
+          </Badge>
         </Link>
       </div>
 
@@ -84,10 +79,9 @@ export function AdminTopNav() {
           <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-background border-l border-border p-6">
             <SheetHeader className="text-left pb-4 border-b border-border">
               <SheetTitle className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-                  F
-                </div>
-                <span className="font-bold text-base text-foreground">FALCON</span>
+                <span className="font-extrabold text-xl text-foreground">
+                  FALCON<span className="text-primary font-black">.</span>
+                </span>
                 <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20">ADMIN</Badge>
               </SheetTitle>
             </SheetHeader>

@@ -43,15 +43,10 @@ export function StudentTopNav() {
     <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 sm:px-6 lg:px-10 transition-colors duration-200">
       {/* Brand Logo */}
       <div className="flex items-center gap-3">
-        <Link href="/student/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0 group">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-base shadow-sm transition-transform duration-200 group-hover:scale-105">
-            F
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-base tracking-tight text-foreground">
-              FALCON
-            </span>
-          </div>
+        <Link href="/student/dashboard" suppressHydrationWarning className="flex items-center gap-2 shrink-0 group">
+          <span className="font-extrabold text-xl tracking-tight text-foreground">
+            FALCON<span className="text-primary font-black">.</span>
+          </span>
         </Link>
       </div>
 
@@ -99,11 +94,10 @@ export function StudentTopNav() {
           </SheetTrigger>
           <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-background border-l border-border p-6">
             <SheetHeader className="text-left pb-4 border-b border-border">
-              <SheetTitle className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-                  F
-                </div>
-                <span className="font-bold text-base text-foreground">FALCON</span>
+              <SheetTitle className="flex items-center gap-2">
+                <span className="font-extrabold text-xl text-foreground">
+                  FALCON<span className="text-primary font-black">.</span>
+                </span>
               </SheetTitle>
             </SheetHeader>
 

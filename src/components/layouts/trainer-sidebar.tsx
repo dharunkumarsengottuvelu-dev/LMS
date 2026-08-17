@@ -35,11 +35,10 @@ export function TrainerSidebar() {
   const sidebarContent = (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-4 py-5 border-b border-border">
-        <div className="w-8 h-8 rounded-lg bg-brand-gradient flex items-center justify-center text-white font-bold text-sm">
-          F
-        </div>
         <div>
-          <p className="font-bold text-sm" style={{ fontFamily: "Sora, sans-serif" }}>FALCON</p>
+          <p className="font-extrabold text-xl tracking-tight" style={{ fontFamily: "Sora, sans-serif" }}>
+            FALCON<span className="text-[#9333EA] font-black">.</span>
+          </p>
           <p className="text-xs text-muted-foreground">Trainer Panel</p>
         </div>
       </div>
