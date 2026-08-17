@@ -408,11 +408,46 @@ export function PracticeRunnerEngine({
     });
   };
 
-  const handleAnswerSelect = (questionId: string, optionId: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: optionId,
-    }));
+  const isMultiSelectQuestion = (q: PracticeQuestion) => {
+    if (q.type === "multiple_choice" || (q as any).questionType === "multiple") return true;
+    const correctCount = (q.options || []).filter(o => o.isCorrect).length;
+    return correctCount > 1;
+  };
+
+  const isOptionSelected = (questionId: string, optionId: string) => {
+    const ans = answers[questionId];
+    if (!ans) return false;
+    if (Array.isArray(ans)) return ans.includes(optionId);
+    if (typeof ans === "string") return ans === optionId;
+    return false;
+  };
+
+  const handleAnswerSelect = (question: PracticeQuestion, optionId: string) => {
+    const isMulti = isMultiSelectQuestion(question);
+    setAnswers((prev) => {
+      const existing = prev[question.id];
+      if (isMulti) {
+        const currentList: string[] = Array.isArray(existing)
+          ? existing
+          : typeof existing === "string" && existing
+          ? [existing]
+          : [];
+        const isAlreadySelected = currentList.includes(optionId);
+        const updatedList = isAlreadySelected
+          ? currentList.filter((id) => id !== optionId)
+          : [...currentList, optionId];
+        return {
+          ...prev,
+          [question.id]: updatedList,
+        };
+      } else {
+        // Single choice: select this option as a single-element array for clean consistency
+        return {
+          ...prev,
+          [question.id]: [optionId],
+        };
+      }
+    });
   };
 
   const handleClearAnswer = (questionId: string) => {
@@ -427,6 +462,7 @@ export function PracticeRunnerEngine({
     const ans = answers[questionId];
     if (!ans) return false;
     if (Array.isArray(ans) && ans.length > 0) return true;
+    if (typeof ans === "string" && ans.trim().length > 0) return true;
     if (typeof ans === "object" && ans.code && ans.code.trim().length > 0) return true;
     return false;
   };
@@ -703,13 +739,30 @@ export function PracticeRunnerEngine({
           <div className="flex-1 min-w-0 space-y-6">
             <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden">
               <CardHeader className="p-6 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
-                <div className="space-y-1">
-                  <span className="text-[11px] font-bold tracking-wider uppercase text-[#2563EB]">
-                    {(module as any).mcqSectionTitle || "Section 1: MCQs"} • Question {mcqIndex + 1} of {mcqQuestions.length}
-                  </span>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-bold tracking-wider uppercase text-[#2563EB]">
+                      {(module as any).mcqSectionTitle || "Section 1: MCQs"} • Question {mcqIndex + 1} of {mcqQuestions.length}
+                    </span>
+                    <Badge
+                      className={cn(
+                        "text-[10px] font-bold px-2.5 py-0.5 rounded-lg",
+                        isMultiSelectQuestion(currentQuestion)
+                          ? "bg-[#9333EA]/10 text-[#9333EA] border border-[#9333EA]/30"
+                          : "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/30"
+                      )}
+                    >
+                      {isMultiSelectQuestion(currentQuestion) ? "Multiple Choice (Checkboxes)" : "Single Choice (Radio)"}
+                    </Badge>
+                  </div>
                   <CardTitle className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">
                     {currentQuestion.text || currentQuestion.title}
                   </CardTitle>
+                  {isMultiSelectQuestion(currentQuestion) && (
+                    <p className="text-[11px] font-semibold text-[#9333EA]">
+                      * You can select multiple correct options for this question.
+                    </p>
+                  )}
                 </div>
                 {currentQuestion.marks && (
                   <Badge variant="outline" className="text-xs font-bold bg-[#F9FAFB] dark:bg-[#09090B]">
@@ -726,31 +779,49 @@ export function PracticeRunnerEngine({
                     </div>
                   ) : (
                     currentQuestion.options.map((option, idx) => {
-                      const isSelected = answers[currentQuestion.id] === option.id;
+                      const isMulti = isMultiSelectQuestion(currentQuestion);
+                      const isSelected = isOptionSelected(currentQuestion.id, option.id);
                       return (
                         <button
                           key={option.id || idx}
                           type="button"
-                          onClick={() => handleAnswerSelect(currentQuestion.id, option.id)}
+                          onClick={() => handleAnswerSelect(currentQuestion, option.id)}
                           className={cn(
-                            "w-full p-4 rounded-xl text-left border transition-all duration-200 flex items-center justify-between group text-xs font-medium",
+                            "w-full p-4 rounded-xl text-left border transition-all duration-200 flex items-center justify-between group text-xs font-medium cursor-pointer",
                             isSelected
-                              ? "border-[#2563EB] bg-[#2563EB]/5 text-[#2563EB] ring-1 ring-[#2563EB] shadow-xs"
+                              ? isMulti
+                                ? "border-[#9333EA] bg-[#9333EA]/5 text-[#9333EA] ring-1 ring-[#9333EA] shadow-xs"
+                                : "border-[#2563EB] bg-[#2563EB]/5 text-[#2563EB] ring-1 ring-[#2563EB] shadow-xs"
                               : "border-[#E5E7EB] dark:border-[#27272A] hover:border-slate-300 dark:hover:border-zinc-700 bg-white dark:bg-[#18181B] text-[#374151] dark:text-[#D1D5DB]"
                           )}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
                             <div className={cn(
-                              "w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold border transition-colors",
+                              "w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold border transition-colors shrink-0",
                               isSelected
-                                ? "bg-[#2563EB] text-white border-[#2563EB]"
+                                ? isMulti
+                                  ? "bg-[#9333EA] text-white border-[#9333EA]"
+                                  : "bg-[#2563EB] text-white border-[#2563EB]"
                                 : "bg-muted border-border text-muted-foreground group-hover:border-foreground/40"
                             )}>
                               {String.fromCharCode(65 + idx)}
                             </div>
                             <span className="leading-snug">{option.text}</span>
                           </div>
-                          {isSelected && <CheckCircle2 className="h-5 w-5 text-[#2563EB] shrink-0" />}
+                          {isSelected ? (
+                            isMulti ? (
+                              <div className="w-5 h-5 rounded-md bg-[#9333EA] text-white flex items-center justify-center shrink-0 shadow-xs">
+                                <Check className="h-3.5 w-3.5 stroke-[3]" />
+                              </div>
+                            ) : (
+                              <CheckCircle2 className="h-5 w-5 text-[#2563EB] shrink-0" />
+                            )
+                          ) : (
+                            <div className={cn(
+                              "w-5 h-5 border-2 border-[#D1D5DB] dark:border-[#3F3F46] shrink-0",
+                              isMulti ? "rounded-md" : "rounded-full"
+                            )} />
+                          )}
                         </button>
                       );
                     })

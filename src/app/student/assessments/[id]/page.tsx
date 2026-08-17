@@ -250,8 +250,12 @@ export default function AssessmentTakePage() {
 
       const formattedQuestions: PracticeQuestion[] = [];
 
-      // A. Extract MCQ Questions
-      const mcqs = targetSubModule.mcqQuestions || [];
+      // A. Extract MCQ Questions (from direct list or sub-module sections)
+      let mcqs = targetSubModule.mcqQuestions || [];
+      if (mcqs.length === 0 && targetSubModule.sections && Array.isArray(targetSubModule.sections)) {
+        mcqs = targetSubModule.sections.flatMap((s: any) => s.mcqQuestions || []);
+      }
+
       mcqs.forEach((q: any, idx: number) => {
         const rawOptions = q.options || [];
         const normalizedOptions = rawOptions.map((opt: any, oIdx: number) => {
@@ -279,8 +283,12 @@ export default function AssessmentTakePage() {
         });
       });
 
-      // B. Extract Coding Questions
-      const codingProbs = targetSubModule.codingQuestions || targetSubModule.codingProblems || [];
+      // B. Extract Coding Questions (from direct list, sub-module sections, or problems)
+      let codingProbs = targetSubModule.codingQuestions || targetSubModule.codingProblems || [];
+      if (codingProbs.length === 0 && targetSubModule.sections && Array.isArray(targetSubModule.sections)) {
+        codingProbs = targetSubModule.sections.flatMap((s: any) => s.codingQuestions || []);
+      }
+
       if (codingProbs.length > 0) {
         codingProbs.forEach((cq: any, idx: number) => {
           const testCases = (cq.publicTestCases || cq.testCases || cq.sample_test_cases || []).map((tc: any, tcIdx: number) => ({
@@ -318,32 +326,24 @@ export default function AssessmentTakePage() {
           type: "coding",
           section: "coding",
           title: targetSubModule.title || "Coding Problem",
-          text: targetSubModule.problemDescription || "Write a program that solves the problem and passes all test cases.",
+          text: targetSubModule.problemDescription || targetSubModule.description || "Solve the problem according to requirements.",
           marks: 50,
           difficulty: "medium",
           starterCode: {
-            python: targetSubModule.starterCode || "# Write Python code here\n",
-            java: targetSubModule.starterCode || "// Write Java code here\n",
-            cpp: targetSubModule.starterCode || "// Write C++ code here\n",
-            javascript: targetSubModule.starterCode || "// Write JavaScript code here\n",
-            c: targetSubModule.starterCode || "/* Write C code here */\n"
+            python: targetSubModule.starterCode || "# Write code here\n",
+            java: targetSubModule.starterCode || "// Write Java code here\n"
           },
           testCases: targetSubModule.publicTestCases ? [
-            { id: "tc_1", input: targetSubModule.publicTestCases, expected_output: "" }
+            { id: "tc_1", input: targetSubModule.publicTestCases, expected_output: "1", is_hidden: false }
           ] : []
         });
       }
 
       setQuestions(formattedQuestions);
+      setLoading(false);
     } catch (err: any) {
-      console.error("Error fetching sub-module questions:", err);
-      setErrorMsg(err.message || "Failed to load practice questions.");
-      toast({
-        title: "Error Loading Practice",
-        description: err.message || "Failed to load practice questions.",
-        variant: "destructive",
-      });
-    } finally {
+      console.error("Error loading assessment data:", err);
+      setErrorMsg(err.message || "Failed to load assessment data.");
       setLoading(false);
     }
   };
@@ -362,9 +362,18 @@ export default function AssessmentTakePage() {
         const cqAns = answers[q.id];
         if (cqAns && cqAns.code) obtainedMarks += (q.marks || 20);
       } else {
-        const studentAns = answers[q.id];
+        const rawStudentAns = answers[q.id];
+        const studentAnsArray: string[] = Array.isArray(rawStudentAns)
+          ? rawStudentAns
+          : typeof rawStudentAns === "string" && rawStudentAns
+          ? [rawStudentAns]
+          : [];
         const correctOpts = q.options?.filter(o => o.isCorrect).map(o => o.id) || [];
-        if (Array.isArray(studentAns) && studentAns.length === correctOpts.length && studentAns.every(id => correctOpts.includes(id))) {
+        if (
+          studentAnsArray.length > 0 &&
+          studentAnsArray.length === correctOpts.length &&
+          studentAnsArray.every(id => correctOpts.includes(id))
+        ) {
           obtainedMarks += (q.marks || 10);
         }
       }
