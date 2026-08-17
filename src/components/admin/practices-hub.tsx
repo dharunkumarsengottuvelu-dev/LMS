@@ -104,6 +104,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [tracks, setTracks] = useState<PracticeTrack[]>([]);
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [allBatches, setAllBatches] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -111,27 +112,22 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         const res = await fetch("/api/admin/practices");
         const data = await res.json();
         if (data.tracks) {
-          let loadedTracks = data.tracks;
-          // Check if local storage has any tracks to migrate
-          if (typeof window !== "undefined") {
-            const local = localStorage.getItem("enterprise_lms_practice_tracks_v2");
-            if (local) {
-              try {
-                const localTracks = JSON.parse(local);
-                if (localTracks && localTracks.length > 0 && loadedTracks.length === 0) {
-                  loadedTracks = localTracks;
-                  await fetch("/api/admin/practices", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ tracks: localTracks })
-                  });
-                }
-              } catch (e) {
-                console.error("Local tracks migration error", e);
+          // Deduplicate tracks by title
+          const seen = new Map<string, PracticeTrack>();
+          data.tracks.forEach((t: PracticeTrack) => {
+            const norm = (t.title || "").trim().toLowerCase();
+            if (!norm) return;
+            if (!seen.has(norm)) {
+              seen.set(norm, t);
+            } else {
+              const existing = seen.get(norm)!;
+              if ((t.subModules?.length || 0) > (existing.subModules?.length || 0)) {
+                seen.set(norm, t);
               }
             }
-          }
-          setTracks(loadedTracks);
+          });
+          const unique = Array.from(seen.values());
+          setTracks(unique);
         }
         if (data.students) setAllStudents(data.students);
         if (data.batches) setAllBatches(data.batches);
@@ -578,10 +574,26 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   };
 
   const syncTracksToStore = async (newTracks: PracticeTrack[]) => {
-    setTracks(newTracks);
+    // Deduplicate list before saving
+    const seen = new Map<string, PracticeTrack>();
+    newTracks.forEach((t) => {
+      const norm = (t.title || "").trim().toLowerCase();
+      if (!norm) return;
+      if (!seen.has(norm)) {
+        seen.set(norm, t);
+      } else {
+        const existing = seen.get(norm)!;
+        if ((t.subModules?.length || 0) >= (existing.subModules?.length || 0)) {
+          seen.set(norm, t);
+        }
+      }
+    });
+    const uniqueTracks = Array.from(seen.values());
+    setTracks(uniqueTracks);
+
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem("enterprise_lms_practice_tracks_v2", JSON.stringify(newTracks));
+        localStorage.setItem("enterprise_lms_practice_tracks_v2", JSON.stringify(uniqueTracks));
       } catch (e) {
         console.warn("Local storage track sync warning", e);
       }
@@ -590,7 +602,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       const res = await fetch("/api/admin/practices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tracks: newTracks })
+        body: JSON.stringify({ tracks: uniqueTracks })
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -603,46 +615,102 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fTitle) return;
-    const created: PracticeTrack = {
-      id: `track_${Date.now()}`,
-      title: fTitle, category: fCategory || "General",
-      description: fDesc || "New practice track for students.",
-      assignedByName: fAssignedBy || (role === "admin" ? "Admin" : "Trainer"),
-      subModules: [], assignedBatches: [], assignedStudents: [],
-      maxAttempts: fMaxAttempts,
-      allowResume: fAllowResume,
-      scoreRetentionPolicy: fScorePolicy,
-      allowReviewBeforeSubmit: fAllowReviewBeforeSubmit,
-    };
-    const updated = [created, ...tracks];
-    await syncTracksToStore(updated);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("draft_practice_track");
+    if (!fTitle.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const normalizedNewTitle = fTitle.trim().toLowerCase();
+      const existingTrack = tracks.find(
+        (t) => (t.title || "").trim().toLowerCase() === normalizedNewTitle
+      );
+
+      if (existingTrack) {
+        // If track with same title already exists, update it rather than creating a duplicate
+        const updated = tracks.map((t) =>
+          t.id === existingTrack.id
+            ? {
+                ...t,
+                category: fCategory || t.category || "General",
+                description: fDesc || t.description,
+                assignedByName: fAssignedBy || t.assignedByName,
+                maxAttempts: fMaxAttempts,
+                allowResume: fAllowResume,
+                scoreRetentionPolicy: fScorePolicy,
+                allowReviewBeforeSubmit: fAllowReviewBeforeSubmit,
+              }
+            : t
+        );
+        await syncTracksToStore(updated);
+        toast({
+          title: "Track Updated",
+          description: `Track "${fTitle.trim()}" already exists and was updated with your latest changes.`,
+        });
+      } else {
+        const created: PracticeTrack = {
+          id: `track_${Date.now()}`,
+          title: fTitle.trim(),
+          category: fCategory || "General",
+          description: fDesc || "New practice track for students.",
+          assignedByName: fAssignedBy || (role === "admin" ? "Admin" : "Trainer"),
+          subModules: [],
+          assignedBatches: [],
+          assignedStudents: [],
+          maxAttempts: fMaxAttempts,
+          allowResume: fAllowResume,
+          scoreRetentionPolicy: fScorePolicy,
+          allowReviewBeforeSubmit: fAllowReviewBeforeSubmit,
+        };
+        const updated = [created, ...tracks];
+        await syncTracksToStore(updated);
+        toast({
+          title: "Practice Track Created",
+          description: `"${fTitle.trim()}" saved and published.`,
+        });
+      }
+
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("draft_practice_track");
+      }
+      setViewState("list");
+    } catch (err) {
+      console.error("Create track error:", err);
+      toast({
+        title: "Error",
+        description: "Failed to create practice track.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-    setViewState("list");
-    toast({ title: "Practice Track Created", description: `"${fTitle}" saved and assigned to students.` });
   };
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingId) return;
-    const updated = tracks.map((t) =>
-      t.id === editingId ? {
-        ...t,
-        title: fTitle,
-        category: fCategory,
-        description: fDesc,
-        assignedByName: fAssignedBy,
-        maxAttempts: fMaxAttempts,
-        allowResume: fAllowResume,
-        scoreRetentionPolicy: fScorePolicy,
-        allowReviewBeforeSubmit: fAllowReviewBeforeSubmit,
-      } : t
-    );
-    await syncTracksToStore(updated);
-    setViewState("list");
-    toast({ title: "Practice Track Updated", description: `"${fTitle}" saved.` });
+    if (!editingId || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const updated = tracks.map((t) =>
+        t.id === editingId
+          ? {
+              ...t,
+              title: fTitle.trim(),
+              category: fCategory,
+              description: fDesc,
+              assignedByName: fAssignedBy,
+              maxAttempts: fMaxAttempts,
+              allowResume: fAllowResume,
+              scoreRetentionPolicy: fScorePolicy,
+              allowReviewBeforeSubmit: fAllowReviewBeforeSubmit,
+            }
+          : t
+      );
+      await syncTracksToStore(updated);
+      setViewState("list");
+      toast({ title: "Practice Track Updated", description: `"${fTitle}" saved.` });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDelete = async (id: string, title: string) => {
@@ -728,45 +796,51 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     
     setSelectedTrack(updatedTrack);
     const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
-    syncTracksToStore(updatedTracks);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("draft_practice_submodule");
+    
+    setIsSubmitting(true);
+    try {
+      await syncTracksToStore(updatedTracks);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("draft_practice_submodule");
+      }
+      setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
+      setSmHasHiddenTests(false); setSmHiddenTests("");
+      setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
+      setSmMcqSectionTitle("Section 1: MCQs");
+      setSmCodingSectionTitle("Section 2: Coding");
+      setSmRestrictCopyPaste(false);
+      setSmEnforceFullScreen(false);
+      setSmMaxAttempts(0);
+      setSmAllowResume(true);
+      setSmScorePolicy("best");
+      setSmAllowReviewBeforeSubmit(true);
+      setIsFullScreenAuthoring(false);
+      setEditingSubModuleId(null);
+      setSections([
+        {
+          id: "sec_1",
+          title: "Section 1: General & Technical Questions",
+          mcqQuestions: [
+            {
+              id: "q1",
+              questionText: "",
+              options: [
+                { id: "o1", text: "", isCorrect: true },
+                { id: "o2", text: "", isCorrect: false },
+                { id: "o3", text: "", isCorrect: false },
+                { id: "o4", text: "", isCorrect: false },
+              ],
+              explanation: "",
+            },
+          ],
+          codingQuestions: [],
+        },
+      ]);
+      setViewState("detail");
+      toast({ title: editingSubModuleId ? "Sub-Module Updated" : "Sub-Module Added", description: `"${smTitle}" saved.` });
+    } finally {
+      setIsSubmitting(false);
     }
-    setSmTitle(""); setSmDuration(30); setSmMarks(100); setSmQuestions(10);
-    setSmHasHiddenTests(false); setSmHiddenTests("");
-    setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
-    setSmMcqSectionTitle("Section 1: MCQs");
-    setSmCodingSectionTitle("Section 2: Coding");
-    setSmRestrictCopyPaste(false);
-    setSmEnforceFullScreen(false);
-    setSmMaxAttempts(0);
-    setSmAllowResume(true);
-    setSmScorePolicy("best");
-    setSmAllowReviewBeforeSubmit(true);
-    setIsFullScreenAuthoring(false);
-    setEditingSubModuleId(null);
-    setSections([
-      {
-        id: "sec_1",
-        title: "Section 1: General & Technical Questions",
-        mcqQuestions: [
-          {
-            id: "q1",
-            questionText: "",
-            options: [
-              { id: "o1", text: "", isCorrect: true },
-              { id: "o2", text: "", isCorrect: false },
-              { id: "o3", text: "", isCorrect: false },
-              { id: "o4", text: "", isCorrect: false },
-            ],
-            explanation: "",
-          },
-        ],
-        codingQuestions: [],
-      },
-    ]);
-    setViewState("detail");
-    toast({ title: editingSubModuleId ? "Sub-Module Updated" : "Sub-Module Added", description: `"${smTitle}" saved.` });
   };
 
   const handleEditSubModule = (trackId: string, smId: string) => {
@@ -865,23 +939,29 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setSelectedStudentIds((p) => p.includes(id) ? p.filter((s) => s !== id) : [...p, id]);
 
   const handleSaveAssign = async () => {
-    if (!selectedTrack) return;
-    const updatedTracks = tracks.map((t) =>
-      t.id === selectedTrack.id
-        ? {
-            ...t,
-            isCommon,
-            assignedBatches: isCommon ? [] : selectedBatches,
-            assignedStudents: selectedStudentIds,
-          }
-        : t
-    );
-    await syncTracksToStore(updatedTracks);
-    toast({
-      title: "Practice Track Visibility Updated",
-      description: `Track configured as ${isCommon ? "Common (All Students)" : `${selectedBatches.length} batch(es)`}.`,
-    });
-    setViewState("list");
+    if (!selectedTrack || isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const updatedTracks = tracks.map((t) =>
+        t.id === selectedTrack.id
+          ? {
+              ...t,
+              isCommon,
+              assignedBatches: isCommon ? [] : selectedBatches,
+              assignedStudents: selectedStudentIds,
+            }
+          : t
+      );
+      await syncTracksToStore(updatedTracks);
+      toast({
+        title: "Practice Track Visibility Updated",
+        description: `Track configured as ${isCommon ? "Common (All Students)" : `${selectedBatches.length} batch(es)`}.`,
+      });
+      setViewState("list");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const displayStudents = batchFilter === "all" ? allStudents : allStudents.filter((s) => s.batch === batchFilter);
@@ -1062,10 +1142,19 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             </div>
 
             <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-              <Button type="button" variant="outline" onClick={() => setViewState("list")} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
-              <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
-                {isEdit ? <Save className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-                {isEdit ? "Save Changes" : "Create Practice Track"}
+              <Button type="button" variant="outline" onClick={() => setViewState("list")} disabled={isSubmitting} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
+              <Button type="submit" disabled={isSubmitting} className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
+                {isSubmitting ? (
+                  <>
+                    <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    {isEdit ? <Save className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                    <span>{isEdit ? "Save Changes" : "Create Practice Track"}</span>
+                  </>
+                )}
               </Button>
             </div>
           </form>
@@ -1663,9 +1752,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             </div>
 
             <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-              <Button type="button" variant="outline" onClick={() => { setEditingSubModuleId(null); setViewState("detail"); }} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
-              <Button type="submit" className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
-                {editingSubModuleId ? "Update Sub-Module" : "Add Sub-Module"}
+              <Button type="button" variant="outline" onClick={() => { setEditingSubModuleId(null); setViewState("detail"); }} disabled={isSubmitting} className="h-[48px] px-6 font-semibold text-xs rounded-xl border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
+              <Button type="submit" disabled={isSubmitting} className="h-[48px] px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm">
+                {isSubmitting ? (
+                  <>
+                    <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>{editingSubModuleId ? "Update Sub-Module" : "Add Sub-Module"}</span>
+                )}
               </Button>
             </div>
           </form>
@@ -1689,9 +1785,18 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           }
           backAction={{ label: "Back", onClick: () => setViewState("list") }}
           actions={
-            <Button onClick={handleSaveAssign}
+            <Button onClick={handleSaveAssign} disabled={isSubmitting}
               className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm shrink-0">
-              <CheckCircle2 className="h-4 w-4" /> Save Assignment ({selectedStudentIds.length})
+              {isSubmitting ? (
+                <>
+                  <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" /> Save Assignment ({selectedStudentIds.length})
+                </>
+              )}
             </Button>
           }
         />

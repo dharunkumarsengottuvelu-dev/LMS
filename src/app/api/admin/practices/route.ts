@@ -16,7 +16,46 @@ export async function GET() {
       console.error("Error fetching practice tracks:", tracksError);
     }
 
-    const mappedTracks = (dbTracks || []).map((t: any) => {
+    // Deduplicate any duplicate rows created by repeated clicks
+    const seenTitles = new Map<string, any>();
+    const duplicateIdsToDelete: string[] = [];
+
+    (dbTracks || []).forEach((t: any) => {
+      const normalizedTitle = (t.title || "").trim().toLowerCase();
+      if (!normalizedTitle) return;
+
+      if (!seenTitles.has(normalizedTitle)) {
+        seenTitles.set(normalizedTitle, t);
+      } else {
+        const existing = seenTitles.get(normalizedTitle);
+        const existingSubCount = Array.isArray(existing.sub_modules) ? existing.sub_modules.length : 0;
+        const currentSubCount = Array.isArray(t.sub_modules) ? t.sub_modules.length : 0;
+        
+        // If current has more content, keep current and mark previous as duplicate
+        if (currentSubCount > existingSubCount) {
+          if (existing.id) duplicateIdsToDelete.push(existing.id);
+          seenTitles.set(normalizedTitle, t);
+        } else {
+          if (t.id) duplicateIdsToDelete.push(t.id);
+        }
+      }
+    });
+
+    // Delete redundant duplicate rows asynchronously if any found
+    if (duplicateIdsToDelete.length > 0) {
+      try {
+        await adminClient
+          .from("practice_tracks")
+          .delete()
+          .in("id", duplicateIdsToDelete);
+      } catch (e) {
+        console.warn("Duplicate cleanup warning:", e);
+      }
+    }
+
+    const uniqueTracks = Array.from(seenTitles.values());
+
+    const mappedTracks = uniqueTracks.map((t: any) => {
       let meta: any = {};
       if (t.tags && t.tags[0]) {
         try {
@@ -184,10 +223,21 @@ export async function POST(request: NextRequest) {
     const adminClient = createAdminClient();
     const body = await request.json();
     const { track, tracks } = body;
-
     const tracksToSave = tracks || (track ? [track] : []);
 
+    // Deduplicate incoming tracksToSave by normalized title
+    const seenIncomingTitles = new Set<string>();
+    const deduplicatedTracksToSave: any[] = [];
     for (const t of tracksToSave) {
+      const norm = (t.title || "").trim().toLowerCase();
+      if (!norm) continue;
+      if (!seenIncomingTitles.has(norm)) {
+        seenIncomingTitles.add(norm);
+        deduplicatedTracksToSave.push(t);
+      }
+    }
+
+    for (const t of deduplicatedTracksToSave) {
       const assignedBatches: string[] = t.assignedBatches || t.assigned_batches || [];
       const isCommon: boolean =
         t.isCommon !== undefined ? t.isCommon : assignedBatches.length === 0;
@@ -201,13 +251,8 @@ export async function POST(request: NextRequest) {
         status: t.status || "published",
       };
 
-      const problemsCount = subModulesArray.reduce(
-        (acc: number, sm: any) => acc + (sm.questionCount || 1),
-        0
-      );
-
       const payload: any = {
-        title: t.title,
+        title: t.title.trim(),
         category: t.category || "General",
         difficulty: t.difficulty || "medium",
         description: t.description || "",
@@ -224,12 +269,13 @@ export async function POST(request: NextRequest) {
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t.id);
       let trackId: string | null = isUUID ? t.id : null;
 
-      if (!trackId && t.title) {
+      // Check if a track with this title already exists in DB
+      if (t.title) {
         try {
           const { data: existing } = await adminClient
             .from("practice_tracks")
             .select("id")
-            .eq("title", t.title)
+            .ilike("title", t.title.trim())
             .limit(1);
           if (existing && existing.length > 0 && existing[0]?.id) {
             trackId = existing[0].id;
@@ -249,7 +295,6 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
         if (error) {
           console.warn("Upsert with ID warning:", error);
-          // Fallback to update
           const { data: updatedData } = await adminClient
             .from("practice_tracks")
             .update(payload)
