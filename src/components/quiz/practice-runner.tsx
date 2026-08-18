@@ -770,15 +770,17 @@ export function PracticeRunnerEngine({
             <span>•</span>
             <span>Total Questions: <strong>{totalQuestions} ({mcqQuestions.length} MCQs, {codingQuestions.length} Coding Problems)</strong></span>
             <span>•</span>
-            <span>Max Marks: <strong>{module.totalMarks || 100}</strong></span>
+            <span>Max Marks: <strong>{module.totalMarks > 0 ? module.totalMarks : questions.reduce((sum, q) => sum + (q.marks || 0), 0)}</strong></span>
           </div>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-            <Clock className="h-4 w-4 text-[#2563EB]" />
-            <span>{isUntimed ? "No Time Limit" : formatTimerDisplay(timeLeft)}</span>
-          </div>
+          {!isUntimed && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+              <Clock className="h-4 w-4 text-[#2563EB]" />
+              <span>{formatTimerDisplay(timeLeft)}</span>
+            </div>
+          )}
           <Button
             onClick={handleInitiateSubmit}
             className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-1.5 rounded-xl shadow-sm"
@@ -907,6 +909,11 @@ export function PracticeRunnerEngine({
                       )}>
                         {activeCodingProblem.difficulty}
                       </Badge>
+                      {currentQuestion?.marks && (
+                        <Badge variant="outline" className="text-[10px] font-bold uppercase px-2.5 py-0.5 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/10">
+                          +{currentQuestion.marks} Marks
+                        </Badge>
+                      )}
                     </div>
                     <button
                       type="button"
