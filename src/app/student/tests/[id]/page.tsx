@@ -57,7 +57,8 @@ export default function StudentTestRunnerPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, any>>({});
   const [markedForReview, setMarkedForReview] = useState<Record<number, boolean>>({});
-  const [timeLeft, setTimeLeft] = useState(currentTest.duration * 60);
+  const isUntimed = !currentTest.duration || currentTest.duration <= 0;
+  const [timeLeft, setTimeLeft] = useState(isUntimed ? 0 : currentTest.duration * 60);
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [isExamSubmitted, setIsExamSubmitted] = useState<boolean>(() => {
@@ -338,9 +339,9 @@ export default function StudentTestRunnerPage() {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Countdown Timer Effect — stops immediately when submitted, dialog is open, or expired
+  // Countdown Timer Effect — stops immediately when untimed, submitted, dialog is open, or expired
   useEffect(() => {
-    if (isExamSubmitted || timeLeft <= 0 || isSubmitDialogOpen) {
+    if (isExamSubmitted || isUntimed || timeLeft <= 0 || isSubmitDialogOpen) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -371,7 +372,7 @@ export default function StudentTestRunnerPage() {
         timerRef.current = null;
       }
     };
-  }, [timeLeft, isExamSubmitted, isSubmitDialogOpen, toast]);
+  }, [timeLeft, isExamSubmitted, isUntimed, isSubmitDialogOpen, toast]);
 
   const handleCopyPasteAttempt = (e: React.SyntheticEvent) => {
     if (isCopyPasteBlocked) {
@@ -613,11 +614,13 @@ export default function StudentTestRunnerPage() {
               )}
             </Button>
 
-            <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-sm font-bold border ${
-              timeLeft < 300 ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30 animate-pulse" : "bg-[#F9FAFB] dark:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA] border-[#E5E7EB] dark:border-[#27272A]"
-            }`}>
-              <Clock className="h-4 w-4 text-[#2563EB]" /> {formatTime(timeLeft)}
-            </div>
+            {!isUntimed && (
+              <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-mono text-sm font-bold border ${
+                timeLeft < 300 ? "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30 animate-pulse" : "bg-[#F9FAFB] dark:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA] border-[#E5E7EB] dark:border-[#27272A]"
+              }`}>
+                <Clock className="h-4 w-4 text-[#2563EB]" /> {formatTime(timeLeft)}
+              </div>
+            )}
 
             {!isExamSubmitted ? (
               <Button className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold gap-2 shrink-0" onClick={() => setIsSubmitDialogOpen(true)}>

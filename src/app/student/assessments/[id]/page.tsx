@@ -189,7 +189,7 @@ export default function AssessmentTakePage() {
                 id: foundAssess.id,
                 title: foundAssess.title,
                 type: foundAssess.type || "mixed",
-                durationMinutes: foundAssess.duration_minutes || foundAssess.duration || 60,
+                durationMinutes: typeof foundAssess.duration_minutes === "number" ? foundAssess.duration_minutes : (typeof foundAssess.duration === "number" ? foundAssess.duration : 0),
                 totalMarks: foundAssess.total_marks || 100,
                 mcqQuestions: foundAssess.mcqQuestions || foundAssess.questions || [],
                 codingQuestions: foundAssess.codingQuestions || [],
@@ -228,12 +228,21 @@ export default function AssessmentTakePage() {
         return;
       }
 
+      const parsedDuration =
+        typeof targetSubModule.durationMinutes === "number"
+          ? targetSubModule.durationMinutes
+          : typeof targetSubModule.duration_minutes === "number"
+          ? targetSubModule.duration_minutes
+          : typeof targetSubModule.duration === "number"
+          ? targetSubModule.duration
+          : 0;
+
       setCurrentSubModule({
         id: targetSubModule.id,
         title: targetSubModule.title || "Interactive Practice Module",
         type: targetSubModule.type || "mixed",
         assignedBy: targetTrack?.assignedByName || targetTrack?.assigned_by_name || "Admin",
-        durationMinutes: targetSubModule.durationMinutes || targetSubModule.duration_minutes || 60,
+        durationMinutes: parsedDuration,
         totalMarks: targetSubModule.totalMarks || targetSubModule.total_marks || 100,
         passingMarks: Math.floor((targetSubModule.totalMarks || targetSubModule.total_marks || 100) / 2),
         maxAttempts: targetSubModule.maxAttempts ?? targetTrack?.maxAttempts ?? 0,

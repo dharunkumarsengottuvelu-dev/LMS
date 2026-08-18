@@ -45,46 +45,46 @@ export async function POST(request: NextRequest) {
       testCases = (problem.test_cases as TestCase[]).filter(tc => !tc.is_hidden);
       datasetName = problem.dataset_name ?? "university";
     }
-    const testResults: TestCaseResult[] = [];
+    // Evaluate each testcase concurrently in parallel
+    const testResults: TestCaseResult[] = await Promise.all(
+      testCases.map(async (tc: TestCase) => {
+        let passed = false;
+        let trimmedActual = "";
+        const trimmedExpected = (tc.expected_output || "").trim();
+        let resError: string | undefined;
 
-    // Evaluate each test case
-    for (const tc of testCases) {
-      let passed = false;
-      let trimmedActual = "";
-      let trimmedExpected = (tc.expected_output || "").trim();
-      let resError: string | undefined;
-
-      if (language === "sql") {
-        const sqlRes = SQLExecutionService.executeQuery(code, datasetName);
-        if (sqlRes.error) {
-          passed = false;
-          resError = sqlRes.error;
-          trimmedActual = sqlRes.error;
+        if (language === "sql") {
+          const sqlRes = SQLExecutionService.executeQuery(code, datasetName);
+          if (sqlRes.error) {
+            passed = false;
+            resError = sqlRes.error;
+            trimmedActual = sqlRes.error;
+          } else {
+            trimmedActual = JSON.stringify(sqlRes.rows);
+            passed = SQLExecutionService.compareSQLResults(sqlRes, trimmedExpected);
+          }
         } else {
-          trimmedActual = JSON.stringify(sqlRes.rows);
-          passed = SQLExecutionService.compareSQLResults(sqlRes, trimmedExpected);
+          const res = await jobeService.executeCode(language, code, tc.input);
+          trimmedActual = (res.stdout || "").trim();
+
+          passed =
+            res.outcome === 15 || res.outcome === 0
+              ? trimmedActual === trimmedExpected
+              : false;
+
+          if (!passed) {
+            resError = res.compile_output || res.stderr || res.message || "Output mismatch";
+          }
         }
-      } else {
-        const res = await jobeService.executeCode(language, code, tc.input);
-        trimmedActual = (res.stdout || "").trim();
 
-        passed =
-          res.outcome === 15 || res.outcome === 0
-            ? trimmedActual === trimmedExpected
-            : false;
-
-        if (!passed) {
-          resError = res.compile_output || res.stderr || res.message || "Output mismatch";
-        }
-      }
-
-      testResults.push({
-        test_case_id: tc.id,
-        passed,
-        actual_output: trimmedActual,
-        error: resError,
-      });
-    }
+        return {
+          test_case_id: tc.id,
+          passed,
+          actual_output: trimmedActual,
+          error: resError,
+        };
+      })
+    );
 
     return NextResponse.json({ results: testResults }, { status: 200 });
   } catch (error: unknown) {

@@ -69,77 +69,75 @@ export class SubmissionService {
       datasetName = problem.dataset_name ?? "university";
     }
 
-    const testResults: TestCaseResult[] = [];
-    let passedCount = 0;
-    let overallStatus: SubmissionStatus = "accepted";
-    let firstError: string | undefined;
+    const { jobeService } = await import("@/services/jobe");
 
-    // Evaluate each test case through Jobe or SQLExecutionService
-    for (const tc of testCases) {
-      let passed = false;
-      let trimmedActual = "";
-      let trimmedExpected = (tc.expected_output || "").trim();
-      let resError: string | undefined;
-      let executionTime = 0.02;
+    // Evaluate all test cases concurrently in parallel for blazing fast execution
+    const testResults: TestCaseResult[] = await Promise.all(
+      testCases.map(async (tc) => {
+        let passed = false;
+        let trimmedActual = "";
+        const trimmedExpected = (tc.expected_output || "").trim();
+        let resError: string | undefined;
+        let executionTime = 0.02;
 
-      if (input.language === "sql") {
-        const sqlRes = SQLExecutionService.executeQuery(input.code, datasetName);
-        executionTime = sqlRes.executionTimeMs / 1000;
-        if (sqlRes.error) {
-          passed = false;
-          resError = sqlRes.error;
-          trimmedActual = sqlRes.error;
+        if (input.language === "sql") {
+          const sqlRes = SQLExecutionService.executeQuery(input.code, datasetName);
+          executionTime = sqlRes.executionTimeMs / 1000;
+          if (sqlRes.error) {
+            passed = false;
+            resError = sqlRes.error;
+            trimmedActual = sqlRes.error;
+          } else {
+            trimmedActual = JSON.stringify(sqlRes.rows);
+            passed = SQLExecutionService.compareSQLResults(sqlRes, trimmedExpected);
+          }
         } else {
-          trimmedActual = JSON.stringify(sqlRes.rows);
-          passed = SQLExecutionService.compareSQLResults(sqlRes, trimmedExpected);
+          const cleanInput = (tc.input || "")
+            .replace(/\\r\\n/g, "\n")
+            .replace(/\\n/g, "\n")
+            .replace(/\r\n/g, "\n");
+          const cleanExpected = (tc.expected_output || "")
+            .replace(/\\r\\n/g, "\n")
+            .replace(/\\n/g, "\n")
+            .replace(/\r\n/g, "\n")
+            .trim();
+
+          const res = await jobeService.executeCode(input.language, input.code, cleanInput);
+
+          trimmedActual = (res.stdout || "").trim();
+          executionTime = res.time ? parseFloat(res.time) : 0.02;
+
+          const normalizeOutput = (str: string) =>
+            (str || "").replace(/\r\n/g, "\n").split("\n").map((l) => l.trimEnd()).join("\n").trim();
+
+          const isSuccessStatus = res.status?.id === 3 || res.outcome === 15 || res.outcome === 0;
+          passed = isSuccessStatus && normalizeOutput(trimmedActual) === normalizeOutput(cleanExpected);
+
+          if (!passed) {
+            resError = res.compile_output || res.stderr || res.message || "Output mismatch";
+          }
         }
-      } else {
-        const cleanInput = (tc.input || "")
-          .replace(/\\r\\n/g, "\n")
-          .replace(/\\n/g, "\n")
-          .replace(/\r\n/g, "\n");
-        const cleanExpected = (tc.expected_output || "")
-          .replace(/\\r\\n/g, "\n")
-          .replace(/\\n/g, "\n")
-          .replace(/\r\n/g, "\n")
-          .trim();
 
-        const { jobeService } = await import("@/services/jobe");
-        const res = await jobeService.executeCode(input.language, input.code, cleanInput);
+        return {
+          test_case_id: tc.id,
+          passed,
+          actual_output: tc.is_hidden ? (passed ? "Match" : "Mismatch (Hidden Test Case)") : trimmedActual,
+          expected_output: tc.is_hidden ? "Hidden" : trimmedExpected,
+          error: !passed ? (tc.is_hidden ? "Hidden Test Failed" : (resError || "Output mismatch")) : undefined,
+          time_seconds: executionTime,
+          memory_kb: 12400,
+        };
+      })
+    );
 
-        trimmedActual = (res.stdout || "").trim();
-        executionTime = res.time ? parseFloat(res.time) : 0.02;
-
-        const normalizeOutput = (str: string) =>
-          (str || "").replace(/\r\n/g, "\n").split("\n").map((l) => l.trimEnd()).join("\n").trim();
-
-        const isSuccessStatus = res.status?.id === 3 || res.outcome === 15 || res.outcome === 0;
-        passed = isSuccessStatus && normalizeOutput(trimmedActual) === normalizeOutput(cleanExpected);
-
-        if (!passed) {
-          resError = res.compile_output || res.stderr || res.message || "Output mismatch";
-        }
-      }
-
-      if (passed) {
-        passedCount++;
-      } else if (overallStatus === "accepted") {
-        overallStatus = resError?.includes("Syntax") || resError?.includes("compile")
-          ? "compilation_error"
-          : "wrong_answer";
-        firstError = resError || "Output mismatch";
-      }
-
-      // Prepare sanitized test result (never expose hidden test inputs/expected output to browser)
-      testResults.push({
-        test_case_id: tc.id,
-        passed,
-        actual_output: tc.is_hidden ? (passed ? "Match" : "Mismatch (Hidden Test Case)") : trimmedActual,
-        expected_output: tc.is_hidden ? "Hidden" : trimmedExpected,
-        error: !passed ? (tc.is_hidden ? "Hidden Test Failed" : firstError) : undefined,
-        time_seconds: executionTime,
-        memory_kb: 12400,
-      });
+    const passedCount = testResults.filter((r) => r.passed).length;
+    let overallStatus: SubmissionStatus = "accepted";
+    if (passedCount < testCases.length) {
+      const firstFailed = testResults.find((r) => !r.passed);
+      const err = firstFailed?.error || "";
+      overallStatus = err.includes("Syntax") || err.includes("compile") || err.includes("Compilation")
+        ? "compilation_error"
+        : "wrong_answer";
     }
 
     const submission: CodingSubmission = {

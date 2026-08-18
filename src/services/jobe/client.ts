@@ -13,6 +13,8 @@ import type {
 
 export class JobeService {
   private config: JobeConfig;
+  private static isJobeAvailable: boolean = true;
+  private static lastJobeCheck: number = 0;
 
   constructor(customConfig?: Partial<JobeConfig>) {
     this.config = {
@@ -86,7 +88,7 @@ export class JobeService {
   /**
    * Executes code using the sandboxed execution system.
    * In browser context, dispatches to /api/code/run backend route.
-   * In server context, communicates directly with Jobe server.
+   * In server context, communicates directly with Jobe server with local fast-path.
    */
   public async executeCode(
     language: CodingLanguage | string,
@@ -119,12 +121,29 @@ export class JobeService {
       }
     }
 
-    // 2. Server-side Execution via Jobe API
+    // 2. Server-side Execution
     this.refreshConfig();
 
     const payloadVal = this.validatePayload(code, stdin);
     if (!payloadVal.valid) {
       return this.createErrorResult(payloadVal.error || "Invalid request payload", 400);
+    }
+
+    const isLocalhostJobe = this.config.baseUrl.includes("localhost") || this.config.baseUrl.includes("127.0.0.1");
+    const hasCustomJobeUrl = Boolean(process.env.JOBE_URL);
+    const now = Date.now();
+
+    // Circuit Breaker: if Jobe is not explicitly configured or was recently unreachable, fast-path straight to local compiler
+    const shouldBypassJobe = (!hasCustomJobeUrl && isLocalhostJobe) || (!JobeService.isJobeAvailable && (now - JobeService.lastJobeCheck < 60000));
+
+    if (shouldBypassJobe) {
+      try {
+        const { LocalCompilerService } = await import("@/services/local-compiler.service");
+        return await LocalCompilerService.execute(language, code, stdin ?? "", (limits?.timeLimit ?? 5) * 1000);
+      } catch (localErr) {
+        const msg = getErrorMessage(localErr);
+        return this.createErrorResult(`Execution failed: ${msg}`, 500);
+      }
     }
 
     const { jobeLangId } = this.validateLanguage(language);
@@ -151,8 +170,9 @@ export class JobeService {
     }
 
     const runsUrl = `${this.config.baseUrl}/runs`;
+    const effectiveTimeout = hasCustomJobeUrl ? this.config.timeoutMs : 1500;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
 
     try {
       const response = await fetch(runsUrl, {
@@ -165,14 +185,17 @@ export class JobeService {
       clearTimeout(timeoutId);
 
       if (response.ok) {
+        JobeService.isJobeAvailable = true;
         const jobeResult = (await response.json()) as JobeRunResult;
         return this.normalizeResult(jobeResult);
       }
       
-      console.warn(`Jobe execution service returned HTTP ${response.status}, falling back to local compiler engine.`);
-    } catch (error: unknown) {
+      JobeService.isJobeAvailable = false;
+      JobeService.lastJobeCheck = Date.now();
+    } catch {
       clearTimeout(timeoutId);
-      console.warn("Jobe execution server unreachable, seamlessly executing via local compiler engine:", getErrorMessage(error));
+      JobeService.isJobeAvailable = false;
+      JobeService.lastJobeCheck = Date.now();
     }
 
     // Seamless automatic fallback to local compiler runtime

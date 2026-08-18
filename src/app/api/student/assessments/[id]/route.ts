@@ -75,7 +75,7 @@ export async function GET(
           title: assessment.title,
           description: assessment.description,
           type: assessment.type || "mcq",
-          durationMinutes: assessment.duration_minutes || 60,
+          durationMinutes: typeof assessment.duration_minutes === "number" ? assessment.duration_minutes : (typeof meta.durationMinutes === "number" ? meta.durationMinutes : 0),
           totalMarks: assessment.total_marks || 100,
           passingMarks: assessment.passing_marks || 40,
           isCommon,
@@ -130,13 +130,22 @@ export async function GET(
           );
         }
 
+        const parsedDuration =
+          typeof sm.durationMinutes === "number"
+            ? sm.durationMinutes
+            : typeof sm.duration_minutes === "number"
+            ? sm.duration_minutes
+            : typeof sm.duration === "number"
+            ? sm.duration
+            : 0;
+
         return NextResponse.json({
           assessment: {
             id: sm.id,
             title: sm.title,
             description: sm.description,
             type: sm.type || "coding",
-            durationMinutes: sm.durationMinutes || sm.duration_minutes || 30,
+            durationMinutes: parsedDuration,
             totalMarks: sm.totalMarks || sm.total_marks || 100,
             passingMarks: Math.floor((sm.totalMarks || 100) / 2),
             trackId: t.id,

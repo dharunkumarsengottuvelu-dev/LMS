@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
           id: sm.id,
           title: sm.title,
           type: sm.type || "coding",
-          durationMinutes: sm.durationMinutes || sm.duration_minutes || 30,
+          durationMinutes: typeof sm.durationMinutes === "number" ? sm.durationMinutes : (typeof sm.duration_minutes === "number" ? sm.duration_minutes : 0),
           totalMarks: sm.totalMarks || sm.total_marks || 100,
           questionCount: sm.questionCount || sm.question_count || 1,
           status: isCompleted ? "completed" : "not_started",

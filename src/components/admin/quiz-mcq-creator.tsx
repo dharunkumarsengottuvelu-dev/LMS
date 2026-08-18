@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ListChecks } from "lucide-react";
+import { ListChecks, Edit2, Trash2, Check, ChevronUp } from "lucide-react";
 
 export interface McqQuestion {
   id: string;
@@ -23,6 +23,7 @@ interface QuizMcqCreatorProps {
 
 export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
   const [questions, setQuestions] = useState<McqQuestion[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (value !== JSON.stringify(questions)) {
@@ -84,6 +85,7 @@ export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
       newQs = [...questions, newQ];
     }
     setQuestions(newQs);
+    setEditingId(newQ.id);
     saveToParent(newQs);
   };
 
@@ -204,8 +206,14 @@ export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
 
   const removeQuestion = (index: number) => {
     const newQs = [...questions];
+    const targetQ = newQs[index];
+    if (!targetQ) return;
+    const removedId = targetQ.id;
     newQs.splice(index, 1);
     setQuestions(newQs);
+    if (editingId === removedId) {
+      setEditingId(null);
+    }
     saveToParent(newQs);
   };
 
@@ -215,10 +223,56 @@ export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
         const isMultiple = q.type === "multiple";
         const correctSet = new Set(isMultiple ? (q.correctIndexes || []) : [q.correctIndex ?? 0]);
 
+        if (editingId !== q.id) {
+          return (
+            <div
+              key={q.id}
+              className="p-4 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] flex flex-col sm:flex-row sm:items-center justify-between group shadow-sm hover:border-[#2563EB]/40 transition-all gap-4 sm:gap-0"
+            >
+              <div className="flex flex-col gap-1.5 min-w-0 pr-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-[#2563EB] bg-[#2563EB]/10 px-2 py-0.5 rounded-md">Q{qIndex + 1}</span>
+                  <span className="text-[10px] font-bold text-[#6B7280] bg-[#F3F4F6] dark:bg-[#27272A] px-2 py-0.5 rounded-md uppercase">
+                    {isMultiple ? "Multi-Select" : "Single Choice"}
+                  </span>
+                </div>
+                <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA] truncate">
+                  {q.question || "Untitled Question"}
+                </p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {q.options.length} options • {correctSet.size} correct
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity self-end sm:self-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingId(q.id)}
+                  className="h-8 px-3 text-xs font-semibold bg-white dark:bg-[#18181B] gap-1.5"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                  Edit
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeQuestion(qIndex)}
+                  className="h-8 px-2.5 text-xs text-[#DC2626] hover:bg-[#DC2626]/10 gap-1.5"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+          );
+        }
+
         return (
           <div
             key={q.id}
-            className="p-5 rounded-2xl border-2 border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] space-y-4 shadow-sm"
+            className="p-5 rounded-2xl border-2 border-[#2563EB] dark:border-[#2563EB]/80 bg-white dark:bg-[#18181B] space-y-4 shadow-sm"
           >
             {/* Header: Question Number & Type Selector */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
@@ -254,15 +308,28 @@ export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
                 </div>
               </div>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => removeQuestion(qIndex)}
-                className="h-8 px-3 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg self-end sm:self-center"
-              >
-                Delete Question
-              </Button>
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingId(null)}
+                  className="h-8 px-3 text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 rounded-lg"
+                >
+                  <ChevronUp className="h-3.5 w-3.5" />
+                  Collapse
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeQuestion(qIndex)}
+                  className="h-8 px-2.5 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg gap-1"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </Button>
+              </div>
             </div>
 
             {/* Question Text */}
@@ -369,7 +436,7 @@ export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
             </div>
 
             {/* Quick Add at End of Question Card */}
-            <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-end">
+            <div className="pt-3 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between">
               <Button
                 type="button"
                 variant="outline"
@@ -378,6 +445,14 @@ export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
                 className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
               >
                 <ListChecks className="h-3.5 w-3.5" /> + MCQ Question
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setEditingId(null)}
+                className="h-8 px-4 text-xs font-bold rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs"
+              >
+                Done Editing
               </Button>
             </div>
           </div>

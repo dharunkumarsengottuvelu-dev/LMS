@@ -7,7 +7,8 @@ import {
   ShieldCheck, PlayCircle, StickyNote, ListChecks,
   ArrowLeft, FolderKanban, Sparkles, Trash2, Edit, Save,
   HelpCircle, Layers, Eye, EyeOff, UploadCloud, User,
-  Maximize2, Minimize2, ShieldAlert, Lock, Copy, RotateCcw
+  Maximize2, Minimize2, ShieldAlert, Lock, Copy, RotateCcw,
+  Edit2, ChevronUp
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -176,6 +177,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [smAllowReviewBeforeSubmit, setSmAllowReviewBeforeSubmit] = useState<boolean>(true);
   const [isFullScreenAuthoring, setIsFullScreenAuthoring] = useState(false);
   const [showCodingProblemBuilder, setShowCodingProblemBuilder] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
   // Dynamic SubModule Sections State (supports both MCQ and Coding within any Section)
   const [sections, setSections] = useState<SubModuleSection[]>([
@@ -248,6 +250,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         return { ...s, mcqQuestions: [...s.mcqQuestions, newQ] };
       })
     );
+    setEditingQuestionId(qId);
   };
 
   const removeMcqFromSection = (sectionId: string, qId: string) => {
@@ -258,6 +261,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           : s
       )
     );
+    if (editingQuestionId === qId) {
+      setEditingQuestionId(null);
+    }
   };
 
   const updateSectionMcqText = (sectionId: string, qId: string, text: string) => {
@@ -433,6 +439,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         return { ...s, codingQuestions: [...s.codingQuestions, newCq] };
       })
     );
+    setEditingQuestionId(cqId);
   };
 
   const removeCodingFromSection = (sectionId: string, cqId: string) => {
@@ -443,6 +450,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           : s
       )
     );
+    if (editingQuestionId === cqId) {
+      setEditingQuestionId(null);
+    }
   };
 
   const updateSectionCodingQuestion = useCallback((sectionId: string, cqId: string, data: any) => {
@@ -1593,242 +1603,387 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       )}
 
                       {/* MCQs in this Section */}
-                      {section.mcqQuestions.map((q, qIdx) => (
-                        <div
-                          key={q.id}
-                          className="p-5 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl space-y-4 shadow-xs"
-                        >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
-                            <div className="flex items-center gap-2.5 flex-wrap">
-                              <span className="text-xs font-bold px-3 py-1 rounded-lg bg-[#2563EB]/10 text-[#2563EB]">
-                                MCQ #{qIdx + 1}
-                              </span>
+                      {section.mcqQuestions.map((q, qIdx) => {
+                        if (editingQuestionId !== q.id) {
+                          const correctCount = q.options.filter((o) => o.isCorrect).length;
+                          return (
+                            <div
+                              key={q.id}
+                              className="p-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between group shadow-xs hover:border-[#2563EB]/40 transition-all gap-3"
+                            >
+                              <div className="flex flex-col gap-1.5 min-w-0 pr-4">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-[#2563EB]/10 text-[#2563EB]">
+                                    MCQ #{qIdx + 1}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-[#6B7280] bg-[#F3F4F6] dark:bg-[#27272A] px-2 py-0.5 rounded-md uppercase">
+                                    {q.questionType === "multiple" ? "Multiple Select" : "Single Choice"}
+                                  </span>
+                                  <span className="text-[11px] text-[#6B7280]">
+                                    ({q.options.length} options • {correctCount} correct)
+                                  </span>
+                                </div>
+                                <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA] truncate">
+                                  {q.questionText || `MCQ Question ${qIdx + 1} (Click edit to add statement)`}
+                                </p>
+                              </div>
 
-                              {/* Single vs Multiple Switch */}
-                              <div className="flex items-center bg-white dark:bg-[#18181B] p-0.5 rounded-lg border border-[#E5E7EB] dark:border-[#3F3F46]">
+                              <div className="flex items-center gap-2 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity self-end sm:self-center">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingQuestionId(q.id)}
+                                  className="h-8 px-3 text-xs font-semibold bg-white dark:bg-[#18181B] gap-1.5"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                  Edit
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeMcqFromSection(section.id, q.id)}
+                                  className="h-8 px-2.5 text-xs text-[#EF4444] hover:bg-[#EF4444]/10 gap-1.5"
+                                  title="Delete Question"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={q.id}
+                            className="p-5 bg-white dark:bg-[#18181B] border-2 border-[#2563EB] dark:border-[#2563EB]/80 rounded-2xl space-y-4 shadow-sm"
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
+                              <div className="flex items-center gap-2.5 flex-wrap">
+                                <span className="text-xs font-bold px-3 py-1 rounded-lg bg-[#2563EB] text-white">
+                                  MCQ #{qIdx + 1}
+                                </span>
+
+                                {/* Single vs Multiple Switch */}
+                                <div className="flex items-center bg-[#F3F4F6] dark:bg-[#09090B] p-0.5 rounded-lg border border-[#E5E7EB] dark:border-[#3F3F46]">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleSectionQuestionType(section.id, q.id, "single")}
+                                    className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
+                                      (q.questionType || "single") === "single"
+                                        ? "bg-[#2563EB] text-white shadow-xs"
+                                        : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+                                    }`}
+                                  >
+                                    Single Choice (Radio)
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleSectionQuestionType(section.id, q.id, "multiple")}
+                                    className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
+                                      q.questionType === "multiple"
+                                        ? "bg-[#2563EB] text-white shadow-xs"
+                                        : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+                                    }`}
+                                  >
+                                    Multiple Select (Checkboxes)
+                                  </button>
+                                </div>
+
+                                <span className="text-[11px] text-[#6B7280]">
+                                  ({q.options.length} Options)
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 self-end sm:self-center">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingQuestionId(null)}
+                                  className="h-8 px-3 text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 rounded-lg"
+                                >
+                                  <ChevronUp className="h-3.5 w-3.5" />
+                                  Collapse
+                                </Button>
                                 <button
                                   type="button"
-                                  onClick={() => toggleSectionQuestionType(section.id, q.id, "single")}
-                                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
-                                    (q.questionType || "single") === "single"
-                                      ? "bg-[#2563EB] text-white shadow-xs"
-                                      : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
-                                  }`}
+                                  onClick={() => removeMcqFromSection(section.id, q.id)}
+                                  className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1.5 rounded-lg transition-colors"
+                                  title="Delete Question"
                                 >
-                                  Single Choice (Radio)
+                                  <Trash2 className="h-4 w-4" />
                                 </button>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                                Question Prompt
+                              </label>
+                              <Input
+                                value={q.questionText}
+                                onChange={(e) => updateSectionMcqText(section.id, q.id, e.target.value)}
+                                placeholder={`Enter MCQ question ${qIdx + 1} text...`}
+                                className="h-10 text-xs rounded-xl bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A]"
+                              />
+                            </div>
+
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">
+                                  Options & Correct Answer {q.questionType === "multiple" && <span className="text-[#2563EB] lowercase font-normal">(check all that apply)</span>}
+                                </label>
                                 <button
                                   type="button"
-                                  onClick={() => toggleSectionQuestionType(section.id, q.id, "multiple")}
-                                  className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${
-                                    q.questionType === "multiple"
-                                      ? "bg-[#2563EB] text-white shadow-xs"
-                                      : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
-                                  }`}
+                                  onClick={() => addOptionToSectionMcq(section.id, q.id)}
+                                  className="text-[10px] font-bold text-[#2563EB] hover:underline flex items-center gap-1"
                                 >
-                                  Multiple Select (Checkboxes)
+                                  <Plus className="h-3 w-3" /> Add Option
                                 </button>
                               </div>
 
-                              <span className="text-[11px] text-[#6B7280]">
-                                ({q.options.length} Options)
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => removeMcqFromSection(section.id, q.id)}
-                                className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1.5 rounded-lg transition-colors"
-                                title="Delete Question"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                              Question Prompt
-                            </label>
-                            <Input
-                              value={q.questionText}
-                              onChange={(e) => updateSectionMcqText(section.id, q.id, e.target.value)}
-                              placeholder={`Enter MCQ question ${qIdx + 1} text...`}
-                              className="h-10 text-xs rounded-xl bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A]"
-                            />
-                          </div>
-
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <label className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">
-                                Options & Correct Answer {q.questionType === "multiple" && <span className="text-[#2563EB] lowercase font-normal">(check all that apply)</span>}
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => addOptionToSectionMcq(section.id, q.id)}
-                                className="text-[10px] font-bold text-[#2563EB] hover:underline flex items-center gap-1"
-                              >
-                                <Plus className="h-3 w-3" /> Add Option
-                              </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {q.options.map((opt: MCQQuestionOption, oIdx: number) => (
-                                <div
-                                  key={opt.id}
-                                  className={`flex items-center gap-2 p-2.5 border rounded-xl transition-all ${
-                                    opt.isCorrect
-                                      ? q.questionType === "multiple"
-                                        ? "border-[#2563EB] bg-[#2563EB]/5 dark:bg-[#2563EB]/10"
-                                        : "border-[#2563EB] bg-[#2563EB]/5 dark:bg-[#2563EB]/10"
-                                      : "border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B]"
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] text-[10px] font-bold text-[#6B7280] shrink-0">
-                                    {String.fromCharCode(65 + oIdx)}
-                                  </div>
-                                  <Input
-                                    value={opt.text}
-                                    onChange={(e) => updateSectionOptionText(section.id, q.id, opt.id, e.target.value)}
-                                    placeholder={`Option ${String.fromCharCode(65 + oIdx)}`}
-                                    className="h-8 text-xs flex-1 bg-white dark:bg-[#18181B] rounded-lg"
-                                  />
-                                  <label className="flex items-center gap-1.5 cursor-pointer pr-1 shrink-0">
-                                    <input
-                                      type={q.questionType === "multiple" ? "checkbox" : "radio"}
-                                      name={`correct-opt-${section.id}-${q.id}`}
-                                      checked={opt.isCorrect}
-                                      onChange={() => toggleSectionOptionCorrect(section.id, q.id, opt.id)}
-                                      className={`w-3.5 h-3.5 ${
-                                        q.questionType === "multiple"
-                                          ? "rounded text-[#2563EB] accent-[#2563EB]"
-                                          : "text-[#2563EB] accent-[#2563EB]"
-                                      } cursor-pointer`}
-                                    />
-                                    <span className={`text-[10px] font-bold ${
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {q.options.map((opt: MCQQuestionOption, oIdx: number) => (
+                                  <div
+                                    key={opt.id}
+                                    className={`flex items-center gap-2 p-2.5 border rounded-xl transition-all ${
                                       opt.isCorrect
-                                        ? q.questionType === "multiple" ? "text-[#2563EB]" : "text-[#2563EB]"
-                                        : "text-[#6B7280]"
-                                    }`}>
-                                      {q.questionType === "multiple" ? (opt.isCorrect ? "Correct" : "Mark") : "Correct"}
-                                    </span>
-                                  </label>
-                                  {q.options.length > 2 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => removeOptionFromSectionMcq(section.id, q.id, opt.id)}
-                                      className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1 rounded transition-colors shrink-0"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
+                                        ? "border-[#2563EB] bg-[#2563EB]/5 dark:bg-[#2563EB]/10"
+                                        : "border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B]"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] text-[10px] font-bold text-[#6B7280] shrink-0">
+                                      {String.fromCharCode(65 + oIdx)}
+                                    </div>
+                                    <Input
+                                      value={opt.text}
+                                      onChange={(e) => updateSectionOptionText(section.id, q.id, opt.id, e.target.value)}
+                                      placeholder={`Option ${String.fromCharCode(65 + oIdx)}`}
+                                      className="h-8 text-xs flex-1 bg-white dark:bg-[#18181B] rounded-lg"
+                                    />
+                                    <label className="flex items-center gap-1.5 cursor-pointer pr-1 shrink-0">
+                                      <input
+                                        type={q.questionType === "multiple" ? "checkbox" : "radio"}
+                                        name={`correct-opt-${section.id}-${q.id}`}
+                                        checked={opt.isCorrect}
+                                        onChange={() => toggleSectionOptionCorrect(section.id, q.id, opt.id)}
+                                        className={`w-3.5 h-3.5 ${
+                                          q.questionType === "multiple"
+                                            ? "rounded text-[#2563EB] accent-[#2563EB]"
+                                            : "text-[#2563EB] accent-[#2563EB]"
+                                        } cursor-pointer`}
+                                      />
+                                      <span className={`text-[10px] font-bold ${
+                                        opt.isCorrect ? "text-[#2563EB]" : "text-[#6B7280]"
+                                      }`}>
+                                        {q.questionType === "multiple" ? (opt.isCorrect ? "Correct" : "Mark") : "Correct"}
+                                      </span>
+                                    </label>
+                                    {q.options.length > 2 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removeOptionFromSectionMcq(section.id, q.id, opt.id)}
+                                        className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1 rounded transition-colors shrink-0"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">
+                                Explanation / Answer Hint (Optional)
+                              </label>
+                              <Input
+                                value={q.explanation || ""}
+                                onChange={(e) => updateSectionQuestionExplanation(section.id, q.id, e.target.value)}
+                                placeholder="Provide explanation for the correct answer..."
+                                className="h-8 text-xs rounded-xl bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A]"
+                              />
+                            </div>
+
+                            {/* Quick Add at End of MCQ Card */}
+                            <div className="pt-3 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addMcqToSection(section.id, qIdx)}
+                                  className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                                >
+                                  <ListChecks className="h-3.5 w-3.5" /> + MCQ Question
+                                </Button>
+
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addCodingToSection(section.id)}
+                                  className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                                >
+                                  <Code2 className="h-3.5 w-3.5" /> + Coding Problem
+                                </Button>
+                              </div>
+
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => setEditingQuestionId(null)}
+                                className="h-8 px-4 text-xs font-bold rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs"
+                              >
+                                Done Editing
+                              </Button>
                             </div>
                           </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">
-                              Explanation / Answer Hint (Optional)
-                            </label>
-                            <Input
-                              value={q.explanation || ""}
-                              onChange={(e) => updateSectionQuestionExplanation(section.id, q.id, e.target.value)}
-                              placeholder="Provide explanation for the correct answer..."
-                              className="h-8 text-xs rounded-xl bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A]"
-                            />
-                          </div>
-
-                          {/* Quick Add at End of MCQ Card */}
-                          <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-end gap-2 flex-wrap">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addMcqToSection(section.id, qIdx)}
-                              className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
-                            >
-                              <ListChecks className="h-3.5 w-3.5" /> + MCQ Question
-                            </Button>
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addCodingToSection(section.id)}
-                              className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
-                            >
-                              <Code2 className="h-3.5 w-3.5" /> + Coding Problem
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
 
                       {/* Coding Problems in this Section */}
-                      {section.codingQuestions.map((cq, cqIdx) => (
-                        <div
-                          key={cq.id}
-                          className="p-5 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl space-y-4 shadow-xs"
-                        >
-                          <div className="flex items-center justify-between pb-2 border-b border-[#E5E7EB] dark:border-[#27272A]">
-                            <span className="text-xs font-bold px-3 py-1 rounded-lg bg-[#2563EB]/10 text-[#2563EB]">
-                              Coding Problem #{cqIdx + 1}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <button
+                      {section.codingQuestions.map((cq, cqIdx) => {
+                        if (editingQuestionId !== cq.id) {
+                          const totalCases = (cq.publicTestCases?.length || 0) + (cq.hiddenTestCases?.length || 0);
+                          return (
+                            <div
+                              key={cq.id}
+                              className="p-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between group shadow-xs hover:border-[#2563EB]/40 transition-all gap-3"
+                            >
+                              <div className="flex flex-col gap-1.5 min-w-0 pr-4">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-[#2563EB]/10 text-[#2563EB]">
+                                    Coding #{cqIdx + 1}
+                                  </span>
+                                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                    {cq.difficulty || "Easy"}
+                                  </span>
+                                  <span className="text-[11px] text-[#6B7280]">
+                                    ({totalCases} test cases)
+                                  </span>
+                                </div>
+                                <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA] truncate">
+                                  {cq.title || `Coding Problem ${cqIdx + 1} (Click edit to configure)`}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity self-end sm:self-center">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingQuestionId(cq.id)}
+                                  className="h-8 px-3 text-xs font-semibold bg-white dark:bg-[#18181B] gap-1.5"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                  Edit
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeCodingFromSection(section.id, cq.id)}
+                                  className="h-8 px-2.5 text-xs text-[#EF4444] hover:bg-[#EF4444]/10 gap-1.5"
+                                  title="Delete Problem"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={cq.id}
+                            className="p-5 bg-white dark:bg-[#18181B] border-2 border-[#2563EB] dark:border-[#2563EB]/80 rounded-2xl space-y-4 shadow-sm"
+                          >
+                            <div className="flex items-center justify-between pb-2 border-b border-[#E5E7EB] dark:border-[#27272A]">
+                              <span className="text-xs font-bold px-3 py-1 rounded-lg bg-[#2563EB] text-white">
+                                Coding Problem #{cqIdx + 1}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingQuestionId(null)}
+                                  className="h-8 px-3 text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 rounded-lg"
+                                >
+                                  <ChevronUp className="h-3.5 w-3.5" />
+                                  Collapse
+                                </Button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeCodingFromSection(section.id, cq.id)}
+                                  className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1.5 rounded-lg transition-colors"
+                                  title="Delete Problem"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <CodingProblemCreator
+                              inline
+                              initialTitle={cq.title || `Coding Problem ${cqIdx + 1}`}
+                              initialDescription={cq.description}
+                              initialDifficulty={cq.difficulty as any}
+                              initialConstraints={cq.constraints}
+                              initialInputFormat={cq.inputFormat}
+                              initialOutputFormat={cq.outputFormat}
+                              initialTemplates={cq.templates}
+                              initialPublicTestCases={cq.publicTestCases}
+                              initialHiddenTestCases={cq.hiddenTestCases}
+                              onChange={(data) => {
+                                updateSectionCodingQuestion(section.id, cq.id, data);
+                                if (cqIdx === 0 && !smTitle && data.title) {
+                                  setSmTitle(data.title);
+                                }
+                              }}
+                            />
+
+                            {/* Quick Add at End of Coding Problem Card */}
+                            <div className="pt-3 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addMcqToSection(section.id)}
+                                  className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                                >
+                                  <ListChecks className="h-3.5 w-3.5" /> + MCQ Question
+                                </Button>
+
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addCodingToSection(section.id, cqIdx)}
+                                  className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                                >
+                                  <Code2 className="h-3.5 w-3.5" /> + Coding Problem
+                                </Button>
+                              </div>
+
+                              <Button
                                 type="button"
-                                onClick={() => removeCodingFromSection(section.id, cq.id)}
-                                className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1.5 rounded-lg transition-colors"
+                                size="sm"
+                                onClick={() => setEditingQuestionId(null)}
+                                className="h-8 px-4 text-xs font-bold rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs"
                               >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                                Done Editing
+                              </Button>
                             </div>
                           </div>
-
-                          <CodingProblemCreator
-                            inline
-                            initialTitle={cq.title || `Coding Problem ${cqIdx + 1}`}
-                            initialDescription={cq.description}
-                            initialDifficulty={cq.difficulty as any}
-                            initialConstraints={cq.constraints}
-                            initialInputFormat={cq.inputFormat}
-                            initialOutputFormat={cq.outputFormat}
-                            initialTemplates={cq.templates}
-                            initialPublicTestCases={cq.publicTestCases}
-                            initialHiddenTestCases={cq.hiddenTestCases}
-                            onChange={(data) => {
-                              updateSectionCodingQuestion(section.id, cq.id, data);
-                              if (cqIdx === 0 && !smTitle && data.title) {
-                                setSmTitle(data.title);
-                              }
-                            }}
-                          />
-
-                          {/* Quick Add at End of Coding Problem Card */}
-                          <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-end gap-2 flex-wrap">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addMcqToSection(section.id)}
-                              className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
-                            >
-                              <ListChecks className="h-3.5 w-3.5" /> + MCQ Question
-                            </Button>
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addCodingToSection(section.id, cqIdx)}
-                              className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
-                            >
-                              <Code2 className="h-3.5 w-3.5" /> + Coding Problem
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
 
                       {/* Section-End Quick Add Question Buttons */}
                       {(section.mcqQuestions.length > 0 || section.codingQuestions.length > 0) && (

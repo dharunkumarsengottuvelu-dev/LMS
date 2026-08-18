@@ -162,7 +162,7 @@ export async function GET(
         title: sm.title,
         description: sm.description || `Interactive ${sm.type || "coding"} practice module.`,
         type: sm.type || "coding",
-        durationMinutes: sm.durationMinutes || sm.duration_minutes || 30,
+        durationMinutes: typeof sm.durationMinutes === "number" ? sm.durationMinutes : (typeof sm.duration_minutes === "number" ? sm.duration_minutes : 0),
         totalMarks: sm.totalMarks || sm.total_marks || 100,
         questionCount:
           combinedCodingQuestions.length > 0

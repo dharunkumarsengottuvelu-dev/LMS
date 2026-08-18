@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
               title: sm.title,
               description: `${t.title} • ${sm.description || "Practice Module"}`,
               type: sm.type || "coding",
-              duration_minutes: sm.durationMinutes || sm.duration_minutes || 30,
+              duration_minutes: typeof sm.durationMinutes === "number" ? sm.durationMinutes : (typeof sm.duration_minutes === "number" ? sm.duration_minutes : 0),
               total_marks: sm.totalMarks || sm.total_marks || 100,
               trackId: t.id,
               isCommon,
