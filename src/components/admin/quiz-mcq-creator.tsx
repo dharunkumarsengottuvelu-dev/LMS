@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ListChecks } from "lucide-react";
 
 export interface McqQuestion {
   id: string;
@@ -65,19 +66,23 @@ export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
     onChange(JSON.stringify(newQs));
   };
 
-  const addQuestion = () => {
-    const newQs: McqQuestion[] = [
-      ...questions,
-      {
-        id: `q_${Date.now()}`,
-        question: "",
-        type: "single",
-        options: ["Option 1", "Option 2", "Option 3", "Option 4"],
-        correctIndex: 0,
-        correctIndexes: [0],
-        explanation: "",
-      },
-    ];
+  const addQuestion = (afterIndex?: number) => {
+    const newQ: McqQuestion = {
+      id: `q_${Date.now()}`,
+      question: "",
+      type: "single",
+      options: ["Option 1", "Option 2", "Option 3", "Option 4"],
+      correctIndex: 0,
+      correctIndexes: [0],
+      explanation: "",
+    };
+    let newQs: McqQuestion[];
+    if (typeof afterIndex === "number" && afterIndex >= 0) {
+      newQs = [...questions];
+      newQs.splice(afterIndex + 1, 0, newQ);
+    } else {
+      newQs = [...questions, newQ];
+    }
     setQuestions(newQs);
     saveToParent(newQs);
   };
@@ -362,6 +367,19 @@ export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
                 className="h-[40px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
               />
             </div>
+
+            {/* Quick Add at End of Question Card */}
+            <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addQuestion(qIndex)}
+                className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+              >
+                <ListChecks className="h-3.5 w-3.5" /> + MCQ Question
+              </Button>
+            </div>
           </div>
         );
       })}
@@ -370,10 +388,10 @@ export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
       <Button
         type="button"
         variant="outline"
-        onClick={addQuestion}
-        className="w-full h-[48px] border-dashed border-2 border-[#2563EB]/40 rounded-xl text-xs font-bold text-[#2563EB] hover:bg-[#2563EB]/10"
+        onClick={() => addQuestion()}
+        className="w-full h-[48px] border-dashed border-2 border-[#2563EB]/40 rounded-xl text-xs font-bold text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5"
       >
-        + Add Question
+        <ListChecks className="h-4 w-4" /> + MCQ Question
       </Button>
     </div>
   );

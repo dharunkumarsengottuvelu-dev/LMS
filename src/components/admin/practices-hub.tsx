@@ -224,7 +224,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     );
   };
 
-  const addMcqToSection = (sectionId: string) => {
+  const addMcqToSection = (sectionId: string, insertAfterIndex?: number) => {
     const qId = `q_${Date.now()}`;
     const newQ: MCQQuestionItem = {
       id: qId,
@@ -238,11 +238,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       explanation: "",
     };
     setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? { ...s, mcqQuestions: [...s.mcqQuestions, newQ] }
-          : s
-      )
+      prev.map((s) => {
+        if (s.id !== sectionId) return s;
+        if (typeof insertAfterIndex === "number" && insertAfterIndex >= 0) {
+          const nextMcqs = [...s.mcqQuestions];
+          nextMcqs.splice(insertAfterIndex + 1, 0, newQ);
+          return { ...s, mcqQuestions: nextMcqs };
+        }
+        return { ...s, mcqQuestions: [...s.mcqQuestions, newQ] };
+      })
     );
   };
 
@@ -411,7 +415,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     );
   };
 
-  const addCodingToSection = (sectionId: string) => {
+  const addCodingToSection = (sectionId: string, insertAfterIndex?: number) => {
     const cqId = `cq_${Date.now()}`;
     const newCq: CodingQuestionItem = {
       id: cqId,
@@ -419,11 +423,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       description: "",
     };
     setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? { ...s, codingQuestions: [...s.codingQuestions, newCq] }
-          : s
-      )
+      prev.map((s) => {
+        if (s.id !== sectionId) return s;
+        if (typeof insertAfterIndex === "number" && insertAfterIndex >= 0) {
+          const nextCoding = [...s.codingQuestions];
+          nextCoding.splice(insertAfterIndex + 1, 0, newCq);
+          return { ...s, codingQuestions: nextCoding };
+        }
+        return { ...s, codingQuestions: [...s.codingQuestions, newCq] };
+      })
     );
   };
 
@@ -1731,6 +1739,29 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               className="h-8 text-xs rounded-xl bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A]"
                             />
                           </div>
+
+                          {/* Quick Add at End of MCQ Card */}
+                          <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-end gap-2 flex-wrap">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addMcqToSection(section.id, qIdx)}
+                              className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                            >
+                              <ListChecks className="h-3.5 w-3.5" /> + MCQ Question
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addCodingToSection(section.id)}
+                              className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                            >
+                              <Code2 className="h-3.5 w-3.5" /> + Coding Problem
+                            </Button>
+                          </div>
                         </div>
                       ))}
 
@@ -1773,8 +1804,61 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               }
                             }}
                           />
+
+                          {/* Quick Add at End of Coding Problem Card */}
+                          <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-end gap-2 flex-wrap">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addMcqToSection(section.id)}
+                              className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                            >
+                              <ListChecks className="h-3.5 w-3.5" /> + MCQ Question
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addCodingToSection(section.id, cqIdx)}
+                              className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                            >
+                              <Code2 className="h-3.5 w-3.5" /> + Coding Problem
+                            </Button>
+                          </div>
                         </div>
                       ))}
+
+                      {/* Section-End Quick Add Question Buttons */}
+                      {(section.mcqQuestions.length > 0 || section.codingQuestions.length > 0) && (
+                        <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] border border-dashed border-[#2563EB]/30 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                          <span className="text-xs font-bold text-[#2563EB]">
+                            + Add another question to this section:
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addMcqToSection(section.id)}
+                              className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                            >
+                              <ListChecks className="h-3.5 w-3.5" /> + MCQ Question
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addCodingToSection(section.id)}
+                              className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                            >
+                              <Code2 className="h-3.5 w-3.5" /> + Coding Problem
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </Card>
                 ))}
