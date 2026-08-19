@@ -473,6 +473,91 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     setViewState("add-question");
   };
 
+  const saveCurrentQuestionDraft = (): boolean => {
+    if (!selectedTest || !manualQuestionTitle.trim()) return false;
+
+    const finalSection = manualQuestionSection === "custom" ? customSectionName.trim() : manualQuestionSection.trim();
+    const sectionName =
+      finalSection ||
+      (manualQuestionType === "coding"
+        ? "Programming Task"
+        : manualQuestionType === "both"
+        ? "Hybrid Task"
+        : "Multiple Choice");
+
+    const currentOptions =
+      manualQuestionType === "mcq" || manualQuestionType === "msq" || manualQuestionType === "both"
+        ? manualMCQOptions.map((o) => ({ ...o }))
+        : undefined;
+
+    const currentTestCases =
+      manualQuestionType === "coding" || manualQuestionType === "both"
+        ? manualTestCases.map((t) => ({ ...t }))
+        : undefined;
+
+    let updatedQuestions: TestQuestion[];
+
+    if (editingQuestionId) {
+      updatedQuestions = (selectedTest.questions || []).map((q) =>
+        q.id === editingQuestionId
+          ? {
+              ...q,
+              title: manualQuestionTitle.trim(),
+              type: manualQuestionType as "coding" | "mcq" | "msq" | "both",
+              marks: manualQuestionMarks,
+              section: sectionName,
+              options: currentOptions,
+              testCases: currentTestCases,
+            }
+          : q
+      );
+    } else {
+      const newQ: TestQuestion = {
+        id: `q_${Date.now()}`,
+        title: manualQuestionTitle.trim(),
+        type: manualQuestionType as "coding" | "mcq" | "msq" | "both",
+        marks: manualQuestionMarks,
+        section: sectionName,
+        options: currentOptions,
+        testCases: currentTestCases,
+      };
+      updatedQuestions = [...(selectedTest.questions || []), newQ];
+    }
+
+    const totalMarks = updatedQuestions.reduce((acc, q) => acc + (q.marks || 0), 0);
+    const updatedTest = {
+      ...selectedTest,
+      totalQuestions: updatedQuestions.length,
+      maxMarks: totalMarks,
+      questions: updatedQuestions,
+    };
+
+    fetch("/api/admin/tests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ test: updatedTest }),
+    }).catch((err) => console.error("Failed to auto-save test question", err));
+
+    setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
+    setSelectedTest(updatedTest);
+    return true;
+  };
+
+  const handleSwitchToQuestion = (targetQ: TestQuestion) => {
+    // If current question has unsaved text, auto-save it first
+    if (manualQuestionTitle.trim()) {
+      saveCurrentQuestionDraft();
+    }
+    openEditQuestion(targetQ);
+  };
+
+  const handleSwitchToNewQuestion = () => {
+    if (manualQuestionTitle.trim()) {
+      saveCurrentQuestionDraft();
+    }
+    handleQuickNewQuestion();
+  };
+
   const openEditQuestion = (q: TestQuestion) => {
     setEditingQuestionId(q.id);
     setManualQuestionTitle(q.title || "");
@@ -2669,7 +2754,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                 <button
                   key={q.id}
                   type="button"
-                  onClick={() => openEditQuestion(q)}
+                  onClick={() => handleSwitchToQuestion(q)}
                   className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
                     isCurrent
                       ? "bg-[#2563EB] text-white border-[#2563EB] shadow-sm"
@@ -2687,7 +2772,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             {/* Quick + Add New Question Button */}
             <button
               type="button"
-              onClick={handleQuickNewQuestion}
+              onClick={handleSwitchToNewQuestion}
               className={`h-9 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border-2 border-dashed ${
                 !editingQuestionId
                   ? "border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 text-[#2563EB] shadow-xs"
@@ -2775,23 +2860,63 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
               {(manualQuestionType === "mcq" || manualQuestionType === "msq" || manualQuestionType === "both") && (
                 <div className="space-y-4 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
                       {manualQuestionType === "msq" ? "Multiple Select Options" : "Single Choice Options"}
                     </label>
-                    <Button type="button" onClick={() => setManualMCQOptions([...manualMCQOptions, { id: Date.now(), text: "", isCorrect: false }])} variant="outline" className="h-8 px-3 text-[10px] font-bold">
-                      <Plus className="h-3 w-3 mr-1" /> Add Option
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button
+                        type="button"
+                        onClick={() =>
+                          setManualMCQOptions([
+                            { id: 1, text: "True", isCorrect: true },
+                            { id: 2, text: "False", isCorrect: false },
+                          ])
+                        }
+                        variant="outline"
+                        className="h-7 px-2 text-[10px] font-bold"
+                      >
+                        True/False
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() =>
+                          setManualMCQOptions([
+                            { id: 1, text: "", isCorrect: false },
+                            { id: 2, text: "", isCorrect: false },
+                            { id: 3, text: "", isCorrect: false },
+                            { id: 4, text: "", isCorrect: false },
+                          ])
+                        }
+                        variant="outline"
+                        className="h-7 px-2 text-[10px] font-bold text-[#DC2626]"
+                      >
+                        Clear Text
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() =>
+                          setManualMCQOptions([
+                            ...manualMCQOptions,
+                            { id: Date.now(), text: "", isCorrect: false },
+                          ])
+                        }
+                        variant="outline"
+                        className="h-7 px-2.5 text-[10px] font-bold text-[#2563EB] border-[#2563EB]/40"
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Add Option
+                      </Button>
+                    </div>
                   </div>
                   
                   <div className="space-y-3">
                     {manualMCQOptions.map((opt, idx) => (
-                      <div key={opt.id} className={`flex items-center gap-3 p-3 border ${opt.isCorrect ? 'border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20' : 'border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]'} rounded-xl group transition-all`}>
+                      <div key={opt.id || idx} className={`flex items-center gap-3 p-3 border ${opt.isCorrect ? 'border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20' : 'border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]'} rounded-xl group transition-all`}>
                         <div className="flex items-center justify-center w-6 h-6 rounded bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] text-[10px] font-bold text-[#6B7280]">
                           {String.fromCharCode(65 + idx)}
                         </div>
                         <Input 
-                          value={opt.text} 
+                          value={opt.text ?? ""} 
                           onChange={(e) => setManualMCQOptions(manualMCQOptions.map(o => o.id === opt.id ? { ...o, text: e.target.value } : o))} 
                           placeholder={`Option ${idx + 1}`} 
                           className="h-9 text-xs flex-1 bg-white dark:bg-[#18181B]" 
@@ -2801,13 +2926,13 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                             <input 
                               type="radio" 
                               name="mcq-correct-answer"
-                              checked={opt.isCorrect}
+                              checked={Boolean(opt.isCorrect)}
                               onChange={() => setManualMCQOptions(manualMCQOptions.map(o => ({ ...o, isCorrect: o.id === opt.id })))}
                               className="w-4 h-4 text-[#2563EB] cursor-pointer"
                             />
                           ) : (
                             <Switch 
-                              checked={opt.isCorrect} 
+                              checked={Boolean(opt.isCorrect)} 
                               onCheckedChange={(checked) => setManualMCQOptions(manualMCQOptions.map(o => o.id === opt.id ? { ...o, isCorrect: checked } : o))} 
                               className="scale-75" 
                             />
