@@ -51,20 +51,29 @@ export async function GET(request: NextRequest) {
         } catch {}
       }
 
-      const assignedBatches =
+      const rawAssignedBatches =
         a.assigned_batches ||
         meta.assignedBatches ||
         meta.assigned_batches ||
         (a.course_id ? [a.course_id] : []);
 
-      const isCommon =
-        a.is_common !== undefined
-          ? a.is_common
-          : meta.isCommon !== undefined
-          ? meta.isCommon
-          : assignedBatches.length === 0;
+      const assignedBatches = Array.isArray(rawAssignedBatches)
+        ? rawAssignedBatches
+        : rawAssignedBatches
+        ? [rawAssignedBatches]
+        : [];
 
-      const isVisible = isContentVisibleToStudent(
+      const isCommon =
+        a.is_common === true ||
+        meta.isCommon === true ||
+        String(a.is_common) === "true" ||
+        String(meta.isCommon) === "true" ||
+        assignedBatches.length === 0 ||
+        assignedBatches.includes("Common (All Batches)") ||
+        assignedBatches.includes("all") ||
+        assignedBatches.includes("common");
+
+      const isVisible = isCommon || isContentVisibleToStudent(
         {
           is_common: isCommon,
           assigned_batches: assignedBatches,
@@ -77,7 +86,7 @@ export async function GET(request: NextRequest) {
         const attempt = attemptsMap.get(a.id);
         const isCompleted = attempt && attempt.status === "submitted";
 
-        let scheduledDisplay = "Available Anytime";
+        let scheduledDisplay = "Available Anytime (On-Demand)";
         if (meta.scheduleMode === "open" || (!meta.date && !meta.startDate && !a.available_from)) {
           scheduledDisplay = "Open Window (On-Demand)";
         } else if (meta.scheduleMode === "window" && (meta.startDate || meta.endDate)) {
@@ -88,27 +97,35 @@ export async function GET(request: NextRequest) {
           scheduledDisplay = new Date(a.available_from).toLocaleString();
         }
 
+        const realQuestions = meta.questions || [];
+        const totalQCount = realQuestions.length > 0 ? realQuestions.length : (a.total_questions || 0);
+        const totalMaxMarks = realQuestions.length > 0 
+          ? realQuestions.reduce((sum: number, q: any) => sum + (Number(q.marks) || 1), 0)
+          : (a.total_marks || 100);
+
+        const isLive = (a.status === "active" || meta.status === "live" || meta.scheduleMode === "open") && a.status !== "draft";
+
         mappedTests.push({
           id: a.id,
           title: a.title,
           type: a.type === "coding" ? "Coding Assessment" : "Proctored Examination",
           scheduledAt: scheduledDisplay,
-          duration: a.duration_minutes || a.duration || 60,
-          totalQuestions: a.total_questions || 10,
-          totalMarks: a.total_marks || (a.total_questions || 10) * 10,
-          status: isCompleted ? "completed" : a.status === "active" ? "live" : "upcoming",
+          duration: a.duration_minutes || a.duration || meta.duration || 60,
+          totalQuestions: totalQCount,
+          totalMarks: totalMaxMarks,
+          status: isCompleted ? "completed" : isLive ? "live" : "upcoming",
           score: attempt ? attempt.score : undefined,
-          maxScore: a.total_marks || (a.total_questions || 10) * 10,
+          maxScore: totalMaxMarks,
           passed: attempt ? attempt.score >= (a.passing_marks || 50) : false,
           isCommon,
           assignedBatches,
           proctoring: {
-            enabled: true,
-            webcamTracking: true,
-            tabSwitchLock: true,
-            fullscreenLock: true,
-            safeExamBrowserRequired: true,
-            copyPasteRestricted: true,
+            enabled: Boolean(meta.secWebcam || meta.secFullscreen || meta.secTabSwitch || meta.secCopyPaste),
+            webcamTracking: meta.secWebcam ?? true,
+            tabSwitchLock: meta.secTabSwitch ?? true,
+            fullscreenLock: meta.secFullscreen ?? true,
+            safeExamBrowserRequired: meta.secSEB ?? false,
+            copyPasteRestricted: meta.secCopyPaste ?? true,
             assignedBy: "Admin",
             assignedByName: "System Admin",
           },

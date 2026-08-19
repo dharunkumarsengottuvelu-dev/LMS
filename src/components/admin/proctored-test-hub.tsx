@@ -383,11 +383,15 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     };
 
     try {
-      await fetch("/api/admin/tests", {
+      const res = await fetch("/api/admin/tests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ test: newTest }),
       });
+      const data = await res.json();
+      if (data.test?.id) {
+        newTest.id = data.test.id;
+      }
     } catch (err) {
       console.error("Failed to persist new test", err);
     }
