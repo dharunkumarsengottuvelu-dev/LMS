@@ -62,6 +62,8 @@ export interface TestQuestion {
   type: "coding" | "mcq" | "msq" | "both";
   marks: number;
   section: string;
+  options?: Array<{ id: number; text: string; isCorrect: boolean }>;
+  testCases?: Array<{ id: number; input: string; output: string; isHidden?: boolean }>;
 }
 
 const initialTests: ScheduledTest[] = [];
@@ -442,11 +444,26 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   const openEditQuestion = (q: TestQuestion) => {
     setEditingQuestionId(q.id);
-    setManualQuestionTitle(q.title);
-    setManualQuestionType(q.type);
-    setManualQuestionMarks(q.marks);
-    setManualQuestionSection(q.section);
+    setManualQuestionTitle(q.title || "");
+    setManualQuestionType(q.type || "mcq");
+    setManualQuestionMarks(q.marks || 10);
+    setManualQuestionSection(q.section || "General Assessment");
     setCustomSectionName("");
+    if (q.options && q.options.length > 0) {
+      setManualMCQOptions(q.options.map((o) => ({ ...o })));
+    } else {
+      setManualMCQOptions([
+        { id: 1, text: "", isCorrect: false },
+        { id: 2, text: "", isCorrect: false },
+        { id: 3, text: "", isCorrect: false },
+        { id: 4, text: "", isCorrect: false },
+      ]);
+    }
+    if (q.testCases && q.testCases.length > 0) {
+      setManualTestCases(q.testCases.map((t) => ({ id: t.id, input: t.input, output: t.output, isHidden: Boolean(t.isHidden) })));
+    } else {
+      setManualTestCases([{ id: 1, input: "", output: "", isHidden: false }]);
+    }
     setViewState("add-question");
   };
 
@@ -459,7 +476,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     setManualQuestionTitle(`${manualQuestionTitle} (Copy)`);
     toast({
       title: "Question Cloned",
-      description: "Created a duplicate draft. You can now edit and save it as a new question.",
+      description: "Created a duplicate draft with all options preserved. You can now edit and save.",
     });
   };
 
@@ -542,6 +559,16 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         ? "Hybrid Task"
         : "Multiple Choice");
 
+    const currentOptions =
+      manualQuestionType === "mcq" || manualQuestionType === "msq" || manualQuestionType === "both"
+        ? manualMCQOptions.map((o) => ({ ...o }))
+        : undefined;
+
+    const currentTestCases =
+      manualQuestionType === "coding" || manualQuestionType === "both"
+        ? manualTestCases.map((t) => ({ ...t }))
+        : undefined;
+
     let updatedQuestions: TestQuestion[];
 
     if (editingQuestionId) {
@@ -554,10 +581,12 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               type: manualQuestionType as "coding" | "mcq" | "msq" | "both",
               marks: manualQuestionMarks,
               section: sectionName,
+              options: currentOptions,
+              testCases: currentTestCases,
             }
           : q
       );
-      toast({ title: "Question Updated", description: "Question saved successfully." });
+      toast({ title: "Question Updated", description: "Question statement & options saved successfully." });
     } else {
       // Add new question
       const newQ: TestQuestion = {
@@ -566,6 +595,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         type: manualQuestionType as "coding" | "mcq" | "msq" | "both",
         marks: manualQuestionMarks,
         section: sectionName,
+        options: currentOptions,
+        testCases: currentTestCases,
       };
       updatedQuestions = [...(selectedTest.questions || []), newQ];
       toast({
@@ -586,10 +617,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     fetch("/api/admin/tests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ test: updatedTest })
-    }).catch(err => console.error("Failed to update test question", err));
+      body: JSON.stringify({ test: updatedTest }),
+    }).catch((err) => console.error("Failed to update test question", err));
 
-    setTests(prev => prev.map(t => t.id === selectedTest.id ? updatedTest : t));
+    setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
     setSelectedTest(updatedTest);
 
     if (continueAdding) {
@@ -1139,11 +1170,20 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
+                      {/* Daily Open Time */}
+                      <div className="space-y-1.5 p-3 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">Daily Open Time (Optional)</label>
-                          {newStartTime && (
-                            <button type="button" onClick={() => setNewStartTime("")} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                          <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Daily Open Time (Optional)</label>
+                          {newStartTime ? (
+                            <button
+                              type="button"
+                              onClick={() => setNewStartTime("")}
+                              className="text-[11px] font-bold text-[#DC2626] bg-[#DC2626]/10 px-2 py-0.5 rounded-md hover:bg-[#DC2626]/20 transition-all flex items-center gap-1"
+                            >
+                              <X className="h-3 w-3" /> Clear Time
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-[#9CA3AF]">Optional</span>
                           )}
                         </div>
                         <div className="relative">
@@ -1151,25 +1191,52 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                             type="time"
                             value={newStartTime}
                             onChange={(e) => setNewStartTime(e.target.value)}
-                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                            className="h-[42px] text-xs rounded-xl pr-9 bg-[#F9FAFB] dark:bg-[#09090B]"
                           />
                           {newStartTime && (
                             <button
                               type="button"
                               onClick={() => setNewStartTime("")}
                               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
+                              title="Clear Start Time"
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <X className="h-4 w-4" />
                             </button>
                           )}
                         </div>
+                        {/* Quick Time Presets */}
+                        <div className="flex flex-wrap items-center gap-1 pt-1">
+                          {["09:00", "10:00", "14:00", "16:00", "18:00"].map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setNewStartTime(t)}
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors ${
+                                newStartTime === t
+                                  ? "bg-[#2563EB] text-white border-[#2563EB]"
+                                  : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:text-[#2563EB]"
+                              }`}
+                            >
+                              {t === "09:00" ? "9 AM" : t === "10:00" ? "10 AM" : t === "14:00" ? "2 PM" : t === "16:00" ? "4 PM" : "6 PM"}
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
-                      <div className="space-y-1.5">
+                      {/* Daily Close Time */}
+                      <div className="space-y-1.5 p-3 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">Daily Close Time (Optional)</label>
-                          {newEndTime && (
-                            <button type="button" onClick={() => setNewEndTime("")} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                          <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Daily Close Time (Optional)</label>
+                          {newEndTime ? (
+                            <button
+                              type="button"
+                              onClick={() => setNewEndTime("")}
+                              className="text-[11px] font-bold text-[#DC2626] bg-[#DC2626]/10 px-2 py-0.5 rounded-md hover:bg-[#DC2626]/20 transition-all flex items-center gap-1"
+                            >
+                              <X className="h-3 w-3" /> Clear Time
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-[#9CA3AF]">Optional</span>
                           )}
                         </div>
                         <div className="relative">
@@ -1177,17 +1244,35 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                             type="time"
                             value={newEndTime}
                             onChange={(e) => setNewEndTime(e.target.value)}
-                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                            className="h-[42px] text-xs rounded-xl pr-9 bg-[#F9FAFB] dark:bg-[#09090B]"
                           />
                           {newEndTime && (
                             <button
                               type="button"
                               onClick={() => setNewEndTime("")}
                               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
+                              title="Clear Close Time"
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <X className="h-4 w-4" />
                             </button>
                           )}
+                        </div>
+                        {/* Quick Time Presets */}
+                        <div className="flex flex-wrap items-center gap-1 pt-1">
+                          {["12:00", "17:00", "19:00", "21:00", "23:00"].map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setNewEndTime(t)}
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors ${
+                                newEndTime === t
+                                  ? "bg-[#2563EB] text-white border-[#2563EB]"
+                                  : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:text-[#2563EB]"
+                              }`}
+                            >
+                              {t === "12:00" ? "12 PM" : t === "17:00" ? "5 PM" : t === "19:00" ? "7 PM" : t === "21:00" ? "9 PM" : "11 PM"}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1197,37 +1282,43 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                 {newScheduleMode === "scheduled" && (
                   <div className="p-5 rounded-2xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-4 animate-in fade-in">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Slot Timing Parameters</span>
+                      <div>
+                        <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Slot Timing Parameters</span>
+                        <p className="text-[11px] text-[#6B7280]">Select date and time, or clear anytime to modify.</p>
+                      </div>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         onClick={() => { setNewDate(""); setNewStartTime(""); setNewEndTime(""); }}
-                        className="h-7 text-[11px] font-bold text-[#DC2626]"
+                        className="h-8 text-xs font-bold text-[#DC2626] bg-[#DC2626]/10 hover:bg-[#DC2626]/20 rounded-lg gap-1"
                       >
-                        Reset Slot Times
+                        <X className="h-3.5 w-3.5" /> Clear All Times
                       </Button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Exam Date */}
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 p-3 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">Exam Date</label>
-                          <div className="flex items-center gap-1.5">
-                            <button type="button" onClick={() => setNewDate(getTodayString())} className="text-[10px] text-[#2563EB] hover:underline">Today</button>
-                            <button type="button" onClick={() => setNewDate(getTomorrowString())} className="text-[10px] text-[#2563EB] hover:underline">Tmrw</button>
-                            {newDate && (
-                              <button type="button" onClick={() => setNewDate("")} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
-                            )}
-                          </div>
+                          <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Date</label>
+                          {newDate ? (
+                            <button type="button" onClick={() => setNewDate("")} className="text-[10px] font-bold text-[#DC2626] hover:underline flex items-center gap-0.5">
+                              <X className="h-3 w-3" /> Clear
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <button type="button" onClick={() => setNewDate(getTodayString())} className="text-[10px] text-[#2563EB] hover:underline">Today</button>
+                              <button type="button" onClick={() => setNewDate(getTomorrowString())} className="text-[10px] text-[#2563EB] hover:underline">Tmrw</button>
+                            </div>
+                          )}
                         </div>
                         <div className="relative">
                           <Input
                             type="date"
                             value={newDate}
                             onChange={(e) => setNewDate(e.target.value)}
-                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                            className="h-[42px] text-xs rounded-xl pr-9 bg-[#F9FAFB] dark:bg-[#09090B]"
                           />
                           {newDate && (
                             <button
@@ -1236,30 +1327,44 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
                               title="Clear Date"
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <X className="h-4 w-4" />
                             </button>
                           )}
+                        </div>
+                        <div className="flex items-center gap-1 pt-1">
+                          <button type="button" onClick={() => setNewDate(getTodayString())} className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#F9FAFB] dark:bg-[#09090B] border text-[#6B7280] hover:text-[#2563EB]">Today</button>
+                          <button type="button" onClick={() => setNewDate(getTomorrowString())} className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#F9FAFB] dark:bg-[#09090B] border text-[#6B7280] hover:text-[#2563EB]">Tomorrow</button>
+                          <button type="button" onClick={() => setNewDate(getNextWeekString())} className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#F9FAFB] dark:bg-[#09090B] border text-[#6B7280] hover:text-[#2563EB]">+7 Days</button>
                         </div>
                       </div>
 
                       {/* Start Time */}
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 p-3 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">Start Time</label>
-                          <div className="flex items-center gap-1.5">
-                            <button type="button" onClick={() => setNewStartTime("10:00")} className="text-[10px] text-[#2563EB] hover:underline">10 AM</button>
-                            <button type="button" onClick={() => setNewStartTime("14:00")} className="text-[10px] text-[#2563EB] hover:underline">2 PM</button>
-                            {newStartTime && (
-                              <button type="button" onClick={() => setNewStartTime("")} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
-                            )}
-                          </div>
+                          <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Start Time</label>
+                          {newStartTime ? (
+                            <button
+                              type="button"
+                              onClick={() => setNewStartTime("")}
+                              className="text-[10px] font-bold text-[#DC2626] bg-[#DC2626]/10 px-1.5 py-0.5 rounded hover:bg-[#DC2626]/20 transition-all flex items-center gap-0.5"
+                            >
+                              <X className="h-3 w-3" /> Clear
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-[#9CA3AF]">Optional</span>
+                          )}
                         </div>
                         <div className="relative">
                           <Input
                             type="time"
                             value={newStartTime}
-                            onChange={(e) => setNewStartTime(e.target.value)}
-                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                            onChange={(e) => {
+                              setNewStartTime(e.target.value);
+                              if (e.target.value) {
+                                setNewEndTime(calculateAutoEndTime(e.target.value, newDuration));
+                              }
+                            }}
+                            className="h-[42px] text-xs rounded-xl pr-9 bg-[#F9FAFB] dark:bg-[#09090B]"
                           />
                           {newStartTime && (
                             <button
@@ -1268,17 +1373,37 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
                               title="Clear Start Time"
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <X className="h-4 w-4" />
                             </button>
                           )}
+                        </div>
+                        {/* Quick Presets */}
+                        <div className="flex flex-wrap items-center gap-1 pt-1">
+                          {["09:00", "10:00", "14:00", "16:00", "18:00"].map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => {
+                                setNewStartTime(t);
+                                setNewEndTime(calculateAutoEndTime(t, newDuration));
+                              }}
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors ${
+                                newStartTime === t
+                                  ? "bg-[#2563EB] text-white border-[#2563EB]"
+                                  : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:text-[#2563EB]"
+                              }`}
+                            >
+                              {t === "09:00" ? "9 AM" : t === "10:00" ? "10 AM" : t === "14:00" ? "2 PM" : t === "16:00" ? "4 PM" : "6 PM"}
+                            </button>
+                          ))}
                         </div>
                       </div>
 
                       {/* End Time */}
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 p-3 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">End Time</label>
-                          <div className="flex items-center gap-1.5">
+                          <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">End Time</label>
+                          <div className="flex items-center gap-1">
                             {newStartTime && (
                               <button
                                 type="button"
@@ -1289,7 +1414,13 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                               </button>
                             )}
                             {newEndTime && (
-                              <button type="button" onClick={() => setNewEndTime("")} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                              <button
+                                type="button"
+                                onClick={() => setNewEndTime("")}
+                                className="text-[10px] font-bold text-[#DC2626] bg-[#DC2626]/10 px-1.5 py-0.5 rounded hover:bg-[#DC2626]/20 transition-all flex items-center gap-0.5"
+                              >
+                                <X className="h-3 w-3" /> Clear
+                              </button>
                             )}
                           </div>
                         </div>
@@ -1298,7 +1429,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                             type="time"
                             value={newEndTime}
                             onChange={(e) => setNewEndTime(e.target.value)}
-                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                            className="h-[42px] text-xs rounded-xl pr-9 bg-[#F9FAFB] dark:bg-[#09090B]"
                           />
                           {newEndTime && (
                             <button
@@ -1307,9 +1438,26 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
                               title="Clear End Time"
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <X className="h-4 w-4" />
                             </button>
                           )}
+                        </div>
+                        {/* End Time Quick Presets */}
+                        <div className="flex flex-wrap items-center gap-1 pt-1">
+                          {["11:00", "12:00", "15:00", "17:00", "19:00"].map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setNewEndTime(t)}
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors ${
+                                newEndTime === t
+                                  ? "bg-[#2563EB] text-white border-[#2563EB]"
+                                  : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:text-[#2563EB]"
+                              }`}
+                            >
+                              {t === "11:00" ? "11 AM" : t === "12:00" ? "12 PM" : t === "15:00" ? "3 PM" : t === "17:00" ? "5 PM" : "7 PM"}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1679,66 +1827,128 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
               {/* Mode Strict Slot Inputs */}
               {currentMode === "scheduled" && (
-                <div className="space-y-3 pt-2">
+                <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Slot Timing Parameters</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditExamForm({ ...editExamForm, date: "", startTime: "", endTime: "" })}
+                      className="text-[11px] font-bold text-[#DC2626] bg-[#DC2626]/10 hover:bg-[#DC2626]/20 px-2 py-0.5 rounded transition-all flex items-center gap-1"
+                    >
+                      <X className="h-3 w-3" /> Clear All Times
+                    </button>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="space-y-1">
+                    {/* Exam Date */}
+                    <div className="space-y-1 p-2.5 rounded-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
                       <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-bold text-[#4B5563]">Exam Date</label>
-                        <div className="flex items-center gap-1.5">
-                          <button type="button" onClick={() => setEditExamForm({ ...editExamForm, date: getTodayString() })} className="text-[10px] text-[#2563EB] hover:underline">Today</button>
-                          {editExamForm.date && (
-                            <button type="button" onClick={() => setEditExamForm({ ...editExamForm, date: "" })} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
-                          )}
-                        </div>
+                        <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Date</label>
+                        {editExamForm.date ? (
+                          <button type="button" onClick={() => setEditExamForm({ ...editExamForm, date: "" })} className="text-[10px] font-bold text-[#DC2626] hover:underline flex items-center gap-0.5">
+                            <X className="h-3 w-3" /> Clear
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={() => setEditExamForm({ ...editExamForm, date: getTodayString() })} className="text-[10px] text-[#2563EB] hover:underline">Today</button>
+                            <button type="button" onClick={() => setEditExamForm({ ...editExamForm, date: getTomorrowString() })} className="text-[10px] text-[#2563EB] hover:underline">Tmrw</button>
+                          </div>
+                        )}
                       </div>
                       <div className="relative">
                         <Input
                           type="date"
                           value={editExamForm.date || ""}
                           onChange={(e) => setEditExamForm({ ...editExamForm, date: e.target.value })}
-                          className="h-9 text-xs rounded-lg pr-8 bg-white dark:bg-[#18181B]"
+                          className="h-9 text-xs rounded-lg pr-8 bg-[#F9FAFB] dark:bg-[#09090B]"
                         />
                         {editExamForm.date && (
                           <button
                             type="button"
                             onClick={() => setEditExamForm({ ...editExamForm, date: "" })}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[#9CA3AF] hover:text-[#DC2626]"
+                            title="Clear Date"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </div>
+                      <div className="flex items-center gap-1 pt-0.5">
+                        <button type="button" onClick={() => setEditExamForm({ ...editExamForm, date: getTodayString() })} className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-[#F9FAFB] dark:bg-[#09090B] border text-[#6B7280]">Today</button>
+                        <button type="button" onClick={() => setEditExamForm({ ...editExamForm, date: getTomorrowString() })} className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-[#F9FAFB] dark:bg-[#09090B] border text-[#6B7280]">Tmrw</button>
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
+                    {/* Start Time */}
+                    <div className="space-y-1 p-2.5 rounded-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
                       <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-bold text-[#4B5563]">Start Time</label>
-                        {editExamForm.startTime && (
-                          <button type="button" onClick={() => setEditExamForm({ ...editExamForm, startTime: "" })} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                        <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">Start Time</label>
+                        {editExamForm.startTime ? (
+                          <button
+                            type="button"
+                            onClick={() => setEditExamForm({ ...editExamForm, startTime: "" })}
+                            className="text-[10px] font-bold text-[#DC2626] bg-[#DC2626]/10 px-1 py-0.2 rounded hover:bg-[#DC2626]/20 transition-all flex items-center gap-0.5"
+                          >
+                            <X className="h-2.5 w-2.5" /> Clear
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-[#9CA3AF]">Optional</span>
                         )}
                       </div>
                       <div className="relative">
                         <Input
                           type="time"
                           value={editExamForm.startTime || ""}
-                          onChange={(e) => setEditExamForm({ ...editExamForm, startTime: e.target.value })}
-                          className="h-9 text-xs rounded-lg pr-8 bg-white dark:bg-[#18181B]"
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditExamForm({
+                              ...editExamForm,
+                              startTime: val,
+                              endTime: val ? calculateAutoEndTime(val, editExamForm.duration || 60) : editExamForm.endTime,
+                            });
+                          }}
+                          className="h-9 text-xs rounded-lg pr-8 bg-[#F9FAFB] dark:bg-[#09090B]"
                         />
                         {editExamForm.startTime && (
                           <button
                             type="button"
                             onClick={() => setEditExamForm({ ...editExamForm, startTime: "" })}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[#9CA3AF] hover:text-[#DC2626]"
+                            title="Clear Start Time"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </div>
+                      {/* Presets */}
+                      <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                        {["09:00", "10:00", "14:00", "16:00"].map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => {
+                              setEditExamForm({
+                                ...editExamForm,
+                                startTime: t,
+                                endTime: calculateAutoEndTime(t, editExamForm.duration || 60),
+                              });
+                            }}
+                            className={`text-[9px] font-semibold px-1.5 py-0.2 rounded border transition-colors ${
+                              editExamForm.startTime === t
+                                ? "bg-[#2563EB] text-white border-[#2563EB]"
+                                : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]"
+                            }`}
+                          >
+                            {t === "09:00" ? "9AM" : t === "10:00" ? "10AM" : t === "14:00" ? "2PM" : "4PM"}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
+                    {/* End Time */}
+                    <div className="space-y-1 p-2.5 rounded-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A]">
                       <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-bold text-[#4B5563]">End Time</label>
+                        <label className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">End Time</label>
                         <div className="flex items-center gap-1">
                           {editExamForm.startTime && (
                             <button
@@ -1750,7 +1960,13 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                             </button>
                           )}
                           {editExamForm.endTime && (
-                            <button type="button" onClick={() => setEditExamForm({ ...editExamForm, endTime: "" })} className="text-[10px] text-[#DC2626] hover:underline ml-1">Clear</button>
+                            <button
+                              type="button"
+                              onClick={() => setEditExamForm({ ...editExamForm, endTime: "" })}
+                              className="text-[10px] font-bold text-[#DC2626] bg-[#DC2626]/10 px-1 py-0.2 rounded hover:bg-[#DC2626]/20 transition-all flex items-center gap-0.5"
+                            >
+                              <X className="h-2.5 w-2.5" /> Clear
+                            </button>
                           )}
                         </div>
                       </div>
@@ -1759,17 +1975,35 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                           type="time"
                           value={editExamForm.endTime || ""}
                           onChange={(e) => setEditExamForm({ ...editExamForm, endTime: e.target.value })}
-                          className="h-9 text-xs rounded-lg pr-8 bg-white dark:bg-[#18181B]"
+                          className="h-9 text-xs rounded-lg pr-8 bg-[#F9FAFB] dark:bg-[#09090B]"
                         />
                         {editExamForm.endTime && (
                           <button
                             type="button"
                             onClick={() => setEditExamForm({ ...editExamForm, endTime: "" })}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[#9CA3AF] hover:text-[#DC2626]"
+                            title="Clear End Time"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
                         )}
+                      </div>
+                      {/* Presets */}
+                      <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                        {["11:00", "12:00", "15:00", "17:00"].map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setEditExamForm({ ...editExamForm, endTime: t })}
+                            className={`text-[9px] font-semibold px-1.5 py-0.2 rounded border transition-colors ${
+                              editExamForm.endTime === t
+                                ? "bg-[#2563EB] text-white border-[#2563EB]"
+                                : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]"
+                            }`}
+                          >
+                            {t === "11:00" ? "11AM" : t === "12:00" ? "12PM" : t === "15:00" ? "3PM" : "5PM"}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -1943,13 +2177,18 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                                     <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] truncate">
                                       {q.title}
                                     </p>
-                                    <div className="flex items-center gap-2 mt-0.5">
+                                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
                                       <Badge variant="outline" className="text-[9px] uppercase font-bold text-[#6B7280] border-[#E5E7EB] dark:border-[#27272A]">
                                         {q.type}
                                       </Badge>
                                       <span className="text-[10px] font-bold text-[#2563EB]">
                                         {q.marks} Marks
                                       </span>
+                                      {q.options && q.options.length > 0 && (
+                                        <span className="text-[10px] text-[#16A34A] font-semibold flex items-center gap-1">
+                                          • {q.options.length} Options {q.options.some(o => o.isCorrect) && "✓ Answer Selected"}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
