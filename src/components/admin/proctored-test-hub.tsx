@@ -205,6 +205,37 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     });
   };
 
+  // Overall Master Proctoring Toggle in Create Wizard
+  const isAllProctoringActive = Boolean(
+    secWebcam ||
+    secFullscreen ||
+    secTabSwitch ||
+    secCopyPaste ||
+    secMultipleFaces ||
+    secLookingAway ||
+    secFacePosition ||
+    secAutoSubmit ||
+    secSEB
+  );
+
+  const handleToggleAllProctoring = (enabled: boolean) => {
+    setSecWebcam(enabled);
+    setSecFullscreen(enabled);
+    setSecTabSwitch(enabled);
+    setSecCopyPaste(enabled);
+    setSecMultipleFaces(enabled);
+    setSecLookingAway(enabled);
+    setSecFacePosition(enabled);
+    setSecAutoSubmit(enabled);
+    if (!enabled) setSecSEB(false);
+    toast({
+      title: enabled ? "AI Proctoring Suite Activated" : "All AI Proctoring Disabled",
+      description: enabled
+        ? "Facial tracking, anti-tab switch, fullscreen, and clipboard locks are now ON."
+        : "Exam is set to open / unrestricted mode (all security rules turned OFF).",
+    });
+  };
+
   // Restore exam wizard draft
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1481,13 +1512,40 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
           </Card>
 
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm space-y-6">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-4">
-              <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4 text-[#2563EB]" /> AI Proctoring & Anti-Cheating Policy
-              </h3>
-              <Badge variant="outline" className="text-xs font-semibold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
-                Real-Time Computer Vision Active
-              </Badge>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-4 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
+                  <ShieldAlert className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">AI Proctoring & Anti-Cheating Policy</h3>
+                  <p className="text-[11px] text-[#6B7280]">Live camera facial tracking, tab switch locks, and anti-cheating guardrails.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Overall Master Toggle Switch */}
+                <div className="flex items-center gap-2.5 p-2 px-3.5 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
+                  <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                    {isAllProctoringActive ? "Proctoring Enabled" : "Proctoring Disabled"}
+                  </span>
+                  <Switch
+                    checked={isAllProctoringActive}
+                    onCheckedChange={handleToggleAllProctoring}
+                  />
+                </div>
+
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] font-bold ${
+                    isAllProctoringActive
+                      ? "text-[#16A34A] border-[#16A34A]/30 bg-[#16A34A]/5"
+                      : "text-[#6B7280] border-[#9CA3AF]/30 bg-[#9CA3AF]/5"
+                  }`}
+                >
+                  {isAllProctoringActive ? "Real-Time AI Active" : "Open / Relaxed Mode"}
+                </Badge>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2013,9 +2071,33 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
             {/* Proctoring Toggles */}
             <div className="space-y-3 pt-2">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-                <ShieldAlert className="h-4 w-4 text-[#2563EB]" /> AI Proctoring Rules
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                  <ShieldAlert className="h-4 w-4 text-[#2563EB]" /> AI Proctoring Rules
+                </label>
+                <div className="flex items-center gap-2 p-1 px-2.5 rounded-lg bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
+                  <span className="text-[11px] font-bold text-[#111827] dark:text-[#FAFAFA]">
+                    {Boolean(editExamForm.secWebcam || editExamForm.secFullscreen || editExamForm.secTabSwitch || editExamForm.secCopyPaste) ? "Master ON" : "Master OFF"}
+                  </span>
+                  <Switch
+                    checked={Boolean(editExamForm.secWebcam || editExamForm.secFullscreen || editExamForm.secTabSwitch || editExamForm.secCopyPaste)}
+                    onCheckedChange={(enabled) => {
+                      setEditExamForm({
+                        ...editExamForm,
+                        secWebcam: enabled,
+                        secFullscreen: enabled,
+                        secTabSwitch: enabled,
+                        secCopyPaste: enabled,
+                        secMultipleFaces: enabled,
+                        secLookingAway: enabled,
+                        secFacePosition: enabled,
+                        secAutoSubmit: enabled,
+                        secSEB: enabled ? editExamForm.secSEB : false,
+                      });
+                    }}
+                  />
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="flex justify-between items-center p-3 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
                   <span className="text-xs font-medium">Webcam & Facial Presence</span>
