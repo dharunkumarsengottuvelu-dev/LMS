@@ -25,9 +25,12 @@ import { useAuth } from "@/components/providers/auth-provider";
 
 interface QuestionItem {
   id: number;
-  type: "mcq" | "coding";
+  questionId?: string;
+  type: "mcq" | "coding" | "msq";
   question: string;
+  marks?: number;
   options?: string[];
+  optionsList?: Array<{ id: number; text: string; isCorrect: boolean }>;
   correctOption?: number;
   explanation?: string;
   problemStatement?: string;
@@ -35,11 +38,6 @@ interface QuestionItem {
   sampleOutput?: string;
   section?: string;
 }
-
-// Dynamic Mock Question Sets per Test ID
-const mockQuestionSets: Record<string, QuestionItem[]> = {};
-
-const mockTestMeta: Record<string, { title: string; duration: number; maxMarks: number; proctoring: any }> = {};
 
 export default function StudentTestRunnerPage() {
   const params = useParams();
@@ -51,46 +49,66 @@ export default function StudentTestRunnerPage() {
     : (user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Student Candidate");
 
   const testId = (params?.id as string) || "";
-  const currentTest = mockTestMeta[testId] ?? { duration: 60, title: "Test", maxMarks: 100, proctoring: { enabled: false } };
-  const currentQuestions = mockQuestionSets[testId] ?? [];
+  const [testData, setTestData] = useState<any>(null);
+  const [currentQuestions, setCurrentQuestions] = useState<QuestionItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, any>>({});
   const [markedForReview, setMarkedForReview] = useState<Record<number, boolean>>({});
-  const isUntimed = !currentTest.duration || currentTest.duration <= 0;
-  const [timeLeft, setTimeLeft] = useState(isUntimed ? 0 : currentTest.duration * 60);
+  const [timeLeft, setTimeLeft] = useState(3600);
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
-  const [isExamSubmitted, setIsExamSubmitted] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");
-        return !!completedMap[testId];
-      } catch (e) {
-        return false;
-      }
-    }
-    return false;
-  });
+  const [isExamSubmitted, setIsExamSubmitted] = useState<boolean>(false);
   const [autoSubmittedReason, setAutoSubmittedReason] = useState<string | null>(null);
-  const [scoreResult, setScoreResult] = useState<number | null>(() => {
-    if (testId === "t3") return 92;
-    if (typeof window !== "undefined") {
-      try {
-        const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");
-        return completedMap[testId]?.score ?? 92;
-      } catch (e) {
-        return 92;
-      }
-    }
-    return 92;
-  });
+  const [scoreResult, setScoreResult] = useState<number | null>(null);
+
+  // Load Real Test & Assigned Questions from Database API
+  useEffect(() => {
+    if (!testId) return;
+    setIsLoading(true);
+    fetch(`/api/student/tests/${testId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          setLoadError(data.error);
+        } else if (data.test) {
+          setTestData(data.test);
+          setCurrentQuestions(data.questions || []);
+          if (data.test.duration && data.test.duration > 0) {
+            setTimeLeft(data.test.duration * 60);
+          }
+        }
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch assessment:", err);
+        setLoadError(getErrorMessage(err));
+        setIsLoading(false);
+      });
+  }, [testId]);
+
+  const currentTest = testData ?? {
+    duration: 60,
+    title: "Proctored Assessment",
+    maxMarks: 100,
+    proctoring: {
+      enabled: true,
+      webcamTracking: true,
+      fullscreenLock: true,
+      copyPasteRestricted: true,
+      safeExamBrowserRequired: false,
+    },
+  };
+
+  const isUntimed = !currentTest.duration || currentTest.duration <= 0;
 
   // Dynamic Security & Enforcement States based on Trainer/Admin settings
-  const isCopyPasteBlocked = currentTest.proctoring.copyPasteRestricted;
-  const isSEBRequired = currentTest.proctoring.safeExamBrowserRequired;
+  const isCopyPasteBlocked = Boolean(currentTest?.proctoring?.copyPasteRestricted);
+  const isSEBRequired = Boolean(currentTest?.proctoring?.safeExamBrowserRequired);
   const [isSEBVerified, setIsSEBVerified] = useState(false);
-  const isFullscreenRequired = currentTest.proctoring.fullscreenLock;
+  const isFullscreenRequired = Boolean(currentTest?.proctoring?.fullscreenLock);
   const [isFullscreenModalOpen, setIsFullscreenModalOpen] = useState(false);
   
   // Admin/Trainer Configured Tab Switch Violation Limits
@@ -420,7 +438,7 @@ export default function StudentTestRunnerPage() {
     }, 700);
   };
 
-  const handleSubmitExam = () => {
+  const handleSubmitExam = async () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
@@ -428,33 +446,94 @@ export default function StudentTestRunnerPage() {
     setIsSubmitDialogOpen(false);
     setIsExamSubmitted(true);
 
-    let correctCount = 0;
-    currentQuestions.forEach((q) => {
-      if (q.type === "mcq" && answers[q.id] === q.correctOption) {
-        correctCount++;
-      } else if (q.type === "coding" && answers[q.id]) {
-        correctCount++;
-      }
-    });
+    try {
+      const response = await fetch(`/api/student/tests/${testId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          answers: answers,
+          timeSpentSeconds: isUntimed ? 0 : Math.max(0, (currentTest.duration * 60) - timeLeft),
+          violationsCount: tabSwitchViolations,
+          autoSubmitted: Boolean(autoSubmittedReason),
+        }),
+      });
 
-    const calculatedScore = Math.round((correctCount / currentQuestions.length) * 100);
-    setScoreResult(calculatedScore);
-
-    if (typeof window !== "undefined") {
-      try {
-        const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");
-        completedMap[testId] = { score: calculatedScore, timestamp: new Date().toISOString() };
-        localStorage.setItem("edunexus_completed_tests", JSON.stringify(completedMap));
-      } catch (e) {
-        console.warn("Could not save test score to localStorage:", e);
+      const resData = await response.json();
+      if (resData.score !== undefined) {
+        setScoreResult(resData.percentage ?? resData.score);
+      } else {
+        // Fallback local score calculation
+        let correctCount = 0;
+        currentQuestions.forEach((q) => {
+          if (q.type === "mcq" && answers[q.id] === q.correctOption) {
+            correctCount++;
+          }
+        });
+        const calculatedScore = currentQuestions.length > 0 ? Math.round((correctCount / currentQuestions.length) * 100) : 0;
+        setScoreResult(calculatedScore);
       }
+    } catch (e) {
+      console.error("Submission failed, using local score calculation:", e);
+      let correctCount = 0;
+      currentQuestions.forEach((q) => {
+        if (q.type === "mcq" && answers[q.id] === q.correctOption) {
+          correctCount++;
+        }
+      });
+      const calculatedScore = currentQuestions.length > 0 ? Math.round((correctCount / currentQuestions.length) * 100) : 0;
+      setScoreResult(calculatedScore);
     }
 
     toast({
       title: "Exam Submitted Successfully",
-      description: `Your evaluation score: ${calculatedScore}%`,
+      description: "Your responses and evaluation results have been recorded.",
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 space-y-4">
+        <div className="w-10 h-10 border-3 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-bold text-[#6B7280]">Loading assessment & assigned questions...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-6">
+        <Card className="max-w-md w-full bg-white dark:bg-[#18181B] p-8 text-center rounded-2xl border border-[#DC2626]/30 shadow-sm space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#DC2626]/10 text-[#DC2626] flex items-center justify-center mx-auto">
+            <ShieldAlert className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Unable to Load Assessment</h3>
+          <p className="text-xs text-[#DC2626]">{loadError}</p>
+          <Button onClick={() => router.back()} className="h-9 px-5 bg-[#2563EB] text-white font-bold text-xs">
+            Go Back
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (currentQuestions.length === 0) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-6">
+        <Card className="max-w-md w-full bg-white dark:bg-[#18181B] p-8 text-center rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] shadow-sm space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center mx-auto">
+            <Info className="h-6 w-6" />
+          </div>
+          <h3 className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">No Questions Assigned Yet</h3>
+          <p className="text-xs text-[#6B7280]">
+            The instructor has scheduled this assessment, but has not assigned question items to it yet. Please check back when questions are published.
+          </p>
+          <Button onClick={() => router.back()} className="h-9 px-5 bg-[#2563EB] text-white font-bold text-xs">
+            Go Back to Assessments
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   if (isSEBRequired && !isSEBVerified) {
     return (
@@ -685,11 +764,11 @@ export default function StudentTestRunnerPage() {
                   Question {currentIndex + 1} of {currentQuestions.length}
                 </Badge>
                 <Badge variant="outline" className="text-xs font-semibold px-2.5 py-0.5 border-[#E5E7EB] dark:border-[#27272A]">
-                  {currentQ.type === "mcq" ? "MCQ Single Choice" : "Coding Challenge"}
+                  {currentQ?.type === "msq" ? "MSQ Multiple Select" : currentQ?.type === "coding" ? "Coding Challenge" : "MCQ Single Choice"}
                 </Badge>
               </div>
 
-              <span className="text-xs font-bold text-[#6B7280]">Marks: 20</span>
+              <span className="text-xs font-bold text-[#6B7280]">Marks: {currentQ?.marks ?? 1}</span>
             </CardHeader>
 
             <CardContent className="p-6 space-y-6">

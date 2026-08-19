@@ -161,6 +161,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [lastSavedExamDraft, setLastSavedExamDraft] = useState<string | null>(null);
   const [isSavedExamDraft, setIsSavedExamDraft] = useState<boolean>(true);
 
+  // Live Candidate Submissions for Selected Assessment
+  const [candidateSubmissions, setCandidateSubmissions] = useState<any[]>([]);
+  const [isLoadingSubmissions, setIsLoadingSubmissions] = useState<boolean>(false);
+
   // Quick Time & Date Helpers
   const getTodayString = (): string => (new Date().toISOString().split("T")[0]) || "";
   const getTomorrowString = (): string => {
@@ -291,6 +295,37 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     }, 500);
     return () => clearTimeout(timer);
   }, [newScheduleMode, newTitle, newDate, newStartDate, newEndDate, newStartTime, newEndTime, newTimezone, newDuration, newStatus, newAllowedTypes, secWebcam, secFullscreen, secTabSwitch, secCopyPaste, secMultipleScreens, secSEB, viewState]);
+
+  // Fetch live candidate submissions for selected assessment
+  useEffect(() => {
+    if (!selectedTest?.id || viewState !== "exam-dashboard") {
+      setCandidateSubmissions([]);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsLoadingSubmissions(true);
+
+    fetch(`/api/admin/tests/${selectedTest.id}/submissions`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isCancelled) {
+          setCandidateSubmissions(data.submissions || []);
+          setIsLoadingSubmissions(false);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load candidate submissions:", err);
+        if (!isCancelled) {
+          setCandidateSubmissions([]);
+          setIsLoadingSubmissions(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedTest?.id, viewState]);
 
   const filtered = tests.filter((t) => {
     const matchesSearch = t.title.toLowerCase().includes(search.toLowerCase());
@@ -776,105 +811,20 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   };
 
   const downloadAssessmentReportCsv = (test: ScheduledTest) => {
-    // Generate/fetch candidate submissions for this specific assessment
-    const candidateData = [
-      {
-        name: "Kaaviya Dharun",
-        rollNo: "CS2026-081",
-        email: "kaaviya.dharun@college.edu",
-        batch: test.batch || "Alpha Batch 2026",
-        status: "Submitted",
-        marksObtained: Math.round((test.maxMarks || 100) * 0.92),
-        totalMarks: test.maxMarks || 100,
-        percentage: 92,
-        result: "PASS",
-        proctoringViolations: 0,
-        integrityStatus: "Clean",
-        timeSpent: "42 mins",
-        submittedAt: "2026-08-17 10:45 AM",
-      },
-      {
-        name: "Alex Rivera",
-        rollNo: "IT2026-104",
-        email: "alex.rivera@college.edu",
-        batch: test.batch || "Alpha Batch 2026",
-        status: "Submitted",
-        marksObtained: Math.round((test.maxMarks || 100) * 0.78),
-        totalMarks: test.maxMarks || 100,
-        percentage: 78,
-        result: "PASS",
-        proctoringViolations: 1,
-        integrityStatus: "Minor Alerts",
-        timeSpent: "55 mins",
-        submittedAt: "2026-08-17 10:55 AM",
-      },
-      {
-        name: "Sophia Chen",
-        rollNo: "CS2026-042",
-        email: "sophia.chen@college.edu",
-        batch: test.batch || "Alpha Batch 2026",
-        status: "Auto-Submitted",
-        marksObtained: Math.round((test.maxMarks || 100) * 0.64),
-        totalMarks: test.maxMarks || 100,
-        percentage: 64,
-        result: "PASS",
-        proctoringViolations: 3,
-        integrityStatus: "Flagged",
-        timeSpent: "31 mins",
-        submittedAt: "2026-08-17 10:31 AM",
-      },
-      {
-        name: "Marcus Vance",
-        rollNo: "ECE2026-019",
-        email: "marcus.vance@college.edu",
-        batch: test.batch || "Alpha Batch 2026",
-        status: "Submitted",
-        marksObtained: Math.round((test.maxMarks || 100) * 0.85),
-        totalMarks: test.maxMarks || 100,
-        percentage: 85,
-        result: "PASS",
-        proctoringViolations: 0,
-        integrityStatus: "Clean",
-        timeSpent: "48 mins",
-        submittedAt: "2026-08-17 10:48 AM",
-      },
-      {
-        name: "Emily Watson",
-        rollNo: "CS2026-112",
-        email: "emily.watson@college.edu",
-        batch: test.batch || "Alpha Batch 2026",
-        status: "Submitted",
-        marksObtained: Math.round((test.maxMarks || 100) * 0.95),
-        totalMarks: test.maxMarks || 100,
-        percentage: 95,
-        result: "PASS",
-        proctoringViolations: 0,
-        integrityStatus: "Clean",
-        timeSpent: "38 mins",
-        submittedAt: "2026-08-17 10:38 AM",
-      },
-      {
-        name: "Daniel Craig",
-        rollNo: "IT2026-056",
-        email: "daniel.craig@college.edu",
-        batch: test.batch || "Alpha Batch 2026",
-        status: "Absent",
-        marksObtained: 0,
-        totalMarks: test.maxMarks || 100,
-        percentage: 0,
-        result: "FAIL",
-        proctoringViolations: 0,
-        integrityStatus: "N/A",
-        timeSpent: "0 mins",
-        submittedAt: "Not Attempted",
-      },
-    ];
+    if (!candidateSubmissions || candidateSubmissions.length === 0) {
+      toast({
+        title: "No Submissions Recorded",
+        description: `No candidates have submitted attempts for "${test.title}" yet.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     const headers = "Candidate Name,Roll Number,Email,Batch,Submission Status,Marks Obtained,Total Marks,Percentage (%),Result,Proctoring Violations,Integrity Flag,Time Spent,Submitted At\n";
-    const rows = candidateData
+    const rows = candidateSubmissions
       .map(
         (c) =>
-          `"${c.name}","${c.rollNo}","${c.email}","${c.batch}","${c.status}",${c.marksObtained},${c.totalMarks},${c.percentage},"${c.result}",${c.proctoringViolations},"${c.integrityStatus}","${c.timeSpent}","${c.submittedAt}"`
+          `"${c.name}","${c.rollNo}","${c.email}","${c.batch}","${c.status}",${c.score},${c.totalMarks},${c.percentage},"${c.percentage >= 50 ? 'PASS' : 'FAIL'}",${c.violations},"${c.integrity}","${c.timeSpent}","${c.submittedAt}"`
       )
       .join("\n");
 
@@ -887,7 +837,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     URL.revokeObjectURL(url);
     toast({
       title: "Report Downloaded",
-      description: `Exported candidate attendance and results for "${test.title}".`,
+      description: `Exported ${candidateSubmissions.length} live candidate submission records for "${test.title}".`,
     });
   };
 
@@ -1064,13 +1014,12 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               {/* Basic Meta Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Allowed Question Types</label>
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assessment Format</label>
                   <Select value={newAllowedTypes} onValueChange={(val) => setNewAllowedTypes((val as any))}>
                     <SelectTrigger className="h-[48px] text-xs rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="both">Both Coding & MCQ</SelectItem>
-                      <SelectItem value="coding">Coding Only</SelectItem>
-                      <SelectItem value="mcq">MCQ Only</SelectItem>
+                      <SelectItem value="mcq">Multiple Choice (Quiz / MCQ)</SelectItem>
+                      <SelectItem value="both">Mixed Questions (MCQ / MSQ)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -2490,12 +2439,13 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                   </Badge>
                 </div>
                 <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
-                  <div className="text-3xl font-black text-[#2563EB]">{selectedTest.submissionsCount || 5}</div>
-                  <div className="text-xs font-bold text-[#6B7280] uppercase tracking-wider mt-1">Candidates Completed / Enrolled: {selectedTest.totalEnrolled || 120}</div>
+                  <div className="text-3xl font-black text-[#2563EB]">{candidateSubmissions.length}</div>
+                  <div className="text-xs font-bold text-[#6B7280] uppercase tracking-wider mt-1">Candidates Completed / Enrolled: {candidateSubmissions.length} Submitted</div>
                 </div>
                 <Button 
                   onClick={() => downloadAssessmentReportCsv(selectedTest)}
-                  className="w-full h-10 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-2 shadow-xs"
+                  disabled={candidateSubmissions.length === 0}
+                  className="w-full h-10 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 text-white font-bold text-xs gap-2 shadow-xs"
                 >
                   <Download className="h-4 w-4" /> Download Candidate Report
                 </Button>
@@ -2526,164 +2476,116 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-sm overflow-hidden mt-6">
           <div className="p-5 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Candidate Attendance & Score Report
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
+                  Candidate Attendance & Score Report
+                </h3>
+                <Badge variant="outline" className="text-[10px] font-bold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
+                  {candidateSubmissions.length} {candidateSubmissions.length === 1 ? "Record" : "Records"}
+                </Badge>
+              </div>
               <p className="text-xs text-[#6B7280] mt-0.5">
-                Detailed record of all candidates who attempted this assessment module with scores and anti-cheating audit.
+                Live record of enrolled candidates who attempted this assessment module with scores and anti-cheating audit.
               </p>
             </div>
             <Button
               onClick={() => downloadAssessmentReportCsv(selectedTest)}
+              disabled={candidateSubmissions.length === 0}
               size="sm"
-              className="h-9 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl gap-1.5 shrink-0 shadow-xs"
+              className="h-9 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 text-white text-xs font-bold rounded-xl gap-1.5 shrink-0 shadow-xs"
             >
               <Download className="h-3.5 w-3.5" /> Download Full CSV Report
             </Button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] uppercase font-bold text-[10px]">
-                <tr>
-                  <th className="p-3.5 pl-5">Candidate</th>
-                  <th className="p-3.5">Batch</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5">Score</th>
-                  <th className="p-3.5">Accuracy</th>
-                  <th className="p-3.5">Proctoring Flags</th>
-                  <th className="p-3.5">Submitted At</th>
-                  <th className="p-3.5 pr-5 text-right">Export</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-                {[
-                  {
-                    name: "Kaaviya Dharun",
-                    rollNo: "CS2026-081",
-                    email: "kaaviya.dharun@college.edu",
-                    batch: selectedTest.batch || "Alpha Batch 2026",
-                    status: "Submitted",
-                    score: Math.round((selectedTest.maxMarks || 100) * 0.92),
-                    totalMarks: selectedTest.maxMarks || 100,
-                    percentage: 92,
-                    violations: 0,
-                    integrity: "Clean",
-                    timeSpent: "42 mins",
-                    submittedAt: "2026-08-17 10:45 AM",
-                  },
-                  {
-                    name: "Alex Rivera",
-                    rollNo: "IT2026-104",
-                    email: "alex.rivera@college.edu",
-                    batch: selectedTest.batch || "Alpha Batch 2026",
-                    status: "Submitted",
-                    score: Math.round((selectedTest.maxMarks || 100) * 0.78),
-                    totalMarks: selectedTest.maxMarks || 100,
-                    percentage: 78,
-                    violations: 1,
-                    integrity: "Minor Alerts",
-                    timeSpent: "55 mins",
-                    submittedAt: "2026-08-17 10:55 AM",
-                  },
-                  {
-                    name: "Sophia Chen",
-                    rollNo: "CS2026-042",
-                    email: "sophia.chen@college.edu",
-                    batch: selectedTest.batch || "Alpha Batch 2026",
-                    status: "Auto-Submitted",
-                    score: Math.round((selectedTest.maxMarks || 100) * 0.64),
-                    totalMarks: selectedTest.maxMarks || 100,
-                    percentage: 64,
-                    violations: 3,
-                    integrity: "Flagged",
-                    timeSpent: "31 mins",
-                    submittedAt: "2026-08-17 10:31 AM",
-                  },
-                  {
-                    name: "Marcus Vance",
-                    rollNo: "ECE2026-019",
-                    email: "marcus.vance@college.edu",
-                    batch: selectedTest.batch || "Alpha Batch 2026",
-                    status: "Submitted",
-                    score: Math.round((selectedTest.maxMarks || 100) * 0.85),
-                    totalMarks: selectedTest.maxMarks || 100,
-                    percentage: 85,
-                    violations: 0,
-                    integrity: "Clean",
-                    timeSpent: "48 mins",
-                    submittedAt: "2026-08-17 10:48 AM",
-                  },
-                  {
-                    name: "Emily Watson",
-                    rollNo: "CS2026-112",
-                    email: "emily.watson@college.edu",
-                    batch: selectedTest.batch || "Alpha Batch 2026",
-                    status: "Submitted",
-                    score: Math.round((selectedTest.maxMarks || 100) * 0.95),
-                    totalMarks: selectedTest.maxMarks || 100,
-                    percentage: 95,
-                    violations: 0,
-                    integrity: "Clean",
-                    timeSpent: "38 mins",
-                    submittedAt: "2026-08-17 10:38 AM",
-                  },
-                ].map((c, i) => (
-                  <tr key={i} className="hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]/40 transition-colors">
-                    <td className="p-3.5 pl-5">
-                      <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">{c.name}</p>
-                      <p className="text-[10px] text-[#6B7280] font-mono">{c.rollNo} • {c.email}</p>
-                    </td>
-                    <td className="p-3.5 font-medium text-[#4B5563] dark:text-[#D1D5DB]">{c.batch}</td>
-                    <td className="p-3.5">
-                      <Badge
-                        className={`text-[9px] font-bold ${
-                          c.status === "Submitted"
-                            ? "bg-[#16A34A] text-white"
-                            : c.status === "Auto-Submitted"
-                            ? "bg-[#DC2626] text-white"
-                            : "bg-[#6B7280] text-white"
-                        }`}
-                      >
-                        {c.status}
-                      </Badge>
-                    </td>
-                    <td className="p-3.5 font-bold text-[#111827] dark:text-[#FAFAFA]">
-                      {c.score} / {c.totalMarks}
-                    </td>
-                    <td className="p-3.5">
-                      <span className="font-bold text-[#2563EB]">{c.percentage}%</span>
-                    </td>
-                    <td className="p-3.5">
-                      <Badge
-                        variant="outline"
-                        className={`text-[9px] font-bold ${
-                          c.integrity === "Clean"
-                            ? "text-[#16A34A] border-[#16A34A]/30 bg-[#16A34A]/5"
-                            : c.integrity === "Minor Alerts"
-                            ? "text-[#F59E0B] border-[#F59E0B]/30 bg-[#F59E0B]/5"
-                            : "text-[#DC2626] border-[#DC2626]/30 bg-[#DC2626]/5"
-                        }`}
-                      >
-                        {c.violations} Alerts ({c.integrity})
-                      </Badge>
-                    </td>
-                    <td className="p-3.5 font-mono text-[#6B7280] text-[11px]">{c.submittedAt}</td>
-                    <td className="p-3.5 pr-5 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => downloadAssessmentReportCsv(selectedTest)}
-                        className="h-7 px-2.5 text-[11px] font-bold border-[#2563EB]/30 text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg"
-                      >
-                        <Download className="h-3 w-3 mr-1" /> CSV
-                      </Button>
-                    </td>
+          {isLoadingSubmissions ? (
+            <div className="p-12 text-center text-xs text-[#6B7280] flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
+              Loading live candidate submissions...
+            </div>
+          ) : candidateSubmissions.length === 0 ? (
+            <div className="p-12 text-center bg-white dark:bg-[#18181B]">
+              <div className="w-12 h-12 rounded-2xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center mx-auto mb-3">
+                <Users className="h-6 w-6" />
+              </div>
+              <h4 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">No Candidate Submissions Yet</h4>
+              <p className="text-xs text-[#6B7280] max-w-md mx-auto mt-1">
+                As enrolled students begin and submit their attempts for this test, their live marks, accuracy percentages, and proctoring violation audits will appear here in real-time.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] uppercase font-bold text-[10px]">
+                  <tr>
+                    <th className="p-3.5 pl-5">Candidate</th>
+                    <th className="p-3.5">Batch</th>
+                    <th className="p-3.5">Status</th>
+                    <th className="p-3.5">Score</th>
+                    <th className="p-3.5">Accuracy</th>
+                    <th className="p-3.5">Proctoring Flags</th>
+                    <th className="p-3.5">Submitted At</th>
+                    <th className="p-3.5 pr-5 text-right">Export</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                  {candidateSubmissions.map((c) => (
+                    <tr key={c.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]/40 transition-colors">
+                      <td className="p-3.5 pl-5">
+                        <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">{c.name}</p>
+                        <p className="text-[10px] text-[#6B7280] font-mono">{c.rollNo} • {c.email}</p>
+                      </td>
+                      <td className="p-3.5 font-medium text-[#4B5563] dark:text-[#D1D5DB]">{c.batch}</td>
+                      <td className="p-3.5">
+                        <Badge
+                          className={`text-[9px] font-bold ${
+                            c.status === "Submitted"
+                              ? "bg-[#16A34A] text-white"
+                              : c.status === "Auto-Submitted"
+                              ? "bg-[#DC2626] text-white"
+                              : "bg-[#6B7280] text-white"
+                          }`}
+                        >
+                          {c.status}
+                        </Badge>
+                      </td>
+                      <td className="p-3.5 font-bold text-[#111827] dark:text-[#FAFAFA]">
+                        {c.score} / {c.totalMarks}
+                      </td>
+                      <td className="p-3.5">
+                        <span className="font-bold text-[#2563EB]">{c.percentage}%</span>
+                      </td>
+                      <td className="p-3.5">
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] font-bold ${
+                            c.integrity === "Clean"
+                              ? "text-[#16A34A] border-[#16A34A]/30 bg-[#16A34A]/5"
+                              : c.integrity === "Minor Alerts"
+                              ? "text-[#F59E0B] border-[#F59E0B]/30 bg-[#F59E0B]/5"
+                              : "text-[#DC2626] border-[#DC2626]/30 bg-[#DC2626]/5"
+                          }`}
+                        >
+                          {c.violations} Alerts ({c.integrity})
+                        </Badge>
+                      </td>
+                      <td className="p-3.5 font-mono text-[#6B7280] text-[11px]">{c.submittedAt}</td>
+                      <td className="p-3.5 pr-5 text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => downloadAssessmentReportCsv(selectedTest)}
+                          className="h-7 px-2.5 text-[11px] font-bold border-[#2563EB]/30 text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg"
+                        >
+                          <Download className="h-3 w-3 mr-1" /> CSV
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
         
         {renderAssignmentModal()}
@@ -2799,20 +2701,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
               <div className="flex items-center gap-3">
                 <Select value={manualQuestionType} onValueChange={(val) => val && setManualQuestionType(val as any)}>
-                  <SelectTrigger className="h-9 text-xs w-[170px] bg-[#F9FAFB] dark:bg-[#09090B] font-bold"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 text-xs w-[180px] bg-[#F9FAFB] dark:bg-[#09090B] font-bold"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(selectedTest.allowedQuestionTypes === "both" || selectedTest.allowedQuestionTypes === "coding" || !selectedTest.allowedQuestionTypes) && (
-                      <SelectItem value="coding">Programming Task</SelectItem>
-                    )}
-                    {(selectedTest.allowedQuestionTypes === "both" || selectedTest.allowedQuestionTypes === "mcq" || !selectedTest.allowedQuestionTypes) && (
-                      <>
-                        <SelectItem value="mcq">Single Choice (MCQ)</SelectItem>
-                        <SelectItem value="msq">Multiple Select (MSQ)</SelectItem>
-                      </>
-                    )}
-                    {(selectedTest.allowedQuestionTypes === "both" || !selectedTest.allowedQuestionTypes) && (
-                      <SelectItem value="both">Hybrid (Coding + MCQ)</SelectItem>
-                    )}
+                    <SelectItem value="mcq">Single Choice (MCQ)</SelectItem>
+                    <SelectItem value="msq">Multiple Select (MSQ)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2821,10 +2713,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement <span className="text-[#DC2626]">*</span></label>
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Question / Problem Statement <span className="text-[#DC2626]">*</span></label>
                   <textarea 
                     className="w-full min-h-[120px] p-4 text-sm rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] focus:ring-2 focus:ring-[#2563EB] outline-none transition-all resize-y"
-                    placeholder="Describe the problem, input constraints, question statement, and options..."
+                    placeholder="Enter your question statement here (e.g., What is the output of the given expression? or Find the missing number in the sequence: 2, 6, 12, 20, 30, ?)..."
                     value={manualQuestionTitle}
                     onChange={(e) => setManualQuestionTitle(e.target.value)}
                     required
@@ -2837,29 +2729,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                 </div>
               </div>
 
-              {(manualQuestionType === "coding" || manualQuestionType === "both") && (
-                <div className="space-y-4 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                  <CodingProblemCreator
-                    inline
-                    initialTitle={manualQuestionTitle || "Find the Largest Element"}
-                    onChange={(problem) => {
-                      if (!manualQuestionTitle && problem.title) setManualQuestionTitle(problem.title);
-                      const allTC = [...problem.publicTestCases, ...problem.hiddenTestCases];
-                      if (allTC.length > 0) {
-                        setManualTestCases(allTC.map((t, index) => ({
-                          id: index + 1,
-                          input: t.input,
-                          output: t.expected_output,
-                          isHidden: t.is_hidden
-                        })));
-                      }
-                    }}
-                  />
-                </div>
-              )}
-
-              {(manualQuestionType === "mcq" || manualQuestionType === "msq" || manualQuestionType === "both") && (
-                <div className="space-y-4 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <div className="space-y-4 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
                       {manualQuestionType === "msq" ? "Multiple Select Options" : "Single Choice Options"}
@@ -2948,7 +2818,6 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     ))}
                   </div>
                 </div>
-              )}
             </div>
             
             {/* Action Buttons Bar */}
