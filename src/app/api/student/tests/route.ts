@@ -77,13 +77,22 @@ export async function GET(request: NextRequest) {
         const attempt = attemptsMap.get(a.id);
         const isCompleted = attempt && attempt.status === "submitted";
 
+        let scheduledDisplay = "Available Anytime";
+        if (meta.scheduleMode === "open" || (!meta.date && !meta.startDate && !a.available_from)) {
+          scheduledDisplay = "Open Window (On-Demand)";
+        } else if (meta.scheduleMode === "window" && (meta.startDate || meta.endDate)) {
+          scheduledDisplay = `Window: ${meta.startDate || "Any"} to ${meta.endDate || "Open"}`;
+        } else if (meta.date) {
+          scheduledDisplay = `${meta.date}${meta.startTime ? ` • ${meta.startTime}` : ""}`;
+        } else if (a.available_from) {
+          scheduledDisplay = new Date(a.available_from).toLocaleString();
+        }
+
         mappedTests.push({
           id: a.id,
           title: a.title,
           type: a.type === "coding" ? "Coding Assessment" : "Proctored Examination",
-          scheduledAt: a.available_from
-            ? new Date(a.available_from).toLocaleString()
-            : "Available Now",
+          scheduledAt: scheduledDisplay,
           duration: a.duration_minutes || a.duration || 60,
           totalQuestions: a.total_questions || 10,
           totalMarks: a.total_marks || (a.total_questions || 10) * 10,

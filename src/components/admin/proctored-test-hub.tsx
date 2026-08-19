@@ -5,7 +5,8 @@ import Link from "next/link";
 import {
   ClipboardList, Plus, Search, ShieldAlert, ShieldCheck, Clock, Users,
   Award, Eye, Trash2, Play, ArrowLeft, Sparkles, Lock, FileText, CheckSquare, Settings,
-  CheckCircle2, AlertCircle, Send, Check, Code2, Edit, Download
+  CheckCircle2, AlertCircle, Send, Check, Code2, Edit, Download, Calendar, CalendarDays,
+  CalendarRange, X, RotateCcw, Zap, Globe, Timer, Info, Copy
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,9 +24,13 @@ export interface ScheduledTest {
   id: string;
   title: string;
   batch: string;
+  scheduleMode?: "open" | "window" | "scheduled";
   date?: string;
+  startDate?: string;
+  endDate?: string;
   startTime?: string;
   endTime?: string;
+  timezone?: string;
   duration: number;
   totalQuestions: number;
   maxMarks: number;
@@ -38,6 +43,17 @@ export interface ScheduledTest {
   questions?: TestQuestion[];
   allowedQuestionTypes?: "coding" | "mcq" | "both";
   sections?: string[];
+  secWebcam?: boolean;
+  secFullscreen?: boolean;
+  secTabSwitch?: boolean;
+  secCopyPaste?: boolean;
+  secMultipleScreens?: boolean;
+  secSEB?: boolean;
+  secMultipleFaces?: boolean;
+  secLookingAway?: boolean;
+  secFacePosition?: boolean;
+  secAutoSubmit?: boolean;
+  maxWarningsLimit?: number;
 }
 
 export interface TestQuestion {
@@ -88,13 +104,17 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [viewState, setViewState] = useState<ViewState>("list");
   const [selectedTest, setSelectedTest] = useState<ScheduledTest | null>(null);
 
-  // Form State for Create Wizard
+  // MNC Scheduling Mode & Form State for Create Wizard
+  const [newScheduleMode, setNewScheduleMode] = useState<"open" | "window" | "scheduled">("open");
   const [newTitle, setNewTitle] = useState("");
   const [newDate, setNewDate] = useState("");
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
   const [newStartTime, setNewStartTime] = useState("");
   const [newEndTime, setNewEndTime] = useState("");
+  const [newTimezone, setNewTimezone] = useState("Asia/Kolkata (IST)");
   const [newDuration, setNewDuration] = useState(60);
-  const [newStatus, setNewStatus] = useState<"live" | "scheduled">("scheduled");
+  const [newStatus, setNewStatus] = useState<"live" | "scheduled">("live");
   const [secWebcam, setSecWebcam] = useState(true);
   const [secFullscreen, setSecFullscreen] = useState(true);
   const [secTabSwitch, setSecTabSwitch] = useState(true);
@@ -107,6 +127,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [secFacePosition, setSecFacePosition] = useState(true);
   const [secAutoSubmit, setSecAutoSubmit] = useState(true);
   const [newAllowedTypes, setNewAllowedTypes] = useState<"coding" | "mcq" | "both">("both");
+
+  // Edit Exam Settings Modal State
+  const [isEditingExamSettings, setIsEditingExamSettings] = useState(false);
+  const [editExamForm, setEditExamForm] = useState<Partial<ScheduledTest>>({});
 
   // Form State for Add / Edit Question
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
@@ -135,6 +159,50 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [lastSavedExamDraft, setLastSavedExamDraft] = useState<string | null>(null);
   const [isSavedExamDraft, setIsSavedExamDraft] = useState<boolean>(true);
 
+  // Quick Time & Date Helpers
+  const getTodayString = (): string => (new Date().toISOString().split("T")[0]) || "";
+  const getTomorrowString = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return (d.toISOString().split("T")[0]) || "";
+  };
+  const getNextWeekString = (): string => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return (d.toISOString().split("T")[0]) || "";
+  };
+
+  const calculateAutoEndTime = (startTimeStr: string, durationMins: number): string => {
+    if (!startTimeStr) return "";
+    try {
+      const parts = startTimeStr.split(":");
+      if (parts.length < 2) return "";
+      const hours = parseInt(parts[0] || "0", 10);
+      const mins = parseInt(parts[1] || "0", 10);
+      if (isNaN(hours) || isNaN(mins)) return "";
+      const date = new Date();
+      date.setHours(hours, mins + (durationMins || 60), 0, 0);
+      const endH = String(date.getHours()).padStart(2, "0");
+      const endM = String(date.getMinutes()).padStart(2, "0");
+      return `${endH}:${endM}`;
+    } catch {
+      return "";
+    }
+  };
+
+  const handleClearAllSchedule = () => {
+    setNewDate("");
+    setNewStartDate("");
+    setNewEndDate("");
+    setNewStartTime("");
+    setNewEndTime("");
+    setNewScheduleMode("open");
+    toast({
+      title: "Schedule Cleared",
+      description: "Exam is now configured in On-Demand mode (available anytime without date/time limits).",
+    });
+  };
+
   // Restore exam wizard draft
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -143,10 +211,14 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       if (stored) {
         const d = JSON.parse(stored);
         if (d) {
+          if (d.newScheduleMode) setNewScheduleMode(d.newScheduleMode);
           if (d.newTitle) setNewTitle(d.newTitle);
-          if (d.newDate) setNewDate(d.newDate);
-          if (d.newStartTime) setNewStartTime(d.newStartTime);
-          if (d.newEndTime) setNewEndTime(d.newEndTime);
+          if (d.newDate !== undefined) setNewDate(d.newDate);
+          if (d.newStartDate !== undefined) setNewStartDate(d.newStartDate);
+          if (d.newEndDate !== undefined) setNewEndDate(d.newEndDate);
+          if (d.newStartTime !== undefined) setNewStartTime(d.newStartTime);
+          if (d.newEndTime !== undefined) setNewEndTime(d.newEndTime);
+          if (d.newTimezone) setNewTimezone(d.newTimezone);
           if (d.newDuration) setNewDuration(d.newDuration);
           if (d.newStatus) setNewStatus(d.newStatus);
           if (d.newAllowedTypes) setNewAllowedTypes(d.newAllowedTypes);
@@ -167,13 +239,13 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   // Auto-save exam wizard draft
   useEffect(() => {
     if (typeof window === "undefined" || viewState !== "wizard") return;
-    if (!newTitle && !newDate && !newStartTime) return;
+    if (!newTitle && !newDate && !newStartTime && newScheduleMode === "open") return;
     setIsSavedExamDraft(false);
     const timer = setTimeout(() => {
       try {
         const d = {
-          newTitle, newDate, newStartTime, newEndTime, newDuration, newStatus,
-          newAllowedTypes, secWebcam, secFullscreen, secTabSwitch, secCopyPaste,
+          newScheduleMode, newTitle, newDate, newStartDate, newEndDate, newStartTime, newEndTime, newTimezone,
+          newDuration, newStatus, newAllowedTypes, secWebcam, secFullscreen, secTabSwitch, secCopyPaste,
           secMultipleScreens, secSEB,
           savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         };
@@ -185,7 +257,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [newTitle, newDate, newStartTime, newEndTime, newDuration, newStatus, newAllowedTypes, secWebcam, secFullscreen, secTabSwitch, secCopyPaste, secMultipleScreens, secSEB, viewState]);
+  }, [newScheduleMode, newTitle, newDate, newStartDate, newEndDate, newStartTime, newEndTime, newTimezone, newDuration, newStatus, newAllowedTypes, secWebcam, secFullscreen, secTabSwitch, secCopyPaste, secMultipleScreens, secSEB, viewState]);
 
   const filtered = tests.filter((t) => {
     const matchesSearch = t.title.toLowerCase().includes(search.toLowerCase());
@@ -193,54 +265,178 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     return matchesSearch && matchesStatus;
   });
 
-  const handleCreateTest = (e: React.FormEvent) => {
+  const handleCreateTest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTitle) {
+    if (!newTitle.trim()) {
       toast({ title: "Title Required", description: "Please enter an exam title.", variant: "destructive" });
       return;
     }
 
+    const proctoringFlags: string[] = [
+      ...(secWebcam ? ["AI Facial Tracking Active"] : []),
+      ...(secFullscreen ? ["Fullscreen Locked"] : []),
+      ...(secTabSwitch ? ["Anti-Tab Switch"] : []),
+      ...(secCopyPaste ? ["Clipboard Blocked"] : []),
+      ...(secSEB ? ["Safe Exam Browser Enforced"] : []),
+    ];
+
     const newTest: ScheduledTest = {
       id: `test_${Date.now()}`,
-      title: newTitle,
-      date: newDate || new Date().toISOString().split("T")[0]!,
-      startTime: newStartTime || "09:00 AM",
-      endTime: newEndTime || "11:00 AM",
+      title: newTitle.trim(),
+      scheduleMode: newScheduleMode,
+      date: newDate || undefined,
+      startDate: newStartDate || undefined,
+      endDate: newEndDate || undefined,
+      startTime: newStartTime || undefined,
+      endTime: newEndTime || undefined,
+      timezone: newTimezone,
       batch: "Common (All Batches)",
-      duration: newDuration,
+      duration: newDuration || 60,
       totalQuestions: 0,
       maxMarks: 0,
       status: newStatus,
       submissionsCount: 0,
       totalEnrolled: 120,
-      proctoringFlags: [
-        ...(secWebcam ? ["AI Facial Tracking Active"] : []),
-        ...(secFullscreen ? ["Fullscreen Locked"] : []),
-        ...(secTabSwitch ? ["Anti-Tab Switch"] : []),
-        ...(secCopyPaste ? ["Clipboard Blocked"] : []),
-        ...(secSEB ? ["Safe Exam Browser Enforced"] : []),
-      ],
+      proctoringFlags,
       allowedQuestionTypes: newAllowedTypes,
       sections: ["General Assessment"],
       questions: [],
+      secWebcam,
+      secFullscreen,
+      secTabSwitch,
+      secCopyPaste,
+      secMultipleScreens,
+      secSEB,
+      secMultipleFaces,
+      secLookingAway,
+      secFacePosition,
+      secAutoSubmit,
+      maxWarningsLimit,
     };
+
+    try {
+      await fetch("/api/admin/tests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test: newTest }),
+      });
+    } catch (err) {
+      console.error("Failed to persist new test", err);
+    }
 
     setTests([newTest, ...tests]);
     setSelectedTest(newTest);
     setViewState("exam-dashboard");
     toast({
       title: "Exam Setup Created",
-      description: `"${newTitle}" has been created and saved.`,
+      description: `"${newTitle}" configured successfully as ${newScheduleMode === "open" ? "On-Demand (Available Anytime)" : newScheduleMode === "window" ? "Flexible Window" : "Scheduled Slot"}.`,
     });
   };
 
-  const openCreateQuestion = (section: string) => {
+  const openEditExamModal = (test: ScheduledTest) => {
+    setEditExamForm({
+      ...test,
+      scheduleMode: test.scheduleMode || (test.date ? "scheduled" : "open"),
+      timezone: test.timezone || "Asia/Kolkata (IST)",
+      duration: test.duration || 60,
+      status: test.status || "live",
+      allowedQuestionTypes: test.allowedQuestionTypes || "both",
+      secWebcam: test.secWebcam ?? true,
+      secFullscreen: test.secFullscreen ?? true,
+      secTabSwitch: test.secTabSwitch ?? true,
+      secCopyPaste: test.secCopyPaste ?? true,
+      secMultipleScreens: test.secMultipleScreens ?? false,
+      secSEB: test.secSEB ?? false,
+      secMultipleFaces: test.secMultipleFaces ?? true,
+      secLookingAway: test.secLookingAway ?? true,
+      secFacePosition: test.secFacePosition ?? true,
+      secAutoSubmit: test.secAutoSubmit ?? true,
+      maxWarningsLimit: test.maxWarningsLimit ?? 3,
+    });
+    setIsEditingExamSettings(true);
+  };
+
+  const handleSaveExamSettings = async () => {
+    if (!selectedTest || !editExamForm.title?.trim()) {
+      toast({ title: "Title Required", description: "Assessment title cannot be empty.", variant: "destructive" });
+      return;
+    }
+
+    const proctoringFlags: string[] = [
+      ...(editExamForm.secWebcam ? ["AI Facial Tracking Active"] : []),
+      ...(editExamForm.secFullscreen ? ["Fullscreen Locked"] : []),
+      ...(editExamForm.secTabSwitch ? ["Anti-Tab Switch"] : []),
+      ...(editExamForm.secCopyPaste ? ["Clipboard Blocked"] : []),
+      ...(editExamForm.secSEB ? ["Safe Exam Browser Enforced"] : []),
+    ];
+
+    const updatedTest: ScheduledTest = {
+      ...selectedTest,
+      title: editExamForm.title.trim(),
+      scheduleMode: editExamForm.scheduleMode || "open",
+      date: editExamForm.date || undefined,
+      startDate: editExamForm.startDate || undefined,
+      endDate: editExamForm.endDate || undefined,
+      startTime: editExamForm.startTime || undefined,
+      endTime: editExamForm.endTime || undefined,
+      timezone: editExamForm.timezone || "Asia/Kolkata (IST)",
+      duration: Number(editExamForm.duration) || 60,
+      status: editExamForm.status || "live",
+      allowedQuestionTypes: editExamForm.allowedQuestionTypes || "both",
+      proctoringFlags,
+      secWebcam: editExamForm.secWebcam,
+      secFullscreen: editExamForm.secFullscreen,
+      secTabSwitch: editExamForm.secTabSwitch,
+      secCopyPaste: editExamForm.secCopyPaste,
+      secMultipleScreens: editExamForm.secMultipleScreens,
+      secSEB: editExamForm.secSEB,
+      secMultipleFaces: editExamForm.secMultipleFaces,
+      secLookingAway: editExamForm.secLookingAway,
+      secFacePosition: editExamForm.secFacePosition,
+      secAutoSubmit: editExamForm.secAutoSubmit,
+      maxWarningsLimit: editExamForm.maxWarningsLimit,
+    };
+
+    try {
+      await fetch("/api/admin/tests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test: updatedTest }),
+      });
+    } catch (err) {
+      console.error("Failed to save updated exam settings", err);
+    }
+
+    setTests(prev => prev.map(t => t.id === updatedTest.id ? updatedTest : t));
+    setSelectedTest(updatedTest);
+    setIsEditingExamSettings(false);
+    toast({
+      title: "Exam Settings Updated",
+      description: "Schedule, timing, and security rules saved successfully.",
+    });
+  };
+
+  const openCreateQuestion = (section?: string) => {
+    const targetSection = section || selectedTest?.sections?.[0] || "General Assessment";
     setEditingQuestionId(null);
     setManualQuestionTitle("");
-    setManualQuestionType(selectedTest?.allowedQuestionTypes === "coding" ? "coding" : selectedTest?.allowedQuestionTypes === "mcq" ? "mcq" : "coding");
+    setManualQuestionType(
+      selectedTest?.allowedQuestionTypes === "coding"
+        ? "coding"
+        : selectedTest?.allowedQuestionTypes === "mcq"
+        ? "mcq"
+        : "mcq"
+    );
     setManualQuestionMarks(10);
-    setManualQuestionSection(section);
+    setManualQuestionSection(targetSection);
     setCustomSectionName("");
+    setManualMCQOptions([
+      { id: 1, text: "", isCorrect: false },
+      { id: 2, text: "", isCorrect: false },
+      { id: 3, text: "", isCorrect: false },
+      { id: 4, text: "", isCorrect: false },
+    ]);
+    setManualTestCases([{ id: 1, input: "", output: "", isHidden: false }]);
     setViewState("add-question");
   };
 
@@ -252,6 +448,36 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     setManualQuestionSection(q.section);
     setCustomSectionName("");
     setViewState("add-question");
+  };
+
+  const handleDuplicateQuestion = () => {
+    if (!manualQuestionTitle.trim()) {
+      toast({ title: "Nothing to Duplicate", description: "Please enter a problem statement first.", variant: "destructive" });
+      return;
+    }
+    setEditingQuestionId(null);
+    setManualQuestionTitle(`${manualQuestionTitle} (Copy)`);
+    toast({
+      title: "Question Cloned",
+      description: "Created a duplicate draft. You can now edit and save it as a new question.",
+    });
+  };
+
+  const handleQuickNewQuestion = () => {
+    setEditingQuestionId(null);
+    setManualQuestionTitle("");
+    setManualQuestionMarks(10);
+    setManualMCQOptions([
+      { id: 1, text: "", isCorrect: false },
+      { id: 2, text: "", isCorrect: false },
+      { id: 3, text: "", isCorrect: false },
+      { id: 4, text: "", isCorrect: false },
+    ]);
+    setManualTestCases([{ id: 1, input: "", output: "", isHidden: false }]);
+    toast({
+      title: "New Question Draft",
+      description: "Form reset. Enter statement and options to add another question.",
+    });
   };
 
   const handleDeleteQuestion = (qId: string) => {
@@ -300,9 +526,12 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     toast({ title: "Section Removed", description: `Section "${sectionName}" and its questions were removed.`, variant: "destructive" });
   };
 
-  const handleAddQuestion = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTest || !manualQuestionTitle.trim()) return;
+  const handleAddQuestion = (e?: React.FormEvent, continueAdding: boolean = false) => {
+    if (e) e.preventDefault();
+    if (!selectedTest || !manualQuestionTitle.trim()) {
+      toast({ title: "Statement Required", description: "Please enter a problem statement.", variant: "destructive" });
+      return;
+    }
 
     const finalSection = manualQuestionSection === "custom" ? customSectionName.trim() : manualQuestionSection.trim();
     const sectionName =
@@ -339,7 +568,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         section: sectionName,
       };
       updatedQuestions = [...(selectedTest.questions || []), newQ];
-      toast({ title: "Question Added", description: "Successfully added to the test pool." });
+      toast({
+        title: continueAdding ? `Question #${updatedQuestions.length} Saved!` : "Question Saved to Exam",
+        description: continueAdding ? "Form cleared for next question." : "Successfully added to the test pool.",
+      });
     }
 
     const totalMarks = updatedQuestions.reduce((acc, q) => acc + (q.marks || 0), 0);
@@ -359,11 +591,26 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
     setTests(prev => prev.map(t => t.id === selectedTest.id ? updatedTest : t));
     setSelectedTest(updatedTest);
-    setViewState("exam-dashboard");
-    setEditingQuestionId(null);
-    setManualQuestionTitle("");
-    setManualQuestionSection("");
-    setCustomSectionName("");
+
+    if (continueAdding) {
+      // Stay in builder and reset for next question
+      setEditingQuestionId(null);
+      setManualQuestionTitle("");
+      setManualQuestionMarks(10);
+      setManualMCQOptions([
+        { id: 1, text: "", isCorrect: false },
+        { id: 2, text: "", isCorrect: false },
+        { id: 3, text: "", isCorrect: false },
+        { id: 4, text: "", isCorrect: false },
+      ]);
+      setManualTestCases([{ id: 1, input: "", output: "", isHidden: false }]);
+    } else {
+      setViewState("exam-dashboard");
+      setEditingQuestionId(null);
+      setManualQuestionTitle("");
+      setManualQuestionSection("");
+      setCustomSectionName("");
+    }
   };
   
   const handleAddSection = () => {
@@ -631,20 +878,44 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         </div>
 
         <form onSubmit={handleCreateTest} className="space-y-6">
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm">
-            <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] mb-6 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-[#2563EB]" /> General Details
-            </h3>
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Title</label>
-                <Input placeholder="e.g. Core Java Final Assessment" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required className="h-[48px] text-sm rounded-xl" />
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-4">
+              <div>
+                <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-[#2563EB]" /> General Details & MNC Scheduling
+                </h3>
+                <p className="text-xs text-[#6B7280] mt-0.5">
+                  Configure basic information and choose an enterprise scheduling strategy.
+                </p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Date</label>
-                  <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} required className="h-[48px] text-sm rounded-xl" />
-                </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleClearAllSchedule}
+                className="h-8 text-xs font-bold border-dashed text-[#6B7280] hover:text-[#DC2626] hover:border-[#DC2626]/40"
+              >
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Clear Schedule (Make On-Demand)
+              </Button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Exam Title */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
+                  <span>Exam Title <span className="text-[#DC2626]">*</span></span>
+                </label>
+                <Input
+                  placeholder="e.g. Campus Recruitment Shortlisting Assessment 2026"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  required
+                  className="h-[48px] text-sm rounded-xl"
+                />
+              </div>
+
+              {/* Basic Meta Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Allowed Question Types</label>
                   <Select value={newAllowedTypes} onValueChange={(val) => setNewAllowedTypes((val as any))}>
@@ -656,30 +927,406 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Start Time</label>
-                  <Input type="time" value={newStartTime} onChange={(e) => setNewStartTime(e.target.value)} required className="h-[48px] text-sm rounded-xl" />
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration (Minutes) <span className="text-[#DC2626]">*</span></label>
+                  <Input
+                    type="number"
+                    min={5}
+                    max={600}
+                    value={newDuration}
+                    onChange={(e) => setNewDuration(Number(e.target.value))}
+                    required
+                    className="h-[48px] text-sm rounded-xl"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">End Time</label>
-                  <Input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)} required className="h-[48px] text-sm rounded-xl" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration (Mins)</label>
-                  <Input type="number" value={newDuration} onChange={(e) => setNewDuration(Number(e.target.value))} required className="h-[48px] text-sm rounded-xl" />
-                </div>
+
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Initial Launch Status</label>
                   <Select value={newStatus} onValueChange={(val) => setNewStatus((val as any))}>
                     <SelectTrigger className="h-[48px] text-xs rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="scheduled">Scheduled (Starts at set time)</SelectItem>
-                      <SelectItem value="live">Live Now (Immediate access)</SelectItem>
+                      <SelectItem value="live">Live Now (Immediate Access)</SelectItem>
+                      <SelectItem value="scheduled">Scheduled Draft (Activate on schedule)</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              {/* MNC Enterprise Scheduling Modes */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                    <CalendarDays className="h-4 w-4 text-[#2563EB]" /> Scheduling & Timing Model (Optional & Fully Configurable)
+                  </label>
+                  <span className="text-[11px] text-[#6B7280] font-mono">Timezone: {newTimezone}</span>
+                </div>
+
+                {/* Segmented Mode Selector Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                  {/* Mode 1: On Demand */}
+                  <div
+                    onClick={() => {
+                      setNewScheduleMode("open");
+                      setNewDate("");
+                      setNewStartDate("");
+                      setNewEndDate("");
+                      setNewStartTime("");
+                      setNewEndTime("");
+                    }}
+                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      newScheduleMode === "open"
+                        ? "border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 shadow-xs"
+                        : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF] bg-[#F9FAFB]/50 dark:bg-[#09090B]/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                        <Zap className="h-4 w-4 text-[#2563EB]" /> On-Demand (Anytime)
+                      </span>
+                      <span className="text-[10px] font-bold text-[#16A34A] bg-[#16A34A]/10 px-2 py-0.5 rounded-full">Recommended</span>
+                    </div>
+                    <p className="text-[11px] text-[#6B7280] mt-1.5 leading-relaxed">
+                      No date/time lock. Candidates take test whenever ready. Timer runs for {newDuration} mins once launched.
+                    </p>
+                  </div>
+
+                  {/* Mode 2: Flexible Validity Window */}
+                  <div
+                    onClick={() => setNewScheduleMode("window")}
+                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      newScheduleMode === "window"
+                        ? "border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 shadow-xs"
+                        : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF] bg-[#F9FAFB]/50 dark:bg-[#09090B]/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                        <CalendarRange className="h-4 w-4 text-[#2563EB]" /> Validity Date Window
+                      </span>
+                      <span className="text-[10px] font-bold text-[#2563EB] bg-[#2563EB]/10 px-2 py-0.5 rounded-full">Window</span>
+                    </div>
+                    <p className="text-[11px] text-[#6B7280] mt-1.5 leading-relaxed">
+                      Active between a date range (e.g. 3-day window). Candidates attempt anytime within the window.
+                    </p>
+                  </div>
+
+                  {/* Mode 3: Strict Slot */}
+                  <div
+                    onClick={() => {
+                      setNewScheduleMode("scheduled");
+                      if (!newDate) setNewDate(getTodayString());
+                    }}
+                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      newScheduleMode === "scheduled"
+                        ? "border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 shadow-xs"
+                        : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF] bg-[#F9FAFB]/50 dark:bg-[#09090B]/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                        <Clock className="h-4 w-4 text-[#2563EB]" /> Synchronized Slot
+                      </span>
+                      <span className="text-[10px] font-bold text-[#7C3AED] bg-[#7C3AED]/10 px-2 py-0.5 rounded-full">Strict Slot</span>
+                    </div>
+                    <p className="text-[11px] text-[#6B7280] mt-1.5 leading-relaxed">
+                      Specific exam date and synchronized start & end time. Ideal for live campus batch proctored exams.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Conditional Fields based on Selected Scheduling Mode */}
+                {newScheduleMode === "open" && (
+                  <div className="p-4 rounded-xl bg-[#F0FDF4] dark:bg-[#064E3B]/20 border border-[#86EFAC] dark:border-[#059669]/40 flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-[#16A34A] shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold text-[#166534] dark:text-[#86EFAC]">
+                        Flexible On-Demand Assessment Active
+                      </p>
+                      <p className="text-[11px] text-[#15803D] dark:text-[#A7F3D0] mt-0.5">
+                        Date and time are not enforced. Candidates can start whenever the assessment is marked Live. Each candidate receives an individual countdown of {newDuration} minutes.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {newScheduleMode === "window" && (
+                  <div className="p-5 rounded-2xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-4 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Validity Range Configuration (All Optional)</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setNewStartDate(getTodayString()); setNewEndDate(getNextWeekString()); }}
+                          className="h-7 text-[11px] font-bold text-[#2563EB]"
+                        >
+                          Set Next 7 Days
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setNewStartDate(""); setNewEndDate(""); setNewStartTime(""); setNewEndTime(""); }}
+                          className="h-7 text-[11px] font-bold text-[#DC2626]"
+                        >
+                          Clear Window
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">Start Date (Optional)</label>
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={() => setNewStartDate(getTodayString())} className="text-[10px] text-[#2563EB] hover:underline">Today</button>
+                            {newStartDate && (
+                              <button type="button" onClick={() => setNewStartDate("")} className="text-[10px] text-[#DC2626] ml-2 hover:underline">Clear</button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type="date"
+                            value={newStartDate}
+                            onChange={(e) => setNewStartDate(e.target.value)}
+                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                          />
+                          {newStartDate && (
+                            <button
+                              type="button"
+                              onClick={() => setNewStartDate("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
+                              title="Clear Start Date"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">End / Expiry Date (Optional)</label>
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={() => setNewEndDate(getNextWeekString())} className="text-[10px] text-[#2563EB] hover:underline">+7d</button>
+                            {newEndDate && (
+                              <button type="button" onClick={() => setNewEndDate("")} className="text-[10px] text-[#DC2626] ml-2 hover:underline">Clear</button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type="date"
+                            value={newEndDate}
+                            onChange={(e) => setNewEndDate(e.target.value)}
+                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                          />
+                          {newEndDate && (
+                            <button
+                              type="button"
+                              onClick={() => setNewEndDate("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
+                              title="Clear End Date"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">Daily Open Time (Optional)</label>
+                          {newStartTime && (
+                            <button type="button" onClick={() => setNewStartTime("")} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type="time"
+                            value={newStartTime}
+                            onChange={(e) => setNewStartTime(e.target.value)}
+                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                          />
+                          {newStartTime && (
+                            <button
+                              type="button"
+                              onClick={() => setNewStartTime("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">Daily Close Time (Optional)</label>
+                          {newEndTime && (
+                            <button type="button" onClick={() => setNewEndTime("")} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type="time"
+                            value={newEndTime}
+                            onChange={(e) => setNewEndTime(e.target.value)}
+                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                          />
+                          {newEndTime && (
+                            <button
+                              type="button"
+                              onClick={() => setNewEndTime("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {newScheduleMode === "scheduled" && (
+                  <div className="p-5 rounded-2xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-4 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Slot Timing Parameters</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { setNewDate(""); setNewStartTime(""); setNewEndTime(""); }}
+                        className="h-7 text-[11px] font-bold text-[#DC2626]"
+                      >
+                        Reset Slot Times
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Exam Date */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">Exam Date</label>
+                          <div className="flex items-center gap-1.5">
+                            <button type="button" onClick={() => setNewDate(getTodayString())} className="text-[10px] text-[#2563EB] hover:underline">Today</button>
+                            <button type="button" onClick={() => setNewDate(getTomorrowString())} className="text-[10px] text-[#2563EB] hover:underline">Tmrw</button>
+                            {newDate && (
+                              <button type="button" onClick={() => setNewDate("")} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type="date"
+                            value={newDate}
+                            onChange={(e) => setNewDate(e.target.value)}
+                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                          />
+                          {newDate && (
+                            <button
+                              type="button"
+                              onClick={() => setNewDate("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
+                              title="Clear Date"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Start Time */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">Start Time</label>
+                          <div className="flex items-center gap-1.5">
+                            <button type="button" onClick={() => setNewStartTime("10:00")} className="text-[10px] text-[#2563EB] hover:underline">10 AM</button>
+                            <button type="button" onClick={() => setNewStartTime("14:00")} className="text-[10px] text-[#2563EB] hover:underline">2 PM</button>
+                            {newStartTime && (
+                              <button type="button" onClick={() => setNewStartTime("")} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type="time"
+                            value={newStartTime}
+                            onChange={(e) => setNewStartTime(e.target.value)}
+                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                          />
+                          {newStartTime && (
+                            <button
+                              type="button"
+                              onClick={() => setNewStartTime("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
+                              title="Clear Start Time"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* End Time */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-[#4B5563] dark:text-[#D1D5DB]">End Time</label>
+                          <div className="flex items-center gap-1.5">
+                            {newStartTime && (
+                              <button
+                                type="button"
+                                onClick={() => setNewEndTime(calculateAutoEndTime(newStartTime, newDuration))}
+                                className="text-[10px] text-[#2563EB] font-bold hover:underline"
+                              >
+                                Auto +{newDuration}m
+                              </button>
+                            )}
+                            {newEndTime && (
+                              <button type="button" onClick={() => setNewEndTime("")} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type="time"
+                            value={newEndTime}
+                            onChange={(e) => setNewEndTime(e.target.value)}
+                            className="h-[44px] text-xs rounded-xl pr-9 bg-white dark:bg-[#18181B]"
+                          />
+                          {newEndTime && (
+                            <button
+                              type="button"
+                              onClick={() => setNewEndTime("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#DC2626]"
+                              title="Clear End Time"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Candidate Experience Live Preview Banner */}
+                <div className="p-3.5 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] flex items-center gap-2.5 text-xs text-[#6B7280]">
+                  <Info className="h-4 w-4 text-[#2563EB] shrink-0" />
+                  <span>
+                    <strong className="text-[#111827] dark:text-[#FAFAFA]">Candidate Experience: </strong>
+                    {newScheduleMode === "open"
+                      ? `On-Demand Access • Available anytime • ${newDuration} mins timed from launch`
+                      : newScheduleMode === "window"
+                      ? `Validity Window • ${newStartDate || "Any Date"} to ${newEndDate || "Open"} • ${newDuration} mins test timer`
+                      : `Synchronized Slot • ${newDate || "Select Date"} from ${newStartTime || "Start"} to ${newEndTime || "End"} • ${newDuration} mins`}
+                  </span>
                 </div>
               </div>
             </div>
@@ -799,6 +1446,384 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     );
   }
 
+  const renderEditExamSettingsModal = () => {
+    if (!isEditingExamSettings || !editExamForm) return null;
+
+    const currentMode = editExamForm.scheduleMode || "open";
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 overflow-y-auto">
+        <Card className="w-full max-w-2xl bg-white dark:bg-[#18181B] border-none shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col my-auto">
+          {/* Modal Header */}
+          <div className="p-5 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-between items-center shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
+                <Settings className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">Edit Exam Settings & MNC Schedule</h2>
+                <p className="text-xs text-[#6B7280]">Update timing window, duration, question types, and security controls.</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full hover:bg-[#E5E7EB]"
+              onClick={() => setIsEditingExamSettings(false)}
+            >
+              ✕
+            </Button>
+          </div>
+
+          {/* Modal Body - Scrollable */}
+          <div className="p-6 space-y-6 overflow-y-auto flex-1">
+            {/* Title */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Exam Title</label>
+              <Input
+                value={editExamForm.title || ""}
+                onChange={(e) => setEditExamForm({ ...editExamForm, title: e.target.value })}
+                className="h-11 text-xs rounded-xl"
+                placeholder="Assessment Title"
+              />
+            </div>
+
+            {/* Duration, Status, Question Types */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration (Mins)</label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={600}
+                  value={editExamForm.duration || 60}
+                  onChange={(e) => setEditExamForm({ ...editExamForm, duration: Number(e.target.value) })}
+                  className="h-10 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Allowed Types</label>
+                <Select
+                  value={editExamForm.allowedQuestionTypes || "both"}
+                  onValueChange={(v: any) => setEditExamForm({ ...editExamForm, allowedQuestionTypes: v })}
+                >
+                  <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="both">Both Coding & MCQ</SelectItem>
+                    <SelectItem value="coding">Coding Only</SelectItem>
+                    <SelectItem value="mcq">MCQ Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Status</label>
+                <Select
+                  value={editExamForm.status || "live"}
+                  onValueChange={(v: any) => setEditExamForm({ ...editExamForm, status: v })}
+                >
+                  <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="live">Live (Active Now)</SelectItem>
+                    <SelectItem value="scheduled">Scheduled Draft</SelectItem>
+                    <SelectItem value="completed">Completed / Expired</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* MNC Scheduling Engine */}
+            <div className="p-5 rounded-2xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                  <CalendarDays className="h-4 w-4 text-[#2563EB]" /> Scheduling Model
+                </label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditExamForm({
+                    ...editExamForm,
+                    scheduleMode: "open",
+                    date: undefined,
+                    startDate: undefined,
+                    endDate: undefined,
+                    startTime: undefined,
+                    endTime: undefined,
+                  })}
+                  className="h-7 text-[11px] font-bold text-[#DC2626]"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" /> Clear All Schedule
+                </Button>
+              </div>
+
+              {/* Mode Selection Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                <div
+                  onClick={() => setEditExamForm({ ...editExamForm, scheduleMode: "open", date: undefined, startDate: undefined, endDate: undefined, startTime: undefined, endTime: undefined })}
+                  className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                    currentMode === "open"
+                      ? "border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20"
+                      : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold flex items-center gap-1">
+                      <Zap className="h-3.5 w-3.5 text-[#2563EB]" /> On-Demand
+                    </span>
+                    <span className="text-[9px] font-bold text-[#16A34A]">Anytime</span>
+                  </div>
+                  <p className="text-[10px] text-[#6B7280] mt-1">No date lock. Timer starts when student opens test.</p>
+                </div>
+
+                <div
+                  onClick={() => setEditExamForm({ ...editExamForm, scheduleMode: "window" })}
+                  className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                    currentMode === "window"
+                      ? "border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20"
+                      : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold flex items-center gap-1">
+                      <CalendarRange className="h-3.5 w-3.5 text-[#2563EB]" /> Window
+                    </span>
+                    <span className="text-[9px] font-bold text-[#2563EB]">Range</span>
+                  </div>
+                  <p className="text-[10px] text-[#6B7280] mt-1">Available between start and end validity date range.</p>
+                </div>
+
+                <div
+                  onClick={() => setEditExamForm({ ...editExamForm, scheduleMode: "scheduled" })}
+                  className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                    currentMode === "scheduled"
+                      ? "border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20"
+                      : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#9CA3AF]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-[#2563EB]" /> Strict Slot
+                    </span>
+                    <span className="text-[9px] font-bold text-[#7C3AED]">Synchronized</span>
+                  </div>
+                  <p className="text-[10px] text-[#6B7280] mt-1">Exact exam date and synchronized start/end times.</p>
+                </div>
+              </div>
+
+              {/* Mode Window Inputs */}
+              {currentMode === "window" && (
+                <div className="space-y-3 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-[#4B5563]">Start Date (Optional)</label>
+                        <div className="flex items-center gap-1.5">
+                          <button type="button" onClick={() => setEditExamForm({ ...editExamForm, startDate: getTodayString() })} className="text-[10px] text-[#2563EB] hover:underline">Today</button>
+                          {editExamForm.startDate && (
+                            <button type="button" onClick={() => setEditExamForm({ ...editExamForm, startDate: "" })} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          type="date"
+                          value={editExamForm.startDate || ""}
+                          onChange={(e) => setEditExamForm({ ...editExamForm, startDate: e.target.value })}
+                          className="h-9 text-xs rounded-lg pr-8 bg-white dark:bg-[#18181B]"
+                        />
+                        {editExamForm.startDate && (
+                          <button
+                            type="button"
+                            onClick={() => setEditExamForm({ ...editExamForm, startDate: "" })}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[#9CA3AF] hover:text-[#DC2626]"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-[#4B5563]">End Date (Optional)</label>
+                        <div className="flex items-center gap-1.5">
+                          <button type="button" onClick={() => setEditExamForm({ ...editExamForm, endDate: getNextWeekString() })} className="text-[10px] text-[#2563EB] hover:underline">+7d</button>
+                          {editExamForm.endDate && (
+                            <button type="button" onClick={() => setEditExamForm({ ...editExamForm, endDate: "" })} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          type="date"
+                          value={editExamForm.endDate || ""}
+                          onChange={(e) => setEditExamForm({ ...editExamForm, endDate: e.target.value })}
+                          className="h-9 text-xs rounded-lg pr-8 bg-white dark:bg-[#18181B]"
+                        />
+                        {editExamForm.endDate && (
+                          <button
+                            type="button"
+                            onClick={() => setEditExamForm({ ...editExamForm, endDate: "" })}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[#9CA3AF] hover:text-[#DC2626]"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mode Strict Slot Inputs */}
+              {currentMode === "scheduled" && (
+                <div className="space-y-3 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-[#4B5563]">Exam Date</label>
+                        <div className="flex items-center gap-1.5">
+                          <button type="button" onClick={() => setEditExamForm({ ...editExamForm, date: getTodayString() })} className="text-[10px] text-[#2563EB] hover:underline">Today</button>
+                          {editExamForm.date && (
+                            <button type="button" onClick={() => setEditExamForm({ ...editExamForm, date: "" })} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          type="date"
+                          value={editExamForm.date || ""}
+                          onChange={(e) => setEditExamForm({ ...editExamForm, date: e.target.value })}
+                          className="h-9 text-xs rounded-lg pr-8 bg-white dark:bg-[#18181B]"
+                        />
+                        {editExamForm.date && (
+                          <button
+                            type="button"
+                            onClick={() => setEditExamForm({ ...editExamForm, date: "" })}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[#9CA3AF] hover:text-[#DC2626]"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-[#4B5563]">Start Time</label>
+                        {editExamForm.startTime && (
+                          <button type="button" onClick={() => setEditExamForm({ ...editExamForm, startTime: "" })} className="text-[10px] text-[#DC2626] hover:underline">Clear</button>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <Input
+                          type="time"
+                          value={editExamForm.startTime || ""}
+                          onChange={(e) => setEditExamForm({ ...editExamForm, startTime: e.target.value })}
+                          className="h-9 text-xs rounded-lg pr-8 bg-white dark:bg-[#18181B]"
+                        />
+                        {editExamForm.startTime && (
+                          <button
+                            type="button"
+                            onClick={() => setEditExamForm({ ...editExamForm, startTime: "" })}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[#9CA3AF] hover:text-[#DC2626]"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-[#4B5563]">End Time</label>
+                        <div className="flex items-center gap-1">
+                          {editExamForm.startTime && (
+                            <button
+                              type="button"
+                              onClick={() => setEditExamForm({ ...editExamForm, endTime: calculateAutoEndTime(editExamForm.startTime || "", editExamForm.duration || 60) })}
+                              className="text-[10px] text-[#2563EB] font-bold hover:underline"
+                            >
+                              Auto
+                            </button>
+                          )}
+                          {editExamForm.endTime && (
+                            <button type="button" onClick={() => setEditExamForm({ ...editExamForm, endTime: "" })} className="text-[10px] text-[#DC2626] hover:underline ml-1">Clear</button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          type="time"
+                          value={editExamForm.endTime || ""}
+                          onChange={(e) => setEditExamForm({ ...editExamForm, endTime: e.target.value })}
+                          className="h-9 text-xs rounded-lg pr-8 bg-white dark:bg-[#18181B]"
+                        />
+                        {editExamForm.endTime && (
+                          <button
+                            type="button"
+                            onClick={() => setEditExamForm({ ...editExamForm, endTime: "" })}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-[#9CA3AF] hover:text-[#DC2626]"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Proctoring Toggles */}
+            <div className="space-y-3 pt-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                <ShieldAlert className="h-4 w-4 text-[#2563EB]" /> AI Proctoring Rules
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex justify-between items-center p-3 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <span className="text-xs font-medium">Webcam & Facial Presence</span>
+                  <Switch checked={editExamForm.secWebcam ?? true} onCheckedChange={(v) => setEditExamForm({ ...editExamForm, secWebcam: v })} />
+                </div>
+                <div className="flex justify-between items-center p-3 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <span className="text-xs font-medium">Fullscreen Lockdown</span>
+                  <Switch checked={editExamForm.secFullscreen ?? true} onCheckedChange={(v) => setEditExamForm({ ...editExamForm, secFullscreen: v })} />
+                </div>
+                <div className="flex justify-between items-center p-3 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <span className="text-xs font-medium">Tab Switch Security</span>
+                  <Switch checked={editExamForm.secTabSwitch ?? true} onCheckedChange={(v) => setEditExamForm({ ...editExamForm, secTabSwitch: v })} />
+                </div>
+                <div className="flex justify-between items-center p-3 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <span className="text-xs font-medium">Clipboard Copy/Paste Lock</span>
+                  <Switch checked={editExamForm.secCopyPaste ?? true} onCheckedChange={(v) => setEditExamForm({ ...editExamForm, secCopyPaste: v })} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="p-4 border-t border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-end gap-3 shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setIsEditingExamSettings(false)}
+              className="h-9 text-xs font-bold rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveExamSettings}
+              className="h-9 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl shadow-md shadow-[#2563EB]/20"
+            >
+              Save Settings & Schedule
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
   if (viewState === "exam-dashboard" && selectedTest) {
     return (
       <div className="space-y-6 w-full">
@@ -808,6 +1833,13 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
           backAction={{ label: "Back", onClick: () => setViewState("list") }}
           actions={
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="h-9 font-bold text-xs bg-white dark:bg-[#18181B]"
+                onClick={() => openEditExamModal(selectedTest)}
+              >
+                <Settings className="h-4 w-4 mr-2 text-[#2563EB]" /> Edit Settings & Schedule
+              </Button>
               <Button 
                 onClick={() => downloadAssessmentReportCsv(selectedTest)}
                 className="h-9 font-bold text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-2 shadow-xs"
@@ -985,6 +2017,64 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
           </div>
           
           <div className="space-y-6">
+            {/* Schedule & Availability Details Card */}
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
+              <CardContent className="p-5 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                    <CalendarDays className="h-4 w-4 text-[#2563EB]" /> Schedule & Timing
+                  </h3>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] font-bold ${
+                      selectedTest.scheduleMode === "open" || (!selectedTest.date && !selectedTest.startDate)
+                        ? "bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/30"
+                        : selectedTest.scheduleMode === "window"
+                        ? "bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30"
+                        : "bg-[#7C3AED]/10 text-[#7C3AED] border-[#7C3AED]/30"
+                    }`}
+                  >
+                    {selectedTest.scheduleMode === "open" || (!selectedTest.date && !selectedTest.startDate)
+                      ? "⚡ On-Demand"
+                      : selectedTest.scheduleMode === "window"
+                      ? "📅 Validity Window"
+                      : "🔒 Strict Slot"}
+                  </Badge>
+                </div>
+
+                <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#6B7280]">Test Timer:</span>
+                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1">
+                      <Timer className="h-3.5 w-3.5 text-[#2563EB]" /> {selectedTest.duration} Minutes
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#6B7280]">Access Window:</span>
+                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA] text-right">
+                      {selectedTest.scheduleMode === "window" && (selectedTest.startDate || selectedTest.endDate)
+                        ? `${selectedTest.startDate || "Any"} to ${selectedTest.endDate || "Open"}`
+                        : selectedTest.date
+                        ? `${selectedTest.date} ${selectedTest.startTime ? `(${selectedTest.startTime} - ${selectedTest.endTime || "..."})` : ""}`
+                        : "Available 24/7 (On-Demand)"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-[#6B7280]">Timezone:</span>
+                    <span className="font-mono text-[#6B7280]">{selectedTest.timezone || "Asia/Kolkata (IST)"}</span>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  onClick={() => openEditExamModal(selectedTest)}
+                  className="w-full h-9 text-xs font-bold border-[#2563EB]/30 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5"
+                >
+                  <Settings className="h-3.5 w-3.5" /> Modify Timing or Clear Schedule
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
               <CardContent className="p-5 space-y-4">
                 <div className="flex items-center justify-between">
@@ -1191,58 +2281,144 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         </Card>
         
         {renderAssignmentModal()}
+        {renderEditExamSettingsModal()}
       </div>
     );
   }
 
   if (viewState === "add-question" && selectedTest) {
+    const existingQuestions = selectedTest.questions || [];
+    const currentQIndex = editingQuestionId
+      ? existingQuestions.findIndex((q) => q.id === editingQuestionId)
+      : existingQuestions.length;
+
     return (
-      <div className="space-y-6 w-full">
+      <div className="space-y-6 w-full animate-in fade-in duration-300">
         <PageHeader
-          title={editingQuestionId ? "Edit Question" : "Build New Question"}
+          title={editingQuestionId ? `Edit Question #${currentQIndex + 1}` : `Create Question #${existingQuestions.length + 1}`}
           description={
             <>
-              {editingQuestionId ? "Modify question statement, marks, and configuration" : "Adding question to"}: <strong className="text-[#111827] dark:text-[#FAFAFA]">{selectedTest.title}</strong> {manualQuestionSection && <span className="font-bold text-[#2563EB] ml-2">• Section: {manualQuestionSection}</span>}
+              {editingQuestionId ? "Modify problem statement, options, or test cases" : "Adding question to"}: <strong className="text-[#111827] dark:text-[#FAFAFA]">{selectedTest.title}</strong> {manualQuestionSection && <span className="font-bold text-[#2563EB] ml-2">• Section: {manualQuestionSection}</span>}
             </>
           }
           backAction={{ label: "Back to Dashboard", onClick: () => {
             setEditingQuestionId(null);
             setViewState("exam-dashboard");
           }}}
+          actions={
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleQuickNewQuestion}
+                className="h-9 text-xs font-bold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5"
+              >
+                <Plus className="h-4 w-4" /> + Add Blank Question
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDuplicateQuestion}
+                className="h-9 text-xs font-bold gap-1.5"
+                title="Duplicate problem statement & options as a new question draft"
+              >
+                <Copy className="h-3.5 w-3.5" /> Duplicate / Clone
+              </Button>
+            </div>
+          }
         />
 
-        <form onSubmit={handleAddQuestion} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* Interactive Question Navigation Chip Bar */}
+        <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-2xl shadow-xs space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+              <ClipboardList className="h-4 w-4 text-[#2563EB]" /> Questions in this Assessment ({existingQuestions.length})
+            </span>
+            <span className="text-[11px] text-[#6B7280]">
+              Total Marks Pool: <strong className="text-[#2563EB]">{selectedTest.maxMarks || 0} Marks</strong>
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {existingQuestions.map((q, idx) => {
+              const isCurrent = editingQuestionId === q.id;
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => openEditQuestion(q)}
+                  className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                    isCurrent
+                      ? "bg-[#2563EB] text-white border-[#2563EB] shadow-sm"
+                      : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] text-[#4B5563] dark:text-[#D1D5DB] hover:border-[#2563EB] hover:text-[#2563EB]"
+                  }`}
+                >
+                  <span>Q{idx + 1}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${isCurrent ? "bg-white/20 text-white" : "bg-[#E5E7EB] dark:bg-[#27272A] text-[#6B7280]"}`}>
+                    {q.marks}m
+                  </span>
+                </button>
+              );
+            })}
+
+            {/* Quick + Add New Question Button */}
+            <button
+              type="button"
+              onClick={handleQuickNewQuestion}
+              className={`h-9 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border-2 border-dashed ${
+                !editingQuestionId
+                  ? "border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 text-[#2563EB] shadow-xs"
+                  : "border-[#9CA3AF]/40 text-[#2563EB] hover:bg-[#2563EB]/5 hover:border-[#2563EB]"
+              }`}
+            >
+              <Plus className="h-4 w-4" />
+              <span>+ Add Question #{existingQuestions.length + 1}</span>
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={(e) => handleAddQuestion(e, false)} className="space-y-6">
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                <Code2 className="h-4 w-4 text-[#2563EB]" /> {editingQuestionId ? "Edit Question Parameters" : "Inline Question Builder"}
-              </h3>
-              <Select value={manualQuestionType} onValueChange={(val) => val && setManualQuestionType(val as any)}>
-                <SelectTrigger className="h-9 text-xs w-[160px] bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(selectedTest.allowedQuestionTypes === "both" || selectedTest.allowedQuestionTypes === "coding" || !selectedTest.allowedQuestionTypes) && (
-                    <SelectItem value="coding">Programming Task</SelectItem>
-                  )}
-                  {(selectedTest.allowedQuestionTypes === "both" || selectedTest.allowedQuestionTypes === "mcq" || !selectedTest.allowedQuestionTypes) && (
-                    <>
-                      <SelectItem value="mcq">Single Choice (MCQ)</SelectItem>
-                      <SelectItem value="msq">Multiple Select (MSQ)</SelectItem>
-                    </>
-                  )}
-                  {(selectedTest.allowedQuestionTypes === "both" || !selectedTest.allowedQuestionTypes) && (
-                    <SelectItem value="both">Hybrid (Coding + MCQ)</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                  <Code2 className="h-4 w-4 text-[#2563EB]" /> {editingQuestionId ? `Editing Question #${currentQIndex + 1}` : `Compose Question #${existingQuestions.length + 1}`}
+                </h3>
+                <Badge variant="outline" className="text-[10px] font-bold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
+                  Section: {manualQuestionSection || "General Assessment"}
+                </Badge>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Select value={manualQuestionType} onValueChange={(val) => val && setManualQuestionType(val as any)}>
+                  <SelectTrigger className="h-9 text-xs w-[170px] bg-[#F9FAFB] dark:bg-[#09090B] font-bold"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(selectedTest.allowedQuestionTypes === "both" || selectedTest.allowedQuestionTypes === "coding" || !selectedTest.allowedQuestionTypes) && (
+                      <SelectItem value="coding">Programming Task</SelectItem>
+                    )}
+                    {(selectedTest.allowedQuestionTypes === "both" || selectedTest.allowedQuestionTypes === "mcq" || !selectedTest.allowedQuestionTypes) && (
+                      <>
+                        <SelectItem value="mcq">Single Choice (MCQ)</SelectItem>
+                        <SelectItem value="msq">Multiple Select (MSQ)</SelectItem>
+                      </>
+                    )}
+                    {(selectedTest.allowedQuestionTypes === "both" || !selectedTest.allowedQuestionTypes) && (
+                      <SelectItem value="both">Hybrid (Coding + MCQ)</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement</label>
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement <span className="text-[#DC2626]">*</span></label>
                   <textarea 
                     className="w-full min-h-[120px] p-4 text-sm rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] focus:ring-2 focus:ring-[#2563EB] outline-none transition-all resize-y"
-                    placeholder="Describe the problem, input constraints, and expected output..."
+                    placeholder="Describe the problem, input constraints, question statement, and options..."
                     value={manualQuestionTitle}
                     onChange={(e) => setManualQuestionTitle(e.target.value)}
                     required
@@ -1251,7 +2427,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Marks Allocated</label>
-                  <Input type="number" value={manualQuestionMarks} onChange={(e) => setManualQuestionMarks(Number(e.target.value))} required className="h-10 text-sm rounded-lg" />
+                  <Input type="number" min={1} max={100} value={manualQuestionMarks} onChange={(e) => setManualQuestionMarks(Number(e.target.value))} required className="h-10 text-sm rounded-lg" />
                 </div>
               </div>
 
@@ -1329,8 +2505,9 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               )}
             </div>
             
-            <div className="flex items-center justify-between pt-8 border-t border-[#E5E7EB] dark:border-[#27272A] mt-6">
-              <div>
+            {/* Action Buttons Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-8 border-t border-[#E5E7EB] dark:border-[#27272A] mt-6 gap-3">
+              <div className="flex items-center gap-2">
                 {editingQuestionId && (
                   <Button
                     type="button"
@@ -1345,9 +2522,17 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     <Trash2 className="h-4 w-4" /> Delete Question
                   </Button>
                 )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleQuickNewQuestion}
+                  className="h-10 px-4 border-dashed text-xs font-bold rounded-xl gap-1.5 text-[#2563EB]"
+                >
+                  <Plus className="h-4 w-4" /> + Add Blank Question
+                </Button>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-2.5">
                 <Button
                   type="button"
                   variant="outline"
@@ -1355,15 +2540,26 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     setEditingQuestionId(null);
                     setViewState("exam-dashboard");
                   }}
-                  className="h-10 px-5 text-xs font-bold rounded-xl"
+                  className="h-10 px-4 text-xs font-bold rounded-xl"
                 >
                   Cancel
                 </Button>
+
+                {/* SAVE & ADD NEXT QUESTION BUTTON (PRIMARY FEATURE) */}
+                <Button
+                  type="button"
+                  onClick={() => handleAddQuestion(undefined, true)}
+                  className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl shadow-md shadow-[#2563EB]/20 gap-2"
+                >
+                  <Plus className="h-4 w-4" /> Save & Add Next Question
+                </Button>
+
+                {/* SAVE & FINISH BUTTON */}
                 <Button
                   type="submit"
-                  className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl shadow-sm gap-2"
+                  className="h-10 px-5 bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-bold rounded-xl shadow-sm gap-2"
                 >
-                  <CheckCircle2 className="h-4 w-4" /> {editingQuestionId ? "Save Changes" : "Save Question to Exam"}
+                  <CheckCircle2 className="h-4 w-4" /> {editingQuestionId ? "Save & Return" : "Save & Finish (Dashboard)"}
                 </Button>
               </div>
             </div>
@@ -1442,8 +2638,9 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-xs font-bold text-[#6B7280] uppercase tracking-wider">
               <tr>
                 <th className="p-4 pl-6">Assessment Title</th>
+                <th className="p-4">Schedule & Timing</th>
                 <th className="p-4">Assigned Batches</th>
-                <th className="p-4">Duration & Marks</th>
+                <th className="p-4">Questions & Marks</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 pr-6 text-right">Actions</th>
               </tr>
@@ -1454,7 +2651,28 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                   <td className="p-4 pl-6 space-y-0.5">
                     <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs">{t.title}</p>
                     <p className="text-[11px] text-[#6B7280] flex items-center gap-1.5">
-                      <ShieldCheck className="h-3 w-3 text-[#16A34A]" /> {t.proctoringFlags.length} Security Rules Active
+                      <ShieldCheck className="h-3 w-3 text-[#16A34A]" /> {t.proctoringFlags?.length || 0} Security Rules Active
+                    </p>
+                  </td>
+
+                  <td className="p-4 space-y-1">
+                    <div>
+                      {t.scheduleMode === "open" || (!t.date && !t.startDate) ? (
+                        <Badge variant="outline" className="bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/30 text-[10px] font-bold">
+                          ⚡ On-Demand (Anytime)
+                        </Badge>
+                      ) : t.scheduleMode === "window" || (t.startDate || t.endDate) ? (
+                        <Badge variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 text-[10px] font-bold">
+                          📅 {t.startDate || "Any"} - {t.endDate || "Open"}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-[#7C3AED]/10 text-[#7C3AED] border-[#7C3AED]/30 text-[10px] font-bold">
+                          ⏰ {t.date} {t.startTime ? `• ${t.startTime}` : ""}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-[#6B7280] flex items-center gap-1">
+                      <Timer className="h-3 w-3 text-[#9CA3AF]" /> {t.duration} Mins Duration
                     </p>
                   </td>
 
@@ -1466,12 +2684,14 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                         ))}
                       </div>
                     ) : (
-                      <Badge variant="outline" className="text-[10px] font-bold text-[#9CA3AF] border-dashed">Unassigned</Badge>
+                      <Badge variant="outline" className="text-[10px] font-bold text-[#16A34A] border-[#16A34A]/30 bg-[#16A34A]/5">
+                        Common (All Students)
+                      </Badge>
                     )}
                   </td>
 
                   <td className="p-4 text-xs font-medium text-[#6B7280]">
-                    <span>{t.duration} mins • {t.totalQuestions} Qs ({t.maxMarks} Marks)</span>
+                    <span>{t.totalQuestions || 0} Qs • {t.maxMarks || 0} Marks</span>
                   </td>
 
                   <td className="p-4">
@@ -1483,7 +2703,16 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                   </td>
 
                   <td className="p-4 pr-6 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openEditExamModal(t)}
+                        className="h-8 w-8 p-0 text-[#6B7280] hover:text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg"
+                        title="Edit Exam Settings & Schedule"
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -1501,7 +2730,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                         onClick={() => { setSelectedTest(t); setViewState("exam-dashboard"); }}
                         className="h-8 text-[11px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold rounded-lg shadow-xs"
                       >
-                        Manage Exam
+                        Manage
                       </Button>
                       <Button onClick={() => handleDeleteTest(t.id, t.title)} variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626] hover:bg-red-500/10 rounded-lg transition-colors" title="Delete Exam">
                         <Trash2 className="h-4 w-4" />
@@ -1515,6 +2744,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         </CardContent>
       </Card>
       {renderAssignmentModal()}
+      {renderEditExamSettingsModal()}
 
     </div>
   );

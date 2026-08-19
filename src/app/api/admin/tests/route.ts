@@ -85,12 +85,30 @@ export async function GET() {
         status: a.status === "active" ? "live" : a.status === "expired" ? "completed" : "scheduled",
         submissionsCount: 0,
         totalEnrolled: 0,
-        proctoringFlags: ["Fullscreen Lock", "Tab Switch Security"],
+        proctoringFlags: meta.proctoringFlags || ["Fullscreen Lock", "Tab Switch Security"],
         isCommon,
         assignedBatches,
-        questions: [],
+        questions: meta.questions || [],
         allowedQuestionTypes: a.type === "coding" ? "coding" : a.type === "mixed" ? "both" : "mcq",
-        sections: [],
+        sections: meta.sections || ["General Assessment"],
+        scheduleMode: meta.scheduleMode || (meta.date || a.available_from ? "scheduled" : "open"),
+        date: meta.date || (a.available_from ? a.available_from.split("T")[0] : ""),
+        startDate: meta.startDate || "",
+        endDate: meta.endDate || "",
+        startTime: meta.startTime || "",
+        endTime: meta.endTime || "",
+        timezone: meta.timezone || "Asia/Kolkata (IST)",
+        secWebcam: meta.secWebcam ?? true,
+        secFullscreen: meta.secFullscreen ?? true,
+        secTabSwitch: meta.secTabSwitch ?? true,
+        secCopyPaste: meta.secCopyPaste ?? true,
+        secMultipleScreens: meta.secMultipleScreens ?? false,
+        secSEB: meta.secSEB ?? false,
+        secMultipleFaces: meta.secMultipleFaces ?? true,
+        secLookingAway: meta.secLookingAway ?? true,
+        secFacePosition: meta.secFacePosition ?? true,
+        secAutoSubmit: meta.secAutoSubmit ?? true,
+        maxWarningsLimit: meta.maxWarningsLimit ?? 3,
       };
     });
 
@@ -121,6 +139,25 @@ export async function POST(request: NextRequest) {
       instructions: test.instructions || test.description || "",
       questions: test.questions || [],
       sections: test.sections || [],
+      scheduleMode: test.scheduleMode || (test.date ? "scheduled" : "open"),
+      date: test.date || "",
+      startDate: test.startDate || "",
+      endDate: test.endDate || "",
+      startTime: test.startTime || "",
+      endTime: test.endTime || "",
+      timezone: test.timezone || "Asia/Kolkata (IST)",
+      proctoringFlags: test.proctoringFlags || [],
+      secWebcam: test.secWebcam,
+      secFullscreen: test.secFullscreen,
+      secTabSwitch: test.secTabSwitch,
+      secCopyPaste: test.secCopyPaste,
+      secMultipleScreens: test.secMultipleScreens,
+      secSEB: test.secSEB,
+      secMultipleFaces: test.secMultipleFaces,
+      secLookingAway: test.secLookingAway,
+      secFacePosition: test.secFacePosition,
+      secAutoSubmit: test.secAutoSubmit,
+      maxWarningsLimit: test.maxWarningsLimit,
     };
 
     const payload: any = {
@@ -139,6 +176,24 @@ export async function POST(request: NextRequest) {
       is_common: isCommon,
       tags: [JSON.stringify(meta)],
     };
+
+    // If date/time provided, sync available_from
+    if (test.date) {
+      try {
+        const timePart = test.startTime ? test.startTime : "00:00";
+        payload.available_from = new Date(`${test.date} ${timePart}`).toISOString();
+      } catch {}
+    } else if (test.startDate) {
+      try {
+        payload.available_from = new Date(test.startDate).toISOString();
+      } catch {}
+    }
+
+    if (test.endDate) {
+      try {
+        payload.expires_at = new Date(test.endDate).toISOString();
+      } catch {}
+    }
 
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(test.id);
     if (isUUID) {
