@@ -125,14 +125,14 @@ export async function GET(request: NextRequest) {
         const isCompleted = attempt && attempt.status === "submitted";
 
         let scheduledDisplay = "Available Anytime (On-Demand)";
-        if (meta.scheduleMode === "open" || (!meta.date && !meta.startDate && !a.available_from)) {
+        if (meta.scheduleMode === "open" || (!meta.date && !meta.startDate && !a.scheduled_at && !a.available_from)) {
           scheduledDisplay = "Open Window (On-Demand)";
         } else if (meta.scheduleMode === "window" && (meta.startDate || meta.endDate)) {
           scheduledDisplay = `Window: ${meta.startDate || "Any"} to ${meta.endDate || "Open"}`;
         } else if (meta.date) {
           scheduledDisplay = `${meta.date}${meta.startTime ? ` • ${meta.startTime}` : ""}`;
-        } else if (a.available_from) {
-          scheduledDisplay = new Date(a.available_from).toLocaleString();
+        } else if (a.scheduled_at || a.available_from) {
+          scheduledDisplay = new Date(a.scheduled_at || a.available_from).toLocaleString();
         }
 
         const realQuestions = meta.questions || [];
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
           status: isCompleted ? "completed" : isLive ? "live" : "upcoming",
           score: attempt ? attempt.score : undefined,
           maxScore: totalMaxMarks,
-          passed: attempt ? attempt.score >= (a.passing_marks || 50) : false,
+          passed: attempt ? attempt.score >= ((a.pass_percentage ? ((a.total_marks || 100) * a.pass_percentage / 100) : 50)) : false,
           isCommon,
           assignedBatches,
           proctoring: {

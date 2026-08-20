@@ -92,8 +92,8 @@ export async function GET() {
         questions: meta.questions || [],
         allowedQuestionTypes: a.type === "coding" ? "coding" : a.type === "mixed" ? "both" : "mcq",
         sections: meta.sections || ["General Assessment"],
-        scheduleMode: meta.scheduleMode || (meta.date || a.available_from ? "scheduled" : "open"),
-        date: meta.date || (a.available_from ? a.available_from.split("T")[0] : ""),
+        scheduleMode: meta.scheduleMode || (meta.date || a.scheduled_at || a.available_from ? "scheduled" : "open"),
+        date: meta.date || (a.scheduled_at ? a.scheduled_at.split("T")[0] : a.available_from ? a.available_from.split("T")[0] : ""),
         startDate: meta.startDate || "",
         endDate: meta.endDate || "",
         startTime: meta.startTime || "",
@@ -166,26 +166,24 @@ export async function POST(request: NextRequest) {
       description: test.description || `Assessment for ${isCommon ? "all students" : "assigned batches"}`,
       type: test.allowedQuestionTypes === "coding" ? "coding" : test.allowedQuestionTypes === "both" ? "mixed" : "mcq",
       duration_minutes: test.duration || 60,
-      duration: test.duration || 60,
-      total_questions: test.totalQuestions || 10,
-      passing_marks: Math.floor((test.maxMarks || 100) / 2),
-      passing_score: Math.floor((test.maxMarks || 100) / 2),
+      total_marks: test.maxMarks || (test.totalQuestions || 10) * 10,
+      pass_percentage: 50,
       status: "active",
-      max_attempts: 1,
       assigned_batches: isCommon ? [] : assignedBatches,
+      assigned_students: test.assignedStudents || [],
       is_common: isCommon,
       tags: [JSON.stringify(meta)],
     };
 
-    // If date/time provided, sync available_from
+    // If date/time provided, sync scheduled_at
     if (test.date) {
       try {
         const timePart = test.startTime ? test.startTime : "00:00";
-        payload.available_from = new Date(`${test.date} ${timePart}`).toISOString();
+        payload.scheduled_at = new Date(`${test.date} ${timePart}`).toISOString();
       } catch {}
     } else if (test.startDate) {
       try {
-        payload.available_from = new Date(test.startDate).toISOString();
+        payload.scheduled_at = new Date(test.startDate).toISOString();
       } catch {}
     }
 
