@@ -908,11 +908,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const renderAssignmentModal = () => {
     if (!assigningTest) return null;
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <Card className="w-full max-w-xl bg-white dark:bg-[#18181B] border-none shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300">
-          <div className="p-5 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-between items-center">
+      <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 sm:p-6 overflow-y-auto">
+        <Card className="w-full max-w-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-2xl rounded-2xl sm:rounded-3xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col my-auto">
+          <div className="p-5 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-between items-center shrink-0">
             <div>
-              <h2 className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Exam Visibility</h2>
+              <h2 className="text-base sm:text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Exam Visibility</h2>
               <p className="text-xs text-[#6B7280] mt-0.5">Configure access for &quot;{assigningTest.title}&quot;</p>
             </div>
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-[#E5E7EB]" onClick={() => setAssigningTest(null)}>
@@ -920,7 +920,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             </Button>
           </div>
           
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-4 overflow-y-auto flex-1">
             <VisibilitySelector
               isCommon={isCommon}
               selectedBatches={selectedBatches}
@@ -932,7 +932,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             />
           </div>
 
-          <div className="p-4 border-t border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-end gap-3">
+          <div className="p-4 border-t border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-end gap-3 shrink-0">
             <Button variant="outline" onClick={() => setAssigningTest(null)} className="h-9 text-xs font-bold rounded-xl">
               Cancel
             </Button>
@@ -1681,8 +1681,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     const currentMode = editExamForm.scheduleMode || "open";
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 overflow-y-auto">
-        <Card className="w-full max-w-2xl bg-white dark:bg-[#18181B] border-none shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col my-auto">
+      <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 sm:p-6 overflow-y-auto">
+        <Card className="w-full max-w-2xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-2xl rounded-2xl sm:rounded-3xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col my-auto">
           {/* Modal Header */}
           <div className="p-5 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-between items-center shrink-0">
             <div className="flex items-center gap-2.5">
