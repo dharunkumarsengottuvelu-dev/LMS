@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
 import { ProctoringEngine } from "@/components/proctoring/proctoring-engine";
 import { useAuth } from "@/components/providers/auth-provider";
+import { CodeEditor } from "@/components/coding/code-editor";
 
 interface QuestionItem {
   id: number;
@@ -470,6 +471,37 @@ export default function StudentTestRunnerPage() {
     });
   };
 
+  // Convert current coding question to CodingProblem for Monaco Jobe CodeEditor
+  const activeCodingProblem = useMemo(() => {
+    if (!currentQ || currentQ.type !== "coding") return null;
+    const testCases = (currentQ.testCases || []).map((tc: any, idx: number) => ({
+      id: tc.id || `tc_${idx + 1}`,
+      input: tc.input || "",
+      expected_output: tc.output || tc.expected_output || "",
+      is_hidden: Boolean(tc.isHidden || tc.is_hidden),
+    }));
+
+    const sampleTc = testCases.find((tc: any) => !tc.is_hidden) || testCases[0];
+
+    return {
+      id: currentQ.questionId || `p_${currentQ.id}`,
+      title: currentQ.question || "Coding Challenge",
+      slug: (currentQ.question || "coding-challenge").toLowerCase().replace(/\s+/g, "-"),
+      description: currentQ.problemStatement || currentQ.question || "",
+      difficulty: "medium",
+      sample_input: sampleTc?.input || "",
+      sample_output: sampleTc?.expected_output || "",
+      templates: currentQ.starterCode || {
+        python: "# Write your Python solution here\n",
+        java: "// Write your Java solution here\n",
+        cpp: "// Write your C++ solution here\n",
+        javascript: "// Write your JavaScript solution here\n",
+        c: "/* Write your C solution here */\n"
+      },
+      test_cases: testCases,
+    };
+  }, [currentQ]);
+
   const handleRunCode = async () => {
     setIsRunningCode(true);
     setCodeConsoleOutput("Running test cases through online sandbox compiler...");
@@ -907,8 +939,8 @@ export default function StudentTestRunnerPage() {
                 </div>
               )}
 
-              {currentQ.type === "coding" && (
-                <div className="space-y-5">
+              {currentQ.type === "coding" && activeCodingProblem && (
+                <div className="space-y-4">
                   <div className="p-4 bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 border border-[#93C5FD] dark:border-[#3B82F6]/30 rounded-xl space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-bold text-[#2563EB] uppercase tracking-wider flex items-center gap-1.5">
@@ -918,146 +950,28 @@ export default function StudentTestRunnerPage() {
                         {currentQ.marks || 10} Marks
                       </Badge>
                     </div>
-                    <p className="text-sm text-[#111827] dark:text-[#FAFAFA] leading-relaxed whitespace-pre-line">
-                      {currentQ.problemStatement}
-                    </p>
-                  </div>
-
-                  {/* Coding Header Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Language:</Label>
-                      <Select value={selectedLanguage} onValueChange={(val: string | null) => {
-                        if (!val) return;
-                        setSelectedLanguage(val);
-                        if (currentQ.starterCode && val in currentQ.starterCode) {
-                          setCodeContent(currentQ.starterCode[val] ?? "");
-                        }
-                      }}>
-                        <SelectTrigger className="w-40 h-8 text-xs font-bold bg-white dark:bg-[#18181B]">
-                          <SelectValue placeholder="Language" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="python">Python 3</SelectItem>
-                          <SelectItem value="java">Java</SelectItem>
-                          <SelectItem value="cpp">C++ (GCC)</SelectItem>
-                          <SelectItem value="c">C (GCC)</SelectItem>
-                          <SelectItem value="javascript">JavaScript (Node.js)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex items-center gap-1 bg-white dark:bg-[#18181B] p-1 rounded-lg border border-[#E5E7EB] dark:border-[#27272A]">
-                      <button
-                        type="button"
-                        onClick={() => setActiveCodeTab("editor")}
-                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
-                          activeCodeTab === "editor"
-                            ? "bg-[#2563EB] text-white"
-                            : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
-                        }`}
-                      >
-                        Code Editor
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveCodeTab("testcases")}
-                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
-                          activeCodeTab === "testcases"
-                            ? "bg-[#2563EB] text-white"
-                            : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
-                        }`}
-                      >
-                        Test Cases ({currentQ.testCases?.length || 2})
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Active Tab Content */}
-                  {activeCodeTab === "editor" ? (
-                    <div className="space-y-3">
-                      <Textarea
-                        disabled={isExamSubmitted}
-                        className="font-mono text-xs leading-relaxed min-h-[260px] bg-[#09090B] text-[#FAFAFA] border-[#27272A] p-4 rounded-xl resize-y"
-                        value={codeContent}
-                        onChange={(e) => {
-                          setCodeContent(e.target.value);
-                          setAnswers((prev) => ({ ...prev, [currentQ.id]: e.target.value }));
-                        }}
-                        placeholder="# Write your solution code here..."
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {(!currentQ.testCases || currentQ.testCases.length === 0) ? (
-                        <div className="p-4 bg-white dark:bg-[#18181B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] text-center text-xs text-[#6B7280]">
-                          No public test cases configured. You can test and submit your code logic.
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {currentQ.testCases.map((tc: any, i: number) => {
-                            const result = testCaseResults[i];
-                            return (
-                              <div key={i} className="p-3 bg-white dark:bg-[#18181B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-1.5 text-xs">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">
-                                    Test Case {i + 1} {tc.isHidden ? "(Hidden)" : "(Public)"}
-                                  </span>
-                                  {result && (
-                                    <Badge className={`text-[9px] font-bold ${result.passed ? 'bg-[#16A34A] text-white' : 'bg-[#DC2626] text-white'}`}>
-                                      {result.passed ? "PASSED" : "FAILED"}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="space-y-1 font-mono text-[11px]">
-                                  <div className="text-[#6B7280]">Input: <span className="text-[#111827] dark:text-[#FAFAFA] font-bold">{tc.input || "None"}</span></div>
-                                  <div className="text-[#6B7280]">Expected: <span className="text-[#16A34A] font-bold">{tc.output || tc.expected_output || "None"}</span></div>
-                                  {result && result.actual_output && (
-                                    <div className="text-[#6B7280]">Output: <span className={result.passed ? "text-[#16A34A]" : "text-[#DC2626]"}>{result.actual_output}</span></div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Run Code Action Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                    <Button
-                      disabled={isExamSubmitted || isRunningCode}
-                      className="h-10 px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-bold text-xs gap-2 rounded-xl shadow-xs"
-                      onClick={handleRunCode}
-                    >
-                      {isRunningCode ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-white" />}
-                      {isRunningCode ? "Executing in Sandbox..." : "Run & Test Code"}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (currentQ.starterCode && typeof currentQ.starterCode === "object") {
-                          setCodeContent(currentQ.starterCode[selectedLanguage] || "");
-                        }
-                      }}
-                      className="h-8 px-3 text-xs font-bold text-[#6B7280] rounded-lg"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reset Starter Code
-                    </Button>
-                  </div>
-
-                  {codeConsoleOutput && (
-                    <div className="p-4 bg-[#09090B] rounded-xl border border-[#27272A] space-y-1">
-                      <p className="text-[11px] font-bold text-[#16A34A] uppercase tracking-wider flex items-center gap-1.5">
-                        <Terminal className="h-3.5 w-3.5" /> Compiler Console & Results
+                    {currentQ.problemStatement && currentQ.problemStatement !== currentQ.question && (
+                      <p className="text-sm text-[#111827] dark:text-[#FAFAFA] leading-relaxed whitespace-pre-line">
+                        {currentQ.problemStatement}
                       </p>
-                      <pre className="text-xs text-white font-mono leading-relaxed whitespace-pre-wrap">{codeConsoleOutput}</pre>
-                    </div>
-                  )}
+                    )}
+                  </div>
+
+                  <div className="h-[560px] min-h-[480px] rounded-2xl overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] shadow-xs">
+                    <CodeEditor
+                      key={activeCodingProblem.id}
+                      problem={activeCodingProblem}
+                      defaultLanguage={(selectedLanguage as any) || "python"}
+                      defaultCode={typeof answers[currentQ.id] === "string" ? answers[currentQ.id] : undefined}
+                      onCodeChange={(code, lang) => {
+                        setCodeContent(code);
+                        if (lang) setSelectedLanguage(lang);
+                        setAnswers((prev) => ({ ...prev, [currentQ.id]: code }));
+                      }}
+                      showSubmit={false}
+                      height="100%"
+                    />
+                  </div>
                 </div>
               )}
 
