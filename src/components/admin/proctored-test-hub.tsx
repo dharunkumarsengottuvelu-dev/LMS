@@ -334,6 +334,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       endTime: newEndTime || undefined,
       timezone: newTimezone,
       batch: "Common (All Batches)",
+      isCommon: true,
+      assignedBatches: [],
       duration: newDuration || 60,
       totalQuestions: 0,
       maxMarks: 0,
@@ -675,8 +677,9 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   const handleAddQuestion = (e?: React.FormEvent, continueAdding: boolean = false) => {
     if (e) e.preventDefault();
-    if (!selectedTest || !manualQuestionTitle.trim()) {
-      toast({ title: "Statement Required", description: "Please enter a problem statement.", variant: "destructive" });
+    const effectiveTitle = manualQuestionTitle.trim() || (manualQuestionType === "coding" ? "Programming Challenge" : "");
+    if (!selectedTest || !effectiveTitle) {
+      toast({ title: "Statement Required", description: "Please enter a question or problem statement.", variant: "destructive" });
       return;
     }
 
@@ -707,7 +710,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         q.id === editingQuestionId
           ? {
               ...q,
-              title: manualQuestionTitle.trim(),
+              title: effectiveTitle,
               type: manualQuestionType as "coding" | "mcq" | "msq" | "both",
               marks: manualQuestionMarks,
               section: sectionName,
@@ -721,7 +724,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       // Add new question
       const newQ: TestQuestion = {
         id: `q_${Date.now()}`,
-        title: manualQuestionTitle.trim(),
+        title: effectiveTitle,
         type: manualQuestionType as "coding" | "mcq" | "msq" | "both",
         marks: manualQuestionMarks,
         section: sectionName,
@@ -2693,46 +2696,43 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             <div className="space-y-6">
               {manualQuestionType === "coding" ? (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement & Description <span className="text-[#DC2626]">*</span></label>
-                      <textarea 
-                        className="w-full min-h-[100px] p-4 text-sm rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] focus:ring-2 focus:ring-[#2563EB] outline-none transition-all resize-y"
-                        placeholder="Describe the problem, input constraints, question statement, and expected logic..."
-                        value={manualQuestionTitle}
-                        onChange={(e) => setManualQuestionTitle(e.target.value)}
-                        required
+                  <div className="flex items-center justify-between p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
+                    <div>
+                      <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Marks Allocated for this Coding Question</p>
+                      <p className="text-[11px] text-[#6B7280]">Total points awarded to student upon passing test cases.</p>
+                    </div>
+                    <div className="w-32">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={manualQuestionMarks}
+                        onChange={(e) => setManualQuestionMarks(Number(e.target.value))}
+                        className="h-9 text-xs font-bold text-center rounded-lg"
                       />
                     </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Marks Allocated</label>
-                      <Input type="number" min={1} max={100} value={manualQuestionMarks} onChange={(e) => setManualQuestionMarks(Number(e.target.value))} required className="h-10 text-sm rounded-lg" />
-                    </div>
                   </div>
 
-                  <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                    <CodingProblemCreator
-                      inline
-                      hideHeader
-                      initialTitle={manualQuestionTitle || ""}
-                      initialDescription={manualQuestionTitle}
-                      onChange={(problem) => {
-                        if (problem.title && !manualQuestionTitle) {
-                          setManualQuestionTitle(problem.title);
-                        }
-                        const allTC = [...(problem.publicTestCases || []), ...(problem.hiddenTestCases || [])];
-                        if (allTC.length > 0) {
-                          setManualTestCases(allTC.map((t, index) => ({
-                            id: index + 1,
-                            input: t.input,
-                            output: t.expected_output,
-                            isHidden: t.is_hidden
-                          })));
-                        }
-                      }}
-                    />
-                  </div>
+                  <CodingProblemCreator
+                    inline
+                    hideHeader
+                    initialTitle={manualQuestionTitle || ""}
+                    initialDescription={manualQuestionTitle}
+                    onChange={(problem) => {
+                      if (problem.title) {
+                        setManualQuestionTitle(problem.title);
+                      }
+                      const allTC = [...(problem.publicTestCases || []), ...(problem.hiddenTestCases || [])];
+                      if (allTC.length > 0) {
+                        setManualTestCases(allTC.map((t, index) => ({
+                          id: index + 1,
+                          input: t.input,
+                          output: t.expected_output,
+                          isHidden: t.is_hidden
+                        })));
+                      }
+                    }}
+                  />
                 </div>
               ) : (
                 <>

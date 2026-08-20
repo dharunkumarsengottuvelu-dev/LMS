@@ -136,11 +136,21 @@ export function isContentVisibleToStudent(
 
   // Rule 4 & 5: If assigned to specific batches, student must belong to at least one assigned batch
   const hasMatchingBatch = assignedBatches.some((b) => {
-    return (
+    if (!b) return false;
+    const directMatch =
       (batchContext.allTargetIdentifiers && batchContext.allTargetIdentifiers.has(b)) ||
       (batchContext.batchIds && batchContext.batchIds.some((id) => id.toLowerCase() === b)) ||
-      (batchContext.batchNames && batchContext.batchNames.some((name) => name.toLowerCase() === b))
-    );
+      (batchContext.batchNames && batchContext.batchNames.some((name) => name.toLowerCase() === b));
+
+    if (directMatch) return true;
+
+    // Substring / fuzzy match (e.g., "Batch A" matching "Batch A 2026")
+    const fuzzyMatch = (batchContext.batchNames || []).some((name) => {
+      const lowerName = name.toLowerCase();
+      return lowerName.includes(b) || b.includes(lowerName);
+    });
+
+    return fuzzyMatch;
   });
 
   if (hasMatchingBatch) {
@@ -149,6 +159,7 @@ export function isContentVisibleToStudent(
 
   // Check direct student assignment
   const hasMatchingStudent = assignedStudents.some((s) => {
+    if (!s) return false;
     return (
       (batchContext.allTargetIdentifiers && batchContext.allTargetIdentifiers.has(s)) ||
       (batchContext.studentUserId && s === batchContext.studentUserId.toLowerCase()) ||
