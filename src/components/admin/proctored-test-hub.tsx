@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   ClipboardList, Plus, Search, ShieldAlert, ShieldCheck, Clock, Users,
@@ -907,15 +908,21 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   const renderAssignmentModal = () => {
     if (!assigningTest) return null;
-    return (
-      <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 sm:p-6 overflow-y-auto">
-        <Card className="w-full max-w-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-2xl rounded-2xl sm:rounded-3xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col my-auto">
+    if (typeof window === "undefined" || typeof document === "undefined") return null;
+
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
+        <div 
+          className="fixed inset-0 bg-transparent" 
+          onClick={() => setAssigningTest(null)} 
+        />
+        <Card className="relative z-10 w-full max-w-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-2xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col my-auto">
           <div className="p-5 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-between items-center shrink-0">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Exam Visibility</h2>
               <p className="text-xs text-[#6B7280] mt-0.5">Configure access for &quot;{assigningTest.title}&quot;</p>
             </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-[#E5E7EB]" onClick={() => setAssigningTest(null)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-[#E5E7EB] text-[#6B7280]" onClick={() => setAssigningTest(null)}>
               ✕
             </Button>
           </div>
@@ -941,7 +948,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             </Button>
           </div>
         </Card>
-      </div>
+      </div>,
+      document.body
     );
   };
 
@@ -1677,12 +1685,17 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   const renderEditExamSettingsModal = () => {
     if (!isEditingExamSettings || !editExamForm) return null;
+    if (typeof window === "undefined" || typeof document === "undefined") return null;
 
     const currentMode = editExamForm.scheduleMode || "open";
 
-    return (
-      <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4 sm:p-6 overflow-y-auto">
-        <Card className="w-full max-w-2xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-2xl rounded-2xl sm:rounded-3xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col my-auto">
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
+        <div 
+          className="fixed inset-0 bg-transparent" 
+          onClick={() => setIsEditingExamSettings(false)} 
+        />
+        <Card className="relative z-10 w-full max-w-2xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-2xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[88vh] flex flex-col my-auto">
           {/* Modal Header */}
           <div className="p-5 border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-between items-center shrink-0">
             <div className="flex items-center gap-2.5">
@@ -2159,7 +2172,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             </Button>
           </div>
         </Card>
-      </div>
+      </div>,
+      document.body
     );
   };
 
