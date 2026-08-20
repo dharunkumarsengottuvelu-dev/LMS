@@ -57,103 +57,63 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("ALL");
 
-  // Monitored Candidates & Logs (loaded from active session / mock data)
-  const [candidates, setCandidates] = useState<MonitoredCandidate[]>([
-    {
-      id: "std_01",
-      name: "Kaaviya Dharun",
-      rollNo: "CS2026-081",
-      status: "active",
-      faceStatus: "centered",
-      warningCount: 0,
-      maxWarnings: 3,
-      proctoringRisk: "Clean",
-      lastPing: "Just now",
-    },
-    {
-      id: "std_02",
-      name: "Alex Rivera",
-      rollNo: "IT2026-104",
-      status: "warning",
-      faceStatus: "looking_away",
-      warningCount: 1,
-      maxWarnings: 3,
-      proctoringRisk: "Minor Violations",
-      lastPing: "2s ago",
-    },
-    {
-      id: "std_03",
-      name: "Sophia Chen",
-      rollNo: "CS2026-042",
-      status: "high_risk",
-      faceStatus: "multiple_faces",
-      warningCount: 2,
-      maxWarnings: 3,
-      proctoringRisk: "Suspicious",
-      lastPing: "5s ago",
-    },
-    {
-      id: "std_04",
-      name: "Marcus Vance",
-      rollNo: "ECE2026-019",
-      status: "active",
-      faceStatus: "centered",
-      warningCount: 0,
-      maxWarnings: 3,
-      proctoringRisk: "Clean",
-      lastPing: "Just now",
-    },
-  ]);
+  // Monitored Candidates & Logs (loaded live from active exam submissions)
+  const [candidates, setCandidates] = useState<MonitoredCandidate[]>([]);
+  const [logs, setLogs] = useState<ProctoringEventLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [logs, setLogs] = useState<ProctoringEventLog[]>([
-    {
-      id: "log_1",
-      studentName: "Sophia Chen",
-      studentId: "std_03",
-      eventType: "MULTIPLE_FACES",
-      severity: "HIGH",
-      timestamp: "10:14:22 AM",
-      duration: "4s",
-      warningNumber: 2,
-      message: "Multiple faces detected. Only the registered candidate should be visible.",
-      resolved: false,
-    },
-    {
-      id: "log_2",
-      studentName: "Alex Rivera",
-      studentId: "std_02",
-      eventType: "LOOKING_AWAY",
-      severity: "WARNING",
-      timestamp: "10:12:05 AM",
-      duration: "6s",
-      warningNumber: 1,
-      message: "Please keep your face toward the screen (prolonged look away).",
-      resolved: true,
-    },
-    {
-      id: "log_3",
-      studentName: "Sophia Chen",
-      studentId: "std_03",
-      eventType: "FACE_POSITION_UNEVEN",
-      severity: "WARNING",
-      timestamp: "10:08:44 AM",
-      duration: "5s",
-      warningNumber: 1,
-      message: "Please move back into the camera frame.",
-      resolved: true,
-    },
-    {
-      id: "log_4",
-      studentName: "Marcus Vance",
-      studentId: "std_04",
-      eventType: "TAB_SWITCH",
-      severity: "HIGH",
-      timestamp: "10:02:19 AM",
-      warningNumber: 1,
-      message: "Tab switch detected! Leaving the exam screen violates security policy.",
-      resolved: true,
-    },
-  ]);
+  useEffect(() => {
+    async function fetchSubmissions() {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/admin/tests/${examId}/submissions`);
+        if (!res.ok) throw new Error("Failed to load submissions");
+        const data = await res.json();
+        const subs: any[] = data.submissions || [];
+
+        const mappedCandidates: MonitoredCandidate[] = subs.map((s, idx) => ({
+          id: s.id || `std_${idx + 1}`,
+          name: s.name || s.user_id || "Student",
+          rollNo: s.rollNo || s.email?.split("@")[0] || `STD-${idx + 1}`,
+          status: s.status === "Submitted" ? "active" : "high_risk",
+          faceStatus: (s.violationsCount || 0) > 0 ? "looking_away" : "centered",
+          warningCount: s.violationsCount || 0,
+          maxWarnings: 3,
+          proctoringRisk: (s.violationsCount || 0) > 2 ? "High Risk" : (s.violationsCount || 0) > 0 ? "Minor Violations" : "Clean",
+          lastPing: s.submittedAt || "Just now",
+        }));
+
+        const generatedLogs: ProctoringEventLog[] = [];
+        subs.forEach((s, idx) => {
+          if (s.violationsCount && s.violationsCount > 0) {
+            generatedLogs.push({
+              id: `log_${idx + 1}`,
+              studentName: s.name || "Student",
+              studentId: s.id || `std_${idx + 1}`,
+              eventType: s.status === "Auto-Submitted" ? "MAX_WARNINGS_AUTO_SUBMIT" : "TAB_SWITCH_OR_GAZE",
+              severity: s.violationsCount > 2 ? "CRITICAL" : "WARNING",
+              timestamp: s.submittedAt || new Date().toLocaleTimeString(),
+              duration: "3s",
+              warningNumber: s.violationsCount,
+              message: s.status === "Auto-Submitted" ? "Exam auto-submitted due to safety limits exceeded." : `Security event recorded (${s.violationsCount} total alerts).`,
+              resolved: true,
+            });
+          }
+        });
+
+        setCandidates(mappedCandidates);
+        setLogs(generatedLogs);
+      } catch (err) {
+        console.warn("Could not fetch real proctoring data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    if (examId) {
+      fetchSubmissions();
+    }
+  }, [examId]);
 
   // Aggregate Metrics
   const totalWarnings = logs.length;
@@ -335,53 +295,61 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-                    {candidates.map((c) => (
-                      <tr key={c.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]/40">
-                        <td className="p-3.5 pl-5">
-                          <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">{c.name}</p>
-                          <p className="text-[10px] text-[#6B7280] font-mono">{c.rollNo}</p>
-                        </td>
-                        <td className="p-3.5">
-                          <span className="inline-flex items-center gap-1.5 font-semibold text-[#16A34A]">
-                            <span className="h-2 w-2 rounded-full bg-[#16A34A] animate-pulse" /> Active 30 FPS
-                          </span>
-                        </td>
-                        <td className="p-3.5">
-                          <Badge variant="outline" className="text-[10px] capitalize border-[#E5E7EB] dark:border-[#27272A]">
-                            {c.faceStatus.replace(/_/g, " ")}
-                          </Badge>
-                        </td>
-                        <td className="p-3.5">
-                          <span className={`font-bold ${c.warningCount > 0 ? "text-[#DC2626]" : "text-[#16A34A]"}`}>
-                            {c.warningCount} / {c.maxWarnings}
-                          </span>
-                        </td>
-                        <td className="p-3.5">
-                          <Badge
-                            className={`text-[10px] font-bold ${
-                              c.proctoringRisk === "Clean"
-                                ? "bg-[#16A34A] text-white"
-                                : c.proctoringRisk === "Minor Violations"
-                                ? "bg-[#F59E0B] text-white"
-                                : "bg-[#DC2626] text-white"
-                            }`}
-                          >
-                            {c.proctoringRisk}
-                          </Badge>
-                        </td>
-                        <td className="p-3.5 text-[#6B7280] font-mono">{c.lastPing}</td>
-                        <td className="p-3.5 pr-5 text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setActiveTab("logs")}
-                            className="h-7 px-2.5 text-[11px] font-semibold rounded-lg"
-                          >
-                            View Logs
-                          </Button>
+                    {candidates.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-xs text-[#6B7280]">
+                          No candidate attempts or active monitored sessions found for this test yet.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      candidates.map((c) => (
+                        <tr key={c.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]/40">
+                          <td className="p-3.5 pl-5">
+                            <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">{c.name}</p>
+                            <p className="text-[10px] text-[#6B7280] font-mono">{c.rollNo}</p>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="inline-flex items-center gap-1.5 font-semibold text-[#16A34A]">
+                              <span className="h-2 w-2 rounded-full bg-[#16A34A] animate-pulse" /> Active 30 FPS
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            <Badge variant="outline" className="text-[10px] capitalize border-[#E5E7EB] dark:border-[#27272A]">
+                              {c.faceStatus.replace(/_/g, " ")}
+                            </Badge>
+                          </td>
+                          <td className="p-3.5">
+                            <span className={`font-bold ${c.warningCount > 0 ? "text-[#DC2626]" : "text-[#16A34A]"}`}>
+                              {c.warningCount} / {c.maxWarnings}
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            <Badge
+                              className={`text-[10px] font-bold ${
+                                c.proctoringRisk === "Clean"
+                                  ? "bg-[#16A34A] text-white"
+                                  : c.proctoringRisk === "Minor Violations"
+                                  ? "bg-[#F59E0B] text-white"
+                                  : "bg-[#DC2626] text-white"
+                              }`}
+                            >
+                              {c.proctoringRisk}
+                            </Badge>
+                          </td>
+                          <td className="p-3.5 text-[#6B7280] font-mono">{c.lastPing}</td>
+                          <td className="p-3.5 pr-5 text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setActiveTab("logs")}
+                              className="h-7 px-2.5 text-[11px] font-semibold rounded-lg"
+                            >
+                              View Logs
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -392,50 +360,64 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
 
       {/* TAB 2: CANDIDATE CAMERA GRID */}
       {activeTab === "grid" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 overflow-y-auto flex-1 pb-6">
-          {candidates.map((c) => (
-            <Card
-              key={c.id}
-              className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs space-y-0"
-            >
-              <div className="aspect-video bg-[#09090B] relative flex items-center justify-center text-white border-b border-[#27272A]">
-                <div className="flex flex-col items-center gap-1.5 opacity-80">
-                  <Camera className="h-7 w-7 text-[#2563EB]" />
-                  <span className="text-[10px] font-mono text-[#D1D5DB]">LIVE STREAM FEED</span>
-                </div>
-                <div className="absolute top-2 left-2 bg-[#09090B]/85 backdrop-blur-xs text-[9px] font-mono text-[#16A34A] px-2 py-0.5 rounded border border-[#16A34A]/40 flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
-                  30 FPS
-                </div>
-                <div className="absolute bottom-2 right-2">
-                  <Badge
-                    className={`text-[9px] font-bold ${
-                      c.warningCount === 0
-                        ? "bg-[#16A34A] text-white"
-                        : c.warningCount < c.maxWarnings
-                        ? "bg-[#F59E0B] text-white"
-                        : "bg-[#DC2626] text-white"
-                    }`}
-                  >
-                    Warnings: {c.warningCount}/{c.maxWarnings}
-                  </Badge>
-                </div>
+        <div className="flex-1 pb-6 overflow-y-auto">
+          {candidates.length === 0 ? (
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-12 text-center rounded-2xl">
+              <div className="w-12 h-12 rounded-2xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center mx-auto mb-3">
+                <Video className="h-6 w-6" />
               </div>
-
-              <div className="p-3.5 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] truncate">{c.name}</p>
-                  <span className="text-[10px] font-mono text-[#6B7280]">{c.rollNo}</span>
-                </div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-[#6B7280]">Attention:</span>
-                  <strong className="capitalize text-[#111827] dark:text-[#FAFAFA]">
-                    {c.faceStatus.replace(/_/g, " ")}
-                  </strong>
-                </div>
-              </div>
+              <h4 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">No Live Candidate Streams Active</h4>
+              <p className="text-xs text-[#6B7280] max-w-sm mx-auto mt-1">
+                As students start this proctored assessment with webcam verification enabled, live 30 FPS camera thumbnails and attention tracking feeds will appear in this grid.
+              </p>
             </Card>
-          ))}
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {candidates.map((c) => (
+                <Card
+                  key={c.id}
+                  className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs space-y-0"
+                >
+                  <div className="aspect-video bg-[#09090B] relative flex items-center justify-center text-white border-b border-[#27272A]">
+                    <div className="flex flex-col items-center gap-1.5 opacity-80">
+                      <Camera className="h-7 w-7 text-[#2563EB]" />
+                      <span className="text-[10px] font-mono text-[#D1D5DB]">LIVE STREAM FEED</span>
+                    </div>
+                    <div className="absolute top-2 left-2 bg-[#09090B]/85 backdrop-blur-xs text-[9px] font-mono text-[#16A34A] px-2 py-0.5 rounded border border-[#16A34A]/40 flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" />
+                      30 FPS
+                    </div>
+                    <div className="absolute bottom-2 right-2">
+                      <Badge
+                        className={`text-[9px] font-bold ${
+                          c.warningCount === 0
+                            ? "bg-[#16A34A] text-white"
+                            : c.warningCount < c.maxWarnings
+                            ? "bg-[#F59E0B] text-white"
+                            : "bg-[#DC2626] text-white"
+                        }`}
+                      >
+                        Warnings: {c.warningCount}/{c.maxWarnings}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] truncate">{c.name}</p>
+                      <span className="text-[10px] font-mono text-[#6B7280]">{c.rollNo}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-[#6B7280]">Attention:</span>
+                      <strong className="capitalize text-[#111827] dark:text-[#FAFAFA]">
+                        {c.faceStatus.replace(/_/g, " ")}
+                      </strong>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -271,7 +271,7 @@ export default function StudentTestRunnerPage() {
 
       ctx.fillStyle = "#16A34A";
       ctx.font = "bold 9px monospace";
-      ctx.fillText("FACE ID #8492 — 99.8%", boxX, boxY - 6);
+      ctx.fillText("AI BIOMETRIC VERIFIED", boxX, boxY - 6);
 
       animId = requestAnimationFrame(drawCanvasOverlay);
     };

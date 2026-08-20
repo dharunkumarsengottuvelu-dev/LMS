@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Download,
   FileSpreadsheet,
@@ -22,161 +22,98 @@ import { useToast } from "@/hooks/use-toast";
 export default function AdminReportsPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedReportType, setSelectedReportType] = useState<"all" | "assessments" | "practices" | "students">("all");
+  const [reports, setReports] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const assessmentReports = [
-    {
-      id: "REP-ASM-01",
-      title: "Data Structures & Algorithms - Mid Term",
-      category: "Proctored Exam",
-      totalCandidates: 120,
-      attemptedCount: 114,
-      avgScore: "84%",
-      passRate: "92%",
-      lastAttemptDate: "2026-08-17",
-      status: "Available",
-    },
-    {
-      id: "REP-ASM-02",
-      title: "Full-Stack Web Engineering Assessment",
-      category: "Technical Test",
-      totalCandidates: 95,
-      attemptedCount: 91,
-      avgScore: "78%",
-      passRate: "88%",
-      lastAttemptDate: "2026-08-16",
-      status: "Available",
-    },
-    {
-      id: "REP-ASM-03",
-      title: "Python for Backend & Cloud Systems",
-      category: "Coding & MCQ",
-      totalCandidates: 80,
-      attemptedCount: 76,
-      avgScore: "86%",
-      passRate: "94%",
-      lastAttemptDate: "2026-08-15",
-      status: "Available",
-    },
-    {
-      id: "REP-ASM-04",
-      title: "Database Management & SQL Systems Test",
-      category: "MCQ Assessment",
-      totalCandidates: 110,
-      attemptedCount: 104,
-      avgScore: "82%",
-      passRate: "90%",
-      lastAttemptDate: "2026-08-14",
-      status: "Available",
-    },
-  ];
+  useEffect(() => {
+    async function loadReports() {
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/admin/tests");
+        if (!res.ok) throw new Error("Failed to load assessments");
+        const data = await res.json();
+        const tests: any[] = data.tests || [];
 
-  const downloadSpecificAssessmentCsv = (report: typeof assessmentReports[0]) => {
-    const candidateData = [
-      {
-        name: "Kaaviya Dharun",
-        rollNo: "CS2026-081",
-        email: "kaaviya.dharun@college.edu",
-        batch: "Alpha Batch 2026",
-        status: "Submitted",
-        score: 92,
-        maxMarks: 100,
-        percentage: 92,
-        result: "PASS",
-        proctoringViolations: 0,
-        integrityStatus: "Clean",
-        timeSpent: "42 mins",
-        submittedAt: "2026-08-17 10:45 AM",
-      },
-      {
-        name: "Alex Rivera",
-        rollNo: "IT2026-104",
-        email: "alex.rivera@college.edu",
-        batch: "Alpha Batch 2026",
-        status: "Submitted",
-        score: 78,
-        maxMarks: 100,
-        percentage: 78,
-        result: "PASS",
-        proctoringViolations: 1,
-        integrityStatus: "Minor Alerts",
-        timeSpent: "55 mins",
-        submittedAt: "2026-08-17 10:55 AM",
-      },
-      {
-        name: "Sophia Chen",
-        rollNo: "CS2026-042",
-        email: "sophia.chen@college.edu",
-        batch: "Alpha Batch 2026",
-        status: "Auto-Submitted",
-        score: 64,
-        maxMarks: 100,
-        percentage: 64,
-        result: "PASS",
-        proctoringViolations: 3,
-        integrityStatus: "Flagged",
-        timeSpent: "31 mins",
-        submittedAt: "2026-08-17 10:31 AM",
-      },
-      {
-        name: "Marcus Vance",
-        rollNo: "ECE2026-019",
-        email: "marcus.vance@college.edu",
-        batch: "Alpha Batch 2026",
-        status: "Submitted",
-        score: 85,
-        maxMarks: 100,
-        percentage: 85,
-        result: "PASS",
-        proctoringViolations: 0,
-        integrityStatus: "Clean",
-        timeSpent: "48 mins",
-        submittedAt: "2026-08-17 10:48 AM",
-      },
-      {
-        name: "Emily Watson",
-        rollNo: "CS2026-112",
-        email: "emily.watson@college.edu",
-        batch: "Alpha Batch 2026",
-        status: "Submitted",
-        score: 95,
-        maxMarks: 100,
-        percentage: 95,
-        result: "PASS",
-        proctoringViolations: 0,
-        integrityStatus: "Clean",
-        timeSpent: "38 mins",
-        submittedAt: "2026-08-17 10:38 AM",
-      },
-    ];
+        const mapped = tests.map((t) => ({
+          id: t.id,
+          title: t.title,
+          category: t.allowedQuestionTypes === "coding" ? "Coding Test" : t.allowedQuestionTypes === "mcq" ? "MCQ Assessment" : "Proctored Exam",
+          totalCandidates: t.totalEnrolled || t.submissionsCount || 0,
+          attemptedCount: t.submissionsCount || 0,
+          avgScore: "N/A",
+          passRate: "N/A",
+          lastAttemptDate: t.date || (t.startDate ? `${t.startDate} - ${t.endDate || ""}` : "On-Demand"),
+          status: t.status === "live" ? "Active" : "Scheduled",
+        }));
 
-    const headers = "Candidate Name,Roll Number,Email,Batch,Submission Status,Marks Obtained,Total Marks,Percentage (%),Result,Proctoring Violations,Integrity Flag,Time Spent,Submitted At\n";
-    const rows = candidateData
-      .map(
-        (c) =>
-          `"${c.name}","${c.rollNo}","${c.email}","${c.batch}","${c.status}",${c.score},${c.maxMarks},${c.percentage},"${c.result}",${c.proctoringViolations},"${c.integrityStatus}","${c.timeSpent}","${c.submittedAt}"`
-      )
-      .join("\n");
+        setReports(mapped);
+      } catch (err) {
+        console.warn("Failed to load admin reports:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadReports();
+  }, []);
 
-    const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${report.title.replace(/[^a-zA-Z0-9]/g, "_")}_Candidate_Report_${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({
-      title: "Report Downloaded",
-      description: `Exported candidate results for "${report.title}".`,
-    });
+  const downloadSpecificAssessmentCsv = async (report: any) => {
+    try {
+      const res = await fetch(`/api/admin/tests/${report.id}/submissions`);
+      const data = await res.json();
+      const subs: any[] = data.submissions || [];
+
+      if (subs.length === 0) {
+        toast({
+          title: "No Candidate Submissions",
+          description: `No students have submitted attempts for "${report.title}" yet.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const headers = "Candidate Name,Roll Number,Email,Batch,Submission Status,Marks Obtained,Total Marks,Percentage (%),Result,Proctoring Violations,Integrity Flag,Time Spent,Submitted At\n";
+      const rows = subs
+        .map(
+          (c) =>
+            `"${c.name || "Student"}","${c.rollNo || "N/A"}","${c.email || "N/A"}","${c.batch || "Common"}","${c.status || "Submitted"}",${c.score || 0},${c.totalMarks || 100},${c.percentage || 0},"${c.percentage >= 50 ? "PASS" : "FAIL"}",${c.violationsCount || 0},"${c.violationsCount > 2 ? "High Risk" : c.violationsCount > 0 ? "Minor Alerts" : "Clean"}","${c.timeSpent || "N/A"}","${c.submittedAt || "N/A"}"`
+        )
+        .join("\n");
+
+      const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${report.title.replace(/[^a-zA-Z0-9]/g, "_")}_Candidate_Report_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({
+        title: "Report Downloaded",
+        description: `Exported ${subs.length} candidate results for "${report.title}".`,
+      });
+    } catch (err) {
+      toast({
+        title: "Export Failed",
+        description: "Could not download submission report.",
+        variant: "destructive",
+      });
+    }
   };
 
   const downloadAllAssessmentsSummaryCsv = () => {
-    const headers = "Report ID,Assessment Title,Category,Total Enrolled,Total Attempted,Attendance Rate,Average Score,Pass Rate,Last Date\n";
-    const rows = assessmentReports
+    if (reports.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No assessments found to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const headers = "Report ID,Assessment Title,Category,Total Enrolled,Total Attempted,Last Date,Status\n";
+    const rows = reports
       .map(
         (r) =>
-          `"${r.id}","${r.title}","${r.category}",${r.totalCandidates},${r.attemptedCount},"${Math.round((r.attemptedCount / r.totalCandidates) * 100)}%","${r.avgScore}","${r.passRate}","${r.lastAttemptDate}"`
+          `"${r.id}","${r.title}","${r.category}",${r.totalCandidates},${r.attemptedCount},"${r.lastAttemptDate}","${r.status}"`
       )
       .join("\n");
 
@@ -193,10 +130,12 @@ export default function AdminReportsPage() {
     });
   };
 
-  const filteredReports = assessmentReports.filter((r) =>
+  const filteredReports = reports.filter((r) =>
     r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const totalAttempts = reports.reduce((acc, r) => acc + (r.attemptedCount || 0), 0);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -217,20 +156,20 @@ export default function AdminReportsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
           <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wider">Total Assessments</p>
-          <p className="text-2xl font-black text-[#111827] dark:text-[#FAFAFA] mt-1">{assessmentReports.length} Modules</p>
-          <p className="text-[11px] text-[#16A34A] font-semibold mt-1">100% Download Ready</p>
+          <p className="text-2xl font-black text-[#111827] dark:text-[#FAFAFA] mt-1">{reports.length} Modules</p>
+          <p className="text-[11px] text-[#16A34A] font-semibold mt-1">Live from Database</p>
         </Card>
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
           <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wider">Total Attempts</p>
-          <p className="text-2xl font-black text-[#2563EB] mt-1">385 Candidates</p>
-          <p className="text-[11px] text-[#6B7280] mt-1">Across 4 Active Batches</p>
+          <p className="text-2xl font-black text-[#2563EB] mt-1">{totalAttempts} Submissions</p>
+          <p className="text-[11px] text-[#6B7280] mt-1">Verified Student Attempts</p>
         </Card>
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
-          <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wider">Average Score</p>
-          <p className="text-2xl font-black text-[#16A34A] mt-1">82.5%</p>
-          <p className="text-[11px] text-[#16A34A] font-semibold mt-1">91% Overall Pass Rate</p>
+          <p className="text-xs font-bold text-[#6B7280] uppercase tracking-wider">Database Status</p>
+          <p className="text-2xl font-black text-[#16A34A] mt-1">Active</p>
+          <p className="text-[11px] text-[#16A34A] font-semibold mt-1">Real-Time Sync</p>
         </Card>
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
