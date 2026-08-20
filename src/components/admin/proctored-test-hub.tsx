@@ -95,7 +95,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       }
     };
     fetchData();
+    setIsMounted(true);
   }, []);
+
+  const [isMounted, setIsMounted] = useState(false);
 
   const syncTestsToStore = (newTests: ScheduledTest[]) => {
     setTests(newTests);
@@ -907,8 +910,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   };
 
   const renderAssignmentModal = () => {
-    if (!assigningTest) return null;
-    if (typeof window === "undefined" || typeof document === "undefined") return null;
+    if (!assigningTest || !isMounted || typeof window === "undefined" || typeof document === "undefined") return null;
 
     return createPortal(
       <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
@@ -1684,8 +1686,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   }
 
   const renderEditExamSettingsModal = () => {
-    if (!isEditingExamSettings || !editExamForm) return null;
-    if (typeof window === "undefined" || typeof document === "undefined") return null;
+    if (!isEditingExamSettings || !editExamForm || !isMounted || typeof window === "undefined" || typeof document === "undefined") return null;
 
     const currentMode = editExamForm.scheduleMode || "open";
 

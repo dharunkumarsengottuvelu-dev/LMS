@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -483,14 +483,17 @@ export default function StudentTestRunnerPage() {
 
     const sampleTc = testCases.find((tc: any) => !tc.is_hidden) || testCases[0];
 
+    const now = new Date().toISOString();
     return {
       id: currentQ.questionId || `p_${currentQ.id}`,
       title: currentQ.question || "Coding Challenge",
       slug: (currentQ.question || "coding-challenge").toLowerCase().replace(/\s+/g, "-"),
       description: currentQ.problemStatement || currentQ.question || "",
-      difficulty: "medium",
+      difficulty: "medium" as const,
       sample_input: sampleTc?.input || "",
       sample_output: sampleTc?.expected_output || "",
+      created_at: now,
+      updated_at: now,
       templates: currentQ.starterCode || {
         python: "# Write your Python solution here\n",
         java: "// Write your Java solution here\n",
