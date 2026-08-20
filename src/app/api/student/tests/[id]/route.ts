@@ -119,6 +119,10 @@ export async function GET(
       date: meta.date || "",
       startTime: meta.startTime || "",
       endTime: meta.endTime || "",
+      hasPassingCriteria: meta.hasPassingCriteria ?? true,
+      passingCriteriaType: meta.passingCriteriaType || "percentage",
+      passPercentage: meta.passPercentage ?? 40,
+      passingMarks: meta.passingMarks ?? 40,
       proctoring: {
         enabled: Boolean(meta.secWebcam || meta.secFullscreen || meta.secTabSwitch || meta.secCopyPaste),
         webcamTracking: meta.secWebcam ?? true,
@@ -238,9 +242,21 @@ export async function POST(
       }
     });
 
-    if (totalMarks === 0) totalMarks = assessment?.total_marks || 100;
+    if (totalMarks === 0) totalMarks = assessment?.total_marks || (meta as any)?.maxMarks || 100;
     const percentage = Math.round((calculatedScore / (totalMarks || 1)) * 100);
-    const passed = percentage >= (assessment?.passing_marks || assessment?.pass_percentage || 40);
+    
+    let passed = true;
+    const metaObj = (meta as any) || {};
+    const hasPassingCriteria = metaObj.hasPassingCriteria ?? true;
+    if (hasPassingCriteria) {
+      if (metaObj.passingCriteriaType === "marks") {
+        const requiredMarks = metaObj.passingMarks ?? 40;
+        passed = calculatedScore >= requiredMarks;
+      } else {
+        const requiredPercentage = metaObj.passPercentage ?? assessment?.passing_marks ?? assessment?.pass_percentage ?? 40;
+        passed = percentage >= requiredPercentage;
+      }
+    }
 
     // 3. Save attempt record
     const { data: attempt, error: attemptError } = await adminClient

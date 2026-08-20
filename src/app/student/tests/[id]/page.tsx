@@ -179,7 +179,7 @@ export default function StudentTestRunnerPage() {
       assignedBy: "Instructor / Admin",
       durationMinutes: testData.duration || 60,
       totalMarks: testData.maxMarks || (formattedQuestions.reduce((acc, q) => acc + (q.marks || 1), 0) || 100),
-      passingMarks: 40,
+      passingMarks: testData.hasPassingCriteria === false ? 0 : (testData.passingCriteriaType === "marks" ? (testData.passingMarks || 40) : Math.round(((testData.maxMarks || 100) * (testData.passPercentage || 40)) / 100)),
       allowReviewBeforeSubmit: true,
       proctoring: {
         fullscreenLock: Boolean(testData.proctoring?.fullscreenLock),

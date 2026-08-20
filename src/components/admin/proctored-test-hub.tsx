@@ -55,6 +55,10 @@ export interface ScheduledTest {
   secFacePosition?: boolean;
   secAutoSubmit?: boolean;
   maxWarningsLimit?: number;
+  hasPassingCriteria?: boolean;
+  passingCriteriaType?: "percentage" | "marks";
+  passPercentage?: number;
+  passingMarks?: number;
 }
 
 export interface TestQuestion {
@@ -133,6 +137,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [secFacePosition, setSecFacePosition] = useState(true);
   const [secAutoSubmit, setSecAutoSubmit] = useState(true);
   const [newAllowedTypes, setNewAllowedTypes] = useState<"coding" | "mcq" | "both">("both");
+  const [hasPassingCriteria, setHasPassingCriteria] = useState(true);
+  const [passingCriteriaType, setPassingCriteriaType] = useState<"percentage" | "marks">("percentage");
+  const [passPercentage, setPassPercentage] = useState(40);
+  const [passingMarks, setPassingMarks] = useState(40);
 
   // Edit Exam Settings Modal State
   const [isEditingExamSettings, setIsEditingExamSettings] = useState(false);
@@ -361,6 +369,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       secFacePosition,
       secAutoSubmit,
       maxWarningsLimit,
+      hasPassingCriteria,
+      passingCriteriaType,
+      passPercentage: hasPassingCriteria ? (passingCriteriaType === "percentage" ? passPercentage : undefined) : undefined,
+      passingMarks: hasPassingCriteria ? (passingCriteriaType === "marks" ? passingMarks : undefined) : undefined,
     };
 
     try {
@@ -1046,6 +1058,69 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Passing Criteria & Qualifying Mark (Toggleable ON / OFF) */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                      <Award className="h-4 w-4 text-[#2563EB]" /> Passing Criteria & Qualification Threshold
+                    </label>
+                    <p className="text-[11px] text-[#6B7280]">
+                      Set minimum passing requirements for student completion and certificate eligibility.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={hasPassingCriteria}
+                    onCheckedChange={(checked) => setHasPassingCriteria(checked)}
+                  />
+                </div>
+
+                {hasPassingCriteria && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-[#E5E7EB] dark:border-[#27272A] animate-in fade-in duration-200">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Criteria Measurement</label>
+                      <Select
+                        value={passingCriteriaType}
+                        onValueChange={(val: any) => val && setPassingCriteriaType(val)}
+                      >
+                        <SelectTrigger className="h-10 text-xs rounded-xl bg-white dark:bg-[#18181B]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">Percentage Based (% of Total Marks)</SelectItem>
+                          <SelectItem value="marks">Fixed Passing Marks (Absolute Score)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                        {passingCriteriaType === "percentage" ? "Passing Percentage (%)" : "Minimum Passing Marks"}
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={passingCriteriaType === "percentage" ? 100 : 1000}
+                          value={passingCriteriaType === "percentage" ? passPercentage : passingMarks}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            if (passingCriteriaType === "percentage") {
+                              setPassPercentage(val);
+                            } else {
+                              setPassingMarks(val);
+                            }
+                          }}
+                          className="h-10 text-xs rounded-xl bg-white dark:bg-[#18181B] pr-10"
+                          placeholder={passingCriteriaType === "percentage" ? "40" : "40"}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#6B7280]">
+                          {passingCriteriaType === "percentage" ? "%" : "Marks"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* MNC Enterprise Scheduling Modes */}
@@ -1774,6 +1849,69 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Passing Criteria & Qualifying Mark (Toggleable ON / OFF) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                    <Award className="h-4 w-4 text-[#2563EB]" /> Passing Criteria & Qualification Threshold
+                  </label>
+                  <p className="text-[11px] text-[#6B7280]">
+                    Set minimum passing requirements for student completion and certificate eligibility.
+                  </p>
+                </div>
+                <Switch
+                  checked={editExamForm.hasPassingCriteria ?? true}
+                  onCheckedChange={(checked) => setEditExamForm({ ...editExamForm, hasPassingCriteria: checked })}
+                />
+              </div>
+
+              {(editExamForm.hasPassingCriteria ?? true) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-[#E5E7EB] dark:border-[#27272A] animate-in fade-in duration-200">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Criteria Measurement</label>
+                    <Select
+                      value={editExamForm.passingCriteriaType || "percentage"}
+                      onValueChange={(val: any) => val && setEditExamForm({ ...editExamForm, passingCriteriaType: val })}
+                    >
+                      <SelectTrigger className="h-10 text-xs rounded-xl bg-white dark:bg-[#18181B]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">Percentage Based (% of Total Marks)</SelectItem>
+                        <SelectItem value="marks">Fixed Passing Marks (Absolute Score)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      {(editExamForm.passingCriteriaType || "percentage") === "percentage" ? "Passing Percentage (%)" : "Minimum Passing Marks"}
+                    </label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={(editExamForm.passingCriteriaType || "percentage") === "percentage" ? 100 : 1000}
+                        value={(editExamForm.passingCriteriaType || "percentage") === "percentage" ? (editExamForm.passPercentage ?? 40) : (editExamForm.passingMarks ?? 40)}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if ((editExamForm.passingCriteriaType || "percentage") === "percentage") {
+                            setEditExamForm({ ...editExamForm, passPercentage: val });
+                          } else {
+                            setEditExamForm({ ...editExamForm, passingMarks: val });
+                          }
+                        }}
+                        className="h-10 text-xs rounded-xl bg-white dark:bg-[#18181B] pr-10"
+                        placeholder="40"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#6B7280]">
+                        {(editExamForm.passingCriteriaType || "percentage") === "percentage" ? "%" : "Marks"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* MNC Scheduling Engine */}
