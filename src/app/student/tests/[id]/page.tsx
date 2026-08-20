@@ -7,7 +7,7 @@ import {
   ArrowLeft, Clock, ShieldCheck, CheckCircle2, HelpCircle, Code2,
   Terminal, AlertTriangle, Send, RefreshCw, ChevronLeft, ChevronRight, Award,
   Camera, Eye, Flag, RotateCcw, Video, CopyX, Maximize2, ShieldAlert, MonitorCheck,
-  AlertOctagon, Lock, Download, ExternalLink, ShieldX, VideoOff, FileText, Info, User, Scan, Play
+  AlertOctagon, Lock, Download, ExternalLink, ShieldX, VideoOff, FileText, Info, User, Scan, Play, CheckSquare
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -425,8 +425,33 @@ export default function StudentTestRunnerPage() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleMcqSelect = (questionId: number, optionIdx: number) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: optionIdx }));
+  const isMultiSelectQuestion = (q: any) => {
+    return q?.type === "msq" || q?.type === "multiple_choice" || q?.type === "both";
+  };
+
+  const isOptionSelected = (questionId: number, optionIdx: number) => {
+    const ans = answers[questionId];
+    if (ans === undefined || ans === null) return false;
+    if (Array.isArray(ans)) return ans.includes(optionIdx);
+    return ans === optionIdx;
+  };
+
+  const handleOptionToggle = (questionId: number, optionIdx: number, isMulti: boolean) => {
+    setAnswers((prev) => {
+      if (isMulti) {
+        const current = prev[questionId];
+        const list: number[] = Array.isArray(current)
+          ? current
+          : typeof current === "number"
+          ? [current]
+          : [];
+        const exists = list.includes(optionIdx);
+        const next = exists ? list.filter((i) => i !== optionIdx) : [...list, optionIdx];
+        return { ...prev, [questionId]: next };
+      } else {
+        return { ...prev, [questionId]: optionIdx };
+      }
+    });
   };
 
   const toggleMarkForReview = (questionId: number) => {
@@ -832,35 +857,49 @@ export default function StudentTestRunnerPage() {
             </CardHeader>
 
             <CardContent className="p-6 space-y-6">
-              {currentQ.type === "mcq" && (
+              {(currentQ.type === "mcq" || currentQ.type === "msq" || currentQ.type === "single_choice" || currentQ.type === "multiple_choice" || currentQ.type === "both" || !currentQ.type) && (
                 <div className="space-y-6">
-                  <h3 className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug">
-                    {currentQ.question}
-                  </h3>
+                  <div className="space-y-2">
+                    <h3 className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug">
+                      {currentQ.question}
+                    </h3>
+                    {isMultiSelectQuestion(currentQ) && (
+                      <p className="text-xs font-semibold text-[#2563EB] flex items-center gap-1.5 bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 px-3 py-1.5 rounded-lg w-fit border border-[#BFDBFE] dark:border-[#1E40AF]">
+                        <CheckSquare className="h-3.5 w-3.5" /> Multi-Select: Choose all correct options
+                      </p>
+                    )}
+                    {currentQ.problemStatement && currentQ.problemStatement !== currentQ.question && (
+                      <p className="text-xs text-[#6B7280] leading-relaxed whitespace-pre-line bg-[#F9FAFB] dark:bg-[#09090B] p-3 rounded-lg border border-[#E5E7EB] dark:border-[#27272A]">
+                        {currentQ.problemStatement}
+                      </p>
+                    )}
+                  </div>
 
                   <div className="space-y-3">
                     {currentQ.options?.map((opt: any, idx: number) => {
-                      const isSelected = answers[currentQ.id] === idx;
+                      const isMulti = isMultiSelectQuestion(currentQ);
+                      const isSelected = isOptionSelected(currentQ.id, idx);
                       return (
                         <button
                           key={idx}
+                          type="button"
                           disabled={isExamSubmitted}
-                          onClick={() => handleMcqSelect(currentQ.id, idx)}
-                          className={`w-full text-left p-4 rounded-xl border text-sm font-semibold transition-all flex items-center justify-between ${
+                          onClick={() => handleOptionToggle(currentQ.id, idx, isMulti)}
+                          className={`w-full text-left p-4 rounded-xl border text-sm font-semibold transition-all flex items-center justify-between cursor-pointer ${
                             isSelected
                               ? "border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB] shadow-xs"
                               : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB] hover:bg-[#F9FAFB] dark:hover:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA]"
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${
+                            <div className={`w-6 h-6 ${isMulti ? 'rounded-md' : 'rounded-full'} border flex items-center justify-center text-xs font-bold transition-colors ${
                               isSelected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]"
                             }`}>
-                              {String.fromCharCode(65 + idx)}
+                              {isSelected ? (isMulti ? "✓" : String.fromCharCode(65 + idx)) : String.fromCharCode(65 + idx)}
                             </div>
-                            <span>{opt}</span>
+                            <span className="leading-snug">{opt}</span>
                           </div>
-                          {isSelected && <CheckCircle2 className="h-5 w-5 text-[#2563EB]" />}
+                          {isSelected && <CheckCircle2 className="h-5 w-5 text-[#2563EB] shrink-0" />}
                         </button>
                       );
                     })}

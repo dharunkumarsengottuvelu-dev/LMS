@@ -202,18 +202,45 @@ export async function POST(
       totalMarks += qMarks;
 
       const studentAns = answers[qNum];
-      const correctIdx = (q.options || []).findIndex(
-        (opt: any) => typeof opt === "object" && Boolean(opt.isCorrect)
-      );
+      if (studentAns === undefined || studentAns === null) return;
 
-      if (studentAns !== undefined && studentAns !== null && Number(studentAns) === correctIdx) {
-        calculatedScore += qMarks;
+      const isMSQ = q.type === "msq" || q.type === "multiple_choice" || q.type === "both";
+      const isCoding = q.type === "coding";
+
+      if (isCoding) {
+        if (typeof studentAns === "string" && studentAns.trim().length > 10) {
+          calculatedScore += qMarks;
+        }
+      } else if (isMSQ) {
+        const correctIndexes = (q.options || [])
+          .map((opt: any, i: number) => (typeof opt === "object" && Boolean(opt.isCorrect) ? i : -1))
+          .filter((i: number) => i >= 0);
+
+        const studentIndexes: number[] = Array.isArray(studentAns)
+          ? studentAns.map(Number)
+          : [Number(studentAns)];
+
+        const isExactMatch =
+          correctIndexes.length > 0 &&
+          correctIndexes.length === studentIndexes.length &&
+          correctIndexes.every((ci: number) => studentIndexes.includes(ci));
+
+        if (isExactMatch) {
+          calculatedScore += qMarks;
+        }
+      } else {
+        const correctIdx = (q.options || []).findIndex(
+          (opt: any) => typeof opt === "object" && Boolean(opt.isCorrect)
+        );
+        if (correctIdx >= 0 && Number(studentAns) === correctIdx) {
+          calculatedScore += qMarks;
+        }
       }
     });
 
     if (totalMarks === 0) totalMarks = assessment?.total_marks || 100;
     const percentage = Math.round((calculatedScore / (totalMarks || 1)) * 100);
-    const passed = percentage >= (assessment?.passing_marks || 40);
+    const passed = percentage >= (assessment?.passing_marks || assessment?.pass_percentage || 40);
 
     // 3. Save attempt record
     const { data: attempt, error: attemptError } = await adminClient
