@@ -240,37 +240,12 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     });
   };
 
-  // Restore exam wizard draft
+  // Clear any old stale draft on mount so Exam Title starts completely blank with placeholder
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const stored = localStorage.getItem("draft_proctored_test");
-      if (stored) {
-        const d = JSON.parse(stored);
-        if (d) {
-          if (d.newScheduleMode) setNewScheduleMode(d.newScheduleMode);
-          if (d.newTitle) setNewTitle(d.newTitle);
-          if (d.newDate !== undefined) setNewDate(d.newDate);
-          if (d.newStartDate !== undefined) setNewStartDate(d.newStartDate);
-          if (d.newEndDate !== undefined) setNewEndDate(d.newEndDate);
-          if (d.newStartTime !== undefined) setNewStartTime(d.newStartTime);
-          if (d.newEndTime !== undefined) setNewEndTime(d.newEndTime);
-          if (d.newTimezone) setNewTimezone(d.newTimezone);
-          if (d.newDuration) setNewDuration(d.newDuration);
-          if (d.newStatus) setNewStatus(d.newStatus);
-          if (d.newAllowedTypes) setNewAllowedTypes(d.newAllowedTypes);
-          if (d.secWebcam !== undefined) setSecWebcam(d.secWebcam);
-          if (d.secFullscreen !== undefined) setSecFullscreen(d.secFullscreen);
-          if (d.secTabSwitch !== undefined) setSecTabSwitch(d.secTabSwitch);
-          if (d.secCopyPaste !== undefined) setSecCopyPaste(d.secCopyPaste);
-          if (d.secMultipleScreens !== undefined) setSecMultipleScreens(d.secMultipleScreens);
-          if (d.secSEB !== undefined) setSecSEB(d.secSEB);
-          setLastSavedExamDraft(d.savedAt || new Date().toLocaleTimeString());
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to load test draft", e);
-    }
+      localStorage.removeItem("draft_proctored_test");
+    } catch (e) {}
   }, []);
 
   // Auto-save exam wizard draft
@@ -1007,7 +982,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                   <span>Exam Title <span className="text-[#DC2626]">*</span></span>
                 </label>
                 <Input
-                  placeholder="e.g. Campus Recruitment Shortlisting Assessment 2026"
+                  placeholder="Enter assessment title..."
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   required
