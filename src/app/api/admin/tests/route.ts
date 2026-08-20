@@ -69,11 +69,12 @@ export async function GET() {
         (a.course_id ? [a.course_id] : []);
 
       const isCommon =
-        a.is_common !== undefined
-          ? a.is_common
-          : meta.isCommon !== undefined
-          ? meta.isCommon
-          : assignedBatches.length === 0;
+        a.is_common === true ||
+        meta.isCommon === true ||
+        String(a.is_common) === "true" ||
+        String(meta.isCommon) === "true" ||
+        assignedBatches.length === 0 ||
+        assignedBatches.includes("Common (All Batches)");
 
       return {
         id: a.id,

@@ -881,16 +881,23 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     };
 
     try {
-      await fetch("/api/admin/tests", {
+      const res = await fetch("/api/admin/tests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ test: updatedTest })
       });
+      const data = await res.json();
+      if (data.test?.id) {
+        updatedTest.id = data.test.id;
+      }
     } catch (err) {
       console.error("Failed to save assignments", err);
     }
 
     setTests(prev => prev.map(t => t.id === assigningTest.id ? updatedTest : t));
+    if (selectedTest && selectedTest.id === assigningTest.id) {
+      setSelectedTest(updatedTest);
+    }
     setAssigningTest(null);
     toast({
       title: "Exam Visibility Updated",
