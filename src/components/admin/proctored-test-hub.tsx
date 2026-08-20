@@ -2705,123 +2705,171 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
               <div className="flex items-center gap-3">
                 <Select value={manualQuestionType} onValueChange={(val) => val && setManualQuestionType(val as any)}>
-                  <SelectTrigger className="h-9 text-xs w-[180px] bg-[#F9FAFB] dark:bg-[#09090B] font-bold"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 text-xs w-[200px] bg-[#F9FAFB] dark:bg-[#09090B] font-bold"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="mcq">Single Choice (MCQ)</SelectItem>
                     <SelectItem value="msq">Multiple Select (MSQ)</SelectItem>
+                    <SelectItem value="coding">Programming Task (Coding)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Question / Problem Statement <span className="text-[#DC2626]">*</span></label>
-                  <textarea 
-                    className="w-full min-h-[120px] p-4 text-sm rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] focus:ring-2 focus:ring-[#2563EB] outline-none transition-all resize-y"
-                    placeholder="Enter your question statement here (e.g., What is the output of the given expression? or Find the missing number in the sequence: 2, 6, 12, 20, 30, ?)..."
-                    value={manualQuestionTitle}
-                    onChange={(e) => setManualQuestionTitle(e.target.value)}
-                    required
-                  />
-                </div>
+              {manualQuestionType === "coding" ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement & Description <span className="text-[#DC2626]">*</span></label>
+                      <textarea 
+                        className="w-full min-h-[100px] p-4 text-sm rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] focus:ring-2 focus:ring-[#2563EB] outline-none transition-all resize-y"
+                        placeholder="Describe the problem, input constraints, question statement, and expected logic..."
+                        value={manualQuestionTitle}
+                        onChange={(e) => setManualQuestionTitle(e.target.value)}
+                        required
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Marks Allocated</label>
-                  <Input type="number" min={1} max={100} value={manualQuestionMarks} onChange={(e) => setManualQuestionMarks(Number(e.target.value))} required className="h-10 text-sm rounded-lg" />
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                      {manualQuestionType === "msq" ? "Multiple Select Options" : "Single Choice Options"}
-                    </label>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Button
-                        type="button"
-                        onClick={() =>
-                          setManualMCQOptions([
-                            { id: 1, text: "True", isCorrect: true },
-                            { id: 2, text: "False", isCorrect: false },
-                          ])
-                        }
-                        variant="outline"
-                        className="h-7 px-2 text-[10px] font-bold"
-                      >
-                        True/False
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={() =>
-                          setManualMCQOptions([
-                            { id: 1, text: "", isCorrect: false },
-                            { id: 2, text: "", isCorrect: false },
-                            { id: 3, text: "", isCorrect: false },
-                            { id: 4, text: "", isCorrect: false },
-                          ])
-                        }
-                        variant="outline"
-                        className="h-7 px-2 text-[10px] font-bold text-[#DC2626]"
-                      >
-                        Clear Text
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={() =>
-                          setManualMCQOptions([
-                            ...manualMCQOptions,
-                            { id: Date.now(), text: "", isCorrect: false },
-                          ])
-                        }
-                        variant="outline"
-                        className="h-7 px-2.5 text-[10px] font-bold text-[#2563EB] border-[#2563EB]/40"
-                      >
-                        <Plus className="h-3 w-3 mr-1" /> Add Option
-                      </Button>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Marks Allocated</label>
+                      <Input type="number" min={1} max={100} value={manualQuestionMarks} onChange={(e) => setManualQuestionMarks(Number(e.target.value))} required className="h-10 text-sm rounded-lg" />
                     </div>
                   </div>
-                  
-                  <div className="space-y-3">
-                    {manualMCQOptions.map((opt, idx) => (
-                      <div key={opt.id || idx} className={`flex items-center gap-3 p-3 border ${opt.isCorrect ? 'border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20' : 'border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]'} rounded-xl group transition-all`}>
-                        <div className="flex items-center justify-center w-6 h-6 rounded bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] text-[10px] font-bold text-[#6B7280]">
-                          {String.fromCharCode(65 + idx)}
-                        </div>
-                        <Input 
-                          value={opt.text ?? ""} 
-                          onChange={(e) => setManualMCQOptions(manualMCQOptions.map(o => o.id === opt.id ? { ...o, text: e.target.value } : o))} 
-                          placeholder={`Option ${idx + 1}`} 
-                          className="h-9 text-xs flex-1 bg-white dark:bg-[#18181B]" 
-                        />
-                        <label className="flex items-center gap-2 cursor-pointer ml-2 pr-2">
-                          {(manualQuestionType === "mcq" || manualQuestionType === "both") ? (
-                            <input 
-                              type="radio" 
-                              name="mcq-correct-answer"
-                              checked={Boolean(opt.isCorrect)}
-                              onChange={() => setManualMCQOptions(manualMCQOptions.map(o => ({ ...o, isCorrect: o.id === opt.id })))}
-                              className="w-4 h-4 text-[#2563EB] cursor-pointer"
-                            />
-                          ) : (
-                            <Switch 
-                              checked={Boolean(opt.isCorrect)} 
-                              onCheckedChange={(checked) => setManualMCQOptions(manualMCQOptions.map(o => o.id === opt.id ? { ...o, isCorrect: checked } : o))} 
-                              className="scale-75" 
-                            />
-                          )}
-                          <span className={`text-[10px] font-bold ${opt.isCorrect ? 'text-[#2563EB]' : 'text-[#6B7280]'}`}>
-                            Correct Answer
-                          </span>
-                        </label>
-                        <button type="button" onClick={() => manualMCQOptions.length > 2 && setManualMCQOptions(manualMCQOptions.filter(o => o.id !== opt.id))} className="text-[#EF4444] opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
+
+                  <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                    <CodingProblemCreator
+                      inline
+                      hideHeader
+                      initialTitle={manualQuestionTitle || "Algorithm / Coding Challenge"}
+                      initialDescription={manualQuestionTitle}
+                      onChange={(problem) => {
+                        if (problem.title && (!manualQuestionTitle || manualQuestionTitle === "Algorithm / Coding Challenge")) {
+                          setManualQuestionTitle(problem.title);
+                        }
+                        const allTC = [...(problem.publicTestCases || []), ...(problem.hiddenTestCases || [])];
+                        if (allTC.length > 0) {
+                          setManualTestCases(allTC.map((t, index) => ({
+                            id: index + 1,
+                            input: t.input,
+                            output: t.expected_output,
+                            isHidden: t.is_hidden
+                          })));
+                        }
+                      }}
+                    />
                   </div>
                 </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Question / Problem Statement <span className="text-[#DC2626]">*</span></label>
+                      <textarea 
+                        className="w-full min-h-[120px] p-4 text-sm rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] focus:ring-2 focus:ring-[#2563EB] outline-none transition-all resize-y"
+                        placeholder="Enter your question statement here (e.g., What is the output of the given expression? or Find the missing number in the sequence)..."
+                        value={manualQuestionTitle}
+                        onChange={(e) => setManualQuestionTitle(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Marks Allocated</label>
+                      <Input type="number" min={1} max={100} value={manualQuestionMarks} onChange={(e) => setManualQuestionMarks(Number(e.target.value))} required className="h-10 text-sm rounded-lg" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                        {manualQuestionType === "msq" ? "Multiple Select Options" : "Single Choice Options"}
+                      </label>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Button
+                          type="button"
+                          onClick={() =>
+                            setManualMCQOptions([
+                              { id: 1, text: "True", isCorrect: true },
+                              { id: 2, text: "False", isCorrect: false },
+                            ])
+                          }
+                          variant="outline"
+                          className="h-7 px-2 text-[10px] font-bold"
+                        >
+                          True/False
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() =>
+                            setManualMCQOptions([
+                              { id: 1, text: "", isCorrect: false },
+                              { id: 2, text: "", isCorrect: false },
+                              { id: 3, text: "", isCorrect: false },
+                              { id: 4, text: "", isCorrect: false },
+                            ])
+                          }
+                          variant="outline"
+                          className="h-7 px-2 text-[10px] font-bold text-[#DC2626]"
+                        >
+                          Clear Text
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() =>
+                            setManualMCQOptions([
+                              ...manualMCQOptions,
+                              { id: Date.now(), text: "", isCorrect: false },
+                            ])
+                          }
+                          variant="outline"
+                          className="h-7 px-2.5 text-[10px] font-bold text-[#2563EB] border-[#2563EB]/40"
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Add Option
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {manualMCQOptions.map((opt, idx) => (
+                        <div key={opt.id || idx} className={`flex items-center gap-3 p-3 border ${opt.isCorrect ? 'border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20' : 'border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]'} rounded-xl group transition-all`}>
+                          <div className="flex items-center justify-center w-6 h-6 rounded bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] text-[10px] font-bold text-[#6B7280]">
+                            {String.fromCharCode(65 + idx)}
+                          </div>
+                          <Input 
+                            value={opt.text ?? ""} 
+                            onChange={(e) => setManualMCQOptions(manualMCQOptions.map(o => o.id === opt.id ? { ...o, text: e.target.value } : o))} 
+                            placeholder={`Option ${idx + 1}`} 
+                            className="h-9 text-xs flex-1 bg-white dark:bg-[#18181B]" 
+                          />
+                          <label className="flex items-center gap-2 cursor-pointer ml-2 pr-2">
+                            {manualQuestionType === "mcq" ? (
+                              <input 
+                                type="radio" 
+                                name="mcq-correct-answer"
+                                checked={Boolean(opt.isCorrect)}
+                                onChange={() => setManualMCQOptions(manualMCQOptions.map(o => ({ ...o, isCorrect: o.id === opt.id })))}
+                                className="w-4 h-4 text-[#2563EB] cursor-pointer"
+                              />
+                            ) : (
+                              <Switch 
+                                checked={Boolean(opt.isCorrect)} 
+                                onCheckedChange={(checked) => setManualMCQOptions(manualMCQOptions.map(o => o.id === opt.id ? { ...o, isCorrect: checked } : o))} 
+                                className="scale-75" 
+                              />
+                            )}
+                            <span className={`text-[10px] font-bold ${opt.isCorrect ? 'text-[#2563EB]' : 'text-[#6B7280]'}`}>
+                              Correct Answer
+                            </span>
+                          </label>
+                          <button type="button" onClick={() => manualMCQOptions.length > 2 && setManualMCQOptions(manualMCQOptions.filter(o => o.id !== opt.id))} className="text-[#EF4444] opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
             
             {/* Action Buttons Bar */}

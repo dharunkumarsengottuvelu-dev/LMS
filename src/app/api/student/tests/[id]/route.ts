@@ -88,11 +88,20 @@ export async function GET(
         questionId: q.id || `q_${index + 1}`,
         type: q.type || "mcq",
         question: q.title || `Question ${index + 1}`,
+        problemStatement: q.problemStatement || q.description || q.title || "",
         marks: Number(q.marks) || 1,
         section: q.section || "General Assessment",
         options: optionsArray.length > 0 ? optionsArray : ["Option A", "Option B", "Option C", "Option D"],
         optionsList: q.options || [],
         correctOption: correctIndex >= 0 ? correctIndex : 0,
+        testCases: q.testCases || [],
+        starterCode: q.starterCode || q.templates || {
+          python: "def solution():\n    # Write your python code here\n    pass",
+          javascript: "function solution() {\n    // Write your javascript code here\n}",
+          java: "public class Solution {\n    public static void main(String[] args) {\n        // Write your java code here\n    }\n}",
+          cpp: "#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your C++ code here\n    return 0;\n}",
+          c: "#include <stdio.h>\n\nint main() {\n    // Write your C code here\n    return 0;\n}"
+        },
       };
     });
 
