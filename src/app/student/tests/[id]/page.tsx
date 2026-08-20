@@ -950,35 +950,38 @@ export default function StudentTestRunnerPage() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {(currentQ.testCases && currentQ.testCases.length > 0 ? currentQ.testCases : [
-                          { input: "5\n1 2 3 4 5", output: "15", isHidden: false },
-                          { input: "3\n10 20 30", output: "60", isHidden: false }
-                        ]).map((tc: any, i: number) => {
-                          const result = testCaseResults[i];
-                          return (
-                            <div key={i} className="p-3 bg-white dark:bg-[#18181B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-1.5 text-xs">
-                              <div className="flex items-center justify-between">
-                                <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">
-                                  Test Case {i + 1} {tc.isHidden ? "(Hidden)" : "(Public)"}
-                                </span>
-                                {result && (
-                                  <Badge className={`text-[9px] font-bold ${result.passed ? 'bg-[#16A34A] text-white' : 'bg-[#DC2626] text-white'}`}>
-                                    {result.passed ? "PASSED" : "FAILED"}
-                                  </Badge>
-                                )}
+                      {(!currentQ.testCases || currentQ.testCases.length === 0) ? (
+                        <div className="p-4 bg-white dark:bg-[#18181B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] text-center text-xs text-[#6B7280]">
+                          No public test cases configured. You can test and submit your code logic.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {currentQ.testCases.map((tc: any, i: number) => {
+                            const result = testCaseResults[i];
+                            return (
+                              <div key={i} className="p-3 bg-white dark:bg-[#18181B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-1.5 text-xs">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">
+                                    Test Case {i + 1} {tc.isHidden ? "(Hidden)" : "(Public)"}
+                                  </span>
+                                  {result && (
+                                    <Badge className={`text-[9px] font-bold ${result.passed ? 'bg-[#16A34A] text-white' : 'bg-[#DC2626] text-white'}`}>
+                                      {result.passed ? "PASSED" : "FAILED"}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="space-y-1 font-mono text-[11px]">
+                                  <div className="text-[#6B7280]">Input: <span className="text-[#111827] dark:text-[#FAFAFA] font-bold">{tc.input || "None"}</span></div>
+                                  <div className="text-[#6B7280]">Expected: <span className="text-[#16A34A] font-bold">{tc.output || tc.expected_output || "None"}</span></div>
+                                  {result && result.actual_output && (
+                                    <div className="text-[#6B7280]">Output: <span className={result.passed ? "text-[#16A34A]" : "text-[#DC2626]"}>{result.actual_output}</span></div>
+                                  )}
+                                </div>
                               </div>
-                              <div className="space-y-1 font-mono text-[11px]">
-                                <div className="text-[#6B7280]">Input: <span className="text-[#111827] dark:text-[#FAFAFA] font-bold">{tc.input || "None"}</span></div>
-                                <div className="text-[#6B7280]">Expected: <span className="text-[#16A34A] font-bold">{tc.output || tc.expected_output || "None"}</span></div>
-                                {result && result.actual_output && (
-                                  <div className="text-[#6B7280]">Output: <span className={result.passed ? "text-[#16A34A]" : "text-[#DC2626]"}>{result.actual_output}</span></div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 

@@ -364,7 +364,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       maxMarks: 0,
       status: newStatus,
       submissionsCount: 0,
-      totalEnrolled: 120,
+      totalEnrolled: 0,
       proctoringFlags,
       allowedQuestionTypes: newAllowedTypes,
       sections: ["General Assessment"],
@@ -2740,10 +2740,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     <CodingProblemCreator
                       inline
                       hideHeader
-                      initialTitle={manualQuestionTitle || "Algorithm / Coding Challenge"}
+                      initialTitle={manualQuestionTitle || ""}
                       initialDescription={manualQuestionTitle}
                       onChange={(problem) => {
-                        if (problem.title && (!manualQuestionTitle || manualQuestionTitle === "Algorithm / Coding Challenge")) {
+                        if (problem.title && !manualQuestionTitle) {
                           setManualQuestionTitle(problem.title);
                         }
                         const allTC = [...(problem.publicTestCases || []), ...(problem.hiddenTestCases || [])];

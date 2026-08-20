@@ -314,7 +314,7 @@ export default function StudentAssessmentsPage() {
                       )}
                       {test.status === "completed" && (
                         <Badge className="bg-[#16A34A] text-white text-[10px] uppercase font-bold">
-                          Completed (Score: {test.score ?? 90}%)
+                          Completed {test.score !== undefined ? `(Score: ${test.score}%)` : ""}
                         </Badge>
                       )}
                     </div>
