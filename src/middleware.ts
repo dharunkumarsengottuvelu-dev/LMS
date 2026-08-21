@@ -76,14 +76,33 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   return response;
 }
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+function createRedirectWithCookies(
+  url: URL | string,
+  request: NextRequest,
+  supabaseResponse: NextResponse
+): NextResponse {
+  const redirectUrl = url instanceof URL ? url : new URL(url, request.url);
+  const response = NextResponse.redirect(redirectUrl);
 
-  // 0. Auto-route OAuth callback if `code` query param is present
+  // Preserve all cookies from the session refresh to avoid dropping auth state
+  supabaseResponse.cookies.getAll().forEach((cookie) => {
+    response.cookies.set(cookie.name, cookie.value, cookie);
+  });
+
+  return applySecurityHeaders(response);
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+
+  // 0. Auto-route OAuth callback only if code param is present on root or auth routes
   const codeParam = request.nextUrl.searchParams.get("code");
-  if (codeParam && !pathname.startsWith("/api/auth/callback")) {
+  const isAuthEntryPage = pathname === "/" || pathname === "/login" || pathname.startsWith("/auth/");
+  if (codeParam && isAuthEntryPage && !pathname.startsWith("/api/auth/callback")) {
     const callbackUrl = new URL("/api/auth/callback", request.url);
     callbackUrl.searchParams.set("code", codeParam);
+    const nextParam = request.nextUrl.searchParams.get("next");
+    if (nextParam) callbackUrl.searchParams.set("next", nextParam);
     return applySecurityHeaders(NextResponse.redirect(callbackUrl));
   }
 
@@ -107,8 +126,10 @@ export async function middleware(request: NextRequest) {
 
   const isAuthApi = pathname.startsWith("/api/auth");
   const isAuthPage =
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/register") ||
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname.startsWith("/login/") ||
+    pathname.startsWith("/register/") ||
     pathname.startsWith("/auth");
   const isApiRoute = pathname.startsWith("/api/");
 
@@ -226,27 +247,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // 2. Update Supabase Session
-  const { supabaseResponse, user } = await updateSession(request);
+  const { supabase, supabaseResponse, user } = await updateSession(request);
 
-  // 3. Authenticated User Redirection ONLY from Login/Auth pages
+  // 3. Authenticated User Redirection ONLY when visiting auth/login/register pages directly
   if (user && (pathname.startsWith("/auth/") || pathname === "/login" || pathname === "/register")) {
     const nextParam = request.nextUrl.searchParams.get("next");
     if (nextParam && nextParam.startsWith("/") && !nextParam.startsWith("/login") && !nextParam.startsWith("/register")) {
-      return applySecurityHeaders(NextResponse.redirect(new URL(nextParam, request.url)));
+      return createRedirectWithCookies(new URL(nextParam, request.url), request, supabaseResponse);
     }
-
-    const supabase = createServerClient(
-      process.env["NEXT_PUBLIC_SUPABASE_URL"]!,
-      process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll();
-          },
-          setAll() {},
-        },
-      }
-    );
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -259,11 +267,22 @@ export async function middleware(request: NextRequest) {
       ? "admin"
       : userEmail.includes("trainer")
       ? "trainer"
-      : profile?.role || "student";
+      : (profile as { role?: string } | null)?.role || "student";
 
-    return applySecurityHeaders(
-      NextResponse.redirect(new URL(getRoleDefaultPath(role), request.url))
+    return createRedirectWithCookies(
+      new URL(getRoleDefaultPath(role), request.url),
+      request,
+      supabaseResponse
     );
+  }
+
+  // 4. Protect private route spaces if user is unauthenticated
+  const requiredRoles = getRequiredRoles(pathname);
+  if (requiredRoles && !user) {
+    const loginUrl = new URL("/login", request.url);
+    const fullOriginalPath = `${pathname}${search}`;
+    loginUrl.searchParams.set("next", fullOriginalPath);
+    return createRedirectWithCookies(loginUrl, request, supabaseResponse);
   }
 
   return applySecurityHeaders(supabaseResponse);

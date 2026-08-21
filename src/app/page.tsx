@@ -173,11 +173,12 @@ const ecosystemSteps = [
 export default async function LandingPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ code?: string }>;
+  searchParams?: Promise<{ code?: string; next?: string }>;
 }) {
   const params = await searchParams;
   if (params?.code) {
-    redirect(`/api/auth/callback?code=${encodeURIComponent(params.code)}`);
+    const nextQuery = params.next ? `&next=${encodeURIComponent(params.next)}` : "";
+    redirect(`/api/auth/callback?code=${encodeURIComponent(params.code)}${nextQuery}`);
   }
 
   return (

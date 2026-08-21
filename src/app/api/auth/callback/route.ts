@@ -25,12 +25,17 @@ export async function GET(request: Request) {
 
       const profile = profileData as { role?: string } | null;
       const role = profile?.role ?? "student";
-      const redirectPath =
+      const next = requestUrl.searchParams.get("next");
+      const defaultPath =
         role === "admin"
           ? "/admin/dashboard"
           : role === "trainer"
           ? "/trainer/dashboard"
           : "/student/dashboard";
+      const redirectPath =
+        next && next.startsWith("/") && !next.startsWith("/login") && !next.startsWith("/register")
+          ? next
+          : defaultPath;
 
       return NextResponse.redirect(`${origin}${redirectPath}`);
     }
