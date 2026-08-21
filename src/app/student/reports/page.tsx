@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   BarChart3,
@@ -24,27 +25,44 @@ import {
   Inbox,
   Dumbbell,
   ClipboardList,
-  Check
+  Check,
+  ArrowLeft,
+  CalendarDays
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 export default function StudentReportsPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [dateRange, setDateRange] = useState<"7d" | "14d" | "30d" | "all">("7d");
+  const [dateRange, setDateRange] = useState<"7d" | "14d" | "30d" | "all" | "custom">("7d");
+  const [customFromDate, setCustomFromDate] = useState<string>("");
+  const [customToDate, setCustomToDate] = useState<string>("");
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState<boolean>(false);
+
   const [activeTab, setActiveTab] = useState<"courses" | "practices" | "assessments" | "time">("courses");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -61,7 +79,12 @@ export default function StudentReportsPage() {
   const fetchReportData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/student/reports?range=${dateRange}`);
+      let url = `/api/student/reports?range=${dateRange}`;
+      if (dateRange === "custom" && customFromDate && customToDate) {
+        url = `/api/student/reports?from=${customFromDate}&to=${customToDate}`;
+      }
+
+      const res = await fetch(url);
       const data = await res.json();
 
       if (data.reports) {
@@ -77,11 +100,13 @@ export default function StudentReportsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, customFromDate, customToDate]);
 
   useEffect(() => {
-    fetchReportData();
-  }, [fetchReportData]);
+    if (dateRange !== "custom" || (customFromDate && customToDate)) {
+      fetchReportData();
+    }
+  }, [fetchReportData, dateRange]);
 
   // Format seconds to "X h Y min Z s"
   const formatTimeSpent = (secs: number) => {
@@ -103,8 +128,40 @@ export default function StudentReportsPage() {
         return "Last 30 days";
       case "all":
         return "All time";
+      case "custom":
+        if (customFromDate && customToDate) {
+          const f = new Date(customFromDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          const t = new Date(customToDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          return `${f} - ${t}`;
+        }
+        return "Custom Range";
     }
-  }, [dateRange]);
+  }, [dateRange, customFromDate, customToDate]);
+
+  const handleApplyCustomRange = () => {
+    if (!customFromDate || !customToDate) {
+      toast({
+        title: "Incomplete Date Range",
+        description: "Please select both start and end dates.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (new Date(customFromDate) > new Date(customToDate)) {
+      toast({
+        title: "Invalid Range",
+        description: "Start date cannot be after end date.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setDateRange("custom");
+    setIsCustomModalOpen(false);
+    toast({
+      title: "Date Filter Applied",
+      description: `Showing report data from ${customFromDate} to ${customToDate}.`,
+    });
+  };
 
   // Export full CSV report
   const handleExportCsv = () => {
@@ -143,6 +200,18 @@ export default function StudentReportsPage() {
 
   return (
     <div className="w-full space-y-7 pb-16">
+      {/* 0. Top Back Button Navigation */}
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={() => router.back()}
+          variant="outline"
+          size="sm"
+          className="h-8.5 px-3 text-xs font-bold text-[#4B5563] dark:text-[#D1D5DB] border-[#E5E7EB] dark:border-[#27272A] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] rounded-xl gap-1.5 shadow-xs"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
+        </Button>
+      </div>
+
       {/* 1. Header & Custom Date Filter */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div className="space-y-1">
@@ -174,7 +243,7 @@ export default function StudentReportsPage() {
               <span>{dateRangeLabel}</span>
               <Filter className="h-3.5 w-3.5 text-[#6B7280]" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-1.5 rounded-xl shadow-lg">
+            <DropdownMenuContent align="end" className="w-52 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-1.5 rounded-xl shadow-lg">
               <DropdownMenuItem
                 onClick={() => setDateRange("7d")}
                 className={cn(
@@ -217,6 +286,22 @@ export default function StudentReportsPage() {
               >
                 <span>All time</span>
                 {dateRange === "all" && <Check className="h-4 w-4 text-[#2563EB]" />}
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="my-1 bg-[#E5E7EB] dark:bg-[#27272A]" />
+
+              <DropdownMenuItem
+                onClick={() => setIsCustomModalOpen(true)}
+                className={cn(
+                  "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                  dateRange === "custom" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-3.5 w-3.5 text-[#2563EB]" />
+                  <span>Custom Date to Date...</span>
+                </div>
+                {dateRange === "custom" && <Check className="h-4 w-4 text-[#2563EB]" />}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -414,7 +499,7 @@ export default function StudentReportsPage() {
 
                       <div className="divide-y divide-[#E5E7EB] dark:divide-[#27272A] pt-1">
                         {(track.challenges || []).map((ch: any, chIdx: number) => (
-                          <div key={ch.id || chIdx} className="py-2.5 flex items-center justify-between text-xs">
+                              <div key={ch.id || chIdx} className="py-2.5 flex items-center justify-between text-xs">
                             <div className="flex items-center gap-2">
                               <Code2 className="h-3.5 w-3.5 text-[#16A34A]" />
                               <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{ch.title}</span>
@@ -553,6 +638,60 @@ export default function StudentReportsPage() {
           )}
         </>
       )}
+
+      {/* Custom Date to Date Modal Dialog */}
+      <Dialog open={isCustomModalOpen} onOpenChange={setIsCustomModalOpen}>
+        <DialogContent className="max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-[#2563EB]" /> Custom Date Range Filter
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#6B7280]">
+              Select start date and end date to filter your student learning activities and reports.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">From Date</Label>
+              <Input
+                type="date"
+                value={customFromDate}
+                onChange={(e) => setCustomFromDate(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">To Date</Label>
+              <Input
+                type="date"
+                value={customToDate}
+                onChange={(e) => setCustomToDate(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCustomModalOpen(false)}
+              className="text-xs font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleApplyCustomRange}
+              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold gap-1.5"
+            >
+              Apply Filter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

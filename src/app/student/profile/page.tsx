@@ -6,7 +6,7 @@ import {
   User, Mail, Phone, Globe, Save, Lock, Shield, Edit3, X,
   BookOpen, CheckCircle2, Award, Calendar, Layers, Key, Code2, Link2,
   ExternalLink, Terminal, Cpu, BarChart3, Clock, TrendingUp, ArrowUpRight,
-  Dumbbell, ClipboardList, Check, Filter, Search, Inbox, Laptop, Download, Loader2
+  Dumbbell, ClipboardList, Check, Filter, Search, Inbox, Laptop, Download, Loader2, CalendarDays
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { getInitials, cn } from "@/lib/utils";
@@ -37,7 +46,10 @@ export default function StudentProfilePage() {
   // Tab State
   const [activeTab, setActiveTab] = useState<"personal" | "coding" | "security" | "reports">("personal");
   const [reportSubTab, setReportSubTab] = useState<"courses" | "practices" | "assessments" | "time">("courses");
-  const [dateRange, setDateRange] = useState<"7d" | "14d" | "30d" | "all">("7d");
+  const [dateRange, setDateRange] = useState<"7d" | "14d" | "30d" | "all" | "custom">("7d");
+  const [customFromDate, setCustomFromDate] = useState<string>("");
+  const [customToDate, setCustomToDate] = useState<string>("");
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState<boolean>(false);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
 
   // Reports data
@@ -107,7 +119,12 @@ export default function StudentProfilePage() {
   const fetchReportData = useCallback(async () => {
     setIsLoadingReports(true);
     try {
-      const repRes = await fetch(`/api/student/reports?range=${dateRange}`);
+      let url = `/api/student/reports?range=${dateRange}`;
+      if (dateRange === "custom" && customFromDate && customToDate) {
+        url = `/api/student/reports?from=${customFromDate}&to=${customToDate}`;
+      }
+
+      const repRes = await fetch(url);
       const repData = await repRes.json();
       if (repData.reports) {
         const sum = repData.reports.summary || {};
@@ -126,11 +143,13 @@ export default function StudentProfilePage() {
     } finally {
       setIsLoadingReports(false);
     }
-  }, [dateRange]);
+  }, [dateRange, customFromDate, customToDate]);
 
   useEffect(() => {
-    fetchReportData();
-  }, [fetchReportData]);
+    if (dateRange !== "custom" || (customFromDate && customToDate)) {
+      fetchReportData();
+    }
+  }, [fetchReportData, dateRange]);
 
   const dateRangeLabel = useMemo(() => {
     switch (dateRange) {
@@ -142,8 +161,40 @@ export default function StudentProfilePage() {
         return "Last 30 days";
       case "all":
         return "All time";
+      case "custom":
+        if (customFromDate && customToDate) {
+          const f = new Date(customFromDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          const t = new Date(customToDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          return `${f} - ${t}`;
+        }
+        return "Custom Range";
     }
-  }, [dateRange]);
+  }, [dateRange, customFromDate, customToDate]);
+
+  const handleApplyCustomRange = () => {
+    if (!customFromDate || !customToDate) {
+      toast({
+        title: "Incomplete Date Range",
+        description: "Please select both start and end dates.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (new Date(customFromDate) > new Date(customToDate)) {
+      toast({
+        title: "Invalid Range",
+        description: "Start date cannot be after end date.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setDateRange("custom");
+    setIsCustomModalOpen(false);
+    toast({
+      title: "Date Filter Applied",
+      description: `Showing report data from ${customFromDate} to ${customToDate}.`,
+    });
+  };
 
   const formatTimeSpent = (secs: number) => {
     if (!secs || secs === 0) return "0 h 0 min 0 s";
@@ -714,6 +765,22 @@ export default function StudentProfilePage() {
                         <span>All time</span>
                         {dateRange === "all" && <Check className="h-4 w-4 text-[#2563EB]" />}
                       </DropdownMenuItem>
+
+                      <DropdownMenuSeparator className="my-1 bg-[#E5E7EB] dark:bg-[#27272A]" />
+
+                      <DropdownMenuItem
+                        onClick={() => setIsCustomModalOpen(true)}
+                        className={cn(
+                          "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                          dateRange === "custom" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <CalendarDays className="h-3.5 w-3.5 text-[#2563EB]" />
+                          <span>Custom Date to Date...</span>
+                        </div>
+                        {dateRange === "custom" && <Check className="h-4 w-4 text-[#2563EB]" />}
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -1010,6 +1077,61 @@ export default function StudentProfilePage() {
 
         </div>
       </div>
+
+      {/* Custom Date to Date Modal Dialog */}
+      <Dialog open={isCustomModalOpen} onOpenChange={setIsCustomModalOpen}>
+        <DialogContent className="max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-[#2563EB]" /> Custom Date Range Filter
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#6B7280]">
+              Select start date and end date to filter your student learning activities and reports.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">From Date</Label>
+              <Input
+                type="date"
+                value={customFromDate}
+                onChange={(e) => setCustomFromDate(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">To Date</Label>
+              <Input
+                type="date"
+                value={customToDate}
+                onChange={(e) => setCustomToDate(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCustomModalOpen(false)}
+              className="text-xs font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleApplyCustomRange}
+              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold gap-1.5"
+            >
+              Apply Filter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

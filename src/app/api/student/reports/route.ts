@@ -17,6 +17,9 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const range = searchParams.get("range") || "7d";
+    const fromParam = searchParams.get("from");
+    const toParam = searchParams.get("to");
+    const isCustom = Boolean(fromParam && toParam);
 
     const adminClient = createAdminClient();
 
@@ -28,7 +31,12 @@ export async function GET(request: NextRequest) {
     // Determine timestamp threshold for range
     const now = Date.now();
     let minTimestamp = 0;
-    if (range === "7d") {
+    let maxTimestamp = Infinity;
+
+    if (isCustom && fromParam && toParam) {
+      minTimestamp = new Date(fromParam).getTime();
+      maxTimestamp = new Date(toParam + "T23:59:59.999Z").getTime();
+    } else if (range === "7d") {
       minTimestamp = now - 7 * 86400000;
     } else if (range === "14d") {
       minTimestamp = now - 14 * 86400000;
@@ -288,7 +296,7 @@ export async function GET(request: NextRequest) {
 
       if (att.submitted_at || att.created_at) {
         const ts = new Date(att.submitted_at || att.created_at).getTime();
-        if (range === "all" || ts >= minTimestamp) {
+        if (range === "all" || (ts >= minTimestamp && ts <= maxTimestamp)) {
           const iso = new Date(ts).toISOString().slice(0, 10);
           const mins = Math.round(timeTaken / 60);
           dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
@@ -297,32 +305,63 @@ export async function GET(request: NextRequest) {
     });
 
     // Generate daily time spent chart
-    const daysCount = range === "7d" ? 7 : range === "14d" ? 14 : range === "30d" ? 30 : 7;
     const dailyTimeSpent: Array<{ day: string; label: string; minutes: number; display: string; height: number }> = [];
 
-    let maxDayMinutes = 1;
-    for (let i = daysCount - 1; i >= 0; i--) {
-      const dObj = new Date(now - i * 86400000);
-      const iso = dObj.toISOString().slice(0, 10);
-      const mins = dayMap.get(iso) || 0;
-      if (mins > maxDayMinutes) maxDayMinutes = mins;
-    }
+    if (isCustom && fromParam && toParam) {
+      const startD = new Date(fromParam);
+      const endD = new Date(toParam);
+      const totalSpanDays = Math.max(1, Math.min(31, Math.round((endD.getTime() - startD.getTime()) / 86400000) + 1));
 
-    for (let i = daysCount - 1; i >= 0; i--) {
-      const dObj = new Date(now - i * 86400000);
-      const iso = dObj.toISOString().slice(0, 10);
-      const dayLabel = dObj.toLocaleDateString("en-US", { day: "numeric", month: "short" });
-      const mins = dayMap.get(iso) || 0;
-      const height = mins > 0 ? Math.min(100, Math.max(8, Math.round((mins / maxDayMinutes) * 100))) : 4;
-      const display = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+      let maxDayMinutes = 1;
+      for (let i = 0; i < totalSpanDays; i++) {
+        const dObj = new Date(startD.getTime() + i * 86400000);
+        const iso = dObj.toISOString().slice(0, 10);
+        const mins = dayMap.get(iso) || 0;
+        if (mins > maxDayMinutes) maxDayMinutes = mins;
+      }
 
-      dailyTimeSpent.push({
-        day: dayLabel,
-        label: dayLabel,
-        minutes: mins,
-        display,
-        height,
-      });
+      for (let i = 0; i < totalSpanDays; i++) {
+        const dObj = new Date(startD.getTime() + i * 86400000);
+        const iso = dObj.toISOString().slice(0, 10);
+        const dayLabel = dObj.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+        const mins = dayMap.get(iso) || 0;
+        const height = mins > 0 ? Math.min(100, Math.max(8, Math.round((mins / maxDayMinutes) * 100))) : 4;
+        const display = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+
+        dailyTimeSpent.push({
+          day: dayLabel,
+          label: dayLabel,
+          minutes: mins,
+          display,
+          height,
+        });
+      }
+    } else {
+      const daysCount = range === "7d" ? 7 : range === "14d" ? 14 : range === "30d" ? 30 : 7;
+      let maxDayMinutes = 1;
+      for (let i = daysCount - 1; i >= 0; i--) {
+        const dObj = new Date(now - i * 86400000);
+        const iso = dObj.toISOString().slice(0, 10);
+        const mins = dayMap.get(iso) || 0;
+        if (mins > maxDayMinutes) maxDayMinutes = mins;
+      }
+
+      for (let i = daysCount - 1; i >= 0; i--) {
+        const dObj = new Date(now - i * 86400000);
+        const iso = dObj.toISOString().slice(0, 10);
+        const dayLabel = dObj.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+        const mins = dayMap.get(iso) || 0;
+        const height = mins > 0 ? Math.min(100, Math.max(8, Math.round((mins / maxDayMinutes) * 100))) : 4;
+        const display = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+
+        dailyTimeSpent.push({
+          day: dayLabel,
+          label: dayLabel,
+          minutes: mins,
+          display,
+          height,
+        });
+      }
     }
 
     // 7. Login Activities
