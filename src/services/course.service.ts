@@ -34,7 +34,7 @@ export class CourseService {
       const supabase = createClient();
       const { data, error } = await (supabase as any)
         .from("courses")
-        .select("*, category:categories(*)");
+        .select("*");
       
       if (!error && data && data.length > 0) {
         return data as unknown as Course[];

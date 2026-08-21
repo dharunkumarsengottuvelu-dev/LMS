@@ -74,16 +74,43 @@ export async function GET(request: NextRequest) {
     const attemptsMap = new Map<string, any>();
 
     if (studentIds.length > 0) {
-      // Check assessment_submissions table
+      const orFilter = studentIds.map(id => `student_id.eq.${id},user_id.eq.${id}`).join(",");
+
+      // 1. Check assessment_attempts table
+      try {
+        const { data: attData } = await adminClient
+          .from("assessment_attempts")
+          .select("*")
+          .or(orFilter)
+          .order("submitted_at", { ascending: false });
+
+        (attData || []).forEach((att: any) => {
+          const testKey = att.assessment_id || att.test_id;
+          if (testKey && !attemptsMap.has(testKey)) {
+            attemptsMap.set(testKey, {
+              ...att,
+              isCompleted: att.status === "submitted" || att.status === "auto_submitted" || att.status === "completed" || att.score !== undefined,
+              score: att.score ?? att.marks_obtained,
+              totalMarks: att.total_marks,
+              percentage: att.percentage ?? (att.total_marks && att.score ? Math.round((att.score / att.total_marks) * 100) : undefined),
+            });
+          }
+        });
+      } catch (e) {
+        console.warn("Could not query assessment_attempts:", e);
+      }
+
+      // 2. Check assessment_submissions table
       try {
         const { data: subData } = await adminClient
           .from("assessment_submissions")
           .select("*")
-          .in("student_id", studentIds);
+          .or(orFilter)
+          .order("submitted_at", { ascending: false });
 
         (subData || []).forEach((sub: any) => {
           const testKey = sub.assessment_id || sub.test_id;
-          if (testKey) {
+          if (testKey && !attemptsMap.has(testKey)) {
             attemptsMap.set(testKey, {
               ...sub,
               isCompleted: true,
@@ -97,12 +124,13 @@ export async function GET(request: NextRequest) {
         console.warn("Could not query assessment_submissions:", e);
       }
 
-      // Check test_attempts table
+      // 3. Check test_attempts table
       try {
         const { data: testAttData } = await adminClient
           .from("test_attempts")
           .select("*")
-          .in("user_id", studentIds);
+          .or(orFilter)
+          .order("submitted_at", { ascending: false });
 
         (testAttData || []).forEach((att: any) => {
           const testKey = att.test_id || att.assessment_id;
@@ -118,29 +146,6 @@ export async function GET(request: NextRequest) {
         });
       } catch (e) {
         console.warn("Could not query test_attempts:", e);
-      }
-
-      // Check assessment_attempts table
-      try {
-        const { data: attData } = await adminClient
-          .from("assessment_attempts")
-          .select("*")
-          .in("student_id", studentIds);
-
-        (attData || []).forEach((att: any) => {
-          const testKey = att.assessment_id || att.test_id;
-          if (testKey && (!attemptsMap.has(testKey) || !attemptsMap.get(testKey).isCompleted)) {
-            attemptsMap.set(testKey, {
-              ...att,
-              isCompleted: att.status === "submitted" || att.status === "completed" || att.score !== undefined,
-              score: att.score ?? att.marks_obtained,
-              totalMarks: att.total_marks,
-              percentage: att.percentage ?? (att.total_marks && att.score ? Math.round((att.score / att.total_marks) * 100) : undefined),
-            });
-          }
-        });
-      } catch (e) {
-        console.warn("Could not query assessment_attempts:", e);
       }
     }
 

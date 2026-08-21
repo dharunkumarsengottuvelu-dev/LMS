@@ -148,7 +148,7 @@ export class AssessmentService {
       const supabase = createClient();
       const { data, error } = await (supabase as any)
         .from("practice_tracks")
-        .select(`*, sub_modules:practice_sub_modules(*)`);
+        .select("*");
       
       if (!error && data) {
         return data.map((t: any) => ({

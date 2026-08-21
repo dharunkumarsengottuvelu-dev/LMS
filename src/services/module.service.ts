@@ -23,7 +23,7 @@ export class ModuleService {
       const supabase = createClient();
       const { data, error } = await (supabase as any)
         .from("lessons")
-        .select(`*, courses(title)`);
+        .select("*");
       if (!error && data) {
         return data.map((d: any) => ({
           id: d.id,

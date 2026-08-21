@@ -69,7 +69,32 @@ export default function StudentAssessmentsPage() {
         if (res.ok) {
           const data = await res.json();
           if (data.tests && Array.isArray(data.tests)) {
-            setAssessments(data.tests);
+            const mapped = data.tests.map((t: any) => {
+              if (typeof window !== "undefined") {
+                const localRec = localStorage.getItem(`lms_completed_assessment_${t.id}`);
+                const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");
+                if (localRec) {
+                  try {
+                    const parsed = JSON.parse(localRec);
+                    return {
+                      ...t,
+                      status: "completed",
+                      score: parsed.score ?? t.score,
+                      percentage: parsed.percentage ?? t.percentage,
+                    };
+                  } catch {}
+                } else if (completedMap[t.id]) {
+                  return {
+                    ...t,
+                    status: "completed",
+                    score: completedMap[t.id].score ?? t.score,
+                    percentage: completedMap[t.id].percentage ?? t.percentage,
+                  };
+                }
+              }
+              return t;
+            });
+            setAssessments(mapped);
           }
         }
       } catch (err: any) {
@@ -85,32 +110,6 @@ export default function StudentAssessmentsPage() {
     }
     loadAssessments();
   }, [toast]);
-
-  // Sync completed test scores from localStorage
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");
-        if (Object.keys(completedMap).length > 0) {
-          setAssessments((prev) =>
-            prev.map((t) => {
-              if (completedMap[t.id]) {
-                return {
-                  ...t,
-                  status: "completed",
-                  score: completedMap[t.id].score,
-                  passed: completedMap[t.id].score >= 60,
-                };
-              }
-              return t;
-            })
-          );
-        }
-      } catch (e) {
-        console.warn("Could not read completed tests from localStorage:", e);
-      }
-    }
-  }, []);
 
   // Dedicated Webcam Access Handler for Lobby
   const startLobbyCamera = async () => {

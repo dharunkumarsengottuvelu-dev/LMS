@@ -54,30 +54,45 @@ export async function POST(request: NextRequest) {
     // Reset previous attempts if requested
     if (resetAttempts) {
       try {
-        // Delete or clear previous attempts for this test
         if (candidateIds && candidateIds.length > 0) {
-          await adminClient
-            .from("assessment_submissions")
-            .delete()
-            .eq("assessment_id", testId)
-            .in("student_id", candidateIds);
-
-          await adminClient
-            .from("test_attempts")
-            .delete()
-            .eq("test_id", testId)
-            .in("user_id", candidateIds);
+          await Promise.allSettled([
+            adminClient
+              .from("assessment_attempts")
+              .delete()
+              .or(`assessment_id.eq.${testId},test_id.eq.${testId}`)
+              .in("student_id", candidateIds),
+            adminClient
+              .from("assessment_attempts")
+              .delete()
+              .or(`assessment_id.eq.${testId},test_id.eq.${testId}`)
+              .in("user_id", candidateIds),
+            adminClient
+              .from("assessment_submissions")
+              .delete()
+              .or(`assessment_id.eq.${testId},test_id.eq.${testId}`)
+              .in("student_id", candidateIds),
+            adminClient
+              .from("test_attempts")
+              .delete()
+              .or(`assessment_id.eq.${testId},test_id.eq.${testId}`)
+              .in("user_id", candidateIds),
+          ]);
         } else {
           // Reassign for everyone / all assigned batches
-          await adminClient
-            .from("assessment_submissions")
-            .delete()
-            .eq("assessment_id", testId);
-
-          await adminClient
-            .from("test_attempts")
-            .delete()
-            .eq("test_id", testId);
+          await Promise.allSettled([
+            adminClient
+              .from("assessment_attempts")
+              .delete()
+              .or(`assessment_id.eq.${testId},test_id.eq.${testId}`),
+            adminClient
+              .from("assessment_submissions")
+              .delete()
+              .or(`assessment_id.eq.${testId},test_id.eq.${testId}`),
+            adminClient
+              .from("test_attempts")
+              .delete()
+              .or(`assessment_id.eq.${testId},test_id.eq.${testId}`),
+          ]);
         }
       } catch (resetErr) {
         console.warn("Attempt reset error (non-fatal):", resetErr);
