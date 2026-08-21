@@ -11,16 +11,16 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect("/auth/login");
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, status")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, status")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const profileData = profile as { role?: string; status?: string } | null;
-  if (profileData?.status === "suspended") redirect("/auth/login?error=suspended");
+    const profileData = profile as { role?: string; status?: string } | null;
+    if (profileData?.status === "suspended") redirect("/login?error=suspended");
+  }
 
   return <StudentLayoutWrapper>{children}</StudentLayoutWrapper>;
 }

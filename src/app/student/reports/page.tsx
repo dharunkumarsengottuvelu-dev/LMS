@@ -60,7 +60,20 @@ function SmoothTimeLineChart({
   totalTimeLabel,
   dateRangeLabel,
 }: {
-  data: Array<{ day: string; label: string; minutes: number; display: string }>;
+  data: Array<{
+    day: string;
+    label: string;
+    fullDate?: string;
+    minutes: number;
+    display: string;
+    activities?: {
+      assessmentsCount?: number;
+      codingCount?: number;
+      courseModulesCount?: number;
+      assignmentsCount?: number;
+      loginsCount?: number;
+    };
+  }>;
   totalTimeLabel: string;
   dateRangeLabel: string;
 }) {
@@ -71,9 +84,9 @@ function SmoothTimeLineChart({
   }
 
   const width = 800;
-  const height = 180;
+  const height = 190;
   const paddingX = 35;
-  const paddingY = 25;
+  const paddingY = 30;
 
   const chartWidth = width - paddingX * 2;
   const chartHeight = height - paddingY * 2;
@@ -109,6 +122,7 @@ function SmoothTimeLineChart({
   }
 
   const areaD = `${pathD} L ${lastPt.x},${height - paddingY} L ${firstPt.x},${height - paddingY} Z`;
+  const activePt = hoveredIndex !== null ? points[hoveredIndex] : null;
 
   return (
     <div className="w-full space-y-3">
@@ -123,12 +137,15 @@ function SmoothTimeLineChart({
             Overall Site Usage: <strong className="text-[#2563EB] dark:text-[#60A5FA] font-extrabold">{totalTimeLabel}</strong>
           </p>
         </div>
-        <Badge variant="outline" className="text-[10px] font-bold self-start sm:self-auto">{dateRangeLabel}</Badge>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <span className="text-[10px] text-[#6B7280] italic hidden sm:inline">Hover on the line to see daily tasks & time</span>
+          <Badge variant="outline" className="text-[10px] font-bold">{dateRangeLabel}</Badge>
+        </div>
       </div>
 
-      {/* SVG Smooth Line Chart Container */}
+      {/* SVG Smooth Line Chart Container with Interactive Cursor Card */}
       <div className="relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-[#F0F7FF]/50 dark:from-[#1E3A8A]/10 to-transparent p-3 border border-[#E5E7EB]/60 dark:border-[#27272A]">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 sm:h-52 overflow-visible">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48 sm:h-56 overflow-visible">
           <defs>
             <linearGradient id="studentTimeAreaGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#2563EB" stopOpacity="0.4" />
@@ -152,18 +169,49 @@ function SmoothTimeLineChart({
           {/* Spline Line */}
           <path d={pathD} fill="none" stroke="url(#studentTimeStrokeGrad)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
 
+          {/* Hover Crosshair Vertical Guide */}
+          {activePt && (
+            <line
+              x1={activePt.x}
+              y1={paddingY - 5}
+              x2={activePt.x}
+              y2={height - paddingY}
+              stroke="#2563EB"
+              strokeWidth="1.5"
+              strokeDasharray="4 4"
+              className="transition-all duration-150"
+            />
+          )}
+
+          {/* Invisible vertical hover capture bands for effortless mouse tracking */}
+          {points.map((pt, i) => {
+            const colWidth = chartWidth / Math.max(1, points.length - 1);
+            const xLeft = Math.max(0, pt.x - colWidth / 2);
+            return (
+              <rect
+                key={`band-${i}`}
+                x={xLeft}
+                y={0}
+                width={colWidth}
+                height={height}
+                fill="transparent"
+                className="cursor-pointer"
+                onMouseEnter={() => setHoveredIndex(i)}
+              />
+            );
+          })}
+
           {/* Interactive Data Points */}
           {points.map((pt, i) => (
-            <g key={i} className="cursor-pointer" onMouseEnter={() => setHoveredIndex(i)} onMouseLeave={() => setHoveredIndex(null)}>
-              <circle cx={pt.x} cy={pt.y} r="14" fill="transparent" />
+            <g key={i} className="cursor-pointer pointer-events-none">
               {hoveredIndex === i && (
-                <circle cx={pt.x} cy={pt.y} r="9" fill="#2563EB" fillOpacity="0.25" className="animate-ping" />
+                <circle cx={pt.x} cy={pt.y} r="10" fill="#2563EB" fillOpacity="0.25" className="animate-ping" />
               )}
               <circle
                 cx={pt.x}
                 cy={pt.y}
-                r={hoveredIndex === i ? 6 : pt.item.minutes > 0 ? 4.5 : 3}
-                fill={pt.item.minutes > 0 ? "#2563EB" : "#9CA3AF"}
+                r={hoveredIndex === i ? 6.5 : pt.item.minutes > 0 ? 4.5 : 3}
+                fill={hoveredIndex === i ? "#2563EB" : pt.item.minutes > 0 ? "#2563EB" : "#9CA3AF"}
                 stroke="#FFFFFF"
                 strokeWidth={hoveredIndex === i ? 2.5 : 1.5}
               />
@@ -171,17 +219,87 @@ function SmoothTimeLineChart({
           ))}
         </svg>
 
-        {/* Hover Tooltip Overlay */}
-        {hoveredIndex !== null && points[hoveredIndex] && (
+        {/* Rich Glassmorphic Tooltip Card displaying EXACT activities and site time */}
+        {activePt && (
           <div
-            className="absolute -top-1 bg-[#111827] text-white text-[11px] font-bold py-1.5 px-3 rounded-lg shadow-xl pointer-events-none transform -translate-x-1/2 transition-all z-20 border border-white/20"
+            className="absolute top-2 z-30 transform -translate-x-1/2 transition-all duration-150 pointer-events-none"
             style={{
-              left: `${(points[hoveredIndex].x / width) * 100}%`,
+              left: `${Math.max(18, Math.min(82, (activePt.x / width) * 100))}%`,
             }}
           >
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <span>{points[hoveredIndex].item.label}:</span>
-              <span className="text-[#60A5FA]">{points[hoveredIndex].item.display || `${points[hoveredIndex].item.minutes}m`} active</span>
+            <div className="bg-[#0F172A]/95 dark:bg-[#090D16]/95 backdrop-blur-md text-white border border-[#334155] rounded-xl p-3.5 shadow-2xl min-w-[240px] max-w-[320px] text-xs space-y-2.5">
+              {/* Date & Time Header */}
+              <div className="flex items-center justify-between border-b border-[#334155] pb-2 gap-2">
+                <div>
+                  <p className="text-[11px] font-bold text-[#94A3B8]">
+                    {activePt.item.fullDate || activePt.item.label}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Clock className="h-3.5 w-3.5 text-[#60A5FA]" />
+                    <span className="text-sm font-extrabold text-[#60A5FA]">
+                      {activePt.item.minutes > 0 ? (activePt.item.display || `${activePt.item.minutes}m`) : "0m"} on site
+                    </span>
+                  </div>
+                </div>
+                <Badge
+                  className={cn(
+                    "text-[9px] font-bold",
+                    activePt.item.minutes >= 45
+                      ? "bg-[#16A34A] text-white"
+                      : activePt.item.minutes > 0
+                      ? "bg-[#2563EB] text-white"
+                      : "bg-[#334155] text-[#94A3B8]"
+                  )}
+                >
+                  {activePt.item.minutes >= 45 ? "🔥 High Activity" : activePt.item.minutes > 0 ? "⚡ Active" : "💤 Rest Day"}
+                </Badge>
+              </div>
+
+              {/* What they did on this date */}
+              <div className="space-y-1.5 pt-0.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">Candidate Activity on this Day:</p>
+                {activePt.item.minutes > 0 ? (
+                  <div className="space-y-1 text-[11px]">
+                    <div className="flex items-center justify-between text-[#F1F5F9]">
+                      <span className="flex items-center gap-1.5">
+                        <Code2 className="h-3 w-3 text-[#16A34A]" /> Practice & Coding:
+                      </span>
+                      <strong className="text-white">
+                        {activePt.item.activities?.codingCount ? `${activePt.item.activities.codingCount} problem runs` : "Interactive labs"}
+                      </strong>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[#F1F5F9]">
+                      <span className="flex items-center gap-1.5">
+                        <ClipboardList className="h-3 w-3 text-[#D97706]" /> Exams & Assessments:
+                      </span>
+                      <strong className="text-white">
+                        {activePt.item.activities?.assessmentsCount ? `${activePt.item.activities.assessmentsCount} tests taken` : "Evaluations"}
+                      </strong>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[#F1F5F9]">
+                      <span className="flex items-center gap-1.5">
+                        <BookOpen className="h-3 w-3 text-[#2563EB]" /> Course Syllabus:
+                      </span>
+                      <strong className="text-white">
+                        {activePt.item.activities?.courseModulesCount ? `${activePt.item.activities.courseModulesCount} lessons finished` : "Lessons progress"}
+                      </strong>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[#F1F5F9]">
+                      <span className="flex items-center gap-1.5">
+                        <Laptop className="h-3 w-3 text-[#A855F7]" /> Platform Logins:
+                      </span>
+                      <strong className="text-white">
+                        {activePt.item.activities?.loginsCount || 1} active session
+                      </strong>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#94A3B8] italic">No candidate learning activity recorded on this day.</p>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -193,7 +311,8 @@ function SmoothTimeLineChart({
             return (
               <span
                 key={idx}
-                className={cn("whitespace-nowrap transition-colors", hoveredIndex === idx ? "text-[#2563EB] font-bold" : "")}
+                className={cn("whitespace-nowrap transition-colors cursor-pointer", hoveredIndex === idx ? "text-[#2563EB] font-bold" : "")}
+                onMouseEnter={() => setHoveredIndex(idx)}
               >
                 {showLabel ? item.label : ""}
               </span>

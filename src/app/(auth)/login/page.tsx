@@ -93,13 +93,19 @@ export default function LoginPage() {
             ? "trainer"
             : profile?.role ?? "student";
 
-        router.push(
+        const defaultDestination =
           role === "admin"
             ? "/admin/dashboard"
             : role === "trainer"
             ? "/trainer/dashboard"
-            : "/student/dashboard"
-        );
+            : "/student/dashboard";
+
+        const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
+        const target = nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")
+          ? nextUrl
+          : defaultDestination;
+
+        router.push(target);
         router.refresh();
       }
     } catch (error: unknown) {

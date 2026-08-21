@@ -12,7 +12,20 @@ export const dynamic = "force-dynamic";
 async function getStudentData() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
+  if (!user) {
+    return {
+      profile: null,
+      initialCourses: [],
+      initialTracks: [],
+      enrollments: [],
+      assessments: [],
+      tests: [],
+      assignments: [],
+      notifications: [],
+      certificates: [],
+      stats: { enrolledCourses: 0, completedCourses: 0, certificates: 0 },
+    };
+  }
 
   let adminClient;
   try {

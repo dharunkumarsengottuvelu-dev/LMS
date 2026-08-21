@@ -11,28 +11,28 @@ export default async function TrainerLayout({ children }: { children: React.Reac
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  if (user) {
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("role, status")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select("role, status")
-    .eq("user_id", user.id)
-    .maybeSingle();
+    const profile = profileData as { role?: string; status?: string } | null;
+    const emailLower = user.email?.toLowerCase() || "";
+    const isTrainer =
+      profile?.role === "trainer" ||
+      profile?.role === "admin" ||
+      emailLower.includes("trainer") ||
+      emailLower.includes("admin");
 
-  const profile = profileData as { role?: string; status?: string } | null;
-  const emailLower = user.email?.toLowerCase() || "";
-  const isTrainer =
-    profile?.role === "trainer" ||
-    profile?.role === "admin" ||
-    emailLower.includes("trainer") ||
-    emailLower.includes("admin");
+    if (!isTrainer) {
+      redirect("/unauthorized");
+    }
 
-  if (!isTrainer) {
-    redirect("/unauthorized");
-  }
-
-  if (profile?.status === "suspended") {
-    redirect("/login?error=suspended");
+    if (profile?.status === "suspended") {
+      redirect("/login?error=suspended");
+    }
   }
 
   return (

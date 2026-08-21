@@ -15,24 +15,24 @@ export default async function AdminLayout({
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  if (user) {
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("role, status")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select("role, status")
-    .eq("user_id", user.id)
-    .maybeSingle();
+    const profile = profileData as { role?: string; status?: string } | null;
+    const emailLower = user.email?.toLowerCase() || "";
+    const isAdmin = profile?.role === "admin" || emailLower.includes("admin");
 
-  const profile = profileData as { role?: string; status?: string } | null;
-  const emailLower = user.email?.toLowerCase() || "";
-  const isAdmin = profile?.role === "admin" || emailLower.includes("admin");
+    if (!isAdmin) {
+      redirect("/unauthorized");
+    }
 
-  if (!isAdmin) {
-    redirect("/unauthorized");
-  }
-
-  if (profile?.status === "suspended") {
-    redirect("/login?error=suspended");
+    if (profile?.status === "suspended") {
+      redirect("/login?error=suspended");
+    }
   }
 
   return (

@@ -329,9 +329,32 @@ export async function GET(request: NextRequest) {
       .or(`user_id.eq.${studentId},user_id.eq.${studentUserId}`)
       .order("created_at", { ascending: false });
 
-    // 6. Calculate total active time spent and day-by-day distribution
+    // 6. Calculate total active time spent and day-by-day distribution with detailed activity breakdown
     let totalTimeSpentSeconds = 0;
     const dayMap = new Map<string, number>();
+    const dayActivitiesMap = new Map<
+      string,
+      {
+        assessmentsCount: number;
+        codingCount: number;
+        courseModulesCount: number;
+        assignmentsCount: number;
+        loginsCount: number;
+      }
+    >();
+
+    const getOrCreateDayAct = (iso: string) => {
+      if (!dayActivitiesMap.has(iso)) {
+        dayActivitiesMap.set(iso, {
+          assessmentsCount: 0,
+          codingCount: 0,
+          courseModulesCount: 0,
+          assignmentsCount: 0,
+          loginsCount: 0,
+        });
+      }
+      return dayActivitiesMap.get(iso)!;
+    };
 
     // A. Assessment Attempts
     (rawAttempts || []).forEach((att: any) => {
@@ -344,6 +367,8 @@ export async function GET(request: NextRequest) {
           const iso = new Date(ts).toISOString().slice(0, 10);
           const mins = Math.round(timeTaken / 60);
           dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
+          const act = getOrCreateDayAct(iso);
+          act.assessmentsCount++;
         }
       }
     });
@@ -359,6 +384,8 @@ export async function GET(request: NextRequest) {
           const iso = new Date(ts).toISOString().slice(0, 10);
           const mins = Math.round(timeTaken / 60);
           dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
+          const act = getOrCreateDayAct(iso);
+          act.assignmentsCount++;
         }
       }
     });
@@ -374,6 +401,8 @@ export async function GET(request: NextRequest) {
           const iso = new Date(ts).toISOString().slice(0, 10);
           const mins = Math.round(timeTaken / 60);
           dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
+          const act = getOrCreateDayAct(iso);
+          act.codingCount++;
         }
       }
     });
@@ -390,6 +419,8 @@ export async function GET(request: NextRequest) {
           const iso = new Date(ts).toISOString().slice(0, 10);
           const mins = Math.round(courseTime / 60);
           dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
+          const act = getOrCreateDayAct(iso);
+          act.courseModulesCount += moduleCount;
         }
       }
     });
@@ -407,11 +438,27 @@ export async function GET(request: NextRequest) {
         if (!dayMap.has(iso) || (dayMap.get(iso) || 0) < mins) {
           dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
         }
+        const act = getOrCreateDayAct(iso);
+        act.loginsCount = Math.max(act.loginsCount, 1);
       }
     }
 
-    // Generate daily time spent chart
-    const dailyTimeSpent: Array<{ day: string; label: string; minutes: number; display: string; height: number }> = [];
+    // Generate daily time spent chart with detailed day metadata
+    const dailyTimeSpent: Array<{
+      day: string;
+      label: string;
+      fullDate: string;
+      minutes: number;
+      display: string;
+      height: number;
+      activities: {
+        assessmentsCount: number;
+        codingCount: number;
+        courseModulesCount: number;
+        assignmentsCount: number;
+        loginsCount: number;
+      };
+    }> = [];
 
     if (isCustom && fromParam && toParam) {
       const startD = new Date(fromParam);
@@ -430,16 +477,20 @@ export async function GET(request: NextRequest) {
         const dObj = new Date(startD.getTime() + i * 86400000);
         const iso = dObj.toISOString().slice(0, 10);
         const dayLabel = dObj.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+        const fullDate = dObj.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
         const mins = dayMap.get(iso) || 0;
         const height = mins > 0 ? Math.min(100, Math.max(8, Math.round((mins / maxDayMinutes) * 100))) : 4;
         const display = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+        const act = dayActivitiesMap.get(iso) || { assessmentsCount: 0, codingCount: 0, courseModulesCount: 0, assignmentsCount: 0, loginsCount: mins > 0 ? 1 : 0 };
 
         dailyTimeSpent.push({
           day: dayLabel,
           label: dayLabel,
+          fullDate,
           minutes: mins,
           display,
           height,
+          activities: act,
         });
       }
     } else {
@@ -456,16 +507,20 @@ export async function GET(request: NextRequest) {
         const dObj = new Date(now - i * 86400000);
         const iso = dObj.toISOString().slice(0, 10);
         const dayLabel = dObj.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+        const fullDate = dObj.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
         const mins = dayMap.get(iso) || 0;
         const height = mins > 0 ? Math.min(100, Math.max(8, Math.round((mins / maxDayMinutes) * 100))) : 4;
         const display = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+        const act = dayActivitiesMap.get(iso) || { assessmentsCount: 0, codingCount: 0, courseModulesCount: 0, assignmentsCount: 0, loginsCount: mins > 0 ? 1 : 0 };
 
         dailyTimeSpent.push({
           day: dayLabel,
           label: dayLabel,
+          fullDate,
           minutes: mins,
           display,
           height,
+          activities: act,
         });
       }
     }
