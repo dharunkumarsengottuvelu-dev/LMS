@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, LogOut, LayoutDashboard, BookOpen, Dumbbell, ClipboardList, FileText, Menu, User, Settings, Code2 } from "lucide-react";
+import { Bell, LogOut, LayoutDashboard, BookOpen, Dumbbell, ClipboardList, FileText, Menu, User, Settings, Code2, BarChart3 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -24,6 +24,7 @@ const studentNavItems = [
   { label: "Practices", href: "/student/practices", icon: Dumbbell },
   { label: "Assessments", href: "/student/assessments", icon: ClipboardList },
   { label: "Submissions", href: "/student/assignments", icon: FileText },
+  { label: "Reports & Analytics", href: "/student/reports", icon: BarChart3 },
 ];
 
 export function StudentTopNav() {
@@ -150,6 +151,11 @@ export function StudentTopNav() {
             <DropdownMenuItem className="cursor-pointer font-medium text-xs">
               <Link href="/student/profile" className="flex items-center w-full text-foreground hover:text-primary transition-colors">
                 <User className="h-4 w-4 mr-2 text-primary" /> My Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer font-medium text-xs">
+              <Link href="/student/reports" className="flex items-center w-full text-foreground hover:text-primary transition-colors">
+                <BarChart3 className="h-4 w-4 mr-2 text-primary" /> Reports & Analytics
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />

@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
 import {
   User, Mail, Phone, Globe, Save, Lock, Shield, Edit3, X,
   BookOpen, CheckCircle2, Award, Calendar, Layers, Key, Code2, Link2,
-  ExternalLink, Terminal, Cpu
+  ExternalLink, Terminal, Cpu, BarChart3, Clock, TrendingUp, ArrowUpRight
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ export default function StudentProfilePage() {
     fetchCounts();
   }, [user]);
 
-  const [activeTab, setActiveTab] = useState<"personal" | "coding" | "security">("personal");
+  const [activeTab, setActiveTab] = useState<"personal" | "coding" | "security" | "reports">("personal");
 
   // Edit Mode Toggles
   const [isEditingPersonal, setIsEditingPersonal] = useState(false);
@@ -274,6 +275,24 @@ export default function StudentProfilePage() {
                 <Lock className="h-4 w-4 shrink-0" />
                 <span>Account & Security</span>
               </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("reports")}
+              className={cn(
+                "w-full flex items-center justify-between p-3.5 rounded-lg text-xs font-semibold transition-all text-left",
+                activeTab === "reports"
+                  ? "bg-[#2563EB] text-white shadow-xs"
+                  : "text-[#4B5563] dark:text-[#D1D5DB] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A]"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <BarChart3 className="h-4 w-4 shrink-0" />
+                <span>Reports & Analytics</span>
+              </div>
+              <Badge className="bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#1E3A8A]/30 border-0 text-[10px] font-bold">
+                Live
+              </Badge>
             </button>
           </Card>
         </div>
@@ -573,6 +592,119 @@ export default function StudentProfilePage() {
                   <Button className="h-[44px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2" onClick={handleUpdatePassword}>
                     <Key className="h-4 w-4" /> Update Account Password
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* TAB 4: REPORTS & ANALYTICS PREVIEW */}
+          {activeTab === "reports" && (
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
+              <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-[#2563EB]" /> Learning Reports & Analytics Summary
+                  </CardTitle>
+                  <CardDescription className="text-xs text-[#6B7280]">
+                    Overview of your course progress, module milestones, and active time spent
+                  </CardDescription>
+                </div>
+
+                <Link href="/student/reports">
+                  <Button className="h-9 px-4 text-xs font-bold gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs">
+                    Open Full Reports Dashboard <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+              </CardHeader>
+
+              <CardContent className="p-6 space-y-6">
+                {/* 4 Summary Stat Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
+                    <span className="text-[10px] font-bold uppercase text-[#6B7280]">Enrolled Courses</span>
+                    <p className="text-2xl font-extrabold text-[#D97706] mt-1">{enrolledCount || 9}</p>
+                    <p className="text-[10px] text-[#6B7280]">Assigned tracks</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
+                    <span className="text-[10px] font-bold uppercase text-[#6B7280]">Activities Done</span>
+                    <p className="text-2xl font-extrabold text-[#16A34A] mt-1">{submissionsCount || 10}</p>
+                    <p className="text-[10px] text-[#16A34A] font-semibold">↑ 100% Up</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
+                    <span className="text-[10px] font-bold uppercase text-[#6B7280]">Time Spent</span>
+                    <p className="text-2xl font-extrabold text-[#111827] dark:text-[#FAFAFA] mt-1">3h 22m</p>
+                    <p className="text-[10px] text-[#6B7280]">Last 7 days</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
+                    <span className="text-[10px] font-bold uppercase text-[#6B7280]">Completed Tracks</span>
+                    <p className="text-2xl font-extrabold text-[#2563EB] mt-1">0</p>
+                    <p className="text-[10px] text-[#6B7280]">Certificates ready</p>
+                  </div>
+                </div>
+
+                {/* Module Progress Highlights */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                      <Layers className="h-4 w-4 text-[#2563EB]" /> Course Completion Highlights
+                    </h3>
+                    <Link href="/student/reports" className="text-[11px] font-bold text-[#2563EB] hover:underline">
+                      View all details →
+                    </Link>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex justify-between text-xs font-semibold mb-1">
+                        <span>Problem Solving & Algorithmic Foundations</span>
+                        <span className="text-[#0D9488] font-bold">80%</span>
+                      </div>
+                      <div className="h-2 w-full bg-[#E5E7EB] dark:bg-[#27272A] rounded-full overflow-hidden">
+                        <div className="h-full bg-[#0D9488] rounded-full" style={{ width: "80%" }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-xs font-semibold mb-1">
+                        <span>Master Java Programming (Zero to Hero)</span>
+                        <span className="text-[#2563EB] font-bold">70%</span>
+                      </div>
+                      <div className="h-2 w-full bg-[#E5E7EB] dark:bg-[#27272A] rounded-full overflow-hidden">
+                        <div className="h-full bg-[#2563EB] rounded-full" style={{ width: "70%" }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-xs font-semibold mb-1">
+                        <span>Complete Data Structures & Algorithms</span>
+                        <span className="text-[#2563EB] font-bold">65%</span>
+                      </div>
+                      <div className="h-2 w-full bg-[#E5E7EB] dark:bg-[#27272A] rounded-full overflow-hidden">
+                        <div className="h-full bg-[#2563EB] rounded-full" style={{ width: "65%" }} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Banner CTA */}
+                <div className="p-4 rounded-xl bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 border border-[#2563EB]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <Clock className="h-5 w-5 text-[#2563EB] shrink-0" />
+                    <div>
+                      <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                        Detailed Login Records & Daily Time Spent
+                      </h4>
+                      <p className="text-[11px] text-[#6B7280]">
+                        Audit your exact login sessions, IP addresses, and day-by-day learning timestamps.
+                      </p>
+                    </div>
+                  </div>
+
+                  <Link href="/student/reports">
+                    <Button size="sm" className="h-8 text-xs font-bold bg-[#2563EB] hover:bg-[#1D4ED8] text-white shrink-0">
+                      Explore Reports
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
