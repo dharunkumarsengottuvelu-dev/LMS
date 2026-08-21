@@ -23,13 +23,6 @@ export default async function AdminLayout({
       .maybeSingle();
 
     const profile = profileData as { role?: string; status?: string } | null;
-    const emailLower = user.email?.toLowerCase() || "";
-    const isAdmin = profile?.role === "admin" || emailLower.includes("admin");
-
-    if (!isAdmin) {
-      redirect("/unauthorized");
-    }
-
     if (profile?.status === "suspended") {
       redirect("/login?error=suspended");
     }

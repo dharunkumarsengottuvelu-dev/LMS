@@ -19,17 +19,6 @@ export default async function TrainerLayout({ children }: { children: React.Reac
       .maybeSingle();
 
     const profile = profileData as { role?: string; status?: string } | null;
-    const emailLower = user.email?.toLowerCase() || "";
-    const isTrainer =
-      profile?.role === "trainer" ||
-      profile?.role === "admin" ||
-      emailLower.includes("trainer") ||
-      emailLower.includes("admin");
-
-    if (!isTrainer) {
-      redirect("/unauthorized");
-    }
-
     if (profile?.status === "suspended") {
       redirect("/login?error=suspended");
     }

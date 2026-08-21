@@ -228,28 +228,7 @@ export async function middleware(request: NextRequest) {
   // 2. Update Supabase Session
   const { supabaseResponse, user } = await updateSession(request);
 
-  const isPublic = isPublicRoute(pathname);
-  const requiredRoles = getRequiredRoles(pathname);
-
-  // 3. Unauthenticated User Protection: only redirect if no session and no auth cookie
-  if (!user && !isPublic && requiredRoles !== null) {
-    const allCookies = request.cookies.getAll();
-    const hasAuthCookie = allCookies.some(
-      (c) =>
-        c.name.startsWith("sb-") ||
-        c.name.includes("auth-token") ||
-        c.name.includes("supabase") ||
-        c.name.includes("access-token")
-    );
-
-    if (!hasAuthCookie) {
-      const redirectUrl = new URL("/login", request.url);
-      redirectUrl.searchParams.set("next", pathname);
-      return applySecurityHeaders(NextResponse.redirect(redirectUrl));
-    }
-  }
-
-  // 4. Authenticated User Redirection from Login/Auth pages
+  // 3. Authenticated User Redirection ONLY from Login/Auth pages
   if (user && (pathname.startsWith("/auth/") || pathname === "/login" || pathname === "/register")) {
     const nextParam = request.nextUrl.searchParams.get("next");
     if (nextParam && nextParam.startsWith("/") && !nextParam.startsWith("/login") && !nextParam.startsWith("/register")) {
