@@ -728,10 +728,28 @@ export function PracticeRunnerEngine({
     </Card>
   );
 
+  const handleResetAndRetake = () => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(`lms_practice_session_${module.id}`);
+        localStorage.removeItem(`lms_practice_session_${module.id}_submitted`);
+        localStorage.removeItem(`lms_completed_assessment_${module.id}`);
+        localStorage.removeItem("lms_proctoring_violations");
+      } catch {}
+    }
+    setIsSubmitted(false);
+    setAnswers({});
+    setCodeAnswers({});
+    setSubmissionResults({});
+    setMarkedForReview(new Set());
+    setTimeLeft(module.durationMinutes * 60);
+    timeLeftRef.current = module.durationMinutes * 60;
+  };
+
   if (isSubmitted || isAlreadySubmitted) {
     return (
       <div className="w-full py-8 space-y-6">
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-8 text-center max-w-xl mx-auto shadow-sm space-y-4">
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-8 text-center max-w-xl mx-auto shadow-sm space-y-5">
           <div className="w-12 h-12 rounded-full bg-[#16A34A]/10 text-[#16A34A] flex items-center justify-center mx-auto">
             <CheckCircle2 className="h-6 w-6" />
           </div>
@@ -742,6 +760,27 @@ export function PracticeRunnerEngine({
             <p className="text-xs text-muted-foreground">
               Your submission has been recorded. Test completion time is finalized.
             </p>
+          </div>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.location.href = "/student/assessments";
+                }
+              }}
+              className="text-xs font-semibold rounded-xl"
+            >
+              Back to Assessments
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleResetAndRetake}
+              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold gap-1.5 rounded-xl shadow-md"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Start Fresh / Retake
+            </Button>
           </div>
         </Card>
       </div>

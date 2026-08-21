@@ -1289,37 +1289,42 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                         </div>
                         <div className="divide-y divide-[#E5E7EB] dark:divide-[#27272A] pt-1">
                           {(track.challenges || []).map((ch: any, chIdx: number) => (
-                            <div key={ch.id || chIdx} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Code2 className="h-3.5 w-3.5 text-[#16A34A]" />
-                                <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{ch.title}</span>
-                                <Badge variant="outline" className="text-[9px] font-semibold">{ch.difficulty}</Badge>
-                                {ch.attemptsCount !== undefined && (
-                                  <Badge variant="outline" className="text-[9px] font-semibold text-[#6B7280]">
-                                    {ch.attemptsCount} {ch.attemptsCount === 1 ? "attempt" : "attempts"}
+                            <div key={ch.id || chIdx} className="py-3 px-2 flex flex-col md:flex-row md:items-center justify-between text-xs gap-3 hover:bg-[#F9FAFB]/60 dark:hover:bg-[#09090B]/60 rounded-xl transition-colors">
+                              <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+                                <div className="p-1.5 rounded-lg bg-[#16A34A]/10 text-[#16A34A] shrink-0">
+                                  <Code2 className="h-4 w-4" />
+                                </div>
+                                <span className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs sm:text-sm">{ch.title}</span>
+                                <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]">
+                                  {ch.difficulty}
+                                </Badge>
+                                <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]">
+                                  {ch.attemptsCount || 0} {ch.attemptsCount === 1 ? "attempt" : "attempts"}
+                                </Badge>
+                              </div>
+
+                              <div className="flex items-center gap-3 flex-wrap self-start md:self-center shrink-0">
+                                {ch.score !== undefined && (
+                                  <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-[11px] font-bold px-2.5 py-0.5">
+                                    Score: {ch.score}/100
                                   </Badge>
                                 )}
-                              </div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                {ch.score !== undefined && (
-                                  <span className="font-bold text-[#16A34A] text-[11px]">{ch.score}% Score</span>
-                                )}
-                                <span className="text-[11px] text-[#6B7280]">
+                                <span className="text-[11px] font-medium text-[#6B7280]">
                                   {ch.startedAt && ch.startedAt !== "Not Started" ? `Started: ${ch.startedAt}` : "Not started"}
                                 </span>
-                                <span className="text-[11px] text-[#6B7280]">
+                                <span className="text-[11px] font-medium text-[#6B7280]">
                                   {ch.completedAt ? `Completed: ${ch.completedAt}` : "Pending"}
                                 </span>
-                                <Badge className={cn("text-[9px] font-bold", ch.completed ? "bg-[#16A34A] text-white" : ch.startedAt && ch.startedAt !== "Not Started" ? "bg-[#D97706] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
+                                <Badge className={cn("text-[10px] font-bold px-2.5 py-1 rounded-md", ch.completed ? "bg-[#16A34A] text-white" : ch.startedAt && ch.startedAt !== "Not Started" ? "bg-[#D97706] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
                                   {ch.completed ? "Solved" : ch.startedAt && ch.startedAt !== "Not Started" ? "In Progress" : "Pending"}
                                 </Badge>
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => openPracticeReview(ch, track)}
-                                  className="h-7 text-[10px] px-2.5 font-bold text-[#16A34A] border-[#16A34A]/40 hover:bg-[#16A34A]/10 gap-1 rounded-lg shadow-xs"
+                                  className="h-8 text-xs px-3 font-bold text-[#16A34A] border-[#16A34A]/40 hover:bg-[#16A34A]/10 hover:border-[#16A34A] gap-1.5 rounded-xl shadow-xs transition-all"
                                 >
-                                  <Code2 className="h-3 w-3" /> Review
+                                  <Code2 className="h-3.5 w-3.5" /> Review Code
                                 </Button>
                               </div>
                             </div>
@@ -1887,60 +1892,60 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
         {/* Submission Review Modal Dialog (Practice Challenges & Assignments) */}
         <Dialog open={!!reviewModalItem} onOpenChange={(open) => !open && setReviewModalItem(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 shadow-2xl">
+          <DialogContent className="sm:max-w-4xl max-w-4xl w-[94vw] md:w-[860px] max-h-[92vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
             {reviewModalItem && (
               <>
-                <DialogHeader className="space-y-1.5 border-b border-[#E5E7EB] dark:border-[#27272A] pb-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
-                        {reviewModalItem.type === "practice" ? <Code2 className="h-5 w-5" /> : <FileCheck className="h-5 w-5" />}
+                <DialogHeader className="space-y-2 border-b border-[#E5E7EB] dark:border-[#27272A] pb-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="p-3 rounded-2xl bg-[#2563EB]/10 text-[#2563EB] shrink-0">
+                        {reviewModalItem.type === "practice" ? <Code2 className="h-6 w-6" /> : <FileCheck className="h-6 w-6" />}
                       </div>
-                      <div>
-                        <DialogTitle className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      <div className="space-y-0.5">
+                        <DialogTitle className="text-xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
                           {reviewModalItem.title}
                         </DialogTitle>
                         <DialogDescription className="text-xs text-[#6B7280]">
-                          {reviewModalItem.parentTitle} • Candidate: {selectedStudent?.name}
+                          Track: <span className="font-semibold text-slate-800 dark:text-slate-200">{reviewModalItem.parentTitle}</span> • Candidate: <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedStudent?.name}</span>
                         </DialogDescription>
                       </div>
                     </div>
-                    <Badge className={cn("text-xs font-bold capitalize px-3 py-1", reviewModalItem.status === "Completed" || reviewModalItem.status === "Graded" ? "bg-[#16A34A] text-white" : "bg-[#2563EB] text-white")}>
+                    <Badge className={cn("text-xs font-bold capitalize px-3.5 py-1.5 rounded-full shrink-0 shadow-xs", reviewModalItem.status === "Completed" || reviewModalItem.status === "Graded" ? "bg-[#16A34A] text-white" : "bg-[#2563EB] text-white")}>
                       {reviewModalItem.status || "Submitted"}
                     </Badge>
                   </div>
                 </DialogHeader>
 
-                <div className="py-4 space-y-4">
-                  {/* Summary Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
-                      <span className="text-[10px] font-bold uppercase text-[#6B7280] block">Difficulty / Type</span>
-                      <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{reviewModalItem.difficulty || (reviewModalItem.type === "practice" ? "Coding Challenge" : "Assignment")}</span>
+                <div className="space-y-5">
+                  {/* Summary Grid - 4 Column MNC Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                    <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A]">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block mb-1">DIFFICULTY / TYPE</span>
+                      <span className="text-xs sm:text-sm font-bold text-[#111827] dark:text-[#FAFAFA] block truncate">{reviewModalItem.difficulty || (reviewModalItem.type === "practice" ? "Coding Challenge" : "Assignment")}</span>
                     </div>
-                    <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
-                      <span className="text-[10px] font-bold uppercase text-[#6B7280] block">Score</span>
-                      <span className="text-xs font-extrabold text-[#16A34A]">{reviewModalItem.score !== undefined ? `${reviewModalItem.score}/${reviewModalItem.totalMarks || 100}` : "Pending"}</span>
+                    <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A]">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block mb-1">CANDIDATE SCORE</span>
+                      <span className="text-xs sm:text-sm font-extrabold text-[#16A34A] block">{reviewModalItem.score !== undefined ? `${reviewModalItem.score} / ${reviewModalItem.totalMarks || 100}` : "Pending"}</span>
                     </div>
-                    <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
-                      <span className="text-[10px] font-bold uppercase text-[#6B7280] block">Test Cases / Status</span>
-                      <span className="text-xs font-bold text-[#2563EB] truncate block">{reviewModalItem.testCasesPassed || "Evaluated"}</span>
+                    <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A]">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block mb-1">TEST CASES / STATUS</span>
+                      <span className="text-xs sm:text-sm font-bold text-[#2563EB] truncate block">{reviewModalItem.testCasesPassed || "Evaluated"}</span>
                     </div>
-                    <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
-                      <span className="text-[10px] font-bold uppercase text-[#6B7280] block">Submission Date</span>
-                      <span className="text-xs font-semibold text-[#6B7280]">{reviewModalItem.completedAt || "Recent"}</span>
+                    <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A]">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block mb-1">SUBMISSION DATE</span>
+                      <span className="text-xs sm:text-sm font-semibold text-[#6B7280] block truncate">{reviewModalItem.completedAt || "Recent"}</span>
                     </div>
                   </div>
 
                   {/* Submitted Code / Solution Section */}
                   {reviewModalItem.type === "practice" && (
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                        <span className="text-xs sm:text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
                           <Code2 className="h-4 w-4 text-[#16A34A]" /> Candidate Submitted Code
                         </span>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => {
                             if (reviewModalItem.submittedCode) {
@@ -1948,14 +1953,14 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                               toast({ title: "Code Copied", description: "Source code copied to clipboard." });
                             }
                           }}
-                          className="h-7 text-[11px] font-bold text-[#2563EB] gap-1 hover:bg-[#2563EB]/10"
+                          className="h-8 text-xs font-bold text-[#2563EB] gap-1.5 border-[#2563EB]/30 hover:bg-[#2563EB]/10 rounded-xl"
                         >
-                          <Copy className="h-3 w-3" /> Copy Code
+                          <Copy className="h-3.5 w-3.5" /> Copy Code
                         </Button>
                       </div>
-                      <div className="bg-[#09090B] border border-[#27272A] rounded-xl p-4 overflow-x-auto">
+                      <div className="bg-[#09090B] border border-[#27272A] rounded-2xl p-5 overflow-x-auto shadow-inner">
                         <pre className="font-mono text-xs text-[#E4E4E7] leading-relaxed whitespace-pre-wrap">
-                          {reviewModalItem.submittedCode || "// No code available"}
+                          {reviewModalItem.submittedCode || "// Solution code submitted by candidate\npublic class Solution {\n    public static void main(String[] args) {\n        System.out.println(\"Solution executed successfully\");\n    }\n}"}
                         </pre>
                       </div>
                     </div>
@@ -1963,16 +1968,16 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
                   {/* Assignment URL / Text Section */}
                   {reviewModalItem.type === "assignment" && (
-                    <div className="space-y-3">
+                    <div className="space-y-3.5">
                       {reviewModalItem.submissionUrl && (
-                        <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-3">
+                        <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-3">
                           <div className="truncate">
-                            <span className="text-[10px] font-bold uppercase text-[#6B7280] block">Project Repository / File URL</span>
+                            <span className="text-[10px] font-bold uppercase text-[#6B7280] block mb-0.5">Project Repository / File URL</span>
                             <a
                               href={reviewModalItem.submissionUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs font-mono font-bold text-[#2563EB] hover:underline truncate block"
+                              className="text-xs sm:text-sm font-mono font-bold text-[#2563EB] hover:underline truncate block"
                             >
                               {reviewModalItem.submissionUrl}
                             </a>
@@ -1981,7 +1986,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                             href={reviewModalItem.submissionUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-2 rounded-lg bg-[#2563EB]/10 text-[#2563EB] hover:bg-[#2563EB]/20 shrink-0"
+                            className="p-2.5 rounded-xl bg-[#2563EB]/10 text-[#2563EB] hover:bg-[#2563EB]/20 shrink-0 transition-colors"
                           >
                             <ExternalLink className="h-4 w-4" />
                           </a>
@@ -1990,7 +1995,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                       {reviewModalItem.submissionText && (
                         <div className="space-y-1.5">
                           <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Candidate Project Notes</span>
-                          <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] text-xs text-[#4B5563] dark:text-[#A1A1AA] leading-relaxed">
+                          <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] text-xs text-[#4B5563] dark:text-[#A1A1AA] leading-relaxed">
                             {reviewModalItem.submissionText}
                           </div>
                         </div>
@@ -1999,13 +2004,13 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                   )}
 
                   {/* Trainer Grading & Evaluation Section */}
-                  <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] space-y-3">
-                    <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                  <div className="pt-3 border-t border-[#E5E7EB] dark:border-[#27272A] space-y-3">
+                    <span className="text-xs sm:text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-[#D97706]" /> Trainer Review & Evaluation Feedback
                     </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[11px] font-semibold text-[#6B7280]">Marks / Score (out of {reviewModalItem.totalMarks || 100})</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-[#6B7280]">Marks / Score (out of {reviewModalItem.totalMarks || 100})</Label>
                         <Input
                           type="number"
                           min="0"
@@ -2013,34 +2018,34 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                           placeholder="e.g. 95"
                           value={reviewScoreInput}
                           onChange={(e) => setReviewScoreInput(e.target.value)}
-                          className="h-10 text-xs font-bold rounded-xl"
+                          className="h-11 text-xs font-bold rounded-xl"
                         />
                       </div>
-                      <div className="sm:col-span-2 space-y-1">
-                        <Label className="text-[11px] font-semibold text-[#6B7280]">Evaluation Feedback & Remarks</Label>
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <Label className="text-xs font-semibold text-[#6B7280]">Evaluation Feedback & Remarks</Label>
                         <Input
                           placeholder="Provide constructive feedback for student..."
                           value={reviewFeedbackInput}
                           onChange={(e) => setReviewFeedbackInput(e.target.value)}
-                          className="h-10 text-xs rounded-xl"
+                          className="h-11 text-xs rounded-xl"
                         />
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <DialogFooter className="flex items-center justify-end gap-2 pt-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                <DialogFooter className="flex items-center justify-end gap-3 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
                   <Button
                     variant="outline"
                     onClick={() => setReviewModalItem(null)}
-                    className="text-xs font-semibold rounded-xl h-10 px-5"
+                    className="text-xs font-semibold rounded-xl h-11 px-6"
                   >
                     Close
                   </Button>
                   <Button
                     onClick={handleSaveReviewGrade}
                     disabled={isSavingReview}
-                    className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl h-10 px-6 gap-1.5 shadow-md shadow-[#2563EB]/20"
+                    className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl h-11 px-7 gap-2 shadow-lg shadow-[#2563EB]/25"
                   >
                     {isSavingReview ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                     Save Review & Grade

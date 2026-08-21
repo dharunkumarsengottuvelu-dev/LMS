@@ -195,6 +195,15 @@ export default function StudentTestsPage() {
   const handleStartExam = async () => {
     if (!selectedLobbyTest) return;
 
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(`lms_practice_session_${selectedLobbyTest.id}`);
+        localStorage.removeItem(`lms_practice_session_${selectedLobbyTest.id}_submitted`);
+        localStorage.removeItem(`lms_completed_assessment_${selectedLobbyTest.id}`);
+        localStorage.removeItem("lms_proctoring_violations");
+      } catch {}
+    }
+
     if (selectedLobbyTest.proctoring.webcamTracking && !referencePhoto) {
       handleCaptureReferencePhoto();
     }
