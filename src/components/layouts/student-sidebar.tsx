@@ -20,7 +20,6 @@ const studentNavItems = [
   { label: "Practice", href: "/student/practices", icon: Dumbbell },
   { label: "Assessments", href: "/student/assessments", icon: ClipboardList },
   { label: "Assignments", href: "/student/assignments", icon: FileText },
-  { label: "Reports & Analytics", href: "/student/reports", icon: BarChart3 },
   { label: "Notifications", href: "/student/notifications", icon: Bell },
   { label: "Profile", href: "/student/profile", icon: User },
   { label: "Settings", href: "/student/settings", icon: Settings },

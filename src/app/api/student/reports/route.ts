@@ -21,23 +21,28 @@ export async function GET(request: NextRequest) {
     const adminClient = createAdminClient();
 
     // 1. Resolve student profile & batch context
-    const { data: profile } = await adminClient
-      .from("profiles")
-      .select("*")
-      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      .maybeSingle();
-
-    const studentId = profile?.id || user.id;
-    const studentUserId = user.id;
     const batchContext = await getStudentBatchAccess(adminClient, user);
+    const studentId = batchContext.profileId || user.id;
+    const studentUserId = batchContext.studentUserId || user.id;
 
-    // 2. Fetch all authorized courses
+    // Determine timestamp threshold for range
+    const now = Date.now();
+    let minTimestamp = 0;
+    if (range === "7d") {
+      minTimestamp = now - 7 * 86400000;
+    } else if (range === "14d") {
+      minTimestamp = now - 14 * 86400000;
+    } else if (range === "30d") {
+      minTimestamp = now - 30 * 86400000;
+    }
+
+    // 2. Fetch all Courses
     const { data: rawCourses } = await adminClient
       .from("courses")
       .select("*")
       .order("created_at", { ascending: false });
 
-    // Fetch enrollments / lesson progress if existing
+    // Fetch enrollments
     const { data: enrollments } = await adminClient
       .from("enrollments")
       .select("*")
@@ -46,8 +51,7 @@ export async function GET(request: NextRequest) {
     const enrollmentMap = new Map<string, any>();
     (enrollments || []).forEach((e: any) => enrollmentMap.set(e.course_id, e));
 
-    // Map and filter authorized courses
-    const studentCourses: any[] = [];
+    const coursesList: any[] = [];
     let completedCoursesCount = 0;
 
     (rawCourses || []).forEach((c: any) => {
@@ -58,12 +62,7 @@ export async function GET(request: NextRequest) {
         } catch {}
       }
 
-      const assignedBatches =
-        c.assigned_batches ||
-        meta.assignedBatches ||
-        meta.assigned_batches ||
-        [];
-
+      const assignedBatches = c.assigned_batches || meta.assignedBatches || meta.assigned_batches || [];
       const isCommon =
         c.is_common !== undefined
           ? c.is_common
@@ -94,11 +93,9 @@ export async function GET(request: NextRequest) {
           ? Math.round((completedLessons / totalLessons) * 100)
           : 0;
 
-        if (progress === 100) {
-          completedCoursesCount++;
-        }
+        if (progress === 100) completedCoursesCount++;
 
-        const normalizedModules = rawMods.map((m: any, mIdx: number) => {
+        const modules = rawMods.map((m: any, mIdx: number) => {
           const subCount = m.subModules?.length || 1;
           const isModCompleted = progress >= Math.round(((mIdx + 1) / Math.max(1, rawMods.length)) * 100);
           return {
@@ -111,180 +108,197 @@ export async function GET(request: NextRequest) {
           };
         });
 
-        studentCourses.push({
+        coursesList.push({
           id: c.id,
           title: c.title,
-          category: meta.category || "Technical Training",
+          category: meta.category || "Technical Course",
           progress,
           completedLessons,
           totalLessons: Math.max(1, totalLessons),
           totalModules: rawMods.length,
-          completedModules: normalizedModules.filter((m: any) => m.completed).length,
+          completedModules: modules.filter((m: any) => m.completed).length,
           lastAccessed: c.updated_at ? new Date(c.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A",
           status: progress === 100 ? "Completed" : progress > 0 ? "In Progress" : "Not Started",
-          modules: normalizedModules,
+          modules,
         });
       }
     });
 
-    // 3. Fetch real assessment attempts
-    const { data: dbAttempts } = await adminClient
+    // 3. Fetch all Practice Tracks (Practices)
+    const { data: rawTracks } = await adminClient
+      .from("practice_tracks")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    // Fetch attempts for practices & assessments
+    const { data: rawAttempts } = await adminClient
       .from("assessment_attempts")
       .select("*")
       .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
       .order("submitted_at", { ascending: false });
 
-    // Fetch assessment metadata to match titles
-    const { data: dbAssessments } = await adminClient.from("assessments").select("*");
-    const assessmentMap = new Map<string, any>();
-    (dbAssessments || []).forEach((a: any) => assessmentMap.set(a.id, a));
+    const attemptsMap = new Map<string, any[]>();
+    (rawAttempts || []).forEach((att: any) => {
+      const list = attemptsMap.get(att.assessment_id) || [];
+      list.push(att);
+      attemptsMap.set(att.assessment_id, list);
+    });
 
-    // Fetch practice tracks metadata
-    const { data: dbTracks } = await adminClient.from("practice_tracks").select("*");
-    const practiceSubMap = new Map<string, any>();
-    (dbTracks || []).forEach((t: any) => {
+    const practicesList: any[] = [];
+    let completedPracticesCount = 0;
+
+    (rawTracks || []).forEach((t: any) => {
       let meta: any = {};
       if (t.tags && t.tags[0]) {
         try {
           meta = JSON.parse(t.tags[0]);
         } catch {}
       }
-      (meta.subModules || t.sub_modules || []).forEach((sm: any) => {
-        practiceSubMap.set(sm.id, { ...sm, trackTitle: t.title });
-      });
+
+      const assignedBatches = t.assigned_batches || meta.assignedBatches || meta.assigned_batches || [];
+      const isCommon =
+        t.is_common !== undefined
+          ? t.is_common
+          : meta.isCommon !== undefined
+          ? meta.isCommon
+          : assignedBatches.length === 0;
+
+      const isVisible = isContentVisibleToStudent(
+        {
+          is_common: isCommon,
+          assigned_batches: assignedBatches,
+          assigned_students: meta.assignedStudents || [],
+        },
+        batchContext
+      );
+
+      if (isVisible) {
+        const subModules = meta.subModules || t.sub_modules || [];
+        let completedSubs = 0;
+
+        const mappedSubs = subModules.map((sm: any, smIdx: number) => {
+          const subAttempts = attemptsMap.get(sm.id) || [];
+          const bestAttempt = subAttempts[0];
+          const isDone = subAttempts.length > 0;
+          if (isDone) completedSubs++;
+
+          return {
+            id: sm.id || `sm_${smIdx + 1}`,
+            title: sm.title || `Coding Challenge ${smIdx + 1}`,
+            description: sm.description || "Interactive problem",
+            difficulty: sm.difficulty || "Medium",
+            completed: isDone,
+            score: bestAttempt?.score !== undefined ? Math.round(bestAttempt.score) : undefined,
+            completedAt: bestAttempt?.submitted_at ? new Date(bestAttempt.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : undefined,
+            submittedTimestamp: bestAttempt?.submitted_at ? new Date(bestAttempt.submitted_at).getTime() : 0,
+          };
+        });
+
+        const trackProgress = subModules.length > 0 ? Math.round((completedSubs / subModules.length) * 100) : 0;
+        if (trackProgress === 100) completedPracticesCount++;
+
+        practicesList.push({
+          id: t.id,
+          title: t.title,
+          description: t.description || "Practice Track",
+          totalChallenges: subModules.length,
+          completedChallenges: completedSubs,
+          progress: trackProgress,
+          status: trackProgress === 100 ? "Completed" : trackProgress > 0 ? "In Progress" : "Not Started",
+          challenges: mappedSubs,
+        });
+      }
     });
 
-    // 4. Fetch assignment submissions
-    const { data: dbSubmissions } = await adminClient
+    // 4. Fetch all Assessments
+    const { data: rawAssessments } = await adminClient
+      .from("assessments")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    const assessmentsList: any[] = [];
+    let completedAssessmentsCount = 0;
+
+    (rawAssessments || []).forEach((a: any) => {
+      let meta: any = {};
+      if (a.tags && a.tags[0]) {
+        try {
+          meta = JSON.parse(a.tags[0]);
+        } catch {}
+      }
+
+      const assignedBatches = a.assigned_batches || meta.assignedBatches || meta.assigned_batches || [];
+      const isCommon =
+        a.is_common !== undefined
+          ? a.is_common
+          : meta.isCommon !== undefined
+          ? meta.isCommon
+          : assignedBatches.length === 0;
+
+      const isVisible = isContentVisibleToStudent(
+        {
+          is_common: isCommon,
+          assigned_batches: assignedBatches,
+          assigned_students: meta.assignedStudents || [],
+        },
+        batchContext
+      );
+
+      if (isVisible) {
+        const attList = attemptsMap.get(a.id) || [];
+        const bestAtt = attList[0];
+        const isAttempted = attList.length > 0;
+        if (isAttempted) completedAssessmentsCount++;
+
+        const score = bestAtt?.score !== undefined ? bestAtt.score : 0;
+        const totalMarks = bestAtt?.total_marks || a.total_marks || 100;
+        const pct = Math.min(100, Math.round((score / totalMarks) * 100));
+
+        assessmentsList.push({
+          id: a.id,
+          title: a.title,
+          type: a.type === "mcq" ? "Multiple Choice Exam" : "Proctored Coding Exam",
+          totalMarks,
+          durationMinutes: a.duration_minutes || a.duration || 60,
+          attempted: isAttempted,
+          scoreObtained: isAttempted ? `${score} / ${totalMarks} (${pct}%)` : "Not Attempted",
+          rawScore: isAttempted ? pct : 0,
+          evaluation: isAttempted ? (pct >= 50 ? (pct >= 85 ? "Passed (Distinction)" : "Passed") : "Evaluated") : "Pending",
+          integrityViolations: bestAtt ? `${bestAtt.violations || bestAtt.tab_switches || 0} Flags` : "0 Flags",
+          completedDate: bestAtt?.submitted_at ? new Date(bestAtt.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "N/A",
+          submittedTimestamp: bestAtt?.submitted_at ? new Date(bestAtt.submitted_at).getTime() : 0,
+        });
+      }
+    });
+
+    // 5. Fetch Assignment Submissions
+    const { data: rawSubmissions } = await adminClient
       .from("assignment_submissions")
       .select("*")
       .or(`user_id.eq.${studentId},user_id.eq.${studentUserId}`)
       .order("submitted_at", { ascending: false });
 
-    // 5. Build dynamic attempts and activities list
+    // 6. Calculate total active time spent and day-by-day distribution
     let totalTimeSpentSeconds = 0;
-    const assessmentLogs: any[] = [];
-    const completedModuleLogs: any[] = [];
-
-    (dbAttempts || []).forEach((att: any) => {
-      const timeTaken = typeof att.time_taken_seconds === "number" ? att.time_taken_seconds : 0;
-      totalTimeSpentSeconds += timeTaken;
-
-      const assessMeta = assessmentMap.get(att.assessment_id);
-      const practiceMeta = practiceSubMap.get(att.assessment_id);
-      const isPractice = Boolean(practiceMeta) || att.type === "practice" || att.type === "coding";
-
-      const title = practiceMeta?.title || assessMeta?.title || "Assessment";
-      const courseTitle = practiceMeta?.trackTitle || assessMeta?.course_id || "Technical Curriculum";
-      const score = typeof att.score === "number" ? att.score : 0;
-      const totalMarks = typeof att.total_marks === "number" && att.total_marks > 0 ? att.total_marks : 100;
-      const pct = Math.min(100, Math.round((score / totalMarks) * 100));
-
-      const submittedAt = att.submitted_at || att.created_at;
-      const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Recent";
-      const timeStr = submittedAt ? new Date(submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
-      const fullTimestamp = `${dateStr}${timeStr ? `, ${timeStr}` : ""}`;
-
-      const violations = att.violations ?? att.tab_switches ?? 0;
-
-      assessmentLogs.push({
-        id: att.id,
-        assessmentTitle: title,
-        type: isPractice ? "Coding Lab Practice" : "Proctored Exam",
-        completedDate: fullTimestamp,
-        date: dateStr,
-        submittedAt: submittedAt ? new Date(submittedAt).getTime() : 0,
-        scoreObtained: `${score} / ${totalMarks} (${pct}%)`,
-        rawScore: pct,
-        violations: `${violations} Flags`,
-        evaluation: pct >= 50 ? (pct >= 85 ? "Passed (Distinction)" : "Passed") : "Evaluated",
-        status: att.status || "Evaluated",
-      });
-
-      if (att.status === "submitted" || att.status === "evaluated" || pct >= 50) {
-        completedModuleLogs.push({
-          id: `mod_att_${att.id}`,
-          title,
-          type: isPractice ? "practice" : "assessment",
-          courseTitle,
-          timestamp: fullTimestamp,
-          date: dateStr,
-          submittedAt: submittedAt ? new Date(submittedAt).getTime() : 0,
-          score: pct,
-          status: "Completed",
-        });
-      }
-    });
-
-    (dbSubmissions || []).forEach((sub: any) => {
-      const submittedAt = sub.submitted_at || sub.created_at;
-      const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Recent";
-      const timeStr = submittedAt ? new Date(submittedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
-      const fullTimestamp = `${dateStr}${timeStr ? `, ${timeStr}` : ""}`;
-
-      assessmentLogs.push({
-        id: `sub_${sub.id}`,
-        assessmentTitle: sub.assignment_title || "Assignment Submission",
-        type: "Assignment",
-        completedDate: fullTimestamp,
-        date: dateStr,
-        submittedAt: submittedAt ? new Date(submittedAt).getTime() : 0,
-        scoreObtained: sub.grade !== undefined && sub.grade !== null ? `${sub.grade} Marks` : "Submitted",
-        rawScore: typeof sub.grade === "number" ? sub.grade : 100,
-        violations: "0 Flags",
-        evaluation: sub.status === "graded" ? "Graded" : "Submitted",
-        status: sub.status || "Submitted",
-      });
-    });
-
-    // 6. Build login activities from auth user records
-    const loginActivities: any[] = [];
-    if (user.last_sign_in_at) {
-      const lastLogin = new Date(user.last_sign_in_at);
-      loginActivities.push({
-        id: "auth-login-current",
-        timestamp: `${lastLogin.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}, ${lastLogin.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-        date: lastLogin.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-        time: lastLogin.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        ipAddress: "Current Session IP",
-        device: "Desktop / Browser",
-        browser: "Current Browser",
-        duration: "Active Session",
-        status: "Active",
-      });
-    }
-
-    if (user.created_at) {
-      const createdDate = new Date(user.created_at);
-      loginActivities.push({
-        id: "auth-account-created",
-        timestamp: `${createdDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}, ${createdDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-        date: createdDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-        time: createdDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        ipAddress: "Authentication Gateway",
-        device: "Registered Account",
-        browser: "Secure Auth",
-        duration: "Session Logged",
-        status: "Completed",
-      });
-    }
-
-    // 7. Calculate real day-wise daily time spent chart
-    const daysCount = range === "7d" ? 7 : range === "14d" ? 14 : range === "30d" ? 30 : 7;
-    const now = Date.now();
-    const dailyTimeSpent: Array<{ day: string; label: string; minutes: number; display: string; height: number }> = [];
-
-    // Calculate maximum minutes across days to scale chart dynamically
     const dayMap = new Map<string, number>();
 
-    // Aggregate attempt seconds per day
-    (dbAttempts || []).forEach((att: any) => {
+    (rawAttempts || []).forEach((att: any) => {
+      const timeTaken = typeof att.time_taken_seconds === "number" ? att.time_taken_seconds : 1800;
+      totalTimeSpentSeconds += timeTaken;
+
       if (att.submitted_at || att.created_at) {
-        const d = new Date(att.submitted_at || att.created_at).toISOString().slice(0, 10);
-        const mins = Math.round((att.time_taken_seconds || 1800) / 60);
-        dayMap.set(d, (dayMap.get(d) || 0) + mins);
+        const ts = new Date(att.submitted_at || att.created_at).getTime();
+        if (range === "all" || ts >= minTimestamp) {
+          const iso = new Date(ts).toISOString().slice(0, 10);
+          const mins = Math.round(timeTaken / 60);
+          dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
+        }
       }
     });
+
+    // Generate daily time spent chart
+    const daysCount = range === "7d" ? 7 : range === "14d" ? 14 : range === "30d" ? 30 : 7;
+    const dailyTimeSpent: Array<{ day: string; label: string; minutes: number; display: string; height: number }> = [];
 
     let maxDayMinutes = 1;
     for (let i = daysCount - 1; i >= 0; i--) {
@@ -311,23 +325,56 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const totalActivitiesCount = assessmentLogs.length + completedModuleLogs.length;
+    // 7. Login Activities
+    const loginActivities: any[] = [];
+    if (user.last_sign_in_at) {
+      const lastLogin = new Date(user.last_sign_in_at);
+      loginActivities.push({
+        id: "auth-current",
+        timestamp: `${lastLogin.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}, ${lastLogin.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+        date: lastLogin.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        device: "Desktop / Chrome Browser",
+        duration: "Active Session",
+        status: "Active",
+      });
+    }
+
+    if (user.created_at) {
+      const created = new Date(user.created_at);
+      loginActivities.push({
+        id: "auth-created",
+        timestamp: `${created.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}, ${created.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+        date: created.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        device: "Initial Registration / Portal Access",
+        duration: "Completed",
+        status: "Completed",
+      });
+    }
+
+    // Total submissions count
+    const totalSubmissionsCount = (rawAttempts || []).length + (rawSubmissions || []).length;
 
     return NextResponse.json({
       reports: {
-        totalCoursesEnrolled: studentCourses.length,
-        completedCoursesCount,
-        activitiesCompletedCount: totalActivitiesCount,
-        totalTimeSpentSeconds,
-        courses: studentCourses,
+        summary: {
+          enrolledCoursesCount: coursesList.length,
+          completedCoursesCount,
+          practicesCount: practicesList.length,
+          completedPracticesCount,
+          assessmentsCount: assessmentsList.length,
+          completedAssessmentsCount,
+          totalSubmissionsCount,
+          totalTimeSpentSeconds,
+        },
+        coursesList,
+        practicesList,
+        assessmentsList,
         dailyTimeSpent,
         loginActivities,
-        completedModuleLogs,
-        assessmentLogs,
       },
     });
   } catch (error) {
-    console.error("GET /api/student/reports error:", error);
+    console.error("GET /api/student/reports Error:", error);
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
