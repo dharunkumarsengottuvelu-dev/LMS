@@ -1,23 +1,33 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useLMSStore, StudentUserRecord } from "@/lib/store/lms-store";
 import {
   Users, Search, Plus, UserCheck, Shield, Trash2, Edit, Eye, Filter,
   Award, AlertTriangle, CheckCircle2, FileText, Code2, Clock, ShieldAlert,
   GraduationCap, ArrowUpRight, BarChart3, Lock, ShieldCheck, ArrowLeft, Sparkles, FolderKanban,
-  Upload, Download, FileSpreadsheet, FileUp, X
+  Upload, Download, FileSpreadsheet, FileUp, X, Calendar, CalendarDays, Check,
+  BookOpen, Dumbbell, ClipboardList, Inbox, Loader2, Layers
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/layouts/page-header";
+import { cn } from "@/lib/utils";
 
 export interface TestSubmissionAnswer {
   questionId: string;
@@ -216,6 +226,94 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
   const [viewState, setViewState] = useState<"list" | "enroll" | "analytics">("list");
   const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
+
+  // Student Individual Performance & Reports state
+  const [analyticsDateRange, setAnalyticsDateRange] = useState<"7d" | "14d" | "30d" | "all" | "custom">("7d");
+  const [analyticsFromDate, setAnalyticsFromDate] = useState<string>("");
+  const [analyticsToDate, setAnalyticsToDate] = useState<string>("");
+  const [isAnalyticsCustomModalOpen, setIsAnalyticsCustomModalOpen] = useState<boolean>(false);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState<boolean>(false);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+
+  const fetchStudentAnalytics = useCallback(async (stdId: string) => {
+    setIsLoadingAnalytics(true);
+    try {
+      let url = `/api/admin/students/${stdId}/analytics?range=${analyticsDateRange}`;
+      if (analyticsDateRange === "custom" && analyticsFromDate && analyticsToDate) {
+        url = `/api/admin/students/${stdId}/analytics?from=${analyticsFromDate}&to=${analyticsToDate}`;
+      }
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.analytics) {
+        setAnalyticsData(data.analytics);
+      }
+    } catch (err) {
+      console.error("Failed to load student analytics", err);
+    } finally {
+      setIsLoadingAnalytics(false);
+    }
+  }, [analyticsDateRange, analyticsFromDate, analyticsToDate]);
+
+  useEffect(() => {
+    if (viewState === "analytics" && selectedStudent) {
+      if (analyticsDateRange !== "custom" || (analyticsFromDate && analyticsToDate)) {
+        fetchStudentAnalytics(selectedStudent.id);
+      }
+    }
+  }, [viewState, selectedStudent, fetchStudentAnalytics, analyticsDateRange]);
+
+  const analyticsDateRangeLabel = useMemo(() => {
+    switch (analyticsDateRange) {
+      case "7d":
+        return "Last 7 days";
+      case "14d":
+        return "Last 14 days";
+      case "30d":
+        return "Last 30 days";
+      case "all":
+        return "All time";
+      case "custom":
+        if (analyticsFromDate && analyticsToDate) {
+          const f = new Date(analyticsFromDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          const t = new Date(analyticsToDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          return `${f} - ${t}`;
+        }
+        return "Custom Range";
+    }
+  }, [analyticsDateRange, analyticsFromDate, analyticsToDate]);
+
+  const formatTimeSpent = (secs: number) => {
+    if (!secs || secs === 0) return "0 h 0 min 0 s";
+    const hours = Math.floor(secs / 3600);
+    const mins = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${hours} h ${mins} min ${s} s`;
+  };
+
+  const handleApplyAnalyticsCustomRange = () => {
+    if (!analyticsFromDate || !analyticsToDate) {
+      toast({
+        title: "Incomplete Date Range",
+        description: "Please select both start and end dates.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (new Date(analyticsFromDate) > new Date(analyticsToDate)) {
+      toast({
+        title: "Invalid Range",
+        description: "Start date cannot be after end date.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setAnalyticsDateRange("custom");
+    setIsAnalyticsCustomModalOpen(false);
+    toast({
+      title: "Date Filter Applied",
+      description: `Showing candidate analytics from ${analyticsFromDate} to ${analyticsToDate}.`,
+    });
+  };
 
   const [isCreateBatchOpen, setIsCreateBatchOpen] = useState(false);
   const [newBatchTitle, setNewBatchTitle] = useState("");
@@ -822,35 +920,106 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
   // FULL PAGE INDIVIDUAL PERFORMANCE ANALYTICS VIEW
   if (viewState === "analytics" && selectedStudent) {
+    const studentData = analyticsData || selectedStudent;
+    const courses = analyticsData?.coursesList || [];
+    const practices = analyticsData?.practicesList || [];
+    const assessments = analyticsData?.assessmentsList || analyticsData?.testsTaken || [];
+    const dailyTimeSpent = analyticsData?.dailyTimeSpent || [];
+    const loginActivities = analyticsData?.loginActivities || [];
+    const summary = analyticsData?.summary || {
+      enrolledCoursesCount: courses.length,
+      practicesCount: practices.length,
+      assessmentsCount: assessments.length,
+      totalTimeSpentSeconds: 0,
+      avgScore: selectedStudent.avgScore || 0,
+    };
+
     return (
       <div className="space-y-8 w-full">
+        {/* 0. Top Page Header with Back Action and Live Controls */}
         <PageHeader
-          title={`${selectedStudent.name} Performance & Security Sheet`}
+          title={`${selectedStudent.name} Performance & Learning Reports`}
           description={`${selectedStudent.email} • ${selectedStudent.batch}`}
-          backAction={{ label: "Back to Directory", onClick: () => setViewState("list") }}
+          backAction={{ label: "Back to Student Directory", onClick: () => setViewState("list") }}
           actions={
-            <div className="flex flex-col items-end gap-1">
-              <Badge className={`text-xs font-bold capitalize px-3 py-1 ${selectedStudent.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#DC2626] text-white"}`}>
-                Account: {selectedStudent.status}
-              </Badge>
-              {selectedStudent.systemInfo && (
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="relative flex h-2.5 w-2.5">
-                    {selectedStudent.systemInfo.status === "Online" && (
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#16A34A] opacity-75"></span>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <DropdownMenu>
+                <DropdownMenuTrigger className="h-9 px-3.5 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] text-xs font-bold text-[#2563EB] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] flex items-center gap-2 shadow-xs transition-colors">
+                  <span>{analyticsDateRangeLabel}</span>
+                  <Filter className="h-3.5 w-3.5 text-[#6B7280]" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-1.5 rounded-xl shadow-lg">
+                  <DropdownMenuItem
+                    onClick={() => setAnalyticsDateRange("7d")}
+                    className={cn(
+                      "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                      analyticsDateRange === "7d" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
                     )}
-                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${selectedStudent.systemInfo.status === "Online" ? "bg-[#16A34A]" : selectedStudent.systemInfo.status === "Idle" ? "bg-[#F59E0B]" : "bg-[#6B7280]"}`}></span>
-                  </span>
-                  <span className="text-[10px] text-[#6B7280] font-semibold">
-                    {selectedStudent.systemInfo.status} • {selectedStudent.systemInfo.os} • {selectedStudent.systemInfo.ipAddress}
-                  </span>
-                </div>
-              )}
+                  >
+                    <span>Last 7 days</span>
+                    {analyticsDateRange === "7d" && <Check className="h-4 w-4 text-[#2563EB]" />}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => setAnalyticsDateRange("14d")}
+                    className={cn(
+                      "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                      analyticsDateRange === "14d" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
+                    )}
+                  >
+                    <span>Last 14 days</span>
+                    {analyticsDateRange === "14d" && <Check className="h-4 w-4 text-[#2563EB]" />}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => setAnalyticsDateRange("30d")}
+                    className={cn(
+                      "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                      analyticsDateRange === "30d" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
+                    )}
+                  >
+                    <span>Last 30 days</span>
+                    {analyticsDateRange === "30d" && <Check className="h-4 w-4 text-[#2563EB]" />}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => setAnalyticsDateRange("all")}
+                    className={cn(
+                      "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                      analyticsDateRange === "all" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
+                    )}
+                  >
+                    <span>All time</span>
+                    {analyticsDateRange === "all" && <Check className="h-4 w-4 text-[#2563EB]" />}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator className="my-1 bg-[#E5E7EB] dark:bg-[#27272A]" />
+
+                  <DropdownMenuItem
+                    onClick={() => setIsAnalyticsCustomModalOpen(true)}
+                    className={cn(
+                      "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                      analyticsDateRange === "custom" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="h-3.5 w-3.5 text-[#2563EB]" />
+                      <span>Custom Date to Date...</span>
+                    </div>
+                    {analyticsDateRange === "custom" && <Check className="h-4 w-4 text-[#2563EB]" />}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Badge className={`text-xs font-bold capitalize px-3 py-1.5 ${selectedStudent.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#DC2626] text-white"}`}>
+                {selectedStudent.status}
+              </Badge>
             </div>
           }
         />
 
-        <Card className="p-6 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl space-y-4">
+        {/* Student Bio Card */}
+        <Card className="p-6 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl space-y-4 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
             <div className="flex items-center gap-3">
               <Avatar className="h-12 w-12 border-2 border-[#2563EB]/20">
@@ -876,14 +1045,14 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
           </div>
 
           <div className="space-y-2">
-            <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Competency Skills & Enterprise Certifications</span>
+            <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Competency Skills & Technical Tracks</span>
             <div className="flex items-center gap-1.5 flex-wrap">
-              {selectedStudent.skills.map((skill) => (
+              {(studentData.skills || ["React", "Next.js", "TypeScript", "PostgreSQL"]).map((skill: string) => (
                 <Badge key={skill} className="bg-[#F9FAFB] dark:bg-[#09090B] text-[#111827] dark:text-[#FAFAFA] border border-[#E5E7EB] dark:border-[#27272A] text-[10px]">
                   {skill}
                 </Badge>
               ))}
-              {selectedStudent.certificationsEarned.map((cert) => (
+              {(studentData.certificationsEarned || ["Certified Fullstack Engineer"]).map((cert: string) => (
                 <Badge key={cert} className="bg-[#16A34A] text-white text-[10px]">
                   <Award className="h-2.5 w-2.5 mr-1" /> {cert}
                 </Badge>
@@ -892,359 +1061,433 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
           </div>
         </Card>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <Card className="p-6 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-center space-y-1">
-            <span className="text-xs text-[#6B7280]">Overall Test Average</span>
-            <p className="text-3xl font-bold text-[#2563EB]">{selectedStudent.avgScore}%</p>
-          </Card>
-          <Card className="p-6 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-center space-y-1">
-            <span className="text-xs text-[#6B7280]">MCQ Choice Accuracy</span>
-            <p className="text-3xl font-bold text-[#16A34A]">{selectedStudent.mcqAccuracy}%</p>
-          </Card>
-          <Card className="p-6 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-center space-y-1">
-            <span className="text-xs text-[#6B7280]">Coding Challenge Rate</span>
-            <p className="text-3xl font-bold text-[#2563EB]">{selectedStudent.codingAccuracy}%</p>
-          </Card>
-        </div>
+        {isLoadingAnalytics ? (
+          <div className="py-20 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin text-[#2563EB]" />
+            <p className="text-sm font-medium">Loading candidate performance metrics & reports...</p>
+          </div>
+        ) : (
+          <>
+            {/* KPI Metric Overview Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                <span className="text-[11px] font-bold uppercase text-[#6B7280]">Assigned Courses</span>
+                <p className="text-3xl font-extrabold text-[#D97706]">{summary.enrolledCoursesCount || courses.length}</p>
+                <p className="text-[11px] text-[#6B7280]">Cohort batch curriculum</p>
+              </Card>
 
-        <Tabs defaultValue="daily" className="w-full space-y-4">
-          <TabsList className="bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] p-1 rounded-xl w-full flex overflow-x-auto justify-start">
-            <TabsTrigger value="daily" className="text-xs font-bold px-4 py-2">
-              Day-wise Progress
-            </TabsTrigger>
-            <TabsTrigger value="practices" className="text-xs font-bold px-4 py-2">
-              Practice Labs ({selectedStudent.practicesSubmitted?.length || 0})
-            </TabsTrigger>
-            <TabsTrigger value="tests" className="text-xs font-bold px-4 py-2">
-              Evaluations ({selectedStudent.testsTaken?.length || 0})
-            </TabsTrigger>
-            <TabsTrigger value="proctoring" className="text-xs font-bold px-4 py-2">
-              Proctoring Security Logs ({selectedStudent.proctoringLogs?.length || 0})
-            </TabsTrigger>
-            <TabsTrigger value="audit" className="text-xs font-bold px-4 py-2">
-              Activity Audit
-            </TabsTrigger>
-          </TabsList>
+              <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                <span className="text-[11px] font-bold uppercase text-[#6B7280]">Practice Tracks</span>
+                <p className="text-3xl font-extrabold text-[#16A34A]">{summary.practicesCount || practices.length}</p>
+                <p className="text-[11px] text-[#6B7280]">Coding lab challenges</p>
+              </Card>
 
-          <TabsContent value="audit" className="space-y-4">
-            {!selectedStudent.activityLogs || selectedStudent.activityLogs.length === 0 ? (
-              <div className="p-6 text-center text-xs text-[#6B7280]">No activity logs found.</div>
-            ) : (
-              <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-[#E5E7EB] dark:before:via-[#27272A] before:to-transparent">
-                {selectedStudent.activityLogs.map((log) => (
-                  <div key={log.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-[#18181B] bg-[#F9FAFB] dark:bg-[#09090B] group-hover:bg-[#2563EB]/10 text-[#6B7280] group-hover:text-[#2563EB] shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                      {log.type === "login" && <Lock className="h-4 w-4" />}
-                      {log.type === "course" && <FileText className="h-4 w-4" />}
-                      {log.type === "test" && <Award className="h-4 w-4" />}
-                      {log.type === "practice" && <Code2 className="h-4 w-4" />}
-                      {log.type === "system" && <Clock className="h-4 w-4" />}
-                    </div>
-                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] shadow-sm">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">{log.action}</span>
-                        <span className="text-[10px] text-[#6B7280] font-mono">{log.timestamp}</span>
-                      </div>
-                      <p className="text-xs text-[#6B7280]">{log.details}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+              <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                <span className="text-[11px] font-bold uppercase text-[#6B7280]">Assessments</span>
+                <p className="text-3xl font-extrabold text-[#2563EB]">{summary.assessmentsCount || assessments.length}</p>
+                <p className="text-[11px] text-[#6B7280]">Proctored exams</p>
+              </Card>
 
-          <TabsContent value="daily" className="space-y-3">
-            {!selectedStudent.dailyProgress || selectedStudent.dailyProgress.length === 0 ? (
-              <div className="p-6 text-center text-xs text-[#6B7280]">No daily progress recorded yet.</div>
-            ) : (
-              <div className="space-y-4">
-                {selectedStudent.dailyProgress.map((day) => (
-                  <Card key={day.dayNumber} className="p-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] text-xs">
-                    <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3 mb-3">
-                      <div>
-                        <Badge variant="outline" className="text-[10px] bg-[#2563EB]/5 text-[#2563EB] border-[#2563EB]/20 mb-1">
-                          Day {day.dayNumber}
-                        </Badge>
-                        <h4 className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">{day.topicTitle}</h4>
-                      </div>
-                      <div className="text-right">
-                        <Badge className={`text-[10px] ${day.status === "Completed" ? "bg-[#16A34A] text-white" : "bg-[#F59E0B] text-white"}`}>
-                          {day.status}
-                        </Badge>
-                        <p className="text-[10px] text-[#6B7280] mt-1">{day.date}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div>
-                        <span className="block text-[10px] text-[#6B7280] font-semibold">Time Spent</span>
-                        <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{day.durationSpent}</span>
-                      </div>
-                      {day.quizScore !== undefined && (
-                        <div>
-                          <span className="block text-[10px] text-[#6B7280] font-semibold">Quiz Score</span>
-                          <span className="font-bold text-[#16A34A]">{day.quizScore}%</span>
-                        </div>
-                      )}
-                    </div>
+              <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                <span className="text-[11px] font-bold uppercase text-[#6B7280]">Total Active Time</span>
+                <p className="text-2xl font-extrabold text-[#111827] dark:text-[#FAFAFA]">{formatTimeSpent(summary.totalTimeSpentSeconds || 0)}</p>
+                <p className="text-[11px] text-[#6B7280]">Time spent on evaluations</p>
+              </Card>
+            </div>
+
+            {/* Performance Tabs */}
+            <Tabs defaultValue="courses" className="w-full space-y-4">
+              <TabsList className="bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] p-1 rounded-xl w-full flex overflow-x-auto justify-start">
+                <TabsTrigger value="courses" className="text-xs font-bold px-4 py-2 gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5" /> Courses ({courses.length})
+                </TabsTrigger>
+                <TabsTrigger value="practices" className="text-xs font-bold px-4 py-2 gap-1.5">
+                  <Dumbbell className="h-3.5 w-3.5" /> Practice Labs ({practices.length})
+                </TabsTrigger>
+                <TabsTrigger value="tests" className="text-xs font-bold px-4 py-2 gap-1.5">
+                  <ClipboardList className="h-3.5 w-3.5" /> Assessments ({assessments.length})
+                </TabsTrigger>
+                <TabsTrigger value="time" className="text-xs font-bold px-4 py-2 gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> Time & Logins
+                </TabsTrigger>
+                <TabsTrigger value="proctoring" className="text-xs font-bold px-4 py-2 gap-1.5">
+                  <ShieldAlert className="h-3.5 w-3.5" /> Proctoring Logs ({studentData.proctoringLogs?.length || 0})
+                </TabsTrigger>
+                <TabsTrigger value="audit" className="text-xs font-bold px-4 py-2 gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Activity Audit
+                </TabsTrigger>
+              </TabsList>
+
+              {/* TAB 1: COURSES */}
+              <TabsContent value="courses" className="space-y-4">
+                {courses.length === 0 ? (
+                  <Card className="p-8 text-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl">
+                    <Inbox className="h-8 w-8 text-[#9CA3AF] mx-auto mb-2" />
+                    <p className="text-xs font-semibold text-[#6B7280]">No assigned courses found for this student cohort.</p>
                   </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="practices" className="space-y-3">
-            {!selectedStudent.practicesSubmitted || selectedStudent.practicesSubmitted.length === 0 ? (
-              <div className="p-6 text-center text-xs text-[#6B7280]">No practice submissions.</div>
-            ) : (
-              selectedStudent.practicesSubmitted.map((p) => (
-                <Card key={p.practiceId} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] overflow-hidden text-xs">
-                  <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Code2 className="h-4 w-4 text-[#2563EB]" />
-                        <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">{p.title}</p>
-                      </div>
-                      <div className="flex items-center gap-4 text-[10px] text-[#6B7280]">
-                        <span>Day {p.dayNumber} ({p.date})</span>
-                        {p.type === "coding" && <span>Test Cases: {p.testCasesPassed}</span>}
-                      </div>
-                    </div>
-                    <div className="text-right mt-2 sm:mt-0 flex items-center justify-end gap-3">
-                      <div>
-                        <span className="font-bold text-base text-[#16A34A]">{p.score}% Score</span>
-                      </div>
-                      
-                      {p.submittedCode && (
-                        <Button 
-                          variant="secondary" 
-                          size="sm" 
-                          className="h-7 text-[10px] px-2 font-bold gap-1"
-                          onClick={() => togglePractice(p.practiceId)}
-                        >
-                          <Eye className="h-3 w-3" /> {expandedPractices.includes(p.practiceId) ? "Hide Answers" : "Review Answers"}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {expandedPractices.includes(p.practiceId) && p.submittedCode && (
-                    <div className="p-4 space-y-4">
-                      <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Code Submission</p>
-                      <div className="bg-[#111827] text-white p-3 rounded-md overflow-x-auto">
-                        <pre className="text-[11px] font-mono whitespace-pre-wrap">{p.submittedCode}</pre>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mt-2">
-                        {p.feedback ? (
-                          <div className="text-[11px] text-[#2563EB] bg-[#2563EB]/5 p-2 rounded-md flex-1">
-                            <strong>Trainer Feedback:</strong> {p.feedback}
-                          </div>
-                        ) : (
-                          <div className="text-[11px] text-[#6B7280] italic flex-1">No feedback provided yet.</div>
-                        )}
-
-                        {portalRole === "trainer" || portalRole === "admin" ? (
-                          <Dialog>
-                            <DialogTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground h-7 text-[10px] px-2 font-bold gap-1 ml-3 text-[#2563EB] hover:text-[#1D4ED8] hover:bg-[#2563EB]/10">
-                              <Edit className="h-3 w-3" /> Evaluate
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-md">
-                              <DialogHeader>
-                                <DialogTitle>Evaluate Practice</DialogTitle>
-                                <DialogDescription>Review the submitted code and update score/feedback.</DialogDescription>
-                              </DialogHeader>
-                              <div className="py-2 space-y-4">
-                                <div>
-                                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] mb-2 block">Score (%)</label>
-                                  <Input type="number" max="100" min="0" defaultValue={p.score} />
-                                </div>
-                                <div>
-                                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] mb-2 block">Trainer Feedback</label>
-                                  <textarea 
-                                    className="w-full text-xs p-3 rounded-md border border-[#E5E7EB] dark:border-[#27272A] bg-transparent focus:outline-none focus:ring-1 focus:ring-[#2563EB]" 
-                                    rows={3} 
-                                    defaultValue={p.feedback || ""}
-                                    placeholder="Add feedback for the practice lab..."
-                                  />
-                                </div>
+                ) : (
+                  courses.map((course: any) => (
+                    <Card key={course.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden">
+                      <CardHeader className="p-5 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                            <BookOpen className="h-4 w-4 text-[#2563EB]" /> {course.title}
+                          </CardTitle>
+                          <CardDescription className="text-[11px] text-[#6B7280]">
+                            {course.category} • {course.completedModules} of {course.totalModules} modules finished
+                          </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-extrabold text-[#0D9488]">{course.progress}% Completed</span>
+                          <Badge className={cn("text-[10px] font-bold", course.progress === 100 ? "bg-[#16A34A] text-white" : "bg-[#2563EB]/10 text-[#2563EB]")}>
+                            {course.status}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-5 space-y-3">
+                        <div className="h-2 w-full bg-[#E5E7EB] dark:bg-[#27272A] rounded-full overflow-hidden">
+                          <div className="h-full bg-[#0D9488] rounded-full transition-all duration-500" style={{ width: `${course.progress}%` }} />
+                        </div>
+                        <div className="divide-y divide-[#E5E7EB] dark:divide-[#27272A] pt-1">
+                          {(course.modules || []).map((m: any, mIdx: number) => (
+                            <div key={m.id || mIdx} className="py-2.5 flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
+                                <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{m.title}</span>
                               </div>
-                              <DialogFooter>
-                                <DialogClose render={<Button variant="outline">Cancel</Button>} />
-                                <DialogClose render={<Button className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" onClick={() => {
-                                  toast({ title: "Evaluation Saved", description: "Practice lab evaluation updated." });
-                                }}>Save Evaluation</Button>} />
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        ) : null}
-                      </div>
-                    </div>
-                  )}
-                </Card>
-              ))
-            )}
-          </TabsContent>
-
-          <TabsContent value="tests" className="space-y-4">
-            {!selectedStudent.testsTaken || selectedStudent.testsTaken.length === 0 ? (
-              <div className="p-6 text-center text-xs text-[#6B7280]">No evaluations completed.</div>
-            ) : (
-              selectedStudent.testsTaken.map((t) => (
-                <Card key={t.testId} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] overflow-hidden">
-                  <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]">
-                    <div>
-                      <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">{t.testTitle}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-[9px] bg-white dark:bg-[#18181B] text-[#6B7280]">{t.category}</Badge>
-                        <span className="text-[10px] text-[#6B7280]">Completed: {t.completedAt}</span>
-                      </div>
-                    </div>
-                    <div className="text-right mt-2 sm:mt-0 flex items-center justify-end gap-3">
-                      <div>
-                        <span className="font-bold text-base text-[#16A34A]">{t.score}%</span>
-                        <p className="text-[10px] text-[#DC2626]">{t.violations} Violations</p>
-                      </div>
-                      
-                      {t.answers && t.answers.length > 0 && (
-                        <Button 
-                          variant="secondary" 
-                          size="sm" 
-                          className="h-7 text-[10px] px-2 font-bold gap-1"
-                          onClick={() => toggleTest(t.testId)}
-                        >
-                          <Eye className="h-3 w-3" /> {expandedTests.includes(t.testId) ? "Hide Answers" : "Review Answers"}
-                        </Button>
-                      )}
-
-                      {portalRole === "admin" && (
-                        <Dialog>
-                          <DialogTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-7 text-[10px] px-2 font-bold gap-1 border-[#E5E7EB] dark:border-[#27272A]">
-                            <Edit className="h-3 w-3" /> Edit Score
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                              <DialogTitle>Edit Score for {t.testTitle}</DialogTitle>
-                              <DialogDescription>Enter the new score manually below.</DialogDescription>
-                            </DialogHeader>
-                            <div className="py-4">
-                              <label htmlFor={`score-${t.testId}`} className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] mb-2 block">New Score (%)</label>
-                              <Input type="number" max="100" min="0" defaultValue={t.score} id={`score-${t.testId}`} />
-                            </div>
-                            <DialogFooter className="flex items-center gap-2">
-                              <DialogClose render={<Button variant="outline">Cancel</Button>} />
-                              <DialogClose render={<Button onClick={() => {
-                                const val = (document.getElementById(`score-${t.testId}`) as HTMLInputElement)?.value;
-                                if (val) handleUpdateScore(t.testId, Number(val));
-                              }} className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white">Save Changes</Button>} />
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      )}
-                    </div>
-                  </div>
-
-                  {expandedTests.includes(t.testId) && t.answers && t.answers.length > 0 && (
-                    <div className="p-4 space-y-4">
-                      <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Submission Review</p>
-                      {t.answers.map((ans, idx) => (
-                        <div key={ans.questionId} className="text-xs border border-[#E5E7EB] dark:border-[#27272A] rounded-lg p-3 space-y-2 relative group">
-                          <div className="flex items-start justify-between gap-4">
-                            <p className="font-semibold text-[#111827] dark:text-[#FAFAFA]">Q{idx + 1}. {ans.questionText}</p>
-                            <Badge className={ans.isCorrect ? "bg-[#16A34A]/10 text-[#16A34A]" : "bg-[#DC2626]/10 text-[#DC2626]"} variant="secondary">
-                              {ans.marksObtained}/{ans.maxMarks}
-                            </Badge>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                            <div className="bg-[#F9FAFB] dark:bg-[#09090B] p-2 rounded-md">
-                              <span className="block text-[10px] font-bold text-[#6B7280] mb-1">Student's Answer</span>
-                              <p className="text-[#111827] dark:text-[#FAFAFA]">{ans.studentAnswer}</p>
-                            </div>
-                            <div className="bg-[#16A34A]/5 p-2 rounded-md border border-[#16A34A]/10">
-                              <span className="block text-[10px] font-bold text-[#16A34A] mb-1">Correct Answer</span>
-                              <p className="text-[#111827] dark:text-[#FAFAFA]">{ans.correctAnswer}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center justify-between mt-2">
-                            {ans.feedback ? (
-                              <div className="text-[11px] text-[#2563EB] bg-[#2563EB]/5 p-2 rounded-md flex-1">
-                                <strong>Evaluator Feedback:</strong> {ans.feedback}
+                              <div className="flex items-center gap-3">
+                                <span className="text-[11px] text-[#6B7280]">
+                                  {m.completedAt ? `Completed: ${new Date(m.completedAt).toLocaleDateString()}` : "In progress"}
+                                </span>
+                                <Badge className={cn("text-[9px] font-bold", m.completed ? "bg-[#16A34A] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
+                                  {m.completed ? "Done" : "Pending"}
+                                </Badge>
                               </div>
-                            ) : (
-                              <div className="text-[11px] text-[#6B7280] italic flex-1">No feedback provided yet.</div>
-                            )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </TabsContent>
 
-                            {portalRole === "admin" && (
-                              <Dialog>
-                                <DialogTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground h-7 text-[10px] px-2 font-bold gap-1 ml-3 text-[#2563EB] hover:text-[#1D4ED8] hover:bg-[#2563EB]/10">
-                                  <Edit className="h-3 w-3" /> Evaluate
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-md">
-                                  <DialogHeader>
-                                    <DialogTitle>Evaluate Answer</DialogTitle>
-                                    <DialogDescription>Review the student's answer and update marks/feedback.</DialogDescription>
-                                  </DialogHeader>
-                                  <div className="py-2 space-y-4">
-                                    <div className="bg-[#F9FAFB] dark:bg-[#09090B] p-3 rounded-md text-xs">
-                                      <span className="block text-[10px] font-bold text-[#6B7280] mb-1">Student's Answer</span>
-                                      <p className="text-[#111827] dark:text-[#FAFAFA]">{ans.studentAnswer}</p>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div>
-                                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] mb-2 block">Marks Obtained (Max: {ans.maxMarks})</label>
-                                        <Input type="number" max={ans.maxMarks} min="0" defaultValue={ans.marksObtained} />
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] mb-2 block">Evaluator Feedback</label>
-                                      <textarea 
-                                        className="w-full text-xs p-3 rounded-md border border-[#E5E7EB] dark:border-[#27272A] bg-transparent focus:outline-none focus:ring-1 focus:ring-[#2563EB]" 
-                                        rows={3} 
-                                        defaultValue={ans.feedback || ""}
-                                        placeholder="Add feedback for the student..."
-                                      />
-                                    </div>
-                                  </div>
-                                  <DialogFooter>
-                                    <DialogClose render={<Button variant="outline">Cancel</Button>} />
-                                    <DialogClose render={<Button className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" onClick={() => {
-                                      toast({ title: "Evaluation Saved", description: "The answer feedback and marks have been updated." });
-                                    }}>Save Evaluation</Button>} />
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
-                            )}
+              {/* TAB 2: PRACTICES */}
+              <TabsContent value="practices" className="space-y-4">
+                {practices.length === 0 ? (
+                  <Card className="p-8 text-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl">
+                    <Inbox className="h-8 w-8 text-[#9CA3AF] mx-auto mb-2" />
+                    <p className="text-xs font-semibold text-[#6B7280]">No practice tracks attempted yet.</p>
+                  </Card>
+                ) : (
+                  practices.map((track: any) => (
+                    <Card key={track.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden">
+                      <CardHeader className="p-5 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                            <Dumbbell className="h-4 w-4 text-[#16A34A]" /> {track.title}
+                          </CardTitle>
+                          <CardDescription className="text-[11px] text-[#6B7280]">
+                            {track.completedChallenges} of {track.totalChallenges} challenges solved
+                          </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-extrabold text-[#16A34A]">{track.progress}% Solved</span>
+                          <Badge className={cn("text-[10px] font-bold", track.progress === 100 ? "bg-[#16A34A] text-white" : "bg-[#16A34A]/10 text-[#16A34A]")}>
+                            {track.status}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-5 space-y-2.5">
+                        <div className="h-2 w-full bg-[#E5E7EB] dark:bg-[#27272A] rounded-full overflow-hidden">
+                          <div className="h-full bg-[#16A34A] rounded-full transition-all duration-500" style={{ width: `${track.progress}%` }} />
+                        </div>
+                        <div className="divide-y divide-[#E5E7EB] dark:divide-[#27272A] pt-1">
+                          {(track.challenges || []).map((ch: any, chIdx: number) => (
+                            <div key={ch.id || chIdx} className="py-2.5 flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <Code2 className="h-3.5 w-3.5 text-[#16A34A]" />
+                                <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{ch.title}</span>
+                                <Badge variant="outline" className="text-[9px] font-semibold">{ch.difficulty}</Badge>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {ch.score !== undefined && (
+                                  <span className="font-bold text-[#16A34A] text-[11px]">{ch.score}% Score</span>
+                                )}
+                                <span className="text-[11px] text-[#6B7280]">
+                                  {ch.completedAt ? `Solved: ${ch.completedAt}` : "Not attempted"}
+                                </span>
+                                <Badge className={cn("text-[9px] font-bold", ch.completed ? "bg-[#16A34A] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
+                                  {ch.completed ? "Solved" : "Pending"}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </TabsContent>
+
+              {/* TAB 3: ASSESSMENTS */}
+              <TabsContent value="tests" className="space-y-4">
+                {assessments.length === 0 ? (
+                  <Card className="p-8 text-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl">
+                    <Inbox className="h-8 w-8 text-[#9CA3AF] mx-auto mb-2" />
+                    <p className="text-xs font-semibold text-[#6B7280]">No assessments completed yet.</p>
+                  </Card>
+                ) : (
+                  assessments.map((t: any) => (
+                    <Card key={t.id || t.testId} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] overflow-hidden rounded-2xl">
+                      <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]">
+                        <div>
+                          <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">{t.title || t.testTitle}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-[9px] bg-white dark:bg-[#18181B] text-[#6B7280]">{t.type || t.category}</Badge>
+                            <span className="text-[10px] text-[#6B7280]">Completed: {t.completedDate || t.completedAt}</span>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              ))
-            )}
-          </TabsContent>
+                        <div className="text-right mt-2 sm:mt-0 flex items-center justify-end gap-3">
+                          <div>
+                            <span className="font-bold text-base text-[#16A34A]">{t.scoreObtained || `${t.score}%`}</span>
+                            <p className="text-[10px] text-[#DC2626]">{t.integrityViolations || `${t.violations || 0} Violations`}</p>
+                          </div>
 
-          <TabsContent value="proctoring" className="space-y-3">
-            {!selectedStudent.proctoringLogs || selectedStudent.proctoringLogs.length === 0 ? (
-              <div className="p-6 bg-[#16A34A]/5 border border-[#16A34A]/20 rounded-2xl text-center space-y-1">
-                <CheckCircle2 className="h-6 w-6 text-[#16A34A] mx-auto" />
-                <p className="text-xs font-bold text-[#16A34A]">100% Clean Security Record</p>
-                <p className="text-[11px] text-[#6B7280]">No tab switching, window blur, or gaze violations logged.</p>
-              </div>
-            ) : (
-              selectedStudent.proctoringLogs.map((log) => (
-                <div key={log.id} className="p-3.5 bg-[#DC2626]/5 border border-[#DC2626]/20 rounded-xl flex items-center justify-between text-xs">
-                  <div className="space-y-0.5">
-                    <Badge className="bg-[#DC2626] text-white text-[9px] font-bold uppercase mr-2">{log.type}</Badge>
-                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{log.message}</span>
+                          {t.answers && t.answers.length > 0 && (
+                            <Button 
+                              variant="secondary" 
+                              size="sm" 
+                              className="h-7 text-[10px] px-2 font-bold gap-1"
+                              onClick={() => toggleTest(t.testId || t.id)}
+                            >
+                              <Eye className="h-3 w-3" /> {expandedTests.includes(t.testId || t.id) ? "Hide Answers" : "Review Answers"}
+                            </Button>
+                          )}
+
+                          {portalRole === "admin" && (
+                            <Dialog>
+                              <DialogTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-7 text-[10px] px-2 font-bold gap-1 border-[#E5E7EB] dark:border-[#27272A]">
+                                <Edit className="h-3 w-3" /> Edit Score
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-md">
+                                <DialogHeader>
+                                  <DialogTitle>Edit Score for {t.title || t.testTitle}</DialogTitle>
+                                  <DialogDescription>Enter the adjusted score manually below.</DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4">
+                                  <label htmlFor={`score-${t.id || t.testId}`} className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] mb-2 block">New Score (%)</label>
+                                  <Input type="number" max="100" min="0" defaultValue={t.scoreNumber || t.score || 90} id={`score-${t.id || t.testId}`} />
+                                </div>
+                                <DialogFooter className="flex items-center gap-2">
+                                  <DialogClose render={<Button variant="outline">Cancel</Button>} />
+                                  <DialogClose render={<Button onClick={() => {
+                                    const val = (document.getElementById(`score-${t.id || t.testId}`) as HTMLInputElement)?.value;
+                                    if (val) handleUpdateScore(t.testId || t.id, Number(val));
+                                  }} className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white">Save Changes</Button>} />
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+                          )}
+                        </div>
+                      </div>
+
+                      {expandedTests.includes(t.testId || t.id) && t.answers && t.answers.length > 0 && (
+                        <div className="p-4 space-y-4">
+                          <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Submission Question Breakdown</p>
+                          {t.answers.map((ans: any, idx: number) => (
+                            <div key={ans.questionId || idx} className="text-xs border border-[#E5E7EB] dark:border-[#27272A] rounded-lg p-3 space-y-2 relative group">
+                              <div className="flex items-start justify-between gap-4">
+                                <p className="font-semibold text-[#111827] dark:text-[#FAFAFA]">Q{idx + 1}. {ans.questionText}</p>
+                                <Badge className={ans.isCorrect ? "bg-[#16A34A]/10 text-[#16A34A]" : "bg-[#DC2626]/10 text-[#DC2626]"} variant="secondary">
+                                  {ans.marksObtained}/{ans.maxMarks}
+                                </Badge>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                                <div className="bg-[#F9FAFB] dark:bg-[#09090B] p-2 rounded-md">
+                                  <span className="block text-[10px] font-bold text-[#6B7280] mb-1">Student's Response</span>
+                                  <p className="text-[#111827] dark:text-[#FAFAFA] font-mono text-[11px]">{ans.studentAnswer}</p>
+                                </div>
+                                <div className="bg-[#16A34A]/5 p-2 rounded-md border border-[#16A34A]/10">
+                                  <span className="block text-[10px] font-bold text-[#16A34A] mb-1">Correct Answer</span>
+                                  <p className="text-[#111827] dark:text-[#FAFAFA] font-mono text-[11px]">{ans.correctAnswer}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+                  ))
+                )}
+              </TabsContent>
+
+              {/* TAB 4: TIME & LOGINS */}
+              <TabsContent value="time" className="space-y-6">
+                <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Candidate Time Spent on Platform</h4>
+                      <p className="text-xs text-[#6B7280]">Total Active Time: <strong>{formatTimeSpent(summary.totalTimeSpentSeconds || 0)}</strong></p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-bold">{analyticsDateRangeLabel}</Badge>
                   </div>
-                  <span className="font-mono text-[10px] text-[#6B7280]">{log.timestamp}</span>
-                </div>
-              ))
-            )}
-          </TabsContent>
-        </Tabs>
+
+                  <div className="h-36 w-full flex items-end justify-between px-2 pt-4">
+                    {dailyTimeSpent.map((item: any, idx: number) => (
+                      <div key={idx} className="flex flex-col items-center flex-1 max-w-[45px]">
+                        <div className="w-full flex items-end justify-center h-24">
+                          <div
+                            style={{ height: `${Math.max(6, item.height)}%` }}
+                            className="w-3.5 sm:w-4 rounded-t-md bg-gradient-to-t from-[#2563EB] to-[#60A5FA]"
+                          />
+                        </div>
+                        <span className="text-[10px] text-[#6B7280] mt-1.5">{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden">
+                  <CardHeader className="p-5 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
+                    <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      Candidate Login History
+                    </CardTitle>
+                  </CardHeader>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] font-bold">
+                        <tr>
+                          <th className="p-4 pl-6">Login Timestamp</th>
+                          <th className="p-4">Device / Source</th>
+                          <th className="p-4">Session Duration</th>
+                          <th className="p-4 pr-6 text-right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                        {loginActivities.map((log: any) => (
+                          <tr key={log.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors">
+                            <td className="p-4 pl-6 font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                              <Clock className="h-3.5 w-3.5 text-[#2563EB]" /> {log.timestamp}
+                            </td>
+                            <td className="p-4 text-[#6B7280]">{log.device}</td>
+                            <td className="p-4 font-bold text-[#111827] dark:text-[#FAFAFA]">{log.duration}</td>
+                            <td className="p-4 pr-6 text-right">
+                              <Badge className="bg-[#16A34A] text-white text-[10px] font-bold">{log.status}</Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* TAB 5: PROCTORING */}
+              <TabsContent value="proctoring" className="space-y-3">
+                {(!studentData.proctoringLogs || studentData.proctoringLogs.length === 0) ? (
+                  <div className="p-6 bg-[#16A34A]/5 border border-[#16A34A]/20 rounded-2xl text-center space-y-1">
+                    <CheckCircle2 className="h-6 w-6 text-[#16A34A] mx-auto" />
+                    <p className="text-xs font-bold text-[#16A34A]">100% Clean Security Record</p>
+                    <p className="text-[11px] text-[#6B7280]">No tab switching, window blur, or gaze violations logged.</p>
+                  </div>
+                ) : (
+                  studentData.proctoringLogs.map((log: any) => (
+                    <div key={log.id} className="p-3.5 bg-[#DC2626]/5 border border-[#DC2626]/20 rounded-xl flex items-center justify-between text-xs">
+                      <div className="space-y-0.5">
+                        <Badge className="bg-[#DC2626] text-white text-[9px] font-bold uppercase mr-2">{log.type}</Badge>
+                        <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{log.message}</span>
+                      </div>
+                      <span className="font-mono text-[10px] text-[#6B7280]">{log.timestamp}</span>
+                    </div>
+                  ))
+                )}
+              </TabsContent>
+
+              {/* TAB 6: AUDIT */}
+              <TabsContent value="audit" className="space-y-4">
+                {(!studentData.activityLogs || studentData.activityLogs.length === 0) ? (
+                  <div className="p-6 text-center text-xs text-[#6B7280]">No activity logs found.</div>
+                ) : (
+                  <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-[#E5E7EB] dark:before:via-[#27272A] before:to-transparent">
+                    {studentData.activityLogs.map((log: any) => (
+                      <div key={log.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-[#18181B] bg-[#F9FAFB] dark:bg-[#09090B] group-hover:bg-[#2563EB]/10 text-[#6B7280] group-hover:text-[#2563EB] shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                          {log.type === "login" && <Lock className="h-4 w-4" />}
+                          {log.type === "course" && <FileText className="h-4 w-4" />}
+                          {log.type === "test" && <Award className="h-4 w-4" />}
+                          {log.type === "practice" && <Code2 className="h-4 w-4" />}
+                          {log.type === "system" && <Clock className="h-4 w-4" />}
+                        </div>
+                        <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] shadow-sm">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">{log.action}</span>
+                            <span className="text-[10px] text-[#6B7280] font-mono">{log.timestamp}</span>
+                          </div>
+                          <p className="text-xs text-[#6B7280]">{log.details}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </>
+        )}
+
+        {/* Custom Date to Date Modal Dialog */}
+        <Dialog open={isAnalyticsCustomModalOpen} onOpenChange={setIsAnalyticsCustomModalOpen}>
+          <DialogContent className="max-w-md bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                <CalendarDays className="h-5 w-5 text-[#2563EB]" /> Custom Date Range Filter
+              </DialogTitle>
+              <DialogDescription className="text-xs text-[#6B7280]">
+                Select start date and end date to filter candidate performance metrics.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">From Date</Label>
+                <Input
+                  type="date"
+                  value={analyticsFromDate}
+                  onChange={(e) => setAnalyticsFromDate(e.target.value)}
+                  className="h-10 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">To Date</Label>
+                <Input
+                  type="date"
+                  value={analyticsToDate}
+                  onChange={(e) => setAnalyticsToDate(e.target.value)}
+                  className="h-10 text-xs rounded-xl"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAnalyticsCustomModalOpen(false)}
+                className="text-xs font-semibold"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleApplyAnalyticsCustomRange}
+                className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold gap-1.5"
+              >
+                Apply Filter
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
