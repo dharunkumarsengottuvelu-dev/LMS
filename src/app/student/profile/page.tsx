@@ -27,6 +27,9 @@ export default function StudentProfilePage() {
   const [enrolledCount, setEnrolledCount] = useState(0);
   const [practiceCount, setPracticeCount] = useState(0);
   const [submissionsCount, setSubmissionsCount] = useState(0);
+  const [reportTimeSpent, setReportTimeSpent] = useState("0h 0m");
+  const [reportCompletedCourses, setReportCompletedCourses] = useState(0);
+  const [reportCourses, setReportCourses] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchCounts() {
@@ -38,12 +41,25 @@ export default function StudentProfilePage() {
       const { count: eCount } = await supabase.from("enrollments").select("*", { count: "exact", head: true }).eq("user_id", user.id);
       setEnrolledCount(eCount || 0);
       
-      const { count: pCount } = await supabase.from("practice_tracks").select("*", { count: "exact", head: true }); // Need a better join or relation if you assign tracks per user
-      setPracticeCount(0); // Set to 0 until relations are mapped for tracks
-
       const { count: sCount } = await supabase.from("assignment_submissions").select("*", { count: "exact", head: true }).eq("user_id", user.id);
       const { count: aCount } = await supabase.from("assessment_attempts").select("*", { count: "exact", head: true }).eq("user_id", user.id);
       setSubmissionsCount((sCount || 0) + (aCount || 0));
+
+      try {
+        const repRes = await fetch("/api/student/reports?range=7d");
+        const repData = await repRes.json();
+        if (repData.reports) {
+          setEnrolledCount(repData.reports.totalCoursesEnrolled || 0);
+          setReportCompletedCourses(repData.reports.completedCoursesCount || 0);
+          setReportCourses(repData.reports.courses || []);
+          const totalSecs = repData.reports.totalTimeSpentSeconds || 0;
+          const hrs = Math.floor(totalSecs / 3600);
+          const mins = Math.floor((totalSecs % 3600) / 60);
+          setReportTimeSpent(`${hrs}h ${mins}m`);
+        }
+      } catch (err) {
+        console.error("Failed to load reports in profile", err);
+      }
     }
     fetchCounts();
   }, [user]);
@@ -622,22 +638,22 @@ export default function StudentProfilePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
                     <span className="text-[10px] font-bold uppercase text-[#6B7280]">Enrolled Courses</span>
-                    <p className="text-2xl font-extrabold text-[#D97706] mt-1">{enrolledCount || 9}</p>
+                    <p className="text-2xl font-extrabold text-[#D97706] mt-1">{enrolledCount}</p>
                     <p className="text-[10px] text-[#6B7280]">Assigned tracks</p>
                   </div>
                   <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
                     <span className="text-[10px] font-bold uppercase text-[#6B7280]">Activities Done</span>
-                    <p className="text-2xl font-extrabold text-[#16A34A] mt-1">{submissionsCount || 10}</p>
-                    <p className="text-[10px] text-[#16A34A] font-semibold">↑ 100% Up</p>
+                    <p className="text-2xl font-extrabold text-[#16A34A] mt-1">{submissionsCount}</p>
+                    <p className="text-[10px] text-[#16A34A] font-semibold">Live Submissions</p>
                   </div>
                   <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
                     <span className="text-[10px] font-bold uppercase text-[#6B7280]">Time Spent</span>
-                    <p className="text-2xl font-extrabold text-[#111827] dark:text-[#FAFAFA] mt-1">3h 22m</p>
-                    <p className="text-[10px] text-[#6B7280]">Last 7 days</p>
+                    <p className="text-2xl font-extrabold text-[#111827] dark:text-[#FAFAFA] mt-1">{reportTimeSpent}</p>
+                    <p className="text-[10px] text-[#6B7280]">Active evaluation</p>
                   </div>
                   <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A]">
                     <span className="text-[10px] font-bold uppercase text-[#6B7280]">Completed Tracks</span>
-                    <p className="text-2xl font-extrabold text-[#2563EB] mt-1">0</p>
+                    <p className="text-2xl font-extrabold text-[#2563EB] mt-1">{reportCompletedCourses}</p>
                     <p className="text-[10px] text-[#6B7280]">Certificates ready</p>
                   </div>
                 </div>
@@ -653,37 +669,28 @@ export default function StudentProfilePage() {
                     </Link>
                   </div>
 
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-xs font-semibold mb-1">
-                        <span>Problem Solving & Algorithmic Foundations</span>
-                        <span className="text-[#0D9488] font-bold">80%</span>
-                      </div>
-                      <div className="h-2 w-full bg-[#E5E7EB] dark:bg-[#27272A] rounded-full overflow-hidden">
-                        <div className="h-full bg-[#0D9488] rounded-full" style={{ width: "80%" }} />
-                      </div>
+                  {reportCourses.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-[#6B7280] bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
+                      No enrolled courses found for your batch.
                     </div>
-
-                    <div>
-                      <div className="flex justify-between text-xs font-semibold mb-1">
-                        <span>Master Java Programming (Zero to Hero)</span>
-                        <span className="text-[#2563EB] font-bold">70%</span>
-                      </div>
-                      <div className="h-2 w-full bg-[#E5E7EB] dark:bg-[#27272A] rounded-full overflow-hidden">
-                        <div className="h-full bg-[#2563EB] rounded-full" style={{ width: "70%" }} />
-                      </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {reportCourses.slice(0, 3).map((c, i) => (
+                        <div key={c.id || i}>
+                          <div className="flex justify-between text-xs font-semibold mb-1">
+                            <span className="truncate max-w-[280px]">{c.title}</span>
+                            <span className="text-[#0D9488] font-bold">{c.progress}%</span>
+                          </div>
+                          <div className="h-2 w-full bg-[#E5E7EB] dark:bg-[#27272A] rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-[#0D9488] rounded-full transition-all duration-500"
+                              style={{ width: `${c.progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
-
-                    <div>
-                      <div className="flex justify-between text-xs font-semibold mb-1">
-                        <span>Complete Data Structures & Algorithms</span>
-                        <span className="text-[#2563EB] font-bold">65%</span>
-                      </div>
-                      <div className="h-2 w-full bg-[#E5E7EB] dark:bg-[#27272A] rounded-full overflow-hidden">
-                        <div className="h-full bg-[#2563EB] rounded-full" style={{ width: "65%" }} />
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Banner CTA */}
