@@ -106,11 +106,21 @@ export async function GET(request: NextRequest) {
         const modules = rawMods.map((m: any, mIdx: number) => {
           const subCount = m.subModules?.length || 1;
           const isModCompleted = progress >= Math.round(((mIdx + 1) / Math.max(1, rawMods.length)) * 100);
+          const startStr = isModCompleted || progress > 0
+            ? (enroll?.created_at ? new Date(enroll.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Started")
+            : "Not Started";
+          const compStr = isModCompleted
+            ? (c.updated_at ? new Date(c.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Completed")
+            : null;
+
           return {
             id: m.id || `mod_${mIdx + 1}`,
             title: m.title || `Module ${mIdx + 1}`,
             completed: isModCompleted,
-            completedAt: isModCompleted ? (c.updated_at || c.created_at) : undefined,
+            startedAt: startStr,
+            completedAt: compStr,
+            attemptsCount: isModCompleted ? 1 : 0,
+            status: isModCompleted ? "Completed" : progress > 0 ? "In Progress" : "Not Started",
             subLessonsCount: subCount,
             completedLessonsCount: isModCompleted ? subCount : 0,
           };
@@ -125,6 +135,8 @@ export async function GET(request: NextRequest) {
           totalLessons: Math.max(1, totalLessons),
           totalModules: rawMods.length,
           completedModules: modules.filter((m: any) => m.completed).length,
+          startDate: enroll?.created_at ? new Date(enroll.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Enrolled",
+          completedDate: progress === 100 && (enroll?.updated_at || c.updated_at) ? new Date(enroll?.updated_at || c.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
           lastAccessed: c.updated_at ? new Date(c.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A",
           status: progress === 100 ? "Completed" : progress > 0 ? "In Progress" : "Not Started",
           modules,
@@ -187,8 +199,18 @@ export async function GET(request: NextRequest) {
         const mappedSubs = subModules.map((sm: any, smIdx: number) => {
           const subAttempts = attemptsMap.get(sm.id) || [];
           const bestAttempt = subAttempts[0];
-          const isDone = subAttempts.length > 0;
+          const isDone = subAttempts.length > 0 && ((bestAttempt?.score ?? 0) >= 50 || bestAttempt?.passed);
+          const hasAttempted = subAttempts.length > 0;
           if (isDone) completedSubs++;
+
+          const startedAtStr = hasAttempted
+            ? new Date(subAttempts[subAttempts.length - 1].created_at || subAttempts[subAttempts.length - 1].submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+            : "Not Started";
+          const completedAtStr = bestAttempt?.submitted_at
+            ? new Date(bestAttempt.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+            : isDone
+            ? "Completed"
+            : null;
 
           return {
             id: sm.id || `sm_${smIdx + 1}`,
@@ -196,8 +218,11 @@ export async function GET(request: NextRequest) {
             description: sm.description || "Interactive problem",
             difficulty: sm.difficulty || "Medium",
             completed: isDone,
+            attemptsCount: subAttempts.length,
+            startedAt: startedAtStr,
+            completedAt: completedAtStr,
             score: bestAttempt?.score !== undefined ? Math.round(bestAttempt.score) : undefined,
-            completedAt: bestAttempt?.submitted_at ? new Date(bestAttempt.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : undefined,
+            status: isDone ? "Completed" : hasAttempted ? "In Progress" : "Not Started",
             submittedTimestamp: bestAttempt?.submitted_at ? new Date(bestAttempt.submitted_at).getTime() : 0,
           };
         });
@@ -262,6 +287,15 @@ export async function GET(request: NextRequest) {
         const totalMarks = bestAtt?.total_marks || a.total_marks || 100;
         const pct = Math.min(100, Math.round((score / totalMarks) * 100));
 
+        const startedAtStr = isAttempted
+          ? new Date(attList[attList.length - 1].created_at || attList[attList.length - 1].submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })
+          : "Not Started";
+        const completedAtStr = bestAtt?.submitted_at
+          ? new Date(bestAtt.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })
+          : isAttempted
+          ? "Submitted"
+          : "Pending";
+
         assessmentsList.push({
           id: a.id,
           title: a.title,
@@ -269,11 +303,14 @@ export async function GET(request: NextRequest) {
           totalMarks,
           durationMinutes: a.duration_minutes || a.duration || 60,
           attempted: isAttempted,
+          attemptsCount: attList.length,
+          startedAt: startedAtStr,
+          completedDate: completedAtStr,
           scoreObtained: isAttempted ? `${score} / ${totalMarks} (${pct}%)` : "Not Attempted",
           rawScore: isAttempted ? pct : 0,
+          status: isAttempted ? (pct >= 50 ? "Completed (Passed)" : "Submitted (Needs Retake)") : "Not Started",
           evaluation: isAttempted ? (pct >= 50 ? (pct >= 85 ? "Passed (Distinction)" : "Passed") : "Evaluated") : "Pending",
           integrityViolations: bestAtt ? `${bestAtt.violations || bestAtt.tab_switches || 0} Flags` : "0 Flags",
-          completedDate: bestAtt?.submitted_at ? new Date(bestAtt.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "N/A",
           submittedTimestamp: bestAtt?.submitted_at ? new Date(bestAtt.submitted_at).getTime() : 0,
         });
       }

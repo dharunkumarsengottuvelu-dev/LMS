@@ -131,12 +131,17 @@ export async function GET(
         status: progressPct === 100 ? "Completed" : progressPct > 0 ? "In Progress" : "Enrolled",
         completedModules: completedModulesCount,
         totalModules: cMods.length || 4,
+        startDate: cp?.created_at ? new Date(cp.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Enrolled",
+        completedDate: progressPct === 100 && cp?.updated_at ? new Date(cp.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
         lastAccessed: cp?.updated_at ? new Date(cp.updated_at).toISOString().slice(0, 10) : "Recent",
         modules: cMods.map((m, idx) => ({
           id: m.id,
           title: m.title,
           completed: idx < completedModulesCount,
-          completedAt: idx < completedModulesCount ? (cp?.updated_at || new Date().toISOString()) : null,
+          startedAt: idx < completedModulesCount || progressPct > 0 ? (cp?.created_at ? new Date(cp.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Started") : "Not Started",
+          completedAt: idx < completedModulesCount ? (cp?.updated_at ? new Date(cp.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Completed") : null,
+          attemptsCount: idx < completedModulesCount ? 1 : 0,
+          status: idx < completedModulesCount ? "Completed" : progressPct > 0 ? "In Progress" : "Not Started",
         })),
       };
     });
@@ -149,10 +154,12 @@ export async function GET(
       .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
       .order("submitted_at", { ascending: false });
 
-    const attemptsMap = new Map<string, any>();
+    const attemptsMap = new Map<string, any[]>();
     (rawAttempts || []).forEach((att) => {
-      if (att.assessment_id && !attemptsMap.has(att.assessment_id)) {
-        attemptsMap.set(att.assessment_id, att);
+      if (att.assessment_id) {
+        const list = attemptsMap.get(att.assessment_id) || [];
+        list.push(att);
+        attemptsMap.set(att.assessment_id, list);
       }
     });
 
@@ -169,17 +176,30 @@ export async function GET(
       let solvedCount = 0;
 
       const challenges = subModules.map((sm: any, smIdx: number) => {
-        const attempt = attemptsMap.get(sm.id);
-        const solved = Boolean(attempt && ((attempt.score ?? 0) >= 50 || attempt.passed));
+        const attList = attemptsMap.get(sm.id) || [];
+        const attempt = attList[0];
+        const solved = Boolean(attList.length > 0 && ((attempt?.score ?? 0) >= 50 || attempt?.passed));
         if (solved) solvedCount++;
+
+        const startedAtStr = attList.length > 0
+          ? new Date(attList[attList.length - 1].created_at || attList[attList.length - 1].submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          : "Not Started";
+        const completedAtStr = attempt?.submitted_at
+          ? new Date(attempt.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          : solved
+          ? "Completed"
+          : null;
 
         const chalItem = {
           id: sm.id || `sm_${smIdx}`,
           title: sm.title || `Challenge #${smIdx + 1}`,
           difficulty: sm.difficulty || "Medium",
           completed: solved,
+          attemptsCount: attList.length,
+          startedAt: startedAtStr,
+          completedAt: completedAtStr,
+          status: solved ? "Completed" : attList.length > 0 ? "In Progress" : "Not Started",
           score: attempt?.score ?? (solved ? 100 : undefined),
-          completedAt: attempt?.submitted_at ? new Date(attempt.submitted_at).toISOString().slice(0, 10) : undefined,
           submittedCode: typeof attempt?.code === "string" ? attempt.code : undefined,
         };
 
@@ -190,6 +210,9 @@ export async function GET(
             type: "coding",
             date: attempt.submitted_at ? new Date(attempt.submitted_at).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
             dayNumber: smIdx + 1,
+            attemptsCount: attList.length,
+            startedAt: startedAtStr,
+            completedAt: completedAtStr,
             submittedCode: chalItem.submittedCode || "// Solution submitted by candidate",
             testCasesPassed: attempt.passed_test_cases ? `${attempt.passed_test_cases}` : `${attempt.score || 100}% Passed`,
             score: attempt.score || 100,
@@ -297,13 +320,19 @@ export async function GET(
 
       if (!isPractice) {
         const title = assessMeta?.title || `Proctored Assessment #${index + 1}`;
+        const attsForThis = attemptsMap.get(att.assessment_id) || [att];
+        const startedAtStr = new Date(att.created_at || att.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
         assessmentsList.push({
           id: att.id,
           title,
           type: assessMeta?.type === "coding" ? "Coding Assessment" : "Proctored Exam",
           scoreObtained: `${pctScore}%`,
           scoreNumber: pctScore,
+          attemptsCount: attsForThis.length,
+          startedAt: startedAtStr,
           evaluation: pctScore >= 60 ? "Passed" : "Needs Retake",
+          status: pctScore >= 60 ? "Completed (Passed)" : "Submitted (Needs Retake)",
           completedDate: `${dateStr} ${timeStr}`,
           integrityViolations: violations > 0 ? `${violations} Flagged Warnings` : "Clean Record (0)",
           attempted: true,

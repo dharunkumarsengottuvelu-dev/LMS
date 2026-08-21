@@ -874,17 +874,25 @@ export default function StudentProfilePage() {
                           {/* Module Completion Details */}
                           <div className="divide-y divide-[#E5E7EB] dark:divide-[#27272A] pt-1">
                             {(course.modules || []).map((m: any, mIdx: number) => (
-                              <div key={m.id || mIdx} className="py-2.5 flex items-center justify-between text-xs">
+                              <div key={m.id || mIdx} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
                                 <div className="flex items-center gap-2">
                                   <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
                                   <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{m.title}</span>
+                                  {m.attemptsCount !== undefined && (
+                                    <Badge variant="outline" className="text-[9px] font-semibold text-[#6B7280]">
+                                      {m.attemptsCount} {m.attemptsCount === 1 ? "attempt" : "attempts"}
+                                    </Badge>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 flex-wrap">
                                   <span className="text-[11px] text-[#6B7280]">
-                                    {m.completedAt ? `Completed: ${new Date(m.completedAt).toLocaleDateString()}` : "In progress"}
+                                    {m.startedAt && m.startedAt !== "Not Started" ? `Started: ${m.startedAt}` : "Not Started"}
                                   </span>
-                                  <Badge className={cn("text-[9px] font-bold", m.completed ? "bg-[#16A34A] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
-                                    {m.completed ? "Done" : "Pending"}
+                                  <span className="text-[11px] text-[#6B7280]">
+                                    {m.completedAt ? `Completed: ${m.completedAt}` : "Pending"}
+                                  </span>
+                                  <Badge className={cn("text-[9px] font-bold", m.completed ? "bg-[#16A34A] text-white" : m.startedAt && m.startedAt !== "Not Started" ? "bg-[#D97706] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
+                                    {m.completed ? "Completed" : m.startedAt && m.startedAt !== "Not Started" ? "In Progress" : "Pending"}
                                   </Badge>
                                 </div>
                               </div>
@@ -919,7 +927,7 @@ export default function StudentProfilePage() {
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="text-xs font-extrabold text-[#16A34A]">{track.progress}% Solved</span>
-                            <Badge className={cn("text-[10px] font-bold", track.progress === 100 ? "bg-[#16A34A] text-white" : "bg-[#16A34A]/10 text-[#16A34A]")}>
+                            <Badge className={cn("text-[10px] font-bold", track.progress === 100 ? "bg-[#16A34A] text-white" : track.progress > 0 ? "bg-[#D97706] text-white" : "bg-[#16A34A]/10 text-[#16A34A]")}>
                               {track.status}
                             </Badge>
                           </div>
@@ -932,22 +940,30 @@ export default function StudentProfilePage() {
 
                           <div className="divide-y divide-[#E5E7EB] dark:divide-[#27272A] pt-1">
                             {(track.challenges || []).map((ch: any, chIdx: number) => (
-                              <div key={ch.id || chIdx} className="py-2.5 flex items-center justify-between text-xs">
-                                <div className="flex items-center gap-2">
+                              <div key={ch.id || chIdx} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <Code2 className="h-3.5 w-3.5 text-[#16A34A]" />
                                   <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{ch.title}</span>
                                   <Badge variant="outline" className="text-[9px] font-semibold">{ch.difficulty}</Badge>
+                                  {ch.attemptsCount !== undefined && (
+                                    <Badge variant="outline" className="text-[9px] font-semibold text-[#6B7280]">
+                                      {ch.attemptsCount} {ch.attemptsCount === 1 ? "attempt" : "attempts"}
+                                    </Badge>
+                                  )}
                                 </div>
 
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 flex-wrap">
                                   {ch.score !== undefined && (
                                     <span className="font-bold text-[#16A34A] text-[11px]">{ch.score}% Score</span>
                                   )}
                                   <span className="text-[11px] text-[#6B7280]">
-                                    {ch.completedAt ? `Solved: ${ch.completedAt}` : "Not attempted"}
+                                    {ch.startedAt && ch.startedAt !== "Not Started" ? `Started: ${ch.startedAt}` : "Not started"}
                                   </span>
-                                  <Badge className={cn("text-[9px] font-bold", ch.completed ? "bg-[#16A34A] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
-                                    {ch.completed ? "Solved" : "Pending"}
+                                  <span className="text-[11px] text-[#6B7280]">
+                                    {ch.completedAt ? `Completed: ${ch.completedAt}` : "Pending"}
+                                  </span>
+                                  <Badge className={cn("text-[9px] font-bold", ch.completed ? "bg-[#16A34A] text-white" : ch.startedAt && ch.startedAt !== "Not Started" ? "bg-[#D97706] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
+                                    {ch.completed ? "Solved" : ch.startedAt && ch.startedAt !== "Not Started" ? "In Progress" : "Pending"}
                                   </Badge>
                                 </div>
                               </div>
@@ -976,10 +992,12 @@ export default function StudentProfilePage() {
                             <tr>
                               <th className="p-4 pl-6">Assessment Title</th>
                               <th className="p-4">Type</th>
-                              <th className="p-4">Score Obtained</th>
+                              <th className="p-4">Attempts</th>
+                              <th className="p-4">Started Date</th>
                               <th className="p-4">Completed Date</th>
+                              <th className="p-4">Score Obtained</th>
                               <th className="p-4">Integrity Flags</th>
-                              <th className="p-4 pr-6 text-right">Evaluation</th>
+                              <th className="p-4 pr-6 text-right">Status / Evaluation</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
@@ -989,12 +1007,18 @@ export default function StudentProfilePage() {
                                   {a.title}
                                 </td>
                                 <td className="p-4 text-[#6B7280]">{a.type}</td>
+                                <td className="p-4 text-[#6B7280]">
+                                  <Badge variant="outline" className="text-[10px] font-semibold">
+                                    {a.attemptsCount || (a.attempted ? 1 : 0)} {(a.attemptsCount || (a.attempted ? 1 : 0)) === 1 ? "attempt" : "attempts"}
+                                  </Badge>
+                                </td>
+                                <td className="p-4 text-[#6B7280]">{a.startedAt || "Not Started"}</td>
+                                <td className="p-4 text-[#6B7280]">{a.completedDate || "Pending"}</td>
                                 <td className="p-4 font-bold text-[#16A34A]">{a.scoreObtained}</td>
-                                <td className="p-4 text-[#6B7280]">{a.completedDate}</td>
                                 <td className="p-4 text-[#6B7280]">{a.integrityViolations}</td>
                                 <td className="p-4 pr-6 text-right">
-                                  <Badge className={cn("text-[10px] font-bold", a.attempted ? "bg-[#16A34A] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
-                                    {a.evaluation}
+                                  <Badge className={cn("text-[10px] font-bold", a.attempted ? (a.rawScore >= 50 ? "bg-[#16A34A] text-white" : "bg-[#D97706] text-white") : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
+                                    {a.evaluation || a.status || "Pending"}
                                   </Badge>
                                 </td>
                               </tr>
