@@ -1173,8 +1173,17 @@ export default function StudentProfilePage() {
                       const activePt = hoveredTimePointIndex !== null ? points[hoveredTimePointIndex] : null;
 
                       return (
-                        <div className="relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-[#F0F7FF]/50 dark:from-[#1E3A8A]/10 to-transparent p-3 border border-[#E5E7EB]/60 dark:border-[#27272A]">
-                          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48 sm:h-56 overflow-visible">
+                        <div
+                          className="relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-[#F0F7FF]/50 dark:from-[#1E3A8A]/10 to-transparent p-3 border border-[#E5E7EB]/60 dark:border-[#27272A]"
+                          onMouseLeave={() => setHoveredTimePointIndex(null)}
+                          onPointerLeave={() => setHoveredTimePointIndex(null)}
+                        >
+                          <svg
+                            viewBox={`0 0 ${width} ${height}`}
+                            className="w-full h-48 sm:h-56 overflow-visible"
+                            onMouseLeave={() => setHoveredTimePointIndex(null)}
+                            onPointerLeave={() => setHoveredTimePointIndex(null)}
+                          >
                             <defs>
                               <linearGradient id="profileTimeAreaGrad" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#2563EB" stopOpacity="0.4" />
@@ -1220,6 +1229,7 @@ export default function StudentProfilePage() {
                                   fill="transparent"
                                   className="cursor-pointer"
                                   onMouseEnter={() => setHoveredTimePointIndex(i)}
+                                  onMouseLeave={() => setHoveredTimePointIndex(null)}
                                 />
                               );
                             })}
@@ -1325,7 +1335,10 @@ export default function StudentProfilePage() {
                             </div>
                           )}
 
-                          <div className="flex justify-between items-center px-4 pt-2 text-[10px] text-[#6B7280] font-semibold overflow-x-auto no-scrollbar">
+                          <div
+                            className="flex justify-between items-center px-4 pt-2 text-[10px] text-[#6B7280] font-semibold overflow-x-auto no-scrollbar"
+                            onMouseLeave={() => setHoveredTimePointIndex(null)}
+                          >
                             {data.map((item: any, idx: number) => {
                               const showLabel = data.length <= 10 || idx % Math.ceil(data.length / 8) === 0 || idx === data.length - 1;
                               return (
@@ -1333,6 +1346,7 @@ export default function StudentProfilePage() {
                                   key={idx}
                                   className={cn("whitespace-nowrap transition-colors cursor-pointer", hoveredTimePointIndex === idx ? "text-[#2563EB] font-bold" : "")}
                                   onMouseEnter={() => setHoveredTimePointIndex(idx)}
+                                  onMouseLeave={() => setHoveredTimePointIndex(null)}
                                 >
                                   {showLabel ? item.label : ""}
                                 </span>

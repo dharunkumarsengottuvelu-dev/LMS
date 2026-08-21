@@ -1405,8 +1405,17 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                     const activePt = hoveredAdminTimePoint !== null ? points[hoveredAdminTimePoint] : null;
 
                     return (
-                      <div className="relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-[#F0F7FF]/50 dark:from-[#1E3A8A]/10 to-transparent p-3 border border-[#E5E7EB]/60 dark:border-[#27272A]">
-                        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48 sm:h-56 overflow-visible">
+                      <div
+                        className="relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-[#F0F7FF]/50 dark:from-[#1E3A8A]/10 to-transparent p-3 border border-[#E5E7EB]/60 dark:border-[#27272A]"
+                        onMouseLeave={() => setHoveredAdminTimePoint(null)}
+                        onPointerLeave={() => setHoveredAdminTimePoint(null)}
+                      >
+                        <svg
+                          viewBox={`0 0 ${width} ${height}`}
+                          className="w-full h-48 sm:h-56 overflow-visible"
+                          onMouseLeave={() => setHoveredAdminTimePoint(null)}
+                          onPointerLeave={() => setHoveredAdminTimePoint(null)}
+                        >
                           <defs>
                             <linearGradient id="adminTimeAreaGrad" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#2563EB" stopOpacity="0.4" />
@@ -1452,6 +1461,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                                 fill="transparent"
                                 className="cursor-pointer"
                                 onMouseEnter={() => setHoveredAdminTimePoint(i)}
+                                onMouseLeave={() => setHoveredAdminTimePoint(null)}
                               />
                             );
                           })}
@@ -1557,7 +1567,10 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                           </div>
                         )}
 
-                        <div className="flex justify-between items-center px-4 pt-2 text-[10px] text-[#6B7280] font-semibold overflow-x-auto no-scrollbar">
+                        <div
+                          className="flex justify-between items-center px-4 pt-2 text-[10px] text-[#6B7280] font-semibold overflow-x-auto no-scrollbar"
+                          onMouseLeave={() => setHoveredAdminTimePoint(null)}
+                        >
                           {data.map((item: any, idx: number) => {
                             const showLabel = data.length <= 10 || idx % Math.ceil(data.length / 8) === 0 || idx === data.length - 1;
                             return (
@@ -1565,6 +1578,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                                 key={idx}
                                 className={cn("whitespace-nowrap transition-colors cursor-pointer", hoveredAdminTimePoint === idx ? "text-[#2563EB] font-bold" : "")}
                                 onMouseEnter={() => setHoveredAdminTimePoint(idx)}
+                                onMouseLeave={() => setHoveredAdminTimePoint(null)}
                               >
                                 {showLabel ? item.label : ""}
                               </span>

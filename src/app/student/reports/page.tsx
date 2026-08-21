@@ -144,8 +144,17 @@ function SmoothTimeLineChart({
       </div>
 
       {/* SVG Smooth Line Chart Container with Interactive Cursor Card */}
-      <div className="relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-[#F0F7FF]/50 dark:from-[#1E3A8A]/10 to-transparent p-3 border border-[#E5E7EB]/60 dark:border-[#27272A]">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-48 sm:h-56 overflow-visible">
+      <div
+        className="relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-[#F0F7FF]/50 dark:from-[#1E3A8A]/10 to-transparent p-3 border border-[#E5E7EB]/60 dark:border-[#27272A]"
+        onMouseLeave={() => setHoveredIndex(null)}
+        onPointerLeave={() => setHoveredIndex(null)}
+      >
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="w-full h-48 sm:h-56 overflow-visible"
+          onMouseLeave={() => setHoveredIndex(null)}
+          onPointerLeave={() => setHoveredIndex(null)}
+        >
           <defs>
             <linearGradient id="studentTimeAreaGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#2563EB" stopOpacity="0.4" />
@@ -197,6 +206,7 @@ function SmoothTimeLineChart({
                 fill="transparent"
                 className="cursor-pointer"
                 onMouseEnter={() => setHoveredIndex(i)}
+                onMouseLeave={() => setHoveredIndex(null)}
               />
             );
           })}
@@ -305,7 +315,10 @@ function SmoothTimeLineChart({
         )}
 
         {/* X-axis date labels */}
-        <div className="flex justify-between items-center px-4 pt-2 text-[10px] text-[#6B7280] font-semibold overflow-x-auto no-scrollbar">
+        <div
+          className="flex justify-between items-center px-4 pt-2 text-[10px] text-[#6B7280] font-semibold overflow-x-auto no-scrollbar"
+          onMouseLeave={() => setHoveredIndex(null)}
+        >
           {data.map((item, idx) => {
             const showLabel = data.length <= 10 || idx % Math.ceil(data.length / 8) === 0 || idx === data.length - 1;
             return (
@@ -313,6 +326,7 @@ function SmoothTimeLineChart({
                 key={idx}
                 className={cn("whitespace-nowrap transition-colors cursor-pointer", hoveredIndex === idx ? "text-[#2563EB] font-bold" : "")}
                 onMouseEnter={() => setHoveredIndex(idx)}
+                onMouseLeave={() => setHoveredIndex(null)}
               >
                 {showLabel ? item.label : ""}
               </span>
