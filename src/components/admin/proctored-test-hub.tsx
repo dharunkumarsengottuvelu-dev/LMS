@@ -399,6 +399,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   };
 
   const openEditExamModal = (test: ScheduledTest) => {
+    setSelectedTest(test);
     setEditExamForm({
       ...test,
       scheduleMode: test.scheduleMode || (test.date ? "scheduled" : "open"),
@@ -406,6 +407,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       duration: test.duration || 60,
       status: test.status || "live",
       allowedQuestionTypes: test.allowedQuestionTypes || "both",
+      hasPassingCriteria: test.hasPassingCriteria ?? true,
+      passingCriteriaType: test.passingCriteriaType || "percentage",
+      passPercentage: test.passPercentage ?? 40,
+      passingMarks: test.passingMarks ?? 40,
       secWebcam: test.secWebcam ?? true,
       secFullscreen: test.secFullscreen ?? true,
       secTabSwitch: test.secTabSwitch ?? true,
@@ -422,8 +427,13 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   };
 
   const handleSaveExamSettings = async () => {
-    if (!selectedTest || !editExamForm.title?.trim()) {
+    const currentTest = selectedTest || tests.find((t) => t.id === editExamForm.id);
+    if (!editExamForm.title?.trim()) {
       toast({ title: "Title Required", description: "Assessment title cannot be empty.", variant: "destructive" });
+      return;
+    }
+    if (!currentTest) {
+      toast({ title: "Test Not Found", description: "Could not find the target assessment.", variant: "destructive" });
       return;
     }
 
@@ -435,8 +445,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       ...(editExamForm.secSEB ? ["Safe Exam Browser Enforced"] : []),
     ];
 
+    const hasPass = editExamForm.hasPassingCriteria ?? true;
+    const passType = editExamForm.passingCriteriaType || "percentage";
+
     const updatedTest: ScheduledTest = {
-      ...selectedTest,
+      ...currentTest,
       title: editExamForm.title.trim(),
       scheduleMode: editExamForm.scheduleMode || "open",
       date: editExamForm.date || undefined,
@@ -448,6 +461,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       duration: Number(editExamForm.duration) || 60,
       status: editExamForm.status || "live",
       allowedQuestionTypes: editExamForm.allowedQuestionTypes || "both",
+      hasPassingCriteria: hasPass,
+      passingCriteriaType: passType,
+      passPercentage: hasPass ? (passType === "percentage" ? (editExamForm.passPercentage ?? 40) : undefined) : undefined,
+      passingMarks: hasPass ? (passType === "marks" ? (editExamForm.passingMarks ?? 40) : undefined) : undefined,
       proctoringFlags,
       secWebcam: editExamForm.secWebcam,
       secFullscreen: editExamForm.secFullscreen,
