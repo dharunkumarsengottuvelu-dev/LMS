@@ -279,19 +279,26 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 5. Fetch Assignment Submissions
+    // 5. Fetch Additional Student Submissions (Assignments & Coding submissions)
     const { data: rawSubmissions } = await adminClient
       .from("assignment_submissions")
       .select("*")
-      .or(`user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+      .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
       .order("submitted_at", { ascending: false });
+
+    const { data: rawCodingSubmissions } = await adminClient
+      .from("coding_submissions")
+      .select("*")
+      .or(`user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+      .order("created_at", { ascending: false });
 
     // 6. Calculate total active time spent and day-by-day distribution
     let totalTimeSpentSeconds = 0;
     const dayMap = new Map<string, number>();
 
+    // A. Assessment Attempts
     (rawAttempts || []).forEach((att: any) => {
-      const timeTaken = typeof att.time_taken_seconds === "number" ? att.time_taken_seconds : 1800;
+      const timeTaken = typeof att.time_taken_seconds === "number" && att.time_taken_seconds > 0 ? att.time_taken_seconds : 1800;
       totalTimeSpentSeconds += timeTaken;
 
       if (att.submitted_at || att.created_at) {
@@ -303,6 +310,68 @@ export async function GET(request: NextRequest) {
         }
       }
     });
+
+    // B. Assignment Submissions
+    (rawSubmissions || []).forEach((sub: any) => {
+      const timeTaken = 2400; // 40 mins per project submission
+      totalTimeSpentSeconds += timeTaken;
+
+      if (sub.submitted_at || sub.created_at) {
+        const ts = new Date(sub.submitted_at || sub.created_at).getTime();
+        if (range === "all" || (ts >= minTimestamp && ts <= maxTimestamp)) {
+          const iso = new Date(ts).toISOString().slice(0, 10);
+          const mins = Math.round(timeTaken / 60);
+          dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
+        }
+      }
+    });
+
+    // C. Coding Challenge Submissions
+    (rawCodingSubmissions || []).forEach((cSub: any) => {
+      const timeTaken = 1200; // 20 mins per coding challenge run
+      totalTimeSpentSeconds += timeTaken;
+
+      if (cSub.created_at) {
+        const ts = new Date(cSub.created_at).getTime();
+        if (range === "all" || (ts >= minTimestamp && ts <= maxTimestamp)) {
+          const iso = new Date(ts).toISOString().slice(0, 10);
+          const mins = Math.round(timeTaken / 60);
+          dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
+        }
+      }
+    });
+
+    // D. Completed Course Modules Progress
+    coursesList.forEach((course: any) => {
+      const moduleCount = course.completedModules || 0;
+      if (moduleCount > 0) {
+        const courseTime = moduleCount * 2400; // 40 mins per module completed
+        totalTimeSpentSeconds += courseTime;
+
+        const ts = course.lastAccessed && course.lastAccessed !== "Recent" ? new Date(course.lastAccessed).getTime() : now;
+        if (range === "all" || (ts >= minTimestamp && ts <= maxTimestamp)) {
+          const iso = new Date(ts).toISOString().slice(0, 10);
+          const mins = Math.round(courseTime / 60);
+          dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
+        }
+      }
+    });
+
+    // E. Login Session Engagement
+    if (user.last_sign_in_at || user.created_at) {
+      const loginTs = new Date(user.last_sign_in_at || user.created_at).getTime();
+      const loginSessionSeconds = 3600; // 1 hour session
+      if (totalTimeSpentSeconds === 0) {
+        totalTimeSpentSeconds += loginSessionSeconds;
+      }
+      if (range === "all" || (loginTs >= minTimestamp && loginTs <= maxTimestamp)) {
+        const iso = new Date(loginTs).toISOString().slice(0, 10);
+        const mins = Math.round(loginSessionSeconds / 60);
+        if (!dayMap.has(iso) || (dayMap.get(iso) || 0) < mins) {
+          dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
+        }
+      }
+    }
 
     // Generate daily time spent chart
     const dailyTimeSpent: Array<{ day: string; label: string; minutes: number; display: string; height: number }> = [];
