@@ -146,16 +146,85 @@ export async function GET(
       };
     });
 
-    // 4. Fetch Practice Tracks & Submissions
-    const { data: dbPracticeTracks } = await adminClient.from("practice_tracks").select("*");
-    const { data: rawAttempts } = await adminClient
-      .from("assessment_attempts")
-      .select("*")
-      .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
-      .order("submitted_at", { ascending: false });
+    // 4. Fetch Practice Tracks, Assessments & Submissions from all tables
+    const candidateIds = Array.from(
+      new Set([studentId, studentUserId, id].filter(Boolean) as string[])
+    );
+
+    const [
+      { data: dbPracticeTracks },
+      { data: dbAssessments },
+      { data: dbAssignments },
+      { data: rawAssessmentAttempts },
+      { data: rawAssessmentSubmissions },
+      { data: rawTestAttempts },
+      { data: rawCodingSubmissions },
+      { data: rawAssignmentSubmissions },
+    ] = await Promise.all([
+      adminClient.from("practice_tracks").select("*"),
+      adminClient.from("assessments").select("*"),
+      adminClient.from("assignments").select("*"),
+      adminClient
+        .from("assessment_attempts")
+        .select("*")
+        .or(`student_id.in.(${candidateIds.join(",")}),user_id.in.(${candidateIds.join(",")})`),
+      adminClient
+        .from("assessment_submissions")
+        .select("*")
+        .or(`student_id.in.(${candidateIds.join(",")}),user_id.in.(${candidateIds.join(",")})`),
+      adminClient
+        .from("test_attempts")
+        .select("*")
+        .or(`student_id.in.(${candidateIds.join(",")}),user_id.in.(${candidateIds.join(",")})`),
+      adminClient
+        .from("coding_submissions")
+        .select("*")
+        .or(`student_id.in.(${candidateIds.join(",")}),user_id.in.(${candidateIds.join(",")})`),
+      adminClient
+        .from("assignment_submissions")
+        .select("*")
+        .or(`student_id.in.(${candidateIds.join(",")}),user_id.in.(${candidateIds.join(",")})`),
+    ]);
+
+    // Normalize and merge all attempts into a unified map
+    const rawAttempts: any[] = [];
+    const seenAttemptKeys = new Set<string>();
+
+    const addAttempt = (att: any, defaultType = "assessment") => {
+      if (!att) return;
+      const aId = att.assessment_id || att.test_id || att.assignment_id || att.problem_id || att.challenge_id || att.id;
+      const key = `${aId}_${att.submitted_at || att.created_at || att.id || ""}`;
+      if (seenAttemptKeys.has(key)) return;
+      seenAttemptKeys.add(key);
+
+      const score = typeof att.score === "number" ? att.score : typeof att.marks_obtained === "number" ? att.marks_obtained : 0;
+      const totalMarks = typeof att.total_marks === "number" ? att.total_marks : typeof att.max_marks === "number" ? att.max_marks : 100;
+      const code = att.code || att.submitted_code || att.source_code || (att.answers?.code) || undefined;
+
+      rawAttempts.push({
+        id: att.id,
+        assessment_id: aId,
+        type: att.type || defaultType,
+        score,
+        total_marks: totalMarks,
+        violations: att.violations ?? att.tab_switches ?? 0,
+        submitted_at: att.submitted_at || att.created_at || new Date().toISOString(),
+        created_at: att.created_at || att.submitted_at || new Date().toISOString(),
+        answers: att.answers || att.responses || [],
+        code,
+        status: att.status || "Submitted",
+        passed_test_cases: att.passed_test_cases || (score >= 50 ? "All Cases Passed" : undefined),
+        passed: att.passed ?? (score >= 50),
+      });
+    };
+
+    (rawAssessmentSubmissions || []).forEach((a) => addAttempt(a, "assessment"));
+    (rawTestAttempts || []).forEach((a) => addAttempt(a, "test"));
+    (rawAssessmentAttempts || []).forEach((a) => addAttempt(a, "assessment"));
+    (rawCodingSubmissions || []).forEach((a) => addAttempt(a, "coding"));
 
     const attemptsMap = new Map<string, any[]>();
-    (rawAttempts || []).forEach((att) => {
+    rawAttempts.forEach((att) => {
       if (att.assessment_id) {
         const list = attemptsMap.get(att.assessment_id) || [];
         list.push(att);
@@ -238,8 +307,6 @@ export async function GET(
       });
     });
 
-    // 5. Fetch Assessments
-    const { data: dbAssessments } = await adminClient.from("assessments").select("*");
     const assessmentMap = new Map<string, any>();
     (dbAssessments || []).forEach((a) => assessmentMap.set(a.id, a));
 
@@ -364,18 +431,7 @@ export async function GET(
       }
     });
 
-    // 5. Fetch Additional Student Submissions (Assignments & Coding submissions)
-    const { data: rawAssignmentSubmissions } = await adminClient
-      .from("assignment_submissions")
-      .select("*")
-      .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
-      .order("submitted_at", { ascending: false });
 
-    const { data: rawCodingSubmissions } = await adminClient
-      .from("coding_submissions")
-      .select("*")
-      .or(`user_id.eq.${studentId},user_id.eq.${studentUserId}`)
-      .order("created_at", { ascending: false });
 
     // 6. Comprehensive Total Active Time Spent & Day-by-Day Distribution with detailed activity breakdown
     let totalTimeSpentSeconds = 0;
@@ -572,6 +628,28 @@ export async function GET(
       }
     }
 
+    // 6. Assignments List
+    const assignmentsList = (dbAssignments || []).map((asg: any) => {
+      const sub = (rawAssignmentSubmissions || []).find(
+        (s: any) => s.assignment_id === asg.id
+      );
+      const isSubmitted = Boolean(sub);
+      const scoreVal = sub?.score ?? sub?.marks_obtained;
+      return {
+        id: asg.id,
+        title: asg.title,
+        description: asg.description,
+        dueDate: asg.due_date ? new Date(asg.due_date).toLocaleDateString() : "Flexible",
+        totalMarks: asg.total_marks || 100,
+        status: isSubmitted ? (scoreVal !== undefined ? "Graded" : "Submitted (Pending Review)") : "Pending",
+        submittedAt: sub?.submitted_at ? new Date(sub.submitted_at).toLocaleString() : null,
+        score: scoreVal,
+        submissionUrl: sub?.submission_url || sub?.file_url || sub?.github_url,
+        submissionText: sub?.submission_text || sub?.notes,
+        feedback: sub?.feedback || sub?.trainer_notes,
+      };
+    });
+
     // 7. Login Activities
     const loginActivities: any[] = [];
     if (profile?.last_sign_in_at || profile?.created_at) {
@@ -617,6 +695,7 @@ export async function GET(
         coursesList,
         practicesList,
         assessmentsList,
+        assignmentsList,
         dailyTimeSpent,
         loginActivities,
         totalTimeSpentSeconds,
@@ -624,6 +703,7 @@ export async function GET(
           enrolledCoursesCount: coursesList.length,
           practicesCount: practicesList.length,
           assessmentsCount: assessmentsList.length,
+          assignmentsCount: assignmentsList.length,
           totalTimeSpentSeconds,
           avgScore: computedAvgScore,
         },

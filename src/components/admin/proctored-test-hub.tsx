@@ -7,7 +7,7 @@ import {
   ClipboardList, Plus, Search, ShieldAlert, ShieldCheck, Clock, Users,
   Award, Eye, Trash2, Play, ArrowLeft, Sparkles, Lock, FileText, CheckSquare, Settings,
   CheckCircle2, AlertCircle, Send, Check, Code2, Edit, Download, Calendar, CalendarDays,
-  CalendarRange, X, RotateCcw, Zap, Globe, Timer, Info, Copy
+  CalendarRange, X, RotateCcw, Zap, Globe, Timer, Info, Copy, RefreshCw
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -164,6 +164,13 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [assigningTest, setAssigningTest] = useState<ScheduledTest | null>(null);
   const [isCommon, setIsCommon] = useState<boolean>(true);
   const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
+
+  // Reassign Modal State
+  const [reassigningTest, setReassigningTest] = useState<ScheduledTest | null>(null);
+  const [reassignIsCommon, setReassignIsCommon] = useState<boolean>(true);
+  const [reassignSelectedBatches, setReassignSelectedBatches] = useState<string[]>([]);
+  const [reassignResetAttempts, setReassignResetAttempts] = useState<boolean>(true);
+  const [isSubmittingReassign, setIsSubmittingReassign] = useState<boolean>(false);
   
   // Section Management State
   const [isAddingSection, setIsAddingSection] = useState(false);
@@ -976,6 +983,181 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             </Button>
             <Button onClick={handleSaveAssignments} className="h-9 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl shadow-md shadow-[#2563EB]/20">
               Save Visibility Configuration
+            </Button>
+          </div>
+        </Card>
+      </div>,
+      document.body
+    );
+  };
+
+  const openReassignModal = (test: ScheduledTest) => {
+    setReassigningTest(test);
+    const assigned = test.assignedBatches || [];
+    const common = test.isCommon !== undefined ? test.isCommon : assigned.length === 0;
+    setReassignIsCommon(common);
+    setReassignSelectedBatches(common ? [] : assigned);
+    setReassignResetAttempts(true);
+  };
+
+  const handleConfirmReassign = async () => {
+    if (!reassigningTest) return;
+    setIsSubmittingReassign(true);
+
+    try {
+      const res = await fetch("/api/admin/tests/reassign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          testId: reassigningTest.id,
+          isCommon: reassignIsCommon,
+          assignedBatches: reassignIsCommon ? [] : reassignSelectedBatches,
+          resetAttempts: reassignResetAttempts,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to reassign test");
+      }
+
+      const updatedTest: ScheduledTest = {
+        ...reassigningTest,
+        status: "live",
+        isCommon: reassignIsCommon,
+        assignedBatches: reassignIsCommon ? [] : reassignSelectedBatches,
+        batch: reassignIsCommon ? "Common (All Batches)" : reassignSelectedBatches.join(", ") || "Specific Batches",
+      };
+
+      setTests((prev) => prev.map((t) => (t.id === reassigningTest.id ? updatedTest : t)));
+      if (selectedTest && selectedTest.id === reassigningTest.id) {
+        setSelectedTest(updatedTest);
+      }
+
+      toast({
+        title: "Test Reassigned Successfully! 🚀",
+        description: `"${reassigningTest.title}" is now reassigned to ${reassignIsCommon ? "All Students" : `${reassignSelectedBatches.length} batch(es)`}. Previous completions reset so students can retake.`,
+      });
+
+      setReassigningTest(null);
+    } catch (err: any) {
+      console.error("Reassign error:", err);
+      toast({
+        title: "Reassignment Failed",
+        description: err.message || "Could not reassign test. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingReassign(false);
+    }
+  };
+
+  const renderReassignModal = () => {
+    if (!reassigningTest || !isMounted || typeof window === "undefined" || typeof document === "undefined") return null;
+
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
+        <div
+          className="fixed inset-0 bg-transparent"
+          onClick={() => !isSubmittingReassign && setReassigningTest(null)}
+        />
+        <Card className="relative z-10 w-full max-w-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-2xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col my-auto">
+          {/* Modal Header */}
+          <div className="p-5 border-b border-[#E5E7EB] dark:border-[#27272A] bg-amber-50/70 dark:bg-amber-950/20 flex justify-between items-center shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                <RefreshCw className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                  Reassign Test & Allow Retakes
+                </h2>
+                <p className="text-xs text-[#6B7280]">
+                  Reassign &quot;{reassigningTest.title}&quot; to all students or specific batches
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full hover:bg-[#E5E7EB] text-[#6B7280]"
+              onClick={() => !isSubmittingReassign && setReassigningTest(null)}
+            >
+              ✕
+            </Button>
+          </div>
+
+          {/* Modal Body */}
+          <div className="p-6 space-y-5 overflow-y-auto flex-1">
+            {/* Alert info banner */}
+            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 space-y-1.5">
+              <p className="font-bold flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4 text-amber-600" /> What happens when you Reassign?
+              </p>
+              <p className="text-[11px] leading-relaxed opacity-90">
+                When you reassign this assessment, the test status becomes <strong>LIVE</strong>. Students in the target batches will immediately see the test on their dashboard. If a student previously completed it, they will be permitted to start fresh and take the assessment again.
+              </p>
+            </div>
+
+            {/* Retake reset toggle */}
+            <div className="flex items-center justify-between p-3.5 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+              <div className="space-y-0.5">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                  Reset Previous Completions (Allow Retake)
+                </label>
+                <p className="text-[11px] text-[#6B7280]">
+                  Permit students who finished this test earlier to take it again afresh.
+                </p>
+              </div>
+              <Switch
+                checked={reassignResetAttempts}
+                onCheckedChange={setReassignResetAttempts}
+              />
+            </div>
+
+            {/* Target Cohorts / Batches Selection */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                Target Audience & Batches for Reassignment
+              </label>
+              <VisibilitySelector
+                isCommon={reassignIsCommon}
+                selectedBatches={reassignSelectedBatches}
+                batches={allBatches.map((b) => (typeof b === "string" ? { id: b, name: b } : b))}
+                onChange={({ isCommon: c, selectedBatches: b }) => {
+                  setReassignIsCommon(c);
+                  setReassignSelectedBatches(b);
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="p-4 border-t border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex justify-end gap-3 shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setReassigningTest(null)}
+              disabled={isSubmittingReassign}
+              className="h-9 text-xs font-bold rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmReassign}
+              disabled={isSubmittingReassign}
+              className="h-9 px-5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-600/20 gap-1.5"
+            >
+              {isSubmittingReassign ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Reassigning...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5" /> Confirm & Reassign Test
+                </>
+              )}
             </Button>
           </div>
         </Card>
@@ -2358,6 +2540,13 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               <Button variant="outline" className="h-9 font-bold text-xs bg-white dark:bg-[#18181B]" onClick={() => openAssignModal(selectedTest)}>
                 <Users className="h-4 w-4 mr-2" /> Assign to Batches
               </Button>
+              <Button
+                variant="outline"
+                className="h-9 font-bold text-xs bg-white dark:bg-[#18181B] border-amber-500/30 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                onClick={() => openReassignModal(selectedTest)}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" /> Reassign Test
+              </Button>
             </div>
           }
         />
@@ -2748,6 +2937,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         </Card>
         
         {renderAssignmentModal()}
+        {renderReassignModal()}
         {renderEditExamSettingsModal()}
       </div>
     );
@@ -3241,6 +3431,15 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                       >
                         <Download className="h-3 w-3" /> Report
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openReassignModal(t)}
+                        className="h-8 text-[11px] font-bold rounded-lg border-amber-500/30 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 gap-1"
+                        title="Reassign test & allow retakes for completed candidates"
+                      >
+                        <RefreshCw className="h-3 w-3" /> Reassign
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => openAssignModal(t)} className="h-8 text-[11px] font-bold rounded-lg">
                         Assign
                       </Button>
@@ -3263,6 +3462,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         </CardContent>
       </Card>
       {renderAssignmentModal()}
+      {renderReassignModal()}
       {renderEditExamSettingsModal()}
 
     </div>

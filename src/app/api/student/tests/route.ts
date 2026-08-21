@@ -64,20 +64,85 @@ export async function GET(request: NextRequest) {
       console.error("Failed to query assessments:", error);
     }
 
-    // 3. Fetch student attempts
-    let attempts: any[] = [];
-    if (batchContext.profileId || batchContext.studentUserId) {
-      const { data: attData } = await adminClient
-        .from("assessment_attempts")
-        .select("*")
-        .or(`student_id.eq.${batchContext.profileId || "00000000-0000-0000-0000-000000000000"},student_id.eq.${batchContext.studentUserId || "00000000-0000-0000-0000-000000000000"}`) as any;
-      attempts = attData || [];
-    }
+    // 3. Fetch student attempts from all submission & attempt tables
+    const studentIds = Array.from(new Set([
+      batchContext.profileId,
+      batchContext.studentUserId,
+      user?.id,
+    ].filter(Boolean) as string[]));
 
     const attemptsMap = new Map<string, any>();
-    (attempts || []).forEach((att: any) => {
-      attemptsMap.set(att.assessment_id, att);
-    });
+
+    if (studentIds.length > 0) {
+      // Check assessment_submissions table
+      try {
+        const { data: subData } = await adminClient
+          .from("assessment_submissions")
+          .select("*")
+          .in("student_id", studentIds);
+
+        (subData || []).forEach((sub: any) => {
+          const testKey = sub.assessment_id || sub.test_id;
+          if (testKey) {
+            attemptsMap.set(testKey, {
+              ...sub,
+              isCompleted: true,
+              score: sub.score ?? sub.marks_obtained,
+              totalMarks: sub.total_marks ?? sub.max_marks,
+              percentage: sub.percentage ?? (sub.total_marks && sub.score ? Math.round((sub.score / sub.total_marks) * 100) : undefined),
+            });
+          }
+        });
+      } catch (e) {
+        console.warn("Could not query assessment_submissions:", e);
+      }
+
+      // Check test_attempts table
+      try {
+        const { data: testAttData } = await adminClient
+          .from("test_attempts")
+          .select("*")
+          .in("user_id", studentIds);
+
+        (testAttData || []).forEach((att: any) => {
+          const testKey = att.test_id || att.assessment_id;
+          if (testKey && !attemptsMap.has(testKey)) {
+            attemptsMap.set(testKey, {
+              ...att,
+              isCompleted: att.status === "completed" || att.status === "submitted" || att.score !== undefined,
+              score: att.score ?? att.marks_obtained,
+              totalMarks: att.total_marks,
+              percentage: att.percentage ?? (att.total_marks && att.score ? Math.round((att.score / att.total_marks) * 100) : undefined),
+            });
+          }
+        });
+      } catch (e) {
+        console.warn("Could not query test_attempts:", e);
+      }
+
+      // Check assessment_attempts table
+      try {
+        const { data: attData } = await adminClient
+          .from("assessment_attempts")
+          .select("*")
+          .in("student_id", studentIds);
+
+        (attData || []).forEach((att: any) => {
+          const testKey = att.assessment_id || att.test_id;
+          if (testKey && (!attemptsMap.has(testKey) || !attemptsMap.get(testKey).isCompleted)) {
+            attemptsMap.set(testKey, {
+              ...att,
+              isCompleted: att.status === "submitted" || att.status === "completed" || att.score !== undefined,
+              score: att.score ?? att.marks_obtained,
+              totalMarks: att.total_marks,
+              percentage: att.percentage ?? (att.total_marks && att.score ? Math.round((att.score / att.total_marks) * 100) : undefined),
+            });
+          }
+        });
+      } catch (e) {
+        console.warn("Could not query assessment_attempts:", e);
+      }
+    }
 
     const mappedTests: any[] = [];
 
@@ -122,7 +187,7 @@ export async function GET(request: NextRequest) {
 
       if (isVisible) {
         const attempt = attemptsMap.get(a.id);
-        const isCompleted = attempt && attempt.status === "submitted";
+        const isCompleted = Boolean(attempt && (attempt.isCompleted || attempt.status === "submitted" || attempt.status === "completed" || attempt.status === "Submitted" || attempt.status === "Auto-Submitted"));
 
         let scheduledDisplay = "Available Anytime (On-Demand)";
         if (meta.scheduleMode === "open" || (!meta.date && !meta.startDate && !a.scheduled_at && !a.available_from)) {
@@ -143,6 +208,13 @@ export async function GET(request: NextRequest) {
 
         const isLive = (a.status === "active" || meta.status === "live" || meta.scheduleMode === "open") && a.status !== "draft";
 
+        const earnedScore = attempt?.score !== undefined ? attempt.score : undefined;
+        const calculatedPercentage = attempt?.percentage !== undefined
+          ? attempt.percentage
+          : earnedScore !== undefined && totalMaxMarks > 0
+          ? Math.round((earnedScore / totalMaxMarks) * 100)
+          : undefined;
+
         mappedTests.push({
           id: a.id,
           title: a.title,
@@ -152,9 +224,10 @@ export async function GET(request: NextRequest) {
           totalQuestions: totalQCount,
           totalMarks: totalMaxMarks,
           status: isCompleted ? "completed" : isLive ? "live" : "upcoming",
-          score: attempt ? attempt.score : undefined,
+          score: earnedScore,
+          percentage: calculatedPercentage,
           maxScore: totalMaxMarks,
-          passed: attempt ? attempt.score >= ((a.pass_percentage ? ((a.total_marks || 100) * a.pass_percentage / 100) : 50)) : false,
+          passed: earnedScore !== undefined ? earnedScore >= ((a.pass_percentage ? ((totalMaxMarks * a.pass_percentage) / 100) : totalMaxMarks * 0.5)) : false,
           isCommon,
           assignedBatches,
           proctoring: {

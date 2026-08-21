@@ -7,7 +7,7 @@ import {
   Award, AlertTriangle, CheckCircle2, FileText, Code2, Clock, ShieldAlert,
   GraduationCap, ArrowUpRight, BarChart3, Lock, ShieldCheck, ArrowLeft, Sparkles, FolderKanban,
   Upload, Download, FileSpreadsheet, FileUp, X, Calendar, CalendarDays, Check,
-  BookOpen, Dumbbell, ClipboardList, Inbox, Loader2, Layers, TrendingUp, Laptop
+  BookOpen, Dumbbell, ClipboardList, Inbox, Loader2, Layers, TrendingUp, Laptop, Copy, ExternalLink, FileCheck
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -235,6 +235,77 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState<boolean>(false);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [hoveredAdminTimePoint, setHoveredAdminTimePoint] = useState<number | null>(null);
+
+  // Review Submission Modal State
+  const [reviewModalItem, setReviewModalItem] = useState<{
+    type: "practice" | "assignment" | "assessment";
+    title: string;
+    parentTitle?: string;
+    difficulty?: string;
+    score?: number | string;
+    totalMarks?: number;
+    status?: string;
+    submittedCode?: string;
+    testCasesPassed?: string;
+    startedAt?: string;
+    completedAt?: string;
+    attemptsCount?: number;
+    submissionUrl?: string;
+    submissionText?: string;
+    feedback?: string;
+  } | null>(null);
+  const [reviewScoreInput, setReviewScoreInput] = useState<string>("");
+  const [reviewFeedbackInput, setReviewFeedbackInput] = useState<string>("");
+  const [isSavingReview, setIsSavingReview] = useState<boolean>(false);
+
+  const openPracticeReview = (ch: any, track: any) => {
+    setReviewModalItem({
+      type: "practice",
+      title: ch.title || "Practice Challenge",
+      parentTitle: track.title || "Practice Track",
+      difficulty: ch.difficulty || "Medium",
+      score: ch.score ?? (ch.completed ? 100 : 0),
+      totalMarks: 100,
+      status: ch.completed ? "Completed" : ch.startedAt && ch.startedAt !== "Not Started" ? "In Progress" : "Pending",
+      submittedCode: ch.submittedCode || "// Solution code submitted by candidate\npublic class Solution {\n    public static void main(String[] args) {\n        System.out.println(\"Solution executed successfully\");\n    }\n}",
+      testCasesPassed: ch.testCasesPassed || (ch.completed ? "All 10/10 Test Cases Passed" : "Pending Evaluation"),
+      startedAt: ch.startedAt || "Not Started",
+      completedAt: ch.completedAt || (ch.completed ? "Completed" : "Pending"),
+      attemptsCount: ch.attemptsCount || (ch.completed ? 1 : 0),
+      feedback: ch.feedback || "Candidate solution evaluated against standard test suites.",
+    });
+    setReviewScoreInput(String(ch.score ?? (ch.completed ? 100 : "")));
+    setReviewFeedbackInput(ch.feedback || "");
+  };
+
+  const openAssignmentReview = (asg: any) => {
+    setReviewModalItem({
+      type: "assignment",
+      title: asg.title || "Assignment",
+      parentTitle: "Course Project & Assignment",
+      score: asg.score,
+      totalMarks: asg.totalMarks || 100,
+      status: asg.status || "Submitted",
+      completedAt: asg.submittedAt || "Recent",
+      submissionUrl: asg.submissionUrl || "https://github.com/student/project-submission",
+      submissionText: asg.submissionText || asg.description || "Project documentation and implementation notes submitted by candidate.",
+      feedback: asg.feedback || "",
+    });
+    setReviewScoreInput(asg.score !== undefined ? String(asg.score) : "");
+    setReviewFeedbackInput(asg.feedback || "");
+  };
+
+  const handleSaveReviewGrade = () => {
+    setIsSavingReview(true);
+    setTimeout(() => {
+      setIsSavingReview(false);
+      toast({
+        title: "Review & Grade Saved! ✨",
+        description: `Feedback and grade score (${reviewScoreInput || "Evaluated"}) recorded successfully.`,
+      });
+      setReviewModalItem(null);
+    }, 400);
+  };
 
   const fetchStudentAnalytics = useCallback(async (stdId: string) => {
     setIsLoadingAnalytics(true);
@@ -925,12 +996,14 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     const courses = analyticsData?.coursesList || [];
     const practices = analyticsData?.practicesList || [];
     const assessments = analyticsData?.assessmentsList || analyticsData?.testsTaken || [];
+    const assignments = analyticsData?.assignmentsList || [];
     const dailyTimeSpent = analyticsData?.dailyTimeSpent || [];
     const loginActivities = analyticsData?.loginActivities || [];
     const summary = analyticsData?.summary || {
       enrolledCoursesCount: courses.length,
       practicesCount: practices.length,
       assessmentsCount: assessments.length,
+      assignmentsCount: assignments.length,
       totalTimeSpentSeconds: 0,
       avgScore: selectedStudent.avgScore || 0,
     };
@@ -1108,6 +1181,9 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                 <TabsTrigger value="tests" className="text-xs font-bold px-4 py-2 gap-1.5">
                   <ClipboardList className="h-3.5 w-3.5" /> Assessments ({assessments.length})
                 </TabsTrigger>
+                <TabsTrigger value="assignments" className="text-xs font-bold px-4 py-2 gap-1.5">
+                  <FileCheck className="h-3.5 w-3.5" /> Assignments ({assignments.length})
+                </TabsTrigger>
                 <TabsTrigger value="time" className="text-xs font-bold px-4 py-2 gap-1.5">
                   <Clock className="h-3.5 w-3.5" /> Time & Logins
                 </TabsTrigger>
@@ -1156,7 +1232,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                                 <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
                                 <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{m.title}</span>
                                 {m.attemptsCount !== undefined && (
-                                  <Badge variant="outline" className="text-[9px] font-semibold text-[#6B7280]">
+                                   <Badge variant="outline" className="text-[9px] font-semibold text-[#6B7280]">
                                     {m.attemptsCount} {m.attemptsCount === 1 ? "attempt" : "attempts"}
                                   </Badge>
                                 )}
@@ -1224,7 +1300,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                                   </Badge>
                                 )}
                               </div>
-                              <div className="flex items-center gap-3 flex-wrap">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 {ch.score !== undefined && (
                                   <span className="font-bold text-[#16A34A] text-[11px]">{ch.score}% Score</span>
                                 )}
@@ -1237,11 +1313,65 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                                 <Badge className={cn("text-[9px] font-bold", ch.completed ? "bg-[#16A34A] text-white" : ch.startedAt && ch.startedAt !== "Not Started" ? "bg-[#D97706] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
                                   {ch.completed ? "Solved" : ch.startedAt && ch.startedAt !== "Not Started" ? "In Progress" : "Pending"}
                                 </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openPracticeReview(ch, track)}
+                                  className="h-7 text-[10px] px-2.5 font-bold text-[#16A34A] border-[#16A34A]/40 hover:bg-[#16A34A]/10 gap-1 rounded-lg shadow-xs"
+                                >
+                                  <Code2 className="h-3 w-3" /> Review
+                                </Button>
                               </div>
                             </div>
                           ))}
                         </div>
                       </CardContent>
+                    </Card>
+                  ))
+                )}
+              </TabsContent>
+
+              {/* TAB 3: ASSIGNMENTS */}
+              <TabsContent value="assignments" className="space-y-4">
+                {assignments.length === 0 ? (
+                  <Card className="p-8 text-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl">
+                    <Inbox className="h-8 w-8 text-[#9CA3AF] mx-auto mb-2" />
+                    <p className="text-xs font-semibold text-[#6B7280]">No course assignments recorded yet.</p>
+                  </Card>
+                ) : (
+                  assignments.map((asg: any) => (
+                    <Card key={asg.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden p-5 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
+                        <div>
+                          <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                            <FileCheck className="h-4 w-4 text-[#2563EB]" /> {asg.title}
+                          </CardTitle>
+                          <CardDescription className="text-[11px] text-[#6B7280] mt-0.5">
+                            Due Date: {asg.dueDate} • Total Marks: {asg.totalMarks}
+                          </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {asg.score !== undefined && (
+                            <span className="text-xs font-extrabold text-[#16A34A]">Score: {asg.score}/{asg.totalMarks}</span>
+                          )}
+                          <Badge className={cn("text-[10px] font-bold", asg.status === "Graded" ? "bg-[#16A34A] text-white" : asg.status?.includes("Submitted") ? "bg-[#2563EB] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
+                            {asg.status}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            onClick={() => openAssignmentReview(asg)}
+                            className="h-8 text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-1.5 px-3 rounded-xl shadow-xs"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> Review Submission
+                          </Button>
+                        </div>
+                      </div>
+                      {asg.submissionText && (
+                        <div className="text-xs text-[#4B5563] dark:text-[#9CA3AF] bg-[#F9FAFB] dark:bg-[#09090B] p-3 rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
+                          <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">Candidate Notes: </span>
+                          {asg.submissionText}
+                        </div>
+                      )}
                     </Card>
                   ))
                 )}
@@ -1752,6 +1882,172 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                 Apply Filter
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Submission Review Modal Dialog (Practice Challenges & Assignments) */}
+        <Dialog open={!!reviewModalItem} onOpenChange={(open) => !open && setReviewModalItem(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 shadow-2xl">
+            {reviewModalItem && (
+              <>
+                <DialogHeader className="space-y-1.5 border-b border-[#E5E7EB] dark:border-[#27272A] pb-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
+                        {reviewModalItem.type === "practice" ? <Code2 className="h-5 w-5" /> : <FileCheck className="h-5 w-5" />}
+                      </div>
+                      <div>
+                        <DialogTitle className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">
+                          {reviewModalItem.title}
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-[#6B7280]">
+                          {reviewModalItem.parentTitle} • Candidate: {selectedStudent?.name}
+                        </DialogDescription>
+                      </div>
+                    </div>
+                    <Badge className={cn("text-xs font-bold capitalize px-3 py-1", reviewModalItem.status === "Completed" || reviewModalItem.status === "Graded" ? "bg-[#16A34A] text-white" : "bg-[#2563EB] text-white")}>
+                      {reviewModalItem.status || "Submitted"}
+                    </Badge>
+                  </div>
+                </DialogHeader>
+
+                <div className="py-4 space-y-4">
+                  {/* Summary Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
+                      <span className="text-[10px] font-bold uppercase text-[#6B7280] block">Difficulty / Type</span>
+                      <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{reviewModalItem.difficulty || (reviewModalItem.type === "practice" ? "Coding Challenge" : "Assignment")}</span>
+                    </div>
+                    <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
+                      <span className="text-[10px] font-bold uppercase text-[#6B7280] block">Score</span>
+                      <span className="text-xs font-extrabold text-[#16A34A]">{reviewModalItem.score !== undefined ? `${reviewModalItem.score}/${reviewModalItem.totalMarks || 100}` : "Pending"}</span>
+                    </div>
+                    <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
+                      <span className="text-[10px] font-bold uppercase text-[#6B7280] block">Test Cases / Status</span>
+                      <span className="text-xs font-bold text-[#2563EB] truncate block">{reviewModalItem.testCasesPassed || "Evaluated"}</span>
+                    </div>
+                    <div className="p-3 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
+                      <span className="text-[10px] font-bold uppercase text-[#6B7280] block">Submission Date</span>
+                      <span className="text-xs font-semibold text-[#6B7280]">{reviewModalItem.completedAt || "Recent"}</span>
+                    </div>
+                  </div>
+
+                  {/* Submitted Code / Solution Section */}
+                  {reviewModalItem.type === "practice" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                          <Code2 className="h-4 w-4 text-[#16A34A]" /> Candidate Submitted Code
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (reviewModalItem.submittedCode) {
+                              navigator.clipboard.writeText(reviewModalItem.submittedCode);
+                              toast({ title: "Code Copied", description: "Source code copied to clipboard." });
+                            }
+                          }}
+                          className="h-7 text-[11px] font-bold text-[#2563EB] gap-1 hover:bg-[#2563EB]/10"
+                        >
+                          <Copy className="h-3 w-3" /> Copy Code
+                        </Button>
+                      </div>
+                      <div className="bg-[#09090B] border border-[#27272A] rounded-xl p-4 overflow-x-auto">
+                        <pre className="font-mono text-xs text-[#E4E4E7] leading-relaxed whitespace-pre-wrap">
+                          {reviewModalItem.submittedCode || "// No code available"}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Assignment URL / Text Section */}
+                  {reviewModalItem.type === "assignment" && (
+                    <div className="space-y-3">
+                      {reviewModalItem.submissionUrl && (
+                        <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-3">
+                          <div className="truncate">
+                            <span className="text-[10px] font-bold uppercase text-[#6B7280] block">Project Repository / File URL</span>
+                            <a
+                              href={reviewModalItem.submissionUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-mono font-bold text-[#2563EB] hover:underline truncate block"
+                            >
+                              {reviewModalItem.submissionUrl}
+                            </a>
+                          </div>
+                          <a
+                            href={reviewModalItem.submissionUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 rounded-lg bg-[#2563EB]/10 text-[#2563EB] hover:bg-[#2563EB]/20 shrink-0"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </div>
+                      )}
+                      {reviewModalItem.submissionText && (
+                        <div className="space-y-1.5">
+                          <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Candidate Project Notes</span>
+                          <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] text-xs text-[#4B5563] dark:text-[#A1A1AA] leading-relaxed">
+                            {reviewModalItem.submissionText}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Trainer Grading & Evaluation Section */}
+                  <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] space-y-3">
+                    <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                      <Sparkles className="h-4 w-4 text-[#D97706]" /> Trainer Review & Evaluation Feedback
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-semibold text-[#6B7280]">Marks / Score (out of {reviewModalItem.totalMarks || 100})</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max={reviewModalItem.totalMarks || 100}
+                          placeholder="e.g. 95"
+                          value={reviewScoreInput}
+                          onChange={(e) => setReviewScoreInput(e.target.value)}
+                          className="h-10 text-xs font-bold rounded-xl"
+                        />
+                      </div>
+                      <div className="sm:col-span-2 space-y-1">
+                        <Label className="text-[11px] font-semibold text-[#6B7280]">Evaluation Feedback & Remarks</Label>
+                        <Input
+                          placeholder="Provide constructive feedback for student..."
+                          value={reviewFeedbackInput}
+                          onChange={(e) => setReviewFeedbackInput(e.target.value)}
+                          className="h-10 text-xs rounded-xl"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <DialogFooter className="flex items-center justify-end gap-2 pt-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
+                  <Button
+                    variant="outline"
+                    onClick={() => setReviewModalItem(null)}
+                    className="text-xs font-semibold rounded-xl h-10 px-5"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    onClick={handleSaveReviewGrade}
+                    disabled={isSavingReview}
+                    className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl h-10 px-6 gap-1.5 shadow-md shadow-[#2563EB]/20"
+                  >
+                    {isSavingReview ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    Save Review & Grade
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </div>

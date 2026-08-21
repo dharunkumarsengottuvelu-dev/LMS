@@ -313,8 +313,8 @@ export default function StudentAssessmentsPage() {
                         </Badge>
                       )}
                       {test.status === "completed" && (
-                        <Badge className="bg-[#16A34A] text-white text-[10px] uppercase font-bold">
-                          Completed {test.score !== undefined ? `(Score: ${test.score}%)` : ""}
+                        <Badge className="bg-[#16A34A] text-white text-[10px] uppercase font-bold flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Completed {test.score !== undefined ? `• Score: ${test.score}/${test.totalMarks} (${(test as any).percentage ?? (test.totalMarks ? Math.round((test.score / test.totalMarks) * 100) : 0)}%)` : ""}
                         </Badge>
                       )}
                     </div>

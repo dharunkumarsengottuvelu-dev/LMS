@@ -38,6 +38,7 @@ interface ScheduledTest {
   proctoring: ProctoringConfig;
   score?: number;
   maxScore?: number;
+  percentage?: number;
   passed?: boolean;
 }
 
@@ -294,8 +295,8 @@ export default function StudentTestsPage() {
                       </Badge>
                     )}
                     {test.status === "completed" && (
-                      <Badge className="bg-[#16A34A] text-white text-[10px] uppercase font-bold">
-                        Completed (Score: {test.score ?? 90}%)
+                      <Badge className="bg-[#16A34A] text-white text-[10px] uppercase font-bold flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Completed {test.score !== undefined ? `• Score: ${test.score}/${test.totalMarks} (${test.percentage ?? (test.totalMarks ? Math.round((test.score / test.totalMarks) * 100) : 0)}%)` : ""}
                       </Badge>
                     )}
                   </div>
