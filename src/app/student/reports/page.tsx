@@ -27,7 +27,8 @@ import {
   ClipboardList,
   Check,
   ArrowLeft,
-  CalendarDays
+  CalendarDays,
+  Play
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,157 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
+// Interactive SVG Area Line Chart Component
+function SmoothTimeLineChart({
+  data,
+  totalTimeLabel,
+  dateRangeLabel,
+}: {
+  data: Array<{ day: string; label: string; minutes: number; display: string }>;
+  totalTimeLabel: string;
+  dateRangeLabel: string;
+}) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  if (!data || data.length === 0) {
+    return <p className="text-xs text-muted-foreground">No time activity recorded in this period.</p>;
+  }
+
+  const width = 800;
+  const height = 180;
+  const paddingX = 35;
+  const paddingY = 25;
+
+  const chartWidth = width - paddingX * 2;
+  const chartHeight = height - paddingY * 2;
+
+  const maxMins = Math.max(...data.map((d) => d.minutes), 60);
+
+  const points = data.map((item, index) => {
+    const x = paddingX + (index / Math.max(1, data.length - 1)) * chartWidth;
+    const y = height - paddingY - (item.minutes / maxMins) * chartHeight;
+    return { x, y, item, index };
+  });
+
+  const firstPt = points[0];
+  const lastPt = points[points.length - 1];
+  if (!firstPt || !lastPt) return null;
+
+  // Generate smooth cubic bezier SVG path
+  let pathD = `M ${firstPt.x},${firstPt.y}`;
+  if (points.length === 1) {
+    pathD = `M ${paddingX},${firstPt.y} L ${width - paddingX},${firstPt.y}`;
+  } else {
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i];
+      const p1 = points[i + 1];
+      if (p0 && p1) {
+        const cpX1 = p0.x + (p1.x - p0.x) / 2;
+        const cpY1 = p0.y;
+        const cpX2 = p0.x + (p1.x - p0.x) / 2;
+        const cpY2 = p1.y;
+        pathD += ` C ${cpX1},${cpY1} ${cpX2},${cpY2} ${p1.x},${p1.y}`;
+      }
+    }
+  }
+
+  const areaD = `${pathD} L ${lastPt.x},${height - paddingY} L ${firstPt.x},${height - paddingY} Z`;
+
+  return (
+    <div className="w-full space-y-3">
+      {/* Chart Top Header & Overall Usage Summary */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h4 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-[#2563EB]" />
+            Site Engagement & Active Time Distribution
+          </h4>
+          <p className="text-xs text-[#6B7280]">
+            Overall Site Usage: <strong className="text-[#2563EB] dark:text-[#60A5FA] font-extrabold">{totalTimeLabel}</strong>
+          </p>
+        </div>
+        <Badge variant="outline" className="text-[10px] font-bold self-start sm:self-auto">{dateRangeLabel}</Badge>
+      </div>
+
+      {/* SVG Smooth Line Chart Container */}
+      <div className="relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-[#F0F7FF]/50 dark:from-[#1E3A8A]/10 to-transparent p-3 border border-[#E5E7EB]/60 dark:border-[#27272A]">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 sm:h-52 overflow-visible">
+          <defs>
+            <linearGradient id="studentTimeAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#2563EB" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#2563EB" stopOpacity="0.0" />
+            </linearGradient>
+            <linearGradient id="studentTimeStrokeGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#3B82F6" />
+              <stop offset="50%" stopColor="#2563EB" />
+              <stop offset="100%" stopColor="#1D4ED8" />
+            </linearGradient>
+          </defs>
+
+          {/* Grid lines */}
+          <line x1={paddingX} y1={paddingY} x2={width - paddingX} y2={paddingY} stroke="currentColor" strokeOpacity="0.08" strokeDasharray="4 4" />
+          <line x1={paddingX} y1={paddingY + chartHeight / 2} x2={width - paddingX} y2={paddingY + chartHeight / 2} stroke="currentColor" strokeOpacity="0.08" strokeDasharray="4 4" />
+          <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} stroke="currentColor" strokeOpacity="0.15" />
+
+          {/* Gradient Filled Area */}
+          <path d={areaD} fill="url(#studentTimeAreaGrad)" />
+
+          {/* Spline Line */}
+          <path d={pathD} fill="none" stroke="url(#studentTimeStrokeGrad)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+
+          {/* Interactive Data Points */}
+          {points.map((pt, i) => (
+            <g key={i} className="cursor-pointer" onMouseEnter={() => setHoveredIndex(i)} onMouseLeave={() => setHoveredIndex(null)}>
+              <circle cx={pt.x} cy={pt.y} r="14" fill="transparent" />
+              {hoveredIndex === i && (
+                <circle cx={pt.x} cy={pt.y} r="9" fill="#2563EB" fillOpacity="0.25" className="animate-ping" />
+              )}
+              <circle
+                cx={pt.x}
+                cy={pt.y}
+                r={hoveredIndex === i ? 6 : pt.item.minutes > 0 ? 4.5 : 3}
+                fill={pt.item.minutes > 0 ? "#2563EB" : "#9CA3AF"}
+                stroke="#FFFFFF"
+                strokeWidth={hoveredIndex === i ? 2.5 : 1.5}
+              />
+            </g>
+          ))}
+        </svg>
+
+        {/* Hover Tooltip Overlay */}
+        {hoveredIndex !== null && points[hoveredIndex] && (
+          <div
+            className="absolute -top-1 bg-[#111827] text-white text-[11px] font-bold py-1.5 px-3 rounded-lg shadow-xl pointer-events-none transform -translate-x-1/2 transition-all z-20 border border-white/20"
+            style={{
+              left: `${(points[hoveredIndex].x / width) * 100}%`,
+            }}
+          >
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span>{points[hoveredIndex].item.label}:</span>
+              <span className="text-[#60A5FA]">{points[hoveredIndex].item.display || `${points[hoveredIndex].item.minutes}m`} active</span>
+            </div>
+          </div>
+        )}
+
+        {/* X-axis date labels */}
+        <div className="flex justify-between items-center px-4 pt-2 text-[10px] text-[#6B7280] font-semibold overflow-x-auto no-scrollbar">
+          {data.map((item, idx) => {
+            const showLabel = data.length <= 10 || idx % Math.ceil(data.length / 8) === 0 || idx === data.length - 1;
+            return (
+              <span
+                key={idx}
+                className={cn("whitespace-nowrap transition-colors", hoveredIndex === idx ? "text-[#2563EB] font-bold" : "")}
+              >
+                {showLabel ? item.label : ""}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function StudentReportsPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -67,13 +219,93 @@ export default function StudentReportsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Dynamic state populated strictly from backend
+  // Dynamic state populated strictly from backend + local session sync
   const [reportSummary, setReportSummary] = useState<any>({});
   const [coursesList, setCoursesList] = useState<any[]>([]);
   const [practicesList, setPracticesList] = useState<any[]>([]);
   const [assessmentsList, setAssessmentsList] = useState<any[]>([]);
   const [dailyTimeSpent, setDailyTimeSpent] = useState<any[]>([]);
   const [loginActivities, setLoginActivities] = useState<any[]>([]);
+
+  // Synchronize client-side practice state with local session answers (to match Image 2)
+  const enrichWithLocalPracticeSessions = (rawPractices: any[]) => {
+    if (typeof window === "undefined") return rawPractices;
+    return rawPractices.map((track) => {
+      let totalTrackQ = 0;
+      let totalAnsweredQ = 0;
+      let allCompleted = true;
+
+      const challenges = (track.challenges || []).map((ch: any) => {
+        let answeredCount = ch.answeredCount || 0;
+        let totalQ = ch.totalQuestions || ch.questionCount || 10;
+        let isDone = ch.completed || false;
+        let startedAt = ch.startedAt || "Not started";
+        let completedAt = ch.completedAt || null;
+
+        try {
+          const sessionKey = `lms_practice_session_${ch.id}`;
+          const session = localStorage.getItem(sessionKey);
+          const submittedMarker = localStorage.getItem(`${sessionKey}_submitted`);
+          const resultKey = `lms_completed_assessment_${ch.id}`;
+          const resStr = localStorage.getItem(resultKey);
+
+          if (session && !submittedMarker) {
+            const parsed = JSON.parse(session);
+            const answeredKeys = new Set<string>();
+            Object.entries(parsed.answers || {}).forEach(([k, v]) => {
+              if (v && ((Array.isArray(v) && v.length > 0) || (typeof v === "string" && v.trim().length > 0) || (typeof v === "object" && (v as any).code?.trim().length > 0))) {
+                answeredKeys.add(k);
+              }
+            });
+            Object.entries(parsed.codeAnswers || {}).forEach(([k, v]: any) => {
+              if (v && v.code && v.code.trim().length > 0) answeredKeys.add(k);
+            });
+            answeredCount = Math.min(totalQ, answeredKeys.size);
+            if (answeredCount > 0) {
+              startedAt = startedAt === "Not started" || startedAt === "Not Started" ? "Today" : startedAt;
+            }
+          }
+          if (resStr || submittedMarker === "true") {
+            isDone = true;
+            answeredCount = totalQ;
+            completedAt = completedAt || "Completed";
+          }
+        } catch {}
+
+        totalTrackQ += totalQ;
+        totalAnsweredQ += isDone ? totalQ : answeredCount;
+        if (!isDone) allCompleted = false;
+
+        const chProgress = isDone ? 100 : totalQ > 0 ? Math.round((answeredCount / totalQ) * 100) : 0;
+        const status = isDone ? "Completed" : answeredCount > 0 ? `In Progress (${answeredCount}/${totalQ} Qs)` : "Pending";
+
+        return {
+          ...ch,
+          totalQuestions: totalQ,
+          answeredCount,
+          progress: chProgress,
+          status,
+          completed: isDone,
+          startedAt,
+          completedAt,
+          attemptsCount: isDone || answeredCount > 0 ? Math.max(ch.attemptsCount || 0, 1) : 0,
+        };
+      });
+
+      const trackProgress = totalTrackQ > 0 ? Math.round((totalAnsweredQ / totalTrackQ) * 100) : allCompleted ? 100 : 0;
+      const trackStatus = trackProgress === 100 ? "Completed" : trackProgress > 0 ? "In Progress" : "Not Started";
+
+      return {
+        ...track,
+        progress: trackProgress,
+        status: trackStatus,
+        completedChallenges: challenges.filter((c: any) => c.completed).length,
+        totalTrackQ,
+        totalAnsweredQ,
+        challenges,
+      };
+    });
+  };
 
   // Fetch 100% dynamic reports from API
   const fetchReportData = useCallback(async () => {
@@ -90,7 +322,8 @@ export default function StudentReportsPage() {
       if (data.reports) {
         setReportSummary(data.reports.summary || {});
         setCoursesList(data.reports.coursesList || []);
-        setPracticesList(data.reports.practicesList || []);
+        const enrichedPractices = enrichWithLocalPracticeSessions(data.reports.practicesList || []);
+        setPracticesList(enrichedPractices);
         setAssessmentsList(data.reports.assessmentsList || []);
         setDailyTimeSpent(data.reports.dailyTimeSpent || []);
         setLoginActivities(data.reports.loginActivities || []);
@@ -179,65 +412,53 @@ export default function StudentReportsPage() {
       (c) => `"Course","${c.title}","${c.category}","${c.lastAccessed}","${c.progress}%","${c.status}"`
     );
     const practiceRows = practicesList.map(
-      (p) => `"Practice","${p.title}","${p.completedChallenges}/${p.totalChallenges} Solved","Recent","${p.progress}%","${p.status}"`
+      (p) => `"Practice Track","${p.title}","${p.completedChallenges}/${p.totalChallenges} Solved","N/A","${p.progress}%","${p.status}"`
     );
-    const assessRows = assessmentsList.map(
+    const assessmentRows = assessmentsList.map(
       (a) => `"Assessment","${a.title}","${a.type}","${a.completedDate}","${a.scoreObtained}","${a.evaluation}"`
     );
 
-    const blob = new Blob([headers + [...courseRows, ...practiceRows, ...assessRows].join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Student_Reports_${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...courseRows, ...practiceRows, ...assessmentRows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Learning_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
     toast({
-      title: "Report Exported",
-      description: "Downloaded student learning records and performance analytics.",
+      title: "Export Completed",
+      description: "Learning activity and evaluation report exported successfully.",
     });
   };
 
   return (
-    <div className="w-full space-y-7 pb-16">
-      {/* 0. Top Back Button Navigation */}
-      <div className="flex items-center gap-2">
-        <Button
-          onClick={() => router.back()}
-          variant="outline"
-          size="sm"
-          className="h-8.5 px-3 text-xs font-bold text-[#4B5563] dark:text-[#D1D5DB] border-[#E5E7EB] dark:border-[#27272A] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] rounded-xl gap-1.5 shadow-xs"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back
-        </Button>
-      </div>
+    <div className="p-6 sm:p-8 max-w-7xl mx-auto space-y-8">
+      {/* 1. Header with Back Button and Date Range Controls */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.back()}
+            className="h-10 px-3.5 text-xs font-semibold gap-2 border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-white dark:bg-[#18181B] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A]"
+          >
+            <ArrowLeft className="h-4 w-4 text-[#2563EB]" />
+            Back
+          </Button>
 
-      {/* 1. Header & Custom Date Filter */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
-              <BarChart3 className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-                Reports & Performance Analyses
-              </h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pt-0.5">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-[#EFF6FF] dark:bg-[#1E3A8A]/30 text-[#2563EB] border border-[#2563EB]/20">
-              <Calendar className="h-3.5 w-3.5" />
-              {dateRangeLabel}
-            </span>
-            <span className="text-xs text-[#6B7280]">
-              Real-time student progress for Courses, Practices, and Proctored Assessments
-            </span>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#111827] dark:text-[#FAFAFA] tracking-tight">
+              Learning Reports & Performance Analytics
+            </h1>
+            <p className="text-xs sm:text-sm text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">
+              Live comprehensive report for Courses, Practice Labs, Proctored Assessments, and Platform Time.
+            </p>
           </div>
         </div>
 
-        {/* Action Controls: Custom Date Filter Dropdown & Export */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
           <DropdownMenu>
             <DropdownMenuTrigger className="h-10 px-4 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] text-xs font-bold text-[#2563EB] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] flex items-center gap-2 shadow-xs transition-colors">
               <span>{dateRangeLabel}</span>
@@ -316,7 +537,7 @@ export default function StudentReportsPage() {
         </div>
       </div>
 
-      {/* 2. Top-Level Tab Switcher: Separate Courses, Practices, Assessments, Time & Logins */}
+      {/* 2. Top-Level Tab Switcher */}
       <div className="flex items-center gap-2 border-b border-[#E5E7EB] dark:border-[#27272A] pb-2 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab("courses")}
@@ -378,40 +599,13 @@ export default function StudentReportsPage() {
         </div>
       ) : (
         <>
-          {/* Summary Metric Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
-              <span className="text-[11px] font-bold uppercase text-[#6B7280]">Total Courses</span>
-              <p className="text-3xl font-extrabold text-[#D97706]">{reportSummary.enrolledCoursesCount || 0}</p>
-              <p className="text-[11px] text-[#6B7280]">Assigned batch tracks</p>
-            </Card>
-
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
-              <span className="text-[11px] font-bold uppercase text-[#6B7280]">Practice Tracks</span>
-              <p className="text-3xl font-extrabold text-[#16A34A]">{reportSummary.practicesCount || 0}</p>
-              <p className="text-[11px] text-[#6B7280]">Coding modules</p>
-            </Card>
-
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
-              <span className="text-[11px] font-bold uppercase text-[#6B7280]">Assessments</span>
-              <p className="text-3xl font-extrabold text-[#2563EB]">{reportSummary.assessmentsCount || 0}</p>
-              <p className="text-[11px] text-[#6B7280]">Proctored exams</p>
-            </Card>
-
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
-              <span className="text-[11px] font-bold uppercase text-[#6B7280]">Time Spent</span>
-              <p className="text-2xl font-extrabold text-[#111827] dark:text-[#FAFAFA]">{formatTimeSpent(reportSummary.totalTimeSpentSeconds || 0)}</p>
-              <p className="text-[11px] text-[#6B7280]">Active evaluation</p>
-            </Card>
-          </div>
-
           {/* TAB 1: COURSES */}
           {activeTab === "courses" && (
             <div className="space-y-4">
               {coursesList.length === 0 ? (
                 <Card className="p-8 text-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl">
                   <Inbox className="h-8 w-8 text-[#9CA3AF] mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-[#6B7280]">No assigned courses found for your batch.</p>
+                  <p className="text-xs font-semibold text-[#6B7280]">No course enrollments found.</p>
                 </Card>
               ) : (
                 coursesList.map((course) => (
@@ -425,7 +619,6 @@ export default function StudentReportsPage() {
                           {course.category} • {course.completedModules} of {course.totalModules} modules finished
                         </CardDescription>
                       </div>
-
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-extrabold text-[#0D9488]">{course.progress}% Completed</span>
                         <Badge className={cn("text-[10px] font-bold", course.progress === 100 ? "bg-[#16A34A] text-white" : "bg-[#2563EB]/10 text-[#2563EB]")}>
@@ -472,7 +665,7 @@ export default function StudentReportsPage() {
             </div>
           )}
 
-          {/* TAB 2: PRACTICES */}
+          {/* TAB 2: PRACTICES (Matching Image 2 Rich Layout) */}
           {activeTab === "practices" && (
             <div className="space-y-4">
               {practicesList.length === 0 ? (
@@ -485,53 +678,75 @@ export default function StudentReportsPage() {
                   <Card key={track.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden">
                     <CardHeader className="p-5 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
-                        <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                          <Dumbbell className="h-4 w-4 text-[#16A34A]" /> {track.title}
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-[10px] font-bold bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 text-[#2563EB] border-[#BFDBFE]">
+                            {track.category || "Java"}
+                          </Badge>
+                          <span className="text-[11px] text-[#6B7280]">Assigned By: {track.assignedByName || "Admin"}</span>
+                        </div>
+                        <CardTitle className="text-base font-extrabold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                          <Dumbbell className="h-5 w-5 text-[#16A34A]" /> {track.title}
                         </CardTitle>
-                        <CardDescription className="text-[11px] text-[#6B7280]">
-                          {track.completedChallenges} of {track.totalChallenges} challenges solved
+                        <CardDescription className="text-xs text-[#6B7280] mt-0.5">
+                          {track.description || "Practice track for students."}
                         </CardDescription>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-extrabold text-[#16A34A]">{track.progress}% Solved</span>
-                        <Badge className={cn("text-[10px] font-bold", track.progress === 100 ? "bg-[#16A34A] text-white" : track.progress > 0 ? "bg-[#D97706] text-white" : "bg-[#16A34A]/10 text-[#16A34A]")}>
-                          {track.status}
-                        </Badge>
+                      <div className="flex flex-col sm:items-end gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-[#6B7280]">Track Completion:</span>
+                          <span className="text-sm font-extrabold text-[#16A34A]">{track.progress}%</span>
+                          <Badge className={cn("text-[10px] font-bold", track.progress === 100 ? "bg-[#16A34A] text-white" : track.progress > 0 ? "bg-[#D97706] text-white" : "bg-[#16A34A]/10 text-[#16A34A]")}>
+                            {track.status}
+                          </Badge>
+                        </div>
+                        <span className="text-[11px] text-[#6B7280]">
+                          {track.completedChallenges || 0} of {track.totalChallenges || (track.challenges || []).length} Modules Completed ({track.totalAnsweredQ || 0}/{track.totalTrackQ || 10} Qs Answered)
+                        </span>
                       </div>
                     </CardHeader>
 
-                    <CardContent className="p-5 space-y-2.5">
+                    <CardContent className="p-5 space-y-4">
                       <div className="h-2 w-full bg-[#E5E7EB] dark:bg-[#27272A] rounded-full overflow-hidden">
                         <div className="h-full bg-[#16A34A] rounded-full transition-all duration-500" style={{ width: `${track.progress}%` }} />
                       </div>
 
                       <div className="divide-y divide-[#E5E7EB] dark:divide-[#27272A] pt-1">
                         {(track.challenges || []).map((ch: any, chIdx: number) => (
-                          <div key={ch.id || chIdx} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Code2 className="h-3.5 w-3.5 text-[#16A34A]" />
-                              <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{ch.title}</span>
-                              <Badge variant="outline" className="text-[9px] font-semibold">{ch.difficulty}</Badge>
-                              {ch.attemptsCount !== undefined && (
-                                <Badge variant="outline" className="text-[9px] font-semibold text-[#6B7280]">
-                                  {ch.attemptsCount} {ch.attemptsCount === 1 ? "attempt" : "attempts"}
+                          <div key={ch.id || chIdx} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-3">
+                            <div className="space-y-1.5 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant="outline" className="text-[10px] font-bold bg-[#F3F4F6] dark:bg-[#27272A]">
+                                  Module {chIdx + 1}
                                 </Badge>
-                              )}
+                                <Badge className="bg-[#2563EB] text-white text-[9px] font-bold uppercase tracking-wider">
+                                  {ch.type === "mcq" ? "MCQ QUIZ" : "CODING EXERCISE"}
+                                </Badge>
+                                <Badge className={cn("text-[10px] font-bold", ch.completed ? "bg-[#16A34A] text-white" : ch.answeredCount > 0 ? "bg-[#D97706] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
+                                  {ch.completed ? "Completed" : ch.answeredCount > 0 ? `In Progress (${ch.answeredCount}/${ch.totalQuestions || 10} Qs)` : "Not Started"}
+                                </Badge>
+                              </div>
+
+                              <p className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                                <Code2 className="h-4 w-4 text-[#16A34A]" /> {ch.title}
+                              </p>
+                              <p className="text-[11px] text-[#6B7280]">
+                                {ch.description || "Interactive coding practice module."} • {ch.totalQuestions || 10} Questions (0 MCQs, {ch.totalQuestions || 10} Coding) • 100 Marks
+                              </p>
                             </div>
 
-                            <div className="flex items-center gap-3 flex-wrap">
-                              {ch.score !== undefined && (
-                                <span className="font-bold text-[#16A34A] text-[11px]">{ch.score}% Score</span>
-                              )}
-                              <span className="text-[11px] text-[#6B7280]">
-                                {ch.startedAt && ch.startedAt !== "Not Started" ? `Started: ${ch.startedAt}` : "Not started"}
-                              </span>
-                              <span className="text-[11px] text-[#6B7280]">
-                                {ch.completedAt ? `Completed: ${ch.completedAt}` : "Pending"}
-                              </span>
-                              <Badge className={cn("text-[9px] font-bold", ch.completed ? "bg-[#16A34A] text-white" : ch.startedAt && ch.startedAt !== "Not Started" ? "bg-[#D97706] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
-                                {ch.completed ? "Solved" : ch.startedAt && ch.startedAt !== "Not Started" ? "In Progress" : "Pending"}
-                              </Badge>
+                            <div className="flex items-center gap-3 flex-wrap sm:justify-end">
+                              <div className="text-right">
+                                <p className="font-extrabold text-sm text-[#2563EB]">{ch.progress || (ch.completed ? 100 : 0)}%</p>
+                                <p className="text-[10px] text-[#6B7280]">
+                                  {ch.completedAt ? `Completed: ${ch.completedAt}` : ch.startedAt && ch.startedAt !== "Not Started" ? `Started: ${ch.startedAt}` : "Pending"}
+                                </p>
+                              </div>
+
+                              <Link href={`/student/assessments/${ch.id}?trackId=${track.id}`}>
+                                <Button size="sm" className="h-9 px-3 text-xs font-bold gap-1.5 bg-[#D97706] hover:bg-[#B45309] text-white rounded-xl shadow-xs">
+                                  <Play className="h-3.5 w-3.5 fill-current" /> {ch.completed ? "Review Module" : ch.answeredCount > 0 ? "Continue Module" : "Start Module"}
+                                </Button>
+                              </Link>
                             </div>
                           </div>
                         ))}
@@ -598,33 +813,43 @@ export default function StudentReportsPage() {
             </div>
           )}
 
-          {/* TAB 4: TIME & LOGINS */}
+          {/* TAB 4: TIME & LOGINS (Interactive SVG Line Chart + Overall Site Usage) */}
           {activeTab === "time" && (
             <div className="space-y-6">
-              <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">My Time Spent On Site</h4>
-                    <p className="text-xs text-[#6B7280]">Total Active Time: <strong>{formatTimeSpent(reportSummary.totalTimeSpentSeconds || 0)}</strong></p>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] font-bold">{dateRangeLabel}</Badge>
-                </div>
-
-                <div className="h-36 w-full flex items-end justify-between px-2 pt-4">
-                  {dailyTimeSpent.map((item, idx) => (
-                    <div key={idx} className="flex flex-col items-center flex-1 max-w-[45px]">
-                      <div className="w-full flex items-end justify-center h-24">
-                        <div
-                          style={{ height: `${Math.max(6, item.height)}%` }}
-                          className="w-3.5 sm:w-4 rounded-t-md bg-gradient-to-t from-[#2563EB] to-[#60A5FA]"
-                        />
-                      </div>
-                      <span className="text-[10px] text-[#6B7280] mt-1.5">{item.label}</span>
-                    </div>
-                  ))}
-                </div>
+              {/* 1. Interactive SVG Area Line Chart */}
+              <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden p-6 space-y-4">
+                <SmoothTimeLineChart
+                  data={dailyTimeSpent}
+                  totalTimeLabel={formatTimeSpent(reportSummary.totalTimeSpentSeconds || 0)}
+                  dateRangeLabel={dateRangeLabel}
+                />
               </Card>
 
+              {/* 2. Total Site Usage Breakdown Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                  <span className="text-[11px] font-bold uppercase text-[#6B7280]">Total Active Time</span>
+                  <p className="text-2xl font-extrabold text-[#2563EB]">{formatTimeSpent(reportSummary.totalTimeSpentSeconds || 0)}</p>
+                  <p className="text-[11px] text-[#6B7280]">Overall platform engagement</p>
+                </Card>
+                <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                  <span className="text-[11px] font-bold uppercase text-[#6B7280]">Course Modules</span>
+                  <p className="text-2xl font-extrabold text-[#0D9488]">{coursesList.reduce((acc, c) => acc + (c.completedModules || 0), 0)} Completed</p>
+                  <p className="text-[11px] text-[#6B7280]">Video lessons & syllabus</p>
+                </Card>
+                <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                  <span className="text-[11px] font-bold uppercase text-[#6B7280]">Practice Labs</span>
+                  <p className="text-2xl font-extrabold text-[#16A34A]">{practicesList.reduce((acc, p) => acc + (p.completedChallenges || 0), 0)} Solved</p>
+                  <p className="text-[11px] text-[#6B7280]">Interactive coding challenges</p>
+                </Card>
+                <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                  <span className="text-[11px] font-bold uppercase text-[#6B7280]">Evaluations Taken</span>
+                  <p className="text-2xl font-extrabold text-[#D97706]">{assessmentsList.filter((a) => a.attempted).length} Finished</p>
+                  <p className="text-[11px] text-[#6B7280]">Proctored exams & tests</p>
+                </Card>
+              </div>
+
+              {/* 3. Login Audit */}
               <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden">
                 <CardHeader className="p-5 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
                   <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
@@ -700,23 +925,20 @@ export default function StudentReportsPage() {
           <DialogFooter className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
             <Button
               variant="outline"
-              size="sm"
               onClick={() => setIsCustomModalOpen(false)}
-              className="text-xs font-semibold"
+              className="text-xs font-semibold rounded-xl"
             >
               Cancel
             </Button>
             <Button
-              size="sm"
               onClick={handleApplyCustomRange}
-              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold gap-1.5"
+              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl"
             >
               Apply Filter
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

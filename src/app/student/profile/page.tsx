@@ -133,7 +133,87 @@ export default function StudentProfilePage() {
         setPracticeCount(sum.practicesCount || 0);
         setSubmissionsCount(sum.totalSubmissionsCount || 0);
         setCoursesList(repData.reports.coursesList || []);
-        setPracticesList(repData.reports.practicesList || []);
+
+        let rawPractices = repData.reports.practicesList || [];
+        if (typeof window !== "undefined") {
+          rawPractices = rawPractices.map((track: any) => {
+            let totalTrackQ = 0;
+            let totalAnsweredQ = 0;
+            let allCompleted = true;
+
+            const challenges = (track.challenges || []).map((ch: any) => {
+              let answeredCount = ch.answeredCount || 0;
+              let totalQ = ch.totalQuestions || ch.questionCount || 10;
+              let isDone = ch.completed || false;
+              let startedAt = ch.startedAt || "Not started";
+              let completedAt = ch.completedAt || null;
+
+              try {
+                const sessionKey = `lms_practice_session_${ch.id}`;
+                const session = localStorage.getItem(sessionKey);
+                const submittedMarker = localStorage.getItem(`${sessionKey}_submitted`);
+                const resultKey = `lms_completed_assessment_${ch.id}`;
+                const resStr = localStorage.getItem(resultKey);
+
+                if (session && !submittedMarker) {
+                  const parsed = JSON.parse(session);
+                  const answeredKeys = new Set<string>();
+                  Object.entries(parsed.answers || {}).forEach(([k, v]) => {
+                    if (v && ((Array.isArray(v) && v.length > 0) || (typeof v === "string" && v.trim().length > 0) || (typeof v === "object" && (v as any).code?.trim().length > 0))) {
+                      answeredKeys.add(k);
+                    }
+                  });
+                  Object.entries(parsed.codeAnswers || {}).forEach(([k, v]: any) => {
+                    if (v && v.code && v.code.trim().length > 0) answeredKeys.add(k);
+                  });
+                  answeredCount = Math.min(totalQ, answeredKeys.size);
+                  if (answeredCount > 0) {
+                    startedAt = startedAt === "Not started" || startedAt === "Not Started" ? "Today" : startedAt;
+                  }
+                }
+                if (resStr || submittedMarker === "true") {
+                  isDone = true;
+                  answeredCount = totalQ;
+                  completedAt = completedAt || "Completed";
+                }
+              } catch {}
+
+              totalTrackQ += totalQ;
+              totalAnsweredQ += isDone ? totalQ : answeredCount;
+              if (!isDone) allCompleted = false;
+
+              const chProgress = isDone ? 100 : totalQ > 0 ? Math.round((answeredCount / totalQ) * 100) : 0;
+              const status = isDone ? "Completed" : answeredCount > 0 ? `In Progress (${answeredCount}/${totalQ} Qs)` : "Pending";
+
+              return {
+                ...ch,
+                totalQuestions: totalQ,
+                answeredCount,
+                progress: chProgress,
+                status,
+                completed: isDone,
+                startedAt,
+                completedAt,
+                attemptsCount: isDone || answeredCount > 0 ? Math.max(ch.attemptsCount || 0, 1) : 0,
+              };
+            });
+
+            const trackProgress = totalTrackQ > 0 ? Math.round((totalAnsweredQ / totalTrackQ) * 100) : allCompleted ? 100 : 0;
+            const trackStatus = trackProgress === 100 ? "Completed" : trackProgress > 0 ? "In Progress" : "Not Started";
+
+            return {
+              ...track,
+              progress: trackProgress,
+              status: trackStatus,
+              completedChallenges: challenges.filter((c: any) => c.completed).length,
+              totalTrackQ,
+              totalAnsweredQ,
+              challenges,
+            };
+          });
+        }
+
+        setPracticesList(rawPractices);
         setAssessmentsList(repData.reports.assessmentsList || []);
         setDailyTimeSpent(repData.reports.dailyTimeSpent || []);
         setLoginActivities(repData.reports.loginActivities || []);
@@ -1034,30 +1114,128 @@ export default function StudentProfilePage() {
               {/* Sub-tab 4: TIME & LOGINS */}
               {reportSubTab === "time" && (
                 <div className="space-y-6">
-                  {/* Daily Time Chart */}
-                  <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden p-5 space-y-4">
-                    <div className="flex items-center justify-between">
+                  {/* 1. Interactive SVG Area Line Chart */}
+                  <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden p-6 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
-                        <h4 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">My Time Spent On Site</h4>
-                        <p className="text-xs text-[#6B7280]">Total Active Time: <strong>{formatTimeSpent(reportSummary.totalTimeSpentSeconds || 0)}</strong></p>
+                        <h4 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                          <TrendingUp className="h-4 w-4 text-[#2563EB]" />
+                          My Time Spent On Site (Line Chart)
+                        </h4>
+                        <p className="text-xs text-[#6B7280]">
+                          Total Active Time: <strong className="text-[#2563EB] dark:text-[#60A5FA] font-extrabold">{formatTimeSpent(reportSummary.totalTimeSpentSeconds || 0)}</strong>
+                        </p>
                       </div>
-                      <Badge variant="outline" className="text-[10px] font-bold">{dateRangeLabel}</Badge>
+                      <Badge variant="outline" className="text-[10px] font-bold self-start sm:self-auto">{dateRangeLabel}</Badge>
                     </div>
 
-                    <div className="h-36 w-full flex items-end justify-between px-2 pt-4">
-                      {dailyTimeSpent.map((item, idx) => (
-                        <div key={idx} className="flex flex-col items-center flex-1 max-w-[45px]">
-                          <div className="w-full flex items-end justify-center h-24">
-                            <div
-                              style={{ height: `${Math.max(6, item.height)}%` }}
-                              className="w-3.5 sm:w-4 rounded-t-md bg-gradient-to-t from-[#2563EB] to-[#60A5FA]"
-                            />
+                    {(() => {
+                      const data = dailyTimeSpent;
+                      if (!data || data.length === 0) {
+                        return <p className="text-xs text-muted-foreground py-6 text-center">No time activity recorded in this period.</p>;
+                      }
+
+                      const width = 800;
+                      const height = 180;
+                      const paddingX = 35;
+                      const paddingY = 25;
+                      const chartWidth = width - paddingX * 2;
+                      const chartHeight = height - paddingY * 2;
+                      const maxMins = Math.max(...data.map((d: any) => d.minutes || 0), 60);
+
+                      const points = data.map((item: any, index: number) => {
+                        const x = paddingX + (index / Math.max(1, data.length - 1)) * chartWidth;
+                        const y = height - paddingY - ((item.minutes || 0) / maxMins) * chartHeight;
+                        return { x, y, item, index };
+                      });
+
+                      const firstPt = points[0];
+                      const lastPt = points[points.length - 1];
+                      if (!firstPt || !lastPt) return null;
+
+                      let pathD = `M ${firstPt.x},${firstPt.y}`;
+                      for (let i = 0; i < points.length - 1; i++) {
+                        const p0 = points[i];
+                        const p1 = points[i + 1];
+                        if (p0 && p1) {
+                          const cpX1 = p0.x + (p1.x - p0.x) / 2;
+                          const cpY1 = p0.y;
+                          const cpX2 = p0.x + (p1.x - p0.x) / 2;
+                          const cpY2 = p1.y;
+                          pathD += ` C ${cpX1},${cpY1} ${cpX2},${cpY2} ${p1.x},${p1.y}`;
+                        }
+                      }
+                      const areaD = `${pathD} L ${lastPt.x},${height - paddingY} L ${firstPt.x},${height - paddingY} Z`;
+
+                      return (
+                        <div className="relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-[#F0F7FF]/50 dark:from-[#1E3A8A]/10 to-transparent p-3 border border-[#E5E7EB]/60 dark:border-[#27272A]">
+                          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 sm:h-52 overflow-visible">
+                            <defs>
+                              <linearGradient id="profileTimeAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#2563EB" stopOpacity="0.4" />
+                                <stop offset="100%" stopColor="#2563EB" stopOpacity="0.0" />
+                              </linearGradient>
+                              <linearGradient id="profileTimeStrokeGrad" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stopColor="#3B82F6" />
+                                <stop offset="50%" stopColor="#2563EB" />
+                                <stop offset="100%" stopColor="#1D4ED8" />
+                              </linearGradient>
+                            </defs>
+                            <line x1={paddingX} y1={paddingY} x2={width - paddingX} y2={paddingY} stroke="currentColor" strokeOpacity="0.08" strokeDasharray="4 4" />
+                            <line x1={paddingX} y1={paddingY + chartHeight / 2} x2={width - paddingX} y2={paddingY + chartHeight / 2} stroke="currentColor" strokeOpacity="0.08" strokeDasharray="4 4" />
+                            <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} stroke="currentColor" strokeOpacity="0.15" />
+                            <path d={areaD} fill="url(#profileTimeAreaGrad)" />
+                            <path d={pathD} fill="none" stroke="url(#profileTimeStrokeGrad)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                            {points.map((pt, i) => (
+                              <circle
+                                key={i}
+                                cx={pt.x}
+                                cy={pt.y}
+                                r={pt.item.minutes > 0 ? 4.5 : 3}
+                                fill={pt.item.minutes > 0 ? "#2563EB" : "#9CA3AF"}
+                                stroke="#FFFFFF"
+                                strokeWidth={1.5}
+                              />
+                            ))}
+                          </svg>
+                          <div className="flex justify-between items-center px-4 pt-2 text-[10px] text-[#6B7280] font-semibold overflow-x-auto no-scrollbar">
+                            {data.map((item: any, idx: number) => {
+                              const showLabel = data.length <= 10 || idx % Math.ceil(data.length / 8) === 0 || idx === data.length - 1;
+                              return (
+                                <span key={idx} className="whitespace-nowrap">
+                                  {showLabel ? item.label : ""}
+                                </span>
+                              );
+                            })}
                           </div>
-                          <span className="text-[10px] text-[#6B7280] mt-1.5">{item.label}</span>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })()}
                   </Card>
+
+                  {/* 2. Total Site Usage Breakdown Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                      <span className="text-[11px] font-bold uppercase text-[#6B7280]">Total Active Time</span>
+                      <p className="text-2xl font-extrabold text-[#2563EB]">{formatTimeSpent(reportSummary.totalTimeSpentSeconds || 0)}</p>
+                      <p className="text-[11px] text-[#6B7280]">Overall site usage</p>
+                    </Card>
+                    <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                      <span className="text-[11px] font-bold uppercase text-[#6B7280]">Course Modules</span>
+                      <p className="text-2xl font-extrabold text-[#0D9488]">{coursesList.reduce((acc, c) => acc + (c.completedModules || 0), 0)} Completed</p>
+                      <p className="text-[11px] text-[#6B7280]">Video lessons & syllabus</p>
+                    </Card>
+                    <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                      <span className="text-[11px] font-bold uppercase text-[#6B7280]">Practice Labs</span>
+                      <p className="text-2xl font-extrabold text-[#16A34A]">{practicesList.reduce((acc, p) => acc + (p.completedChallenges || 0), 0)} Solved</p>
+                      <p className="text-[11px] text-[#6B7280]">Coding problem tracks</p>
+                    </Card>
+                    <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
+                      <span className="text-[11px] font-bold uppercase text-[#6B7280]">Evaluations</span>
+                      <p className="text-2xl font-extrabold text-[#D97706]">{assessmentsList.filter((a) => a.attempted).length} Finished</p>
+                      <p className="text-[11px] text-[#6B7280]">Proctored exams taken</p>
+                    </Card>
+                  </div>
 
                   {/* Logins Table */}
                   <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden">
