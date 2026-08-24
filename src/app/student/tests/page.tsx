@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar, Clock, ShieldCheck, Play, CheckCircle2, AlertCircle,
@@ -137,12 +137,23 @@ export default function StudentTestsPage() {
   }, [isLobbyOpen, selectedLobbyTest]);
 
   // Bind lobbyStream to lobbyVideoRef when element mounts
+  const setLobbyVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    (lobbyVideoRef as any).current = node;
+    if (node && lobbyStream) {
+      node.srcObject = lobbyStream;
+      node.onloadedmetadata = () => {
+        node.play().catch((e) => console.warn("Lobby video play error:", e));
+      };
+      node.play().catch((e) => console.warn("Lobby video play error:", e));
+    }
+  }, [lobbyStream]);
+
   useEffect(() => {
     if (lobbyStream && lobbyVideoRef.current) {
       lobbyVideoRef.current.srcObject = lobbyStream;
       lobbyVideoRef.current.play().catch((e) => console.warn("Lobby video play error:", e));
     }
-  }, [lobbyStream, lobbyVideoRef.current]);
+  }, [lobbyStream]);
 
   const handleCaptureReferencePhoto = () => {
     if (lobbyVideoRef.current) {
@@ -449,11 +460,11 @@ export default function StudentTestsPage() {
                     {/* Live Camera Stream Container */}
                     <div className="aspect-video bg-[#09090B] rounded-xl overflow-hidden relative border border-[#27272A] flex items-center justify-center">
                       <video
-                        ref={lobbyVideoRef}
+                        ref={setLobbyVideoRef}
                         autoPlay
                         playsInline
                         muted
-                        className={`w-full h-full object-cover rounded-xl ${lobbyStream ? "block" : "hidden"}`}
+                        className={`w-full h-full object-cover rounded-xl transform -scale-x-100 ${lobbyStream ? "block" : "hidden"}`}
                       />
 
                       {!lobbyStream && (
