@@ -79,6 +79,7 @@ export class JobeService {
       "swift",
       "ruby",
       "scala",
+      "sql",
     ];
 
     const valid = supported.includes(jobeLangId);

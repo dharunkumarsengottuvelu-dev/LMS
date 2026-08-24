@@ -28,22 +28,23 @@ export async function POST(request: NextRequest) {
 
     let testCases = test_cases;
     let datasetName = body.dataset_name || "university";
+    let problem: any = null;
 
     if (!testCases || testCases.length === 0) {
       const supabase = createAdminClient();
-      const { data: problem, error: problemError } = await supabase
+      const { data: dbProblem, error: problemError } = await supabase
         .from("coding_problems")
-        .select("test_cases, dataset_name")
+        .select("test_cases, dataset_name, sql_engine, schema_sql, seed_sql, comparison_mode")
         .eq("id", problem_id)
         .single();
 
-      if (problemError || !problem) {
+      if (problemError || !dbProblem) {
         return NextResponse.json({ error: "Problem not found in database" }, { status: 404 });
       }
-      
+      problem = dbProblem;
       // true = only public testcases for the 'Run' feature
-      testCases = (problem.test_cases as TestCase[]).filter(tc => !tc.is_hidden);
-      datasetName = problem.dataset_name ?? "university";
+      testCases = (dbProblem.test_cases as TestCase[]).filter(tc => !tc.is_hidden);
+      datasetName = dbProblem.dataset_name ?? "university";
     }
     // Evaluate each testcase concurrently in parallel
     const testResults: TestCaseResult[] = await Promise.all(
@@ -54,14 +55,24 @@ export async function POST(request: NextRequest) {
         let resError: string | undefined;
 
         if (language === "sql") {
-          const sqlRes = SQLExecutionService.executeQuery(code, datasetName);
+          const sqlEngine = body.sql_engine || problem?.sql_engine || "sqlite";
+          const schemaSql = body.schema_sql || problem?.schema_sql;
+          const seedSql = body.seed_sql || problem?.seed_sql;
+          const comparisonMode = body.comparison_mode || problem?.comparison_mode || "ORDER_SENSITIVE";
+
+          const sqlRes = await SQLExecutionService.executeQuery(code, datasetName, {
+            engine: sqlEngine,
+            schemaSql,
+            seedSql,
+          });
+
           if (sqlRes.error) {
             passed = false;
             resError = sqlRes.error;
             trimmedActual = sqlRes.error;
           } else {
             trimmedActual = JSON.stringify(sqlRes.rows);
-            passed = SQLExecutionService.compareSQLResults(sqlRes, trimmedExpected);
+            passed = SQLExecutionService.compareSQLResults(sqlRes, trimmedExpected, comparisonMode);
           }
         } else {
           const res = await jobeService.executeCode(language, code, tc.input);

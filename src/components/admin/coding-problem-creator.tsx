@@ -6,7 +6,7 @@ import {
   Sparkles, Save, ShieldCheck, Layers, FileText,
   AlertCircle, Check, Eye, ChevronRight, Terminal,
   Cpu, HardDrive, HelpCircle, ArrowLeft,
-  Maximize2, Minimize2, ShieldAlert, Lock
+  Maximize2, Minimize2, ShieldAlert, Lock, Database
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { CodingProblemsService } from "@/services/coding-problems.service";
-import type { CodingProblem, TestCase, Difficulty, CodingLanguage } from "@/types/coding";
+import type { CodingProblem, TestCase, Difficulty, CodingLanguage, SQLEngine, SQLComparisonMode } from "@/types/coding";
 import { PageHeader } from "@/components/layouts/page-header";
 import { AutoSaveBadge } from "@/components/ui/auto-save-badge";
 
@@ -40,6 +40,10 @@ export interface CodingProblemCreatorProps {
     templates: Record<string, string>;
     publicTestCases: TestCase[];
     hiddenTestCases: TestCase[];
+    sqlEngine?: SQLEngine;
+    schemaSql?: string;
+    seedSql?: string;
+    comparisonMode?: SQLComparisonMode;
   }) => void;
   initialTitle?: string;
   initialDescription?: string;
@@ -50,6 +54,10 @@ export interface CodingProblemCreatorProps {
   initialTemplates?: Record<string, string>;
   initialPublicTestCases?: TestCase[];
   initialHiddenTestCases?: TestCase[];
+  initialSqlEngine?: SQLEngine;
+  initialSchemaSql?: string;
+  initialSeedSql?: string;
+  initialComparisonMode?: SQLComparisonMode;
   hideHeader?: boolean;
   inline?: boolean;
 }
@@ -67,24 +75,38 @@ export function CodingProblemCreator({
   initialTemplates,
   initialPublicTestCases,
   initialHiddenTestCases,
+  initialSqlEngine,
+  initialSchemaSql,
+  initialSeedSql,
+  initialComparisonMode,
   hideHeader = false,
   inline = false,
 }: CodingProblemCreatorProps) {
   const { toast } = useToast();
-  const [supportedLanguages, setSupportedLanguages] = useState<SupportedLangOption[]>([]);
+  const [supportedLanguages, setSupportedLanguages] = useState<SupportedLangOption[]>([
+    { id: "c", label: "C (GCC)", defaultTemplate: "#include <stdio.h>\n\nint main() {\n    // Write your code here\n    return 0;\n}" },
+    { id: "cpp", label: "C++ (GCC)", defaultTemplate: "#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your code here\n    return 0;\n}" },
+    { id: "java", label: "Java 17", defaultTemplate: "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        // Write your code here\n    }\n}" },
+    { id: "python", label: "Python 3", defaultTemplate: "# Write your Python solution here\n" },
+    { id: "javascript", label: "JavaScript (Node.js)", defaultTemplate: "// Write your JavaScript solution here\n" },
+    { id: "sql", label: "SQL (Multi-Dialect)", defaultTemplate: "-- Write your SQL query here\nSELECT * FROM employees;\n" },
+  ]);
 
   useEffect(() => {
     fetch("/api/compiler/languages?enabled=true")
       .then((res) => res.json())
       .then((data) => {
-        if (data.languages) {
-          setSupportedLanguages(
-            data.languages.map((l: any) => ({
-              id: l.jobe_language,
-              label: l.display_name,
-              defaultTemplate: "",
-            }))
-          );
+        if (data.languages && Array.isArray(data.languages)) {
+          const fetched = data.languages.map((l: any) => ({
+            id: l.jobe_language,
+            label: l.display_name,
+            defaultTemplate: "",
+          }));
+          // Ensure SQL is always in the options
+          if (!fetched.some((l: any) => l.id === "sql")) {
+            fetched.push({ id: "sql", label: "SQL (Multi-Dialect)", defaultTemplate: "-- Write your SQL query here\nSELECT * FROM employees;\n" });
+          }
+          setSupportedLanguages(fetched);
         }
       })
       .catch((err) => console.error("Failed to load languages", err));
@@ -107,6 +129,12 @@ export function CodingProblemCreator({
   const [selectedLanguages, setSelectedLanguages] = useState<CodingLanguage[]>([
     "c", "cpp", "java", "python", "javascript"
   ]);
+
+  // SQL Engine & Configuration State
+  const [sqlEngine, setSqlEngine] = useState<SQLEngine>(initialSqlEngine || "sqlite");
+  const [schemaSql, setSchemaSql] = useState<string>(initialSchemaSql || "");
+  const [seedSql, setSeedSql] = useState<string>(initialSeedSql || "");
+  const [comparisonMode, setComparisonMode] = useState<SQLComparisonMode>(initialComparisonMode || "ORDER_SENSITIVE");
 
   // Starter Code Templates by Language
   const [activeTemplateLang, setActiveTemplateLang] = useState<CodingLanguage>("java");
@@ -234,9 +262,13 @@ export function CodingProblemCreator({
         templates: filteredTemplates,
         publicTestCases,
         hiddenTestCases,
+        sqlEngine: selectedLanguages.includes("sql") ? sqlEngine : undefined,
+        schemaSql: selectedLanguages.includes("sql") ? schemaSql : undefined,
+        seedSql: selectedLanguages.includes("sql") ? seedSql : undefined,
+        comparisonMode: selectedLanguages.includes("sql") ? comparisonMode : undefined,
       });
     }
-  }, [title, description, difficulty, constraints, inputFormat, outputFormat, selectedLanguages, templates, publicTestCases, hiddenTestCases]);
+  }, [title, description, difficulty, constraints, inputFormat, outputFormat, selectedLanguages, templates, publicTestCases, hiddenTestCases, sqlEngine, schemaSql, seedSql, comparisonMode]);
 
   const toggleLanguage = (lang: string) => {
     setSelectedLanguages((prev) =>
@@ -313,7 +345,7 @@ export function CodingProblemCreator({
         slug,
         description: description.trim(),
         difficulty,
-        category: "Algorithms",
+        category: selectedLanguages.includes("sql") ? "Databases" : "Algorithms",
         constraints,
         input_format: inputFormat,
         output_format: outputFormat,
@@ -322,6 +354,10 @@ export function CodingProblemCreator({
         sample_output: publicTestCases[0]?.expected_output || "",
         templates: filteredTemplates,
         test_cases: [...publicTestCases, ...hiddenTestCases],
+        sql_engine: selectedLanguages.includes("sql") ? sqlEngine : undefined,
+        schema_sql: selectedLanguages.includes("sql") ? schemaSql : undefined,
+        seed_sql: selectedLanguages.includes("sql") ? seedSql : undefined,
+        comparison_mode: selectedLanguages.includes("sql") ? comparisonMode : undefined,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -546,6 +582,81 @@ export function CodingProblemCreator({
             })}
           </div>
         </Card>
+
+        {/* Section 3.5: SQL Database Engine & Schema Configuration (Visible when SQL is selected) */}
+        {selectedLanguages.includes("sql") && (
+          <Card className="bg-white dark:bg-[#18181B] border border-[#2563EB]/40 dark:border-[#2563EB]/40 p-6 rounded-2xl shadow-sm space-y-5 bg-gradient-to-br from-blue-50/20 to-transparent dark:from-blue-950/10">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-[#2563EB] flex items-center gap-2">
+                  <Database className="h-4 w-4" /> 3.5 SQL Database Engine & Schema Configuration
+                </h2>
+                <p className="text-xs text-[#6B7280] mt-0.5">Configure target database engine, initial table schema, and seed data</p>
+              </div>
+              <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold">SQL Execution Sandbox</Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Database Engine</label>
+                <Select value={sqlEngine} onValueChange={(v) => setSqlEngine(v as SQLEngine)}>
+                  <SelectTrigger className="h-[44px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sqlite">SQLite (Fast, In-Memory Sandbox)</SelectItem>
+                    <SelectItem value="mysql">MySQL 8.0 (Enterprise Relational)</SelectItem>
+                    <SelectItem value="postgresql">PostgreSQL 15 (Advanced SQL / CTEs)</SelectItem>
+                    <SelectItem value="mariadb">MariaDB 10.11 (Compatible Relational)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Result Comparison Mode</label>
+                <Select value={comparisonMode} onValueChange={(v) => setComparisonMode(v as SQLComparisonMode)}>
+                  <SelectTrigger className="h-[44px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ORDER_SENSITIVE">Order Sensitive (Strict ORDER BY check)</SelectItem>
+                    <SelectItem value="ORDER_INSENSITIVE">Order Insensitive (Content match only)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Database Schema (DDL)</label>
+                  <span className="text-[10px] text-[#6B7280]">Executed before student query</span>
+                </div>
+                <Textarea
+                  rows={6}
+                  value={schemaSql}
+                  onChange={(e) => setSchemaSql(e.target.value)}
+                  placeholder={`CREATE TABLE employees (\n    id INT PRIMARY KEY,\n    name VARCHAR(100),\n    department VARCHAR(100),\n    salary INT\n);`}
+                  className="font-mono text-xs leading-relaxed rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Seed Data (DML)</label>
+                  <span className="text-[10px] text-[#6B7280]">Sample rows for evaluation</span>
+                </div>
+                <Textarea
+                  rows={6}
+                  value={seedSql}
+                  onChange={(e) => setSeedSql(e.target.value)}
+                  placeholder={`INSERT INTO employees VALUES\n(101, 'Arun', 'Engineering', 75000),\n(102, 'Priya', 'Engineering', 85000),\n(103, 'Ravi', 'HR', 52000);`}
+                  className="font-mono text-xs leading-relaxed rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                />
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Section 4: Starter Code Template */}
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-sm space-y-4">

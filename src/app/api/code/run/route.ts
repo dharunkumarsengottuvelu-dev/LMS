@@ -35,7 +35,17 @@ export async function POST(request: NextRequest) {
 
     // Handle SQL execution category
     if (language === "sql") {
-      const sqlRes = SQLExecutionService.executeQuery(code);
+      const sqlEngine = body.sql_engine || body.engine || "sqlite";
+      const schemaSql = body.schema_sql || body.schema;
+      const seedSql = body.seed_sql || body.seed;
+      const datasetName = body.dataset_name || "university";
+
+      const sqlRes = await SQLExecutionService.executeQuery(code, datasetName, {
+        engine: sqlEngine,
+        schemaSql,
+        seedSql,
+      });
+
       return NextResponse.json({
         stdout: sqlRes.error ? null : JSON.stringify(sqlRes.rows, null, 2),
         stderr: sqlRes.error ?? null,

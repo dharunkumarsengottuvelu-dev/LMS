@@ -32,6 +32,9 @@ export interface MultiFilePayload {
   stdin?: string;
 }
 
+export type SQLEngine = "sqlite" | "mysql" | "postgresql" | "mariadb";
+export type SQLComparisonMode = "ORDER_SENSITIVE" | "ORDER_INSENSITIVE";
+
 export interface SQLColumnSchema {
   name: string;
   type: string;
@@ -52,6 +55,11 @@ export interface SQLDatasetSchema {
 export interface SQLQueryInput {
   query: string;
   datasetName?: string;
+  engine?: SQLEngine;
+  schemaSql?: string;
+  seedSql?: string;
+  comparisonMode?: SQLComparisonMode;
+  timeoutMs?: number;
 }
 
 export interface SQLQueryResult {
@@ -60,6 +68,7 @@ export interface SQLQueryResult {
   rowCount: number;
   executionTimeMs: number;
   error?: string;
+  engine?: SQLEngine;
 }
 
 export interface LanguageConfig {
@@ -137,6 +146,10 @@ export interface CodingProblem {
   templates: Record<string, string>;
   test_cases: TestCase[];
   dataset_name?: string;
+  sql_engine?: SQLEngine;
+  schema_sql?: string;
+  seed_sql?: string;
+  comparison_mode?: SQLComparisonMode;
   created_at: string;
   updated_at: string;
 }
@@ -164,6 +177,11 @@ export interface ExecuteCodeInput {
   html?: string;
   css?: string;
   js?: string;
+  sql_engine?: SQLEngine;
+  schema_sql?: string;
+  seed_sql?: string;
+  comparison_mode?: SQLComparisonMode;
+  dataset_name?: string;
 }
 
 export interface ExecuteCodeResult {
@@ -186,6 +204,10 @@ export interface SubmitCodeInput {
   code: string;
   files?: CodeFile[];
   test_cases?: TestCase[];
+  sql_engine?: SQLEngine;
+  schema_sql?: string;
+  seed_sql?: string;
+  comparison_mode?: SQLComparisonMode;
 }
 
 export interface CreateCodingProblemInput {
@@ -195,6 +217,11 @@ export interface CreateCodingProblemInput {
   constraints?: string;
   templates: Record<string, string>;
   test_cases: TestCase[];
+  sql_engine?: SQLEngine;
+  schema_sql?: string;
+  seed_sql?: string;
+  comparison_mode?: SQLComparisonMode;
+  dataset_name?: string;
 }
 
 // Jobe Language ID map (Jobe language identifiers used by trampgeek/jobe)

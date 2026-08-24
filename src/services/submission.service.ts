@@ -59,14 +59,20 @@ export class SubmissionService {
   ): Promise<CodingSubmission> {
     let testCases = input.test_cases;
     let datasetName = "university";
+    let problem: CodingProblem | null = null;
+
+    if (input.problem_id) {
+      problem = this.getProblemById(input.problem_id, false);
+      if (problem) {
+        if (!testCases || testCases.length === 0) {
+          testCases = problem.test_cases;
+        }
+        datasetName = problem.dataset_name ?? "university";
+      }
+    }
 
     if (!testCases || testCases.length === 0) {
-      const problem = this.getProblemById(input.problem_id, false);
-      if (!problem) {
-        throw new Error(`Problem not found: ${input.problem_id}`);
-      }
-      testCases = problem.test_cases;
-      datasetName = problem.dataset_name ?? "university";
+      throw new Error(`Test cases not found for problem: ${input.problem_id}`);
     }
 
     const { jobeService } = await import("@/services/jobe");
@@ -81,7 +87,11 @@ export class SubmissionService {
         let executionTime = 0.02;
 
         if (input.language === "sql") {
-          const sqlRes = SQLExecutionService.executeQuery(input.code, datasetName);
+          const sqlRes = await SQLExecutionService.executeQuery(input.code, datasetName, {
+            engine: input.sql_engine || (problem as any)?.sql_engine || "sqlite",
+            schemaSql: input.schema_sql || (problem as any)?.schema_sql,
+            seedSql: input.seed_sql || (problem as any)?.seed_sql,
+          });
           executionTime = sqlRes.executionTimeMs / 1000;
           if (sqlRes.error) {
             passed = false;
@@ -89,7 +99,11 @@ export class SubmissionService {
             trimmedActual = sqlRes.error;
           } else {
             trimmedActual = JSON.stringify(sqlRes.rows);
-            passed = SQLExecutionService.compareSQLResults(sqlRes, trimmedExpected);
+            passed = SQLExecutionService.compareSQLResults(
+              sqlRes,
+              trimmedExpected,
+              input.comparison_mode || (problem as any)?.comparison_mode || "ORDER_SENSITIVE"
+            );
           }
         } else {
           const cleanInput = (tc.input || "")

@@ -316,6 +316,11 @@ export function CodeEditor({
             stdin,
             input: stdin,
             input_data: stdin,
+            sql_engine: problem?.sql_engine,
+            schema_sql: problem?.schema_sql,
+            seed_sql: problem?.seed_sql,
+            comparison_mode: problem?.comparison_mode,
+            dataset_name: problem?.dataset_name,
           }),
         });
 
@@ -334,7 +339,11 @@ export function CodeEditor({
             problem_id: problem?.id,
             language,
             code,
-            test_cases: problem?.test_cases
+            test_cases: problem?.test_cases,
+            sql_engine: problem?.sql_engine,
+            schema_sql: problem?.schema_sql,
+            seed_sql: problem?.seed_sql,
+            comparison_mode: problem?.comparison_mode,
           }),
         });
 
@@ -449,6 +458,13 @@ export function CodeEditor({
                 </div>
               )}
 
+              {language === "sql" && (
+                <Badge variant="outline" className="h-7 text-[10px] font-bold px-2 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                  <span>DB:</span>
+                  <span className="uppercase">{(problem?.sql_engine || "sqlite")}</span>
+                </Badge>
+              )}
+
              <Button
                variant="ghost"
                size="icon"
@@ -521,13 +537,7 @@ export function CodeEditor({
 
         {/* Monaco Editor Body */}
         <div className="flex-1 min-h-0 relative overflow-hidden bg-white">
-          {language === "sql" ? (
-            <SQLEditor
-              datasetName={problem?.dataset_name ?? "university"}
-              defaultQuery={code}
-              height="100%"
-            />
-          ) : language === "html" || language === "css" || language === "react" ? (
+          {language === "html" || language === "css" || language === "react" ? (
             <div className="grid grid-cols-2 h-full">
               <div className="h-full border-r border-gray-200">
                 {useFallbackTextarea ? (

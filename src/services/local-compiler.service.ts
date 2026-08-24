@@ -75,6 +75,15 @@ export class LocalCompilerService {
         result = await this.executeNode(code, cleanStdin, tempDir, timeoutMs);
       } else if (lang === "c" || lang === "cpp" || lang === "c++") {
         result = await this.executeCAndCpp(lang, code, cleanStdin, tempDir, timeoutMs);
+      } else if (lang === "sql") {
+        const { SQLExecutionService, DEFAULT_SQL_SCHEMA, DEFAULT_SQL_SEED } = await import("@/services/sql-execution.service");
+        const script = SQLExecutionService.generateRunnerScript({
+          engine: "sqlite",
+          schemaSql: DEFAULT_SQL_SCHEMA,
+          seedSql: DEFAULT_SQL_SEED,
+          query: code,
+        });
+        result = await this.executePython(script, cleanStdin, tempDir, timeoutMs);
       } else {
         // Language not handled locally — use online compiler
         return OnlineCompilerService.execute(language, code, cleanStdin, timeoutMs);

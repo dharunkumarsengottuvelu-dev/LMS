@@ -26,13 +26,27 @@ export function SQLEditor({
   const [queryResult, setQueryResult] = useState<SQLQueryResult | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
 
-  const handleRunQuery = () => {
+  const handleRunQuery = async () => {
     setIsExecuting(true);
-    setTimeout(() => {
-      const result = SQLExecutionService.executeQuery(query, datasetName);
+    try {
+      const res = await fetch("/api/sql/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, datasetName }),
+      });
+      const result = (await res.json()) as SQLQueryResult;
       setQueryResult(result);
+    } catch (err: any) {
+      setQueryResult({
+        columns: [],
+        rows: [],
+        rowCount: 0,
+        executionTimeMs: 0,
+        error: err.message || "Execution failed",
+      });
+    } finally {
       setIsExecuting(false);
-    }, 150);
+    }
   };
 
   const activeTableObj = schema.tables.find((t) => t.name === selectedTable) ?? schema.tables[0];

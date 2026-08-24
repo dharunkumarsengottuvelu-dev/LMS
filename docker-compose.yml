@@ -30,31 +30,68 @@ services:
       - lms-network
 
   # ── Jobe Code Execution Sandbox ───────────────────────────────────────────
-  # Jobe is a production-grade sandboxed code execution server used by
-  # Moodle, VLE platforms, and competitive programming judges worldwide.
-  # It supports: Python3, Java, C, C++, Node.js, PHP, Ruby, Go, Rust, etc.
   jobe:
-    image: trampgeek/jobeinabox:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.jobe
     container_name: edunexus-jobe
     restart: unless-stopped
     # Jobe runs on port 80 internally — do NOT expose to public internet
-    # If you want to test Jobe directly, uncomment the line below:
-    # ports:
-    #   - "4000:80"
     environment:
-      # Restrict Jobe to only accept requests from the lms container
       JOBE_ALLOW_ORIGINS: "http://lms:3000"
-    # REQUIRED: Disable no-new-privileges so Jobe's internal sudo can escalate to the sandbox users
     security_opt:
       - no-new-privileges:false
     networks:
       - lms-network
-    # Resource limits for the execution sandbox
     deploy:
       resources:
         limits:
           cpus: "2"
           memory: 1G
+
+  # ── SQL Execution Environments ────────────────────────────────────────────
+  postgres-sandbox:
+    image: postgres:15-alpine
+    container_name: edunexus-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: "jobe_pg_password"
+    networks:
+      - lms-network
+    # Exposing only inside internal network
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+
+  mysql-sandbox:
+    image: mysql:8.0
+    container_name: edunexus-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "jobe_mysql_password"
+    networks:
+      - lms-network
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+
+  mariadb-sandbox:
+    image: mariadb:10.11
+    container_name: edunexus-mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "jobe_mariadb_password"
+    networks:
+      - lms-network
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
 
 networks:
   lms-network:

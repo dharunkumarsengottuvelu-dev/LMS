@@ -6,7 +6,7 @@ import { getErrorMessage } from "@/lib/utils";
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as SQLQueryInput;
-    const { query, datasetName } = body;
+    const { query, datasetName, engine, schemaSql, seedSql, timeoutMs } = body;
 
     if (!query) {
       return NextResponse.json(
@@ -15,7 +15,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = SQLExecutionService.executeQuery(query, datasetName);
+    const result = await SQLExecutionService.executeQuery(query, datasetName, {
+      engine,
+      schemaSql,
+      seedSql,
+      timeoutMs,
+    });
 
     return NextResponse.json(result, { status: 200 });
   } catch (error: unknown) {
