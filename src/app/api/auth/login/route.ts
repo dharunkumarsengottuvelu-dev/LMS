@@ -11,12 +11,6 @@ export async function POST(request: Request) {
     }
 
     const lowerEmail = email.toLowerCase();
-    const determinedRole = lowerEmail.includes("admin")
-      ? "admin"
-      : lowerEmail.includes("trainer")
-      ? "trainer"
-      : "student";
-
     const admin = createAdminClient();
 
     // Find user by email across any domain
@@ -29,26 +23,44 @@ export async function POST(request: Request) {
         await admin.auth.admin.updateUserById(existingUser.id, { email_confirm: true });
       }
 
-      // Ensure profile exists in profiles table with correct role
-      const { data: profile } = await admin.from("profiles").select("id, role").eq("user_id", existingUser.id).maybeSingle();
+      // Check existing profile
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("id, role")
+        .eq("user_id", existingUser.id)
+        .maybeSingle();
+
+      const userMetadataRole = (existingUser.user_metadata?.role as string) || (existingUser.app_metadata?.role as string) || "";
+      const isEmailAdmin = lowerEmail.includes("admin");
+      const isEmailTrainer = lowerEmail.includes("trainer");
+
+      let effectiveRole = profile?.role || userMetadataRole;
+
+      if (!effectiveRole) {
+        effectiveRole = isEmailAdmin ? "admin" : isEmailTrainer ? "trainer" : "student";
+      } else if (effectiveRole === "student" && isEmailAdmin) {
+        effectiveRole = "admin";
+      } else if (effectiveRole === "student" && isEmailTrainer) {
+        effectiveRole = "trainer";
+      }
+
       if (!profile) {
         await admin.from("profiles").insert({
           user_id: existingUser.id,
           first_name: existingUser.user_metadata?.first_name || lowerEmail.split("@")[0],
-          last_name: "",
+          last_name: existingUser.user_metadata?.last_name || "",
           email: lowerEmail,
-          role: determinedRole,
+          role: effectiveRole,
           status: "active",
         });
-      } else if (profile.role !== determinedRole) {
-        // Update role if user is logging into a role-specific account
-        await admin.from("profiles").update({ role: determinedRole }).eq("user_id", existingUser.id);
+      } else if (profile.role === "student" && (isEmailAdmin || isEmailTrainer)) {
+        await admin.from("profiles").update({ role: effectiveRole }).eq("user_id", existingUser.id);
       }
+
+      return NextResponse.json({ success: true, role: effectiveRole });
     } else {
       return NextResponse.json({ error: "Account not found. Please register first." }, { status: 404 });
     }
-
-    return NextResponse.json({ success: true, role: determinedRole });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Authentication error";
     return NextResponse.json({ error: msg }, { status: 500 });

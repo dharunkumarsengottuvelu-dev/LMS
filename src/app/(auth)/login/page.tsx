@@ -87,18 +87,31 @@ export default function LoginPage() {
         toast({ title: "Welcome back", description: "Logged in successfully." });
 
         const emailLower = authData.user.email?.toLowerCase() || "";
-        const role = emailLower.includes("admin") 
-          ? "admin" 
-          : emailLower.includes("trainer")
-            ? "trainer"
-            : profile?.role ?? "student";
+        const profileRole = (
+          profile?.role ||
+          (authData.user.user_metadata?.role as string) ||
+          (authData.user.app_metadata?.role as string) ||
+          ""
+        ).toLowerCase();
 
-        const defaultDestination =
-          role === "admin"
-            ? "/admin/dashboard"
-            : role === "trainer"
-            ? "/trainer/dashboard"
-            : "/student/dashboard";
+        const isSuperAdminOrAdmin =
+          profileRole === "super_admin" ||
+          profileRole === "admin" ||
+          emailLower.includes("admin");
+
+        const isTrainer =
+          profileRole === "trainer" ||
+          emailLower.includes("trainer");
+
+        const isRecruiter = profileRole === "recruiter";
+
+        const defaultDestination = isSuperAdminOrAdmin
+          ? "/admin/dashboard"
+          : isTrainer
+          ? "/trainer/dashboard"
+          : isRecruiter
+          ? "/admin/students"
+          : "/student/dashboard";
 
         const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
         const target = nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")

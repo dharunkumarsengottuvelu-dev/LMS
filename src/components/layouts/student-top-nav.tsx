@@ -147,6 +147,20 @@ export function StudentTopNav() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-border" />
+            {((profile?.role as string) === "admin" || (profile?.role as string) === "super_admin" || user?.email?.toLowerCase().includes("admin")) && (
+              <DropdownMenuItem className="cursor-pointer font-bold text-xs text-primary bg-primary/5 hover:bg-primary/10 transition-colors">
+                <Link href="/admin/dashboard" className="flex items-center w-full">
+                  <LayoutDashboard className="h-4 w-4 mr-2 text-primary" /> Switch to Admin Portal
+                </Link>
+              </DropdownMenuItem>
+            )}
+            {(profile?.role === "trainer" || user?.email?.toLowerCase().includes("trainer")) && (
+              <DropdownMenuItem className="cursor-pointer font-bold text-xs text-primary bg-primary/5 hover:bg-primary/10 transition-colors">
+                <Link href="/trainer/dashboard" className="flex items-center w-full">
+                  <LayoutDashboard className="h-4 w-4 mr-2 text-primary" /> Switch to Trainer Portal
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem className="cursor-pointer font-medium text-xs">
               <Link href="/student/profile" className="flex items-center w-full text-foreground hover:text-primary transition-colors">
                 <User className="h-4 w-4 mr-2 text-primary" /> My Profile

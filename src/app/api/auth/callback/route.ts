@@ -24,14 +24,31 @@ export async function GET(request: Request) {
         .maybeSingle();
 
       const profile = profileData as { role?: string } | null;
-      const role = profile?.role ?? "student";
+      const userMetaRole =
+        (data.user.user_metadata?.role as string) ||
+        (data.user.app_metadata?.role as string) ||
+        "";
+      const emailLower = data.user.email?.toLowerCase() || "";
+
+      const dbRole = (profile?.role || userMetaRole || "").toLowerCase();
+      const isSuperAdminOrAdmin =
+        dbRole === "super_admin" ||
+        dbRole === "admin" ||
+        emailLower.includes("admin");
+      const isTrainer =
+        dbRole === "trainer" ||
+        emailLower.includes("trainer");
+      const isRecruiter = dbRole === "recruiter";
+
+      const defaultPath = isSuperAdminOrAdmin
+        ? "/admin/dashboard"
+        : isTrainer
+        ? "/trainer/dashboard"
+        : isRecruiter
+        ? "/admin/students"
+        : "/student/dashboard";
+
       const next = requestUrl.searchParams.get("next");
-      const defaultPath =
-        role === "admin"
-          ? "/admin/dashboard"
-          : role === "trainer"
-          ? "/trainer/dashboard"
-          : "/student/dashboard";
       const redirectPath =
         next && next.startsWith("/") && !next.startsWith("/login") && !next.startsWith("/register")
           ? next

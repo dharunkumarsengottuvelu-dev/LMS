@@ -45,11 +45,15 @@ export async function GET(request: NextRequest) {
         const formattedEmailName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
         const firstName = meta.first_name || nameParts[0] || formattedEmailName;
         const lastName = meta.last_name || nameParts.slice(1).join(" ") || "";
-        const role = au.email?.includes("admin")
-          ? "admin"
-          : au.email?.includes("trainer")
-          ? "trainer"
-          : (meta.role || "student");
+        const metaRole = (meta.role || "").toLowerCase();
+        const role =
+          metaRole === "super_admin"
+            ? "super_admin"
+            : metaRole === "admin" || au.email?.includes("admin")
+            ? "admin"
+            : metaRole === "trainer" || au.email?.includes("trainer")
+            ? "trainer"
+            : metaRole || "student";
 
         // Insert into profiles
         const newProfile = {

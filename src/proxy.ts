@@ -262,11 +262,23 @@ export async function proxy(request: NextRequest) {
       .maybeSingle();
 
     const userEmail = user.email?.toLowerCase() || "";
-    const role = userEmail.includes("admin")
-      ? "admin"
-      : userEmail.includes("trainer")
-      ? "trainer"
-      : (profile as { role?: string } | null)?.role || "student";
+    const dbRole = (
+      (profile as { role?: string } | null)?.role ||
+      (user.user_metadata?.role as string) ||
+      (user.app_metadata?.role as string) ||
+      ""
+    ).toLowerCase();
+
+    let role = "student";
+    if (dbRole === "super_admin" || dbRole === "admin" || userEmail.includes("admin")) {
+      role = "admin";
+    } else if (dbRole === "trainer" || userEmail.includes("trainer")) {
+      role = "trainer";
+    } else if (dbRole === "recruiter") {
+      role = "recruiter";
+    } else if (dbRole) {
+      role = dbRole;
+    }
 
     return createRedirectWithCookies(
       new URL(getRoleDefaultPath(role), request.url),
