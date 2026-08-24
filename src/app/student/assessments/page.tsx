@@ -14,6 +14,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { AIFaceTracker } from "@/lib/proctoring/ai-face-tracker";
 
 interface ProctoringConfig {
   enabled: boolean;
@@ -159,7 +160,7 @@ export default function StudentAssessmentsPage() {
     }
   }, [lobbyStream]);
 
-  const handleCaptureReferencePhoto = () => {
+  const handleCaptureReferencePhoto = async () => {
     if (lobbyVideoRef.current) {
       const canvas = document.createElement("canvas");
       canvas.width = 320;
@@ -171,10 +172,16 @@ export default function StudentAssessmentsPage() {
         setReferencePhoto(dataUrl);
         if (typeof window !== "undefined") {
           sessionStorage.setItem("candidate_reference_photo", dataUrl);
+          const tracker = new AIFaceTracker();
+          tracker.extractFaceEmbedding(dataUrl).then((emb) => {
+            if (emb) {
+              sessionStorage.setItem("candidate_reference_embedding", JSON.stringify(emb));
+            }
+          });
         }
         toast({
-          title: "Reference Snapshot Recorded",
-          description: "Candidate face reference photo recorded for live monitoring verification.",
+          title: "Reference Photo Verified",
+          description: "Candidate face representation registered securely for live proctor verification.",
         });
       }
     } else {

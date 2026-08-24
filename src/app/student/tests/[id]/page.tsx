@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Clock, ShieldCheck, CheckCircle2, Code2,
   ChevronLeft, ChevronRight, Award, Camera, Video, VideoOff, Maximize2, Minimize2,
-  AlertTriangle, RotateCcw, Check, X, RefreshCw
+  AlertTriangle, RotateCcw, Check, X, RefreshCw, GripHorizontal
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,8 +43,18 @@ export default function StudentTestRunnerPage() {
   const [isCameraCollapsed, setIsCameraCollapsed] = useState(false);
   const [activeAlert, setActiveAlert] = useState<{ message: string; severity: "INFO" | "WARNING" | "CRITICAL" } | null>(null);
 
+  // Registered Reference Face Embedding
+  const [referenceEmbedding, setReferenceEmbedding] = useState<number[] | null>(null);
+
   // Clean, user-friendly face state (no technical clutter)
-  const [simpleFaceStatus, setSimpleFaceStatus] = useState<"detected" | "missing" | "multiple" | "looking_away">("detected");
+  const [simpleFaceStatus, setSimpleFaceStatus] = useState<
+    "verified" | "missing" | "multiple" | "looking_away" | "mismatch"
+  >("verified");
+
+  // Draggable Window Position State
+  const [pipPosition, setPipPosition] = useState<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const trackerRef = useRef<AIFaceTracker | null>(null);
@@ -53,6 +63,7 @@ export default function StudentTestRunnerPage() {
   const noFaceDurationRef = useRef<number>(0);
   const multipleFacesDurationRef = useRef<number>(0);
   const lookingAwayDurationRef = useRef<number>(0);
+  const mismatchDurationRef = useRef<number>(0);
 
   const totalViolations = tabSwitchViolations + faceViolations;
   const maxWarnings = testData?.proctoring?.maxWarningsLimit ?? 3;
@@ -63,6 +74,107 @@ export default function StudentTestRunnerPage() {
       trackerRef.current = new AIFaceTracker();
     }
   }, []);
+
+  // Initialize and persist draggable position
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const saved = sessionStorage.getItem("proctor_pip_position");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const clampedX = Math.max(10, Math.min(window.innerWidth - 200, parsed.x));
+        const clampedY = Math.max(10, Math.min(window.innerHeight - 170, parsed.y));
+        setPipPosition({ x: clampedX, y: clampedY });
+        return;
+      } catch {}
+    }
+
+    // Default to bottom-right position
+    const defX = Math.max(10, window.innerWidth - 210);
+    const defY = Math.max(10, window.innerHeight - 180);
+    setPipPosition({ x: defX, y: defY });
+  }, []);
+
+  // Keep draggable popup inside viewport on window resize
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleResize = () => {
+      setPipPosition((prev) => {
+        if (!prev) return prev;
+        const clampedX = Math.max(10, Math.min(window.innerWidth - 200, prev.x));
+        const clampedY = Math.max(10, Math.min(window.innerHeight - 170, prev.y));
+        return { x: clampedX, y: clampedY };
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Load registered reference face representation
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const savedEmb = sessionStorage.getItem("candidate_reference_embedding");
+    if (savedEmb) {
+      try {
+        const parsed = JSON.parse(savedEmb);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setReferenceEmbedding(parsed);
+          return;
+        }
+      } catch {}
+    }
+
+    // Fallback: extract embedding from candidate reference photo if available
+    const refPhoto = sessionStorage.getItem("candidate_reference_photo");
+    if (refPhoto) {
+      const tracker = trackerRef.current || new AIFaceTracker();
+      tracker.extractFaceEmbedding(refPhoto).then((emb) => {
+        if (emb) {
+          setReferenceEmbedding(emb);
+          sessionStorage.setItem("candidate_reference_embedding", JSON.stringify(emb));
+        }
+      });
+    }
+  }, []);
+
+  // Dragging event handlers
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest("button")) return; // Do not drag on button clicks
+    isDraggingRef.current = true;
+    const currentX = pipPosition?.x ?? 20;
+    const currentY = pipPosition?.y ?? 20;
+    dragOffsetRef.current = {
+      x: e.clientX - currentX,
+      y: e.clientY - currentY,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    const popupWidth = isCameraCollapsed ? 150 : 190;
+    const popupHeight = isCameraCollapsed ? 44 : 170;
+
+    const newX = Math.max(8, Math.min(window.innerWidth - popupWidth, e.clientX - dragOffsetRef.current.x));
+    const newY = Math.max(8, Math.min(window.innerHeight - popupHeight, e.clientY - dragOffsetRef.current.y));
+    const newPos = { x: newX, y: newY };
+    setPipPosition(newPos);
+
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("proctor_pip_position", JSON.stringify(newPos));
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    isDraggingRef.current = false;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+  };
 
   // Load Real Test & Assigned Questions from Database API
   useEffect(() => {
@@ -252,7 +364,7 @@ export default function StudentTestRunnerPage() {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [testData?.proctoring?.tabSwitchLock, isExamSubmitted, faceViolations, maxWarnings, toast]);
 
-  // Real-Time AI Face Monitoring Loop with Grace Periods (500ms Interval)
+  // Real-Time AI Face Monitoring Loop with Reference Face Matching & Grace Periods (500ms Interval)
   useEffect(() => {
     if (isExamSubmitted || !cameraStream || cameraStatus !== "active") return;
 
@@ -262,8 +374,8 @@ export default function StudentTestRunnerPage() {
       if (!video || video.paused || video.ended || !tracker) return;
 
       try {
-        const result: FaceDetectionResult = await tracker.analyzeFrame(video);
-        let currentStatus: "detected" | "missing" | "multiple" | "looking_away" = "detected";
+        const result: FaceDetectionResult = await tracker.analyzeFrame(video, referenceEmbedding);
+        let currentStatus: "verified" | "missing" | "multiple" | "looking_away" | "mismatch" = "verified";
         let alertMsg: string | null = null;
         let alertLevel: "INFO" | "WARNING" | "CRITICAL" = "INFO";
 
@@ -272,6 +384,7 @@ export default function StudentTestRunnerPage() {
           noFaceDurationRef.current += 0.5;
           multipleFacesDurationRef.current = 0;
           lookingAwayDurationRef.current = 0;
+          mismatchDurationRef.current = 0;
 
           // Grace period: only show "No Face" after 3.5 seconds of sustained absence
           if (noFaceDurationRef.current >= 3.5) {
@@ -291,7 +404,7 @@ export default function StudentTestRunnerPage() {
               });
               return next;
             });
-            noFaceDurationRef.current = 0; // Reset timer after recording flag
+            noFaceDurationRef.current = 0;
           }
         }
         // Condition 2: Multiple Faces (Requires sustained presence to filter transient noise)
@@ -299,6 +412,7 @@ export default function StudentTestRunnerPage() {
           noFaceDurationRef.current = 0;
           multipleFacesDurationRef.current += 0.5;
           lookingAwayDurationRef.current = 0;
+          mismatchDurationRef.current = 0;
 
           if (multipleFacesDurationRef.current >= 2.5) {
             currentStatus = "multiple";
@@ -320,40 +434,69 @@ export default function StudentTestRunnerPage() {
             multipleFacesDurationRef.current = 0;
           }
         }
-        // Condition 3: Normal Single Face
+        // Condition 3: Single Face Present
         else {
           noFaceDurationRef.current = 0;
           multipleFacesDurationRef.current = 0;
 
-          // Strong looking away check (only sustained clear head turns)
-          if (
-            result.headPoseState !== "facing_forward" &&
-            (testData?.proctoring?.lookingAwayAlert ?? true)
-          ) {
-            lookingAwayDurationRef.current += 0.5;
+          // Check A: Reference Photo vs Live Face Identity Match
+          if (result.isIdentityMatched === false && referenceEmbedding) {
+            mismatchDurationRef.current += 0.5;
 
-            if (lookingAwayDurationRef.current >= 4.5) {
-              currentStatus = "looking_away";
-              alertMsg = "Please focus on your examination screen.";
+            // Only show mismatch warning after 4.0s of continuous low similarity across multiple frames
+            if (mismatchDurationRef.current >= 4.0) {
+              currentStatus = "mismatch";
+              alertMsg = "Face verification mismatch detected.";
               alertLevel = "WARNING";
             }
 
-            // Flag only after 9.0 seconds of continuous look away
-            if (lookingAwayDurationRef.current >= 9.0) {
+            // Flag violation only after 8.0s of sustained mismatch
+            if (mismatchDurationRef.current >= 8.0) {
               setFaceViolations((prev) => {
                 const next = prev + 1;
                 toast({
                   variant: "destructive",
-                  title: `Attention Alert (${tabSwitchViolations + next}/${maxWarnings})`,
-                  description: "Prolonged look away from screen detected.",
+                  title: `Identity Mismatch Alert (${tabSwitchViolations + next}/${maxWarnings})`,
+                  description: "Live camera face does not match the registered candidate reference photo.",
                 });
                 return next;
               });
-              lookingAwayDurationRef.current = 0;
+              mismatchDurationRef.current = 0;
             }
           } else {
-            lookingAwayDurationRef.current = 0;
-            currentStatus = "detected";
+            // Identity matches reference photo -> immediately reset mismatch timer
+            mismatchDurationRef.current = 0;
+
+            // Check B: Direction / Looking Away Check (Separate event from identity)
+            if (
+              result.headPoseState !== "facing_forward" &&
+              (testData?.proctoring?.lookingAwayAlert ?? true)
+            ) {
+              lookingAwayDurationRef.current += 0.5;
+
+              if (lookingAwayDurationRef.current >= 4.5) {
+                currentStatus = "looking_away";
+                alertMsg = "Please focus on your examination screen.";
+                alertLevel = "WARNING";
+              }
+
+              // Flag only after 9.0 seconds of continuous look away
+              if (lookingAwayDurationRef.current >= 9.0) {
+                setFaceViolations((prev) => {
+                  const next = prev + 1;
+                  toast({
+                    variant: "destructive",
+                    title: `Attention Alert (${tabSwitchViolations + next}/${maxWarnings})`,
+                    description: "Prolonged look away from screen detected.",
+                  });
+                  return next;
+                });
+                lookingAwayDurationRef.current = 0;
+              }
+            } else {
+              lookingAwayDurationRef.current = 0;
+              currentStatus = "verified";
+            }
           }
         }
 
@@ -370,7 +513,7 @@ export default function StudentTestRunnerPage() {
     }, 500);
 
     return () => clearInterval(interval);
-  }, [cameraStream, cameraStatus, isExamSubmitted, testData, tabSwitchViolations, maxWarnings, toast]);
+  }, [cameraStream, cameraStatus, isExamSubmitted, testData, referenceEmbedding, tabSwitchViolations, maxWarnings, toast]);
 
   const moduleMeta = useMemo(() => {
     if (!testData) return null;
@@ -523,10 +666,11 @@ export default function StudentTestRunnerPage() {
 
   // UI status label text and color
   const statusConfig = {
-    detected: { text: "Face Detected", color: "text-emerald-400", dot: "bg-emerald-500" },
+    verified: { text: "Face Verified", color: "text-emerald-400", dot: "bg-emerald-500" },
     missing: { text: "No Face Detected", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
-    multiple: { text: "Multiple Faces", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
+    multiple: { text: "Multiple Faces Detected", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
     looking_away: { text: "Looking Away", color: "text-amber-400", dot: "bg-amber-500" },
+    mismatch: { text: "Face Verification Failed", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
   }[simpleFaceStatus];
 
   return (
@@ -557,12 +701,26 @@ export default function StudentTestRunnerPage() {
         )}
       </div>
 
-      {/* Floating Proctoring Camera PIP Overlay - Clean, Professional & Less Strict */}
-      {testData?.proctoring?.webcamTracking && (
-        <div className="fixed bottom-6 right-6 z-40 bg-[#09090B]/90 backdrop-blur-md rounded-2xl p-2 border border-white/15 shadow-2xl overflow-hidden transition-all duration-200">
-          {/* Header Controls */}
-          <div className="flex items-center justify-between mb-1.5 px-1 gap-2">
-            <div className="flex items-center gap-1.5">
+      {/* Floating Proctoring Camera PIP Overlay - Completely Draggable Window */}
+      {testData?.proctoring?.webcamTracking && pipPosition && (
+        <div
+          style={{
+            left: `${pipPosition.x}px`,
+            top: `${pipPosition.y}px`,
+          }}
+          className="fixed z-50 bg-[#09090B]/95 backdrop-blur-md rounded-2xl p-2 border border-white/20 shadow-2xl overflow-hidden transition-shadow select-none touch-none"
+        >
+          {/* Draggable Header Handle */}
+          <div
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            className="flex items-center justify-between mb-1.5 px-1 gap-2 cursor-grab active:cursor-grabbing hover:bg-white/5 py-1 rounded-lg transition-colors"
+            title="Drag to move live proctor window"
+          >
+            <div className="flex items-center gap-1.5 pointer-events-none">
+              <GripHorizontal className="h-3 w-3 text-white/40" />
               <span
                 className={`w-2 h-2 rounded-full ${
                   cameraStatus === "active" ? statusConfig.dot : "bg-red-500"
@@ -574,7 +732,7 @@ export default function StudentTestRunnerPage() {
             <div className="flex items-center gap-1">
               <Badge
                 variant="outline"
-                className={`text-[9px] px-1.5 py-0 h-4 border ${
+                className={`text-[9px] px-1.5 py-0 h-4 border pointer-events-none ${
                   totalViolations > 0
                     ? "bg-red-500/20 text-red-400 border-red-500/40"
                     : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
@@ -585,7 +743,10 @@ export default function StudentTestRunnerPage() {
 
               <button
                 type="button"
-                onClick={() => setIsCameraCollapsed(!isCameraCollapsed)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCameraCollapsed(!isCameraCollapsed);
+                }}
                 className="text-white/70 hover:text-white p-0.5 rounded transition"
                 title={isCameraCollapsed ? "Expand Camera" : "Collapse Camera"}
               >

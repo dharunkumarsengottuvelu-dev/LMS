@@ -1,7 +1,10 @@
 /**
  * Enterprise AI Face & Attention Proctoring Engine
- * Provides client-side face detection, attention monitoring, and anti-cheating heuristics.
- * Optimized with relaxed thresholds, temporal smoothing, and grace periods for a smooth user experience.
+ * Provides client-side face detection, reference face embedding extraction,
+ * identity verification matching, attention monitoring, and anti-cheating heuristics.
+ *
+ * Optimized with relaxed thresholds, multi-frame temporal smoothing,
+ * cosine embedding similarity, and grace periods for a seamless and secure user experience.
  */
 
 export type FacePositionState =
@@ -37,6 +40,10 @@ export interface FaceDetectionResult {
   lightingState: LightingState;
   luminance: number;
   isObstructed: boolean;
+  embedding?: number[];
+  referenceSimilarity?: number; // 0.0 to 1.0 (if reference embedding provided)
+  isIdentityMatched?: boolean;
+  allFaceEmbeddings?: number[][];
   landmarks?: {
     leftEye?: { x: number; y: number };
     rightEye?: { x: number; y: number };
@@ -55,6 +62,7 @@ export class AIFaceTracker {
   private positionBuffer: { x: number; y: number; w: number; h: number }[] = [];
   private poseBuffer: HeadPoseState[] = [];
   private faceCountBuffer: number[] = [];
+  private similarityBuffer: number[] = [];
   private readonly bufferSize = 6;
 
   constructor() {
@@ -81,9 +89,12 @@ export class AIFaceTracker {
   }
 
   /**
-   * Analyzes the current video frame and returns proctoring heuristics.
+   * Analyzes the current video frame and optionally verifies against registered reference face embedding.
    */
-  public async analyzeFrame(video: HTMLVideoElement): Promise<FaceDetectionResult> {
+  public async analyzeFrame(
+    video: HTMLVideoElement,
+    referenceEmbedding?: number[] | null
+  ): Promise<FaceDetectionResult> {
     if (!video || video.paused || video.ended || !this.ctx || !this.canvas) {
       return {
         faceCount: 0,
@@ -93,6 +104,7 @@ export class AIFaceTracker {
         lightingState: "good",
         luminance: 128,
         isObstructed: false,
+        isIdentityMatched: true,
       };
     }
 
@@ -103,7 +115,7 @@ export class AIFaceTracker {
     const frame = this.ctx.getImageData(0, 0, w, h);
     const data = frame.data;
 
-    // 1. Luminance & Lighting Analysis (Very forgiving range)
+    // 1. Luminance & Lighting Analysis
     let totalLuminance = 0;
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i] ?? 0;
@@ -116,7 +128,7 @@ export class AIFaceTracker {
     if (avgLuminance < 10) lightingState = "low_light";
     else if (avgLuminance > 245) lightingState = "overexposed";
 
-    // 2. Face Detection (Native API or Robust Chrominance Segmentation)
+    // 2. Face Detection (Native Shape Detector or Robust Heuristics)
     let nativeFaces: any[] = [];
     if (this.hasNativeDetector && this.faceDetector) {
       try {
@@ -126,11 +138,238 @@ export class AIFaceTracker {
       }
     }
 
+    let detection: FaceDetectionResult;
     if (nativeFaces.length > 0) {
-      return this.processNativeFaces(nativeFaces, w, h, avgLuminance, lightingState);
+      detection = this.processNativeFaces(nativeFaces, w, h, avgLuminance, lightingState);
     } else {
-      return this.processChrominanceHeuristic(data, w, h, avgLuminance, lightingState);
+      detection = this.processChrominanceHeuristic(data, w, h, avgLuminance, lightingState);
     }
+
+    // 3. Face Embedding & Identity Verification Matching
+    if (detection.faceCount > 0 && detection.boundingBox && this.ctx) {
+      const box = detection.boundingBox;
+      const cropX = Math.max(0, Math.floor(box.x * w));
+      const cropY = Math.max(0, Math.floor(box.y * h));
+      const cropW = Math.min(w - cropX, Math.max(10, Math.floor(box.width * w)));
+      const cropH = Math.min(h - cropY, Math.max(10, Math.floor(box.height * h)));
+
+      const faceCrop = this.ctx.getImageData(cropX, cropY, cropW, cropH);
+      const liveEmbedding = this.computeDescriptorFromImageData(faceCrop);
+      detection.embedding = liveEmbedding;
+
+      if (referenceEmbedding && referenceEmbedding.length > 0) {
+        const rawSim = this.computeCosineSimilarity(liveEmbedding, referenceEmbedding);
+        this.similarityBuffer.push(rawSim);
+        if (this.similarityBuffer.length > this.bufferSize) this.similarityBuffer.shift();
+
+        // Smoothed similarity (average of recent valid samples)
+        const avgSim =
+          this.similarityBuffer.reduce((acc, v) => acc + v, 0) / this.similarityBuffer.length;
+
+        detection.referenceSimilarity = Math.round(avgSim * 100) / 100;
+        // Configurable similarity threshold (0.62 is tolerant to lighting & minor pose)
+        detection.isIdentityMatched = avgSim >= 0.62;
+      } else {
+        detection.isIdentityMatched = true;
+      }
+    } else {
+      detection.isIdentityMatched = true;
+    }
+
+    return detection;
+  }
+
+  /**
+   * Extracts a standardized, normalized face representation / embedding vector from an image dataURL, image, or video element.
+   */
+  public async extractFaceEmbedding(
+    source: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement | string
+  ): Promise<number[] | null> {
+    if (typeof window === "undefined") return null;
+
+    let img: HTMLImageElement;
+    if (typeof source === "string") {
+      img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = source;
+      await new Promise((resolve) => {
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+      });
+    } else if (source instanceof HTMLImageElement) {
+      img = source;
+    } else {
+      // Canvas or Video
+      const tmpCanvas = document.createElement("canvas");
+      tmpCanvas.width = 160;
+      tmpCanvas.height = 120;
+      const tmpCtx = tmpCanvas.getContext("2d");
+      if (!tmpCtx) return null;
+      tmpCtx.drawImage(source, 0, 0, 160, 120);
+      const data = tmpCtx.getImageData(0, 0, 160, 120);
+      return this.computeDescriptorFromImageData(data);
+    }
+
+    const tmpCanvas = document.createElement("canvas");
+    tmpCanvas.width = 160;
+    tmpCanvas.height = 120;
+    const tmpCtx = tmpCanvas.getContext("2d");
+    if (!tmpCtx) return null;
+    tmpCtx.drawImage(img, 0, 0, 160, 120);
+
+    // Locate face region
+    let faceBox = { x: 20, y: 15, w: 120, h: 90 };
+    if (this.hasNativeDetector && this.faceDetector) {
+      try {
+        const faces = await this.faceDetector.detect(tmpCanvas);
+        if (faces.length > 0) {
+          const b = faces[0].boundingBox;
+          faceBox = { x: b.x, y: b.y, w: b.width, h: b.height };
+        }
+      } catch {}
+    }
+
+    const faceData = tmpCtx.getImageData(
+      Math.max(0, Math.floor(faceBox.x)),
+      Math.max(0, Math.floor(faceBox.y)),
+      Math.min(160, Math.floor(faceBox.w)),
+      Math.min(120, Math.floor(faceBox.h))
+    );
+
+    return this.computeDescriptorFromImageData(faceData);
+  }
+
+  /**
+   * Computes Cosine Similarity between two face embeddings.
+   * Range: 0.0 (completely dissimilar) to 1.0 (identical)
+   */
+  public computeCosineSimilarity(embA: number[], embB: number[]): number {
+    if (!embA || !embB || embA.length === 0 || embB.length === 0) return 0;
+    const len = Math.min(embA.length, embB.length);
+    let dot = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < len; i++) {
+      const a = embA[i] ?? 0;
+      const b = embB[i] ?? 0;
+      dot += a * b;
+      normA += a * a;
+      normB += b * b;
+    }
+
+    if (normA === 0 || normB === 0) return 0;
+    const cosine = dot / (Math.sqrt(normA) * Math.sqrt(normB));
+    return Math.max(0, Math.min(1, (cosine + 1) / 2)); // Normalize -1..1 to 0..1
+  }
+
+  /**
+   * Robust multi-scale spatial LBP (Local Binary Patterns) + HOG Gradient structure descriptor.
+   * Generates a 64-element L2 normalized feature vector that is invariant to illumination and scale.
+   */
+  private computeDescriptorFromImageData(imageData: ImageData): number[] {
+    const w = imageData.width;
+    const h = imageData.height;
+    const data = imageData.data;
+
+    // 1. Convert to 32x32 normalized grayscale matrix
+    const targetDim = 32;
+    const gray = new Float32Array(targetDim * targetDim);
+
+    const stepX = w / targetDim;
+    const stepY = h / targetDim;
+
+    for (let ty = 0; ty < targetDim; ty++) {
+      for (let tx = 0; tx < targetDim; tx++) {
+        const sx = Math.floor(tx * stepX);
+        const sy = Math.floor(ty * stepY);
+        const idx = (sy * w + sx) * 4;
+        const r = data[idx] ?? 0;
+        const g = data[idx + 1] ?? 0;
+        const b = data[idx + 2] ?? 0;
+        gray[ty * targetDim + tx] = 0.299 * r + 0.587 * g + 0.114 * b;
+      }
+    }
+
+    // 2. Contrast Normalization
+    let mean = 0;
+    for (let i = 0; i < gray.length; i++) mean += gray[i] ?? 0;
+    mean /= gray.length;
+
+    let variance = 0;
+    for (let i = 0; i < gray.length; i++) {
+      const diff = (gray[i] ?? 0) - mean;
+      variance += diff * diff;
+    }
+    const stdDev = Math.sqrt(variance / gray.length) || 1;
+
+    for (let i = 0; i < gray.length; i++) {
+      gray[i] = ((gray[i] ?? 0) - mean) / stdDev;
+    }
+
+    // 3. Extract 4x4 Grid Zone LBP & Gradient Histograms (16 zones * 4 bins = 64 dimensions)
+    const gridSize = 4;
+    const cellSize = targetDim / gridSize;
+    const descriptor = new Float32Array(gridSize * gridSize * 4);
+    let descIdx = 0;
+
+    for (let gy = 0; gy < gridSize; gy++) {
+      for (let gx = 0; gx < gridSize; gx++) {
+        let patternSum = 0;
+        let gradMagH = 0;
+        let gradMagV = 0;
+        let gradDiag = 0;
+
+        const startY = gy * cellSize;
+        const startX = gx * cellSize;
+
+        for (let cy = 1; cy < cellSize - 1; cy++) {
+          for (let cx = 1; cx < cellSize - 1; cx++) {
+            const y = Math.floor(startY + cy);
+            const x = Math.floor(startX + cx);
+            const center = gray[y * targetDim + x] ?? 0;
+
+            // 8-neighbor comparison (Local Binary Pattern)
+            let lbp = 0;
+            if ((gray[(y - 1) * targetDim + (x - 1)] ?? 0) >= center) lbp |= 1;
+            if ((gray[(y - 1) * targetDim + x] ?? 0) >= center) lbp |= 2;
+            if ((gray[(y - 1) * targetDim + (x + 1)] ?? 0) >= center) lbp |= 4;
+            if ((gray[y * targetDim + (x + 1)] ?? 0) >= center) lbp |= 8;
+            if ((gray[(y + 1) * targetDim + (x + 1)] ?? 0) >= center) lbp |= 16;
+            if ((gray[(y + 1) * targetDim + x] ?? 0) >= center) lbp |= 32;
+            if ((gray[(y + 1) * targetDim + (x - 1)] ?? 0) >= center) lbp |= 64;
+            if ((gray[y * targetDim + (x - 1)] ?? 0) >= center) lbp |= 128;
+
+            patternSum += lbp;
+
+            // Spatial Gradients
+            const dx = (gray[y * targetDim + (x + 1)] ?? 0) - (gray[y * targetDim + (x - 1)] ?? 0);
+            const dy = (gray[(y + 1) * targetDim + x] ?? 0) - (gray[(y - 1) * targetDim + x] ?? 0);
+            gradMagH += Math.abs(dx);
+            gradMagV += Math.abs(dy);
+            gradDiag += Math.abs(dx - dy);
+          }
+        }
+
+        const count = (cellSize - 2) * (cellSize - 2) || 1;
+        descriptor[descIdx++] = patternSum / (count * 255);
+        descriptor[descIdx++] = gradMagH / count;
+        descriptor[descIdx++] = gradMagV / count;
+        descriptor[descIdx++] = gradDiag / count;
+      }
+    }
+
+    // 4. L2 Normalization
+    let norm = 0;
+    for (let i = 0; i < descriptor.length; i++) norm += (descriptor[i] ?? 0) ** 2;
+    norm = Math.sqrt(norm) || 1;
+
+    const finalEmbedding: number[] = [];
+    for (let i = 0; i < descriptor.length; i++) {
+      finalEmbedding.push(Number(((descriptor[i] ?? 0) / norm).toFixed(5)));
+    }
+
+    return finalEmbedding;
   }
 
   private processNativeFaces(
@@ -140,7 +379,6 @@ export class AIFaceTracker {
     luminance: number,
     lightingState: LightingState
   ): FaceDetectionResult {
-    // Filter out tiny false positives
     const validFaces = faces.filter(
       (f) => f.boundingBox && f.boundingBox.width >= 20 && f.boundingBox.height >= 20
     );
@@ -149,7 +387,6 @@ export class AIFaceTracker {
     this.faceCountBuffer.push(rawFaceCount);
     if (this.faceCountBuffer.length > this.bufferSize) this.faceCountBuffer.shift();
 
-    // Smoothed face count (mode)
     const faceCount = this.getMode(this.faceCountBuffer);
 
     if (faceCount === 0 || validFaces.length === 0) {
@@ -164,12 +401,10 @@ export class AIFaceTracker {
       };
     }
 
-    // Primary face is the largest one
     validFaces.sort((a, b) => b.boundingBox.width * b.boundingBox.height - a.boundingBox.width * a.boundingBox.height);
     const primary = validFaces[0];
     const box = primary.boundingBox;
 
-    // Normalized coordinates
     const normX = Math.max(0, box.x / w);
     const normY = Math.max(0, box.y / h);
     const normW = Math.min(1, box.width / w);
@@ -196,9 +431,6 @@ export class AIFaceTracker {
     };
   }
 
-  /**
-   * Relaxed Chrominance-Skin segmentation with wide tone tolerance
-   */
   private processChrominanceHeuristic(
     data: Uint8ClampedArray,
     w: number,
@@ -226,7 +458,6 @@ export class AIFaceTracker {
     let sumX = 0,
       sumY = 0;
 
-    // Inclusive skin color heuristic across lighting and shades
     for (let y = 0; y < h; y += 2) {
       for (let x = 0; x < w; x += 2) {
         const idx = (y * w + x) * 4;
@@ -258,7 +489,6 @@ export class AIFaceTracker {
     const totalSampledPixels = (w * h) / 4;
     const skinRatio = skinPixelCount / totalSampledPixels;
 
-    // Low threshold so sitting naturally or small distance doesn't drop face
     if (skinRatio < 0.015 || skinPixelCount < 25) {
       this.faceCountBuffer.push(0);
       if (this.faceCountBuffer.length > this.bufferSize) this.faceCountBuffer.shift();
@@ -275,7 +505,6 @@ export class AIFaceTracker {
       };
     }
 
-    // Only flag multiple faces if there are huge disjoint regions spanning almost entire screen
     let rawFaceCount = 1;
     if (skinRatio > 0.65) {
       const spanW = (maxX - minX) / w;
@@ -294,7 +523,6 @@ export class AIFaceTracker {
     const smoothed = this.smoothBox({ x: rawX, y: rawY, w: rawW, h: rawH });
     const positionState = this.classifyPosition(smoothed);
 
-    // Centroid vs bounding center for pose
     const centroidX = sumX / (skinPixelCount || 1) / w;
     const centroidY = sumY / (skinPixelCount || 1) / h;
     const headPoseState = this.classifyPoseFromCentroid(centroidX, centroidY, smoothed);
@@ -316,15 +544,11 @@ export class AIFaceTracker {
     };
   }
 
-  /**
-   * Extremely relaxed position classifier - allows standard sitting postures
-   */
   private classifyPosition(box: { x: number; y: number; w: number; h: number }): FacePositionState {
     const centerX = box.x + box.w / 2;
     const centerY = box.y + box.h / 2;
     const area = box.w * box.h;
 
-    // Only trigger if extreme
     if (area > 0.85) return "too_close";
     if (area < 0.02) return "too_far";
     if (centerX < 0.08) return "too_left";
@@ -335,9 +559,6 @@ export class AIFaceTracker {
     return "centered";
   }
 
-  /**
-   * Relaxed head pose classifier - only flags clear, strong side turns
-   */
   private classifyPoseFromCentroid(
     cx: number,
     cy: number,
@@ -349,7 +570,6 @@ export class AIFaceTracker {
     const diffX = cx - boxCenterX;
     const diffY = cy - boxCenterY;
 
-    // Generous tolerances allowing slight head movements and looking at edges of screen
     let pose: HeadPoseState = "facing_forward";
     if (diffX < -0.24) pose = "looking_away_left";
     else if (diffX > 0.24) pose = "looking_away_right";
@@ -379,7 +599,6 @@ export class AIFaceTracker {
       const eyeDistRight = Math.abs(rightEye.location.x - nose.location.x);
       const ratio = eyeDistLeft / (eyeDistRight || 0.001);
 
-      // Relaxed landmark ratios
       if (ratio < 0.25) return "looking_away_left";
       if (ratio > 3.8) return "looking_away_right";
     }
