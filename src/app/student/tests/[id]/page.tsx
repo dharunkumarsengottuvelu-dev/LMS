@@ -664,18 +664,18 @@ export default function StudentTestRunnerPage() {
 
   // UI status label text and color
   const statusConfig = {
-    verified: { text: "Face Verified", color: "text-emerald-400", dot: "bg-emerald-500" },
-    looking_away_left: { text: "Looking Left", color: "text-amber-400", dot: "bg-amber-500" },
-    looking_away_right: { text: "Looking Right", color: "text-amber-400", dot: "bg-amber-500" },
-    looking_away_up: { text: "Looking Up", color: "text-amber-400", dot: "bg-amber-500" },
-    looking_away_down: { text: "Looking Down", color: "text-amber-400", dot: "bg-amber-500" },
-    looking_away: { text: "Looking Away", color: "text-amber-400", dot: "bg-amber-500" },
-    multiple: { text: "Multiple Faces Detected", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
-    missing: { text: "No Face Detected", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
-    mismatch: { text: "Face Mismatch", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
-    fullscreen_exit: { text: "Fullscreen Exited", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
-    copy_paste: { text: "Copy/Paste Violation", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
-  }[simpleFaceStatus] || { text: "Face Verified", color: "text-emerald-400", dot: "bg-emerald-500" };
+    verified: { text: "Face Verified", color: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" },
+    looking_away_left: { text: "Looking Left", color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+    looking_away_right: { text: "Looking Right", color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+    looking_away_up: { text: "Looking Up", color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+    looking_away_down: { text: "Looking Down", color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+    looking_away: { text: "Looking Away", color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+    multiple: { text: "Multiple Faces Detected", color: "text-red-600 dark:text-red-400", dot: "bg-red-500 animate-pulse" },
+    missing: { text: "No Face Detected", color: "text-red-600 dark:text-red-400", dot: "bg-red-500 animate-pulse" },
+    mismatch: { text: "Face Mismatch", color: "text-red-600 dark:text-red-400", dot: "bg-red-500 animate-pulse" },
+    fullscreen_exit: { text: "Fullscreen Exited", color: "text-red-600 dark:text-red-400", dot: "bg-red-500 animate-pulse" },
+    copy_paste: { text: "Copy/Paste Violation", color: "text-red-600 dark:text-red-400", dot: "bg-red-500 animate-pulse" },
+  }[simpleFaceStatus] || { text: "Face Verified", color: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" };
 
   return (
     <div className="w-full px-3 sm:px-6 lg:px-8 py-3 space-y-4 relative">
@@ -711,10 +711,21 @@ export default function StudentTestRunnerPage() {
         questions={formattedQuestions}
         extraHeaderContent={
           testData?.proctoring?.webcamTracking ? (
-            <div className="relative w-[140px] h-[94px] rounded-xl overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] shadow-xs bg-slate-100 dark:bg-[#18181B] flex items-center justify-center select-none shrink-0">
-              {cameraStatus === "active" ? (
-                <>
-                  {/* Edge-to-edge full video fill (no outer black borders) */}
+            <div className="w-[140px] h-[94px] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] shadow-xs bg-white dark:bg-[#18181B] p-1 flex flex-col justify-between overflow-hidden select-none shrink-0">
+              {/* Header (Above Video) */}
+              <div className="flex items-center justify-between px-0.5 h-4 shrink-0 pointer-events-none">
+                <div className="flex items-center gap-1">
+                  <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+                  <span className="text-[9px] font-bold text-[#111827] dark:text-[#FAFAFA] tracking-tight">LIVE PROCTOR</span>
+                </div>
+                <span className="text-[8px] font-bold px-1 py-0 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                  {violationsCount}/{maxWarnings}
+                </span>
+              </div>
+
+              {/* Camera Video (Middle) */}
+              <div className="relative w-full h-[52px] rounded-md overflow-hidden bg-black flex items-center justify-center shrink-0">
+                {cameraStatus === "active" ? (
                   <video
                     ref={setVideoCallbackRef}
                     autoPlay
@@ -722,38 +733,26 @@ export default function StudentTestRunnerPage() {
                     playsInline
                     className="w-full h-full object-cover transform -scale-x-100"
                   />
-
-                  {/* Top Floating Mini Header */}
-                  <div className="absolute top-1 left-1 right-1 h-4 flex items-center justify-between px-1.5 rounded-md bg-black/65 backdrop-blur-xs z-20 pointer-events-none">
-                    <div className="flex items-center gap-1">
-                      <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
-                      <span className="text-[9px] font-bold text-white tracking-tight">LIVE PROCTOR</span>
-                    </div>
-                    <span className="text-[8px] font-bold px-1 py-0 rounded bg-white/15 text-white/90 border border-white/20">
-                      {violationsCount}/{maxWarnings}
-                    </span>
+                ) : (
+                  <div className="p-0.5 text-center space-y-0.5 w-full">
+                    <VideoOff className="h-3.5 w-3.5 text-red-500 mx-auto animate-pulse" />
+                    <Button
+                      size="sm"
+                      onClick={startCamera}
+                      className="h-3.5 text-[7px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-1.5 rounded"
+                    >
+                      Enable
+                    </Button>
                   </div>
+                )}
+              </div>
 
-                  {/* Bottom Status Tag */}
-                  <div className="absolute bottom-1 left-1 right-1 h-4 flex items-center justify-center bg-black/75 backdrop-blur-xs px-1 rounded-md z-20 overflow-hidden pointer-events-none">
-                    <span className={cn("text-[8px] font-bold truncate text-center w-full block", statusConfig.color)}>
-                      {statusConfig.text}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="p-1 text-center space-y-0.5 w-full">
-                  <VideoOff className="h-4 w-4 text-red-500 mx-auto animate-pulse" />
-                  <p className="text-[8px] text-[#6B7280] dark:text-zinc-400 font-semibold">Camera Offline</p>
-                  <Button
-                    size="sm"
-                    onClick={startCamera}
-                    className="h-4 text-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-2 rounded"
-                  >
-                    Enable
-                  </Button>
-                </div>
-              )}
+              {/* Warning / Status (Below Video) */}
+              <div className="flex items-center justify-center px-1 h-4 shrink-0 bg-slate-50 dark:bg-[#09090B] rounded-sm pointer-events-none overflow-hidden">
+                <span className={cn("text-[8px] font-bold truncate text-center w-full block", statusConfig.color)}>
+                  {statusConfig.text}
+                </span>
+              </div>
             </div>
           ) : undefined
         }
