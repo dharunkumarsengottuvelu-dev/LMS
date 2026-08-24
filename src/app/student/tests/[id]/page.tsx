@@ -678,63 +678,49 @@ export default function StudentTestRunnerPage() {
         questions={formattedQuestions}
         extraHeaderContent={
           testData?.proctoring?.webcamTracking ? (
-            <div className="w-[148px] h-[92px] bg-[#09090B] rounded-xl p-1.5 border border-[#E5E7EB] dark:border-white/10 shadow-sm flex flex-col justify-between overflow-hidden select-none shrink-0">
-              {/* Header */}
-              <div className="flex items-center justify-between px-0.5 h-4 shrink-0">
-                <div className="flex items-center gap-1">
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      cameraStatus === "active" ? statusConfig.dot : "bg-red-500"
-                    }`}
+            <div className="relative w-[140px] h-[94px] rounded-xl overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] shadow-xs bg-slate-100 dark:bg-[#18181B] flex items-center justify-center select-none shrink-0">
+              {cameraStatus === "active" ? (
+                <>
+                  {/* Edge-to-edge full video fill (no outer black borders) */}
+                  <video
+                    ref={setVideoCallbackRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover transform -scale-x-100"
                   />
-                  <span className="text-[9px] font-bold tracking-wider text-white">LIVE PROCTOR</span>
-                </div>
 
-                <Badge
-                  variant="outline"
-                  className={`text-[8px] px-1 py-0 h-3.5 border pointer-events-none ${
-                    violationsCount > 0
-                      ? "bg-red-500/20 text-red-400 border-red-500/40"
-                      : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-                  }`}
-                >
-                  {violationsCount}/{maxWarnings} Flags
-                </Badge>
-              </div>
-
-              {/* Camera Video Preview */}
-              <div className="relative w-full h-[64px] rounded-lg overflow-hidden bg-black flex items-center justify-center shrink-0">
-                {cameraStatus === "active" ? (
-                  <>
-                    <video
-                      ref={setVideoCallbackRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className="w-full h-full object-cover transform -scale-x-100"
-                    />
-
-                    {/* Fixed Bottom Status Tag */}
-                    <div className="absolute bottom-0.5 left-0.5 right-0.5 h-4 flex items-center justify-center bg-black/85 backdrop-blur-xs px-1 rounded z-20 overflow-hidden">
-                      <span className={cn("text-[8px] font-semibold truncate text-center w-full block", statusConfig.color)}>
-                        {statusConfig.text}
-                      </span>
+                  {/* Top Floating Mini Header */}
+                  <div className="absolute top-1 left-1 right-1 h-4 flex items-center justify-between px-1.5 rounded-md bg-black/65 backdrop-blur-xs z-20 pointer-events-none">
+                    <div className="flex items-center gap-1">
+                      <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+                      <span className="text-[9px] font-bold text-white tracking-tight">LIVE PROCTOR</span>
                     </div>
-                  </>
-                ) : (
-                  <div className="p-1 text-center space-y-0.5 w-full">
-                    <VideoOff className="h-4 w-4 text-red-400 mx-auto animate-pulse" />
-                    <p className="text-[8px] text-red-200 font-medium">Offline</p>
-                    <Button
-                      size="sm"
-                      onClick={startCamera}
-                      className="h-4 text-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-1.5 rounded"
-                    >
-                      Enable
-                    </Button>
+                    <span className="text-[8px] font-bold px-1 py-0 rounded bg-white/15 text-white/90 border border-white/20">
+                      {violationsCount}/{maxWarnings}
+                    </span>
                   </div>
-                )}
-              </div>
+
+                  {/* Bottom Status Tag */}
+                  <div className="absolute bottom-1 left-1 right-1 h-4 flex items-center justify-center bg-black/75 backdrop-blur-xs px-1 rounded-md z-20 overflow-hidden pointer-events-none">
+                    <span className={cn("text-[8px] font-bold truncate text-center w-full block", statusConfig.color)}>
+                      {statusConfig.text}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="p-1 text-center space-y-0.5 w-full">
+                  <VideoOff className="h-4 w-4 text-red-500 mx-auto animate-pulse" />
+                  <p className="text-[8px] text-[#6B7280] dark:text-zinc-400 font-semibold">Camera Offline</p>
+                  <Button
+                    size="sm"
+                    onClick={startCamera}
+                    className="h-4 text-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-2 rounded"
+                  >
+                    Enable
+                  </Button>
+                </div>
+              )}
             </div>
           ) : undefined
         }
