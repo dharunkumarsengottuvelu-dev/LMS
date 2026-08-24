@@ -236,7 +236,8 @@ export function CodeEditor({
         return;
       }
       
-      const savedDraft = typeof window !== "undefined" ? localStorage.getItem(`edunexus_draft_${problem.id}_${currentLang}`) : null;
+      const localKey = `edunexus_draft_${problem.id}_${currentLang}`;
+      const savedDraft = typeof window !== "undefined" ? localStorage.getItem(localKey) : null;
       const initialCode = savedDraft !== null 
         ? savedDraft 
         : (defaultCode !== undefined ? defaultCode : (problem.templates?.[currentLang] || ""));
@@ -246,16 +247,47 @@ export function CodeEditor({
         setStdin(problem.sample_input);
       }
       setOutput(null);
+
+      // If no local draft exists (e.g. new laptop), fetch cloud draft from database
+      if (!savedDraft && problem.id) {
+        fetch(`/api/student/drafts?problem_id=${problem.id}&language=${currentLang}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.draft?.code) {
+              setCode(data.draft.code);
+              try {
+                localStorage.setItem(localKey, data.draft.code);
+              } catch {}
+            }
+          })
+          .catch(() => {});
+      }
     }
   }, [problem?.id, defaultCode]);
 
+  // Auto-save draft locally and to cloud database (debounced)
   useEffect(() => {
     if (problem?.id && code) {
+      const localKey = `edunexus_draft_${problem.id}_${language}`;
       try {
-        localStorage.setItem(`edunexus_draft_${problem.id}_${language}`, code);
+        localStorage.setItem(localKey, code);
       } catch (err) {
-        console.warn("Failed to save draft", err);
+        console.warn("Failed to save local draft", err);
       }
+
+      const timer = setTimeout(() => {
+        fetch("/api/student/drafts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            problem_id: problem.id,
+            language,
+            code,
+          }),
+        }).catch(() => {});
+      }, 1500);
+
+      return () => clearTimeout(timer);
     }
   }, [code, language, problem?.id]);
 
@@ -301,13 +333,28 @@ export function CodeEditor({
 
   const handleLanguageChange = useCallback((newLang: CodingLanguage) => {
     setLanguage(newLang);
-    const savedDraft = typeof window !== "undefined" ? localStorage.getItem(`edunexus_draft_${problem?.id}_${newLang}`) : null;
+    const localKey = `edunexus_draft_${problem?.id}_${newLang}`;
+    const savedDraft = typeof window !== "undefined" ? localStorage.getItem(localKey) : null;
     const template = problem?.templates?.[newLang] || "";
     setCode(savedDraft !== null ? savedDraft : template);
     if (problem?.sample_input) {
       setStdin(problem.sample_input);
     }
     setOutput(null);
+
+    if (!savedDraft && problem?.id) {
+      fetch(`/api/student/drafts?problem_id=${problem.id}&language=${newLang}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.draft?.code) {
+            setCode(data.draft.code);
+            try {
+              localStorage.setItem(localKey, data.draft.code);
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
   }, [problem]);
 
   const handleRun = async () => {

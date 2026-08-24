@@ -255,26 +255,65 @@ export function PracticeRunnerEngine({
     }
   };
 
-  // Auto-persist all progress to localStorage
+  // Restore progress from cloud if switching devices
+  useEffect(() => {
+    if (isSubmitted || isAlreadySubmitted) return;
+    const local = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
+    if (!local) {
+      fetch(`/api/student/drafts?key=${storageKey}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.draft?.data) {
+            const saved = data.draft.data;
+            if (saved.answers && Object.keys(saved.answers).length > 0) setAnswers(saved.answers);
+            if (saved.codeAnswers && Object.keys(saved.codeAnswers).length > 0) setCodeAnswers(saved.codeAnswers);
+            if (saved.submissionResults) setSubmissionResults(saved.submissionResults);
+            if (saved.markedForReview) setMarkedForReview(new Set(saved.markedForReview));
+            if (typeof saved.timeLeft === "number" && saved.timeLeft > 0) setTimeLeft(saved.timeLeft);
+            if (saved.activeSection) setActiveSection(saved.activeSection);
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(saved));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
+  }, [storageKey, isSubmitted, isAlreadySubmitted]);
+
+  // Auto-persist all progress to localStorage and cloud database
   useEffect(() => {
     if (typeof window === "undefined" || isSubmitted || isAlreadySubmitted) return;
+    const dataToSave = {
+      answers,
+      codeAnswers,
+      submissionResults,
+      markedForReview: Array.from(markedForReview),
+      activeSection,
+      mcqIndex,
+      codingIndex,
+      timeLeft,
+      sessionStartTime,
+      savedAt: new Date().toISOString(),
+    };
+
     try {
-      const dataToSave = {
-        answers,
-        codeAnswers,
-        submissionResults,
-        markedForReview: Array.from(markedForReview),
-        activeSection,
-        mcqIndex,
-        codingIndex,
-        timeLeft,
-        sessionStartTime,
-        savedAt: new Date().toISOString()
-      };
       localStorage.setItem(storageKey, JSON.stringify(dataToSave));
     } catch (e) {
       console.warn("Failed to persist practice progress:", e);
     }
+
+    const timer = setTimeout(() => {
+      fetch("/api/student/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: storageKey,
+          data: dataToSave,
+        }),
+      }).catch(() => {});
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, [answers, codeAnswers, submissionResults, markedForReview, activeSection, mcqIndex, codingIndex, timeLeft, sessionStartTime, storageKey, isSubmitted, isAlreadySubmitted]);
 
   const currentQuestion = currentSectionQuestions[currentSectionIndex] || questions[0];
