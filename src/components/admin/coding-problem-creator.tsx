@@ -20,6 +20,7 @@ import { CodingProblemsService } from "@/services/coding-problems.service";
 import type { CodingProblem, TestCase, Difficulty, CodingLanguage, SQLEngine, SQLComparisonMode, SQLQuestionMode } from "@/types/coding";
 import { PageHeader } from "@/components/layouts/page-header";
 import { AutoSaveBadge } from "@/components/ui/auto-save-badge";
+import { SqlProblemCreator } from "@/components/admin/sql-problem-creator";
 
 interface SupportedLangOption {
   id: string;
@@ -45,6 +46,7 @@ export interface CodingProblemCreatorProps {
     seedSql?: string;
     comparisonMode?: SQLComparisonMode;
   }) => void;
+  initialQuestionType?: "programming" | "sql";
   initialTitle?: string;
   initialDescription?: string;
   initialDifficulty?: Difficulty;
@@ -68,6 +70,7 @@ export function CodingProblemCreator({
   onCancel,
   onSave,
   onChange,
+  initialQuestionType,
   initialTitle,
   initialDescription,
   initialDifficulty,
@@ -87,6 +90,9 @@ export function CodingProblemCreator({
   inline = false,
 }: CodingProblemCreatorProps) {
   const { toast } = useToast();
+  const [questionType, setQuestionType] = useState<"programming" | "sql">(
+    initialQuestionType || (initialSqlEngine || initialSchemaSql ? "sql" : "programming")
+  );
   const [supportedLanguages, setSupportedLanguages] = useState<SupportedLangOption[]>([
     { id: "c", label: "C (GCC)", defaultTemplate: "#include <stdio.h>\n\nint main() {\n    // Write your code here\n    return 0;\n}" },
     { id: "cpp", label: "C++ (GCC)", defaultTemplate: "#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your code here\n    return 0;\n}" },
@@ -431,6 +437,65 @@ export function CodingProblemCreator({
     }
   };
 
+  if (questionType === "sql") {
+    return (
+      <div className={inline ? "space-y-6 w-full" : "space-y-8 w-full pb-16"}>
+        {/* Step 1 Question Type Selector Banner */}
+        <Card className="bg-white dark:bg-[#18181B] border border-[#2563EB]/40 dark:border-[#2563EB]/40 p-4 rounded-2xl shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] block">
+                Question Type *
+              </span>
+              <span className="text-[11px] text-[#6B7280]">
+                Choose between algorithmic programming or dedicated relational database queries
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setQuestionType("programming")}
+                className="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:text-foreground"
+              >
+                <Code2 className="h-4 w-4" />
+                Programming (C, C++, Java, Python, etc.)
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuestionType("sql")}
+                className="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 bg-[#2563EB] text-white shadow-sm"
+              >
+                <Database className="h-4 w-4" />
+                SQL Database (MySQL, Postgres, SQLite, etc.)
+              </button>
+            </div>
+          </div>
+        </Card>
+
+        <SqlProblemCreator
+          onCancel={onCancel}
+          onSave={onSave}
+          onChangeQuestionType={(t) => setQuestionType(t)}
+          initialProblem={{
+            title,
+            description,
+            difficulty,
+            points,
+            sql_engine: sqlEngine,
+            sql_question_mode: sqlQuestionMode,
+            provide_tables: provideTables,
+            schema_sql: schemaSql,
+            seed_sql: seedSql,
+            comparison_mode: comparisonMode,
+          }}
+          hideHeader={hideHeader}
+          inline={inline}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={inline ? "space-y-6 w-full" : "space-y-8 w-full pb-16"}>
       {/* Top Header */}
@@ -468,6 +533,39 @@ export function CodingProblemCreator({
           }
         />
       )}
+
+      {/* Question Type Selection Banner */}
+      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-2xl shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] block">
+              Question Type *
+            </span>
+            <span className="text-[11px] text-[#6B7280]">
+              Choose between algorithmic programming or dedicated relational database queries
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setQuestionType("programming")}
+              className="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 bg-[#2563EB] text-white shadow-sm"
+            >
+              <Code2 className="h-4 w-4" />
+              Programming (C, C++, Java, Python, etc.)
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuestionType("sql")}
+              className="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] hover:text-foreground"
+            >
+              <Database className="h-4 w-4" />
+              SQL Database (MySQL, Postgres, SQLite, etc.)
+            </button>
+          </div>
+        </div>
+      </Card>
 
       {/* Inline Auto-Save Bar */}
       {inline && (
