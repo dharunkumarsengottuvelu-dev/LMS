@@ -46,7 +46,17 @@ export default function StudentTestRunnerPage() {
 
   // Clean, user-friendly face state (no technical clutter, never resizes outer card)
   const [simpleFaceStatus, setSimpleFaceStatus] = useState<
-    "verified" | "missing" | "multiple" | "looking_away" | "mismatch" | "fullscreen_exit" | "copy_paste"
+    | "verified"
+    | "missing"
+    | "multiple"
+    | "looking_away_left"
+    | "looking_away_right"
+    | "looking_away_up"
+    | "looking_away_down"
+    | "looking_away"
+    | "mismatch"
+    | "fullscreen_exit"
+    | "copy_paste"
   >("verified");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -366,7 +376,7 @@ export default function StudentTestRunnerPage() {
 
       try {
         const result: FaceDetectionResult = await tracker.analyzeFrame(video, referenceEmbedding);
-        let currentStatus: "verified" | "missing" | "multiple" | "looking_away" | "mismatch" = "verified";
+        let currentStatus: typeof simpleFaceStatus = "verified";
         let alertMsg: string | null = null;
         let alertLevel: "INFO" | "WARNING" | "CRITICAL" = "INFO";
 
@@ -451,15 +461,34 @@ export default function StudentTestRunnerPage() {
               lookingAwayDurationRef.current += 0.5;
 
               if (lookingAwayDurationRef.current >= 3.0) {
-                currentStatus = "looking_away";
-                alertMsg = "Please focus on your examination screen.";
+                currentStatus = result.headPoseState;
+                alertMsg =
+                  result.headPoseState === "looking_away_left"
+                    ? "Looking Left detected. Please focus on the screen."
+                    : result.headPoseState === "looking_away_right"
+                    ? "Looking Right detected. Please focus on the screen."
+                    : result.headPoseState === "looking_away_up"
+                    ? "Looking Up detected. Please focus on the screen."
+                    : result.headPoseState === "looking_away_down"
+                    ? "Looking Down detected. Please focus on the screen."
+                    : "Please focus on your examination screen.";
                 alertLevel = "WARNING";
               }
 
               // Confirmed violation: generate exactly ONE flag after 6.0 seconds of continuous look away
               if (lookingAwayDurationRef.current >= 6.0 && !lookingAwayFlaggedRef.current) {
                 lookingAwayFlaggedRef.current = true;
-                recordViolation("Prolonged look away from screen detected.", "looking_away");
+                const reasonText =
+                  result.headPoseState === "looking_away_left"
+                    ? "Looking Left detected."
+                    : result.headPoseState === "looking_away_right"
+                    ? "Looking Right detected."
+                    : result.headPoseState === "looking_away_up"
+                    ? "Looking Up detected."
+                    : result.headPoseState === "looking_away_down"
+                    ? "Looking Down detected."
+                    : "Looking away from screen detected.";
+                recordViolation(reasonText, result.headPoseState);
               }
             } else {
               lookingAwayDurationRef.current = 0;
@@ -636,10 +665,14 @@ export default function StudentTestRunnerPage() {
   // UI status label text and color
   const statusConfig = {
     verified: { text: "Face Verified", color: "text-emerald-400", dot: "bg-emerald-500" },
-    missing: { text: "No Face Detected", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
-    multiple: { text: "Multiple Faces Detected", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
+    looking_away_left: { text: "Looking Left", color: "text-amber-400", dot: "bg-amber-500" },
+    looking_away_right: { text: "Looking Right", color: "text-amber-400", dot: "bg-amber-500" },
+    looking_away_up: { text: "Looking Up", color: "text-amber-400", dot: "bg-amber-500" },
+    looking_away_down: { text: "Looking Down", color: "text-amber-400", dot: "bg-amber-500" },
     looking_away: { text: "Looking Away", color: "text-amber-400", dot: "bg-amber-500" },
-    mismatch: { text: "Face Verification Failed", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
+    multiple: { text: "Multiple Faces Detected", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
+    missing: { text: "No Face Detected", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
+    mismatch: { text: "Face Mismatch", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
     fullscreen_exit: { text: "Fullscreen Exited", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
     copy_paste: { text: "Copy/Paste Violation", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
   }[simpleFaceStatus] || { text: "Face Verified", color: "text-emerald-400", dot: "bg-emerald-500" };
