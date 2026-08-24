@@ -571,10 +571,19 @@ export class AIFaceTracker {
     const diffY = cy - boxCenterY;
 
     let pose: HeadPoseState = "facing_forward";
-    if (diffX < -0.24) pose = "looking_away_left";
-    else if (diffX > 0.24) pose = "looking_away_right";
-    else if (diffY > 0.28) pose = "looking_away_down";
-    else if (diffY < -0.28) pose = "looking_away_up";
+
+    // Horizontal Yaw detection (mirrored camera space: +diffX = user turned left, -diffX = user turned right)
+    if (diffX > 0.075) {
+      pose = "looking_away_left";
+    } else if (diffX < -0.075) {
+      pose = "looking_away_right";
+    }
+    // Vertical Pitch detection (-diffY = user looked up, +diffY = user looked down)
+    else if (diffY < -0.075) {
+      pose = "looking_away_up";
+    } else if (diffY > 0.075) {
+      pose = "looking_away_down";
+    }
 
     this.poseBuffer.push(pose);
     if (this.poseBuffer.length > this.bufferSize) this.poseBuffer.shift();
@@ -590,20 +599,48 @@ export class AIFaceTracker {
       return "facing_forward";
     }
 
-    const leftEye = landmarks.find((l) => l.type === "eye" && l.location?.x < (box.x + box.w / 2));
-    const rightEye = landmarks.find((l) => l.type === "eye" && l.location?.x >= (box.x + box.w / 2));
+    const boxCenterX = box.x + box.w / 2;
+    const leftEye = landmarks.find((l) => l.type === "eye" && l.location?.x < boxCenterX);
+    const rightEye = landmarks.find((l) => l.type === "eye" && l.location?.x >= boxCenterX);
     const nose = landmarks.find((l) => l.type === "nose");
 
-    if (leftEye && rightEye && nose) {
+    let pose: HeadPoseState = "facing_forward";
+
+    if (leftEye?.location && rightEye?.location && nose?.location) {
+      const eyeSpan = Math.abs(rightEye.location.x - leftEye.location.x);
       const eyeDistLeft = Math.abs(nose.location.x - leftEye.location.x);
       const eyeDistRight = Math.abs(rightEye.location.x - nose.location.x);
-      const ratio = eyeDistLeft / (eyeDistRight || 0.001);
 
-      if (ratio < 0.25) return "looking_away_left";
-      if (ratio > 3.8) return "looking_away_right";
+      // Horizontal Yaw:
+      // When turning head to user's LEFT (camera right), nose approaches right eye -> eyeDistLeft is larger
+      // When turning head to user's RIGHT (camera left), nose approaches left eye -> eyeDistRight is larger
+      if (eyeSpan > 5) {
+        const ratio = eyeDistLeft / (eyeDistRight || 0.001);
+        if (ratio > 1.85) {
+          pose = "looking_away_left";
+        } else if (ratio < 0.54) {
+          pose = "looking_away_right";
+        }
+      }
+
+      // Vertical Pitch:
+      // Eye midpoint Y vs Nose Y relative to face height
+      if (pose === "facing_forward") {
+        const eyeY = (leftEye.location.y + rightEye.location.y) / 2;
+        const normNoseDrop = (nose.location.y - eyeY) / Math.max(15, box.h * 120);
+
+        if (normNoseDrop < 0.20) {
+          pose = "looking_away_up";
+        } else if (normNoseDrop > 0.48) {
+          pose = "looking_away_down";
+        }
+      }
     }
 
-    return "facing_forward";
+    this.poseBuffer.push(pose);
+    if (this.poseBuffer.length > this.bufferSize) this.poseBuffer.shift();
+
+    return this.getMode(this.poseBuffer);
   }
 
   private smoothBox(box: { x: number; y: number; w: number; h: number }) {
