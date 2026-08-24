@@ -6,7 +6,7 @@ import {
   Sparkles, Save, ShieldCheck, Layers, FileText,
   AlertCircle, Check, Eye, ChevronRight, Terminal,
   Cpu, HardDrive, HelpCircle, ArrowLeft,
-  Maximize2, Minimize2, ShieldAlert, Lock, Database
+  Maximize2, Minimize2, ShieldAlert, Lock, Database, RefreshCw
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { CodingProblemsService } from "@/services/coding-problems.service";
-import type { CodingProblem, TestCase, Difficulty, CodingLanguage, SQLEngine, SQLComparisonMode } from "@/types/coding";
+import type { CodingProblem, TestCase, Difficulty, CodingLanguage, SQLEngine, SQLComparisonMode, SQLQuestionMode } from "@/types/coding";
 import { PageHeader } from "@/components/layouts/page-header";
 import { AutoSaveBadge } from "@/components/ui/auto-save-badge";
 
@@ -58,6 +58,8 @@ export interface CodingProblemCreatorProps {
   initialSchemaSql?: string;
   initialSeedSql?: string;
   initialComparisonMode?: SQLComparisonMode;
+  initialProvideTables?: boolean;
+  initialSqlQuestionMode?: SQLQuestionMode;
   hideHeader?: boolean;
   inline?: boolean;
 }
@@ -79,6 +81,8 @@ export function CodingProblemCreator({
   initialSchemaSql,
   initialSeedSql,
   initialComparisonMode,
+  initialProvideTables,
+  initialSqlQuestionMode,
   hideHeader = false,
   inline = false,
 }: CodingProblemCreatorProps) {
@@ -132,9 +136,31 @@ export function CodingProblemCreator({
 
   // SQL Engine & Configuration State
   const [sqlEngine, setSqlEngine] = useState<SQLEngine>(initialSqlEngine || "sqlite");
+  const [provideTables, setProvideTables] = useState<boolean>(initialProvideTables !== undefined ? initialProvideTables : true);
+  const [sqlQuestionMode, setSqlQuestionMode] = useState<SQLQuestionMode>(
+    initialSqlQuestionMode || (initialProvideTables === false ? "TABLE_CREATION_AND_QUERY" : "QUERY_ONLY")
+  );
   const [schemaSql, setSchemaSql] = useState<string>(initialSchemaSql || "");
   const [seedSql, setSeedSql] = useState<string>(initialSeedSql || "");
   const [comparisonMode, setComparisonMode] = useState<SQLComparisonMode>(initialComparisonMode || "ORDER_SENSITIVE");
+  const [sqlEditorTab, setSqlEditorTab] = useState<"builder" | "raw">("builder");
+
+  // Visual Table Builder State
+  const [tableName, setTableName] = useState<string>("employees");
+  const [tableColumns, setTableColumns] = useState<
+    { name: string; type: string; isPrimary: boolean; isNullable: boolean; defaultValue: string; description: string }[]
+  >([
+    { name: "id", type: "INT", isPrimary: true, isNullable: false, defaultValue: "", description: "Primary Key" },
+    { name: "name", type: "VARCHAR(100)", isPrimary: false, isNullable: false, defaultValue: "", description: "Employee Name" },
+    { name: "department", type: "VARCHAR(100)", isPrimary: false, isNullable: true, defaultValue: "", description: "Department" },
+    { name: "salary", type: "DECIMAL(10,2)", isPrimary: false, isNullable: true, defaultValue: "", description: "Salary" },
+  ]);
+  const [sampleRows, setSampleRows] = useState<Record<string, string>[]>([
+    { id: "101", name: "Arun", department: "Engineering", salary: "75000" },
+    { id: "102", name: "Priya", department: "Engineering", salary: "85000" },
+    { id: "103", name: "Ravi", department: "HR", salary: "52000" },
+    { id: "104", name: "Sneha", department: "Finance", salary: "68000" },
+  ]);
 
   // Starter Code Templates by Language
   const [activeTemplateLang, setActiveTemplateLang] = useState<CodingLanguage>("java");
@@ -323,6 +349,22 @@ export function CodingProblemCreator({
       return;
     }
 
+    if (!description.trim()) {
+      toast({ title: "Description Required", description: "Please specify the problem statement.", variant: "destructive" });
+      return;
+    }
+
+    if (selectedLanguages.includes("sql")) {
+      if (provideTables && !schemaSql.trim()) {
+        toast({
+          title: "SQL Schema Required",
+          description: "Provide Tables is enabled. Please define at least one table in the Schema or click 'Sync to DDL & DML'.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
     if (publicTestCases.length === 0) {
       toast({ title: "Public Test Case Required", description: "Add at least 1 public test case.", variant: "destructive" });
       return;
@@ -355,8 +397,10 @@ export function CodingProblemCreator({
         templates: filteredTemplates,
         test_cases: [...publicTestCases, ...hiddenTestCases],
         sql_engine: selectedLanguages.includes("sql") ? sqlEngine : undefined,
-        schema_sql: selectedLanguages.includes("sql") ? schemaSql : undefined,
-        seed_sql: selectedLanguages.includes("sql") ? seedSql : undefined,
+        sql_question_mode: selectedLanguages.includes("sql") ? sqlQuestionMode : undefined,
+        provide_tables: selectedLanguages.includes("sql") ? provideTables : undefined,
+        schema_sql: selectedLanguages.includes("sql") ? (provideTables ? schemaSql : undefined) : undefined,
+        seed_sql: selectedLanguages.includes("sql") ? (provideTables ? seedSql : undefined) : undefined,
         comparison_mode: selectedLanguages.includes("sql") ? comparisonMode : undefined,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -585,17 +629,66 @@ export function CodingProblemCreator({
 
         {/* Section 3.5: SQL Database Engine & Schema Configuration (Visible when SQL is selected) */}
         {selectedLanguages.includes("sql") && (
-          <Card className="bg-white dark:bg-[#18181B] border border-[#2563EB]/40 dark:border-[#2563EB]/40 p-6 rounded-2xl shadow-sm space-y-5 bg-gradient-to-br from-blue-50/20 to-transparent dark:from-blue-950/10">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
+          <Card className="bg-white dark:bg-[#18181B] border border-[#2563EB]/40 dark:border-[#2563EB]/40 p-6 rounded-2xl shadow-sm space-y-6 bg-gradient-to-br from-blue-50/20 to-transparent dark:from-blue-950/10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
               <div>
                 <h2 className="text-xs font-bold uppercase tracking-wider text-[#2563EB] flex items-center gap-2">
-                  <Database className="h-4 w-4" /> 3.5 SQL Database Engine & Schema Configuration
+                  <Database className="h-4 w-4" /> 3.5 SQL Engine & Database Sandbox Configuration
                 </h2>
-                <p className="text-xs text-[#6B7280] mt-0.5">Configure target database engine, initial table schema, and seed data</p>
+                <p className="text-xs text-[#6B7280] mt-0.5">Configure SQL question mode, database engine, schema, and sample datasets</p>
               </div>
-              <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold">SQL Execution Sandbox</Badge>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-[#2563EB] text-white text-[10px] uppercase font-bold">SQL Multi-Dialect Sandbox</Badge>
+              </div>
             </div>
 
+            {/* SQL Question Mode Selector */}
+            <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] block">
+                    Provide Tables to Candidate
+                  </span>
+                  <span className="text-[11px] text-[#6B7280]">
+                    {provideTables
+                      ? "MODE 1: QUERY_ONLY — Pre-create tables & sample data. Student only writes SELECT / SQL queries."
+                      : "MODE 2: TABLE_CREATION_AND_QUERY — Candidate creates their own tables and queries in a clean sandbox."}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProvideTables(true);
+                      setSqlQuestionMode("QUERY_ONLY");
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      provideTables
+                        ? "bg-[#2563EB] text-white shadow-sm"
+                        : "bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]"
+                    }`}
+                  >
+                    Provide Tables (ON)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProvideTables(false);
+                      setSqlQuestionMode("TABLE_CREATION_AND_QUERY");
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      !provideTables
+                        ? "bg-[#2563EB] text-white shadow-sm"
+                        : "bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]"
+                    }`}
+                  >
+                    Candidate Creates (OFF)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Engine & Comparison Mode Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Database Engine</label>
@@ -626,35 +719,309 @@ export function CodingProblemCreator({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Database Schema (DDL)</label>
-                  <span className="text-[10px] text-[#6B7280]">Executed before student query</span>
-                </div>
-                <Textarea
-                  rows={6}
-                  value={schemaSql}
-                  onChange={(e) => setSchemaSql(e.target.value)}
-                  placeholder={`CREATE TABLE employees (\n    id INT PRIMARY KEY,\n    name VARCHAR(100),\n    department VARCHAR(100),\n    salary INT\n);`}
-                  className="font-mono text-xs leading-relaxed rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-                />
-              </div>
+            {/* MODE 1: Interactive Table Builder & Sample Data (When Provide Tables is ON) */}
+            {provideTables ? (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSqlEditorTab("builder")}
+                      className={`text-xs font-bold px-3 py-1 rounded-lg transition-all ${
+                        sqlEditorTab === "builder"
+                          ? "bg-[#2563EB] text-white"
+                          : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+                      }`}
+                    >
+                      Visual Table & Data Builder
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSqlEditorTab("raw")}
+                      className={`text-xs font-bold px-3 py-1 rounded-lg transition-all ${
+                        sqlEditorTab === "raw"
+                          ? "bg-[#2563EB] text-white"
+                          : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+                      }`}
+                    >
+                      Raw DDL / DML Code Editor
+                    </button>
+                  </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Seed Data (DML)</label>
-                  <span className="text-[10px] text-[#6B7280]">Sample rows for evaluation</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (!tableName.trim() || tableColumns.length === 0) return;
+                      const colDefs = tableColumns.map((col) => {
+                        let def = `    ${col.name} ${col.type}`;
+                        if (col.isPrimary) def += " PRIMARY KEY";
+                        if (!col.isNullable && !col.isPrimary) def += " NOT NULL";
+                        if (col.defaultValue) def += ` DEFAULT ${col.defaultValue}`;
+                        return def;
+                      }).join(",\n");
+                      const ddl = `CREATE TABLE ${tableName} (\n${colDefs}\n);`;
+                      setSchemaSql(ddl);
+
+                      if (sampleRows.length > 0) {
+                        const colNames = tableColumns.map((c) => c.name).join(", ");
+                        const rowValues = sampleRows.map((r) => {
+                          const vals = tableColumns.map((c) => {
+                            const rawVal = r[c.name] ?? "";
+                            if (c.type.toUpperCase().includes("INT") || c.type.toUpperCase().includes("DECIMAL") || c.type.toUpperCase().includes("FLOAT")) {
+                              return rawVal !== "" ? rawVal : "NULL";
+                            }
+                            return `'${rawVal.replace(/'/g, "''")}'`;
+                          }).join(", ");
+                          return `(${vals})`;
+                        }).join(",\n");
+                        const dml = `INSERT INTO ${tableName} (${colNames}) VALUES\n${rowValues};`;
+                        setSeedSql(dml);
+                      }
+                      toast({ title: "SQL Generated", description: "Compiled visual table into DDL schema & DML seed." });
+                    }}
+                    className="h-7 text-xs border-[#2563EB] text-[#2563EB] gap-1"
+                  >
+                    <RefreshCw className="h-3 w-3" /> Sync to DDL & DML
+                  </Button>
                 </div>
-                <Textarea
-                  rows={6}
-                  value={seedSql}
-                  onChange={(e) => setSeedSql(e.target.value)}
-                  placeholder={`INSERT INTO employees VALUES\n(101, 'Arun', 'Engineering', 75000),\n(102, 'Priya', 'Engineering', 85000),\n(103, 'Ravi', 'HR', 52000);`}
-                  className="font-mono text-xs leading-relaxed rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-                />
+
+                {sqlEditorTab === "builder" ? (
+                  <div className="space-y-5">
+                    {/* Table Name */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1 sm:col-span-1">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Table Name</label>
+                        <Input
+                          value={tableName}
+                          onChange={(e) => setTableName(e.target.value)}
+                          placeholder="e.g. employees"
+                          className="h-9 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Columns Builder Table */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Columns Schema ({tableColumns.length})</label>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setTableColumns((prev) => [
+                            ...prev,
+                            { name: `col_${prev.length + 1}`, type: "VARCHAR(100)", isPrimary: false, isNullable: true, defaultValue: "", description: "" }
+                          ])}
+                          className="h-7 text-xs text-[#2563EB] font-semibold gap-1"
+                        >
+                          <Plus className="h-3 w-3" /> Add Column
+                        </Button>
+                      </div>
+
+                      <div className="border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-x-auto bg-white dark:bg-[#18181B]">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]">
+                              <th className="p-2.5 font-bold">Column Name</th>
+                              <th className="p-2.5 font-bold">Data Type</th>
+                              <th className="p-2.5 font-bold text-center">PK</th>
+                              <th className="p-2.5 font-bold text-center">Nullable</th>
+                              <th className="p-2.5 font-bold">Description</th>
+                              <th className="p-2.5 font-bold text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                            {tableColumns.map((col, idx) => (
+                              <tr key={idx} className="hover:bg-muted/30">
+                                <td className="p-2">
+                                  <Input
+                                    value={col.name}
+                                    onChange={(e) => {
+                                      const next = [...tableColumns];
+                                      next[idx]!.name = e.target.value;
+                                      setTableColumns(next);
+                                    }}
+                                    className="h-8 text-xs font-mono rounded-lg"
+                                  />
+                                </td>
+                                <td className="p-2">
+                                  <Input
+                                    value={col.type}
+                                    onChange={(e) => {
+                                      const next = [...tableColumns];
+                                      next[idx]!.type = e.target.value;
+                                      setTableColumns(next);
+                                    }}
+                                    placeholder="INT, VARCHAR(100)"
+                                    className="h-8 text-xs font-mono rounded-lg"
+                                  />
+                                </td>
+                                <td className="p-2 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={col.isPrimary}
+                                    onChange={(e) => {
+                                      const next = [...tableColumns];
+                                      next[idx]!.isPrimary = e.target.checked;
+                                      setTableColumns(next);
+                                    }}
+                                    className="rounded border-[#E5E7EB]"
+                                  />
+                                </td>
+                                <td className="p-2 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={col.isNullable}
+                                    onChange={(e) => {
+                                      const next = [...tableColumns];
+                                      next[idx]!.isNullable = e.target.checked;
+                                      setTableColumns(next);
+                                    }}
+                                    className="rounded border-[#E5E7EB]"
+                                  />
+                                </td>
+                                <td className="p-2">
+                                  <Input
+                                    value={col.description}
+                                    onChange={(e) => {
+                                      const next = [...tableColumns];
+                                      next[idx]!.description = e.target.value;
+                                      setTableColumns(next);
+                                    }}
+                                    placeholder="e.g. Employee ID"
+                                    className="h-8 text-xs rounded-lg"
+                                  />
+                                </td>
+                                <td className="p-2 text-center">
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => setTableColumns((prev) => prev.filter((_, i) => i !== idx))}
+                                    className="h-7 w-7 text-red-500 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Sample Data Grid */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Sample Data Records ({sampleRows.length} rows)</label>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            const newRow: Record<string, string> = {};
+                            tableColumns.forEach((c) => { newRow[c.name] = ""; });
+                            setSampleRows((prev) => [...prev, newRow]);
+                          }}
+                          className="h-7 text-xs text-[#2563EB] font-semibold gap-1"
+                        >
+                          <Plus className="h-3 w-3" /> Add Sample Row
+                        </Button>
+                      </div>
+
+                      <div className="border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-x-auto bg-white dark:bg-[#18181B]">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]">
+                              {tableColumns.map((col, idx) => (
+                                <th key={idx} className="p-2.5 font-bold font-mono">{col.name}</th>
+                              ))}
+                              <th className="p-2.5 font-bold text-center w-12">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                            {sampleRows.map((row, rIdx) => (
+                              <tr key={rIdx} className="hover:bg-muted/30">
+                                {tableColumns.map((col, cIdx) => (
+                                  <td key={cIdx} className="p-1.5">
+                                    <Input
+                                      value={row[col.name] ?? ""}
+                                      onChange={(e) => {
+                                        const next = [...sampleRows];
+                                        next[rIdx] = { ...(next[rIdx] || {}), [col.name]: e.target.value };
+                                        setSampleRows(next);
+                                      }}
+                                      className="h-7 text-xs font-mono rounded-lg"
+                                    />
+                                  </td>
+                                ))}
+                                <td className="p-1.5 text-center">
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => setSampleRows((prev) => prev.filter((_, i) => i !== rIdx))}
+                                    className="h-6 w-6 text-red-500 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Raw DDL / DML Code Editor */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Database Schema (DDL)</label>
+                        <span className="text-[10px] text-[#6B7280]">Executed before student query</span>
+                      </div>
+                      <Textarea
+                        rows={8}
+                        value={schemaSql}
+                        onChange={(e) => setSchemaSql(e.target.value)}
+                        placeholder={`CREATE TABLE employees (\n    id INT PRIMARY KEY,\n    name VARCHAR(100),\n    department VARCHAR(100),\n    salary DECIMAL(10,2)\n);`}
+                        className="font-mono text-xs leading-relaxed rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Seed Data (DML)</label>
+                        <span className="text-[10px] text-[#6B7280]">Sample rows for evaluation</span>
+                      </div>
+                      <Textarea
+                        rows={8}
+                        value={seedSql}
+                        onChange={(e) => setSeedSql(e.target.value)}
+                        placeholder={`INSERT INTO employees VALUES\n(101, 'Arun', 'Engineering', 75000),\n(102, 'Priya', 'Engineering', 85000),\n(103, 'Ravi', 'HR', 52000);`}
+                        className="font-mono text-xs leading-relaxed rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            ) : (
+              /* MODE 2: TABLE_CREATION_AND_QUERY Description */
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-xl space-y-2 text-xs text-amber-800 dark:text-amber-300">
+                <div className="font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-amber-600" /> Mode 2: Table Creation & Query Active
+                </div>
+                <p>
+                  In this mode, tables will <strong>NOT</strong> be created automatically. The student will write <code>CREATE TABLE</code>, <code>INSERT INTO</code>, and <code>SELECT</code> queries sequentially.
+                </p>
+                <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                  Ensure the <strong>Problem Statement</strong> clearly defines the expected table schema (columns, types, constraints) so candidates know what to create.
+                </p>
+              </div>
+            )}
           </Card>
         )}
 

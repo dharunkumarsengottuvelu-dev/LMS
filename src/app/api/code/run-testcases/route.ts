@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
 
         if (language === "sql") {
           const sqlEngine = body.sql_engine || problem?.sql_engine || "sqlite";
-          const schemaSql = body.schema_sql || problem?.schema_sql;
-          const seedSql = body.seed_sql || problem?.seed_sql;
+          const schemaSql = body.schema_sql !== undefined ? body.schema_sql : (problem?.schema_sql || "");
+          const seedSql = body.seed_sql !== undefined ? body.seed_sql : (problem?.seed_sql || "");
           const comparisonMode = body.comparison_mode || problem?.comparison_mode || "ORDER_SENSITIVE";
 
           const sqlRes = await SQLExecutionService.executeQuery(code, datasetName, {

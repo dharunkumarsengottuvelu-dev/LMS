@@ -89,8 +89,8 @@ export class SubmissionService {
         if (input.language === "sql") {
           const sqlRes = await SQLExecutionService.executeQuery(input.code, datasetName, {
             engine: input.sql_engine || (problem as any)?.sql_engine || "sqlite",
-            schemaSql: input.schema_sql || (problem as any)?.schema_sql,
-            seedSql: input.seed_sql || (problem as any)?.seed_sql,
+            schemaSql: input.schema_sql !== undefined ? input.schema_sql : ((problem as any)?.schema_sql || ""),
+            seedSql: input.seed_sql !== undefined ? input.seed_sql : ((problem as any)?.seed_sql || ""),
           });
           executionTime = sqlRes.executionTimeMs / 1000;
           if (sqlRes.error) {

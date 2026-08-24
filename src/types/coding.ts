@@ -34,17 +34,23 @@ export interface MultiFilePayload {
 
 export type SQLEngine = "sqlite" | "mysql" | "postgresql" | "mariadb";
 export type SQLComparisonMode = "ORDER_SENSITIVE" | "ORDER_INSENSITIVE";
+export type SQLQuestionMode = "QUERY_ONLY" | "TABLE_CREATION_AND_QUERY";
 
 export interface SQLColumnSchema {
   name: string;
   type: string;
   isPrimary?: boolean;
+  isForeign?: boolean;
+  isNullable?: boolean;
+  defaultValue?: string;
+  description?: string;
 }
 
 export interface SQLTableSchema {
   name: string;
   columns: SQLColumnSchema[];
   rows: Record<string, any>[];
+  description?: string;
 }
 
 export interface SQLDatasetSchema {
@@ -56,6 +62,8 @@ export interface SQLQueryInput {
   query: string;
   datasetName?: string;
   engine?: SQLEngine;
+  mode?: SQLQuestionMode;
+  provideTables?: boolean;
   schemaSql?: string;
   seedSql?: string;
   comparisonMode?: SQLComparisonMode;
@@ -147,6 +155,8 @@ export interface CodingProblem {
   test_cases: TestCase[];
   dataset_name?: string;
   sql_engine?: SQLEngine;
+  sql_question_mode?: SQLQuestionMode;
+  provide_tables?: boolean;
   schema_sql?: string;
   seed_sql?: string;
   comparison_mode?: SQLComparisonMode;
@@ -178,6 +188,8 @@ export interface ExecuteCodeInput {
   css?: string;
   js?: string;
   sql_engine?: SQLEngine;
+  sql_question_mode?: SQLQuestionMode;
+  provide_tables?: boolean;
   schema_sql?: string;
   seed_sql?: string;
   comparison_mode?: SQLComparisonMode;
@@ -205,6 +217,8 @@ export interface SubmitCodeInput {
   files?: CodeFile[];
   test_cases?: TestCase[];
   sql_engine?: SQLEngine;
+  sql_question_mode?: SQLQuestionMode;
+  provide_tables?: boolean;
   schema_sql?: string;
   seed_sql?: string;
   comparison_mode?: SQLComparisonMode;
@@ -218,6 +232,8 @@ export interface CreateCodingProblemInput {
   templates: Record<string, string>;
   test_cases: TestCase[];
   sql_engine?: SQLEngine;
+  sql_question_mode?: SQLQuestionMode;
+  provide_tables?: boolean;
   schema_sql?: string;
   seed_sql?: string;
   comparison_mode?: SQLComparisonMode;

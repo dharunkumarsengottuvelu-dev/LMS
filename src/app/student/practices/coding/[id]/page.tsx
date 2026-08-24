@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, CheckCircle2, Code2, Clock, Cpu, FileCode,
-  Layers, Loader2, Sparkles, Terminal, AlertCircle, RefreshCw
+  Layers, Loader2, Sparkles, Terminal, AlertCircle, RefreshCw, Database
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -207,6 +207,30 @@ export default function PracticeCodingRunnerPage() {
             <div className="text-sm text-[#374151] dark:text-[#D1D5DB] leading-relaxed whitespace-pre-wrap">
               {problem.description || "Solve the coding challenge by implementing the required logic."}
             </div>
+
+            {(problem.schemaSql || problem.schema_sql) && (
+              <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/40 space-y-2 mt-4">
+                <div className="flex items-center justify-between">
+                  <strong className="text-[#2563EB] font-bold block text-xs flex items-center gap-1.5 font-sans">
+                    <Database className="h-3.5 w-3.5" /> Provided Database Schema (DDL)
+                  </strong>
+                  <Badge variant="outline" className="text-[9px] uppercase font-bold border-blue-300 text-[#2563EB]">
+                    {problem.sqlEngine || problem.sql_engine || "sqlite"}
+                  </Badge>
+                </div>
+                <pre className="text-foreground font-mono text-[10.5px] p-2 bg-background/80 rounded-lg border border-border/50 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                  {problem.schemaSql || problem.schema_sql}
+                </pre>
+                {(problem.seedSql || problem.seed_sql) && (
+                  <div className="pt-1.5 space-y-1">
+                    <strong className="text-muted-foreground font-bold block text-[11px] font-sans">Sample Data (DML):</strong>
+                    <pre className="text-muted-foreground font-mono text-[10px] p-2 bg-background/80 rounded-lg border border-border/50 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
+                      {problem.seedSql || problem.seed_sql}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Sample Test Cases */}

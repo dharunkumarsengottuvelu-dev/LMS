@@ -283,24 +283,66 @@ def sanitize_err(e):
         msg = msg.replace(secret, "[redacted]")
     return msg
 
+def split_sql_statements(sql_str):
+    import re
+    # Split by semicolon not inside single quotes or double quotes
+    statements = []
+    current = []
+    in_single_quote = False
+    in_double_quote = False
+    
+    i = 0
+    while i < len(sql_str):
+        ch = sql_str[i]
+        if ch == "'" and not in_double_quote:
+            in_single_quote = not in_single_quote
+            current.append(ch)
+        elif ch == '"' and not in_single_quote:
+            in_double_quote = not in_double_quote
+            current.append(ch)
+        elif ch == ';' and not in_single_quote and not in_double_quote:
+            stmt = "".join(current).strip()
+            if stmt:
+                statements.append(stmt)
+            current = []
+        else:
+            current.append(ch)
+        i += 1
+        
+    tail = "".join(current).strip()
+    if tail:
+        statements.append(tail)
+    return statements
+
 def run_sqlite():
     import sqlite3
-    # Use memory database or temporary file in /tmp
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # 1. Apply Schema
+    # 1. Apply Schema if provided
     if SCHEMA_SQL.strip():
         cursor.executescript(SCHEMA_SQL)
     
-    # 2. Apply Seed Data
+    # 2. Apply Seed Data if provided
     if SEED_SQL.strip():
         cursor.executescript(SEED_SQL)
     
-    # 3. Execute User Query
+    # 3. Execute User Query (supporting multiple statements for Table Creation + Query mode)
     t0 = time.time()
-    cursor.execute(USER_QUERY)
+    statements = split_sql_statements(USER_QUERY)
+    if not statements:
+        conn.close()
+        return {"columns": [], "rows": [], "rowCount": 0, "executionTimeMs": 0, "error": "Empty SQL query."}
+
+    # Execute all leading statements (CREATE TABLE, INSERT, SET, etc.)
+    for stmt in statements[:-1]:
+        cursor.execute(stmt)
+        conn.commit()
+
+    # Execute final query
+    final_stmt = statements[-1]
+    cursor.execute(final_stmt)
     t_elapsed = int((time.time() - t0) * 1000)
     
     columns = [desc[0] for desc in cursor.description] if cursor.description else []
@@ -325,7 +367,6 @@ def run_postgres():
         from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
         import psycopg2.extras
     except ImportError:
-        # Fallback to sqlite if driver missing in local dev
         return run_sqlite()
         
     import os
@@ -361,9 +402,17 @@ def run_postgres():
             cur.execute(SEED_SQL)
         conn.commit()
         
-        # Execute query
         t0 = time.time()
-        cur.execute(USER_QUERY)
+        statements = split_sql_statements(USER_QUERY)
+        if not statements:
+            return {"columns": [], "rows": [], "rowCount": 0, "executionTimeMs": 0, "error": "Empty SQL query."}
+
+        for stmt in statements[:-1]:
+            cur.execute(stmt)
+            conn.commit()
+
+        final_stmt = statements[-1]
+        cur.execute(final_stmt)
         t_elapsed = int((time.time() - t0) * 1000)
         
         columns = [desc.name for desc in cur.description] if cur.description else []
@@ -400,7 +449,6 @@ def run_mysql_family(db_engine):
         import pymysql
         import pymysql.cursors
     except ImportError:
-        # Fallback to sqlite if driver missing in local dev
         return run_sqlite()
         
     import os
@@ -429,18 +477,24 @@ def run_mysql_family(db_engine):
         conn = pymysql.connect(host=host, user=user, password=password, database=db_name, port=port, cursorclass=pymysql.cursors.DictCursor, connect_timeout=4)
         cur = conn.cursor()
         
-        # Apply schema and seed (handling multiple statements if present)
-        for stmt in SCHEMA_SQL.split(';'):
-            if stmt.strip():
-                cur.execute(stmt)
-        for stmt in SEED_SQL.split(';'):
-            if stmt.strip():
-                cur.execute(stmt)
+        # Apply schema and seed
+        for stmt in split_sql_statements(SCHEMA_SQL):
+            cur.execute(stmt)
+        for stmt in split_sql_statements(SEED_SQL):
+            cur.execute(stmt)
         conn.commit()
         
-        # Execute User Query
         t0 = time.time()
-        cur.execute(USER_QUERY)
+        statements = split_sql_statements(USER_QUERY)
+        if not statements:
+            return {"columns": [], "rows": [], "rowCount": 0, "executionTimeMs": 0, "error": "Empty SQL query."}
+
+        for stmt in statements[:-1]:
+            cur.execute(stmt)
+            conn.commit()
+
+        final_stmt = statements[-1]
+        cur.execute(final_stmt)
         t_elapsed = int((time.time() - t0) * 1000)
         
         columns = [desc[0] for desc in cur.description] if cur.description else []
@@ -569,15 +623,32 @@ if __name__ == "__main__":
     let expectedRows: Record<string, any>[] = [];
     try {
       if (typeof expectedRowsOrJson === "string") {
-        const parsed = JSON.parse(expectedRowsOrJson.trim());
-        expectedRows = Array.isArray(parsed) ? parsed : [parsed];
+        const raw = expectedRowsOrJson.trim();
+        if (raw.startsWith("[") || raw.startsWith("{")) {
+          const parsed = JSON.parse(raw);
+          expectedRows = Array.isArray(parsed) ? parsed : [parsed];
+        } else {
+          // Check if actual string representation matches directly
+          const actualStr = JSON.stringify(actual.rows);
+          if (actualStr === raw || raw.includes(actualStr)) return true;
+          // Or compare plain row values
+          const actualRowVals = actual.rows.map(r => Object.values(r).join(" ").trim());
+          const expectedLines = raw.split("\n").map(l => l.replace(/\|/g, " ").trim()).filter(Boolean);
+          if (actualRowVals.length === expectedLines.length) {
+            const matches = actualRowVals.every((val, idx) => {
+              const exp = expectedLines[idx];
+              return exp ? val.split(/\s+/).every(token => exp.includes(token)) : false;
+            });
+            if (matches) return true;
+          }
+          return false;
+        }
       } else if (Array.isArray(expectedRowsOrJson)) {
         expectedRows = expectedRowsOrJson;
       } else {
         return false;
       }
     } catch {
-      // If expected output is a raw string/table rather than JSON, compare row count or string repr
       return false;
     }
 

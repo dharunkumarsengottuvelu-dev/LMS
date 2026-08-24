@@ -6,7 +6,7 @@ import {
   Send, Code2, ClipboardList, Layers, Play, Check, Award,
   RotateCcw, Sparkles, Terminal, FileCode, CheckCheck, XCircle, AlertCircle,
   HelpCircle, ArrowRight, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
-  Edit3, Copy, Search, CheckCircle, ExternalLink, ArrowUpRight, ListFilter, CornerDownRight, FileText, AlertTriangle, ArrowLeft
+  Edit3, Copy, Search, CheckCircle, ExternalLink, ArrowUpRight, ListFilter, CornerDownRight, FileText, AlertTriangle, ArrowLeft, Database
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -1022,6 +1022,31 @@ export function PracticeRunnerEngine({
                       {activeCodingProblem.description}
                     </p>
                   </div>
+
+                  {/* SQL Mode 1: Provided Database Schema & Seed Data Inspector */}
+                  {activeCodingProblem.schema_sql && (
+                    <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/40 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <strong className="text-[#2563EB] font-bold block text-xs flex items-center gap-1.5">
+                          <Database className="h-3.5 w-3.5" /> Provided Database Schema (DDL)
+                        </strong>
+                        <Badge variant="outline" className="text-[9px] uppercase font-bold border-blue-300 text-[#2563EB]">
+                          {activeCodingProblem.sql_engine || "sqlite"}
+                        </Badge>
+                      </div>
+                      <pre className="text-foreground font-mono text-[10.5px] p-2 bg-background/80 rounded-lg border border-border/50 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                        {activeCodingProblem.schema_sql}
+                      </pre>
+                      {activeCodingProblem.seed_sql && (
+                        <div className="pt-1.5 space-y-1">
+                          <strong className="text-muted-foreground font-bold block text-[11px]">Sample Data (DML):</strong>
+                          <pre className="text-muted-foreground font-mono text-[10px] p-2 bg-background/80 rounded-lg border border-border/50 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
+                            {activeCodingProblem.seed_sql}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {activeCodingProblem.constraints && (
                     <div className="p-3 bg-muted/30 rounded-xl border border-border/60 space-y-1">
