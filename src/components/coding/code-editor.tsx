@@ -235,7 +235,12 @@ export function CodeEditor({
         setLanguage(currentLang);
         return;
       }
-      const initialCode = defaultCode !== undefined ? defaultCode : (problem.templates?.[currentLang] || "");
+      
+      const savedDraft = typeof window !== "undefined" ? localStorage.getItem(`edunexus_draft_${problem.id}_${currentLang}`) : null;
+      const initialCode = savedDraft !== null 
+        ? savedDraft 
+        : (defaultCode !== undefined ? defaultCode : (problem.templates?.[currentLang] || ""));
+        
       setCode(initialCode);
       if (problem.sample_input !== undefined) {
         setStdin(problem.sample_input);
@@ -243,6 +248,16 @@ export function CodeEditor({
       setOutput(null);
     }
   }, [problem?.id, defaultCode]);
+
+  useEffect(() => {
+    if (problem?.id && code) {
+      try {
+        localStorage.setItem(`edunexus_draft_${problem.id}_${language}`, code);
+      } catch (err) {
+        console.warn("Failed to save draft", err);
+      }
+    }
+  }, [code, language, problem?.id]);
 
   useEffect(() => {
     const handleScriptEventError = (event: ErrorEvent | Event) => {
@@ -286,8 +301,9 @@ export function CodeEditor({
 
   const handleLanguageChange = useCallback((newLang: CodingLanguage) => {
     setLanguage(newLang);
+    const savedDraft = typeof window !== "undefined" ? localStorage.getItem(`edunexus_draft_${problem?.id}_${newLang}`) : null;
     const template = problem?.templates?.[newLang] || "";
-    setCode(template);
+    setCode(savedDraft !== null ? savedDraft : template);
     if (problem?.sample_input) {
       setStdin(problem.sample_input);
     }

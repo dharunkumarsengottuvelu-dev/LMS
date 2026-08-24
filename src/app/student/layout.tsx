@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   title: { template: "%s | FALCON", default: "Student Portal — FALCON" },
 };
 
+import { SessionTimeout } from "@/components/providers/session-timeout";
+
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -22,5 +24,9 @@ export default async function StudentLayout({ children }: { children: React.Reac
     if (profileData?.status === "suspended") redirect("/login?error=suspended");
   }
 
-  return <StudentLayoutWrapper>{children}</StudentLayoutWrapper>;
+  return (
+    <SessionTimeout>
+      <StudentLayoutWrapper>{children}</StudentLayoutWrapper>
+    </SessionTimeout>
+  );
 }
