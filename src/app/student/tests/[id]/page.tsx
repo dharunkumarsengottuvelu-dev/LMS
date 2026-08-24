@@ -711,20 +711,20 @@ export default function StudentTestRunnerPage() {
         questions={formattedQuestions}
         extraHeaderContent={
           testData?.proctoring?.webcamTracking ? (
-            <div className="w-[140px] h-[94px] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] shadow-xs bg-white dark:bg-[#18181B] p-1 flex flex-col justify-between overflow-hidden select-none shrink-0">
+            <div className="w-[156px] h-auto rounded-xl border border-[#E5E7EB] dark:border-[#27272A] shadow-xs bg-white dark:bg-[#18181B] p-1.5 flex flex-col gap-1.5 select-none shrink-0">
               {/* Header (Above Video) */}
-              <div className="flex items-center justify-between px-0.5 h-4 shrink-0 pointer-events-none">
+              <div className="flex items-center justify-between px-0.5 shrink-0 pointer-events-none">
                 <div className="flex items-center gap-1">
                   <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
                   <span className="text-[9px] font-bold text-[#111827] dark:text-[#FAFAFA] tracking-tight">LIVE PROCTOR</span>
                 </div>
-                <span className="text-[8px] font-bold px-1 py-0 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 leading-none">
                   {violationsCount}/{maxWarnings}
                 </span>
               </div>
 
-              {/* Camera Video (Middle) */}
-              <div className="relative w-full h-[52px] rounded-md overflow-hidden bg-black flex items-center justify-center shrink-0">
+              {/* Camera Video (Middle, Restored to original size) */}
+              <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden bg-black flex items-center justify-center shrink-0">
                 {cameraStatus === "active" ? (
                   <video
                     ref={setVideoCallbackRef}
@@ -734,12 +734,12 @@ export default function StudentTestRunnerPage() {
                     className="w-full h-full object-cover transform -scale-x-100"
                   />
                 ) : (
-                  <div className="p-0.5 text-center space-y-0.5 w-full">
-                    <VideoOff className="h-3.5 w-3.5 text-red-500 mx-auto animate-pulse" />
+                  <div className="p-1 text-center space-y-1 w-full">
+                    <VideoOff className="h-4 w-4 text-red-500 mx-auto animate-pulse" />
                     <Button
                       size="sm"
                       onClick={startCamera}
-                      className="h-3.5 text-[7px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-1.5 rounded"
+                      className="h-5 text-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-2 rounded"
                     >
                       Enable
                     </Button>
@@ -748,8 +748,8 @@ export default function StudentTestRunnerPage() {
               </div>
 
               {/* Warning / Status (Below Video) */}
-              <div className="flex items-center justify-center px-1 h-4 shrink-0 bg-slate-50 dark:bg-[#09090B] rounded-sm pointer-events-none overflow-hidden">
-                <span className={cn("text-[8px] font-bold truncate text-center w-full block", statusConfig.color)}>
+              <div className="flex items-center justify-center px-1 py-0.5 h-[18px] shrink-0 bg-slate-50 dark:bg-[#09090B] rounded-sm pointer-events-none overflow-hidden">
+                <span className={cn("text-[9px] font-bold truncate text-center w-full block", statusConfig.color)}>
                   {statusConfig.text}
                 </span>
               </div>
