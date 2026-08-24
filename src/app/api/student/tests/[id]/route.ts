@@ -124,17 +124,22 @@ export async function GET(
       passPercentage: meta.passPercentage ?? 40,
       passingMarks: meta.passingMarks ?? 40,
       proctoring: {
-        enabled: Boolean(meta.secWebcam || meta.secFullscreen || meta.secTabSwitch || meta.secCopyPaste),
-        webcamTracking: meta.secWebcam ?? true,
-        fullscreenLock: meta.secFullscreen ?? true,
-        tabSwitchLock: meta.secTabSwitch ?? true,
-        copyPasteRestricted: meta.secCopyPaste ?? true,
-        safeExamBrowserRequired: meta.secSEB ?? false,
-        multipleFacesAlert: meta.secMultipleFaces ?? true,
-        lookingAwayAlert: meta.secLookingAway ?? true,
-        facePositionGuard: meta.secFacePosition ?? true,
-        autoSubmitOnWarning: meta.secAutoSubmit ?? true,
-        maxWarningsLimit: meta.maxWarningsLimit ?? 3,
+        enabled: Boolean(
+          (meta.secWebcam !== false && meta.secWebcam !== undefined) ||
+          (meta.secFullscreen !== false && meta.secFullscreen !== undefined) ||
+          (meta.secTabSwitch !== false && meta.secTabSwitch !== undefined) ||
+          (meta.secCopyPaste !== false && meta.secCopyPaste !== undefined)
+        ),
+        webcamTracking: meta.secWebcam !== undefined ? Boolean(meta.secWebcam) : true,
+        fullscreenLock: meta.secFullscreen !== undefined ? Boolean(meta.secFullscreen) : true,
+        tabSwitchLock: meta.secTabSwitch !== undefined ? Boolean(meta.secTabSwitch) : true,
+        copyPasteRestricted: meta.secCopyPaste !== undefined ? Boolean(meta.secCopyPaste) : true,
+        safeExamBrowserRequired: Boolean(meta.secSEB),
+        multipleFacesAlert: meta.secMultipleFaces !== undefined ? Boolean(meta.secMultipleFaces) : true,
+        lookingAwayAlert: meta.secLookingAway !== undefined ? Boolean(meta.secLookingAway) : true,
+        facePositionGuard: meta.secFacePosition !== undefined ? Boolean(meta.secFacePosition) : true,
+        autoSubmitOnWarning: meta.secAutoSubmit !== undefined ? Boolean(meta.secAutoSubmit) : true,
+        maxWarningsLimit: meta.maxWarningsLimit !== undefined ? Number(meta.maxWarningsLimit) : 3,
       },
     };
 

@@ -2489,6 +2489,32 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                   <span className="text-xs font-medium">Clipboard Copy/Paste Lock</span>
                   <Switch checked={editExamForm.secCopyPaste ?? true} onCheckedChange={(v) => setEditExamForm({ ...editExamForm, secCopyPaste: v })} />
                 </div>
+                <div className="flex justify-between items-center p-3 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <span className="text-xs font-medium">Multiple Faces Alert</span>
+                  <Switch checked={editExamForm.secMultipleFaces ?? true} onCheckedChange={(v) => setEditExamForm({ ...editExamForm, secMultipleFaces: v })} />
+                </div>
+                <div className="flex justify-between items-center p-3 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <span className="text-xs font-medium">Looking Away Detection</span>
+                  <Switch checked={editExamForm.secLookingAway ?? true} onCheckedChange={(v) => setEditExamForm({ ...editExamForm, secLookingAway: v })} />
+                </div>
+                <div className="flex justify-between items-center p-3 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <span className="text-xs font-medium">Auto-Submit on Warning Limit</span>
+                  <Switch checked={editExamForm.secAutoSubmit ?? true} onCheckedChange={(v) => setEditExamForm({ ...editExamForm, secAutoSubmit: v })} />
+                </div>
+                <div className="flex justify-between items-center p-3 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <span className="text-xs font-medium">Max Warnings Limit</span>
+                  <Select value={String(editExamForm.maxWarningsLimit || 3)} onValueChange={(v) => setEditExamForm({ ...editExamForm, maxWarningsLimit: Number(v) })}>
+                    <SelectTrigger className="w-24 h-8 text-xs rounded-lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">2 Alerts</SelectItem>
+                      <SelectItem value="3">3 Alerts</SelectItem>
+                      <SelectItem value="4">4 Alerts</SelectItem>
+                      <SelectItem value="5">5 Alerts</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>

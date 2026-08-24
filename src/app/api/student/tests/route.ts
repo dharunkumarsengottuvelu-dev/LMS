@@ -236,12 +236,21 @@ export async function GET(request: NextRequest) {
           isCommon,
           assignedBatches,
           proctoring: {
-            enabled: Boolean(meta.secWebcam || meta.secFullscreen || meta.secTabSwitch || meta.secCopyPaste),
-            webcamTracking: meta.secWebcam ?? true,
-            tabSwitchLock: meta.secTabSwitch ?? true,
-            fullscreenLock: meta.secFullscreen ?? true,
-            safeExamBrowserRequired: meta.secSEB ?? false,
-            copyPasteRestricted: meta.secCopyPaste ?? true,
+            enabled: Boolean(
+              (meta.secWebcam !== false && meta.secWebcam !== undefined) ||
+              (meta.secFullscreen !== false && meta.secFullscreen !== undefined) ||
+              (meta.secTabSwitch !== false && meta.secTabSwitch !== undefined) ||
+              (meta.secCopyPaste !== false && meta.secCopyPaste !== undefined)
+            ),
+            webcamTracking: meta.secWebcam !== undefined ? Boolean(meta.secWebcam) : true,
+            tabSwitchLock: meta.secTabSwitch !== undefined ? Boolean(meta.secTabSwitch) : true,
+            fullscreenLock: meta.secFullscreen !== undefined ? Boolean(meta.secFullscreen) : true,
+            safeExamBrowserRequired: Boolean(meta.secSEB),
+            copyPasteRestricted: meta.secCopyPaste !== undefined ? Boolean(meta.secCopyPaste) : true,
+            multipleFacesAlert: meta.secMultipleFaces !== undefined ? Boolean(meta.secMultipleFaces) : true,
+            lookingAwayAlert: meta.secLookingAway !== undefined ? Boolean(meta.secLookingAway) : true,
+            autoSubmitOnWarning: meta.secAutoSubmit !== undefined ? Boolean(meta.secAutoSubmit) : true,
+            maxWarningsLimit: meta.maxWarningsLimit !== undefined ? Number(meta.maxWarningsLimit) : 3,
             assignedBy: "Admin",
             assignedByName: "System Admin",
           },
