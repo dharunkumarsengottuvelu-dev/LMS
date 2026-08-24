@@ -19,13 +19,15 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Language validation against database (with fallback)
-    const languageEnabled = await isLanguageEnabled(language);
-    
-    if (!languageEnabled) {
-      return NextResponse.json(
-        { error: `Unsupported or disabled programming language: '${language}'` },
-        { status: 400 }
-      );
+    if (language !== "sql" && language !== "html" && language !== "css" && language !== "react") {
+      const languageEnabled = await isLanguageEnabled(language);
+      
+      if (!languageEnabled) {
+        return NextResponse.json(
+          { error: `Unsupported or disabled programming language: '${language}'` },
+          { status: 400 }
+        );
+      }
     }
 
     // 2. Payload size validation
