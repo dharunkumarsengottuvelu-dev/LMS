@@ -1,7 +1,7 @@
 /**
  * Enterprise AI Face & Attention Proctoring Engine
- * Provides real-time client-side face detection, position tracking, head-pose estimation,
- * eye attention monitoring, luminance check, and anti-cheating heuristics without UI lag.
+ * Provides client-side face detection, attention monitoring, and anti-cheating heuristics.
+ * Optimized with relaxed thresholds, temporal smoothing, and grace periods for a smooth user experience.
  */
 
 export type FacePositionState =
@@ -54,7 +54,8 @@ export class AIFaceTracker {
   // Smoothing buffers for noise filtering
   private positionBuffer: { x: number; y: number; w: number; h: number }[] = [];
   private poseBuffer: HeadPoseState[] = [];
-  private readonly bufferSize = 4;
+  private faceCountBuffer: number[] = [];
+  private readonly bufferSize = 6;
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -80,7 +81,7 @@ export class AIFaceTracker {
   }
 
   /**
-   * Analyzes the current video frame and returns full proctoring heuristics.
+   * Analyzes the current video frame and returns proctoring heuristics.
    */
   public async analyzeFrame(video: HTMLVideoElement): Promise<FaceDetectionResult> {
     if (!video || video.paused || video.ended || !this.ctx || !this.canvas) {
@@ -102,7 +103,7 @@ export class AIFaceTracker {
     const frame = this.ctx.getImageData(0, 0, w, h);
     const data = frame.data;
 
-    // 1. Luminance & Lighting Analysis
+    // 1. Luminance & Lighting Analysis (Very forgiving range)
     let totalLuminance = 0;
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i] ?? 0;
@@ -112,16 +113,15 @@ export class AIFaceTracker {
     }
     const avgLuminance = totalLuminance / (w * h);
     let lightingState: LightingState = "good";
-    if (avgLuminance < 30) lightingState = "low_light";
-    else if (avgLuminance > 235) lightingState = "overexposed";
+    if (avgLuminance < 10) lightingState = "low_light";
+    else if (avgLuminance > 245) lightingState = "overexposed";
 
-    // 2. Face Detection (Native API or Fast Chrominance Segmentation)
+    // 2. Face Detection (Native API or Robust Chrominance Segmentation)
     let nativeFaces: any[] = [];
     if (this.hasNativeDetector && this.faceDetector) {
       try {
         nativeFaces = await this.faceDetector.detect(this.canvas);
       } catch {
-        // Fallback to heuristic
         nativeFaces = [];
       }
     }
@@ -140,8 +140,19 @@ export class AIFaceTracker {
     luminance: number,
     lightingState: LightingState
   ): FaceDetectionResult {
-    const faceCount = faces.length;
-    if (faceCount === 0) {
+    // Filter out tiny false positives
+    const validFaces = faces.filter(
+      (f) => f.boundingBox && f.boundingBox.width >= 20 && f.boundingBox.height >= 20
+    );
+
+    const rawFaceCount = validFaces.length;
+    this.faceCountBuffer.push(rawFaceCount);
+    if (this.faceCountBuffer.length > this.bufferSize) this.faceCountBuffer.shift();
+
+    // Smoothed face count (mode)
+    const faceCount = this.getMode(this.faceCountBuffer);
+
+    if (faceCount === 0 || validFaces.length === 0) {
       return {
         faceCount: 0,
         confidence: 0,
@@ -154,8 +165,8 @@ export class AIFaceTracker {
     }
 
     // Primary face is the largest one
-    faces.sort((a, b) => b.boundingBox.width * b.boundingBox.height - a.boundingBox.width * a.boundingBox.height);
-    const primary = faces[0];
+    validFaces.sort((a, b) => b.boundingBox.width * b.boundingBox.height - a.boundingBox.width * a.boundingBox.height);
+    const primary = validFaces[0];
     const box = primary.boundingBox;
 
     // Normalized coordinates
@@ -170,7 +181,7 @@ export class AIFaceTracker {
 
     return {
       faceCount,
-      confidence: 96 + Math.min(faceCount === 1 ? 3 : 0, 4),
+      confidence: 97 + Math.min(faceCount === 1 ? 2 : 0, 3),
       boundingBox: {
         x: smoothed.x,
         y: smoothed.y,
@@ -181,13 +192,12 @@ export class AIFaceTracker {
       headPoseState,
       lightingState,
       luminance,
-      isObstructed: smoothed.w < 0.1 || smoothed.h < 0.1,
+      isObstructed: false,
     };
   }
 
   /**
-   * Fast Chrominance-Skin segmentation & contour centroid analysis
-   * Runs in ~1-2ms on 160x120 frame
+   * Relaxed Chrominance-Skin segmentation with wide tone tolerance
    */
   private processChrominanceHeuristic(
     data: Uint8ClampedArray,
@@ -196,7 +206,7 @@ export class AIFaceTracker {
     luminance: number,
     lightingState: LightingState
   ): FaceDetectionResult {
-    if (luminance < 15) {
+    if (luminance < 8) {
       return {
         faceCount: 0,
         confidence: 0,
@@ -216,7 +226,7 @@ export class AIFaceTracker {
     let sumX = 0,
       sumY = 0;
 
-    // Fast skin color model in YCbCr / RGB space
+    // Inclusive skin color heuristic across lighting and shades
     for (let y = 0; y < h; y += 2) {
       for (let x = 0; x < w; x += 2) {
         const idx = (y * w + x) * 4;
@@ -225,14 +235,13 @@ export class AIFaceTracker {
         const b = data[idx + 2] ?? 0;
 
         const isSkin =
-          r > 60 &&
-          g > 40 &&
-          b > 20 &&
+          r > 38 &&
+          g > 22 &&
+          b > 16 &&
           r > g &&
           r > b &&
-          Math.abs(r - g) > 12 &&
-          r - g >= 10 &&
-          r - b >= 10;
+          (r - g >= 5) &&
+          (r - b >= 5);
 
         if (isSkin) {
           skinPixelCount++;
@@ -249,10 +258,14 @@ export class AIFaceTracker {
     const totalSampledPixels = (w * h) / 4;
     const skinRatio = skinPixelCount / totalSampledPixels;
 
-    // If skin pixels are too sparse, no face is detected
-    if (skinRatio < 0.05 || skinPixelCount < 80) {
+    // Low threshold so sitting naturally or small distance doesn't drop face
+    if (skinRatio < 0.015 || skinPixelCount < 25) {
+      this.faceCountBuffer.push(0);
+      if (this.faceCountBuffer.length > this.bufferSize) this.faceCountBuffer.shift();
+      const faceCount = this.getMode(this.faceCountBuffer);
+
       return {
-        faceCount: 0,
+        faceCount,
         confidence: 0,
         positionState: "partially_out_of_frame",
         headPoseState: "facing_forward",
@@ -262,13 +275,16 @@ export class AIFaceTracker {
       };
     }
 
-    // Determine if multiple large disconnected regions exist
-    let faceCount = 1;
-    if (skinRatio > 0.48) {
-      // Possible multiple candidates or candidate is extremely close
+    // Only flag multiple faces if there are huge disjoint regions spanning almost entire screen
+    let rawFaceCount = 1;
+    if (skinRatio > 0.65) {
       const spanW = (maxX - minX) / w;
-      if (spanW > 0.85) faceCount = 2;
+      if (spanW > 0.92) rawFaceCount = 2;
     }
+
+    this.faceCountBuffer.push(rawFaceCount);
+    if (this.faceCountBuffer.length > this.bufferSize) this.faceCountBuffer.shift();
+    const faceCount = this.getMode(this.faceCountBuffer);
 
     const rawX = Math.max(0, minX / w);
     const rawY = Math.max(0, minY / h);
@@ -278,14 +294,14 @@ export class AIFaceTracker {
     const smoothed = this.smoothBox({ x: rawX, y: rawY, w: rawW, h: rawH });
     const positionState = this.classifyPosition(smoothed);
 
-    // Estimate head pose from centroid vs bounding center
+    // Centroid vs bounding center for pose
     const centroidX = sumX / (skinPixelCount || 1) / w;
     const centroidY = sumY / (skinPixelCount || 1) / h;
     const headPoseState = this.classifyPoseFromCentroid(centroidX, centroidY, smoothed);
 
     return {
       faceCount,
-      confidence: Math.min(98, Math.round(skinRatio * 300 + 40)),
+      confidence: Math.min(99, Math.round(skinRatio * 200 + 70)),
       boundingBox: {
         x: smoothed.x,
         y: smoothed.y,
@@ -296,26 +312,32 @@ export class AIFaceTracker {
       headPoseState,
       lightingState,
       luminance,
-      isObstructed: smoothed.w < 0.12 || smoothed.h < 0.12,
+      isObstructed: false,
     };
   }
 
+  /**
+   * Extremely relaxed position classifier - allows standard sitting postures
+   */
   private classifyPosition(box: { x: number; y: number; w: number; h: number }): FacePositionState {
     const centerX = box.x + box.w / 2;
     const centerY = box.y + box.h / 2;
     const area = box.w * box.h;
 
-    if (area > 0.58) return "too_close";
-    if (area < 0.065) return "too_far";
-    if (box.x <= 0.02 || box.x + box.w >= 0.98 || box.y <= 0.02) return "partially_out_of_frame";
-    if (centerX < 0.28) return "too_left";
-    if (centerX > 0.72) return "too_right";
-    if (centerY < 0.22) return "too_high";
-    if (centerY > 0.78) return "too_low";
+    // Only trigger if extreme
+    if (area > 0.85) return "too_close";
+    if (area < 0.02) return "too_far";
+    if (centerX < 0.08) return "too_left";
+    if (centerX > 0.92) return "too_right";
+    if (centerY < 0.06) return "too_high";
+    if (centerY > 0.94) return "too_low";
 
     return "centered";
   }
 
+  /**
+   * Relaxed head pose classifier - only flags clear, strong side turns
+   */
   private classifyPoseFromCentroid(
     cx: number,
     cy: number,
@@ -327,32 +349,23 @@ export class AIFaceTracker {
     const diffX = cx - boxCenterX;
     const diffY = cy - boxCenterY;
 
+    // Generous tolerances allowing slight head movements and looking at edges of screen
     let pose: HeadPoseState = "facing_forward";
-    if (diffX < -0.09) pose = "looking_away_left";
-    else if (diffX > 0.09) pose = "looking_away_right";
-    else if (diffY > 0.10) pose = "looking_away_down";
-    else if (diffY < -0.10) pose = "looking_away_up";
+    if (diffX < -0.24) pose = "looking_away_left";
+    else if (diffX > 0.24) pose = "looking_away_right";
+    else if (diffY > 0.28) pose = "looking_away_down";
+    else if (diffY < -0.28) pose = "looking_away_up";
 
     this.poseBuffer.push(pose);
     if (this.poseBuffer.length > this.bufferSize) this.poseBuffer.shift();
 
-    // Mode in pose buffer to prevent flickering
-    const counts: Record<string, number> = {};
-    for (const p of this.poseBuffer) {
-      counts[p] = (counts[p] || 0) + 1;
-    }
-    let maxCount = 0;
-    let selectedPose = pose;
-    for (const [p, c] of Object.entries(counts)) {
-      if (c > maxCount) {
-        maxCount = c;
-        selectedPose = p as HeadPoseState;
-      }
-    }
-    return selectedPose;
+    return this.getMode(this.poseBuffer);
   }
 
-  private classifyPoseFromLandmarks(landmarks: any[] | undefined, box: { x: number; y: number; w: number; h: number }): HeadPoseState {
+  private classifyPoseFromLandmarks(
+    landmarks: any[] | undefined,
+    box: { x: number; y: number; w: number; h: number }
+  ): HeadPoseState {
     if (!landmarks || landmarks.length < 2) {
       return "facing_forward";
     }
@@ -366,8 +379,9 @@ export class AIFaceTracker {
       const eyeDistRight = Math.abs(rightEye.location.x - nose.location.x);
       const ratio = eyeDistLeft / (eyeDistRight || 0.001);
 
-      if (ratio < 0.45) return "looking_away_left";
-      if (ratio > 2.2) return "looking_away_right";
+      // Relaxed landmark ratios
+      if (ratio < 0.25) return "looking_away_left";
+      if (ratio > 3.8) return "looking_away_right";
     }
 
     return "facing_forward";
@@ -394,5 +408,22 @@ export class AIFaceTracker {
       w: sum.w / len,
       h: sum.h / len,
     };
+  }
+
+  private getMode<T>(arr: T[]): T {
+    if (arr.length === 0) return ("facing_forward" as unknown) as T;
+    const counts = new Map<T, number>();
+    for (const item of arr) {
+      counts.set(item, (counts.get(item) || 0) + 1);
+    }
+    let best: T = arr[arr.length - 1] as T;
+    let max = 0;
+    counts.forEach((cnt, val) => {
+      if (cnt > max) {
+        max = cnt;
+        best = val;
+      }
+    });
+    return best;
   }
 }

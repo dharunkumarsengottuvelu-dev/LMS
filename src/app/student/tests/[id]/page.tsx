@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Clock, ShieldCheck, CheckCircle2, Code2,
   ChevronLeft, ChevronRight, Award, Camera, Video, VideoOff, Maximize2, Minimize2,
-  AlertTriangle, RotateCcw, Check, X, RefreshCw, Eye, UserCheck, Users, SunMedium
+  AlertTriangle, RotateCcw, Check, X, RefreshCw
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,6 @@ import { PracticeRunnerEngine, PracticeQuestion } from "@/components/quiz/practi
 import {
   AIFaceTracker,
   FaceDetectionResult,
-  FacePositionState,
-  HeadPoseState,
-  LightingState,
 } from "@/lib/proctoring/ai-face-tracker";
 
 export default function StudentTestRunnerPage() {
@@ -46,32 +43,16 @@ export default function StudentTestRunnerPage() {
   const [isCameraCollapsed, setIsCameraCollapsed] = useState(false);
   const [activeAlert, setActiveAlert] = useState<{ message: string; severity: "INFO" | "WARNING" | "CRITICAL" } | null>(null);
 
-  const [aiFaceState, setAiFaceState] = useState<{
-    faceCount: number;
-    confidence: number;
-    statusText: string;
-    severity: "good" | "warning" | "danger";
-    positionState: FacePositionState;
-    headPoseState: HeadPoseState;
-    lightingState: LightingState;
-  }>({
-    faceCount: 1,
-    confidence: 99.2,
-    statusText: "Face Verified",
-    severity: "good",
-    positionState: "centered",
-    headPoseState: "facing_forward",
-    lightingState: "good",
-  });
+  // Clean, user-friendly face state (no technical clutter)
+  const [simpleFaceStatus, setSimpleFaceStatus] = useState<"detected" | "missing" | "multiple" | "looking_away">("detected");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const trackerRef = useRef<AIFaceTracker | null>(null);
 
-  // Time counters for continuous violations
+  // Grace period duration timers (in seconds)
   const noFaceDurationRef = useRef<number>(0);
+  const multipleFacesDurationRef = useRef<number>(0);
   const lookingAwayDurationRef = useRef<number>(0);
-  const positionDurationRef = useRef<number>(0);
 
   const totalViolations = tabSwitchViolations + faceViolations;
   const maxWarnings = testData?.proctoring?.maxWarningsLimit ?? 3;
@@ -230,7 +211,7 @@ export default function StudentTestRunnerPage() {
     };
   }, [testData?.proctoring?.webcamTracking, isExamSubmitted, startCamera]);
 
-  // Dynamic Callback ref for Video element to guarantee instant stream attachment
+  // Dynamic Callback ref for Video element
   const setVideoCallbackRef = useCallback((node: HTMLVideoElement | null) => {
     videoRef.current = node;
     if (node && cameraStream) {
@@ -259,8 +240,8 @@ export default function StudentTestRunnerPage() {
           const next = prev + 1;
           toast({
             variant: "destructive",
-            title: `Tab Switch Violation (${next + faceViolations}/${maxWarnings})`,
-            description: "Tab switching is forbidden during proctored exams!",
+            title: `Tab Switch Warning (${next + faceViolations}/${maxWarnings})`,
+            description: "Tab switching is not allowed during the exam.",
           });
           return next;
         });
@@ -271,7 +252,7 @@ export default function StudentTestRunnerPage() {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [testData?.proctoring?.tabSwitchLock, isExamSubmitted, faceViolations, maxWarnings, toast]);
 
-  // Real-Time AI Face Monitoring Loop (500ms Interval)
+  // Real-Time AI Face Monitoring Loop with Grace Periods (500ms Interval)
   useEffect(() => {
     if (isExamSubmitted || !cameraStream || cameraStatus !== "active") return;
 
@@ -282,76 +263,89 @@ export default function StudentTestRunnerPage() {
 
       try {
         const result: FaceDetectionResult = await tracker.analyzeFrame(video);
-        let newStatus = "Face Verified";
-        let newSeverity: "good" | "warning" | "danger" = "good";
+        let currentStatus: "detected" | "missing" | "multiple" | "looking_away" = "detected";
         let alertMsg: string | null = null;
         let alertLevel: "INFO" | "WARNING" | "CRITICAL" = "INFO";
 
-        // Condition 1: No Face Detected
+        // Condition 1: Face Missing (Requires sustained absence before warning/flag)
         if (result.faceCount === 0) {
           noFaceDurationRef.current += 0.5;
+          multipleFacesDurationRef.current = 0;
           lookingAwayDurationRef.current = 0;
-          positionDurationRef.current = 0;
 
-          if (noFaceDurationRef.current >= 1.0) {
-            newStatus = "No Face Detected";
-            newSeverity = "danger";
-            alertMsg = "Face not detected. Please position yourself in front of the camera.";
+          // Grace period: only show "No Face" after 3.5 seconds of sustained absence
+          if (noFaceDurationRef.current >= 3.5) {
+            currentStatus = "missing";
+            alertMsg = "Please position your face in the camera frame.";
             alertLevel = "WARNING";
           }
 
-          if (noFaceDurationRef.current >= 3.0) {
+          // Flag violation only after 8.0 seconds of continuous absence
+          if (noFaceDurationRef.current >= 8.0) {
             setFaceViolations((prev) => {
               const next = prev + 1;
               toast({
                 variant: "destructive",
-                title: `Face Monitoring Warning (${tabSwitchViolations + next}/${maxWarnings})`,
-                description: "Candidate face is not visible in camera frame!",
+                title: `Proctoring Alert: Face Missing (${tabSwitchViolations + next}/${maxWarnings})`,
+                description: "Face was not visible in camera for a sustained period.",
               });
               return next;
             });
-            noFaceDurationRef.current = 0;
+            noFaceDurationRef.current = 0; // Reset timer after recording flag
           }
         }
-        // Condition 2: Multiple Faces Detected
+        // Condition 2: Multiple Faces (Requires sustained presence to filter transient noise)
         else if (result.faceCount > 1 && (testData?.proctoring?.multipleFacesAlert ?? true)) {
           noFaceDurationRef.current = 0;
-          newStatus = "Multiple Faces";
-          newSeverity = "danger";
-          alertMsg = "Multiple faces detected! Only candidate should be visible.";
-          alertLevel = "CRITICAL";
+          multipleFacesDurationRef.current += 0.5;
+          lookingAwayDurationRef.current = 0;
 
-          setFaceViolations((prev) => {
-            const next = prev + 1;
-            toast({
-              variant: "destructive",
-              title: `Security Alert: Multiple Faces (${tabSwitchViolations + next}/${maxWarnings})`,
-              description: "Multiple people detected in candidate proctor stream!",
+          if (multipleFacesDurationRef.current >= 2.5) {
+            currentStatus = "multiple";
+            alertMsg = "Multiple faces detected. Only candidate should be present.";
+            alertLevel = "CRITICAL";
+          }
+
+          // Flag only after 5.0 seconds of continuous multiple faces
+          if (multipleFacesDurationRef.current >= 5.0) {
+            setFaceViolations((prev) => {
+              const next = prev + 1;
+              toast({
+                variant: "destructive",
+                title: `Security Alert: Multiple Faces (${tabSwitchViolations + next}/${maxWarnings})`,
+                description: "Multiple people detected in candidate proctor stream.",
+              });
+              return next;
             });
-            return next;
-          });
+            multipleFacesDurationRef.current = 0;
+          }
         }
-        // Condition 3: Single Face Present — Verify Attention & Pose
+        // Condition 3: Normal Single Face
         else {
           noFaceDurationRef.current = 0;
+          multipleFacesDurationRef.current = 0;
 
-          // Check Head Pose / Looking away
-          if (result.headPoseState !== "facing_forward" && (testData?.proctoring?.lookingAwayAlert ?? true)) {
+          // Strong looking away check (only sustained clear head turns)
+          if (
+            result.headPoseState !== "facing_forward" &&
+            (testData?.proctoring?.lookingAwayAlert ?? true)
+          ) {
             lookingAwayDurationRef.current += 0.5;
-            if (lookingAwayDurationRef.current >= 1.5) {
-              newStatus = "Looking Away";
-              newSeverity = "warning";
-              alertMsg = "Please keep your face toward the examination screen.";
+
+            if (lookingAwayDurationRef.current >= 4.5) {
+              currentStatus = "looking_away";
+              alertMsg = "Please focus on your examination screen.";
               alertLevel = "WARNING";
             }
 
-            if (lookingAwayDurationRef.current >= 3.5) {
+            // Flag only after 9.0 seconds of continuous look away
+            if (lookingAwayDurationRef.current >= 9.0) {
               setFaceViolations((prev) => {
                 const next = prev + 1;
                 toast({
                   variant: "destructive",
-                  title: `Attention Warning (${tabSwitchViolations + next}/${maxWarnings})`,
-                  description: "Prolonged look away from screen detected!",
+                  title: `Attention Alert (${tabSwitchViolations + next}/${maxWarnings})`,
+                  description: "Prolonged look away from screen detected.",
                 });
                 return next;
               });
@@ -359,38 +353,11 @@ export default function StudentTestRunnerPage() {
             }
           } else {
             lookingAwayDurationRef.current = 0;
-          }
-
-          // Check Position / Centering
-          if (result.positionState !== "centered") {
-            positionDurationRef.current += 0.5;
-            if (result.positionState === "too_close") newStatus = "Too Close";
-            else if (result.positionState === "too_far") newStatus = "Too Far";
-            else if (result.positionState === "partially_out_of_frame") newStatus = "Out of Frame";
-            else newStatus = "Not Centered";
-
-            newSeverity = "warning";
-          } else {
-            positionDurationRef.current = 0;
-          }
-
-          if (result.lightingState === "low_light" && !alertMsg) {
-            newStatus = "Low Light";
-            newSeverity = "warning";
-            alertMsg = "Low lighting detected. Please illuminate your face.";
-            alertLevel = "INFO";
+            currentStatus = "detected";
           }
         }
 
-        setAiFaceState({
-          faceCount: result.faceCount,
-          confidence: result.confidence || 98.5,
-          statusText: newStatus,
-          severity: newSeverity,
-          positionState: result.positionState,
-          headPoseState: result.headPoseState,
-          lightingState: result.lightingState,
-        });
+        setSimpleFaceStatus(currentStatus);
 
         if (alertMsg) {
           setActiveAlert({ message: alertMsg, severity: alertLevel });
@@ -404,108 +371,6 @@ export default function StudentTestRunnerPage() {
 
     return () => clearInterval(interval);
   }, [cameraStream, cameraStatus, isExamSubmitted, testData, tabSwitchViolations, maxWarnings, toast]);
-
-  // Live Canvas HUD Reticle
-  useEffect(() => {
-    let animId: number;
-    let scanY = 0;
-    let scanDir = 1;
-
-    const drawHud = () => {
-      const canvas = overlayCanvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      if (cameraStatus !== "active") return;
-
-      const themeColor =
-        aiFaceState.severity === "danger"
-          ? "#DC2626"
-          : aiFaceState.severity === "warning"
-          ? "#F59E0B"
-          : "#10B981";
-
-      // 1. Moving Laser Scanline
-      scanY += scanDir * 1.5;
-      if (scanY >= h || scanY <= 0) scanDir *= -1;
-
-      ctx.strokeStyle = aiFaceState.severity === "danger"
-        ? "rgba(220, 38, 38, 0.4)"
-        : "rgba(16, 185, 129, 0.35)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, scanY);
-      ctx.lineTo(w, scanY);
-      ctx.stroke();
-
-      // 2. Center Face Target Brackets
-      const boxW = Math.min(110, w * 0.65);
-      const boxH = Math.min(110, h * 0.75);
-      const boxX = (w - boxW) / 2;
-      const boxY = (h - boxH) / 2 - 2;
-      const bracketLen = 12;
-
-      ctx.strokeStyle = themeColor;
-      ctx.lineWidth = 2.5;
-
-      // Top-Left
-      ctx.beginPath();
-      ctx.moveTo(boxX, boxY + bracketLen);
-      ctx.lineTo(boxX, boxY);
-      ctx.lineTo(boxX + bracketLen, boxY);
-      ctx.stroke();
-
-      // Top-Right
-      ctx.beginPath();
-      ctx.moveTo(boxX + boxW - bracketLen, boxY);
-      ctx.lineTo(boxX + boxW, boxY);
-      ctx.lineTo(boxX + boxW, boxY + bracketLen);
-      ctx.stroke();
-
-      // Bottom-Left
-      ctx.beginPath();
-      ctx.moveTo(boxX, boxY + boxH - bracketLen);
-      ctx.lineTo(boxX, boxY + boxH);
-      ctx.lineTo(boxX + bracketLen, boxY + boxH);
-      ctx.stroke();
-
-      // Bottom-Right
-      ctx.beginPath();
-      ctx.moveTo(boxX + boxW - bracketLen, boxY + boxH);
-      ctx.lineTo(boxX + boxW, boxY + boxH);
-      ctx.lineTo(boxX + boxW, boxY + boxH - bracketLen);
-      ctx.stroke();
-
-      // Eye Tracking Crosshairs
-      const eyeY = boxY + boxH * 0.35;
-      const leftEyeX = boxX + boxW * 0.32;
-      const rightEyeX = boxX + boxW * 0.68;
-
-      ctx.strokeStyle = aiFaceState.severity === "danger" ? "#DC2626" : "#3B82F6";
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.arc(leftEyeX, eyeY, 4, 0, 2 * Math.PI);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(rightEyeX, eyeY, 4, 0, 2 * Math.PI);
-      ctx.stroke();
-
-      // Status HUD Tag
-      ctx.fillStyle = themeColor;
-      ctx.font = "bold 9px monospace";
-      ctx.fillText(`AI • ${aiFaceState.confidence}%`, boxX, Math.max(12, boxY - 4));
-
-      animId = requestAnimationFrame(drawHud);
-    };
-
-    animId = requestAnimationFrame(drawHud);
-    return () => cancelAnimationFrame(animId);
-  }, [cameraStatus, aiFaceState]);
 
   const moduleMeta = useMemo(() => {
     if (!testData) return null;
@@ -656,6 +521,14 @@ export default function StudentTestRunnerPage() {
     );
   }
 
+  // UI status label text and color
+  const statusConfig = {
+    detected: { text: "Face Detected", color: "text-emerald-400", dot: "bg-emerald-500" },
+    missing: { text: "No Face Detected", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
+    multiple: { text: "Multiple Faces", color: "text-red-400", dot: "bg-red-500 animate-pulse" },
+    looking_away: { text: "Looking Away", color: "text-amber-400", dot: "bg-amber-500" },
+  }[simpleFaceStatus];
+
   return (
     <div className="w-full px-3 sm:px-6 lg:px-8 py-3 space-y-4 relative">
       {/* Top Bar Back button */}
@@ -671,7 +544,7 @@ export default function StudentTestRunnerPage() {
 
         {/* Real-time Proctoring Alert Ribbon */}
         {activeAlert && (
-          <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 animate-pulse shadow-sm ${
+          <div className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-sm ${
             activeAlert.severity === "CRITICAL"
               ? "bg-red-500 text-white"
               : activeAlert.severity === "WARNING"
@@ -684,24 +557,18 @@ export default function StudentTestRunnerPage() {
         )}
       </div>
 
-      {/* Floating Proctoring Camera PIP Overlay */}
+      {/* Floating Proctoring Camera PIP Overlay - Clean, Professional & Less Strict */}
       {testData?.proctoring?.webcamTracking && (
-        <div className="fixed bottom-6 right-6 z-40 bg-[#09090B]/90 backdrop-blur-md rounded-2xl p-2 border border-white/20 shadow-2xl overflow-hidden transition-all duration-200">
+        <div className="fixed bottom-6 right-6 z-40 bg-[#09090B]/90 backdrop-blur-md rounded-2xl p-2 border border-white/15 shadow-2xl overflow-hidden transition-all duration-200">
           {/* Header Controls */}
           <div className="flex items-center justify-between mb-1.5 px-1 gap-2">
             <div className="flex items-center gap-1.5">
               <span
                 className={`w-2 h-2 rounded-full ${
-                  cameraStatus === "active"
-                    ? aiFaceState.severity === "danger"
-                      ? "bg-red-500 animate-ping"
-                      : aiFaceState.severity === "warning"
-                      ? "bg-amber-500 animate-pulse"
-                      : "bg-emerald-500 animate-pulse"
-                    : "bg-red-500"
+                  cameraStatus === "active" ? statusConfig.dot : "bg-red-500"
                 }`}
               />
-              <span className="text-[10px] font-extrabold tracking-wider text-white">LIVE PROCTOR</span>
+              <span className="text-[10px] font-bold tracking-wider text-white">LIVE PROCTOR</span>
             </div>
 
             <div className="flex items-center gap-1">
@@ -727,7 +594,7 @@ export default function StudentTestRunnerPage() {
             </div>
           </div>
 
-          {/* Collapsed Mini-Pill or Full Video View */}
+          {/* Clean Camera View (No red corner brackets, no eye markers, no technical clutter) */}
           {!isCameraCollapsed ? (
             <div className="relative w-44 h-32 rounded-xl overflow-hidden bg-[#09090B] border border-white/10 flex items-center justify-center">
               {cameraStatus === "active" ? (
@@ -739,26 +606,11 @@ export default function StudentTestRunnerPage() {
                     playsInline
                     className="w-full h-full object-cover transform -scale-x-100"
                   />
-                  <canvas
-                    ref={overlayCanvasRef}
-                    width={176}
-                    height={128}
-                    className="absolute inset-0 w-full h-full pointer-events-none z-10"
-                  />
 
-                  {/* AI Status Badge */}
-                  <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between bg-black/70 backdrop-blur-xs px-2 py-0.5 rounded-md text-[9px] font-bold text-white z-20">
-                    <span className={`flex items-center gap-1 ${
-                      aiFaceState.severity === "danger"
-                        ? "text-red-400"
-                        : aiFaceState.severity === "warning"
-                        ? "text-amber-400"
-                        : "text-emerald-400"
-                    }`}>
-                      {aiFaceState.statusText}
-                    </span>
-                    <span className="text-[8px] text-white/60 font-mono">
-                      {aiFaceState.faceCount} {aiFaceState.faceCount === 1 ? "Face" : "Faces"}
+                  {/* Clean Bottom Status Tag */}
+                  <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-center bg-black/60 backdrop-blur-xs px-2 py-0.5 rounded-md text-[9px] font-semibold text-white z-20">
+                    <span className={statusConfig.color}>
+                      {statusConfig.text}
                     </span>
                   </div>
                 </>
@@ -778,14 +630,8 @@ export default function StudentTestRunnerPage() {
             </div>
           ) : (
             <div className="px-1 py-0.5 text-[10px] text-white/80 flex items-center gap-2">
-              <span className={`font-semibold ${
-                aiFaceState.severity === "danger"
-                  ? "text-red-400"
-                  : aiFaceState.severity === "warning"
-                  ? "text-amber-400"
-                  : "text-emerald-400"
-              }`}>
-                {aiFaceState.statusText}
+              <span className={`font-semibold ${statusConfig.color}`}>
+                {statusConfig.text}
               </span>
             </div>
           )}

@@ -118,9 +118,9 @@ export function ProctoringEngine({
     config.maxAllowedWarnings ?? config.maxAllowedViolations ?? 3;
   const autoSubmitEnabled =
     config.autoSubmitOnViolationLimit ?? config.autoSubmit ?? true;
-  const noFaceGracePeriod = config.noFaceGracePeriodSec ?? 3.0; // seconds before violation
-  const lookingAwayGracePeriod = config.lookingAwayGracePeriodSec ?? 3.5; // seconds before violation
-  const positionGracePeriod = config.facePositionGracePeriodSec ?? 3.0; // seconds before violation
+  const noFaceGracePeriod = config.noFaceGracePeriodSec ?? 7.0; // seconds before violation
+  const lookingAwayGracePeriod = config.lookingAwayGracePeriodSec ?? 8.0; // seconds before violation
+  const positionGracePeriod = config.facePositionGracePeriodSec ?? 8.0; // seconds before violation
 
   // Internal Engine States
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
@@ -543,120 +543,14 @@ export function ProctoringEngine({
     onWarningMessage,
   ]);
 
-  // LIVE CANVAS HUD RETICLE OVERLAY
+  // Clean camera preview - visual HUD reticles removed for professional view
   useEffect(() => {
-    let animId: number;
-    let scanY = 0;
-    let scanDir = 1;
-
-    const drawHud = () => {
-      const canvas = overlayCanvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      if (cameraStatus !== "active") return;
-
-      const isWarning = activeAlert !== null;
-      const isCritical =
-        activeAlert?.severity === "HIGH" ||
-        activeAlert?.severity === "CRITICAL" ||
-        proctoringState.faceCount === 0 ||
-        proctoringState.faceCount > 1;
-
-      const themeColor = isCritical
-        ? "#DC2626"
-        : isWarning
-        ? "#F59E0B"
-        : "#16A34A";
-
-      // 1. Moving Laser Scanline
-      scanY += scanDir * 1.5;
-      if (scanY >= h || scanY <= 0) scanDir *= -1;
-
-      ctx.strokeStyle = isCritical
-        ? "rgba(220, 38, 38, 0.45)"
-        : isWarning
-        ? "rgba(245, 158, 11, 0.4)"
-        : "rgba(22, 163, 74, 0.35)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, scanY);
-      ctx.lineTo(w, scanY);
-      ctx.stroke();
-
-      // 2. Center Face Target Box (HUD Reticle)
-      const boxW = Math.min(140, w * 0.55);
-      const boxH = Math.min(170, h * 0.72);
-      const boxX = (w - boxW) / 2;
-      const boxY = (h - boxH) / 2 - 5;
-      const bracketLen = 14;
-
-      ctx.strokeStyle = themeColor;
-      ctx.lineWidth = 2.5;
-
-      // Top-Left Corner
-      ctx.beginPath();
-      ctx.moveTo(boxX, boxY + bracketLen);
-      ctx.lineTo(boxX, boxY);
-      ctx.lineTo(boxX + bracketLen, boxY);
-      ctx.stroke();
-
-      // Top-Right Corner
-      ctx.beginPath();
-      ctx.moveTo(boxX + boxW - bracketLen, boxY);
-      ctx.lineTo(boxX + boxW, boxY);
-      ctx.lineTo(boxX + boxW, boxY + bracketLen);
-      ctx.stroke();
-
-      // Bottom-Left Corner
-      ctx.beginPath();
-      ctx.moveTo(boxX, boxY + boxH - bracketLen);
-      ctx.lineTo(boxX, boxY + boxH);
-      ctx.lineTo(boxX + bracketLen, boxY + boxH);
-      ctx.stroke();
-
-      // Bottom-Right Corner
-      ctx.beginPath();
-      ctx.moveTo(boxX + boxW - bracketLen, boxY + boxH);
-      ctx.lineTo(boxX + boxW, boxY + boxH);
-      ctx.lineTo(boxX + boxW, boxY + boxH - bracketLen);
-      ctx.stroke();
-
-      // 3. Eye Tracking Crosshair circles
-      const eyeY = boxY + boxH * 0.33;
-      const leftEyeX = boxX + boxW * 0.32;
-      const rightEyeX = boxX + boxW * 0.68;
-
-      ctx.strokeStyle = isCritical ? "#DC2626" : "#2563EB";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(leftEyeX, eyeY, 5, 0, 2 * Math.PI);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(rightEyeX, eyeY, 5, 0, 2 * Math.PI);
-      ctx.stroke();
-
-      // Status HUD Tag
-      ctx.fillStyle = themeColor;
-      ctx.font = "bold 9px monospace";
-      ctx.fillText(
-        `AI ID #PROCTOR • ${proctoringState.confidence}%`,
-        boxX,
-        Math.max(12, boxY - 6)
-      );
-
-      animId = requestAnimationFrame(drawHud);
-    };
-
-    animId = requestAnimationFrame(drawHud);
-    return () => cancelAnimationFrame(animId);
-  }, [cameraStatus, activeAlert, proctoringState]);
+    const canvas = overlayCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }, [cameraStatus]);
 
   // Tab Switching, Focus Loss & Fullscreen Security Listeners
   useEffect(() => {
