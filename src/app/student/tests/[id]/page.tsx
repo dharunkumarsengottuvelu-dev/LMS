@@ -672,74 +672,72 @@ export default function StudentTestRunnerPage() {
         )}
       </div>
 
-      {/* Fixed Top-Center Live Proctor Card (Fixed position, fixed size, no dragging, no resizing) */}
-      {testData?.proctoring?.webcamTracking && (
-        <div
-          className="fixed top-2.5 left-1/2 -translate-x-1/2 z-50 w-44 h-[142px] bg-[#09090B]/95 backdrop-blur-md rounded-2xl p-2 border border-white/20 shadow-2xl overflow-hidden select-none pointer-events-auto flex flex-col justify-between"
-        >
-          {/* Fixed Header */}
-          <div className="flex items-center justify-between px-1 h-5 pointer-events-none shrink-0">
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  cameraStatus === "active" ? statusConfig.dot : "bg-red-500"
-                }`}
-              />
-              <span className="text-[10px] font-bold tracking-wider text-white">LIVE PROCTOR</span>
-            </div>
-
-            <Badge
-              variant="outline"
-              className={`text-[9px] px-1.5 py-0 h-4 border pointer-events-none ${
-                violationsCount > 0
-                  ? "bg-red-500/20 text-red-400 border-red-500/40"
-                  : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-              }`}
-            >
-              {violationsCount}/{maxWarnings} Flags
-            </Badge>
-          </div>
-
-          {/* Fixed Camera View Box (Fixed aspect ratio, clean preview, no reticles) */}
-          <div className="relative w-full h-[100px] rounded-xl overflow-hidden bg-[#09090B] border border-white/10 flex items-center justify-center shrink-0">
-            {cameraStatus === "active" ? (
-              <>
-                <video
-                  ref={setVideoCallbackRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover transform -scale-x-100"
-                />
-
-                {/* Fixed Bottom Status Tag (Fixed height, truncates text, never changes card dimensions) */}
-                <div className="absolute bottom-1 left-1 right-1 h-5 flex items-center justify-center bg-black/80 backdrop-blur-xs px-1.5 rounded-md z-20 overflow-hidden">
-                  <span className={cn("text-[9px] font-semibold truncate text-center w-full block", statusConfig.color)}>
-                    {statusConfig.text}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div className="p-2 text-center space-y-1 w-full">
-                <VideoOff className="h-5 w-5 text-red-400 mx-auto animate-pulse" />
-                <p className="text-[9px] text-red-200 font-medium">Camera Offline</p>
-                <Button
-                  size="sm"
-                  onClick={startCamera}
-                  className="h-5 text-[9px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-2 rounded-md"
-                >
-                  Enable
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Full PracticeRunnerEngine Matching Practice & Track Formats */}
+      {/* Full PracticeRunnerEngine with Integrated Live Proctor in the Header Card */}
       <PracticeRunnerEngine
         module={moduleMeta}
         questions={formattedQuestions}
+        extraHeaderContent={
+          testData?.proctoring?.webcamTracking ? (
+            <div className="w-[148px] h-[92px] bg-[#09090B] rounded-xl p-1.5 border border-[#E5E7EB] dark:border-white/10 shadow-sm flex flex-col justify-between overflow-hidden select-none shrink-0">
+              {/* Header */}
+              <div className="flex items-center justify-between px-0.5 h-4 shrink-0">
+                <div className="flex items-center gap-1">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      cameraStatus === "active" ? statusConfig.dot : "bg-red-500"
+                    }`}
+                  />
+                  <span className="text-[9px] font-bold tracking-wider text-white">LIVE PROCTOR</span>
+                </div>
+
+                <Badge
+                  variant="outline"
+                  className={`text-[8px] px-1 py-0 h-3.5 border pointer-events-none ${
+                    violationsCount > 0
+                      ? "bg-red-500/20 text-red-400 border-red-500/40"
+                      : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                  }`}
+                >
+                  {violationsCount}/{maxWarnings} Flags
+                </Badge>
+              </div>
+
+              {/* Camera Video Preview */}
+              <div className="relative w-full h-[64px] rounded-lg overflow-hidden bg-black flex items-center justify-center shrink-0">
+                {cameraStatus === "active" ? (
+                  <>
+                    <video
+                      ref={setVideoCallbackRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover transform -scale-x-100"
+                    />
+
+                    {/* Fixed Bottom Status Tag */}
+                    <div className="absolute bottom-0.5 left-0.5 right-0.5 h-4 flex items-center justify-center bg-black/85 backdrop-blur-xs px-1 rounded z-20 overflow-hidden">
+                      <span className={cn("text-[8px] font-semibold truncate text-center w-full block", statusConfig.color)}>
+                        {statusConfig.text}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-1 text-center space-y-0.5 w-full">
+                    <VideoOff className="h-4 w-4 text-red-400 mx-auto animate-pulse" />
+                    <p className="text-[8px] text-red-200 font-medium">Offline</p>
+                    <Button
+                      size="sm"
+                      onClick={startCamera}
+                      className="h-4 text-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-1.5 rounded"
+                    >
+                      Enable
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : undefined
+        }
         onSubmit={handleSubmit}
       />
     </div>

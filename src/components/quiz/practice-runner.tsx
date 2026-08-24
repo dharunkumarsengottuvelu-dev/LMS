@@ -65,6 +65,7 @@ interface PracticeRunnerProps {
     };
   };
   questions: PracticeQuestion[];
+  extraHeaderContent?: React.ReactNode;
   onSubmit: (
     answers: Record<string, any>,
     metadata?: { timeSpentSeconds: number; completedAt: string; timeLeft: number; submissionResults?: Record<string, any> }
@@ -74,6 +75,7 @@ interface PracticeRunnerProps {
 export function PracticeRunnerEngine({
   module,
   questions,
+  extraHeaderContent,
   onSubmit,
 }: PracticeRunnerProps) {
   const { toast } = useToast();
@@ -812,6 +814,12 @@ export function PracticeRunnerEngine({
             <span>Max Marks: <strong>{module.totalMarks > 0 ? module.totalMarks : questions.reduce((sum, q) => sum + (q.marks || 0), 0)}</strong></span>
           </div>
         </div>
+
+        {extraHeaderContent && (
+          <div className="flex items-center justify-center shrink-0">
+            {extraHeaderContent}
+          </div>
+        )}
 
         <div className="flex items-center gap-3 shrink-0">
           {!isUntimed && (
