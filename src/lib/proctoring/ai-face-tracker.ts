@@ -37,6 +37,7 @@ export interface FaceDetectionResult {
   }; // Normalized 0..1
   positionState: FacePositionState;
   headPoseState: HeadPoseState;
+  isExtremeHeadPose?: boolean;
   lightingState: LightingState;
   luminance: number;
   isObstructed: boolean;
@@ -57,6 +58,7 @@ export class AIFaceTracker {
   private ctx: CanvasRenderingContext2D | null = null;
   private faceDetector: any = null;
   private hasNativeDetector = false;
+  private isExtremePose = false;
 
   // Smoothing buffers for noise filtering
   private positionBuffer: { x: number; y: number; w: number; h: number }[] = [];
@@ -412,6 +414,7 @@ export class AIFaceTracker {
 
     const smoothed = this.smoothBox({ x: normX, y: normY, w: normW, h: normH });
     const positionState = this.classifyPosition(smoothed);
+    this.isExtremePose = false;
     const headPoseState = this.classifyPoseFromLandmarks(primary.landmarks, smoothed);
 
     return {
@@ -425,6 +428,7 @@ export class AIFaceTracker {
       },
       positionState,
       headPoseState,
+      isExtremeHeadPose: this.isExtremePose,
       lightingState,
       luminance,
       isObstructed: false,
@@ -525,6 +529,7 @@ export class AIFaceTracker {
 
     const centroidX = sumX / (skinPixelCount || 1) / w;
     const centroidY = sumY / (skinPixelCount || 1) / h;
+    this.isExtremePose = false;
     const headPoseState = this.classifyPoseFromCentroid(centroidX, centroidY, smoothed);
 
     return {
@@ -538,6 +543,7 @@ export class AIFaceTracker {
       },
       positionState,
       headPoseState,
+      isExtremeHeadPose: this.isExtremePose,
       lightingState,
       luminance,
       isObstructed: false,
@@ -575,14 +581,18 @@ export class AIFaceTracker {
     // Horizontal Yaw detection (mirrored camera space: +diffX = user turned left, -diffX = user turned right)
     if (diffX > 0.075) {
       pose = "looking_away_left";
+      if (diffX > 0.16) this.isExtremePose = true;
     } else if (diffX < -0.075) {
       pose = "looking_away_right";
+      if (diffX < -0.16) this.isExtremePose = true;
     }
     // Vertical Pitch detection (-diffY = user looked up, +diffY = user looked down)
     else if (diffY < -0.075) {
       pose = "looking_away_up";
+      if (diffY < -0.18) this.isExtremePose = true;
     } else if (diffY > 0.075) {
       pose = "looking_away_down";
+      if (diffY > 0.18) this.isExtremePose = true;
     }
 
     this.poseBuffer.push(pose);
@@ -618,8 +628,10 @@ export class AIFaceTracker {
         const ratio = eyeDistLeft / (eyeDistRight || 0.001);
         if (ratio > 1.85) {
           pose = "looking_away_left";
+          if (ratio > 2.8) this.isExtremePose = true;
         } else if (ratio < 0.54) {
           pose = "looking_away_right";
+          if (ratio < 0.35) this.isExtremePose = true;
         }
       }
 
@@ -631,8 +643,10 @@ export class AIFaceTracker {
 
         if (normNoseDrop < 0.20) {
           pose = "looking_away_up";
+          if (normNoseDrop < 0.12) this.isExtremePose = true;
         } else if (normNoseDrop > 0.48) {
           pose = "looking_away_down";
+          if (normNoseDrop > 0.58) this.isExtremePose = true;
         }
       }
     }

@@ -66,6 +66,7 @@ export default function StudentTestRunnerPage() {
   const noFaceDurationRef = useRef<number>(0);
   const multipleFacesDurationRef = useRef<number>(0);
   const lookingAwayDurationRef = useRef<number>(0);
+  const extremeLookingAwayDurationRef = useRef<number>(0);
   const mismatchDurationRef = useRef<number>(0);
 
   // Debounce flag refs: ensure ONE continuous violation generates only ONE flag until cleared
@@ -386,6 +387,7 @@ export default function StudentTestRunnerPage() {
           multipleFacesDurationRef.current = 0;
           multipleFacesFlaggedRef.current = false;
           lookingAwayDurationRef.current = 0;
+          extremeLookingAwayDurationRef.current = 0;
           lookingAwayFlaggedRef.current = false;
           mismatchDurationRef.current = 0;
           mismatchFlaggedRef.current = false;
@@ -409,6 +411,7 @@ export default function StudentTestRunnerPage() {
           noFaceFlaggedRef.current = false;
           multipleFacesDurationRef.current += 0.5;
           lookingAwayDurationRef.current = 0;
+          extremeLookingAwayDurationRef.current = 0;
           lookingAwayFlaggedRef.current = false;
           mismatchDurationRef.current = 0;
           mismatchFlaggedRef.current = false;
@@ -475,23 +478,29 @@ export default function StudentTestRunnerPage() {
                 alertLevel = "WARNING";
               }
 
-              // Confirmed violation: generate exactly ONE flag after 6.0 seconds of continuous look away
-              if (lookingAwayDurationRef.current >= 6.0 && !lookingAwayFlaggedRef.current) {
-                lookingAwayFlaggedRef.current = true;
-                const reasonText =
-                  result.headPoseState === "looking_away_left"
-                    ? "Looking Left detected."
-                    : result.headPoseState === "looking_away_right"
-                    ? "Looking Right detected."
-                    : result.headPoseState === "looking_away_up"
-                    ? "Looking Up detected."
-                    : result.headPoseState === "looking_away_down"
-                    ? "Looking Down detected."
-                    : "Looking away from screen detected.";
-                recordViolation(reasonText, result.headPoseState);
+              // Confirmed violation: generate exactly ONE flag after 6.0 seconds of continuous EXTREME look away
+              if (result.isExtremeHeadPose) {
+                extremeLookingAwayDurationRef.current += 0.5;
+                if (extremeLookingAwayDurationRef.current >= 6.0 && !lookingAwayFlaggedRef.current) {
+                  lookingAwayFlaggedRef.current = true;
+                  const reasonText =
+                    result.headPoseState === "looking_away_left"
+                      ? "Looking Left detected."
+                      : result.headPoseState === "looking_away_right"
+                      ? "Looking Right detected."
+                      : result.headPoseState === "looking_away_up"
+                      ? "Looking Up detected."
+                      : result.headPoseState === "looking_away_down"
+                      ? "Looking Down detected."
+                      : "Looking away from screen detected.";
+                  recordViolation(reasonText, result.headPoseState);
+                }
+              } else {
+                extremeLookingAwayDurationRef.current = 0;
               }
             } else {
               lookingAwayDurationRef.current = 0;
+              extremeLookingAwayDurationRef.current = 0;
               lookingAwayFlaggedRef.current = false;
               currentStatus = "verified";
             }
