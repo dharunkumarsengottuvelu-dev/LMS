@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
-import { createServerClient } from "@supabase/ssr";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
 
 // Define protected route patterns and their required roles (RBAC)
@@ -92,7 +91,7 @@ function createRedirectWithCookies(
   return applySecurityHeaders(response);
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   // 0. Auto-route OAuth callback only if code param is present on root or auth routes
@@ -106,7 +105,7 @@ export async function middleware(request: NextRequest) {
     return applySecurityHeaders(NextResponse.redirect(callbackUrl));
   }
 
-  // Skip middleware for static files and Next.js internals
+  // Skip proxy for static files and Next.js internals
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -287,6 +286,9 @@ export async function middleware(request: NextRequest) {
 
   return applySecurityHeaders(supabaseResponse);
 }
+
+export const middleware = proxy;
+export default proxy;
 
 export const config = {
   matcher: [

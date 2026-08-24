@@ -8,6 +8,14 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "allowScripts": {
+    "unrs-resolver": true
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "unrs-resolver"
+    ]
+  },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "@hookform/resolvers": "^5.7.1",

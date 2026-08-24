@@ -5,7 +5,6 @@ import type {
   SQLEngine,
   SQLComparisonMode,
 } from "@/types/coding";
-import { jobeService } from "@/services/jobe";
 
 // Default seed dataset for backward compatibility
 export const DEFAULT_SQL_SCHEMA = `
@@ -105,6 +104,48 @@ export class SQLExecutionService {
       };
     }
 
+    // 1. Browser context: route through Next.js API endpoint
+    if (typeof window !== "undefined") {
+      try {
+        const res = await fetch("/api/sql/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: cleanQuery,
+            datasetName,
+            engine,
+            schemaSql,
+            seedSql,
+            timeoutMs,
+          }),
+        });
+
+        if (res.ok) {
+          return (await res.json()) as SQLQueryResult;
+        }
+
+        const errData = await res.json().catch(() => ({}));
+        return {
+          columns: [],
+          rows: [],
+          rowCount: 0,
+          executionTimeMs: 0,
+          error: errData.error || `Execution failed with status ${res.status}`,
+          engine,
+        };
+      } catch (clientErr: any) {
+        return {
+          columns: [],
+          rows: [],
+          rowCount: 0,
+          executionTimeMs: 0,
+          error: `Network error: ${clientErr.message || clientErr}`,
+          engine,
+        };
+      }
+    }
+
+    // 2. Server context: execute directly on Jobe
     const runnerPythonScript = this.generateRunnerScript({
       engine,
       schemaSql,
@@ -115,7 +156,7 @@ export class SQLExecutionService {
     const startTime = Date.now();
 
     try {
-      // Execute the isolated runner script on Jobe sandbox
+      const { jobeService } = await import("@/services/jobe");
       const execution = await jobeService.executeCode(
         "python3",
         runnerPythonScript,
