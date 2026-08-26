@@ -26,6 +26,8 @@ import { useLMSStore } from "@/lib/store/lms-store";
 import { PageHeader } from "@/components/layouts/page-header";
 import { VisibilitySelector } from "@/components/admin/visibility-selector";
 import { AutoSaveBadge } from "@/components/ui/auto-save-badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 // ─── Sub-Module / Lesson Item ──────────────────────────────
 export interface CourseSyllabusSubModule {
@@ -299,8 +301,10 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   // Sub-Module Builder State
   const [targetMainModuleId, setTargetMainModuleId] = useState<string | null>(null);
   const [editingSubModuleId, setEditingSubModuleId] = useState<string | null>(null);
+  const [targetInsertIndex, setTargetInsertIndex] = useState<number | null>(null);
   const [showModuleBuilder, setShowModuleBuilder] = useState(false);
   const [modTitle, setModTitle]         = useState("");
+  const [globalDurationEnabled, setGlobalDurationEnabled] = useState(true);
   const [modDurEnabled, setModDurEnabled] = useState(true);
   const [modStartTime, setModStartTime]   = useState("09:00");
   const [modEndTime, setModEndTime]     = useState("09:45");
@@ -352,8 +356,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
   const resetSubModuleBuilder = () => {
     setEditingSubModuleId(null);
+    setTargetInsertIndex(null);
     setModTitle("");
-    setModDurEnabled(true);
+    setModDurEnabled(globalDurationEnabled);
     setModStartTime("09:00");
     setModEndTime("09:45");
     setModDur("45 mins");
@@ -446,6 +451,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const openAddSubModule = (mainModuleId: string) => {
     setTargetMainModuleId(mainModuleId);
     setEditingSubModuleId(null);
+    setTargetInsertIndex(null);
     resetSubModuleBuilder();
     const mainMod = draftModules.find((m) => m.id === mainModuleId);
     const subCount = mainMod ? mainMod.subModules.length : 0;
@@ -455,22 +461,46 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     scrollToBuilder();
   };
 
-  const openEditSubModule = (mainModuleId: string, sub: CourseSyllabusSubModule) => {
+  const openInsertSubModuleNext = (mainModuleId: string, subIndex: number) => {
     setTargetMainModuleId(mainModuleId);
-    setEditingSubModuleId(sub.id);
-    setModTitle(sub.title);
-    setModDur(sub.duration || "45 mins");
-    setModDurEnabled(sub.duration !== "N/A" && sub.duration !== "Disabled");
-    setModType(sub.type || "video");
-    setModVideoUrl(sub.videoUrl || "");
-    setModNotes(sub.notes || "");
-    setModReading(sub.readingContent || "");
-    setModDesc(sub.practiceDescription || "");
-    setModTestCases(sub.practiceTestCases || "");
-    setModStarter(sub.practiceStarterCode || "");
-    setModQuiz(sub.quizQuestions || "");
+    setEditingSubModuleId(null);
+    setTargetInsertIndex(subIndex + 1);
+    resetSubModuleBuilder();
+    const mainMod = draftModules.find((m) => m.id === mainModuleId);
+    const mainIdx = draftModules.findIndex((m) => m.id === mainModuleId);
+    setModTitle(`Lesson ${mainIdx + 1}.${subIndex + 2}: `);
     setShowModuleBuilder(true);
     scrollToBuilder();
+  };
+
+  const openEditSubModule = (mainModuleId: string, sub: CourseSyllabusSubModule) => {
+    try {
+      setTargetMainModuleId(mainModuleId);
+      setEditingSubModuleId(sub.id);
+      setModTitle(sub.title || "");
+      setModDur(sub.duration || "45 mins");
+      setModDurEnabled(sub.duration !== "N/A" && sub.duration !== "Disabled");
+      setModType(sub.type || "video");
+      setModVideoUrl(sub.videoUrl || "");
+      setModNotes(sub.notes || "");
+      setModReading(sub.readingContent || "");
+      setModDesc(sub.practiceDescription || "");
+      
+      const tc = sub.practiceTestCases;
+      setModTestCases(typeof tc === 'string' ? tc : JSON.stringify(tc || ""));
+      
+      const st = sub.practiceStarterCode;
+      setModStarter(typeof st === 'string' ? st : JSON.stringify(st || ""));
+      
+      const qq = sub.quizQuestions;
+      setModQuiz(typeof qq === 'string' ? qq : JSON.stringify(qq || ""));
+      
+      setShowModuleBuilder(true);
+      scrollToBuilder();
+    } catch (err) {
+      console.error("Error opening edit builder:", err);
+      alert("Error opening edit form. Please check console.");
+    }
   };
 
   const handleSaveSubModule = (e: React.FormEvent) => {
@@ -521,7 +551,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             return { ...m, subModules: [...m.subModules, subItem] };
           }
         } else {
-          return { ...m, subModules: [...m.subModules, subItem] };
+          const updatedSubs = [...m.subModules];
+          if (targetInsertIndex !== null) {
+            updatedSubs.splice(targetInsertIndex, 0, subItem);
+          } else {
+            updatedSubs.push(subItem);
+          }
+          return { ...m, subModules: updatedSubs };
         }
       })
     );
@@ -1021,7 +1057,14 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     Organize your course into Main Modules with nested Sub-Modules (Videos, Notes, Monaco Coding & Quizzes)
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 mr-2">
+                    <Label className="text-xs font-semibold text-[#6B7280]">Global Duration:</Label>
+                    <Switch
+                      checked={globalDurationEnabled}
+                      onCheckedChange={setGlobalDurationEnabled}
+                    />
+                  </div>
                   <Button
                     type="button"
                     onClick={openCreateMainModule}
@@ -1232,6 +1275,17 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                                       Down
                                     </button>
                                   </div>
+
+                                  <Button
+                                    type="button"
+                                    onClick={() => openInsertSubModuleNext(mainMod.id, sIdx)}
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2.5 text-xs font-semibold border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 rounded-md"
+                                    title="Add new sub-module below this one"
+                                  >
+                                    Add Next
+                                  </Button>
 
                                   <Button
                                     type="button"
