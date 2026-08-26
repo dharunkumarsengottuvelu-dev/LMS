@@ -35,9 +35,9 @@ export function getVideoPlayerConfig(url?: string): VideoPlayerConfig {
     return { type: "direct", src: trimmed };
   }
 
-  // 2. YouTube (Watch, Share, Shorts, Embed)
+  // 2. YouTube (Watch, Share, Shorts, Embed, Live, etc.)
   const ytMatch = trimmed.match(
-    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|watch\?.+&v=))([\w-]{11})/i
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i
   );
   if (ytMatch && ytMatch[1]) {
     const videoId = ytMatch[1];
