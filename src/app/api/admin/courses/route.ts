@@ -228,11 +228,11 @@ export async function POST(request: NextRequest) {
       title: course.title.trim(),
       slug,
       description: course.description || "",
-      short_description: (course.description || "").slice(0, 120),
       thumbnail_url:
         course.thumbnail ||
         course.thumbnail_url ||
         "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
+      category: meta.category || "General",
       difficulty: (course.level || course.difficulty || "beginner").toLowerCase(),
       visibility: isCommon ? "public" : "private",
       status: course.status || "published",
@@ -274,53 +274,95 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Resilient save handler that auto-cleans any columns not in schema cache
     let savedCourse: any = null;
+    let currentPayload = { ...payload };
 
-    if (targetCourseId) {
-      payload.id = targetCourseId;
-      const { data, error } = await adminClient
-        .from("courses")
-        .upsert(payload, { onConflict: "id" })
-        .select()
-        .maybeSingle();
-
-      if (error) {
-        console.warn("Upsert failed, falling back to update:", error);
-        const { data: updatedData, error: updateError } = await adminClient
-          .from("courses")
-          .update(payload)
-          .eq("id", targetCourseId)
-          .select()
-          .single();
-
-        if (updateError) throw updateError;
-        savedCourse = updatedData;
-      } else {
-        savedCourse = data;
-      }
-    } else {
-      const { data, error } = await adminClient
-        .from("courses")
-        .insert(payload)
-        .select()
-        .single();
-
-      if (error) {
-        // Handle race condition on duplicate slug
-        if (error.code === "23505") {
-          const { data: retryData, error: retryError } = await adminClient
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        if (targetCourseId) {
+          currentPayload.id = targetCourseId;
+          const { data, error } = await adminClient
             .from("courses")
-            .update(payload)
-            .eq("slug", slug)
+            .upsert(currentPayload, { onConflict: "id" })
+            .select()
+            .maybeSingle();
+
+          if (error) {
+            const msg = error.message || "";
+            const match = msg.match(/Could not find the '([^']+)' column/i);
+            if (match && match[1] && currentPayload[match[1]] !== undefined) {
+              console.warn(`Removing unknown column '${match[1]}' from courses payload and retrying...`);
+              delete currentPayload[match[1]];
+              continue;
+            }
+
+            // Fallback update by ID
+            const { data: updateData, error: updateError } = await adminClient
+              .from("courses")
+              .update(currentPayload)
+              .eq("id", targetCourseId)
+              .select()
+              .single();
+
+            if (updateError) {
+              const uMatch = (updateError.message || "").match(/Could not find the '([^']+)' column/i);
+              if (uMatch && uMatch[1] && currentPayload[uMatch[1]] !== undefined) {
+                console.warn(`Removing unknown column '${uMatch[1]}' from courses payload and retrying...`);
+                delete currentPayload[uMatch[1]];
+                continue;
+              }
+              throw updateError;
+            }
+            savedCourse = updateData;
+            break;
+          } else {
+            savedCourse = data;
+            break;
+          }
+        } else {
+          const { data, error } = await adminClient
+            .from("courses")
+            .insert(currentPayload)
             .select()
             .single();
-          if (retryError) throw retryError;
-          savedCourse = retryData;
-        } else {
-          throw error;
+
+          if (error) {
+            const msg = error.message || "";
+            const match = msg.match(/Could not find the '([^']+)' column/i);
+            if (match && match[1] && currentPayload[match[1]] !== undefined) {
+              console.warn(`Removing unknown column '${match[1]}' from courses payload and retrying...`);
+              delete currentPayload[match[1]];
+              continue;
+            }
+
+            if (error.code === "23505") {
+              const { data: retryData, error: retryError } = await adminClient
+                .from("courses")
+                .update(currentPayload)
+                .eq("slug", slug)
+                .select()
+                .single();
+              if (retryError) throw retryError;
+              savedCourse = retryData;
+              break;
+            } else {
+              throw error;
+            }
+          } else {
+            savedCourse = data;
+            break;
+          }
         }
-      } else {
-        savedCourse = data;
+      } catch (err: any) {
+        const msg = err?.message || "";
+        const match = msg.match(/Could not find the '([^']+)' column/i);
+        if (match && match[1] && currentPayload[match[1]] !== undefined && attempt < 4) {
+          console.warn(`Removing unknown column '${match[1]}' and retrying...`);
+          delete currentPayload[match[1]];
+          continue;
+        }
+        throw err;
       }
     }
 
