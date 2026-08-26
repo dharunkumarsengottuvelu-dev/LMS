@@ -10,16 +10,77 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
+import { Play, CheckCircle2, BookOpen, Code2, FileText, ChevronDown, ChevronUp, Check, AlertCircle, Clock } from "lucide-react";
 
-function getYouTubeEmbedUrl(url?: string): string {
-  if (!url) return "https://www.youtube.com/embed/wm5gMKCOm4U";
-  if (url.includes("youtube.com/embed/")) return url;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  if (match && match[2] && match[2].length === 11) {
-    return `https://www.youtube.com/embed/${match[2]}`;
+export interface VideoPlayerConfig {
+  type: "direct" | "iframe" | "empty";
+  src: string;
+}
+
+export function getVideoPlayerConfig(url?: string): VideoPlayerConfig {
+  if (!url || !url.trim()) {
+    return { type: "empty", src: "" };
   }
-  return url;
+
+  const trimmed = url.trim();
+
+  // 1. Direct Video files (.mp4, .webm, .ogg, .mov, .m4v, blob, storage streams)
+  const isDirectVideo =
+    /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(trimmed) ||
+    trimmed.startsWith("blob:") ||
+    trimmed.includes("supabase.co/storage/v1/object/public/") ||
+    trimmed.includes("firebasestorage.googleapis.com");
+
+  if (isDirectVideo) {
+    return { type: "direct", src: trimmed };
+  }
+
+  // 2. YouTube (Watch, Share, Shorts, Embed)
+  const ytMatch = trimmed.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|watch\?.+&v=))([\w-]{11})/i
+  );
+  if (ytMatch && ytMatch[1]) {
+    const videoId = ytMatch[1];
+    let startParam = "";
+    const timeMatch = trimmed.match(/[?&]t=(\d+)/);
+    if (timeMatch && timeMatch[1]) {
+      startParam = `?start=${timeMatch[1]}`;
+    }
+    return {
+      type: "iframe",
+      src: `https://www.youtube-nocookie.com/embed/${videoId}${startParam}`,
+    };
+  }
+
+  // 3. Vimeo
+  const vimeoMatch = trimmed.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+  if (vimeoMatch && vimeoMatch[1]) {
+    return {
+      type: "iframe",
+      src: `https://player.vimeo.com/video/${vimeoMatch[1]}`,
+    };
+  }
+
+  // 4. Loom
+  const loomMatch = trimmed.match(/loom\.com\/(?:share|embed)\/([a-zA-Z0-9_-]+)/i);
+  if (loomMatch && loomMatch[1]) {
+    return {
+      type: "iframe",
+      src: `https://www.loom.com/embed/${loomMatch[1]}`,
+    };
+  }
+
+  // 5. Google Drive Video
+  const driveMatch = trimmed.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/i);
+  if (driveMatch && driveMatch[1]) {
+    return {
+      type: "iframe",
+      src: `https://drive.google.com/file/d/${driveMatch[1]}/preview`,
+    };
+  }
+
+  // 6. Generic embed fallback
+  return { type: "iframe", src: trimmed };
 }
 
 type ContentType = "video" | "mcq" | "coding" | "reading";
@@ -85,6 +146,7 @@ interface CourseSyllabusModule {
 function normalizeCourseModules(rawModules: any[] = []): CourseSyllabusModule[] {
   if (!rawModules || !Array.isArray(rawModules)) return [];
   return rawModules.map((m, idx) => {
+    // Format 1: Hierarchical module with subModules
     if (m.subModules && Array.isArray(m.subModules) && m.subModules.length > 0) {
       return {
         id: m.id || `mod_${idx + 1}`,
@@ -95,17 +157,41 @@ function normalizeCourseModules(rawModules: any[] = []): CourseSyllabusModule[] 
           title: sub.title || `Lesson ${idx + 1}.${sIdx + 1}`,
           duration: sub.duration || "45 mins",
           type: sub.type || "video",
-          videoUrl: sub.videoUrl || "",
-          notes: sub.notes || "",
-          readingContent: sub.readingContent || "",
+          videoUrl: sub.videoUrl || sub.video_url || "",
+          notes: sub.notes || sub.description || "",
+          readingContent: sub.readingContent || sub.content || "",
           practiceDescription: sub.practiceDescription || "",
           practiceTestCases: sub.practiceTestCases || "",
           practiceStarterCode: sub.practiceStarterCode || "",
           quizQuestions: sub.quizQuestions || "",
-        }))
+        })),
       };
     }
-    if (m.type || m.videoUrl || m.duration || m.notes || m.quizQuestions || m.practiceDescription) {
+
+    // Format 2: Hierarchical module with lessons array
+    if (m.lessons && Array.isArray(m.lessons) && m.lessons.length > 0) {
+      return {
+        id: m.id || `mod_${idx + 1}`,
+        title: m.title || `Module ${idx + 1}`,
+        description: m.description || "",
+        subModules: m.lessons.map((les: any, sIdx: number) => ({
+          id: les.id || `sub_${idx + 1}_${sIdx + 1}`,
+          title: les.title || `Lesson ${idx + 1}.${sIdx + 1}`,
+          duration: les.duration ? (typeof les.duration === "number" ? `${les.duration} mins` : String(les.duration)) : "45 mins",
+          type: les.type || (les.video_url || les.videoUrl ? "video" : "reading"),
+          videoUrl: les.video_url || les.videoUrl || "",
+          notes: les.notes || les.description || "",
+          readingContent: les.content || les.readingContent || "",
+          practiceDescription: les.practiceDescription || "",
+          practiceTestCases: les.practiceTestCases || "",
+          practiceStarterCode: les.practiceStarterCode || "",
+          quizQuestions: les.quizQuestions || "",
+        })),
+      };
+    }
+
+    // Format 3: Legacy flat module item
+    if (m.type || m.videoUrl || m.video_url || m.duration || m.notes || m.quizQuestions || m.practiceDescription) {
       return {
         id: m.id || `mod_${idx + 1}`,
         title: m.title || `Module ${idx + 1}`,
@@ -116,22 +202,23 @@ function normalizeCourseModules(rawModules: any[] = []): CourseSyllabusModule[] 
             title: m.title || `Lesson ${idx + 1}.1`,
             duration: m.duration || "45 mins",
             type: m.type || "video",
-            videoUrl: m.videoUrl || "",
+            videoUrl: m.videoUrl || m.video_url || "",
             notes: m.notes || "",
             readingContent: m.readingContent || "",
             practiceDescription: m.practiceDescription || "",
             practiceTestCases: m.practiceTestCases || "",
             practiceStarterCode: m.practiceStarterCode || "",
             quizQuestions: m.quizQuestions || "",
-          }
-        ]
+          },
+        ],
       };
     }
+
     return {
       id: m.id || `mod_${idx + 1}`,
       title: m.title || `Module ${idx + 1}`,
       description: m.description || "",
-      subModules: []
+      subModules: [],
     };
   });
 }
@@ -220,29 +307,66 @@ export default function StudentCoursePlayerPage() {
   useEffect(() => {
     async function fetchCourse() {
       try {
-        const res = await fetch("/api/admin/courses");
-        const data = await res.json();
-        if (data.courses && Array.isArray(data.courses)) {
-          const match = data.courses.find((c: any) =>
-            c.id === slug ||
-            c.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") === slug.toLowerCase() ||
-            c.id.toLowerCase() === slug.toLowerCase()
-          ) || data.courses[0];
+        let courseMatch: any = null;
 
-          if (match) {
-            setCourseTitle(match.title);
-            setCourseCategory(match.category || "General");
-            setCourseInstructor(match.instructor || "Lead Instructor");
-            const norm = normalizeCourseModules(match.modules);
-            setModules(norm);
-
-            const expMap: Record<string, boolean> = {};
-            norm.forEach((m) => { expMap[m.id] = true; });
-            setExpandedModules(expMap);
-
-            if (norm[0]?.subModules?.[0]) {
-              setActiveLesson(convertSubToLesson(norm[0].subModules[0]));
+        // 1. Try direct student course endpoint first
+        try {
+          const res = await fetch(`/api/student/courses/${encodeURIComponent(slug)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.course) {
+              courseMatch = data.course;
             }
+          }
+        } catch (e) {
+          console.warn("Direct course lookup error:", e);
+        }
+
+        // 2. Fallback to student course list
+        if (!courseMatch) {
+          const res = await fetch("/api/student/courses");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.courses && Array.isArray(data.courses)) {
+              courseMatch = data.courses.find((c: any) =>
+                c.id === slug ||
+                c.slug === slug ||
+                c.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-") === slug.toLowerCase() ||
+                c.id?.toLowerCase() === slug.toLowerCase()
+              ) || data.courses[0];
+            }
+          }
+        }
+
+        // 3. Fallback to admin courses if needed
+        if (!courseMatch) {
+          const res = await fetch("/api/admin/courses");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.courses && Array.isArray(data.courses)) {
+              courseMatch = data.courses.find((c: any) =>
+                c.id === slug ||
+                c.slug === slug ||
+                c.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-") === slug.toLowerCase() ||
+                c.id?.toLowerCase() === slug.toLowerCase()
+              ) || data.courses[0];
+            }
+          }
+        }
+
+        if (courseMatch) {
+          setCourseTitle(courseMatch.title);
+          setCourseCategory(courseMatch.category || "General");
+          setCourseInstructor(courseMatch.instructor || "Lead Technical Trainer");
+          const norm = normalizeCourseModules(courseMatch.modules);
+          setModules(norm);
+
+          const expMap: Record<string, boolean> = {};
+          norm.forEach((m) => { expMap[m.id] = true; });
+          setExpandedModules(expMap);
+
+          if (norm[0]?.subModules?.[0]) {
+            setActiveLesson(convertSubToLesson(norm[0].subModules[0]));
           }
         }
       } catch (err) {
@@ -394,31 +518,61 @@ export default function StudentCoursePlayerPage() {
               </Badge>
             </CardHeader>
 
-            {/* FORMAT 1: VIDEO LESSON PLAYER */}
-            {activeLesson.type === "video" && (
-              <div className="p-6 space-y-4">
-                <div className="w-full aspect-video rounded-xl overflow-hidden bg-black border border-[#E5E7EB] dark:border-[#27272A]">
-                  <iframe
-                    src={getYouTubeEmbedUrl(activeLesson.videoUrl)}
-                    title={activeLesson.title}
-                    className="w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
+            {/* FORMAT 1: MULTI-FORMAT VIDEO LESSON PLAYER */}
+            {activeLesson.type === "video" && (() => {
+              const playerConfig = getVideoPlayerConfig(activeLesson.videoUrl);
 
-                {activeLesson.notes && (
-                  <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
-                    <div className="text-xs font-bold text-[#2563EB] uppercase tracking-wider">
-                      Lesson Notes & Key Takeaways
-                    </div>
-                    <div className="text-xs text-[#374151] dark:text-[#D1D5DB] leading-relaxed whitespace-pre-wrap">
-                      {activeLesson.notes}
-                    </div>
+              return (
+                <div className="p-6 space-y-4">
+                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-black border border-[#E5E7EB] dark:border-[#27272A] relative flex items-center justify-center">
+                    {playerConfig.type === "direct" ? (
+                      <video
+                        key={playerConfig.src}
+                        controls
+                        controlsList="nodownload"
+                        playsInline
+                        className="w-full h-full object-contain bg-black"
+                        src={playerConfig.src}
+                      >
+                        Your browser does not support HTML5 video streaming.
+                      </video>
+                    ) : playerConfig.type === "iframe" && playerConfig.src ? (
+                      <iframe
+                        key={playerConfig.src}
+                        src={playerConfig.src}
+                        title={activeLesson.title}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center p-8 text-center text-white space-y-3">
+                        <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+                          <Play className="h-7 w-7 text-white fill-current translate-x-0.5" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-semibold text-white">Video Lesson Prepared</h4>
+                          <p className="text-xs text-white/70 max-w-sm mt-1">
+                            No direct video URL was configured by the instructor for this lesson. Refer to the key takeaways and attached notes below.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )}
+
+                  {activeLesson.notes && (
+                    <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
+                      <div className="text-xs font-bold text-[#2563EB] uppercase tracking-wider">
+                        Lesson Notes & Key Takeaways
+                      </div>
+                      <div className="text-xs text-[#374151] dark:text-[#D1D5DB] leading-relaxed whitespace-pre-wrap">
+                        {activeLesson.notes}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* FORMAT 2: READING DOCUMENT */}
             {activeLesson.type === "reading" && (

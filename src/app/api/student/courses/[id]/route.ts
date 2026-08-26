@@ -24,16 +24,35 @@ export async function GET(
 
     // Fetch course by id or slug
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    let query = adminClient.from("courses").select("*");
+    let course: any = null;
+
     if (isUUID) {
-      query = query.or(`id.eq.${id},slug.eq.${id}`);
-    } else {
-      query = query.eq("slug", id);
+      const { data } = await adminClient.from("courses").select("*").eq("id", id).maybeSingle();
+      course = data;
     }
 
-    const { data: course, error } = await query.maybeSingle();
+    if (!course) {
+      const cleanSlug = id.trim().toLowerCase();
+      const { data } = await adminClient
+        .from("courses")
+        .select("*")
+        .or(`slug.ilike.${cleanSlug},id.eq.${id}`)
+        .maybeSingle();
+      course = data;
+    }
 
-    if (error || !course) {
+    if (!course) {
+      // Fallback lookup by title converted to slug or exact title
+      const titleSearch = id.replace(/-/g, " ").trim();
+      const { data } = await adminClient
+        .from("courses")
+        .select("*")
+        .ilike("title", titleSearch)
+        .maybeSingle();
+      course = data;
+    }
+
+    if (!course) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
@@ -50,19 +69,28 @@ export async function GET(
       meta.assigned_batches ||
       [];
 
+    const assignedStudents =
+      course.assigned_students ||
+      meta.assignedStudents ||
+      meta.assigned_students ||
+      [];
+
     const isCommon =
-      course.is_common !== undefined
-        ? course.is_common
-        : meta.isCommon !== undefined
-        ? meta.isCommon
-        : assignedBatches.length === 0;
+      course.is_common === true ||
+      String(course.is_common) === "true" ||
+      meta.isCommon === true ||
+      String(meta.isCommon) === "true" ||
+      meta.is_common === true ||
+      String(meta.is_common) === "true" ||
+      (assignedBatches.length === 0 && assignedStudents.length === 0);
 
     // Rule 8 & 21: Server-side authorization check
     const isAuthorized = isContentVisibleToStudent(
       {
         is_common: isCommon,
+        isCommon: isCommon,
         assigned_batches: assignedBatches,
-        assigned_students: meta.assignedStudents || [],
+        assigned_students: assignedStudents,
       },
       batchContext
     );
@@ -74,17 +102,30 @@ export async function GET(
       );
     }
 
+    const modules = meta.modules || [];
+    const totalLessons = modules.reduce((acc: number, m: any) => acc + (m.subModules?.length || m.lessons?.length || 1), 0) || 10;
+
     return NextResponse.json({
       course: {
         id: course.id,
         slug: course.slug || course.id,
         title: course.title,
         description: course.description,
-        difficulty: course.difficulty,
+        difficulty:
+          course.difficulty === "beginner"
+            ? "Beginner"
+            : course.difficulty === "advanced"
+            ? "Advanced"
+            : "Intermediate",
         thumbnail: course.thumbnail_url || meta.thumbnail || "",
-        modules: meta.modules || [],
+        category: meta.category || (typeof course.category_id === "string" ? course.category_id : "General"),
+        instructor: meta.instructor || "Lead Technical Trainer",
+        durationHours: meta.durationHours || 10,
+        totalLessons,
+        modules,
         isCommon,
         assignedBatches,
+        assignedStudents,
       },
     });
   } catch (error) {

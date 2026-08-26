@@ -230,7 +230,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
   const handleSaveAssignments = async () => {
     if (!assigningCourse) return;
-    const updatedCourse = {
+    const updatedCourse: ManagedCourse = {
       ...assigningCourse,
       isCommon,
       assignedBatches: isCommon ? [] : selectedBatches,
@@ -239,23 +239,40 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     };
 
     try {
-      await fetch("/api/admin/courses", {
+      const res = await fetch("/api/admin/courses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ course: updatedCourse })
+        body: JSON.stringify({ course: updatedCourse }),
       });
-    } catch (err) {
-      console.error("Failed to save course assignments to API", err);
-    }
 
-    setCourses((prev) =>
-      prev.map((c) => (c.id === assigningCourse.id ? updatedCourse : c))
-    );
-    toast({
-      title: "Course Visibility Updated",
-      description: `Course "${assigningCourse.title}" configured as ${isCommon ? "Common (All Students)" : `${selectedBatches.length} batch(es)`}.`,
-    });
-    setAssigningCourse(null);
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Failed to update course assignment");
+      }
+
+      if (data.course && data.course.id) {
+        updatedCourse.id = data.course.id;
+      }
+
+      setCourses((prev) =>
+        prev.map((c) => (c.id === assigningCourse.id ? updatedCourse : c))
+      );
+
+      toast({
+        title: "Course Visibility & Assignments Updated",
+        description: `"${assigningCourse.title}" assigned to ${
+          isCommon ? "All Students (Common)" : `${selectedBatches.length} batch(es)`
+        }${selectedStudentIds.length > 0 ? ` and ${selectedStudentIds.length} specific learner(s)` : ""}.`,
+      });
+      setAssigningCourse(null);
+    } catch (err: any) {
+      console.error("Failed to save course assignments to API", err);
+      toast({
+        title: "Assignment Failed",
+        description: err.message || "Could not save assignments to server. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Multi-Step Wizard State
@@ -625,7 +642,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setViewState("wizard");
   };
 
-  const handlePublishCourse = () => {
+  const handlePublishCourse = async () => {
     if (!fTitle) {
       toast({ title: "Title Required", description: "Please enter a course title in Step 1.", variant: "destructive" });
       setWizardStep(1);
@@ -635,7 +652,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     const totalSubCount = getTotalSubModulesCount(draftModules);
 
     if (editingCourseId) {
-      const updatedCourse = {
+      const existing = courses.find((c) => c.id === editingCourseId);
+      const updatedCourse: ManagedCourse = {
         id: editingCourseId,
         title: fTitle,
         category: fCategory || "General",
@@ -645,13 +663,33 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         thumbnail: fThumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
         modules: draftModules,
         totalLessons: totalSubCount,
+        status: existing?.status || "published",
+        enrolledStudents: existing?.enrolledStudents || 0,
+        durationHours: existing?.durationHours || 0,
+        durationMins: existing?.durationMins || 0,
+        isCommon: existing?.isCommon,
+        assignedBatches: existing?.assignedBatches,
+        assignedStudents: existing?.assignedStudents,
       };
 
-      fetch("/api/admin/courses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ course: updatedCourse })
-      }).catch(err => console.error("Failed to update course in API", err));
+      try {
+        const res = await fetch("/api/admin/courses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ course: updatedCourse }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error || "Failed to update course");
+        }
+        if (data.course && data.course.id) {
+          updatedCourse.id = data.course.id;
+        }
+      } catch (err: any) {
+        console.error("Failed to update course in API", err);
+        toast({ title: "Update Failed", description: err.message || "Failed to save course changes", variant: "destructive" });
+        return;
+      }
 
       setCourses((prev) => prev.map((c) => (c.id === editingCourseId ? { ...c, ...updatedCourse } : c)));
       toast({ title: "Course Updated", description: `"${fTitle}" saved successfully.` });
@@ -670,18 +708,28 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         description: fDesc || "Newly authored enterprise training course.",
         thumbnail: fThumbnail || "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
         modules: draftModules,
+        isCommon: isCommon,
+        assignedBatches: isCommon ? [] : selectedBatches,
       };
 
-      fetch("/api/admin/courses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ course: created })
-      }).then(async (res) => {
+      try {
+        const res = await fetch("/api/admin/courses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ course: created }),
+        });
         const data = await res.json();
-        if (data.course) {
+        if (!res.ok || data.error) {
+          throw new Error(data.error || "Failed to publish course");
+        }
+        if (data.course && data.course.id) {
           created.id = data.course.id;
         }
-      }).catch(err => console.error("Failed to save to API", err));
+      } catch (err: any) {
+        console.error("Failed to save to API", err);
+        toast({ title: "Publish Failed", description: err.message || "Could not publish course", variant: "destructive" });
+        return;
+      }
 
       setCourses((prev) => [created, ...prev]);
       if (typeof window !== "undefined") {
@@ -693,17 +741,38 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setViewState("list");
   };
 
-  const handleToggleStatus = (id: string) =>
-    setCourses((prev) => prev.map((c) => {
-      if (c.id !== id) return c;
-      const next = c.status === "published" ? "draft" : "published";
-      toast({ title: "Status Updated", description: `${c.title} → ${next.toUpperCase()}` });
-      return { ...c, status: next };
-    }));
+  const handleToggleStatus = async (id: string) => {
+    const course = courses.find((c) => c.id === id);
+    if (!course) return;
+    const nextStatus = course.status === "published" ? "draft" : "published";
+    const updatedCourse = { ...course, status: nextStatus as "published" | "draft" };
 
-  const handleDeleteCourse = (id: string, title: string) => {
-    setCourses((prev) => prev.filter((c) => c.id !== id));
-    toast({ title: "Course Deleted", description: title, variant: "destructive" });
+    try {
+      await fetch("/api/admin/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ course: updatedCourse }),
+      });
+      setCourses((prev) => prev.map((c) => (c.id === id ? updatedCourse : c)));
+      toast({ title: "Status Updated", description: `${course.title} → ${nextStatus.toUpperCase()}` });
+    } catch (err) {
+      console.error("Failed to toggle status", err);
+    }
+  };
+
+  const handleDeleteCourse = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
+    try {
+      const res = await fetch(`/api/admin/courses?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete request failed");
+      setCourses((prev) => prev.filter((c) => c.id !== id));
+      toast({ title: "Course Deleted", description: title, variant: "destructive" });
+    } catch (err) {
+      console.error("Failed to delete course", err);
+      // Fallback local removal
+      setCourses((prev) => prev.filter((c) => c.id !== id));
+      toast({ title: "Course Removed", description: title });
+    }
   };
 
   // ════════════════════════════════════════════════════════════

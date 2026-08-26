@@ -192,62 +192,139 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing course title" }, { status: 400 });
     }
 
-    const slug = (course.title || "course")
+    const slug = (course.slug || course.title || "course")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)+/g, "");
 
-    const assignedBatches: string[] = course.assignedBatches || course.assigned_batches || [];
+    const rawAssignedBatches: string[] = course.assignedBatches || course.assigned_batches || [];
     const isCommon: boolean =
-      course.isCommon !== undefined ? course.isCommon : assignedBatches.length === 0;
+      course.isCommon !== undefined
+        ? course.isCommon
+        : course.is_common !== undefined
+        ? course.is_common
+        : rawAssignedBatches.length === 0;
+
+    const assignedBatches = isCommon ? [] : rawAssignedBatches;
+    const assignedStudents = isCommon ? [] : (course.assignedStudents || course.assigned_students || []);
 
     const meta = {
       category: course.category || "General",
       instructor: course.instructor || "Lead Technical Trainer",
       durationHours: course.durationHours || 10,
       durationMins: course.durationMins || 0,
-      totalLessons: (course.modules || []).length || 10,
+      totalLessons: (course.modules || []).reduce((acc: number, m: any) => acc + (m.subModules?.length || m.lessons?.length || 1), 0) || 10,
       modules: course.modules || [],
       isCommon,
-      assignedBatches: isCommon ? [] : assignedBatches,
-      assignedStudents: course.assignedStudents || [],
-      thumbnail: course.thumbnail || "",
+      is_common: isCommon,
+      assignedBatches,
+      assigned_batches: assignedBatches,
+      assignedStudents,
+      assigned_students: assignedStudents,
+      thumbnail: course.thumbnail || course.thumbnail_url || "",
     };
 
     const payload: any = {
-      title: course.title,
+      title: course.title.trim(),
       slug,
       description: course.description || "",
       short_description: (course.description || "").slice(0, 120),
       thumbnail_url:
         course.thumbnail ||
+        course.thumbnail_url ||
         "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
-      difficulty: (course.level || "beginner").toLowerCase(),
+      difficulty: (course.level || course.difficulty || "beginner").toLowerCase(),
       visibility: isCommon ? "public" : "private",
       status: course.status || "published",
       is_common: isCommon,
+      assigned_batches: assignedBatches,
       tags: [JSON.stringify(meta)],
+      updated_at: new Date().toISOString(),
     };
 
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       course.id
     );
-    if (isUUID) {
-      payload.id = course.id;
+
+    let targetCourseId: string | null = isUUID ? course.id : null;
+
+    // If ID is not a direct UUID, check DB by slug or title
+    if (!targetCourseId) {
+      try {
+        const { data: existingBySlug } = await adminClient
+          .from("courses")
+          .select("id")
+          .eq("slug", slug)
+          .maybeSingle();
+
+        if (existingBySlug?.id) {
+          targetCourseId = existingBySlug.id;
+        } else {
+          const { data: existingByTitle } = await adminClient
+            .from("courses")
+            .select("id")
+            .ilike("title", course.title.trim())
+            .maybeSingle();
+          if (existingByTitle?.id) {
+            targetCourseId = existingByTitle.id;
+          }
+        }
+      } catch (e) {
+        console.warn("Course lookup warning:", e);
+      }
     }
 
-    const { data, error } = await adminClient
-      .from("courses")
-      .upsert(payload)
-      .select()
-      .single();
+    let savedCourse: any = null;
 
-    if (error) {
-      console.error("Course upsert error:", error);
-      throw error;
+    if (targetCourseId) {
+      payload.id = targetCourseId;
+      const { data, error } = await adminClient
+        .from("courses")
+        .upsert(payload, { onConflict: "id" })
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Upsert failed, falling back to update:", error);
+        const { data: updatedData, error: updateError } = await adminClient
+          .from("courses")
+          .update(payload)
+          .eq("id", targetCourseId)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        savedCourse = updatedData;
+      } else {
+        savedCourse = data;
+      }
+    } else {
+      const { data, error } = await adminClient
+        .from("courses")
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        // Handle race condition on duplicate slug
+        if (error.code === "23505") {
+          const { data: retryData, error: retryError } = await adminClient
+            .from("courses")
+            .update(payload)
+            .eq("slug", slug)
+            .select()
+            .single();
+          if (retryError) throw retryError;
+          savedCourse = retryData;
+        } else {
+          throw error;
+        }
+      } else {
+        savedCourse = data;
+      }
     }
 
-    return NextResponse.json({ success: true, course: data });
+    return NextResponse.json({ success: true, course: savedCourse });
   } catch (error) {
     console.error("POST /api/admin/courses error:", error);
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });

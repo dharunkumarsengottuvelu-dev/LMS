@@ -46,7 +46,7 @@ export default function StudentCoursesPage() {
     difficulty: c.difficulty || "Beginner",
     progress: c.progress ?? 0,
     completedLessons: 0,
-    totalLessons: c.totalLessons || (c.modules?.reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0)) || 15,
+    totalLessons: c.totalLessons || (c.modules?.reduce((acc: number, m: any) => acc + (m.subModules?.length || m.lessons?.length || 1), 0)) || 10,
     instructor: c.instructor || "Lead Technical Trainer",
     thumbnail: c.thumbnail || c.thumbnail_url || "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
   }));
