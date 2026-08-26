@@ -423,7 +423,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
       variant: "destructive",
     });
   };
-
   const handleMoveMainModule = (index: number, direction: "up" | "down") => {
     const targetIndex = direction === "up" ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= draftModules.length) return;
@@ -437,6 +436,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     }
   };
 
+  const scrollToBuilder = () => {
+    setTimeout(() => {
+      document.getElementById("sub-module-builder-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
   // Sub-Module Handlers
   const openAddSubModule = (mainModuleId: string) => {
     setTargetMainModuleId(mainModuleId);
@@ -447,6 +452,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     const mainIdx = draftModules.findIndex((m) => m.id === mainModuleId);
     setModTitle(`Lesson ${mainIdx + 1}.${subCount + 1}: `);
     setShowModuleBuilder(true);
+    scrollToBuilder();
   };
 
   const openEditSubModule = (mainModuleId: string, sub: CourseSyllabusSubModule) => {
@@ -464,6 +470,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     setModStarter(sub.practiceStarterCode || "");
     setModQuiz(sub.quizQuestions || "");
     setShowModuleBuilder(true);
+    scrollToBuilder();
   };
 
   const handleSaveSubModule = (e: React.FormEvent) => {
@@ -592,25 +599,52 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
   // Auto-save draft on changes
   useEffect(() => {
-    if (typeof window === "undefined" || viewState !== "wizard" || editingCourseId) return;
+    if (typeof window === "undefined" || viewState !== "wizard") return;
     if (!fTitle && !fCategory && !fDesc && draftModules.length === 0) return;
     setIsSavedCourseDraft(false);
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       try {
-        const d = {
-          fTitle, fCategory, fLevel, fInstructor, fDesc, fThumbnail,
-          draftModules, isCommon, selectedBatches,
-          savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        };
-        localStorage.setItem("draft_course_wizard", JSON.stringify(d));
-        setIsSavedCourseDraft(true);
-        setLastSavedCourseDraft(d.savedAt);
+        if (editingCourseId) {
+          const existing = courses.find((c) => c.id === editingCourseId);
+          if (existing) {
+            const updatedCourse: ManagedCourse = {
+              ...existing,
+              title: fTitle,
+              category: fCategory || "General",
+              level: fLevel,
+              instructor: fInstructor || "Course Instructor",
+              description: fDesc,
+              thumbnail: fThumbnail || existing.thumbnail,
+              modules: draftModules,
+              totalLessons: getTotalSubModulesCount(draftModules),
+            };
+            
+            await fetch("/api/admin/courses", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ course: updatedCourse }),
+            });
+            
+            setCourses((prev) => prev.map((c) => (c.id === editingCourseId ? updatedCourse : c)));
+            setIsSavedCourseDraft(true);
+            setLastSavedCourseDraft(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+          }
+        } else {
+          const d = {
+            fTitle, fCategory, fLevel, fInstructor, fDesc, fThumbnail,
+            draftModules, isCommon, selectedBatches,
+            savedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+          };
+          localStorage.setItem("draft_course_wizard", JSON.stringify(d));
+          setIsSavedCourseDraft(true);
+          setLastSavedCourseDraft(d.savedAt);
+        }
       } catch (e) {
         console.warn("Failed to auto-save course draft", e);
       }
-    }, 500);
+    }, 1500);
     return () => clearTimeout(timer);
-  }, [fTitle, fCategory, fLevel, fInstructor, fDesc, fThumbnail, draftModules, isCommon, selectedBatches, viewState, editingCourseId]);
+  }, [fTitle, fCategory, fLevel, fInstructor, fDesc, fThumbnail, draftModules, isCommon, selectedBatches, viewState, editingCourseId, courses]);
 
   const filtered = courses.filter((c) =>
     c.title.toLowerCase().includes(search.toLowerCase()) &&
@@ -1232,7 +1266,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
             {/* SUB-MODULE BUILDER CARD */}
             {showModuleBuilder && (
-              <Card className="bg-white dark:bg-[#18181B] border-2 border-[#2563EB] p-6 rounded-2xl space-y-5 shadow-md">
+              <Card id="sub-module-builder-section" className="bg-white dark:bg-[#18181B] border-2 border-[#2563EB] p-6 rounded-2xl space-y-5 shadow-md">
                 <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[#2563EB]">
