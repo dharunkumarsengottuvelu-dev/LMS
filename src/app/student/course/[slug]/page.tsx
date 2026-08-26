@@ -41,14 +41,14 @@ export function getVideoPlayerConfig(url?: string): VideoPlayerConfig {
   );
   if (ytMatch && ytMatch[1]) {
     const videoId = ytMatch[1];
-    let startParam = "";
+    let params = "?rel=0&modestbranding=1&iv_load_policy=3";
     const timeMatch = trimmed.match(/[?&]t=(\d+)/);
     if (timeMatch && timeMatch[1]) {
-      startParam = `?start=${timeMatch[1]}`;
+      params += `&start=${timeMatch[1]}`;
     }
     return {
       type: "iframe",
-      src: `https://www.youtube-nocookie.com/embed/${videoId}${startParam}`,
+      src: `https://www.youtube-nocookie.com/embed/${videoId}${params}`,
     };
   }
 
