@@ -8,8 +8,9 @@ import {
   ArrowLeft, FolderKanban, Sparkles, Trash2, Edit, Save,
   HelpCircle, Layers, Eye, EyeOff, UploadCloud, User,
   Maximize2, Minimize2, ShieldAlert, Lock, Copy, RotateCcw,
-  Edit2, ChevronUp
+  Edit2, ChevronUp, FileSpreadsheet
 } from "lucide-react";
+import { BulkUploadModal } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,6 +145,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [selectedTrack, setSelectedTrack] = useState<PracticeTrack | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingSubModuleId, setEditingSubModuleId] = useState<string | null>(null);
+  const [showPracticeBulkUpload, setShowPracticeBulkUpload] = useState<boolean>(false);
 
   // Track form state
   const [fTitle, setFTitle]       = useState("");
@@ -1200,44 +1202,65 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           description={`${selectedTrack.category} • Instructor: ${selectedTrack.assignedByName}`}
           backAction={{ label: "Back", onClick: () => setViewState("list") }}
           actions={
-            <Button onClick={() => { 
-              setEditingSubModuleId(null);
-              setSmTitle(""); setSmDuration(30); setSmDurationEnabled(true); setSmMarks(100); setSmQuestions(10);
-              setSmHasHiddenTests(false); setSmHiddenTests("");
-              setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
-              setSections([
-                {
-                  id: "sec_1",
-                  title: "Section 1: General & Technical Questions",
-                  mcqQuestions: [
-                    {
-                      id: "q1",
-                      questionText: "",
-                      options: [
-                        { id: "o1", text: "", isCorrect: true },
-                        { id: "o2", text: "", isCorrect: false },
-                        { id: "o3", text: "", isCorrect: false },
-                        { id: "o4", text: "", isCorrect: false },
-                      ],
-                      explanation: "",
-                    },
-                  ],
-                  codingQuestions: [],
-                },
-              ]);
-              setViewState("add-module"); 
-            }}
-              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs gap-2 px-5 rounded-xl shrink-0 shadow-sm">
-              <Plus className="h-4 w-4" /> Add Sub-Module
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowPracticeBulkUpload(true)}
+                className="h-[44px] text-xs font-semibold gap-1.5 px-4 rounded-xl border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 shadow-xs"
+              >
+                <FileSpreadsheet className="h-4 w-4" /> Bulk Upload
+              </Button>
+              <Button onClick={() => { 
+                setEditingSubModuleId(null);
+                setSmTitle(""); setSmDuration(30); setSmDurationEnabled(true); setSmMarks(100); setSmQuestions(10);
+                setSmHasHiddenTests(false); setSmHiddenTests("");
+                setSmProblemDesc(""); setSmStarterCode(""); setSmPublicTestCases("");
+                setSections([
+                  {
+                    id: "sec_1",
+                    title: "Section 1: General & Technical Questions",
+                    mcqQuestions: [
+                      {
+                        id: "q1",
+                        questionText: "",
+                        options: [
+                          { id: "o1", text: "", isCorrect: true },
+                          { id: "o2", text: "", isCorrect: false },
+                          { id: "o3", text: "", isCorrect: false },
+                          { id: "o4", text: "", isCorrect: false },
+                        ],
+                        explanation: "",
+                      },
+                    ],
+                    codingQuestions: [],
+                  },
+                ]);
+                setViewState("add-module"); 
+              }}
+                className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs gap-2 px-5 rounded-xl shrink-0 shadow-sm">
+                <Plus className="h-4 w-4" /> Add Sub-Module
+              </Button>
+            </div>
           }
         />
 
         <div className="space-y-3">
           {selectedTrack.subModules.length === 0 && (
-            <div className="text-center py-16 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF]">
-              <p className="font-semibold text-sm text-[#111827] dark:text-[#FAFAFA]">No practice sub-modules configured yet.</p>
-              <p className="text-xs mt-1 text-[#6B7280]">Click "Add Sub-Module" above to configure MCQ, Coding, or Mixed items.</p>
+            <div className="text-center py-16 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF] space-y-4">
+              <div>
+                <p className="font-semibold text-sm text-[#111827] dark:text-[#FAFAFA]">No practice sub-modules configured yet.</p>
+                <p className="text-xs mt-1 text-[#6B7280]">Add items manually or use Bulk Upload with Excel / CSV.</p>
+              </div>
+              <div className="flex items-center justify-center gap-3">
+                <Button
+                  onClick={() => setShowPracticeBulkUpload(true)}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs font-semibold gap-1.5 border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 rounded-xl"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5" /> Bulk Upload
+                </Button>
+              </div>
             </div>
           )}
           {selectedTrack.subModules.map((sm, idx) => (
@@ -2313,6 +2336,25 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           })}
         </div>
       )}
+
+      {/* ── BULK UPLOAD SUB-MODULES MODAL ── */}
+      <BulkUploadModal
+        isOpen={showPracticeBulkUpload}
+        onClose={() => setShowPracticeBulkUpload(false)}
+        moduleType="practice"
+        moduleTitle={selectedTrack?.title}
+        onImport={async (importedItems) => {
+          if (!selectedTrack) return;
+          const updatedTrack = {
+            ...selectedTrack,
+            subModules: [...selectedTrack.subModules, ...importedItems]
+          };
+          setSelectedTrack(updatedTrack);
+          const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
+          await syncTracksToStore(updatedTracks);
+          setShowPracticeBulkUpload(false);
+        }}
+      />
     </div>
   );
 }

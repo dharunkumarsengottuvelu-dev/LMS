@@ -10,8 +10,10 @@ import {
   Check, ShieldCheck,
   UploadCloud, PenSquare, HardDrive, EyeOff,
   Maximize2, Minimize2, ShieldAlert, Lock,
-  ChevronDown, ChevronUp, FolderPlus, Folder, ArrowUp, ArrowDown
+  ChevronDown, ChevronUp, FolderPlus, Folder, ArrowUp, ArrowDown,
+  FileSpreadsheet
 } from "lucide-react";
+import { BulkUploadModal } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -297,6 +299,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [editingMainModuleId, setEditingMainModuleId] = useState<string | null>(null);
   const [mainModuleTitle, setMainModuleTitle] = useState("");
   const [mainModuleDesc, setMainModuleDesc] = useState("");
+
+  // Bulk Upload State
+  const [bulkUploadMainModuleId, setBulkUploadMainModuleId] = useState<string | null>(null);
 
   // Sub-Module Builder State
   const [targetMainModuleId, setTargetMainModuleId] = useState<string | null>(null);
@@ -1062,7 +1067,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     <Label className="text-xs font-semibold text-[#6B7280]">Global Duration:</Label>
                     <Switch
                       checked={globalDurationEnabled}
-                      onCheckedChange={setGlobalDurationEnabled}
+                      onCheckedChange={(checked) => {
+                        setGlobalDurationEnabled(checked);
+                        if (showModuleBuilder) {
+                          handleToggleDuration(checked);
+                        }
+                      }}
                     />
                   </div>
                   <Button
@@ -1139,6 +1149,17 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
                           <Button
                             type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setBulkUploadMainModuleId(mainMod.id)}
+                            className="h-8 px-3 text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg gap-1.5 shadow-xs"
+                            title="Bulk Upload Lessons from Excel / CSV"
+                          >
+                            <FileSpreadsheet className="h-3.5 w-3.5" /> Bulk Upload
+                          </Button>
+
+                          <Button
+                            type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => openEditMainModule(mainMod)}
@@ -1192,15 +1213,26 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                             <p className="text-[11px] text-[#6B7280] mt-0.5">
                               Add video lessons, reading materials, coding tasks or quiz assessments.
                             </p>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openAddSubModule(mainMod.id)}
-                              className="mt-3 h-8 px-3 text-xs font-semibold text-[#2563EB] border-[#2563EB]/40 hover:bg-[#2563EB]/10 rounded-lg"
-                            >
-                              + Add First Sub-Module
-                            </Button>
+                            <div className="flex items-center justify-center gap-2 mt-3">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openAddSubModule(mainMod.id)}
+                                className="h-8 px-3 text-xs font-semibold text-[#2563EB] border-[#2563EB]/40 hover:bg-[#2563EB]/10 rounded-lg"
+                              >
+                                + Add First Sub-Module
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setBulkUploadMainModuleId(mainMod.id)}
+                                className="h-8 px-3 text-xs font-semibold text-[#16A34A] border-[#16A34A]/40 hover:bg-[#16A34A]/10 rounded-lg gap-1.5"
+                              >
+                                <FileSpreadsheet className="h-3.5 w-3.5" /> Bulk Upload Lessons
+                              </Button>
+                            </div>
                           </div>
                         ) : (
                           <div className="space-y-2.5">
@@ -1796,6 +1828,29 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* ── BULK UPLOAD SUB-MODULES MODAL ── */}
+        <BulkUploadModal
+          isOpen={!!bulkUploadMainModuleId}
+          onClose={() => setBulkUploadMainModuleId(null)}
+          moduleType="course"
+          moduleTitle={draftModules.find((m) => m.id === bulkUploadMainModuleId)?.title}
+          onImport={(importedLessons) => {
+            if (!bulkUploadMainModuleId) return;
+            setDraftModules((prev) =>
+              prev.map((m) => {
+                if (m.id === bulkUploadMainModuleId) {
+                  return {
+                    ...m,
+                    subModules: [...m.subModules, ...importedLessons]
+                  };
+                }
+                return m;
+              })
+            );
+            setBulkUploadMainModuleId(null);
+          }}
+        />
       </div>
     );
   }
@@ -2002,8 +2057,8 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
       {/* ── ASSIGN COURSE MODAL DIALOG ── */}
       {assigningCourse && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0">
               <div>
                 <h3 className="font-bold text-lg text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
                   <Users className="h-5 w-5 text-[#2563EB]" /> Assign Course
@@ -2015,21 +2070,23 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               </Button>
             </div>
 
-            {/* Visibility & Batch Selection */}
-            <div className="space-y-3">
-              <VisibilitySelector
-                isCommon={isCommon}
-                selectedBatches={selectedBatches}
-                batches={allBatches}
-                onChange={({ isCommon: c, selectedBatches: b }) => {
-                  setIsCommon(c);
-                  setSelectedBatches(b);
-                }}
-              />
-            </div>
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Visibility & Batch Selection */}
+              <div className="space-y-3">
+                <VisibilitySelector
+                  isCommon={isCommon}
+                  selectedBatches={selectedBatches}
+                  batches={allBatches}
+                  onChange={({ isCommon: c, selectedBatches: b }) => {
+                    setIsCommon(c);
+                    setSelectedBatches(b);
+                  }}
+                />
+              </div>
 
-            {/* Individual Student Selection */}
-            <div className="space-y-3 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+              {/* Individual Student Selection */}
+              <div className="space-y-3 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
                   Assign to Specific Students ({selectedStudentIds.length} enrolled)
@@ -2058,7 +2115,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     const isChecked = selectedStudentIds.includes(s.id);
                     return (
                       <label key={s.id} className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${isChecked ? "bg-[#2563EB]/10 border-[#2563EB]/40" : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"}`}>
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-3">
                           <input
                             type="checkbox"
                             checked={isChecked}
@@ -2069,25 +2126,26 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                                 setSelectedStudentIds((prev) => prev.filter((id) => id !== s.id));
                               }
                             }}
-                            className="rounded text-[#2563EB] focus:ring-[#2563EB]"
+                            className="w-4 h-4 shrink-0 rounded text-[#2563EB] focus:ring-[#2563EB] border-gray-300 dark:border-[#27272A]"
                           />
-                          <div>
-                            <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">{s.name}</p>
-                            <p className="text-[10px] text-[#6B7280]">{s.email}</p>
+                          <div className="flex flex-col">
+                            <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs leading-tight">{s.name}</p>
+                            <p className="text-[10px] text-[#6B7280] leading-tight">{s.email}</p>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-[9px]">{s.batch}</Badge>
+                        <Badge variant="outline" className="text-[9px] shrink-0">{s.batch}</Badge>
                       </label>
                     );
                   })}
               </div>
             </div>
+          </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+          <div className="flex items-center justify-end gap-3 p-6 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A] shrink-0 bg-gray-50/50 dark:bg-black/20">
               <Button variant="outline" onClick={() => setAssigningCourse(null)} className="h-10 text-xs font-semibold">
                 Cancel
               </Button>
-              <Button onClick={handleSaveAssignments} className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl gap-2">
+              <Button onClick={handleSaveAssignments} className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl gap-2 shadow-sm">
                 <Check className="h-4 w-4" /> Save Assignments
               </Button>
             </div>
