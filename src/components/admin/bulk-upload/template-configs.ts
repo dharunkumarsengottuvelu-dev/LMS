@@ -24,6 +24,56 @@ export interface ModuleTemplateConfig {
 }
 
 export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
+  // ─── 0. COURSE MAIN MODULE TEMPLATE ─────────────────────────────────────────
+  main_module: {
+    moduleType: "main_module",
+    displayName: "Course Main Module / Unit Template",
+    description: "Template for creating high-level Main Modules / Chapters (e.g. 'Module 1: Java Basics') in bulk.",
+    templateFileName: "course_main_modules_template.xlsx",
+    columns: [
+      {
+        key: "title",
+        label: "Main Module Title",
+        type: "string",
+        required: true,
+        description: "Title of the main chapter/module (e.g. 'Module 1: Introduction to Java')",
+        sampleValue: "Module 1: Introduction to Java Foundations",
+      },
+      {
+        key: "description",
+        label: "Module Description",
+        type: "string",
+        required: false,
+        description: "Overview and learning goals of this unit",
+        sampleValue: "Core principles of Java language, JVM architecture, and object-oriented syntax.",
+      },
+    ],
+    sampleRows: [
+      {
+        title: "Module 1: Java Foundations & Object-Oriented Principles",
+        description: "Introduction to JVM, JDK, primitives, classes, objects, and memory model."
+      },
+      {
+        title: "Module 2: Advanced Data Structures & Collections Framework",
+        description: "Lists, Sets, Maps, Queues, Iterators, and Big-O computational complexities."
+      },
+      {
+        title: "Module 3: Concurrency, Multithreading & Async Programming",
+        description: "Threads, Executers, Locks, Concurrent collections, and synchronization mechanisms."
+      },
+      {
+        title: "Module 4: Spring Boot Microservices & REST API Development",
+        description: "Spring Boot architecture, dependency injection, JPA/Hibernate, and security."
+      }
+    ],
+    mapToPayload: (row, idx) => ({
+      id: `mod_bulk_${Date.now()}_${idx}`,
+      title: String(row.title || "").trim(),
+      description: String(row.description || "").trim(),
+      subModules: []
+    })
+  },
+
   // ─── 1. COURSE SUB-MODULE TEMPLATE ──────────────────────────────────────────
   course: {
     moduleType: "course",
@@ -638,6 +688,271 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
       weightagePercentage: Number(row.weightagePercentage) || 25,
       durationDays: Number(row.durationDays) || 14
     })
+  },
+
+  // ─── 8. PRACTICE TRACKS BULK CREATION TEMPLATE ─────────────────────────────
+  practice_track: {
+    moduleType: "practice_track",
+    displayName: "Practice Track Template",
+    description: "Template for creating multiple Practice Tracks in bulk.",
+    templateFileName: "practice_tracks_bulk_template.xlsx",
+    columns: [
+      {
+        key: "title",
+        label: "Track Title",
+        type: "string",
+        required: true,
+        description: "Title of the Practice Track (e.g. 'Core Java & Data Structures')",
+        sampleValue: "Core Java & OOPs Mastery",
+      },
+      {
+        key: "category",
+        label: "Category / Tags",
+        type: "string",
+        required: false,
+        description: "Technical category (e.g. 'Java', 'Python', 'Web Dev')",
+        sampleValue: "Java",
+      },
+      {
+        key: "instructor",
+        label: "Assigned Instructor",
+        type: "string",
+        required: false,
+        description: "Instructor or Admin author name",
+        sampleValue: "Dharunkumar S",
+      },
+      {
+        key: "level",
+        label: "Difficulty Level",
+        type: "enum",
+        required: false,
+        options: ["Beginner", "Intermediate", "Advanced"],
+        description: "Target difficulty level: Beginner, Intermediate, or Advanced",
+        sampleValue: "Intermediate",
+      },
+      {
+        key: "description",
+        label: "Track Description",
+        type: "string",
+        required: false,
+        description: "Overview and learning goals of this practice track",
+        sampleValue: "Comprehensive hands-on coding and MCQ practice exercises.",
+      },
+    ],
+    sampleRows: [
+      {
+        title: "Core Java & OOPs Mastery",
+        category: "Java",
+        instructor: "Dharunkumar S",
+        level: "Intermediate",
+        description: "Hands-on coding challenges covering classes, interfaces, collections, and streams."
+      },
+      {
+        title: "Python Data Science & NumPy Bootcamp",
+        category: "Python",
+        instructor: "Dharunkumar S",
+        level: "Beginner",
+        description: "Foundational Python syntax, data manipulation with pandas, and array operations."
+      },
+      {
+        title: "Full Stack MERN Architecture Practice",
+        category: "Web Development",
+        instructor: "Dharunkumar S",
+        level: "Advanced",
+        description: "Production-grade React, Node.js, Express, and MongoDB exercises."
+      }
+    ],
+    mapToPayload: (row, idx) => ({
+      id: `track_${Date.now()}_${idx}`,
+      title: String(row.title || "").trim(),
+      description: String(row.description || "Practice track for student batches.").trim(),
+      category: String(row.category || "General").trim(),
+      assignedBy: String(row.instructor || "Dharunkumar S").trim(),
+      level: (row.level && ["Beginner", "Intermediate", "Advanced"].includes(row.level)) ? row.level : "Intermediate",
+      isPublished: true,
+      subModules: [],
+      assignedBatches: [],
+      assignedStudents: [],
+    })
+  },
+
+  // ─── 9. COURSES BULK CREATION TEMPLATE ──────────────────────────────────────
+  course_batch: {
+    moduleType: "course_batch",
+    displayName: "Course Catalog Template",
+    description: "Template for creating multiple Training Courses in bulk.",
+    templateFileName: "courses_bulk_template.xlsx",
+    columns: [
+      {
+        key: "title",
+        label: "Course Title",
+        type: "string",
+        required: true,
+        description: "Full title of the Course (e.g. 'Mastering Modern Spring Boot 3')",
+        sampleValue: "Mastering Modern Spring Boot 3",
+      },
+      {
+        key: "category",
+        label: "Category",
+        type: "string",
+        required: false,
+        description: "Category (e.g. 'Web Development', 'Cloud Computing', 'AI & Machine Learning')",
+        sampleValue: "Web Development",
+      },
+      {
+        key: "level",
+        label: "Level",
+        type: "enum",
+        required: false,
+        options: ["Beginner", "Intermediate", "Advanced"],
+        description: "Difficulty level",
+        sampleValue: "Intermediate",
+      },
+      {
+        key: "instructor",
+        label: "Instructor Name",
+        type: "string",
+        required: false,
+        description: "Primary course instructor",
+        sampleValue: "Dharunkumar S",
+      },
+      {
+        key: "description",
+        label: "Course Description",
+        type: "string",
+        required: false,
+        description: "Detailed syllabus overview and prerequisites",
+        sampleValue: "Deep dive into microservices, Spring Security, and cloud deployments.",
+      },
+    ],
+    sampleRows: [
+      {
+        title: "Mastering Modern Spring Boot 3",
+        category: "Web Development",
+        level: "Intermediate",
+        instructor: "Dharunkumar S",
+        description: "Build robust, scalable enterprise microservices using Spring Boot 3 and Docker."
+      },
+      {
+        title: "Applied Machine Learning & LLM Engineering",
+        category: "AI & Machine Learning",
+        level: "Advanced",
+        instructor: "Dharunkumar S",
+        description: "Transformers, RAG pipelines, fine-tuning, and production deployment architectures."
+      },
+      {
+        title: "AWS Certified Solutions Architect Training",
+        category: "Cloud Computing",
+        level: "Beginner",
+        instructor: "Dharunkumar S",
+        description: "Complete guide to AWS EC2, S3, RDS, IAM, and enterprise networking."
+      }
+    ],
+    mapToPayload: (row, idx) => ({
+      id: `course_${Date.now()}_${idx}`,
+      title: String(row.title || "").trim(),
+      category: String(row.category || "General").trim(),
+      level: (row.level && ["Beginner", "Intermediate", "Advanced"].includes(row.level)) ? row.level : "Intermediate",
+      instructor: String(row.instructor || "Dharunkumar S").trim(),
+      description: String(row.description || "Comprehensive course curriculum.").trim(),
+      thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
+      modules: [],
+      totalLessons: 0,
+      status: "published",
+      enrolledStudents: 0,
+      durationHours: 0,
+      durationMins: 0,
+      isCommon: true,
+      assignedBatches: [],
+      assignedStudents: [],
+    })
+  },
+
+  // ─── 10. ASSESSMENTS BULK CREATION TEMPLATE ─────────────────────────────────
+  assessment_track: {
+    moduleType: "assessment_track",
+    displayName: "Assessment Exam Template",
+    description: "Template for creating multiple Assessments / Proctored Exams in bulk.",
+    templateFileName: "assessments_bulk_template.xlsx",
+    columns: [
+      {
+        key: "title",
+        label: "Assessment Title",
+        type: "string",
+        required: true,
+        description: "Title of the Assessment test",
+        sampleValue: "Quarterly Java & Algorithms Assessment",
+      },
+      {
+        key: "category",
+        label: "Category / Domain",
+        type: "string",
+        required: false,
+        description: "Category (e.g. 'Software Engineering', 'Aptitude')",
+        sampleValue: "Software Engineering",
+      },
+      {
+        key: "durationMinutes",
+        label: "Duration (Minutes)",
+        type: "number",
+        required: false,
+        description: "Test duration in minutes (e.g. 60, 90, 120)",
+        sampleValue: 90,
+      },
+      {
+        key: "totalMarks",
+        label: "Total Marks",
+        type: "number",
+        required: false,
+        description: "Total maximum score",
+        sampleValue: 100,
+      },
+      {
+        key: "passingMarks",
+        label: "Passing Marks",
+        type: "number",
+        required: false,
+        description: "Minimum qualifying score",
+        sampleValue: 40,
+      },
+      {
+        key: "description",
+        label: "Description",
+        type: "string",
+        required: false,
+        description: "Instructions and test overview",
+        sampleValue: "Proctored technical test with coding challenges and multiple choice questions.",
+      },
+    ],
+    sampleRows: [
+      {
+        title: "Quarterly Java & Algorithms Assessment",
+        category: "Software Engineering",
+        durationMinutes: 90,
+        totalMarks: 100,
+        passingMarks: 50,
+        description: "Covers Core Java, Collections, Multithreading, and Time Complexities."
+      },
+      {
+        title: "Frontend Engineering & React Mastery Test",
+        category: "Web Development",
+        durationMinutes: 60,
+        totalMarks: 80,
+        passingMarks: 40,
+        description: "React hooks, state management, performance optimization, and DOM manipulation."
+      }
+    ],
+    mapToPayload: (row, idx) => ({
+      id: `test_${Date.now()}_${idx}`,
+      title: String(row.title || "").trim(),
+      description: String(row.description || "Proctored evaluation test.").trim(),
+      category: String(row.category || "General").trim(),
+      durationMinutes: Number(row.durationMinutes) || 60,
+      totalMarks: Number(row.totalMarks) || 100,
+      passingMarks: Number(row.passingMarks) || 40,
+      status: "published",
+      sections: [],
+    })
   }
 };
 
@@ -652,10 +967,17 @@ export function isTruthy(val: any): boolean {
   return str === "yes" || str === "true" || str === "1" || str === "enabled" || str === "y";
 }
 
-/**
- * Returns the template config for a given module type, falling back to 'course' if undefined.
- */
 export function getTemplateConfig(moduleType: string): ModuleTemplateConfig {
-  const normalized = (moduleType || "course").toLowerCase();
-  return (TEMPLATE_CONFIGS[normalized] || TEMPLATE_CONFIGS.course) as ModuleTemplateConfig;
+  const normalized = (moduleType || "course").toLowerCase().trim();
+  if (TEMPLATE_CONFIGS[normalized]) {
+    return TEMPLATE_CONFIGS[normalized] as ModuleTemplateConfig;
+  }
+  // Aliases
+  if (normalized === "courses" || normalized === "course_batch") return (TEMPLATE_CONFIGS.course_batch || TEMPLATE_CONFIGS.course) as ModuleTemplateConfig;
+  if (normalized === "practices" || normalized === "practice_track" || normalized === "tracks") return (TEMPLATE_CONFIGS.practice_track || TEMPLATE_CONFIGS.practice) as ModuleTemplateConfig;
+  if (normalized === "assessments" || normalized === "assessment_track" || normalized === "tests") return (TEMPLATE_CONFIGS.assessment_track || TEMPLATE_CONFIGS.assessment) as ModuleTemplateConfig;
+  if (normalized === "main_modules" || normalized === "units") return (TEMPLATE_CONFIGS.main_module || TEMPLATE_CONFIGS.course) as ModuleTemplateConfig;
+  
+  return (TEMPLATE_CONFIGS.course || Object.values(TEMPLATE_CONFIGS)[0]) as ModuleTemplateConfig;
 }
+

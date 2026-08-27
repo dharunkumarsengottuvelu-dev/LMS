@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { AutoLogoutProvider } from "@/components/providers/auto-logout-provider";
 
 import { LMSProvider } from "@/lib/store/lms-store";
 
@@ -70,10 +71,12 @@ export default function RootLayout({
         >
           <TooltipProvider>
             <AuthProvider>
-              <LMSProvider>
-                {children}
-              </LMSProvider>
-              <Toaster />
+              <AutoLogoutProvider>
+                <LMSProvider>
+                  {children}
+                </LMSProvider>
+                <Toaster />
+              </AutoLogoutProvider>
             </AuthProvider>
           </TooltipProvider>
         </ThemeProvider>

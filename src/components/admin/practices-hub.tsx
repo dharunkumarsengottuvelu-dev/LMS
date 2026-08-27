@@ -10,7 +10,7 @@ import {
   Maximize2, Minimize2, ShieldAlert, Lock, Copy, RotateCcw,
   Edit2, ChevronUp, FileSpreadsheet
 } from "lucide-react";
-import { BulkUploadModal } from "@/components/admin/bulk-upload";
+import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,6 +146,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingSubModuleId, setEditingSubModuleId] = useState<string | null>(null);
   const [showPracticeBulkUpload, setShowPracticeBulkUpload] = useState<boolean>(false);
+  const [showBulkUploadTracks, setShowBulkUploadTracks] = useState<boolean>(false);
 
   // Track form state
   const [fTitle, setFTitle]       = useState("");
@@ -1244,7 +1245,28 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           }
         />
 
-        <div className="space-y-3">
+        <div className="space-y-4">
+          {/* BULK UPLOAD INLINE CARD */}
+          {showPracticeBulkUpload && (
+            <BulkUploadCard
+              isOpen={true}
+              inline={true}
+              onClose={() => setShowPracticeBulkUpload(false)}
+              moduleType="practice"
+              moduleTitle={selectedTrack.title}
+              onImport={async (importedItems) => {
+                if (!selectedTrack) return;
+                const updatedTrack = {
+                  ...selectedTrack,
+                  subModules: [...selectedTrack.subModules, ...importedItems]
+                };
+                setSelectedTrack(updatedTrack);
+                const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
+                await syncTracksToStore(updatedTracks);
+                setShowPracticeBulkUpload(false);
+              }}
+            />
+          )}
           {selectedTrack.subModules.length === 0 && (
             <div className="text-center py-16 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF] space-y-4">
               <div>
@@ -2179,18 +2201,51 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   // ════════════════════════════════════════════════════════════
   // VIEW: LIST PRACTICES (MNC CORPORATE STYLING)
   // ════════════════════════════════════════════════════════════
+  const handleBulkImportTracks = async (importedTracks: PracticeTrack[]) => {
+    const updated = [...tracks, ...importedTracks];
+    setTracks(updated);
+    await syncTracksToStore(updated);
+    setShowBulkUploadTracks(false);
+    toast({
+      title: "Practice Tracks Created",
+      description: `Successfully imported ${importedTracks.length} practice tracks.`,
+    });
+  };
+
   return (
     <div className="space-y-8">
       <PageHeader
         title={role === "admin" ? "Practice Track Management" : "Practice Track Assignments"}
         description="Author practice tracks with MCQ, Coding, and Mixed assessments for student batches"
         actions={
-          <Button onClick={openCreate}
-            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs">
-            <Plus className="h-4 w-4" /> Create Practice Track
-          </Button>
+          <div className="flex items-center gap-2.5">
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkUploadTracks((prev) => !prev)}
+              className="h-[44px] text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 rounded-xl shrink-0 shadow-xs"
+              title="Bulk create practice tracks via Excel / CSV"
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Bulk Upload Tracks
+            </Button>
+            <Button onClick={openCreate}
+              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs">
+              <Plus className="h-4 w-4" /> Create Practice Track
+            </Button>
+          </div>
         }
       />
+
+      {/* BULK UPLOAD TRACKS INLINE CARD */}
+      {showBulkUploadTracks && (
+        <BulkUploadCard
+          isOpen={true}
+          inline={true}
+          onClose={() => setShowBulkUploadTracks(false)}
+          moduleType="practice_track"
+          moduleTitle="Practice Tracks Catalog"
+          onImport={handleBulkImportTracks}
+        />
+      )}
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-3 rounded-xl shadow-sm">
         <div className="relative w-full md:w-[450px]">
@@ -2336,25 +2391,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           })}
         </div>
       )}
-
-      {/* ── BULK UPLOAD SUB-MODULES MODAL ── */}
-      <BulkUploadModal
-        isOpen={showPracticeBulkUpload}
-        onClose={() => setShowPracticeBulkUpload(false)}
-        moduleType="practice"
-        moduleTitle={selectedTrack?.title}
-        onImport={async (importedItems) => {
-          if (!selectedTrack) return;
-          const updatedTrack = {
-            ...selectedTrack,
-            subModules: [...selectedTrack.subModules, ...importedItems]
-          };
-          setSelectedTrack(updatedTrack);
-          const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
-          await syncTracksToStore(updatedTracks);
-          setShowPracticeBulkUpload(false);
-        }}
-      />
     </div>
   );
 }

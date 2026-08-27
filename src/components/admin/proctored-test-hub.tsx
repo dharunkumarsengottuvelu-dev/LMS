@@ -7,8 +7,10 @@ import {
   ClipboardList, Plus, Search, ShieldAlert, ShieldCheck, Clock, Users,
   Award, Eye, Trash2, Play, ArrowLeft, Sparkles, Lock, FileText, CheckSquare, Settings,
   CheckCircle2, AlertCircle, Send, Check, Code2, Edit, Download, Calendar, CalendarDays,
-  CalendarRange, X, RotateCcw, Zap, Globe, Timer, Info, Copy, RefreshCw
+  CalendarRange, X, RotateCcw, Zap, Globe, Timer, Info, Copy, RefreshCw,
+  FileSpreadsheet
 } from "lucide-react";
+import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,6 +143,9 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const [passingCriteriaType, setPassingCriteriaType] = useState<"percentage" | "marks">("percentage");
   const [passPercentage, setPassPercentage] = useState(40);
   const [passingMarks, setPassingMarks] = useState(40);
+
+  // Bulk Upload State
+  const [showBulkUploadAssessments, setShowBulkUploadAssessments] = useState(false);
 
   // Edit Exam Settings Modal State
   const [isEditingExamSettings, setIsEditingExamSettings] = useState(false);
@@ -3305,6 +3310,15 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   }
 
   // --- MAIN LIST VIEW ---
+  const handleBulkImportAssessments = (importedTests: ScheduledTest[]) => {
+    setTests((prev) => [...prev, ...importedTests]);
+    setShowBulkUploadAssessments(false);
+    toast({
+      title: "Assessments Created",
+      description: `Successfully imported ${importedTests.length} assessments into the system.`,
+    });
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header Banner */}
@@ -3312,13 +3326,21 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         title={role === "admin" ? "Proctored Examination Manager" : "Assessment & Test Creator"}
         description="Build proctored tests, assign them to batches, and monitor live submissions."
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkUploadAssessments((prev) => !prev)}
+              className="h-[44px] border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 font-bold text-xs gap-2 px-4 rounded-xl shadow-xs"
+              title="Bulk create assessments via Excel / CSV"
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Bulk Upload Assessments
+            </Button>
             <Button
               onClick={exportAllTestsCsv}
               variant="outline"
               className="h-[44px] border-[#E5E7EB] dark:border-[#27272A] font-bold text-xs gap-2 px-4 rounded-xl shadow-xs"
             >
-              <Download className="h-4 w-4" /> Export All Summary (CSV)
+              <Download className="h-4 w-4" /> Export All (CSV)
             </Button>
             <Button onClick={() => setViewState("wizard")} className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shrink-0 shadow-md shadow-[#2563EB]/20">
               <Plus className="h-4 w-4" /> Create New Exam
@@ -3326,6 +3348,18 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
           </div>
         }
       />
+
+      {/* BULK UPLOAD ASSESSMENTS INLINE CARD */}
+      {showBulkUploadAssessments && (
+        <BulkUploadCard
+          isOpen={true}
+          inline={true}
+          onClose={() => setShowBulkUploadAssessments(false)}
+          moduleType="assessment_track"
+          moduleTitle="Assessments & Exams Catalog"
+          onImport={handleBulkImportAssessments}
+        />
+      )}
 
       {/* Premium MNC Level Filter Controls */}
       <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2 rounded-2xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 mb-2">

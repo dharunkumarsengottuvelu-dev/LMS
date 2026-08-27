@@ -13,7 +13,7 @@ import {
   ChevronDown, ChevronUp, FolderPlus, Folder, ArrowUp, ArrowDown,
   FileSpreadsheet
 } from "lucide-react";
-import { BulkUploadModal } from "@/components/admin/bulk-upload";
+import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -301,7 +301,12 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [mainModuleDesc, setMainModuleDesc] = useState("");
 
   // Bulk Upload State
+  const [showBulkUploadCourses, setShowBulkUploadCourses] = useState(false);
+  const [isBulkUploadingMainModules, setIsBulkUploadingMainModules] = useState(false);
   const [bulkUploadMainModuleId, setBulkUploadMainModuleId] = useState<string | null>(null);
+
+  // Collapsible Main Modules State (Minimized by default, expand to view/edit sub-modules)
+  const [expandedModuleIds, setExpandedModuleIds] = useState<string[]>([]);
 
   // Sub-Module Builder State
   const [targetMainModuleId, setTargetMainModuleId] = useState<string | null>(null);
@@ -382,7 +387,36 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   };
 
   // Main Module Handlers
+  const toggleModuleExpansion = (modId: string) => {
+    setExpandedModuleIds((prev) =>
+      prev.includes(modId) ? prev.filter((id) => id !== modId) : [...prev, modId]
+    );
+  };
+
+  const expandAllModules = () => {
+    setExpandedModuleIds(draftModules.map((m) => m.id));
+  };
+
+  const collapseAllModules = () => {
+    setExpandedModuleIds([]);
+  };
+
+  const openBulkUploadMainModules = () => {
+    setShowModuleBuilder(false);
+    setBulkUploadMainModuleId(null);
+    setIsBulkUploadingMainModules(true);
+    setTimeout(() => {
+      document.getElementById("bulk-upload-main-modules-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
+  const handleBulkImportMainModules = (importedModules: CourseSyllabusModule[]) => {
+    setDraftModules((prev) => [...prev, ...importedModules]);
+    setIsBulkUploadingMainModules(false);
+  };
+
   const openCreateMainModule = () => {
+    setIsBulkUploadingMainModules(false);
     setEditingMainModuleId(null);
     setMainModuleTitle(`Module ${draftModules.length + 1}: `);
     setMainModuleDesc("");
@@ -453,11 +487,24 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   };
 
   // Sub-Module Handlers
+  const openBulkUpload = (mainModuleId: string) => {
+    setIsBulkUploadingMainModules(false);
+    setShowModuleBuilder(false);
+    setBulkUploadMainModuleId(mainModuleId);
+    setExpandedModuleIds((prev) => (prev.includes(mainModuleId) ? prev : [...prev, mainModuleId]));
+    setTimeout(() => {
+      document.getElementById("bulk-upload-card-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
   const openAddSubModule = (mainModuleId: string) => {
+    setIsBulkUploadingMainModules(false);
+    setBulkUploadMainModuleId(null);
     setTargetMainModuleId(mainModuleId);
     setEditingSubModuleId(null);
     setTargetInsertIndex(null);
     resetSubModuleBuilder();
+    setExpandedModuleIds((prev) => (prev.includes(mainModuleId) ? prev : [...prev, mainModuleId]));
     const mainMod = draftModules.find((m) => m.id === mainModuleId);
     const subCount = mainMod ? mainMod.subModules.length : 0;
     const mainIdx = draftModules.findIndex((m) => m.id === mainModuleId);
@@ -480,6 +527,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
   const openEditSubModule = (mainModuleId: string, sub: CourseSyllabusSubModule) => {
     try {
+      setBulkUploadMainModuleId(null);
       setTargetMainModuleId(mainModuleId);
       setEditingSubModuleId(sub.id);
       setModTitle(sub.title || "");
@@ -1075,51 +1123,121 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                       }}
                     />
                   </div>
-                  <Button
-                    type="button"
-                    onClick={openCreateMainModule}
-                    className="h-10 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-sm"
-                  >
-                    + Add Main Module
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {draftModules.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (expandedModuleIds.length === draftModules.length) {
+                            collapseAllModules();
+                          } else {
+                            expandAllModules();
+                          }
+                        }}
+                        className="h-9 px-3 text-xs font-semibold text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] gap-1.5"
+                        title={expandedModuleIds.length === draftModules.length ? "Collapse all main modules" : "Expand all main modules"}
+                      >
+                        {expandedModuleIds.length === draftModules.length ? (
+                          <>
+                            <ChevronUp className="h-3.5 w-3.5" /> Collapse All
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-3.5 w-3.5" /> Expand All
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={openBulkUploadMainModules}
+                      className="h-10 px-3.5 border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 font-semibold text-xs rounded-xl shadow-xs gap-1.5"
+                      title="Upload multiple Main Modules from Excel / CSV"
+                    >
+                      <FileSpreadsheet className="h-4 w-4" /> Bulk Upload Main Modules
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={openCreateMainModule}
+                      className="h-10 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-sm"
+                    >
+                      + Add Main Module
+                    </Button>
+                  </div>
                 </div>
               </div>
 
-              {draftModules.length === 0 && (
+              {/* BULK UPLOAD MAIN MODULES INLINE CARD */}
+              {isBulkUploadingMainModules && (
+                <div id="bulk-upload-main-modules-section" className="pt-2">
+                  <BulkUploadCard
+                    isOpen={true}
+                    inline={true}
+                    onClose={() => setIsBulkUploadingMainModules(false)}
+                    moduleType="main_module"
+                    moduleTitle={fTitle || "Course Curriculum"}
+                    onImport={handleBulkImportMainModules}
+                  />
+                </div>
+              )}
+
+              {draftModules.length === 0 && !isBulkUploadingMainModules && (
                 <div className="text-center py-14 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-[#9CA3AF] bg-[#F9FAFB]/50 dark:bg-[#09090B]/50">
                   <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">No main modules created yet</p>
                   <p className="text-xs text-[#6B7280] mt-1 max-w-md mx-auto">
-                    Start by creating a Main Module (e.g. &quot;Module 1: Java Basics&quot;), then add nested sub-modules and lessons inside it.
+                    Start by creating Main Modules (e.g. &quot;Module 1: Java Basics&quot;), or use Bulk Upload to import multiple main modules at once from Excel / CSV.
                   </p>
-                  <Button
-                    type="button"
-                    onClick={openCreateMainModule}
-                    className="mt-4 h-9 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl"
-                  >
-                    Create First Main Module
-                  </Button>
+                  <div className="flex items-center justify-center gap-3 mt-4">
+                    <Button
+                      type="button"
+                      onClick={openCreateMainModule}
+                      className="h-9 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl"
+                    >
+                      + Create First Main Module
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={openBulkUploadMainModules}
+                      className="h-9 px-4 text-[#2563EB] border-[#2563EB]/40 hover:bg-[#2563EB]/10 font-semibold text-xs rounded-xl gap-1.5"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" /> Bulk Upload Main Modules
+                    </Button>
+                  </div>
                 </div>
               )}
 
               {/* LIST OF MAIN MODULES */}
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {draftModules.map((mainMod, mIdx) => {
                   const subCount = mainMod.subModules ? mainMod.subModules.length : 0;
                   const mainModDuration = calculateModulesTotalDuration([mainMod]);
+                  const isExpanded = expandedModuleIds.includes(mainMod.id);
 
                   return (
                     <div
                       key={mainMod.id}
-                      className="rounded-2xl border-2 border-[#E5E7EB] dark:border-[#27272A] overflow-hidden bg-[#FAFAFA] dark:bg-[#09090B]/60 shadow-sm"
+                      className={`rounded-2xl border-2 transition-all overflow-hidden bg-[#FAFAFA] dark:bg-[#09090B]/60 shadow-sm ${
+                        isExpanded ? "border-[#2563EB]/50" : "border-[#E5E7EB] dark:border-[#27272A]"
+                      }`}
                     >
                       {/* Main Module Header Bar */}
-                      <div className="p-4 sm:p-5 bg-white dark:bg-[#18181B] border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col md:flex-row md:items-center justify-between gap-3">
-                        <div className="flex items-start sm:items-center gap-3 min-w-0">
+                      <div className={`p-4 sm:p-5 bg-white dark:bg-[#18181B] flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                        isExpanded ? "border-b border-[#E5E7EB] dark:border-[#27272A]" : ""
+                      }`}>
+                        <div
+                          onClick={() => toggleModuleExpansion(mainMod.id)}
+                          className="flex items-start sm:items-center gap-3 min-w-0 cursor-pointer select-none group"
+                          title="Click to expand/collapse sub-modules"
+                        >
                           <span className="px-2.5 py-1 rounded-lg bg-[#2563EB] text-white font-mono font-bold text-xs shrink-0 tracking-wide">
                             MODULE {mIdx + 1}
                           </span>
                           <div className="min-w-0">
-                            <h3 className="font-bold text-[#111827] dark:text-[#FAFAFA] text-base truncate">
+                            <h3 className="font-bold text-[#111827] dark:text-[#FAFAFA] text-base truncate group-hover:text-[#2563EB] transition-colors">
                               {mainMod.title}
                             </h3>
                             {mainMod.description && (
@@ -1138,6 +1256,30 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                             {mainModDuration}
                           </Badge>
 
+                          {/* TOGGLE EXPAND / EDIT SUB-MODULES BUTTON */}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleModuleExpansion(mainMod.id)}
+                            className={`h-8 px-3 text-xs font-semibold rounded-lg gap-1.5 transition-all ${
+                              isExpanded
+                                ? "bg-[#2563EB]/10 border-[#2563EB] text-[#2563EB]"
+                                : "border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10"
+                            }`}
+                            title={isExpanded ? "Collapse sub-modules" : "Expand & manage sub-modules"}
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronUp className="h-3.5 w-3.5" /> Collapse
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-3.5 w-3.5" /> Edit Lessons ({subCount})
+                              </>
+                            )}
+                          </Button>
+
                           <Button
                             type="button"
                             size="sm"
@@ -1151,7 +1293,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                             type="button"
                             size="sm"
                             variant="outline"
-                            onClick={() => setBulkUploadMainModuleId(mainMod.id)}
+                            onClick={() => openBulkUpload(mainMod.id)}
                             className="h-8 px-3 text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg gap-1.5 shadow-xs"
                             title="Bulk Upload Lessons from Excel / CSV"
                           >
@@ -1163,7 +1305,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                             variant="outline"
                             size="sm"
                             onClick={() => openEditMainModule(mainMod)}
-                            className="h-8 px-3 text-xs font-semibold border-[#E5E7EB] dark:border-[#27272A] hover:bg-gray-100 dark:hover:bg-[#27272A]"
+                            className="h-8 px-2.5 text-xs font-semibold border-[#E5E7EB] dark:border-[#27272A] hover:bg-gray-100 dark:hover:bg-[#27272A]"
                             title="Edit Main Module Title"
                           >
                             Edit
@@ -1174,7 +1316,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                               type="button"
                               disabled={mIdx === 0}
                               onClick={() => handleMoveMainModule(mIdx, "up")}
-                              className="h-8 px-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#27272A] disabled:opacity-30 disabled:cursor-not-allowed text-[#6B7280] text-xs font-semibold"
+                              className="h-8 px-2 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#27272A] disabled:opacity-30 disabled:cursor-not-allowed text-[#6B7280] text-xs font-semibold"
                               title="Move Module Up"
                             >
                               Up
@@ -1183,7 +1325,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                               type="button"
                               disabled={mIdx === draftModules.length - 1}
                               onClick={() => handleMoveMainModule(mIdx, "down")}
-                              className="h-8 px-2.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#27272A] disabled:opacity-30 disabled:cursor-not-allowed text-[#6B7280] border-l border-[#E5E7EB] dark:border-[#27272A] text-xs font-semibold"
+                              className="h-8 px-2 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#27272A] disabled:opacity-30 disabled:cursor-not-allowed text-[#6B7280] border-l border-[#E5E7EB] dark:border-[#27272A] text-xs font-semibold"
                               title="Move Module Down"
                             >
                               Down
@@ -1195,7 +1337,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDeleteMainModule(mainMod.id, mainMod.title)}
-                            className="h-8 px-3 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg"
+                            className="h-8 px-2.5 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg"
                             title="Delete Main Module"
                           >
                             Delete
@@ -1203,147 +1345,149 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                         </div>
                       </div>
 
-                      {/* Sub-Modules Container */}
-                      <div className="p-4 sm:p-5 space-y-3">
-                        {subCount === 0 ? (
-                          <div className="p-5 text-center rounded-xl border border-dashed border-[#2563EB]/30 bg-white dark:bg-[#18181B]">
-                            <p className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">
-                              No sub-modules in this main module yet.
-                            </p>
-                            <p className="text-[11px] text-[#6B7280] mt-0.5">
-                              Add video lessons, reading materials, coding tasks or quiz assessments.
-                            </p>
-                            <div className="flex items-center justify-center gap-2 mt-3">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openAddSubModule(mainMod.id)}
-                                className="h-8 px-3 text-xs font-semibold text-[#2563EB] border-[#2563EB]/40 hover:bg-[#2563EB]/10 rounded-lg"
-                              >
-                                + Add First Sub-Module
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setBulkUploadMainModuleId(mainMod.id)}
-                                className="h-8 px-3 text-xs font-semibold text-[#16A34A] border-[#16A34A]/40 hover:bg-[#16A34A]/10 rounded-lg gap-1.5"
-                              >
-                                <FileSpreadsheet className="h-3.5 w-3.5" /> Bulk Upload Lessons
-                              </Button>
+                      {/* Sub-Modules Container (Rendered only when expanded) */}
+                      {isExpanded && (
+                        <div className="p-4 sm:p-5 space-y-3 border-t border-[#E5E7EB] dark:border-[#27272A] animate-in fade-in-50 duration-150">
+                          {subCount === 0 ? (
+                            <div className="p-5 text-center rounded-xl border border-dashed border-[#2563EB]/30 bg-white dark:bg-[#18181B]">
+                              <p className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">
+                                No sub-modules in this main module yet.
+                              </p>
+                              <p className="text-[11px] text-[#6B7280] mt-0.5">
+                                Add video lessons, reading materials, coding tasks or quiz assessments.
+                              </p>
+                              <div className="flex items-center justify-center gap-2 mt-3">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openAddSubModule(mainMod.id)}
+                                  className="h-8 px-3 text-xs font-semibold text-[#2563EB] border-[#2563EB]/40 hover:bg-[#2563EB]/10 rounded-lg"
+                                >
+                                  + Add First Sub-Module
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openBulkUpload(mainMod.id)}
+                                  className="h-8 px-3 text-xs font-semibold text-[#16A34A] border-[#16A34A]/40 hover:bg-[#16A34A]/10 rounded-lg gap-1.5"
+                                >
+                                  <FileSpreadsheet className="h-3.5 w-3.5" /> Bulk Upload Lessons
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2.5">
-                            {mainMod.subModules.map((sub, sIdx) => (
-                              <div
-                                key={sub.id}
-                                className="p-3.5 bg-white dark:bg-[#18181B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
-                              >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <span className="w-8 h-8 rounded-lg bg-[#EFF6FF] dark:bg-[#1E3A8A]/30 text-[#2563EB] font-bold text-xs flex items-center justify-center border border-[#2563EB]/20 shrink-0">
-                                    {mIdx + 1}.{sIdx + 1}
-                                  </span>
-                                  <div className="min-w-0">
-                                    <p className="font-semibold text-[#111827] dark:text-[#FAFAFA] text-xs truncate">
-                                      {sub.title}
-                                    </p>
-                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                      <Badge className="text-[9px] font-bold uppercase tracking-wider bg-[#2563EB] text-white">
-                                        {sub.type}
-                                      </Badge>
-                                      {sub.videoUrl && (
-                                        <Badge variant="outline" className="text-[9px] font-semibold text-[#2563EB] border-[#2563EB]/30 py-0 bg-[#2563EB]/5">
-                                          Video Link
+                          ) : (
+                            <div className="space-y-2.5">
+                              {mainMod.subModules.map((sub, sIdx) => (
+                                <div
+                                  key={sub.id}
+                                  className="p-3.5 bg-white dark:bg-[#18181B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <span className="w-8 h-8 rounded-lg bg-[#EFF6FF] dark:bg-[#1E3A8A]/30 text-[#2563EB] font-bold text-xs flex items-center justify-center border border-[#2563EB]/20 shrink-0">
+                                      {mIdx + 1}.{sIdx + 1}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <p className="font-semibold text-[#111827] dark:text-[#FAFAFA] text-xs truncate">
+                                        {sub.title}
+                                      </p>
+                                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                        <Badge className="text-[9px] font-bold uppercase tracking-wider bg-[#2563EB] text-white">
+                                          {sub.type}
                                         </Badge>
-                                      )}
-                                      {sub.notes && (
-                                        <Badge variant="outline" className="text-[9px] font-semibold text-[#16A34A] border-[#16A34A]/30 py-0 bg-[#16A34A]/5">
-                                          Notes
-                                        </Badge>
-                                      )}
-                                      {sub.readingContent && (
-                                        <Badge variant="outline" className="text-[9px] font-semibold text-[#16A34A] border-[#16A34A]/30 py-0 bg-[#16A34A]/5">
-                                          Document
-                                        </Badge>
-                                      )}
-                                      {sub.practiceDescription && (
-                                        <Badge variant="outline" className="text-[9px] font-semibold text-[#2563EB] border-[#2563EB]/30 py-0 bg-[#2563EB]/5">
-                                          Monaco Code
-                                        </Badge>
-                                      )}
-                                      {sub.quizQuestions && (
-                                        <Badge variant="outline" className="text-[9px] font-semibold text-[#D97706] border-[#D97706]/30 py-0 bg-[#D97706]/5">
-                                          Quiz
-                                        </Badge>
-                                      )}
+                                        {sub.videoUrl && (
+                                          <Badge variant="outline" className="text-[9px] font-semibold text-[#2563EB] border-[#2563EB]/30 py-0 bg-[#2563EB]/5">
+                                            Video Link
+                                          </Badge>
+                                        )}
+                                        {sub.notes && (
+                                          <Badge variant="outline" className="text-[9px] font-semibold text-[#16A34A] border-[#16A34A]/30 py-0 bg-[#16A34A]/5">
+                                            Notes
+                                          </Badge>
+                                        )}
+                                        {sub.readingContent && (
+                                          <Badge variant="outline" className="text-[9px] font-semibold text-[#16A34A] border-[#16A34A]/30 py-0 bg-[#16A34A]/5">
+                                            Document
+                                          </Badge>
+                                        )}
+                                        {sub.practiceDescription && (
+                                          <Badge variant="outline" className="text-[9px] font-semibold text-[#2563EB] border-[#2563EB]/30 py-0 bg-[#2563EB]/5">
+                                            Monaco Code
+                                          </Badge>
+                                        )}
+                                        {sub.quizQuestions && (
+                                          <Badge variant="outline" className="text-[9px] font-semibold text-[#D97706] border-[#D97706]/30 py-0 bg-[#D97706]/5">
+                                            Quiz
+                                          </Badge>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
 
-                                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                                  <Badge variant="outline" className="text-[11px] font-mono font-semibold px-2.5 py-0.5 border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]">
-                                    {sub.duration}
-                                  </Badge>
+                                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                    <Badge variant="outline" className="text-[11px] font-mono font-semibold px-2.5 py-0.5 border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]">
+                                      {sub.duration}
+                                    </Badge>
 
-                                  <div className="flex items-center border border-[#E5E7EB] dark:border-[#27272A] rounded-md overflow-hidden">
-                                    <button
+                                    <div className="flex items-center border border-[#E5E7EB] dark:border-[#27272A] rounded-md overflow-hidden">
+                                      <button
+                                        type="button"
+                                        disabled={sIdx === 0}
+                                        onClick={() => handleMoveSubModule(mainMod.id, sIdx, "up")}
+                                        className="h-7 px-2 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#27272A] disabled:opacity-30 disabled:cursor-not-allowed text-[#6B7280] text-[11px] font-semibold"
+                                        title="Move Sub-Module Up"
+                                      >
+                                        Up
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={sIdx === mainMod.subModules.length - 1}
+                                        onClick={() => handleMoveSubModule(mainMod.id, sIdx, "down")}
+                                        className="h-7 px-2 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#27272A] disabled:opacity-30 disabled:cursor-not-allowed text-[#6B7280] border-l border-[#E5E7EB] dark:border-[#27272A] text-[11px] font-semibold"
+                                        title="Move Sub-Module Down"
+                                      >
+                                        Down
+                                      </button>
+                                    </div>
+
+                                    <Button
                                       type="button"
-                                      disabled={sIdx === 0}
-                                      onClick={() => handleMoveSubModule(mainMod.id, sIdx, "up")}
-                                      className="h-7 px-2 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#27272A] disabled:opacity-30 disabled:cursor-not-allowed text-[#6B7280] text-[11px] font-semibold"
-                                      title="Move Sub-Module Up"
+                                      onClick={() => openInsertSubModuleNext(mainMod.id, sIdx)}
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2.5 text-xs font-semibold border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 rounded-md"
+                                      title="Add new sub-module below this one"
                                     >
-                                      Up
-                                    </button>
-                                    <button
+                                      Add Next
+                                    </Button>
+
+                                    <Button
                                       type="button"
-                                      disabled={sIdx === mainMod.subModules.length - 1}
-                                      onClick={() => handleMoveSubModule(mainMod.id, sIdx, "down")}
-                                      className="h-7 px-2 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-[#27272A] disabled:opacity-30 disabled:cursor-not-allowed text-[#6B7280] border-l border-[#E5E7EB] dark:border-[#27272A] text-[11px] font-semibold"
-                                      title="Move Sub-Module Down"
+                                      onClick={() => openEditSubModule(mainMod.id, sub)}
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2.5 text-xs font-semibold border-[#D97706] text-[#D97706] hover:bg-[#D97706]/10 rounded-md"
                                     >
-                                      Down
-                                    </button>
+                                      Edit
+                                    </Button>
+
+                                    <Button
+                                      type="button"
+                                      onClick={() => removeDraftSubModule(mainMod.id, sub.id)}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-md"
+                                    >
+                                      Delete
+                                    </Button>
                                   </div>
-
-                                  <Button
-                                    type="button"
-                                    onClick={() => openInsertSubModuleNext(mainMod.id, sIdx)}
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 px-2.5 text-xs font-semibold border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 rounded-md"
-                                    title="Add new sub-module below this one"
-                                  >
-                                    Add Next
-                                  </Button>
-
-                                  <Button
-                                    type="button"
-                                    onClick={() => openEditSubModule(mainMod.id, sub)}
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 px-2.5 text-xs font-semibold border-[#D97706] text-[#D97706] hover:bg-[#D97706]/10 rounded-md"
-                                  >
-                                    Edit
-                                  </Button>
-
-                                  <Button
-                                    type="button"
-                                    onClick={() => removeDraftSubModule(mainMod.id, sub.id)}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-md"
-                                  >
-                                    Delete
-                                  </Button>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1667,6 +1811,32 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
               </Card>
             )}
 
+            {/* BULK UPLOAD INLINE CARD (Fits screen width seamlessly, zero backdrop blur gap) */}
+            {bulkUploadMainModuleId && (
+              <BulkUploadCard
+                isOpen={true}
+                inline={true}
+                onClose={() => setBulkUploadMainModuleId(null)}
+                moduleType="course"
+                moduleTitle={draftModules.find((m) => m.id === bulkUploadMainModuleId)?.title}
+                onImport={(importedLessons) => {
+                  if (!bulkUploadMainModuleId) return;
+                  setDraftModules((prev) =>
+                    prev.map((m) => {
+                      if (m.id === bulkUploadMainModuleId) {
+                        return {
+                          ...m,
+                          subModules: [...m.subModules, ...importedLessons]
+                        };
+                      }
+                      return m;
+                    })
+                  );
+                  setBulkUploadMainModuleId(null);
+                }}
+              />
+            )}
+
             <div className="flex items-center justify-between pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
               <Button
                 type="button"
@@ -1828,29 +1998,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             </form>
           </DialogContent>
         </Dialog>
-
-        {/* ── BULK UPLOAD SUB-MODULES MODAL ── */}
-        <BulkUploadModal
-          isOpen={!!bulkUploadMainModuleId}
-          onClose={() => setBulkUploadMainModuleId(null)}
-          moduleType="course"
-          moduleTitle={draftModules.find((m) => m.id === bulkUploadMainModuleId)?.title}
-          onImport={(importedLessons) => {
-            if (!bulkUploadMainModuleId) return;
-            setDraftModules((prev) =>
-              prev.map((m) => {
-                if (m.id === bulkUploadMainModuleId) {
-                  return {
-                    ...m,
-                    subModules: [...m.subModules, ...importedLessons]
-                  };
-                }
-                return m;
-              })
-            );
-            setBulkUploadMainModuleId(null);
-          }}
-        />
       </div>
     );
   }
@@ -1935,18 +2082,61 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   // ════════════════════════════════════════════════════════════
   // VIEW: LIST COURSES
   // ════════════════════════════════════════════════════════════
+  const handleBulkImportCourses = async (importedCourses: ManagedCourse[]) => {
+    const updated = [...courses, ...importedCourses];
+    setCourses(updated);
+    setShowBulkUploadCourses(false);
+    try {
+      for (const c of importedCourses) {
+        await fetch("/api/admin/courses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ course: c }),
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to persist bulk courses to api", e);
+    }
+    toast({
+      title: "Courses Created",
+      description: `Successfully imported ${importedCourses.length} courses into the catalog.`,
+    });
+  };
+
   return (
     <div className="space-y-8">
       <PageHeader
         title={role === "admin" ? "Enterprise Course & Curriculum Management" : "Assigned Training Courses"}
         description="Author courses with step-by-step wizard (Course Info → Curriculum Modules → Review & Deploy)"
         actions={
-          <Button onClick={openCreateWizard}
-            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm">
-            <Plus className="h-4 w-4" /> Author New Course
-          </Button>
+          <div className="flex items-center gap-2.5">
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkUploadCourses((prev) => !prev)}
+              className="h-[44px] text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 rounded-xl shrink-0 shadow-xs"
+              title="Bulk create courses via Excel / CSV"
+            >
+              <FileSpreadsheet className="h-4 w-4" /> Bulk Upload Courses
+            </Button>
+            <Button onClick={openCreateWizard}
+              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm">
+              <Plus className="h-4 w-4" /> Author New Course
+            </Button>
+          </div>
         }
       />
+
+      {/* BULK UPLOAD COURSES INLINE CARD */}
+      {showBulkUploadCourses && (
+        <BulkUploadCard
+          isOpen={true}
+          inline={true}
+          onClose={() => setShowBulkUploadCourses(false)}
+          moduleType="course_batch"
+          moduleTitle="Courses Catalog"
+          onImport={handleBulkImportCourses}
+        />
+      )}
 
       {/* Filter Bar */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2 rounded-xl shadow-sm">
@@ -2056,7 +2246,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
       {/* ── ASSIGN COURSE MODAL DIALOG ── */}
       {assigningCourse && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0">
               <div>
