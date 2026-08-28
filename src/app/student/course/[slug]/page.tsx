@@ -8,9 +8,32 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
+import { useToast, toast as directToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
-import { Play, CheckCircle2, BookOpen, Code2, FileText, ChevronDown, ChevronUp, Check, AlertCircle, Clock } from "lucide-react";
+import { CustomVideoPlayer } from "@/components/video/custom-video-player";
+import { 
+  Play, 
+  CheckCircle2, 
+  BookOpen, 
+  Code2, 
+  FileText, 
+  ChevronDown, 
+  ChevronUp, 
+  ChevronRight,
+  ChevronLeft,
+  Check, 
+  AlertCircle, 
+  Clock,
+  Maximize2,
+  Minimize2,
+  PanelRightClose,
+  PanelRightOpen,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  List,
+  Minus,
+  Plus
+} from "lucide-react";
 
 export interface VideoPlayerConfig {
   type: "direct" | "iframe" | "empty";
@@ -288,13 +311,15 @@ export default function StudentCoursePlayerPage() {
   const rawSlug = params?.slug;
   const slug = (typeof rawSlug === "string" ? rawSlug : Array.isArray(rawSlug) ? rawSlug[0] : "fullstack-web-development") || "fullstack-web-development";
 
-  const { toast } = useToast();
+  const toastObj = useToast();
+  const toast = toastObj?.toast || directToast;
 
   const [courseTitle, setCourseTitle] = useState(slug.replace(/-/g, " "));
   const [courseCategory, setCourseCategory] = useState("General");
   const [courseInstructor, setCourseInstructor] = useState("Lead Instructor");
   const [modules, setModules] = useState<CourseSyllabusModule[]>([]);
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
+  const [isSidebarMinimized, setIsSidebarMinimized] = useState(false);
 
   const [activeLesson, setActiveLesson] = useState<Lesson>({
     id: "l1",
@@ -391,6 +416,24 @@ export default function StudentCoursePlayerPage() {
     setExpandedModules((prev) => ({ ...prev, [modId]: !prev[modId] }));
   };
 
+  const collapseAllModules = () => {
+    const newMap: Record<string, boolean> = {};
+    modules.forEach((m) => {
+      newMap[m.id] = false;
+    });
+    setExpandedModules(newMap);
+  };
+
+  const expandAllModules = () => {
+    const newMap: Record<string, boolean> = {};
+    modules.forEach((m) => {
+      newMap[m.id] = true;
+    });
+    setExpandedModules(newMap);
+  };
+
+  const areAllModulesCollapsed = modules.length > 0 && modules.every((m) => expandedModules[m.id] === false);
+
   const handleLessonSelect = (sub: CourseSyllabusSubModule) => {
     const les = convertSubToLesson(sub);
     setActiveLesson(les);
@@ -401,6 +444,33 @@ export default function StudentCoursePlayerPage() {
     if (les.type === "coding" && les.codingData) {
       setCodeContent(les.codingData.starterCode[selectedLanguage] || les.codingData.starterCode["javascript"] || "");
     }
+  };
+
+  const handleNextLesson = () => {
+    for (let m = 0; m < modules.length; m++) {
+      const mod = modules[m];
+      if (!mod) continue;
+      const subModules = mod.subModules || [];
+      for (let s = 0; s < subModules.length; s++) {
+        const currentSub = subModules[s];
+        if (currentSub?.id === activeLesson.id) {
+          const nextInMod = subModules[s + 1];
+          if (nextInMod) {
+            handleLessonSelect(nextInMod);
+            toast({ title: "Next Lesson Loaded", description: nextInMod.title });
+            return;
+          }
+          const nextMod = modules[m + 1];
+          const firstInNextMod = nextMod?.subModules?.[0];
+          if (firstInNextMod) {
+            handleLessonSelect(firstInNextMod);
+            toast({ title: "Next Module Lesson Loaded", description: firstInNextMod.title });
+            return;
+          }
+        }
+      }
+    }
+    toast({ title: "Course Completed! 🎉", description: "You have reached the end of the course curriculum." });
   };
 
   const handleOptionSelect = (qId: string, optIdx: number, type: "single" | "multiple") => {
@@ -469,7 +539,7 @@ export default function StudentCoursePlayerPage() {
   return (
     <div className="w-full space-y-6 pb-12">
       {/* Top Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" className="h-9 px-3 text-xs font-semibold rounded-xl border-[#E5E7EB] dark:border-[#27272A]" asChild>
             <Link href="/student/my-courses">
@@ -489,8 +559,28 @@ export default function StudentCoursePlayerPage() {
           </div>
         </div>
 
-        {/* Content Type Badge indicator */}
-        <div className="hidden sm:flex items-center gap-2">
+        {/* Content Type Badge & Minimize Sidebar Toggle */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsSidebarMinimized((prev) => !prev)}
+            className="h-9 px-3 text-xs font-semibold rounded-xl border-[#E5E7EB] dark:border-[#27272A] flex items-center gap-1.5 hover:border-[#2563EB]/50 transition-colors"
+            title={isSidebarMinimized ? "Show Course Curriculum Sidebar" : "Minimize Sidebar to Full Screen"}
+          >
+            {isSidebarMinimized ? (
+              <>
+                <PanelRightOpen className="h-4 w-4 text-[#2563EB]" />
+                <span>Show Curriculum</span>
+              </>
+            ) : (
+              <>
+                <PanelRightClose className="h-4 w-4 text-[#6B7280]" />
+                <span className="hidden sm:inline">Minimize Sidebar</span>
+              </>
+            )}
+          </Button>
+
           <Badge className="px-3 py-1 text-xs font-semibold uppercase bg-[#2563EB] text-white">
             {activeLesson.type === "video" && "Video Lesson"}
             {activeLesson.type === "mcq" && "MCQ Quiz Lesson"}
@@ -502,7 +592,7 @@ export default function StudentCoursePlayerPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* LEFT / CENTER: Multi-format Lesson Player (Video / MCQ / Coding / Notes) */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className={isSidebarMinimized ? "lg:col-span-3 space-y-6" : "lg:col-span-2 space-y-6"}>
           <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] overflow-hidden shadow-sm">
             <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
               <div>
@@ -513,66 +603,51 @@ export default function StudentCoursePlayerPage() {
                   Duration: {activeLesson.duration}
                 </CardDescription>
               </div>
-              <Badge variant="outline" className="text-xs font-semibold text-[#2563EB] border-[#2563EB]/30 uppercase">
-                {activeLesson.type}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs font-semibold text-[#2563EB] border-[#2563EB]/30 uppercase">
+                  {activeLesson.type}
+                </Badge>
+                {isSidebarMinimized && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsSidebarMinimized(false)}
+                    className="h-7 px-2.5 text-xs text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5 rounded-lg flex items-center gap-1 hover:bg-[#2563EB]/10"
+                  >
+                    <PanelRightOpen className="h-3.5 w-3.5" />
+                    <span>View Curriculum</span>
+                  </Button>
+                )}
+              </div>
             </CardHeader>
 
-            {/* FORMAT 1: MULTI-FORMAT VIDEO LESSON PLAYER */}
-            {activeLesson.type === "video" && (() => {
-              const playerConfig = getVideoPlayerConfig(activeLesson.videoUrl);
+            {/* FORMAT 1: CUSTOM ENTERPRISE LMS VIDEO PLAYER */}
+            {activeLesson.type === "video" && (
+              <div className="p-6 space-y-4">
+                <CustomVideoPlayer
+                  key={activeLesson.id + (activeLesson.videoUrl || "")}
+                  src={activeLesson.videoUrl}
+                  title={activeLesson.title}
+                  instructor={courseInstructor}
+                  onNextLesson={handleNextLesson}
+                  onEnded={() => {
+                    toast({ title: "Lesson Completed! 🎉", description: `You finished ${activeLesson.title}` });
+                  }}
+                />
 
-              return (
-                <div className="p-6 space-y-4">
-                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-black border border-[#E5E7EB] dark:border-[#27272A] relative flex items-center justify-center">
-                    {playerConfig.type === "direct" ? (
-                      <video
-                        key={playerConfig.src}
-                        controls
-                        controlsList="nodownload"
-                        playsInline
-                        className="w-full h-full object-contain bg-black"
-                        src={playerConfig.src}
-                      >
-                        Your browser does not support HTML5 video streaming.
-                      </video>
-                    ) : playerConfig.type === "iframe" && playerConfig.src ? (
-                      <iframe
-                        key={playerConfig.src}
-                        src={playerConfig.src}
-                        title={activeLesson.title}
-                        className="w-full h-full border-0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center p-8 text-center text-white space-y-3">
-                        <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
-                          <Play className="h-7 w-7 text-white fill-current translate-x-0.5" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-semibold text-white">Video Lesson Prepared</h4>
-                          <p className="text-xs text-white/70 max-w-sm mt-1">
-                            No direct video URL was configured by the instructor for this lesson. Refer to the key takeaways and attached notes below.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {activeLesson.notes && (
-                    <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
-                      <div className="text-xs font-bold text-[#2563EB] uppercase tracking-wider">
-                        Lesson Notes & Key Takeaways
-                      </div>
-                      <div className="text-xs text-[#374151] dark:text-[#D1D5DB] leading-relaxed whitespace-pre-wrap">
-                        {activeLesson.notes}
-                      </div>
+                {activeLesson.notes && (
+                  <div className="p-4 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
+                    <div className="text-xs font-bold text-[#2563EB] uppercase tracking-wider flex items-center gap-1.5">
+                      <BookOpen className="h-3.5 w-3.5" />
+                      Lesson Notes & Key Takeaways
                     </div>
-                  )}
-                </div>
-              );
-            })()}
+                    <div className="text-xs text-[#374151] dark:text-[#D1D5DB] leading-relaxed whitespace-pre-wrap">
+                      {activeLesson.notes}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* FORMAT 2: READING DOCUMENT */}
             {activeLesson.type === "reading" && (
@@ -677,7 +752,7 @@ export default function StudentCoursePlayerPage() {
                             <div className="flex items-center gap-3">
                               <span className="font-mono text-xs text-[#6B7280]">
                                 {currentQuizQ.type === "multiple"
-                                  ? (isSelected ? "[x]" : "[ ]")
+                                   ? (isSelected ? "[x]" : "[ ]")
                                   : (isSelected ? "(o)" : "( )")}
                               </span>
                               <span>{opt}</span>
@@ -756,103 +831,167 @@ export default function StudentCoursePlayerPage() {
         </div>
 
         {/* RIGHT SIDEBAR: Course Curriculum Tree (Main Modules & Nested Sub-Modules) */}
-        <div className="space-y-4">
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden">
-            <CardHeader className="p-5 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
-              <CardTitle className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Course Curriculum
-              </CardTitle>
-              <CardDescription className="text-xs text-[#6B7280]">
-                Modules and lessons structure
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-3 space-y-3">
-              {modules.length === 0 ? (
-                <div className="text-center py-8 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
-                  <p className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">No curriculum available</p>
-                  <p className="text-[10px] text-[#6B7280] mt-0.5">Lessons will appear once authored.</p>
+        {!isSidebarMinimized && (
+          <div className="space-y-4">
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden sticky top-4">
+              <CardHeader className="p-4 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-base font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-[#2563EB]" />
+                    Course Curriculum
+                  </CardTitle>
+                  <CardDescription className="text-xs text-[#6B7280]">
+                    {modules.reduce((acc, m) => acc + (m.subModules?.length || 0), 0)} Lessons in {modules.length} Modules
+                  </CardDescription>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {modules.map((mainMod, mIdx) => {
-                    const isExpanded = expandedModules[mainMod.id] ?? true;
-                    return (
-                      <div
-                        key={mainMod.id}
-                        className="rounded-xl border border-[#E5E7EB] dark:border-[#27272A] overflow-hidden bg-[#FAFAFA] dark:bg-[#09090B]/60"
-                      >
-                        {/* Main Module Accordion Header */}
-                        <button
-                          type="button"
-                          onClick={() => toggleModuleExpand(mainMod.id)}
-                          className="w-full p-3 bg-white dark:bg-[#18181B] hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]/50 transition-colors flex items-center justify-between text-left gap-2 border-b border-[#E5E7EB] dark:border-[#27272A]"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-xs font-mono font-bold text-[#2563EB] shrink-0">
-                              {isExpanded ? "[-]" : "[+]"}
-                            </span>
-                            <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] truncate">
-                              Module {mIdx + 1}: {mainMod.title}
-                            </span>
-                          </div>
-                          <Badge variant="outline" className="text-[10px] font-semibold text-[#2563EB] shrink-0">
-                            {mainMod.subModules?.length || 0}
-                          </Badge>
-                        </button>
 
-                        {/* Sub-Modules List */}
-                        {isExpanded && (
-                          <div className="p-2 space-y-1.5">
-                            {(!mainMod.subModules || mainMod.subModules.length === 0) ? (
-                              <p className="text-[11px] text-[#9CA3AF] italic p-2 text-center">
-                                No sub-modules in this module.
-                              </p>
-                            ) : (
-                              mainMod.subModules.map((sub, sIdx) => {
-                                const isSelected = activeLesson.id === sub.id;
-                                return (
-                                  <button
-                                    key={sub.id}
-                                    type="button"
-                                    onClick={() => handleLessonSelect(sub)}
-                                    className={`w-full p-2.5 rounded-lg text-left text-xs transition-all flex items-center justify-between gap-2 ${
-                                      isSelected
-                                        ? "bg-[#2563EB] text-white shadow-xs font-bold"
-                                        : "bg-white dark:bg-[#18181B] text-[#111827] dark:text-[#FAFAFA] hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A8A]/20 border border-[#E5E7EB] dark:border-[#27272A]"
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
-                                        isSelected ? "bg-white/20 text-white" : "bg-[#2563EB]/10 text-[#2563EB]"
-                                      }`}>
-                                        {mIdx + 1}.{sIdx + 1}
-                                      </span>
-                                      <span className="truncate">{sub.title}</span>
-                                    </div>
-                                    <Badge
-                                      className={`text-[9px] capitalize shrink-0 ${
+                {/* Minimize Controls */}
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={areAllModulesCollapsed ? expandAllModules : collapseAllModules}
+                    className="h-8 px-2 text-xs text-[#6B7280] hover:text-[#2563EB] flex items-center gap-1 rounded-lg"
+                    title={areAllModulesCollapsed ? "Expand all modules" : "Collapse all modules"}
+                  >
+                    {areAllModulesCollapsed ? (
+                      <>
+                        <ChevronsUpDown className="h-3.5 w-3.5 text-[#2563EB]" />
+                        <span className="text-[11px] font-medium hidden sm:inline">Expand All</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronsDownUp className="h-3.5 w-3.5 text-[#6B7280]" />
+                        <span className="text-[11px] font-medium hidden sm:inline">Collapse All</span>
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsSidebarMinimized(true)}
+                    className="h-8 w-8 text-[#6B7280] hover:text-[#2563EB] rounded-lg"
+                    title="Minimize sidebar to wide view"
+                  >
+                    <PanelRightClose className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 space-y-3">
+                {modules.length === 0 ? (
+                  <div className="text-center py-8 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
+                    <p className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">No curriculum available</p>
+                    <p className="text-[10px] text-[#6B7280] mt-0.5">Lessons will appear once authored.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
+                    {modules.map((mainMod, mIdx) => {
+                      const isExpanded = expandedModules[mainMod.id] ?? true;
+                      return (
+                        <div
+                          key={mainMod.id}
+                          className="rounded-xl border border-[#E5E7EB] dark:border-[#27272A] overflow-hidden bg-[#FAFAFA] dark:bg-[#09090B]/60 transition-all shadow-2xs"
+                        >
+                          {/* Main Module Accordion Header */}
+                          <button
+                            type="button"
+                            onClick={() => toggleModuleExpand(mainMod.id)}
+                            className="w-full p-3 bg-white dark:bg-[#18181B] hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]/50 transition-colors flex items-center justify-between text-left gap-2 border-b border-[#E5E7EB] dark:border-[#27272A] group cursor-pointer"
+                            title={isExpanded ? "Click to minimize module" : "Click to expand module"}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="p-1 rounded-md bg-[#2563EB]/10 text-[#2563EB] group-hover:bg-[#2563EB] group-hover:text-white transition-colors shrink-0">
+                                {isExpanded ? (
+                                  <ChevronUp className="h-3.5 w-3.5" />
+                                ) : (
+                                  <ChevronDown className="h-3.5 w-3.5" />
+                                )}
+                              </span>
+                              <span className="text-xs font-mono font-bold text-[#2563EB] shrink-0">
+                                {isExpanded ? "[-]" : "[+]"}
+                              </span>
+                              <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] truncate">
+                                Module {mIdx + 1}: {mainMod.title}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Badge variant="outline" className="text-[10px] font-semibold text-[#2563EB] bg-[#2563EB]/5 border-[#2563EB]/20">
+                                {mainMod.subModules?.length || 0}
+                              </Badge>
+                              <span className="text-[10px] text-[#6B7280] hidden group-hover:inline transition-opacity">
+                                {isExpanded ? "Minimize" : "Expand"}
+                              </span>
+                            </div>
+                          </button>
+
+                          {/* Sub-Modules List */}
+                          {isExpanded && (
+                            <div className="p-2 space-y-1.5 transition-all duration-200">
+                              {(!mainMod.subModules || mainMod.subModules.length === 0) ? (
+                                <p className="text-[11px] text-[#9CA3AF] italic p-2 text-center">
+                                  No sub-modules in this module.
+                                </p>
+                              ) : (
+                                mainMod.subModules.map((sub, sIdx) => {
+                                  const isSelected = activeLesson.id === sub.id;
+                                  return (
+                                    <button
+                                      key={sub.id}
+                                      type="button"
+                                      onClick={() => handleLessonSelect(sub)}
+                                      className={`w-full p-2.5 rounded-lg text-left text-xs transition-all flex items-center justify-between gap-2 cursor-pointer ${
                                         isSelected
-                                          ? "bg-white/20 text-white"
-                                          : "bg-[#2563EB]/10 text-[#2563EB]"
+                                          ? "bg-[#2563EB] text-white shadow-xs font-bold"
+                                          : "bg-white dark:bg-[#18181B] text-[#111827] dark:text-[#FAFAFA] hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A8A]/20 border border-[#E5E7EB] dark:border-[#27272A]"
                                       }`}
                                     >
-                                      {sub.type}
-                                    </Badge>
-                                  </button>
-                                );
-                              })
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
+                                          isSelected ? "bg-white/20 text-white" : "bg-[#2563EB]/10 text-[#2563EB]"
+                                        }`}>
+                                          {mIdx + 1}.{sIdx + 1}
+                                        </span>
+                                        <span className="truncate">{sub.title}</span>
+                                      </div>
+                                      <Badge
+                                        className={`text-[9px] capitalize shrink-0 ${
+                                          isSelected
+                                            ? "bg-white/20 text-white"
+                                            : "bg-[#2563EB]/10 text-[#2563EB]"
+                                        }`}
+                                      >
+                                        {sub.type}
+                                      </Badge>
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
+
+      {/* Floating Restore Button when Sidebar is Minimized */}
+      {isSidebarMinimized && (
+        <div className="fixed bottom-6 right-6 z-40 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <Button
+            onClick={() => setIsSidebarMinimized(false)}
+            className="h-11 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold rounded-full shadow-xl flex items-center gap-2.5 border border-blue-400/40 hover:scale-105 transition-all cursor-pointer"
+          >
+            <PanelRightOpen className="h-4 w-4" />
+            <span>Show Curriculum ({modules.reduce((acc, m) => acc + (m.subModules?.length || 0), 0)} Lessons)</span>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
