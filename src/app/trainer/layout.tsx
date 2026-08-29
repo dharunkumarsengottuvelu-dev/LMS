@@ -25,9 +25,9 @@ export default async function TrainerLayout({ children }: { children: React.Reac
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen min-h-[100dvh] bg-background">
       <TrainerTopNav />
-      <main className="pt-[88px] w-full px-4 sm:px-6 lg:px-8 pb-12 animate-fade-up">
+      <main className="pt-[88px] lms-page-container pb-12 animate-fade-up">
         {children}
       </main>
     </div>

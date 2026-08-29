@@ -13,15 +13,15 @@ export function StudentLayoutWrapper({ children }: { children: React.ReactNode }
   const isRunner = isInsideTestRunner || isInsideAssessmentRunner || isInsidePracticeCoding || isInsideCoding;
 
   return (
-    <div className="min-h-screen bg-background transition-colors duration-300">
+    <div className="min-h-screen min-h-[100dvh] bg-background transition-colors duration-300">
       {!isRunner && <StudentTopNav />}
-      <main className={`min-h-screen ${!isRunner ? "pt-[72px]" : "pt-0"}`}>
+      <main className={`min-h-screen min-h-[100dvh] ${!isRunner ? "pt-[72px]" : "pt-0"}`}>
         {isRunner ? (
-          <div key={pathname} className="animate-fade-up h-screen">
+          <div key={pathname} className="animate-fade-up h-screen h-[100dvh]">
             {children}
           </div>
         ) : (
-          <div key={pathname} className="w-full px-4 sm:px-6 lg:px-8 py-4 md:py-8 animate-fade-up">
+          <div key={pathname} className="lms-page-container py-4 md:py-8 animate-fade-up">
             {children}
           </div>
         )}

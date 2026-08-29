@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CodeEditor } from "@/components/coding/code-editor";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import type { CodingProblem, CodingSubmission, CodingLanguage } from "@/types";
 
 export default function PracticeCodingRunnerPage() {
@@ -140,29 +141,58 @@ export default function PracticeCodingRunnerPage() {
 
   const sampleTestCases = problem.sampleTestCases || [];
 
+  const [mobileTab, setMobileTab] = useState<"problem" | "editor">("editor");
+
   return (
-    <div className="flex flex-col h-screen bg-[#F9FAFB] dark:bg-[#09090B] overflow-hidden">
+    <div className="flex flex-col h-screen h-[100dvh] bg-[#F9FAFB] dark:bg-[#09090B] overflow-hidden">
       {/* Top Runner Navbar */}
-      <header className="h-14 border-b border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] px-4 flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-3">
+      <header className="h-14 border-b border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] px-3 sm:px-4 flex items-center justify-between shrink-0 z-10 gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Button
             variant="ghost"
             size="sm"
             onClick={handleBack}
-            className="h-8 px-2.5 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground rounded-lg"
+            className="h-8 px-2 sm:px-2.5 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground rounded-lg shrink-0"
           >
-            <ArrowLeft className="h-4 w-4" /> Back to Practice Track
+            <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Back to Practice Track</span><span className="sm:hidden">Back</span>
           </Button>
-          <div className="h-4 w-[1px] bg-border" />
-          <div className="flex items-center gap-2">
-            <Code2 className="h-4 w-4 text-[#2563EB]" />
-            <span className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] truncate max-w-xs md:max-w-md">
+          <div className="h-4 w-[1px] bg-border shrink-0" />
+          <div className="flex items-center gap-2 min-w-0">
+            <Code2 className="h-4 w-4 text-[#2563EB] shrink-0" />
+            <span className="text-xs sm:text-sm font-bold text-[#111827] dark:text-[#FAFAFA] truncate">
               {problem.title}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Mobile View Tab Switcher & Difficulty */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Mobile Tab Toggle */}
+          <div className="flex md:hidden bg-muted/60 p-0.5 rounded-lg border border-border">
+            <button
+              onClick={() => setMobileTab("problem")}
+              className={cn(
+                "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all",
+                mobileTab === "problem"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Problem
+            </button>
+            <button
+              onClick={() => setMobileTab("editor")}
+              className={cn(
+                "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all",
+                mobileTab === "editor"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Code
+            </button>
+          </div>
+
           <Badge
             className={`text-[10px] uppercase font-bold px-2 py-0.5 ${
               problem.difficulty === "easy"
@@ -175,7 +205,7 @@ export default function PracticeCodingRunnerPage() {
             {problem.difficulty}
           </Badge>
           {submissionResult?.status === "accepted" && (
-            <Badge className="bg-[#16A34A] text-white text-[10px] uppercase font-bold flex items-center gap-1">
+            <Badge className="bg-[#16A34A] text-white text-[10px] uppercase font-bold hidden sm:flex items-center gap-1">
               <CheckCircle2 className="h-3 w-3" /> Solved
             </Badge>
           )}
@@ -185,9 +215,14 @@ export default function PracticeCodingRunnerPage() {
       {/* Main Split Layout: Left Problem Statement, Right Monaco Code Editor */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left Problem Description Panel */}
-        <div className="w-full md:w-[42%] lg:w-[38%] border-r border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] flex flex-col overflow-y-auto p-5 md:p-6 space-y-6">
+        <div
+          className={cn(
+            "w-full md:w-[42%] lg:w-[38%] border-r border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] flex flex-col overflow-y-auto p-4 sm:p-5 md:p-6 space-y-6",
+            mobileTab === "problem" ? "flex" : "hidden md:flex"
+          )}
+        >
           <div>
-            <h1 className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA] mb-2">
+            <h1 className="text-lg sm:text-xl font-bold text-[#111827] dark:text-[#FAFAFA] mb-2">
               {problem.title}
             </h1>
             <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -266,7 +301,12 @@ export default function PracticeCodingRunnerPage() {
         </div>
 
         {/* Right Code Editor & Jobe Execution Panel */}
-        <div className="flex-1 flex flex-col h-full bg-[#09090B] overflow-hidden">
+        <div
+          className={cn(
+            "flex-1 flex flex-col h-full bg-[#09090B] overflow-hidden",
+            mobileTab === "editor" ? "flex" : "hidden md:flex"
+          )}
+        >
           <CodeEditor
             problem={{
               id: problem.id,
