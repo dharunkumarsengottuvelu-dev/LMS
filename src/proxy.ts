@@ -70,7 +70,20 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; worker-src 'self' blob: data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: https:; media-src 'self' blob: data:; connect-src 'self' blob: data: https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; frame-src 'self' https://*.youtube.com https://*.youtube-nocookie.com https://*.vimeo.com https://*.loom.com https://drive.google.com; frame-ancestors 'none';"
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.youtube.com https://*.youtube.com https://s.ytimg.com https://*.ytimg.com https://player.vimeo.com https://*.loom.com https://apis.google.com",
+      "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.youtube.com https://*.youtube.com https://s.ytimg.com https://*.ytimg.com https://player.vimeo.com https://*.loom.com https://apis.google.com",
+      "worker-src 'self' blob: data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+      "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+      "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+      "img-src 'self' data: blob: https:",
+      "media-src 'self' blob: data: https: https://commondatastorage.googleapis.com https://*.googleapis.com https://*.supabase.co https://*.cloudinary.com https://*.mux.com https://*.youtube.com https://*.googlevideo.com",
+      "connect-src 'self' blob: data: https: wss: https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.youtube.com https://*.googlevideo.com",
+      "frame-src 'self' blob: data: https://*.youtube.com https://*.youtube-nocookie.com https://www.youtube.com https://*.vimeo.com https://player.vimeo.com https://*.loom.com https://www.loom.com https://drive.google.com https://docs.google.com",
+      "frame-ancestors 'none'",
+    ].join("; ") + ";"
   );
   return response;
 }

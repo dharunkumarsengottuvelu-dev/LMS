@@ -548,14 +548,14 @@ export default function StudentCoursePlayerPage() {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold text-[#111827] dark:text-[#FAFAFA] capitalize">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white capitalize">
                 {courseTitle}
               </h1>
-              <Badge variant="outline" className="text-[10px] text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
+              <Badge variant="outline" className="text-[10px] text-blue-600 dark:text-blue-400 border-blue-600/30 bg-blue-600/5">
                 {courseCategory}
               </Badge>
             </div>
-            <p className="text-xs text-[#6B7280]">Instructor: {courseInstructor}</p>
+            <p className="text-xs text-muted-foreground">Instructor: {courseInstructor}</p>
           </div>
         </div>
 
@@ -593,13 +593,13 @@ export default function StudentCoursePlayerPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* LEFT / CENTER: Multi-format Lesson Player (Video / MCQ / Coding / Notes) */}
         <div className={isSidebarMinimized ? "lg:col-span-3 space-y-6" : "lg:col-span-2 space-y-6"}>
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] overflow-hidden shadow-sm">
-            <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
+          <Card className="bg-card border border-border overflow-hidden shadow-sm">
+            <CardHeader className="p-6 pb-4 border-b border-border flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">
+                <CardTitle className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                   {activeLesson.title}
                 </CardTitle>
-                <CardDescription className="text-xs text-[#6B7280]">
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   Duration: {activeLesson.duration}
                 </CardDescription>
               </div>
@@ -911,15 +911,15 @@ export default function StudentCoursePlayerPage() {
                               <span className="text-xs font-mono font-bold text-[#2563EB] shrink-0">
                                 {isExpanded ? "[-]" : "[+]"}
                               </span>
-                              <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] truncate">
+                              <span className="text-xs font-bold text-foreground truncate">
                                 Module {mIdx + 1}: {mainMod.title}
                               </span>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <Badge variant="outline" className="text-[10px] font-semibold text-[#2563EB] bg-[#2563EB]/5 border-[#2563EB]/20">
+                              <Badge variant="outline" className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-600/5 border-blue-600/20">
                                 {mainMod.subModules?.length || 0}
                               </Badge>
-                              <span className="text-[10px] text-[#6B7280] hidden group-hover:inline transition-opacity">
+                              <span className="text-[10px] text-muted-foreground hidden group-hover:inline transition-opacity">
                                 {isExpanded ? "Minimize" : "Expand"}
                               </span>
                             </div>
@@ -929,7 +929,7 @@ export default function StudentCoursePlayerPage() {
                           {isExpanded && (
                             <div className="p-2 space-y-1.5 transition-all duration-200">
                               {(!mainMod.subModules || mainMod.subModules.length === 0) ? (
-                                <p className="text-[11px] text-[#9CA3AF] italic p-2 text-center">
+                                <p className="text-[11px] text-muted-foreground italic p-2 text-center">
                                   No sub-modules in this module.
                                 </p>
                               ) : (
@@ -942,8 +942,8 @@ export default function StudentCoursePlayerPage() {
                                       onClick={() => handleLessonSelect(sub)}
                                       className={`w-full p-2.5 rounded-lg text-left text-xs transition-all flex items-center justify-between gap-2 cursor-pointer ${
                                         isSelected
-                                          ? "bg-[#2563EB] text-white shadow-xs font-bold"
-                                          : "bg-white dark:bg-[#18181B] text-[#111827] dark:text-[#FAFAFA] hover:bg-[#EFF6FF] dark:hover:bg-[#1E3A8A]/20 border border-[#E5E7EB] dark:border-[#27272A]"
+                                          ? "bg-blue-600 text-white shadow-xs font-bold"
+                                          : "bg-card text-foreground hover:bg-accent border border-border"
                                       }`}
                                     >
                                       <div className="flex items-center gap-2 min-w-0">
