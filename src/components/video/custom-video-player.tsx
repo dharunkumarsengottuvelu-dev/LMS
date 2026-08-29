@@ -25,6 +25,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+export interface CaptionCue {
+  start: number;
+  end: number;
+  text: string;
+}
+
 export interface CustomVideoPlayerProps {
   src?: string;
   title?: string;
@@ -32,6 +38,7 @@ export interface CustomVideoPlayerProps {
   poster?: string;
   autoPlay?: boolean;
   initialTime?: number;
+  captions?: CaptionCue[] | string;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   onEnded?: () => void;
   onNextLesson?: () => void;
@@ -91,43 +98,6 @@ function formatTime(seconds: number): string {
   return `${mm}:${ss}`;
 }
 
-interface CaptionCue {
-  start: number;
-  end: number;
-  text: string;
-}
-
-const LESSON_CAPTION_CUES: CaptionCue[] = [
-  { start: 0, end: 5, text: "Welcome to this lesson on Core Software Architecture & Concepts." },
-  { start: 5, end: 11, text: "In this module, we will explore why you should master this stack and review key principles." },
-  { start: 11, end: 17, text: "This technology is one of the most widely used and reliable in enterprise software." },
-  { start: 17, end: 24, text: "Target Audience: Software engineers, developers, and students building scalable systems." },
-  { start: 24, end: 32, text: "We will cover fundamental syntax, memory management, and structured problem solving." },
-  { start: 32, end: 40, text: "You will also build real-world applications and solve practical coding problems." },
-  { start: 40, end: 48, text: "Let's begin by understanding runtime architecture and setting up our development environment." },
-  { start: 48, end: 58, text: "Follow along closely with the attached lesson notes and interactive coding exercises." },
-  { start: 58, end: 68, text: "In the next topic, we will write our first program and verify test cases." },
-];
-
-function getCaptionForTime(seconds: number): string {
-  if (seconds < 0) return "";
-  const match = LESSON_CAPTION_CUES.find((c) => seconds >= c.start && seconds < c.end);
-  if (match) return match.text;
-  if (seconds >= 68) {
-    const cycle = Math.floor((seconds - 68) / 8);
-    const continuousSubtitles = [
-      "Let's walk through the core programming concepts for this module.",
-      "Pay attention to the syntax rules and best practice design patterns.",
-      "Remember to test edge cases and verify runtime complexity.",
-      "Notice how functions and objects interact cleanly in this architecture.",
-      "You can pause at any time to try writing this code in your editor.",
-      "Review the key takeaways and test cases in the notes below."
-    ];
-    return continuousSubtitles[cycle % continuousSubtitles.length] || "";
-  }
-  return "";
-}
-
 export function CustomVideoPlayer({
   src = "",
   title = "Course Video Lesson",
@@ -135,6 +105,7 @@ export function CustomVideoPlayer({
   poster,
   autoPlay = false,
   initialTime = 0,
+  captions,
   onTimeUpdate,
   onEnded,
   onNextLesson,
@@ -177,6 +148,7 @@ export function CustomVideoPlayer({
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [quality, setQuality] = useState("1080p Full HD");
   const [showCaptions, setShowCaptions] = useState(true);
+  const [liveCaptions, setLiveCaptions] = useState<CaptionCue[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isEnded, setIsEnded] = useState(false);
@@ -188,6 +160,93 @@ export function CustomVideoPlayer({
   const [showSettings, setShowSettings] = useState(false);
   const [settingsView, setSettingsView] = useState<"main" | "speed" | "quality" | "captions">("main");
   const [clickRipple, setClickRipple] = useState<"play" | "pause" | null>(null);
+
+  // Extract authentic live YouTube captions directly from backend
+  useEffect(() => {
+    // If custom captions array passed explicitly via props, use it
+    if (Array.isArray(captions) && captions.length > 0) {
+      setLiveCaptions(captions);
+      return;
+    }
+
+    if (!ytVideoId) {
+      setLiveCaptions([]);
+      return;
+    }
+
+    let isCancelled = false;
+    setLiveCaptions([]); // Reset to prevent cross-lesson caption leak
+
+    fetch(`/api/video/captions?videoId=${encodeURIComponent(ytVideoId)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Captions unavailable");
+        return res.json();
+      })
+      .then((data) => {
+        if (!isCancelled && data?.cues && Array.isArray(data.cues) && data.cues.length > 0) {
+          setLiveCaptions(data.cues);
+        }
+      })
+      .catch((err) => {
+        console.warn("[Captions] Notice:", err?.message || err);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [ytVideoId, captions]);
+
+  const playbackClockRef = useRef<{ baseTime: number; baseWallTime: number }>({
+    baseTime: initialTime,
+    baseWallTime: Date.now(),
+  });
+
+  const syncPlaybackTime = useCallback((time: number) => {
+    if (isNaN(time) || time < 0) return;
+    playbackClockRef.current = {
+      baseTime: time,
+      baseWallTime: Date.now(),
+    };
+    setCurrentTime(time);
+  }, []);
+
+  // High-precision 60fps continuous audio-visual synchronization clock
+  useEffect(() => {
+    if (!isPlaying || isDraggingSeek) return;
+
+    let animId: number;
+    let lastTick = Date.now();
+
+    const ticker = () => {
+      const now = Date.now();
+      if (now - lastTick >= 20) {
+        lastTick = now;
+        if (isYouTube) {
+          let ytTime: number | null = null;
+          if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
+            try {
+              ytTime = ytPlayerRef.current.getCurrentTime();
+            } catch {}
+          }
+
+          if (ytTime !== null && !isNaN(ytTime) && ytTime >= 0) {
+            syncPlaybackTime(ytTime);
+          } else {
+            const elapsed = ((now - playbackClockRef.current.baseWallTime) / 1000) * playbackSpeed;
+            const estimatedTime = playbackClockRef.current.baseTime + elapsed;
+            if (!isDraggingSeekRef.current && estimatedTime >= 0) {
+              setCurrentTime(estimatedTime);
+              if (onTimeUpdate) onTimeUpdate(estimatedTime, duration);
+            }
+          }
+        }
+      }
+      animId = requestAnimationFrame(ticker);
+    };
+
+    animId = requestAnimationFrame(ticker);
+    return () => cancelAnimationFrame(animId);
+  }, [isPlaying, isDraggingSeek, isYouTube, playbackSpeed, duration, onTimeUpdate, syncPlaybackTime]);
 
   // Send message command to YouTube iframe
   const sendYTCommand = useCallback((func: string, args: any[] = []) => {
@@ -277,6 +336,7 @@ export function CustomVideoPlayer({
                 setIsPlaying(true);
                 setIsEnded(false);
                 setIsLoading(false);
+                syncPlaybackTime(e.target.getCurrentTime?.() || 0);
               },
               onStateChange: (e: any) => {
                 if (!isSubscribed) return;
@@ -285,6 +345,7 @@ export function CustomVideoPlayer({
                   setIsPlaying(true);
                   setIsEnded(false);
                   setIsLoading(false);
+                  syncPlaybackTime(e.target.getCurrentTime?.() || 0);
                   startHideTimer();
                 } else if (state === 2) { // PAUSED
                   setIsPlaying(false);
@@ -321,7 +382,7 @@ export function CustomVideoPlayer({
     return () => {
       isSubscribed = false;
     };
-  }, [iframeId, isYouTube, hasStarted, ytVideoId, onEnded, startHideTimer]);
+  }, [iframeId, isYouTube, hasStarted, ytVideoId, onEnded, startHideTimer, syncPlaybackTime]);
 
   // YouTube postMessage Listener for time and player state
   useEffect(() => {
@@ -334,7 +395,7 @@ export function CustomVideoPlayer({
           if (data.event === "infoDelivery" && data.info) {
             if (data.info.currentTime !== undefined && !isDraggingSeekRef.current) {
               const cur = data.info.currentTime;
-              setCurrentTime(cur);
+              syncPlaybackTime(cur);
               if (onTimeUpdate) {
                 onTimeUpdate(cur, duration);
               }
@@ -366,14 +427,13 @@ export function CustomVideoPlayer({
 
     window.addEventListener("message", handleWindowMessage);
     return () => window.removeEventListener("message", handleWindowMessage);
-  }, [isYouTube, duration, onEnded, onTimeUpdate, startHideTimer]);
+  }, [isYouTube, duration, onEnded, onTimeUpdate, startHideTimer, syncPlaybackTime]);
 
   // Continuous polling loop for YouTube timeline synchronization
   useEffect(() => {
     if (!isYouTube || !hasStarted) return;
 
     const interval = setInterval(() => {
-      // 1. Query YT.Player API directly if available
       if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
         try {
           const cur = ytPlayerRef.current.getCurrentTime() || 0;
@@ -381,7 +441,7 @@ export function CustomVideoPlayer({
           const loaded = ytPlayerRef.current.getVideoLoadedFraction?.() || 0;
 
           if (!isDraggingSeekRef.current && cur >= 0) {
-            setCurrentTime(cur);
+            syncPlaybackTime(cur);
             if (onTimeUpdate) onTimeUpdate(cur, dur);
           }
           if (dur > 0 && dur !== duration) {
@@ -393,14 +453,13 @@ export function CustomVideoPlayer({
         } catch {}
       }
 
-      // 2. Also send postMessage request for fallback
       sendYTCommand("getCurrentTime");
       sendYTCommand("getDuration");
       sendYTCommand("getPlayerState");
     }, 250);
 
     return () => clearInterval(interval);
-  }, [isYouTube, hasStarted, duration, onTimeUpdate, sendYTCommand]);
+  }, [isYouTube, hasStarted, duration, onTimeUpdate, sendYTCommand, syncPlaybackTime]);
 
   // HTML5 Native Video Events
   useEffect(() => {
@@ -593,7 +652,7 @@ export function CustomVideoPlayer({
     }, 600);
   };
 
-  // Seek Function
+  // Exact Seek Function
   const seekToTime = (time: number) => {
     const target = Math.max(0, Math.min(duration || 1000, time));
     setCurrentTime(target);
@@ -686,7 +745,7 @@ export function CustomVideoPlayer({
     }
   };
 
-  // Seekbar Logic
+  // Seekbar Drag/Click Logic
   const calculateSeekTime = (clientX: number): number => {
     if (!progressBarRef.current || duration <= 0) return 0;
     const rect = progressBarRef.current.getBoundingClientRect();
@@ -770,7 +829,16 @@ export function CustomVideoPlayer({
   };
 
   const playedPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-  const currentSubtitle = showCaptions ? getCaptionForTime(currentTime) : "";
+
+  // ZERO-LATENCY MNC-GRADE SYNC:
+  // Apply 150ms anticipation lead so subtitle appears right as the speaker's vocal syllable begins
+  const syncTime = currentTime + 0.150;
+  const activeCue = liveCaptions.find((c, idx) => {
+    const nextCue = liveCaptions[idx + 1];
+    const maxEnd = nextCue ? Math.min(nextCue.start, c.end + 0.4) : c.end + 0.4;
+    return syncTime >= c.start && syncTime < maxEnd;
+  });
+  const currentSubtitle = showCaptions && activeCue ? activeCue.text : "";
 
   // YouTube embed URL with cc_load_policy=0 to turn off default YouTube captions
   const ytEmbedUrl = ytVideoId
@@ -852,28 +920,7 @@ export function CustomVideoPlayer({
         />
       )}
 
-      {/* 2. TOP INFORMATION BAR */}
-      <div
-        className={cn(
-          "absolute top-0 inset-x-0 p-4 md:p-5 bg-gradient-to-b from-black/95 via-black/60 to-transparent z-20 transition-opacity duration-300 pointer-events-auto flex items-center justify-between gap-4",
-          isControlsVisible || !isPlaying ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-extrabold tracking-wider uppercase shadow-md backdrop-blur-md">
-            <GraduationCap className="h-3.5 w-3.5" />
-            <span>FALCON LMS</span>
-          </div>
-          <h2 className="text-white text-sm sm:text-base font-extrabold truncate drop-shadow-[0_2px_8px_rgba(0,0,0,1)]">
-            {title}
-          </h2>
-        </div>
 
-        <div className="hidden sm:flex items-center gap-2 shrink-0 text-xs text-white font-semibold">
-          <span>Instructor:</span>
-          <span className="text-white font-extrabold">{instructor}</span>
-        </div>
-      </div>
 
       {/* 3. CENTER PLAYBACK AREA */}
       {/* Loading Spinner */}
@@ -908,10 +955,17 @@ export function CustomVideoPlayer({
         </div>
       )}
 
-      {/* 4. REAL-TIME CLOSED CAPTIONS OVERLAY */}
-      {showCaptions && currentSubtitle && isPlaying && !isEnded && (
-        <div className="absolute bottom-20 inset-x-4 z-25 flex justify-center pointer-events-none transition-all">
-          <div className="max-w-2xl px-4 py-2 rounded-xl bg-black/90 backdrop-blur-md border border-white/15 text-white text-xs sm:text-sm md:text-base font-semibold text-center shadow-2xl leading-relaxed animate-in fade-in zoom-in-95 duration-200">
+      {/* 4. REAL-TIME CLOSED CAPTIONS OVERLAY (Live Synchronized Rounded Pill & Dynamic Auto-Hide Positioning) */}
+      {showCaptions && currentSubtitle && !isEnded && hasStarted && (
+        <div
+          className={cn(
+            "absolute inset-x-4 z-25 flex justify-center pointer-events-none transition-all duration-300 ease-out",
+            isControlsVisible || !isPlaying
+              ? "bottom-18 sm:bottom-20"
+              : "bottom-4 sm:bottom-5"
+          )}
+        >
+          <div className="max-w-2xl px-6 py-2 rounded-full bg-black/95 backdrop-blur-md border border-white/40 text-white text-xs sm:text-sm md:text-base font-semibold text-center shadow-2xl leading-relaxed animate-in fade-in zoom-in-95 duration-100 drop-shadow-[0_4px_12px_rgba(0,0,0,1)]">
             {currentSubtitle}
           </div>
         </div>
@@ -1137,7 +1191,7 @@ export function CustomVideoPlayer({
                       >
                         <span>Captions</span>
                         <div className="flex items-center gap-1 text-white/60">
-                          <span>{showCaptions ? "English" : "Off"}</span>
+                          <span>{showCaptions ? (liveCaptions.length > 0 ? "English (Official)" : "On") : "Off"}</span>
                           <ChevronRight className="h-3.5 w-3.5" />
                         </div>
                       </button>
@@ -1245,7 +1299,7 @@ export function CustomVideoPlayer({
                             : "hover:bg-white/10 text-white/80"
                         )}
                       >
-                        <span>English (Captions)</span>
+                        <span>English (Live Synchronized)</span>
                         {showCaptions && <Check className="h-3.5 w-3.5" />}
                       </button>
                     </div>
