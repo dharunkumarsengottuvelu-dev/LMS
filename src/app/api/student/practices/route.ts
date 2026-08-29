@@ -79,11 +79,13 @@ export async function GET(request: NextRequest) {
       track.status !== "draft" && isContentVisibleToStudent(track, batchContext)
     );
 
-    // 4. Calculate student progress for authorized tracks
+    // 4. Calculate student progress for authorized tracks across all student identifiers
+    const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
+
     const { data: submissions } = await adminClient
       .from("coding_submissions")
       .select("problem_id, status")
-      .or(`student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId}`) as any;
+      .or(studentFilter) as any;
 
     const completedProblemIds = new Set<string>();
     (submissions || []).forEach((sub: any) => {
@@ -95,20 +97,23 @@ export async function GET(request: NextRequest) {
     const { data: attempts } = await adminClient
       .from("assessment_attempts")
       .select("assessment_id, status, score, total_marks")
-      .or(`student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId}`) as any;
+      .or(studentFilter) as any;
 
     const completedSubModuleIds = new Set<string>();
     (attempts || []).forEach((att: any) => {
-      if (att.status === "submitted") {
+      if (att.status === "submitted" || att.status === "auto_submitted" || att.status === "passed") {
         completedSubModuleIds.add(att.assessment_id);
       }
     });
 
     // 5. Map tracks with real module counts and progress
     const mappedTracks = authorizedTracks.map((track: any) => {
+      const isTrackAttempted = completedSubModuleIds.has(track.id);
+
       const subModules = (track.sub_modules || track.subModules || []).map((sm: any) => {
         const isCompleted =
           completedSubModuleIds.has(sm.id) ||
+          isTrackAttempted ||
           (sm.problemId && completedProblemIds.has(sm.problemId));
         return {
           id: sm.id,

@@ -116,11 +116,13 @@ export async function GET(
       }
     }
 
-    // Fetch student's submissions & attempts
+    // Fetch student's submissions & attempts across all possible student identifiers
+    const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
+
     const { data: submissions } = await adminClient
       .from("coding_submissions")
       .select("problem_id, status, score, max_score, created_at")
-      .or(`student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId}`) as any;
+      .or(studentFilter) as any;
 
     const completedProblemsMap = new Map<string, any>();
     (submissions || []).forEach((sub: any) => {
@@ -131,24 +133,27 @@ export async function GET(
 
     const { data: attempts } = await adminClient
       .from("assessment_attempts")
-      .select("assessment_id, status, score, total_marks, submitted_at")
-      .or(`student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId}`) as any;
+      .select("assessment_id, status, score, total_marks, submitted_at, answers")
+      .or(studentFilter) as any;
 
     const attemptsMap = new Map<string, any>();
     (attempts || []).forEach((att: any) => {
-      if (att.status === "submitted") {
+      if (att.status === "submitted" || att.status === "auto_submitted" || att.status === "passed") {
         attemptsMap.set(att.assessment_id, att);
       }
     });
 
     const enrichedSubModules = subModules.map((sm: any, idx: number) => {
       const problems = codingProblemsMap[sm.id] || [];
-      const attempt = attemptsMap.get(sm.id);
+      const attempt = attemptsMap.get(sm.id) || attemptsMap.get(track.id);
       const isAttemptCompleted = Boolean(attempt);
       const allProblemsCompleted =
         problems.length > 0 && problems.every((p: any) => completedProblemsMap.has(p.id));
+      const anyProblemCompleted =
+        problems.length > 0 && problems.some((p: any) => completedProblemsMap.has(p.id));
 
       const isCompleted = isAttemptCompleted || allProblemsCompleted;
+      const isInProgress = !isCompleted && anyProblemCompleted;
 
       const combinedCodingQuestions =
         sm.codingQuestions && sm.codingQuestions.length > 0

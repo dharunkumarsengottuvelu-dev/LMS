@@ -265,6 +265,18 @@ export default function AssessmentTakePage() {
           "Section 2: Coding",
       });
 
+      // If completed in Database, initialize completedRecord from DB data so logout never loses completion
+      if (targetSubModule.status === "completed" || targetSubModule.score !== undefined && targetSubModule.score > 0) {
+        setCompletedRecord((prev) => prev || {
+          score: targetSubModule.score ?? (targetSubModule.totalMarks || 100),
+          bestScore: targetSubModule.score ?? (targetSubModule.totalMarks || 100),
+          totalMarks: targetSubModule.totalMarks || targetSubModule.total_marks || 100,
+          attemptsCount: 1,
+          submittedAt: targetSubModule.submittedAt || new Date().toISOString(),
+          answers: {},
+        });
+      }
+
       const formattedQuestions: PracticeQuestion[] = [];
       const totalSubModuleMarks = targetSubModule.totalMarks || targetSubModule.total_marks || 100;
       const rawSections = targetSubModule.sections && Array.isArray(targetSubModule.sections) ? targetSubModule.sections : [];

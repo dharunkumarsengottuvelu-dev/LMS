@@ -30,7 +30,19 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    // 3. Map courses and extract visibility meta
+    // 3. Query enrollments from database for student
+    const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
+    const { data: enrollments } = await adminClient
+      .from("enrollments")
+      .select("course_id, progress_percentage, status")
+      .or(studentFilter) as any;
+
+    const enrollmentMap = new Map<string, any>();
+    (enrollments || []).forEach((e: any) => {
+      enrollmentMap.set(e.course_id, e);
+    });
+
+    // 4. Map courses and extract visibility meta
     const allCourses = (coursesData || []).map((c: any) => {
       let meta: any = {};
       if (c.tags && c.tags[0]) {
@@ -52,6 +64,11 @@ export async function GET(request: NextRequest) {
           ? meta.isCommon
           : assignedBatches.length === 0;
 
+      const enrollment = enrollmentMap.get(c.id) || enrollmentMap.get(c.slug);
+      const totalLessons = (meta.modules || []).reduce((acc: number, m: any) => acc + ((m.lessons || []).length || 1), 0) || 10;
+      const progress = enrollment?.progress_percentage ?? (enrollment?.status === "completed" ? 100 : 0);
+      const completedLessons = Math.round((progress / 100) * totalLessons);
+
       return {
         id: c.id,
         slug: c.slug || c.id,
@@ -63,9 +80,9 @@ export async function GET(request: NextRequest) {
             : c.difficulty === "advanced"
             ? "Advanced"
             : "Intermediate",
-        progress: 0,
-        completedLessons: 0,
-        totalLessons: (meta.modules || []).length || 10,
+        progress,
+        completedLessons,
+        totalLessons,
         instructor: meta.instructor || "Lead Technical Trainer",
         thumbnail:
           c.thumbnail_url ||

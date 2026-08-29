@@ -136,14 +136,8 @@ export default function StudentTrackDetailPage() {
     );
   }
 
-  // Calculate live dynamic statuses for all submodules (storageTick: ${storageTick})
+  // Calculate live dynamic statuses for all submodules with Database as primary source of truth
   const subModulesWithStatus = (track.subModules || []).map((sub) => {
-    let isLocalInProgress = false;
-    let isLocalCompleted = false;
-    let localScore: number | null = null;
-    let localAttemptsCount = 0;
-    let answeredQuestionsCount = 0;
-
     // Accurate calculation of total questions for this submodule
     const directMcqs = (sub as any).mcqQuestions?.length || (sub as any).mcqs?.length || 0;
     const directCoding = (sub as any).codingQuestions?.length || (sub as any).codingProblems?.length || 0;
@@ -162,19 +156,25 @@ export default function StudentTrackDetailPage() {
       totalQuestionsCount = sub.questionCount || 1;
     }
 
+    // Database-backed completion status
+    const isDbCompleted = sub.status === "completed";
+    let isLocalInProgress = false;
+    let isLocalCompleted = isDbCompleted;
+    let localScore: number | null = sub.score ?? null;
+    let localAttemptsCount = 1;
+    let answeredQuestionsCount = isDbCompleted ? totalQuestionsCount : 0;
+
     if (typeof window !== "undefined") {
       try {
         const sessionKey = `lms_practice_session_${sub.id}`;
         const session = localStorage.getItem(sessionKey);
         const submittedMarker = localStorage.getItem(`${sessionKey}_submitted`);
 
-        if (session && !submittedMarker) {
+        if (session && !submittedMarker && !isDbCompleted) {
           isLocalInProgress = true;
           const parsed = JSON.parse(session);
           
-          // Use a Set to avoid double-counting questions between answers and codeAnswers
           const answeredKeys = new Set<string>();
-
           Object.entries(parsed.answers || {}).forEach(([k, v]) => {
             if (!v) return;
             if (Array.isArray(v) && v.length > 0) answeredKeys.add(k);
@@ -198,18 +198,22 @@ export default function StudentTrackDetailPage() {
           if (resStr) {
             try {
               const parsedRes = JSON.parse(resStr);
-              localScore = parsedRes.score ?? null;
-              localAttemptsCount = parsedRes.attemptsCount || 1;
+              if (parsedRes.score !== undefined) localScore = parsedRes.score;
+              if (parsedRes.attemptsCount) localAttemptsCount = parsedRes.attemptsCount;
             } catch {}
           }
         }
       } catch {}
     }
 
-    const isCompleted = sub.status === "completed" || isLocalCompleted;
+    const isCompleted = isDbCompleted || isLocalCompleted;
     const isInProgress = !isCompleted && (sub.status === "in_progress" || isLocalInProgress);
     const maxAtt = (sub as any).maxAttempts ?? (track as any).maxAttempts ?? 0;
     const isLocked = isCompleted && maxAtt === 1;
+
+    if (isCompleted) {
+      answeredQuestionsCount = totalQuestionsCount;
+    }
 
     const rawPercent = totalQuestionsCount > 0 ? Math.round((answeredQuestionsCount / totalQuestionsCount) * 100) : 0;
     const moduleProgressPercent = isCompleted

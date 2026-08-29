@@ -124,22 +124,23 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
       let isInProgress = false;
       let ansCount = 0;
 
-      if (typeof window !== "undefined") {
+      if (typeof window !== "undefined" && !isDone) {
         if (localStorage.getItem(`lms_completed_assessment_${sm.id}`)) {
           isDone = true;
-        }
-        const session = localStorage.getItem(`lms_practice_session_${sm.id}`);
-        if (session) {
-          try {
-            const parsed = JSON.parse(session);
-            const ansLen = Object.keys(parsed.answers || {}).length;
-            const codeLen = Object.keys(parsed.codeAnswers || {}).length;
-            ansCount = ansLen + codeLen;
-            if (ansCount > 0) {
-              isInProgress = true;
-              hasActiveSession = true;
-            }
-          } catch {}
+        } else {
+          const session = localStorage.getItem(`lms_practice_session_${sm.id}`);
+          if (session) {
+            try {
+              const parsed = JSON.parse(session);
+              const ansLen = Object.keys(parsed.answers || {}).length;
+              const codeLen = Object.keys(parsed.codeAnswers || {}).length;
+              ansCount = ansLen + codeLen;
+              if (ansCount > 0) {
+                isInProgress = true;
+                hasActiveSession = true;
+              }
+            } catch {}
+          }
         }
       }
 
@@ -158,7 +159,10 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
     });
 
     const totalCount = subModules.length || 1;
-    const progressPercentage = Math.round(totalProgressSum / totalCount);
+    const computedProgress = Math.round(totalProgressSum / totalCount);
+    const progressPercentage = track.progressPercentage !== undefined && track.progressPercentage > 0
+      ? Math.max(track.progressPercentage, computedProgress)
+      : computedProgress;
     const targetSubModule = nextSubModuleToContinue || subModules[0];
 
     return {

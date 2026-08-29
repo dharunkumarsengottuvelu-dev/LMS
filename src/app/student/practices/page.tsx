@@ -32,9 +32,13 @@ interface PracticeCourseTrack {
   category: string;
   description: string;
   thumbnail: string;
-  assignedBy: "Admin" | "Trainer";
+  assignedBy?: "Admin" | "Trainer" | string;
   assignedByName: string;
   subModules: SubModuleItem[];
+  progressPercentage?: number;
+  completedModules?: number;
+  totalModules?: number;
+  totalProblems?: number;
 }
 
 const defaultPracticeTracks: PracticeCourseTrack[] = [];
@@ -171,7 +175,7 @@ export default function StudentPracticesPage() {
                 let inProg = false;
                 let ansCount = 0;
 
-                if (typeof window !== "undefined") {
+                if (typeof window !== "undefined" && !isComp) {
                   if (localStorage.getItem(`lms_completed_assessment_${m.id}`)) {
                     isComp = true;
                   } else {
@@ -195,7 +199,10 @@ export default function StudentPracticesPage() {
                 }
               });
 
-              const progressPercentage = Math.round(totalProgressSum / totalCount);
+              const computedPercentage = Math.round(totalProgressSum / totalCount);
+              const progressPercentage = track.progressPercentage !== undefined && track.progressPercentage > 0
+                ? Math.max(track.progressPercentage, computedPercentage)
+                : computedPercentage;
 
               return (
                 <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-primary/40 transition-all duration-200 bg-card border border-border shadow-sm rounded-[var(--radius-xl)] group">

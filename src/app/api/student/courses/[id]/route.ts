@@ -102,8 +102,18 @@ export async function GET(
       );
     }
 
+    // Query student's enrollment record
+    const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
+    const { data: enrollment } = await adminClient
+      .from("enrollments")
+      .select("progress_percentage, status, completed_at")
+      .eq("course_id", course.id)
+      .or(studentFilter)
+      .maybeSingle() as any;
+
     const modules = meta.modules || [];
     const totalLessons = modules.reduce((acc: number, m: any) => acc + (m.subModules?.length || m.lessons?.length || 1), 0) || 10;
+    const progress = enrollment?.progress_percentage ?? (enrollment?.status === "completed" ? 100 : 0);
 
     return NextResponse.json({
       course: {
@@ -122,6 +132,7 @@ export async function GET(
         instructor: meta.instructor || "Lead Technical Trainer",
         durationHours: meta.durationHours || 10,
         totalLessons,
+        progress,
         modules,
         isCommon,
         assignedBatches,
@@ -130,6 +141,70 @@ export async function GET(
     });
   } catch (error) {
     console.error("GET /api/student/courses/[id] error:", error);
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const adminClient = createAdminClient();
+    const batchContext = await getStudentBatchAccess(adminClient, user);
+    const body = await request.json();
+    const { progressPercentage = 100, status = "active" } = body;
+
+    // Resolve course id
+    let courseId = id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    if (!isUUID) {
+      const { data: c } = await adminClient
+        .from("courses")
+        .select("id")
+        .or(`slug.ilike.${id.toLowerCase()},id.eq.${id}`)
+        .maybeSingle() as any;
+      if (c) courseId = c.id;
+    }
+
+    const studentId = batchContext.profileId || user.id;
+
+    // Upsert enrollment in database
+    const payload = {
+      course_id: courseId,
+      student_id: studentId,
+      progress_percentage: Math.min(100, Math.max(0, Math.round(progressPercentage))),
+      status: progressPercentage >= 100 ? "completed" : status,
+      completed_at: progressPercentage >= 100 ? new Date().toISOString() : null,
+    };
+
+    const { data: updated, error } = await (adminClient
+      .from("enrollments") as any)
+      .upsert(payload, { onConflict: "course_id,student_id" })
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      await (adminClient.from("enrollments") as any).insert(payload);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Course progress saved to database successfully",
+      enrollment: updated || payload,
+    });
+  } catch (error) {
+    console.error("POST /api/student/courses/[id] error:", error);
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
