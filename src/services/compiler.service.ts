@@ -15,24 +15,24 @@ export interface CompilerLanguageEntity {
 }
 
 export const DEFAULT_COMPILER_LANGUAGES: CompilerLanguageEntity[] = [
-  { id: "c", display_name: "C (GCC)", jobe_language: "c", version: "C17 / GCC 13+", is_enabled: true, category: "compiled" },
-  { id: "cpp", display_name: "C++ (GCC)", jobe_language: "cpp", version: "C++17 / GCC 13+", is_enabled: true, category: "compiled" },
-  { id: "java", display_name: "Java (OpenJDK)", jobe_language: "java", version: "21 LTS", is_enabled: true, category: "compiled" },
-  { id: "python", display_name: "Python 3", jobe_language: "python3", version: "3.10+", is_enabled: true, category: "interpreted" },
-  { id: "javascript", display_name: "JavaScript (Node.js)", jobe_language: "nodejs", version: "Node.js 20 LTS", is_enabled: true, category: "interpreted" },
+  { id: "c", display_name: "C", jobe_language: "c", version: "C17 / GCC 13+", is_enabled: true, category: "compiled" },
+  { id: "cpp", display_name: "C++", jobe_language: "cpp", version: "C++17 / GCC 13+", is_enabled: true, category: "compiled" },
+  { id: "java", display_name: "Java", jobe_language: "java", version: "21 LTS", is_enabled: true, category: "compiled" },
+  { id: "python", display_name: "Python", jobe_language: "python3", version: "3.10+", is_enabled: true, category: "interpreted" },
+  { id: "javascript", display_name: "JavaScript", jobe_language: "nodejs", version: "Node.js 20 LTS", is_enabled: true, category: "interpreted" },
   { id: "typescript", display_name: "TypeScript", jobe_language: "typescript", version: "TypeScript 5+", is_enabled: true, category: "interpreted" },
   { id: "go", display_name: "Go", jobe_language: "go", version: "Go 1.23+", is_enabled: true, category: "compiled" },
   { id: "rust", display_name: "Rust", jobe_language: "rust", version: "Rust 1.82+", is_enabled: true, category: "compiled" },
   { id: "php", display_name: "PHP", jobe_language: "php", version: "PHP 8.3+", is_enabled: true, category: "interpreted" },
-  { id: "csharp", display_name: "C# (.NET)", jobe_language: "csharp", version: ".NET 8 / C# 12", is_enabled: true, category: "compiled" },
+  { id: "csharp", display_name: "C#", jobe_language: "csharp", version: ".NET 8 / C# 12", is_enabled: true, category: "compiled" },
   { id: "kotlin", display_name: "Kotlin", jobe_language: "kotlin", version: "Kotlin 1.9+", is_enabled: true, category: "compiled" },
   { id: "ruby", display_name: "Ruby", jobe_language: "ruby", version: "Ruby 3.3+", is_enabled: true, category: "interpreted" },
   { id: "swift", display_name: "Swift", jobe_language: "swift", version: "Swift 6.0", is_enabled: true, category: "compiled" },
   { id: "scala", display_name: "Scala", jobe_language: "scala", version: "Scala 3.5", is_enabled: true, category: "compiled" },
   { id: "dart", display_name: "Dart", jobe_language: "dart", version: "Dart 3.0+", is_enabled: true, category: "interpreted" },
   { id: "sql", display_name: "SQL", jobe_language: "sql", version: "SQLite 3", is_enabled: true, category: "sql" },
-  { id: "html", display_name: "HTML5", jobe_language: "html", version: "HTML5", is_enabled: true, category: "web" },
-  { id: "css", display_name: "CSS3", jobe_language: "css", version: "CSS3", is_enabled: true, category: "web" },
+  { id: "html", display_name: "HTML", jobe_language: "html", version: "HTML5", is_enabled: true, category: "web" },
+  { id: "css", display_name: "CSS", jobe_language: "css", version: "CSS3", is_enabled: true, category: "web" },
   { id: "react", display_name: "React", jobe_language: "react", version: "React 18", is_enabled: true, category: "web" },
 ];
 

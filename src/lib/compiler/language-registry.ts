@@ -83,7 +83,7 @@ export function resolveJavaSourceFile(code: string): SourceFileInfo {
 export const UNIVERSAL_LANGUAGES: Record<CodingLanguage, LanguageDefinition> = {
   java: {
     id: "java",
-    name: "Java (OpenJDK 21+)",
+    name: "Java",
     monacoLanguage: "java",
     jobeLanguage: "java",
     wandboxCompiler: "openjdk-jdk-22+36",
@@ -107,7 +107,7 @@ public class Main {
 
   python: {
     id: "python",
-    name: "Python 3",
+    name: "Python",
     monacoLanguage: "python",
     jobeLanguage: "python3",
     wandboxCompiler: "cpython-3.11.10",
@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
   cpp: {
     id: "cpp",
-    name: "C++ (GCC 17)",
+    name: "C++",
     monacoLanguage: "cpp",
     jobeLanguage: "cpp",
     wandboxCompiler: "gcc-13.2.0",
@@ -163,7 +163,7 @@ int main() {
 
   c: {
     id: "c",
-    name: "C (GCC)",
+    name: "C",
     monacoLanguage: "c",
     jobeLanguage: "c",
     wandboxCompiler: "gcc-13.2.0-c",
@@ -190,7 +190,7 @@ int main() {
 
   javascript: {
     id: "javascript",
-    name: "JavaScript (Node.js)",
+    name: "JavaScript",
     monacoLanguage: "javascript",
     jobeLanguage: "nodejs",
     wandboxCompiler: "nodejs-20.17.0",
@@ -308,7 +308,7 @@ $stdin = file_get_contents("php://stdin");
 
   csharp: {
     id: "csharp",
-    name: "C# (.NET)",
+    name: "C#",
     monacoLanguage: "csharp",
     jobeLanguage: "cs",
     wandboxCompiler: "mono-6.12.0.199",
@@ -427,7 +427,7 @@ void main() {
 
   sql: {
     id: "sql",
-    name: "SQL (SQLite/Postgres)",
+    name: "SQL",
     monacoLanguage: "sql",
     jobeLanguage: "sql",
     wandboxCompiler: "",
@@ -444,7 +444,7 @@ SELECT * FROM students;`,
 
   html: {
     id: "html",
-    name: "HTML5",
+    name: "HTML",
     monacoLanguage: "html",
     jobeLanguage: "html",
     wandboxCompiler: "",
@@ -468,7 +468,7 @@ SELECT * FROM students;`,
 
   css: {
     id: "css",
-    name: "CSS3",
+    name: "CSS",
     monacoLanguage: "css",
     jobeLanguage: "css",
     wandboxCompiler: "",

@@ -51,6 +51,39 @@ const WebPreview = dynamic(() => import("./web-preview").then((mod) => mod.WebPr
     </div>
   ),
 });
+const CLEAN_LANG_MAP: Record<string, string> = {
+  java: "Java",
+  python: "Python",
+  python3: "Python",
+  cpp: "C++",
+  c: "C",
+  csharp: "C#",
+  cs: "C#",
+  javascript: "JavaScript",
+  nodejs: "JavaScript",
+  typescript: "TypeScript",
+  go: "Go",
+  rust: "Rust",
+  kotlin: "Kotlin",
+  swift: "Swift",
+  php: "PHP",
+  ruby: "Ruby",
+  scala: "Scala",
+  dart: "Dart",
+  sql: "SQL",
+  html: "HTML",
+  css: "CSS",
+  react: "React",
+  bash: "Bash",
+};
+
+export function getCleanLanguageName(lang: string | undefined): string {
+  if (!lang) return "Code";
+  const normalized = lang.toLowerCase().trim();
+  if (CLEAN_LANG_MAP[normalized]) return CLEAN_LANG_MAP[normalized];
+  const stripped = lang.replace(/\s*\([^)]*\)/g, "").replace(/\s+\d+.*$/, "").trim();
+  return CLEAN_LANG_MAP[stripped.toLowerCase()] || stripped || lang;
+}
 
 // React Error Boundary to catch Monaco initialization crashes gracefully
 interface ErrorBoundaryProps {
@@ -738,20 +771,20 @@ export function CodeEditor({
              {/* Language Selector */}
              {allowedLanguages.length > 1 ? (
                <Select value={language} onValueChange={(v) => { if (v) handleLanguageChange(v as CodingLanguage); }}>
-                 <SelectTrigger className="h-7 sm:h-7.5 w-[105px] xs:w-[115px] sm:w-[130px] md:w-[145px] text-xs font-medium border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 shadow-2xs rounded-lg truncate shrink-0">
+                 <SelectTrigger className="h-7 sm:h-7.5 w-[90px] xs:w-[105px] sm:w-[115px] md:w-[125px] text-xs font-semibold border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 shadow-2xs rounded-lg truncate shrink-0">
                    <SelectValue className="truncate whitespace-nowrap" />
                  </SelectTrigger>
                  <SelectContent>
                     {allowedLanguages.map((lang) => (
                       <SelectItem key={lang} value={lang} className="text-xs font-medium whitespace-nowrap">
-                        {dbLanguages.find(l => l.id === lang)?.name || LANGUAGE_DISPLAY_NAMES[lang as CodingLanguage] || lang}
+                        {getCleanLanguageName(dbLanguages.find(l => l.id === lang)?.name || LANGUAGE_DISPLAY_NAMES[lang as CodingLanguage] || lang)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="h-7 sm:h-7.5 px-2 sm:px-3 flex items-center justify-center text-xs border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 rounded-lg font-medium shadow-2xs whitespace-nowrap truncate max-w-[125px] shrink-0">
-                  {dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language}
+                <div className="h-7 sm:h-7.5 px-2.5 sm:px-3 flex items-center justify-center text-xs border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 rounded-lg font-semibold shadow-2xs whitespace-nowrap truncate shrink-0">
+                  {getCleanLanguageName(dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language)}
                 </div>
               )}
 
@@ -1040,7 +1073,7 @@ export function CodeEditor({
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-2xs">
               <span className="h-2 w-2 rounded-full bg-blue-600" />
               <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-200">
-                {LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || dbLanguages.find(l => l.id === language)?.name || (language ? String(language).toUpperCase() : "Code")}
+                {getCleanLanguageName(dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language)}
               </span>
             </div>
           </div>
