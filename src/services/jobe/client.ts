@@ -140,7 +140,8 @@ export class JobeService {
     if (shouldBypassJobe) {
       try {
         const { LocalCompilerService } = await import("@/services/local-compiler.service");
-        return await LocalCompilerService.execute(language, code, stdin ?? "", (limits?.timeLimit ?? 5) * 1000);
+        const execTimeoutMs = Math.max((limits?.timeLimit ?? 10) * 1000, 15000);
+        return await LocalCompilerService.execute(language, code, stdin ?? "", execTimeoutMs);
       } catch (localErr) {
         const msg = getErrorMessage(localErr);
         return this.createErrorResult(`Execution failed: ${msg}`, 500);
@@ -202,7 +203,8 @@ export class JobeService {
     // Seamless automatic fallback to local compiler runtime
     try {
       const { LocalCompilerService } = await import("@/services/local-compiler.service");
-      return await LocalCompilerService.execute(language, code, stdin ?? "", (limits?.timeLimit ?? 5) * 1000);
+      const execTimeoutMs = Math.max((limits?.timeLimit ?? 10) * 1000, 15000);
+      return await LocalCompilerService.execute(language, code, stdin ?? "", execTimeoutMs);
     } catch (localErr) {
       const msg = getErrorMessage(localErr);
       return this.createErrorResult(`Execution failed: ${msg}`, 500);

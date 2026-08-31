@@ -167,6 +167,12 @@ function executeOnWandbox(
 function preprocessJavaForSandbox(code: string): string {
   // Remove package declarations
   let src = code.replace(/^\s*package\s+[^;]+;/gm, "");
+  
+  // Auto-inject standard utility imports if missing
+  if (!src.includes("import java.util")) {
+    src = `import java.util.*;\nimport java.io.*;\n${src}`;
+  }
+
   const publicClassMatch = src.match(/public\s+class\s+([A-Za-z0-9_]+)/);
   const anyClassMatch = src.match(/class\s+([A-Za-z0-9_]+)/);
   if (!anyClassMatch) {

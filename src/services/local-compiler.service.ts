@@ -183,6 +183,12 @@ export class LocalCompilerService {
 
       // Strip package declarations — not valid in sandbox temp dir
       let src = code.replace(/^\s*package\s+[^;]+;/gm, "");
+      
+      // Auto-inject standard utility imports if missing
+      if (!src.includes("import java.util")) {
+        src = `import java.util.*;\nimport java.io.*;\n${src}`;
+      }
+
       const pubMatch = src.match(/public\s+class\s+([A-Za-z0-9_]+)/);
       const anyMatch = src.match(/class\s+([A-Za-z0-9_]+)/);
       const className: string = (pubMatch?.[1] ?? anyMatch?.[1] ?? "Main");
@@ -227,11 +233,11 @@ export class LocalCompilerService {
           if (timedOut) return resolve(tlResult(elapsed));
           resolve(runResult(rc === 0, stdout.trimEnd(), stderr.trimEnd(), elapsed, 32000));
         });
-        javaProc.on("error", (err: Error) => { clearTimeout(timer); resolve(errResult(err.message)); });
+        javaProc.on("error", (err: Error) => { clearTimeout(timer); resolve(errResult(err.message, 13, "Internal Error", 20)); });
       });
 
       javac.on("error", (err: Error) => {
-        resolve(errResult(`javac: ${err.message}`, 6, "Compilation Error", 11));
+        resolve(errResult(`javac: ${err.message}`, 13, "Internal Error", 20));
       });
     });
   }
