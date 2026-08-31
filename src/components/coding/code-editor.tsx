@@ -7,9 +7,7 @@ import {
   CheckCircle2, XCircle, Clock,
   PanelLeftOpen, PanelRightOpen,
   ChevronUp, ChevronDown, Lock, Terminal,
-  Sun, Moon, Maximize2, Minimize2,
-  Wand2, AlignLeft, LayoutTemplate,
-  Check, AlertCircle, FileCode
+  Sun, Moon, Maximize2, Minimize2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -719,61 +717,6 @@ export function CodeEditor({
                   <span className="uppercase">{(problem?.sql_engine || "sqlite")}</span>
                 </Badge>
               )}
-
-             {/* Format Code Button */}
-             <Button
-               variant="ghost"
-               size="sm"
-               className="h-7.5 px-2 text-xs text-gray-600 hover:text-blue-600 dark:text-zinc-300 dark:hover:text-blue-400 flex items-center gap-1 rounded-lg"
-               onClick={handleFormatCode}
-               title="Format Code (Shift+Alt+F)"
-             >
-               <Wand2 className="h-3.5 w-3.5" />
-               <span className="hidden md:inline text-[11px] font-medium">Format</span>
-             </Button>
-
-             {/* Word Wrap Toggle */}
-             <Button
-               variant="ghost"
-               size="icon"
-               className={cn(
-                 "h-7.5 w-7.5 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg",
-                 wordWrap === "on" && "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40"
-               )}
-               onClick={() => setWordWrap((w) => (w === "on" ? "off" : "on"))}
-               title={`Toggle Word Wrap (${wordWrap.toUpperCase()})`}
-             >
-               <AlignLeft className="h-3.5 w-3.5" />
-             </Button>
-
-             {/* Minimap Toggle */}
-             <Button
-               variant="ghost"
-               size="icon"
-               className={cn(
-                 "h-7.5 w-7.5 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg hidden sm:flex",
-                 showMinimap && "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40"
-               )}
-               onClick={() => setShowMinimap((m) => !m)}
-               title="Toggle Minimap"
-             >
-               <LayoutTemplate className="h-3.5 w-3.5" />
-             </Button>
-
-             {/* Font Size Selector */}
-             <Select value={String(fontSize)} onValueChange={(v) => { if (v) setFontSize(parseInt(v, 10)); }}>
-               <SelectTrigger className="h-7.5 w-[68px] text-[11px] font-mono border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 hidden sm:flex rounded-lg shadow-2xs">
-                 <SelectValue />
-               </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="12" className="text-xs">12px</SelectItem>
-                 <SelectItem value="13" className="text-xs">13px</SelectItem>
-                 <SelectItem value="14" className="text-xs">14px</SelectItem>
-                 <SelectItem value="15" className="text-xs">15px</SelectItem>
-                 <SelectItem value="16" className="text-xs">16px</SelectItem>
-                 <SelectItem value="18" className="text-xs">18px</SelectItem>
-               </SelectContent>
-             </Select>
 
              {/* Theme Toggle */}
              <Button
