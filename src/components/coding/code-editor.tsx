@@ -762,17 +762,6 @@ export function CodeEditor({
                 </Badge>
               )}
 
-             {/* Theme Toggle (Desktop/Tablet) */}
-             <Button
-               variant="ghost"
-               size="icon"
-               className="h-7 sm:h-7.5 w-7 sm:w-7.5 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg shrink-0 hidden md:inline-flex"
-               onClick={() => setEditorTheme((t) => (t === "lms-light" ? "lms-dark" : "lms-light"))}
-               title={editorTheme === "lms-light" ? "Switch to Dark Theme" : "Switch to Light Theme"}
-             >
-               {editorTheme === "lms-light" ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
-             </Button>
-
              {/* Reset Code (Desktop/Tablet) */}
              <Button
                variant="ghost"
@@ -804,20 +793,12 @@ export function CodeEditor({
                  <DropdownMenuTrigger className="h-7 w-7 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg shrink-0 flex items-center justify-center cursor-pointer hover:bg-gray-200/50 dark:hover:bg-zinc-800">
                    <MoreHorizontal className="h-3.5 w-3.5" />
                  </DropdownMenuTrigger>
-                 <DropdownMenuContent align="end" className="w-40">
-                   <DropdownMenuItem onClick={() => setEditorTheme((t) => (t === "lms-light" ? "lms-dark" : "lms-light"))} className="text-xs">
-                     {editorTheme === "lms-light" ? <Moon className="h-3.5 w-3.5 mr-2 inline" /> : <Sun className="h-3.5 w-3.5 mr-2 inline" />}
-                     <span>{editorTheme === "lms-light" ? "Dark Theme" : "Light Theme"}</span>
-                   </DropdownMenuItem>
-                   <DropdownMenuItem onClick={handleReset} className="text-xs">
-                     <RotateCcw className="h-3.5 w-3.5 mr-2 inline" />
+                 <DropdownMenuContent align="end" className="w-44 bg-white dark:bg-[#18181B] border border-gray-200 dark:border-zinc-800 shadow-md rounded-xl p-1">
+                   <DropdownMenuItem onClick={handleReset} className="text-xs cursor-pointer">
+                     <RotateCcw className="h-3.5 w-3.5 mr-2 inline text-blue-600" />
                      <span>Reset Template</span>
                    </DropdownMenuItem>
-                   <DropdownMenuItem onClick={handleFormatCode} className="text-xs">
-                     <Sparkles className="h-3.5 w-3.5 mr-2 inline" />
-                     <span>Format Code</span>
-                   </DropdownMenuItem>
-                   <DropdownMenuItem onClick={toggleFullscreen} className="text-xs">
+                   <DropdownMenuItem onClick={toggleFullscreen} className="text-xs cursor-pointer">
                      {isFullscreen ? <Minimize2 className="h-3.5 w-3.5 mr-2 inline" /> : <Maximize2 className="h-3.5 w-3.5 mr-2 inline" />}
                      <span>{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
                    </DropdownMenuItem>
