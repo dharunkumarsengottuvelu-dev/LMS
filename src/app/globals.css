@@ -283,3 +283,29 @@ p, span, div {
 .stagger-3 { animation-delay: 120ms; }
 .stagger-4 { animation-delay: 160ms; }
 .stagger-5 { animation-delay: 200ms; }
+
+/* Monaco Editor Widgets & Autocomplete Suggest Popup */
+.monaco-editor .suggest-widget,
+.monaco-editor .overflowingContentWidgets,
+.monaco-editor-hover,
+.monaco-editor .parameter-hints-widget {
+  z-index: 99999 !important;
+}
+
+.monaco-editor .suggest-widget {
+  border-radius: 8px !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.2), 0 4px 12px -2px rgba(0, 0, 0, 0.1) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  margin-top: 4px !important;
+  max-height: 180px !important;
+}
+
+.monaco-editor .suggest-widget .tree,
+.monaco-editor .suggest-widget .monaco-list {
+  max-height: 170px !important;
+}
+
+.dark .monaco-editor .suggest-widget {
+  border: 1px solid rgba(39, 39, 42, 0.9) !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6) !important;
+}

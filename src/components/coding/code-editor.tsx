@@ -114,9 +114,15 @@ export function CodeEditor({
   height = "450px",
 }: CodeEditorProps) {
   const [language, setLanguage] = useState<CodingLanguage>(defaultLanguage);
-  const [code, setCode] = useState<string>(
-    defaultCode ?? (problem?.templates?.[defaultLanguage] || "")
-  );
+  const [code, setCode] = useState<string>(() => {
+    if (typeof window !== "undefined" && problem?.id) {
+      try {
+        const savedDraft = localStorage.getItem(`edunexus_draft_${problem.id}_${defaultLanguage}`);
+        if (savedDraft !== null) return savedDraft;
+      } catch {}
+    }
+    return defaultCode ?? (problem?.templates?.[defaultLanguage] || "");
+  });
   const [stdin, setStdin] = useState(problem?.sample_input ?? "");
   const [output, setOutput] = useState<ExecuteCodeResult | null>(null);
   const [multiOutput, setMultiOutput] = useState<{ results: TestCaseResult[] } | null>(null);
@@ -129,9 +135,19 @@ export function CodeEditor({
   const [editorTheme, setEditorTheme] = useState<"lms-light" | "lms-dark">("lms-light");
   const [dbLanguages, setDbLanguages] = useState<{id: string, name: string}[]>([]);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
+  const lastProblemIdRef = useRef<string | undefined>(problem?.id);
+  const lastLangRef = useRef<CodingLanguage>(defaultLanguage);
+  const hasUserEditedRef = useRef<boolean>(false);
   const consoleRef = useRef<HTMLDivElement>(null);
   const consoleContentRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const handleCodeChangeInternal = useCallback((newVal: string) => {
+    if (readOnly) return;
+    hasUserEditedRef.current = true;
+    setCode(newVal);
+    onCodeChange?.(newVal, language);
+  }, [readOnly, onCodeChange, language]);
 
   const toggleFullscreen = useCallback(() => {
     setIsFullscreen((prev) => !prev);
@@ -159,6 +175,72 @@ export function CodeEditor({
           });
         }
       });
+
+      // 1. Intercept addContentWidget so any widget (including SuggestWidget) enforces preference [BELOW]
+      try {
+        if (typeof editor.addContentWidget === "function") {
+          const origAddContentWidget = editor.addContentWidget.bind(editor);
+          editor.addContentWidget = function(contentWidget: any) {
+            if (contentWidget && typeof contentWidget.getPosition === "function") {
+              const widgetId = typeof contentWidget.getId === "function" ? contentWidget.getId() : "";
+              if (!widgetId || widgetId.toLowerCase().includes("suggest")) {
+                const origGetPos = contentWidget.getPosition.bind(contentWidget);
+                contentWidget.getPosition = function() {
+                  const pos = origGetPos();
+                  if (pos) {
+                    pos.preference = [2]; // 2 = monaco.editor.ContentWidgetPositionPreference.BELOW
+                  }
+                  return pos;
+                };
+              }
+            }
+            return origAddContentWidget(contentWidget);
+          };
+        }
+      } catch (err) {
+        console.warn("[Monaco] Could not intercept addContentWidget:", err);
+      }
+
+      // 2. Access suggestController and enforce positioning directly
+      try {
+        const suggestContrib = editor.getContribution?.("editor.contrib.suggestController") as any;
+        if (suggestContrib) {
+          const widget = suggestContrib.widget?.value || suggestContrib._widget?.value;
+          if (widget) {
+            if (typeof widget.getPosition === "function") {
+              const origGetPos = widget.getPosition.bind(widget);
+              widget.getPosition = function() {
+                const pos = origGetPos();
+                if (pos) {
+                  pos.preference = [2];
+                }
+                return pos;
+              };
+            }
+
+            // If widget shows, snap its top position below the cursor if it ever flipped above
+            widget.onDidShow?.(() => {
+              requestAnimationFrame(() => {
+                const domNode = widget.getDomNode?.() || document.querySelector(".monaco-editor .suggest-widget");
+                if (domNode && domNode.classList.contains("above")) {
+                  const pos = editor.getPosition();
+                  const cursorCoord = editor.getScrolledVisiblePosition(pos);
+                  const editorDom = editor.getDomNode();
+                  if (cursorCoord && editorDom) {
+                    const editorRect = editorDom.getBoundingClientRect();
+                    const topBelow = editorRect.top + cursorCoord.top + cursorCoord.height + 4;
+                    domNode.style.top = `${topBelow}px`;
+                    domNode.classList.remove("above");
+                    domNode.classList.add("below");
+                  }
+                }
+              });
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("[Monaco] Could not bind suggestController widget:", err);
+      }
     }
   }, []);
 
@@ -229,45 +311,66 @@ export function CodeEditor({
   }, [problem, defaultLanguage]);
 
   useEffect(() => {
-    if (problem) {
-      const currentLang = allowedLanguages.includes(language) ? language : (allowedLanguages[0] || "python");
-      if (currentLang !== language) {
-        setLanguage(currentLang);
-        return;
+    if (!problem) return;
+
+    const targetLang = allowedLanguages.includes(language)
+      ? language
+      : (allowedLanguages[0] || defaultLanguage || "python");
+
+    const isProblemChange = problem.id !== lastProblemIdRef.current;
+    const isLangChange = targetLang !== lastLangRef.current;
+
+    if (isProblemChange || isLangChange) {
+      lastProblemIdRef.current = problem.id;
+      lastLangRef.current = targetLang;
+      hasUserEditedRef.current = false;
+
+      if (targetLang !== language) {
+        setLanguage(targetLang);
       }
-      
-      const localKey = `edunexus_draft_${problem.id}_${currentLang}`;
-      const savedDraft = typeof window !== "undefined" ? localStorage.getItem(localKey) : null;
-      const initialCode = savedDraft !== null 
-        ? savedDraft 
-        : (defaultCode !== undefined ? defaultCode : (problem.templates?.[currentLang] || ""));
-        
+
+      const localKey = problem.id ? `edunexus_draft_${problem.id}_${targetLang}` : null;
+      const savedDraft = (localKey && typeof window !== "undefined") ? localStorage.getItem(localKey) : null;
+      const initialCode = savedDraft !== null
+        ? savedDraft
+        : (isProblemChange && defaultCode !== undefined ? defaultCode : (problem.templates?.[targetLang] || ""));
+
       setCode(initialCode);
       if (problem.sample_input !== undefined) {
         setStdin(problem.sample_input);
       }
       setOutput(null);
+      setMultiOutput(null);
 
       // If no local draft exists (e.g. new laptop), fetch cloud draft from database
       if (!savedDraft && problem.id) {
-        fetch(`/api/student/drafts?problem_id=${problem.id}&language=${currentLang}`)
+        const fetchProblemId = problem.id;
+        fetch(`/api/student/drafts?problem_id=${fetchProblemId}&language=${targetLang}`)
           .then((res) => (res.ok ? res.json() : null))
           .then((data) => {
-            if (data?.draft?.code) {
+            if (
+              data?.draft?.code &&
+              lastProblemIdRef.current === fetchProblemId &&
+              lastLangRef.current === targetLang &&
+              !hasUserEditedRef.current
+            ) {
               setCode(data.draft.code);
-              try {
-                localStorage.setItem(localKey, data.draft.code);
-              } catch {}
+              onCodeChange?.(data.draft.code, targetLang);
+              if (localKey) {
+                try {
+                  localStorage.setItem(localKey, data.draft.code);
+                } catch {}
+              }
             }
           })
           .catch(() => {});
       }
     }
-  }, [problem?.id, defaultCode]);
+  }, [problem?.id, allowedLanguages, defaultLanguage]);
 
   // Auto-save draft locally and to cloud database (debounced)
   useEffect(() => {
-    if (problem?.id && code) {
+    if (problem?.id && code !== undefined) {
       const localKey = `edunexus_draft_${problem.id}_${language}`;
       try {
         localStorage.setItem(localKey, code);
@@ -333,29 +436,44 @@ export function CodeEditor({
 
   const handleLanguageChange = useCallback((newLang: CodingLanguage) => {
     setLanguage(newLang);
-    const localKey = `edunexus_draft_${problem?.id}_${newLang}`;
-    const savedDraft = typeof window !== "undefined" ? localStorage.getItem(localKey) : null;
+    lastLangRef.current = newLang;
+    hasUserEditedRef.current = false;
+
+    const localKey = problem?.id ? `edunexus_draft_${problem.id}_${newLang}` : null;
+    const savedDraft = (localKey && typeof window !== "undefined") ? localStorage.getItem(localKey) : null;
     const template = problem?.templates?.[newLang] || "";
-    setCode(savedDraft !== null ? savedDraft : template);
-    if (problem?.sample_input) {
+    const newCode = savedDraft !== null ? savedDraft : template;
+    setCode(newCode);
+    onCodeChange?.(newCode, newLang);
+    if (problem?.sample_input !== undefined) {
       setStdin(problem.sample_input);
     }
     setOutput(null);
+    setMultiOutput(null);
 
     if (!savedDraft && problem?.id) {
-      fetch(`/api/student/drafts?problem_id=${problem.id}&language=${newLang}`)
+      const fetchProblemId = problem.id;
+      fetch(`/api/student/drafts?problem_id=${fetchProblemId}&language=${newLang}`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          if (data?.draft?.code) {
+          if (
+            data?.draft?.code &&
+            lastProblemIdRef.current === fetchProblemId &&
+            lastLangRef.current === newLang &&
+            !hasUserEditedRef.current
+          ) {
             setCode(data.draft.code);
-            try {
-              localStorage.setItem(localKey, data.draft.code);
-            } catch {}
+            onCodeChange?.(data.draft.code, newLang);
+            if (localKey) {
+              try {
+                localStorage.setItem(localKey, data.draft.code);
+              } catch {}
+            }
           }
         })
         .catch(() => {});
     }
-  }, [problem]);
+  }, [problem, onCodeChange]);
 
   const handleRun = async () => {
     if (!code.trim()) {
@@ -452,8 +570,17 @@ export function CodeEditor({
 
   const handleReset = () => {
     const template = problem?.templates?.[language] || "";
+    hasUserEditedRef.current = false;
     setCode(template);
+    onCodeChange?.(template, language);
+    if (problem?.id) {
+      const localKey = `edunexus_draft_${problem.id}_${language}`;
+      try {
+        localStorage.removeItem(localKey);
+      } catch {}
+    }
     setOutput(null);
+    setMultiOutput(null);
   };
 
   const statusColor = output?.status
@@ -609,7 +736,7 @@ export function CodeEditor({
                     readOnly={readOnly}
                     onSelect={handleTextareaSelect}
                     onChange={(e) => {
-                      setCode(e.target.value);
+                      handleCodeChangeInternal(e.target.value);
                       handleTextareaSelect(e);
                     }}
                     className="w-full h-full font-mono text-sm p-4 resize-none focus:outline-none bg-white text-gray-800"
@@ -621,7 +748,7 @@ export function CodeEditor({
                       value={code}
                       onSelect={handleTextareaSelect}
                       onChange={(e) => {
-                        setCode(e.target.value);
+                        handleCodeChangeInternal(e.target.value);
                         handleTextareaSelect(e);
                       }}
                       className="w-full h-full font-mono text-sm p-4 resize-none bg-white"
@@ -630,12 +757,13 @@ export function CodeEditor({
                     <MonacoEditor
                       language={language === "react" ? "typescript" : language}
                       value={code}
-                      onChange={(v) => !readOnly && setCode(v ?? "")}
+                      onChange={(v) => handleCodeChangeInternal(v ?? "")}
                       theme={editorTheme}
                       beforeMount={(monaco) => registerMonacoCompletions(monaco)}
                       onMount={handleEditorMount}
                       height="100%"
                       options={{
+                        fixedOverflowWidgets: true,
                         fontSize: 13.5,
                         lineHeight: 21,
                         fontFamily: "'JetBrains Mono', 'Fira Code', 'Menlo', 'Consolas', monospace",
@@ -659,15 +787,17 @@ export function CodeEditor({
                         smoothScrolling: true,
                         bracketPairColorization: { enabled: true },
                         guides: { indentation: true, bracketPairs: true },
-                        padding: { top: 10, bottom: 10 },
+                        padding: { top: 12, bottom: 12 },
+                        suggestFontSize: 13,
+                        suggestLineHeight: 22,
                         quickSuggestions: {
                           other: true,
                           comments: true,
                           strings: true,
                         },
-                        quickSuggestionsDelay: 10,
+                        quickSuggestionsDelay: 100,
                         suggestOnTriggerCharacters: true,
-                        acceptSuggestionOnEnter: "on",
+                        acceptSuggestionOnEnter: "smart",
                         tabCompletion: "on",
                         wordBasedSuggestions: "allDocuments",
                         suggest: {
@@ -691,6 +821,9 @@ export function CodeEditor({
                           preview: true,
                           shareSuggestSelections: true,
                           insertMode: "insert",
+                          filterGraceful: true,
+                          localityBonus: true,
+                          snippetsPreventQuickSuggestions: false,
                         },
                       }}
                     />
@@ -710,7 +843,7 @@ export function CodeEditor({
               readOnly={readOnly}
               onSelect={handleTextareaSelect}
               onChange={(e) => {
-                setCode(e.target.value);
+                handleCodeChangeInternal(e.target.value);
                 handleTextareaSelect(e);
               }}
               className="w-full h-full font-mono text-sm p-4 resize-none focus:outline-none bg-white text-gray-800"
@@ -722,8 +855,7 @@ export function CodeEditor({
                 value={code}
                 onSelect={handleTextareaSelect}
                 onChange={(e) => {
-                  setCode(e.target.value);
-                  onCodeChange?.(e.target.value, language);
+                  handleCodeChangeInternal(e.target.value);
                   handleTextareaSelect(e);
                 }}
                 className="w-full h-full font-mono text-sm p-4 resize-none bg-white"
@@ -732,17 +864,13 @@ export function CodeEditor({
               <MonacoEditor
                 language={language === "cpp" ? "cpp" : language === "csharp" ? "csharp" : language}
                 value={code}
-                onChange={(v) => {
-                  if (!readOnly) {
-                    setCode(v ?? "");
-                    onCodeChange?.(v ?? "", language);
-                  }
-                }}
+                onChange={(v) => handleCodeChangeInternal(v ?? "")}
                 theme={editorTheme}
                 beforeMount={(monaco) => registerMonacoCompletions(monaco)}
                 onMount={handleEditorMount}
                 height="100%"
                 options={{
+                  fixedOverflowWidgets: true,
                   fontSize: 13.5,
                   lineHeight: 21,
                   fontFamily: "'JetBrains Mono', 'Fira Code', 'Menlo', 'Consolas', monospace",
@@ -766,15 +894,17 @@ export function CodeEditor({
                   smoothScrolling: true,
                   bracketPairColorization: { enabled: true },
                   guides: { indentation: true, bracketPairs: true },
-                  padding: { top: 10, bottom: 10 },
+                  padding: { top: 12, bottom: 12 },
+                  suggestFontSize: 13,
+                  suggestLineHeight: 22,
                   quickSuggestions: {
                     other: true,
                     comments: true,
                     strings: true,
                   },
-                  quickSuggestionsDelay: 10,
+                  quickSuggestionsDelay: 100,
                   suggestOnTriggerCharacters: true,
-                  acceptSuggestionOnEnter: "on",
+                  acceptSuggestionOnEnter: "smart",
                   tabCompletion: "on",
                   wordBasedSuggestions: "allDocuments",
                   suggest: {
@@ -798,6 +928,9 @@ export function CodeEditor({
                     preview: true,
                     shareSuggestSelections: true,
                     insertMode: "insert",
+                    filterGraceful: true,
+                    localityBonus: true,
+                    snippetsPreventQuickSuggestions: false,
                   },
                 }}
               />
