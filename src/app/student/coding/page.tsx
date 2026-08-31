@@ -271,9 +271,9 @@ export default function StudentCodingIDEPage() {
 
       {/* ── 3-Column Body ── */}
       <div className="flex flex-1 overflow-hidden w-full">
-        {/* ── LEFT: Problem Statement (Enlarged for readability) ── */}
+        {/* ── LEFT: Problem Statement (Proportional responsive width) ── */}
         {showQuestion && (
-        <div className="w-[480px] lg:w-[520px] xl:w-[560px] flex flex-col bg-card border-r border-border shrink-0 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="w-[30%] xl:w-[28%] min-w-[280px] max-w-[400px] flex flex-col bg-card border-r border-border shrink-0 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex-1 overflow-y-auto flex flex-col h-full">
           {/* Question header */}
           <div className="px-5 py-4 border-b border-border">
@@ -519,7 +519,7 @@ export default function StudentCodingIDEPage() {
         </div>
 
         {showNavigator && (
-          <div className="w-[290px] lg:w-[320px] flex flex-col bg-card border-l border-border shrink-0 relative animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150 fill-mode-both">
+          <div className="w-[220px] xl:w-[260px] flex flex-col bg-card border-l border-border shrink-0 relative animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150 fill-mode-both">
             {/* ── RIGHT: Question Navigator ── */}
             <div className="flex-1 overflow-y-auto flex flex-col h-full">
               <div className="px-5 py-4 border-b border-border flex items-center justify-between">

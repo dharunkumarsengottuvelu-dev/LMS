@@ -49,8 +49,10 @@ export default function StudentPracticesPage() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [storePracticeTracks, setStorePracticeTracks] = useState<any[]>([]);
   const [storageTick, setStorageTick] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     async function loadTracks() {
       let apiTracks: any[] = [];
       try {
@@ -175,7 +177,7 @@ export default function StudentPracticesPage() {
                 let inProg = false;
                 let ansCount = 0;
 
-                if (typeof window !== "undefined" && !isComp) {
+                if (isMounted && !isComp) {
                   if (localStorage.getItem(`lms_completed_assessment_${m.id}`)) {
                     isComp = true;
                   } else {

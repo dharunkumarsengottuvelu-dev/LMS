@@ -140,12 +140,25 @@ export function CodeEditor({
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
 
   const monacoEditorRef = useRef<any>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
   const lastProblemIdRef = useRef<string | undefined>(problem?.id);
   const lastLangRef = useRef<CodingLanguage>(defaultLanguage);
   const hasUserEditedRef = useRef<boolean>(false);
   const consoleRef = useRef<HTMLDivElement>(null);
   const consoleContentRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Automatic Monaco ResizeObserver to layout immediately on container/viewport changes
+  useEffect(() => {
+    if (!editorContainerRef.current) return;
+    const observer = new ResizeObserver(() => {
+      if (monacoEditorRef.current) {
+        monacoEditorRef.current.layout();
+      }
+    });
+    observer.observe(editorContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const tabSize = useMemo(() => {
     return (language === "javascript" || language === "typescript" || language === "html" || language === "css" || language === "react")
@@ -820,7 +833,7 @@ export function CodeEditor({
         </div>
 
         {/* Monaco Editor Body */}
-        <div className="flex-1 min-h-0 relative overflow-hidden bg-white dark:bg-[#141417]">
+        <div ref={editorContainerRef} className="flex-1 min-h-0 min-w-0 w-full h-full relative overflow-hidden bg-white dark:bg-[#141417]">
           {language === "html" || language === "css" || language === "react" ? (
             <div className="grid grid-cols-2 h-full">
               <div className="h-full border-r border-gray-200 dark:border-zinc-800">

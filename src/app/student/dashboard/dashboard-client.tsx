@@ -71,8 +71,10 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const [storeCourses, setStoreCourses] = useState<any[]>((data as any).initialCourses || (data as any).enrollments || []);
   const [storeTracks, setStoreTracks] = useState<any[]>((data as any).initialTracks || []);
   const [storeAssessments, setStoreAssessments] = useState<any[]>(data.tests || []);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     async function loadData() {
       try {
         const [cRes, pRes, aRes] = await Promise.all([
@@ -124,7 +126,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
       let isInProgress = false;
       let ansCount = 0;
 
-      if (typeof window !== "undefined" && !isDone) {
+      if (isMounted && !isDone) {
         if (localStorage.getItem(`lms_completed_assessment_${sm.id}`)) {
           isDone = true;
         } else {

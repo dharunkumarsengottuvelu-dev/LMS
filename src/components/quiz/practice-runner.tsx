@@ -6,7 +6,7 @@ import {
   Send, Code2, ClipboardList, Layers, Play, Check, Award,
   RotateCcw, Sparkles, Terminal, FileCode, CheckCheck, XCircle, AlertCircle,
   HelpCircle, ArrowRight, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
-  Edit3, Copy, Search, CheckCircle, ExternalLink, ArrowUpRight, ListFilter, CornerDownRight, FileText, AlertTriangle, ArrowLeft, Database
+  Edit3, Copy, Search, CheckCircle, ExternalLink, ArrowUpRight, ListFilter, CornerDownRight, FileText, AlertTriangle, ArrowLeft, Database, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -236,6 +236,8 @@ export function PracticeRunnerEngine({
   const [isSubmittingCode, setIsSubmittingCode] = useState(false);
   const [showProblemStatement, setShowProblemStatement] = useState(true);
   const [showQuestionPalette, setShowQuestionPalette] = useState(true);
+  const [mobileTab, setMobileTab] = useState<"problem" | "editor" | "palette">("editor");
+  const [showPaletteDrawer, setShowPaletteDrawer] = useState(false);
 
   const [isSubmitted, setIsSubmitted] = useState<boolean>(() => isAlreadySubmitted);
   const timerRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -652,8 +654,122 @@ export function PracticeRunnerEngine({
     };
   }, [currentQuestion]);
 
+  const renderProblemStatementContent = (canHide = false) => (
+    <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden h-full flex flex-col min-w-0">
+      <CardHeader className="p-4 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] bg-muted/20 shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge className="bg-[#2563EB] text-white text-xs font-bold px-3 py-1">
+              Problem {codingIndex + 1} of {codingQuestions.length}
+            </Badge>
+            <Badge variant="outline" className={cn(
+              "text-[10px] font-bold uppercase px-2.5 py-0.5",
+              activeCodingProblem.difficulty === "easy" ? "border-green-500/30 text-green-600 bg-green-500/10" :
+              activeCodingProblem.difficulty === "hard" ? "border-red-500/30 text-red-600 bg-red-500/10" :
+              "border-amber-500/30 text-amber-600 bg-amber-500/10"
+            )}>
+              {activeCodingProblem.difficulty}
+            </Badge>
+            {currentQuestion?.marks && (
+              <Badge variant="outline" className="text-[10px] font-bold uppercase px-2.5 py-0.5 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/10">
+                +{currentQuestion.marks} Marks
+              </Badge>
+            )}
+          </div>
+          {canHide && (
+            <button
+              type="button"
+              onClick={() => setShowProblemStatement(false)}
+              className="h-7 w-7 rounded-lg border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-center text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-muted transition-all shrink-0"
+              title="Hide Problem Panel"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <CardTitle className="text-base font-bold text-foreground mt-2">
+          {activeCodingProblem.title}
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="p-4 space-y-4 text-xs leading-relaxed flex-1 overflow-y-auto min-h-0">
+        <div className="space-y-2">
+          <strong className="text-foreground text-sm block font-bold">Problem Statement</strong>
+          <p className="text-muted-foreground whitespace-pre-line leading-relaxed text-sm">
+            {activeCodingProblem.description}
+          </p>
+        </div>
+
+        {/* SQL Mode 1: Provided Database Schema & Seed Data Inspector */}
+        {activeCodingProblem.schema_sql && (
+          <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/40 space-y-2">
+            <div className="flex items-center justify-between">
+              <strong className="text-[#2563EB] font-bold block text-xs flex items-center gap-1.5">
+                <Database className="h-3.5 w-3.5" /> Provided Database Schema (DDL)
+              </strong>
+              <Badge variant="outline" className="text-[9px] uppercase font-bold border-blue-300 text-[#2563EB]">
+                {activeCodingProblem.sql_engine || "sqlite"}
+              </Badge>
+            </div>
+            <pre className="text-foreground font-mono text-[10.5px] p-2 bg-background/80 rounded-lg border border-border/50 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+              {activeCodingProblem.schema_sql}
+            </pre>
+            {activeCodingProblem.seed_sql && (
+              <div className="pt-1.5 space-y-1">
+                <strong className="text-muted-foreground font-bold block text-[11px]">Sample Data (DML):</strong>
+                <pre className="text-muted-foreground font-mono text-[10px] p-2 bg-background/80 rounded-lg border border-border/50 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
+                  {activeCodingProblem.seed_sql}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeCodingProblem.constraints && (
+          <div className="p-3 bg-muted/30 rounded-xl border border-border/60 space-y-1">
+            <strong className="text-foreground font-bold block">Constraints:</strong>
+            <code className="text-muted-foreground font-mono text-[11px] whitespace-pre-line">{activeCodingProblem.constraints}</code>
+          </div>
+        )}
+
+        {activeCodingProblem.input_format && (
+          <div className="p-3 bg-muted/30 rounded-xl border border-border/60 space-y-1">
+            <strong className="text-foreground font-bold block">Input Format:</strong>
+            <p className="text-muted-foreground whitespace-pre-line">{activeCodingProblem.input_format}</p>
+          </div>
+        )}
+
+        {activeCodingProblem.output_format && (
+          <div className="p-3 bg-muted/30 rounded-xl border border-border/60 space-y-1">
+            <strong className="text-foreground font-bold block">Output Format:</strong>
+            <p className="text-muted-foreground whitespace-pre-line">{activeCodingProblem.output_format}</p>
+          </div>
+        )}
+
+        {/* Sample Test Cases Table */}
+        {activeCodingProblem.test_cases && activeCodingProblem.test_cases.length > 0 && (
+          <div className="space-y-2 pt-1">
+            <strong className="text-foreground font-bold block">Sample Test Cases:</strong>
+            {activeCodingProblem.test_cases.filter(tc => !tc.is_hidden).map((tc, idx) => (
+              <div key={tc.id || idx} className="p-3 rounded-xl bg-background border border-border/70 font-mono text-[11px] space-y-1.5">
+                <div className="flex items-start gap-2">
+                  <span className="text-muted-foreground font-bold shrink-0">Input:</span>
+                  <pre className="text-foreground font-semibold whitespace-pre-wrap">{tc.input}</pre>
+                </div>
+                <div className="flex items-start gap-2 pt-1 border-t border-border/40">
+                  <span className="text-muted-foreground font-bold shrink-0">Expected:</span>
+                  <pre className="text-emerald-600 dark:text-emerald-400 font-semibold whitespace-pre-wrap">{tc.expected_output}</pre>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   const renderPaletteContent = (canHide = false) => (
-    <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden flex flex-col h-full">
+    <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden flex flex-col h-full min-w-0">
       <CardHeader className="p-3 pb-2.5 border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0">
         <CardTitle className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
           <div className="flex items-center gap-1.5 min-w-0">
@@ -674,7 +790,7 @@ export function PracticeRunnerEngine({
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-3 pb-20 space-y-3 flex-1 overflow-y-auto">
+      <CardContent className="p-3 pb-6 space-y-3 flex-1 overflow-y-auto">
         {mcqQuestions.length > 0 && (
           <div className="space-y-2">
             <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5 truncate">
@@ -682,7 +798,7 @@ export function PracticeRunnerEngine({
               <span className="truncate">{mcqQuestions[0]?.sectionTitle || (module as any).mcqSectionTitle || "Multiple Choice"}</span>
               <span className="text-[10px] text-muted-foreground shrink-0">({mcqQuestions.length})</span>
             </span>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-5 gap-1.5">
               {mcqQuestions.map((q, idx) => {
                 const answered = isQuestionAnswered(q.id);
                 const marked = markedForReview.has(q.id);
@@ -699,6 +815,7 @@ export function PracticeRunnerEngine({
                     onClick={() => {
                       setActiveSection("mcq");
                       setMcqIndex(idx);
+                      setShowPaletteDrawer(false);
                     }}
                     className={`h-8 w-full rounded-xl text-xs font-bold transition-all border flex items-center justify-center ${style}`}
                   >
@@ -717,7 +834,7 @@ export function PracticeRunnerEngine({
               <span className="truncate">{codingQuestions[0]?.sectionTitle || (module as any).codingSectionTitle || "Coding Challenges"}</span>
               <span className="text-[10px] text-muted-foreground shrink-0">({codingQuestions.length})</span>
             </span>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-5 gap-1.5">
               {codingQuestions.map((cq, idx) => {
                 const answered = isQuestionAnswered(cq.id);
                 const marked = markedForReview.has(cq.id);
@@ -734,6 +851,8 @@ export function PracticeRunnerEngine({
                     onClick={() => {
                       setActiveSection("coding");
                       setCodingIndex(idx);
+                      setShowPaletteDrawer(false);
+                      setMobileTab("editor");
                     }}
                     className={`h-8 w-full rounded-xl text-xs font-bold transition-all border flex items-center justify-center ${style}`}
                     title={cq.title}
@@ -838,7 +957,7 @@ export function PracticeRunnerEngine({
   }
 
   return (
-    <div className="space-y-4 w-full pb-16 relative">
+    <div className="space-y-4 w-full pb-28 relative">
       <div className="sticky top-2 z-20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
         <div className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -846,7 +965,7 @@ export function PracticeRunnerEngine({
               {module.title}
             </h1>
           </div>
-          <div className="flex items-center gap-3 text-xs text-[#6B7280] font-medium pt-1">
+          <div className="flex items-center gap-3 text-xs text-[#6B7280] font-medium pt-1 flex-wrap">
             <span>Assigned by: <strong className="text-[#111827] dark:text-[#FAFAFA]">{module.assignedBy || (module as any).assignedByName || "Instructor"}</strong></span>
             <span>•</span>
             <span>Total Questions: <strong>{totalQuestions} ({mcqQuestions.length} MCQs, {codingQuestions.length} Coding Problems)</strong></span>
@@ -977,187 +1096,163 @@ export function PracticeRunnerEngine({
       )}
 
       {activeSection === "coding" && (
-        <div className="flex items-start gap-4 w-full h-[740px] min-h-[640px] transition-all">
-          {/* Left Problem Details Panel (Expandable / Collapsible) */}
-          {showProblemStatement ? (
-            <div className="w-[32%] min-w-[320px] max-w-[420px] h-full shrink-0">
-              <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden h-full flex flex-col">
-                <CardHeader className="p-4 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] bg-muted/20 shrink-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-[#2563EB] text-white text-xs font-bold px-3 py-1">
-                        Problem {codingIndex + 1} of {codingQuestions.length}
-                      </Badge>
-                      <Badge variant="outline" className={cn(
-                        "text-[10px] font-bold uppercase px-2.5 py-0.5",
-                        activeCodingProblem.difficulty === "easy" ? "border-green-500/30 text-green-600 bg-green-500/10" :
-                        activeCodingProblem.difficulty === "hard" ? "border-red-500/30 text-red-600 bg-red-500/10" :
-                        "border-amber-500/30 text-amber-600 bg-amber-500/10"
-                      )}>
-                        {activeCodingProblem.difficulty}
-                      </Badge>
-                      {currentQuestion?.marks && (
-                        <Badge variant="outline" className="text-[10px] font-bold uppercase px-2.5 py-0.5 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/10">
-                          +{currentQuestion.marks} Marks
-                        </Badge>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowProblemStatement(false)}
-                      className="h-7 w-7 rounded-lg border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-center text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-muted transition-all"
-                      title="Hide Problem Panel"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <CardTitle className="text-base font-bold text-foreground mt-2">
-                    {activeCodingProblem.title}
-                  </CardTitle>
-                </CardHeader>
-
-                <CardContent className="p-4 space-y-4 text-xs leading-relaxed flex-1 overflow-y-auto min-h-0">
-                  <div className="space-y-2">
-                    <strong className="text-foreground text-sm block font-bold">Problem Statement</strong>
-                    <p className="text-muted-foreground whitespace-pre-line leading-relaxed text-sm">
-                      {activeCodingProblem.description}
-                    </p>
-                  </div>
-
-                  {/* SQL Mode 1: Provided Database Schema & Seed Data Inspector */}
-                  {activeCodingProblem.schema_sql && (
-                    <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/40 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <strong className="text-[#2563EB] font-bold block text-xs flex items-center gap-1.5">
-                          <Database className="h-3.5 w-3.5" /> Provided Database Schema (DDL)
-                        </strong>
-                        <Badge variant="outline" className="text-[9px] uppercase font-bold border-blue-300 text-[#2563EB]">
-                          {activeCodingProblem.sql_engine || "sqlite"}
-                        </Badge>
-                      </div>
-                      <pre className="text-foreground font-mono text-[10.5px] p-2 bg-background/80 rounded-lg border border-border/50 overflow-x-auto whitespace-pre-wrap leading-relaxed">
-                        {activeCodingProblem.schema_sql}
-                      </pre>
-                      {activeCodingProblem.seed_sql && (
-                        <div className="pt-1.5 space-y-1">
-                          <strong className="text-muted-foreground font-bold block text-[11px]">Sample Data (DML):</strong>
-                          <pre className="text-muted-foreground font-mono text-[10px] p-2 bg-background/80 rounded-lg border border-border/50 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
-                            {activeCodingProblem.seed_sql}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {activeCodingProblem.constraints && (
-                    <div className="p-3 bg-muted/30 rounded-xl border border-border/60 space-y-1">
-                      <strong className="text-foreground font-bold block">Constraints:</strong>
-                      <code className="text-muted-foreground font-mono text-[11px] whitespace-pre-line">{activeCodingProblem.constraints}</code>
-                    </div>
-                  )}
-
-                  {activeCodingProblem.input_format && (
-                    <div className="p-3 bg-muted/30 rounded-xl border border-border/60 space-y-1">
-                      <strong className="text-foreground font-bold block">Input Format:</strong>
-                      <p className="text-muted-foreground whitespace-pre-line">{activeCodingProblem.input_format}</p>
-                    </div>
-                  )}
-
-                  {activeCodingProblem.output_format && (
-                    <div className="p-3 bg-muted/30 rounded-xl border border-border/60 space-y-1">
-                      <strong className="text-foreground font-bold block">Output Format:</strong>
-                      <p className="text-muted-foreground whitespace-pre-line">{activeCodingProblem.output_format}</p>
-                    </div>
-                  )}
-
-                  {/* Sample Test Cases Table */}
-                  {activeCodingProblem.test_cases && activeCodingProblem.test_cases.length > 0 && (
-                    <div className="space-y-2 pt-1">
-                      <strong className="text-foreground font-bold block">Sample Test Cases:</strong>
-                      {activeCodingProblem.test_cases.filter(tc => !tc.is_hidden).map((tc, idx) => (
-                        <div key={tc.id || idx} className="p-3 rounded-xl bg-background border border-border/70 font-mono text-[11px] space-y-1.5">
-                          <div className="flex items-start gap-2">
-                            <span className="text-muted-foreground font-bold shrink-0">Input:</span>
-                            <pre className="text-foreground font-semibold whitespace-pre-wrap">{tc.input}</pre>
-                          </div>
-                          <div className="flex items-start gap-2 pt-1 border-t border-border/40">
-                            <span className="text-muted-foreground font-bold shrink-0">Expected:</span>
-                            <pre className="text-emerald-600 dark:text-emerald-400 font-semibold whitespace-pre-wrap">{tc.expected_output}</pre>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
+        <div className="space-y-3 w-full">
+          {/* Mobile & Tablet Segmented View Switcher (< lg / < 1024px) */}
+          <div className="flex lg:hidden items-center p-1 bg-[#F1F5F9] dark:bg-[#18181C] rounded-xl border border-slate-200 dark:border-zinc-800 gap-1 select-none">
             <button
               type="button"
-              onClick={() => setShowProblemStatement(true)}
-              className="h-full w-9 shrink-0 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-[#6B7280] hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
-              title="Show Problem Details"
+              onClick={() => setMobileTab("problem")}
+              className={cn(
+                "flex-1 py-2 px-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all",
+                mobileTab === "problem"
+                  ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs"
+                  : "text-[#64748B] dark:text-zinc-400 hover:text-foreground"
+              )}
             >
-              <div className="w-6 h-6 rounded-full bg-muted group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
-                <ChevronRight className="h-4 w-4" />
-              </div>
-              <span className="text-[11px] font-bold tracking-wider uppercase [writing-mode:vertical-rl] rotate-180">
-                Problem Details
-              </span>
+              <FileText className="h-3.5 w-3.5" />
+              <span>Problem</span>
             </button>
-          )}
-
-          {/* Middle Monaco CodeEditor (Flex-1) */}
-          <div className="flex-1 min-w-0 h-full">
-            <div className="w-full h-full rounded-2xl overflow-hidden shadow-sm border border-[#E5E7EB] dark:border-[#27272A] bg-white">
-              <CodeEditor
-                key={activeCodingProblem.id}
-                problem={activeCodingProblem}
-                defaultLanguage={
-                  (currentQuestion?.allowedLanguages && currentQuestion.allowedLanguages.length > 0
-                    ? (currentQuestion.allowedLanguages[0] as CodingLanguage)
-                    : null) ||
-                  (codeAnswers[activeCodingProblem.id]?.language as CodingLanguage) ||
-                  "java"
-                }
-                defaultCode={codeAnswers[activeCodingProblem.id]?.code}
-                submissionResult={submissionResults[activeCodingProblem.id]}
-                isSubmitting={isSubmittingCode}
-                onSubmit={handleCodingSubmit}
-                onCodeChange={handleCodeChange}
-                showSubmit={true}
-                height="100%"
-              />
-            </div>
+            <button
+              type="button"
+              onClick={() => setMobileTab("editor")}
+              className={cn(
+                "flex-1 py-2 px-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all",
+                mobileTab === "editor"
+                  ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs"
+                  : "text-[#64748B] dark:text-zinc-400 hover:text-foreground"
+              )}
+            >
+              <Code2 className="h-3.5 w-3.5" />
+              <span>Code & Output</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab("palette")}
+              className={cn(
+                "flex-1 py-2 px-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all",
+                mobileTab === "palette"
+                  ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs"
+                  : "text-[#64748B] dark:text-zinc-400 hover:text-foreground"
+              )}
+            >
+              <ClipboardList className="h-3.5 w-3.5" />
+              <span>Questions ({answeredCount}/{totalQuestions})</span>
+            </button>
           </div>
 
-          {/* Right Question Palette Panel (Uniform medium width: 280px) */}
-          {showQuestionPalette ? (
-            <div className="w-[280px] lg:w-[300px] shrink-0 h-full overflow-hidden">
-              {renderPaletteContent(true)}
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowQuestionPalette(true)}
-              className="h-full w-9 shrink-0 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-[#6B7280] hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
-              title="Show Question Palette"
-            >
-              <div className="w-6 h-6 rounded-full bg-muted group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
-                <ChevronLeft className="h-4 w-4" />
+          {/* Desktop Responsive Workspace (>= lg / >= 1024px) */}
+          <div className="hidden lg:flex items-stretch gap-3.5 w-full h-[calc(100vh-210px)] min-h-[580px] max-h-[960px] transition-all">
+            {/* Left Problem Details Panel (Expandable / Collapsible) */}
+            {showProblemStatement ? (
+              <div className="w-[30%] xl:w-[28%] min-w-[270px] max-w-[380px] h-full shrink-0">
+                {renderProblemStatementContent(true)}
               </div>
-              <span className="text-[11px] font-bold tracking-wider uppercase [writing-mode:vertical-rl] rotate-180">
-                Question Palette
-              </span>
-            </button>
-          )}
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowProblemStatement(true)}
+                className="h-full w-9 shrink-0 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-[#6B7280] hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
+                title="Show Problem Details"
+              >
+                <div className="w-6 h-6 rounded-full bg-muted group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
+                  <ChevronRight className="h-4 w-4" />
+                </div>
+                <span className="text-[11px] font-bold tracking-wider uppercase [writing-mode:vertical-rl] rotate-180">
+                  Problem Details
+                </span>
+              </button>
+            )}
+
+            {/* Middle Monaco CodeEditor (Flex-1 with min-w-0 for maximum space) */}
+            <div className="flex-1 min-w-[380px] sm:min-w-[420px] h-full overflow-hidden">
+              <div className="w-full h-full rounded-2xl overflow-hidden shadow-sm border border-[#E5E7EB] dark:border-[#27272A] bg-white">
+                <CodeEditor
+                  key={activeCodingProblem.id}
+                  problem={activeCodingProblem}
+                  defaultLanguage={
+                    (currentQuestion?.allowedLanguages && currentQuestion.allowedLanguages.length > 0
+                      ? (currentQuestion.allowedLanguages[0] as CodingLanguage)
+                      : null) ||
+                    (codeAnswers[activeCodingProblem.id]?.language as CodingLanguage) ||
+                    "java"
+                  }
+                  defaultCode={codeAnswers[activeCodingProblem.id]?.code}
+                  submissionResult={submissionResults[activeCodingProblem.id]}
+                  isSubmitting={isSubmittingCode}
+                  onSubmit={handleCodingSubmit}
+                  onCodeChange={handleCodeChange}
+                  showSubmit={true}
+                  height="100%"
+                />
+              </div>
+            </div>
+
+            {/* Right Question Palette Panel (Responsive width, auto-collapsible) */}
+            {showQuestionPalette ? (
+              <div className="w-[230px] xl:w-[250px] 2xl:w-[270px] shrink-0 h-full overflow-hidden">
+                {renderPaletteContent(true)}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowQuestionPalette(true)}
+                className="h-full w-9 shrink-0 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-[#6B7280] hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
+                title="Show Question Palette"
+              >
+                <div className="w-6 h-6 rounded-full bg-muted group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
+                  <ChevronLeft className="h-4 w-4" />
+                </div>
+                <span className="text-[11px] font-bold tracking-wider uppercase [writing-mode:vertical-rl] rotate-180">
+                  Question Palette
+                </span>
+              </button>
+            )}
+          </div>
+
+          {/* Mobile & Tablet Body Views (< lg / < 1024px) */}
+          <div className="lg:hidden w-full">
+            {mobileTab === "problem" && (
+              <div className="min-h-[500px] h-[calc(100vh-250px)]">
+                {renderProblemStatementContent(false)}
+              </div>
+            )}
+
+            {mobileTab === "editor" && (
+              <div className="w-full h-[calc(100vh-250px)] min-h-[520px] rounded-2xl overflow-hidden shadow-sm border border-[#E5E7EB] dark:border-[#27272A] bg-white">
+                <CodeEditor
+                  key={activeCodingProblem.id}
+                  problem={activeCodingProblem}
+                  defaultLanguage={
+                    (currentQuestion?.allowedLanguages && currentQuestion.allowedLanguages.length > 0
+                      ? (currentQuestion.allowedLanguages[0] as CodingLanguage)
+                      : null) ||
+                    (codeAnswers[activeCodingProblem.id]?.language as CodingLanguage) ||
+                    "java"
+                  }
+                  defaultCode={codeAnswers[activeCodingProblem.id]?.code}
+                  submissionResult={submissionResults[activeCodingProblem.id]}
+                  isSubmitting={isSubmittingCode}
+                  onSubmit={handleCodingSubmit}
+                  onCodeChange={handleCodeChange}
+                  showSubmit={true}
+                  height="100%"
+                />
+              </div>
+            )}
+
+            {mobileTab === "palette" && (
+              <div className="min-h-[500px] h-[calc(100vh-250px)]">
+                {renderPaletteContent(false)}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* ── Sticky Bottom Navigation Bar (Always Visible, Never Hidden on Scroll) ── */}
-      <div className="sticky bottom-3 z-30 w-full bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-3.5 px-6 flex items-center justify-between shadow-xl select-none transition-all">
+      <div className="sticky bottom-3 z-30 w-full bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-3 sm:p-3.5 px-4 sm:px-6 flex items-center justify-between shadow-xl select-none transition-all gap-2">
         {/* Left Side: Question context or actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {activeSection === "mcq" && (
             <>
               <Button
@@ -1170,14 +1265,14 @@ export function PracticeRunnerEngine({
                 onClick={() => toggleMarkForReview(currentQuestion.id)}
               >
                 <Flag className="h-3.5 w-3.5" />
-                {markedForReview.has(currentQuestion.id) ? "Marked" : "Mark for Review"}
+                <span className="hidden sm:inline">{markedForReview.has(currentQuestion.id) ? "Marked" : "Mark for Review"}</span>
               </Button>
 
               {answers[currentQuestion.id] !== undefined && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-9 px-3.5 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 gap-1 rounded-full"
+                  className="h-9 px-3 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 gap-1 rounded-full hidden sm:flex"
                   onClick={() => handleClearAnswer(currentQuestion.id)}
                 >
                   <RotateCcw className="h-3.5 w-3.5" /> Clear Response
@@ -1186,31 +1281,40 @@ export function PracticeRunnerEngine({
             </>
           )}
           {activeSection === "coding" && (
-            <div className="flex items-center gap-2">
-              <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 font-bold uppercase text-[10px]">
+            <div className="flex items-center gap-2 min-w-0">
+              <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 font-bold uppercase text-[10px] shrink-0">
                 Problem {codingIndex + 1} of {codingQuestions.length}
               </Badge>
-              <span className="text-xs font-bold text-slate-700 dark:text-zinc-200 truncate max-w-xs">
+              <span className="text-xs font-bold text-slate-700 dark:text-zinc-200 truncate hidden md:inline max-w-[150px] lg:max-w-xs">
                 {activeCodingProblem.title}
               </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPaletteDrawer(true)}
+                className="h-8 px-2.5 text-xs text-[#2563EB] border-[#2563EB]/30 rounded-xl xl:hidden flex items-center gap-1 font-bold shrink-0"
+              >
+                <ClipboardList className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Palette</span>
+              </Button>
             </div>
           )}
         </div>
 
-        {/* Center: Grouped Pill Navigation matching the screenshot! */}
-        <div className="inline-flex items-center gap-3">
+        {/* Center: Grouped Pill Navigation */}
+        <div className="inline-flex items-center gap-1.5 sm:gap-3 shrink-0">
           <Button
             variant="outline"
             size="sm"
-            className="rounded-full px-5 h-9 font-semibold text-xs border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 gap-1.5 shadow-2xs"
+            className="rounded-full px-3.5 sm:px-5 h-9 font-semibold text-xs border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 gap-1 sm:gap-1.5 shadow-2xs"
             disabled={activeSection === "mcq" ? mcqIndex === 0 : codingIndex === 0 && mcqQuestions.length === 0}
             onClick={handlePrevClick}
           >
             <ChevronLeft className="h-4 w-4" />
-            <span>Prev</span>
+            <span className="hidden xs:inline">Prev</span>
           </Button>
 
-          <div className="inline-flex items-center gap-2 px-4 h-9 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
             <span className="h-2 w-2 rounded-full bg-[#3B82F6]" />
             <span>
               {activeSection === "mcq"
@@ -1221,30 +1325,50 @@ export function PracticeRunnerEngine({
 
           <Button
             size="sm"
-            className="rounded-full px-5 h-9 font-bold text-xs bg-[#3B82F6] hover:bg-[#1D4ED8] text-white gap-1.5 shadow-sm"
+            className="rounded-full px-3.5 sm:px-5 h-9 font-bold text-xs bg-[#3B82F6] hover:bg-[#1D4ED8] text-white gap-1 sm:gap-1.5 shadow-sm"
             disabled={activeSection === "coding" && codingIndex === codingQuestions.length - 1}
             onClick={handleNextClick}
           >
             {activeSection === "mcq" && mcqIndex === mcqQuestions.length - 1 && codingQuestions.length > 0 ? (
-              <><span>Proceed to Coding</span> <ArrowRight className="h-4 w-4" /></>
+              <><span>Coding</span> <ArrowRight className="h-4 w-4" /></>
             ) : (
-              <><span>Next</span> <ChevronRight className="h-4 w-4" /></>
+              <><span className="hidden xs:inline">Next</span> <ChevronRight className="h-4 w-4" /></>
             )}
           </Button>
         </div>
 
         {/* Right Side: Review & Submit */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Button
             variant="outline"
             size="sm"
-            className="h-9 px-4 text-xs font-bold rounded-xl border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10"
+            className="h-9 px-3 sm:px-4 text-xs font-bold rounded-xl border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10"
             onClick={() => setShowReviewModal(true)}
           >
-            Review & Submit
+            <span className="hidden sm:inline">Review & Submit</span>
+            <span className="sm:hidden">Submit</span>
           </Button>
         </div>
       </div>
+
+      {/* Slide-over Palette Drawer Modal */}
+      {showPaletteDrawer && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-in fade-in-0 duration-200">
+          <div className="w-[300px] sm:w-[340px] h-full bg-white dark:bg-[#18181B] shadow-2xl p-4 flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-300">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <span className="font-bold text-sm text-foreground flex items-center gap-2">
+                <ClipboardList className="h-4 w-4 text-[#2563EB]" /> Question Navigator
+              </span>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowPaletteDrawer(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto pt-3">
+              {renderPaletteContent(false)}
+            </div>
+          </div>
+        </div>
+      )}
 
 
 
