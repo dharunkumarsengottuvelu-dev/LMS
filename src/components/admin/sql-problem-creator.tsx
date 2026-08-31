@@ -76,20 +76,11 @@ export function SqlProblemCreator({
   // 4. Mode 1: Table Builder & Sample Data
   const [tables, setTables] = useState<SQLTableSchema[]>([
     {
-      name: "employees",
+      name: "",
       columns: [
-        { name: "id", type: "INT", isPrimary: true, isNullable: false, defaultValue: "", description: "Employee ID" },
-        { name: "name", type: "VARCHAR(100)", isPrimary: false, isNullable: false, defaultValue: "", description: "Employee Name" },
-        { name: "department", type: "VARCHAR(50)", isPrimary: false, isNullable: true, defaultValue: "", description: "Department Name" },
-        { name: "salary", type: "DECIMAL(10,2)", isPrimary: false, isNullable: false, defaultValue: "", description: "Monthly Salary" },
+        { name: "id", type: "INT", isPrimary: true, isNullable: false, defaultValue: "", description: "" },
       ],
-      rows: [
-        { id: "1", name: "Arun", department: "IT", salary: "50000" },
-        { id: "2", name: "Priya", department: "HR", salary: "45000" },
-        { id: "3", name: "Rahul", department: "IT", salary: "75000" },
-        { id: "4", name: "Divya", department: "Finance", salary: "60000" },
-        { id: "5", name: "Karthik", department: "IT", salary: "90000" },
-      ],
+      rows: [],
     },
   ]);
   const [activeTableIndex, setActiveTableIndex] = useState(0);
@@ -100,53 +91,39 @@ export function SqlProblemCreator({
 
   // 5. Mode 2: Database Requirements State
   const [dbRequirementsText, setDbRequirementsText] = useState(
-    "Student must create the 'employees' table with (id INT PK, name VARCHAR(100), department VARCHAR(50), salary DECIMAL(10,2)) and insert valid records before finding results."
+    (initialProblem as any)?.requirements || ""
   );
 
   // 6. Dedicated SQL Test Cases
   const [testCases, setTestCases] = useState<
     (TestCase & { name: string; weight: number; comparisonMode: SQLComparisonMode })[]
-  >([
-    {
-      id: "sql_tc_1",
-      name: "TC001 — Basic Dataset",
-      input: "",
-      expected_output: JSON.stringify(
-        [
-          { id: 5, name: "Karthik", salary: 90000 },
-          { id: 3, name: "Rahul", salary: 75000 },
-        ],
-        null,
-        2
-      ),
-      is_hidden: false,
-      weight: 50,
-      comparisonMode: "ORDER_SENSITIVE",
-      explanation: "Returns employees with salary above average (64,000) sorted by salary DESC.",
-    },
-    {
-      id: "sql_tc_2",
-      name: "TC002 — Edge & Boundary Cases",
-      input: "",
-      expected_output: JSON.stringify(
-        [
-          { id: 5, name: "Karthik", salary: 90000 },
-          { id: 3, name: "Rahul", salary: 75000 },
-        ],
-        null,
-        2
-      ),
-      is_hidden: true,
-      weight: 50,
-      comparisonMode: "ORDER_SENSITIVE",
-      explanation: "Hidden test evaluation dataset.",
-    },
-  ]);
+  >(() => {
+    if (initialProblem?.test_cases && initialProblem.test_cases.length > 0) {
+      return initialProblem.test_cases.map((tc, idx) => ({
+        ...tc,
+        name: (tc as any).name || `Test Case ${idx + 1}`,
+        weight: (tc as any).weight || Math.round(100 / initialProblem.test_cases!.length),
+        comparisonMode: (tc as any).comparisonMode || initialProblem.comparison_mode || "ORDER_SENSITIVE",
+      }));
+    }
+    return [
+      {
+        id: "sql_tc_1",
+        name: "Test Case 1",
+        input: "",
+        expected_output: "[]",
+        is_hidden: false,
+        weight: 100,
+        comparisonMode: "ORDER_SENSITIVE",
+        explanation: "",
+      },
+    ];
+  });
 
   // UI States
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewQuery, setPreviewQuery] = useState(
-    "-- Write your SQL solution here\nSELECT id, name, salary\nFROM employees\nWHERE salary > (SELECT AVG(salary) FROM employees)\nORDER BY salary DESC;"
+    (initialProblem?.templates as any)?.sql || "-- Write your SQL query here\n"
   );
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(true);
@@ -157,10 +134,16 @@ export function SqlProblemCreator({
 
   // Auto-generate DDL & DML on change
   const syncTablesToDDLAndDML = () => {
-    if (tables.length === 0) return;
+    const validTables = tables.filter((t) => t.name && t.name.trim().length > 0 && t.columns.some((c) => c.name.trim().length > 0));
+    if (validTables.length === 0) {
+      setSchemaSql("");
+      setSeedSql("");
+      return;
+    }
 
-    const ddlStatements = tables.map((tbl) => {
-      const colDefs = tbl.columns.map((c) => {
+    const ddlStatements = validTables.map((tbl) => {
+      const validCols = tbl.columns.filter((c) => c.name.trim().length > 0);
+      const colDefs = validCols.map((c) => {
         let def = `    ${c.name} ${c.type}`;
         if (c.isPrimary) def += " PRIMARY KEY";
         if (!c.isNullable && !c.isPrimary) def += " NOT NULL";
@@ -170,11 +153,13 @@ export function SqlProblemCreator({
       return `CREATE TABLE ${tbl.name} (\n${colDefs}\n);`;
     }).join("\n\n");
 
-    const dmlStatements = tables.map((tbl) => {
+    const dmlStatements = validTables.map((tbl) => {
       if (!tbl.rows || tbl.rows.length === 0) return "";
-      const colNames = tbl.columns.map((c) => c.name).join(", ");
+      const validCols = tbl.columns.filter((c) => c.name.trim().length > 0);
+      if (validCols.length === 0) return "";
+      const colNames = validCols.map((c) => c.name).join(", ");
       const rowValues = tbl.rows.map((r) => {
-        const vals = tbl.columns.map((c) => {
+        const vals = validCols.map((c) => {
           const rawVal = r[c.name] ?? "";
           if (
             c.type.toUpperCase().includes("INT") ||
@@ -707,7 +692,7 @@ export function SqlProblemCreator({
                             { name: "id", type: "INT", isPrimary: true, isNullable: false, defaultValue: "", description: "Primary Key" },
                             { name: "name", type: "VARCHAR(100)", isPrimary: false, isNullable: false, defaultValue: "", description: "" },
                           ],
-                          rows: [{ id: "1", name: "Sample Record" }],
+                          rows: [],
                         },
                       ]);
                       setActiveTableIndex(tables.length);
@@ -725,6 +710,7 @@ export function SqlProblemCreator({
                   <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Table Name *</label>
                   <Input
                     value={activeTable?.name || ""}
+                    placeholder="e.g. users, orders, employees"
                     onChange={(e) => {
                       const next = [...tables];
                       if (next[activeTableIndex]) {
@@ -895,61 +881,79 @@ export function SqlProblemCreator({
                   </div>
                 </div>
 
-                <div className="border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-x-auto bg-white dark:bg-[#18181B]">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]">
-                        {activeTable?.columns.map((col, idx) => (
-                          <th key={idx} className="p-2.5 font-bold font-mono">
-                            {col.name}
-                          </th>
-                        ))}
-                        <th className="p-2.5 font-bold text-center w-12">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-                      {activeTable?.rows.map((row, rIdx) => (
-                        <tr key={rIdx} className="hover:bg-muted/20">
-                          {activeTable.columns.map((col, cIdx) => (
-                            <td key={cIdx} className="p-1.5">
-                              <Input
-                                value={row[col.name] ?? ""}
-                                onChange={(e) => {
+                {(!activeTable?.rows || activeTable.rows.length === 0) ? (
+                  <div className="border border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl p-8 text-center bg-[#F9FAFB]/50 dark:bg-[#09090B]/50">
+                    <Database className="h-6 w-6 text-muted-foreground mx-auto mb-2 opacity-40" />
+                    <p className="text-xs font-semibold text-foreground">No sample records added yet</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">
+                      Add sample rows manually or import from a CSV file.
+                    </p>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button type="button" size="sm" onClick={handleAddSampleRow} className="h-7 text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1 rounded-lg">
+                        <Plus className="h-3 w-3" /> Add First Row
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="h-7 text-xs gap-1 rounded-lg">
+                        <Upload className="h-3 w-3" /> Import CSV
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-x-auto bg-white dark:bg-[#18181B]">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280]">
+                          {activeTable?.columns.map((col, idx) => (
+                            <th key={idx} className="p-2.5 font-bold font-mono">
+                              {col.name || `col_${idx + 1}`}
+                            </th>
+                          ))}
+                          <th className="p-2.5 font-bold text-center w-12">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                        {activeTable?.rows.map((row, rIdx) => (
+                          <tr key={rIdx} className="hover:bg-muted/20">
+                            {activeTable.columns.map((col, cIdx) => (
+                              <td key={cIdx} className="p-1.5">
+                                <Input
+                                  value={row[col.name] ?? ""}
+                                  onChange={(e) => {
+                                    const next = [...tables];
+                                    if (next[activeTableIndex]?.rows[rIdx]) {
+                                      next[activeTableIndex]!.rows[rIdx] = {
+                                        ...(next[activeTableIndex]!.rows[rIdx] || {}),
+                                        [col.name]: e.target.value,
+                                      };
+                                      setTables(next);
+                                    }
+                                  }}
+                                  className="h-7 text-xs font-mono rounded-lg"
+                                />
+                              </td>
+                            ))}
+                            <td className="p-1.5 text-center">
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => {
                                   const next = [...tables];
-                                  if (next[activeTableIndex]?.rows[rIdx]) {
-                                    next[activeTableIndex]!.rows[rIdx] = {
-                                      ...(next[activeTableIndex]!.rows[rIdx] || {}),
-                                      [col.name]: e.target.value,
-                                    };
+                                  if (next[activeTableIndex]) {
+                                    next[activeTableIndex]!.rows = next[activeTableIndex]!.rows.filter((_, i) => i !== rIdx);
                                     setTables(next);
                                   }
                                 }}
-                                className="h-7 text-xs font-mono rounded-lg"
-                              />
+                                className="h-6 w-6 text-red-500 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
                             </td>
-                          ))}
-                          <td className="p-1.5 text-center">
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => {
-                                const next = [...tables];
-                                if (next[activeTableIndex]) {
-                                  next[activeTableIndex]!.rows = next[activeTableIndex]!.rows.filter((_, i) => i !== rIdx);
-                                  setTables(next);
-                                }
-                              }}
-                              className="h-6 w-6 text-red-500 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           ) : (

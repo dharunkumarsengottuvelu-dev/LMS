@@ -556,11 +556,28 @@ export function PracticeRunnerEngine({
   };
 
   const isQuestionAnswered = (questionId: string) => {
+    const isCodingQ = codingQuestions.some((cq) => cq.id === questionId);
+    if (isCodingQ) {
+      // Coding questions turn GREEN only when code is actually submitted!
+      return Boolean(submissionResults[questionId]);
+    }
+    // MCQ questions
     const ans = answers[questionId];
     if (!ans) return false;
     if (Array.isArray(ans) && ans.length > 0) return true;
     if (typeof ans === "string" && ans.trim().length > 0) return true;
-    if (typeof ans === "object" && ans.code && ans.code.trim().length > 0) return true;
+    return false;
+  };
+
+  const isQuestionAttempted = (questionId: string) => {
+    if (isQuestionAnswered(questionId)) return false;
+    const isCodingQ = codingQuestions.some((cq) => cq.id === questionId);
+    if (isCodingQ) {
+      const cqAns = codeAnswers[questionId];
+      if (cqAns?.code && cqAns.code.trim().length > 0) return true;
+      const rawAns = answers[questionId];
+      if (rawAns && typeof rawAns === "object" && rawAns.code && rawAns.code.trim().length > 0) return true;
+    }
     return false;
   };
 
@@ -836,14 +853,23 @@ export function PracticeRunnerEngine({
             </span>
             <div className="grid grid-cols-5 gap-1.5">
               {codingQuestions.map((cq, idx) => {
-                const answered = isQuestionAnswered(cq.id);
+                const isSubmitted = Boolean(submissionResults[cq.id]);
+                const isAttempted = isQuestionAttempted(cq.id);
                 const marked = markedForReview.has(cq.id);
                 const isCurrent = activeSection === "coding" && codingIndex === idx;
 
                 let style = "bg-[#F9FAFB] dark:bg-[#09090B] text-[#4B5563] dark:text-[#A1A1AA] border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB]/50";
-                if (isCurrent) style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold shadow-xs";
-                else if (marked) style = "bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B] font-bold";
-                else if (answered) style = "bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/40 font-bold";
+                if (isCurrent) {
+                  style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold shadow-xs";
+                } else if (marked) {
+                  style = "bg-[#8B5CF6]/15 text-[#7C3AED] dark:text-[#A78BFA] border-[#8B5CF6]/50 font-bold";
+                } else if (isSubmitted) {
+                  // Only GREEN if user actually clicked Submit!
+                  style = "bg-[#16A34A]/15 text-[#16A34A] dark:text-emerald-400 border-[#16A34A]/50 font-bold";
+                } else if (isAttempted) {
+                  // YELLOW / ORANGE if user wrote code / attempted without submitting!
+                  style = "bg-[#F59E0B]/20 text-[#D97706] dark:text-[#F59E0B] border-[#F59E0B]/50 font-bold";
+                }
 
                 return (
                   <button
@@ -865,22 +891,24 @@ export function PracticeRunnerEngine({
           </div>
         )}
 
-        <div className="p-2 bg-[#F9FAFB] dark:bg-[#09090B] rounded-lg border border-[#E5E7EB] dark:border-[#27272A] space-y-1 text-[10px]">
+        <div className="p-2.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-1.5 text-[10px]">
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[#4B5563]">
-              <span className="w-2 h-2 rounded-full bg-[#16A34A]" /> Answered
+            <span className="flex items-center gap-1.5 text-[#4B5563] dark:text-zinc-400">
+              <span className="w-2 h-2 rounded-full bg-[#16A34A]" /> Submitted
             </span>
             <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{answeredCount}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[#4B5563]">
-              <span className="w-2 h-2 rounded-full bg-[#F59E0B]" /> Review
+            <span className="flex items-center gap-1.5 text-[#4B5563] dark:text-zinc-400">
+              <span className="w-2 h-2 rounded-full bg-[#F59E0B]" /> In-Progress / Draft
             </span>
-            <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{markedForReview.size}</span>
+            <span className="font-bold text-[#D97706] dark:text-[#F59E0B]">
+              {questions.filter((q) => isQuestionAttempted(q.id)).length}
+            </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[#4B5563]">
-              <span className="w-2 h-2 rounded-full bg-[#E5E7EB]" /> Total
+            <span className="flex items-center gap-1.5 text-[#4B5563] dark:text-zinc-400">
+              <span className="w-2 h-2 rounded-full bg-[#E5E7EB] dark:bg-zinc-700" /> Total Questions
             </span>
             <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{totalQuestions}</span>
           </div>
