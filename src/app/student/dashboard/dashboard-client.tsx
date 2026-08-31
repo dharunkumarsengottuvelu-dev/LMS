@@ -119,27 +119,56 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
     let completedCount = 0;
     let nextSubModuleToContinue: any = null;
     let hasActiveSession = false;
-    let totalProgressSum = 0;
+    let totalTrackQuestions = 0;
+    let totalAnsweredQuestions = 0;
 
     subModules.forEach((sm: any, idx: number) => {
+      const directMcqs = (sm as any).mcqQuestions?.length || (sm as any).mcqs?.length || 0;
+      const directCoding = (sm as any).codingQuestions?.length || (sm as any).codingProblems?.length || 0;
+      const sectionMcqs = (sm as any).sections?.flatMap((s: any) => s.mcqQuestions || []).length || 0;
+      const sectionCoding = (sm as any).sections?.flatMap((s: any) => s.codingQuestions || []).length || 0;
+      const mcqsCount = Math.max(directMcqs, sectionMcqs);
+      const codingCount = Math.max(
+        directCoding,
+        sectionCoding,
+        (sm.type === "coding" || (sm as any).problemDescription) && (mcqsCount + directCoding + sectionCoding === 0) ? 1 : 0
+      );
+      let qCount = mcqsCount + codingCount;
+      if (qCount === 0) {
+        qCount = sm.questionCount || (sm as any).question_count || 1;
+      }
+      totalTrackQuestions += qCount;
+
       let isDone = sm.status === "completed";
       let isInProgress = false;
-      let ansCount = 0;
+      let ansCount = isDone ? qCount : 0;
 
-      if (isMounted && !isDone) {
-        if (localStorage.getItem(`lms_completed_assessment_${sm.id}`)) {
+      if (isMounted) {
+        const resultKey = `lms_completed_assessment_${sm.id}`;
+        const submittedMarker = localStorage.getItem(`lms_practice_session_${sm.id}_submitted`);
+        const resStr = localStorage.getItem(resultKey);
+        if (resStr || submittedMarker === "true") {
           isDone = true;
-        } else {
+          ansCount = qCount;
+        } else if (!isDone) {
           const session = localStorage.getItem(`lms_practice_session_${sm.id}`);
           if (session) {
             try {
               const parsed = JSON.parse(session);
-              const ansLen = Object.keys(parsed.answers || {}).length;
-              const codeLen = Object.keys(parsed.codeAnswers || {}).length;
-              ansCount = ansLen + codeLen;
-              if (ansCount > 0) {
+              const answeredKeys = new Set<string>();
+              Object.entries(parsed.answers || {}).forEach(([k, v]) => {
+                if (!v) return;
+                if (Array.isArray(v) && v.length > 0) answeredKeys.add(k);
+                else if (typeof v === "string" && v.trim().length > 0) answeredKeys.add(k);
+                else if (typeof v === "object" && (v as any).code && (v as any).code.trim().length > 0) answeredKeys.add(k);
+              });
+              Object.entries(parsed.codeAnswers || {}).forEach(([k, v]: any) => {
+                if (v && v.code && v.code.trim().length > 0) answeredKeys.add(k);
+              });
+              if (answeredKeys.size > 0) {
                 isInProgress = true;
                 hasActiveSession = true;
+                ansCount = Math.min(qCount, answeredKeys.size);
               }
             } catch {}
           }
@@ -148,11 +177,10 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
 
       if (isDone) {
         completedCount++;
-        totalProgressSum += 100;
+        totalAnsweredQuestions += qCount;
       } else {
         if (isInProgress) {
-          const qCount = sm.questionCount || (sm.codingQuestions?.length || 0) + (sm.mcqQuestions?.length || 0) || 1;
-          totalProgressSum += Math.min(99, Math.max(1, Math.round((ansCount / qCount) * 100)));
+          totalAnsweredQuestions += ansCount;
         }
         if (!nextSubModuleToContinue) {
           nextSubModuleToContinue = { ...sm, subModuleIndex: idx + 1, isInProgress };
@@ -161,8 +189,16 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
     });
 
     const totalCount = subModules.length || 1;
-    const computedProgress = Math.round(totalProgressSum / totalCount);
-    const progressPercentage = track.progressPercentage !== undefined && track.progressPercentage > 0
+    const isAllDone = completedCount === totalCount && totalCount > 0;
+    const computedProgress = totalTrackQuestions > 0
+      ? Math.round((totalAnsweredQuestions / totalTrackQuestions) * 100)
+      : isAllDone
+      ? 100
+      : 0;
+
+    const progressPercentage = isAllDone
+      ? 100
+      : track.progressPercentage !== undefined && track.progressPercentage > 0
       ? Math.max(track.progressPercentage, computedProgress)
       : computedProgress;
     const targetSubModule = nextSubModuleToContinue || subModules[0];
@@ -174,10 +210,12 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
       type: "practice",
       completedCount,
       totalCount,
+      totalTrackQuestions,
+      totalAnsweredQuestions,
       progressPercentage,
       targetSubModule,
       hasActiveSession,
-      isCompleted: progressPercentage === 100 && totalCount > 0,
+      isCompleted: isAllDone || progressPercentage === 100,
     };
   });
 
@@ -278,7 +316,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                           </h3>
 
                           <div className="flex items-center gap-2.5 text-xs text-muted-foreground pt-0.5">
-                            <span>{item.completedCount}/{item.totalCount} Modules</span>
+                            <span>{item.completedCount}/{item.totalCount} {item.totalCount === 1 ? "Module" : "Modules"} Completed</span>
                             <span>•</span>
                             <span className={isDone ? "text-[#16A34A] font-bold" : isInProgress ? "text-[#F59E0B] font-bold" : "text-foreground font-semibold"}>
                               {item.progressPercentage}% Completed

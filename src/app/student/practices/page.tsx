@@ -169,24 +169,58 @@ export default function StudentPracticesPage() {
             {filteredTracks.map((track) => {
               const subMods = track.subModules || [];
               const totalCount = subMods.length || 1;
-              let totalProgressSum = 0;
               let completedCount = 0;
+              let totalTrackQuestions = 0;
+              let totalAnsweredQuestions = 0;
 
               subMods.forEach((m) => {
+                const directMcqs = (m as any).mcqQuestions?.length || (m as any).mcqs?.length || 0;
+                const directCoding = (m as any).codingQuestions?.length || (m as any).codingProblems?.length || 0;
+                const sectionMcqs = (m as any).sections?.flatMap((s: any) => s.mcqQuestions || []).length || 0;
+                const sectionCoding = (m as any).sections?.flatMap((s: any) => s.codingQuestions || []).length || 0;
+                const mcqsCount = Math.max(directMcqs, sectionMcqs);
+                const codingCount = Math.max(
+                  directCoding,
+                  sectionCoding,
+                  (m.type === "coding" || (m as any).problemDescription) && (mcqsCount + directCoding + sectionCoding === 0) ? 1 : 0
+                );
+                let qCount = mcqsCount + codingCount;
+                if (qCount === 0) {
+                  qCount = m.question_count || (m as any).questionCount || 1;
+                }
+                totalTrackQuestions += qCount;
+
                 let isComp = m.status === "completed";
                 let inProg = false;
-                let ansCount = 0;
+                let ansCount = isComp ? qCount : 0;
 
-                if (isMounted && !isComp) {
-                  if (localStorage.getItem(`lms_completed_assessment_${m.id}`)) {
+                if (isMounted) {
+                  const resultKey = `lms_completed_assessment_${m.id}`;
+                  const submittedMarker = localStorage.getItem(`lms_practice_session_${m.id}_submitted`);
+                  const resStr = localStorage.getItem(resultKey);
+                  if (resStr || submittedMarker === "true") {
                     isComp = true;
-                  } else {
-                    const sess = localStorage.getItem(`lms_practice_session_${m.id}`);
-                    if (sess) {
-                      inProg = true;
+                    ansCount = qCount;
+                  } else if (!isComp) {
+                    const sessionKey = `lms_practice_session_${m.id}`;
+                    const session = localStorage.getItem(sessionKey);
+                    if (session) {
                       try {
-                        const parsed = JSON.parse(sess);
-                        ansCount = Object.keys(parsed.answers || {}).length + Object.keys(parsed.codeAnswers || {}).length;
+                        const parsed = JSON.parse(session);
+                        const answeredKeys = new Set<string>();
+                        Object.entries(parsed.answers || {}).forEach(([k, v]) => {
+                          if (!v) return;
+                          if (Array.isArray(v) && v.length > 0) answeredKeys.add(k);
+                          else if (typeof v === "string" && v.trim().length > 0) answeredKeys.add(k);
+                          else if (typeof v === "object" && (v as any).code && (v as any).code.trim().length > 0) answeredKeys.add(k);
+                        });
+                        Object.entries(parsed.codeAnswers || {}).forEach(([k, v]: any) => {
+                          if (v && v.code && v.code.trim().length > 0) answeredKeys.add(k);
+                        });
+                        if (answeredKeys.size > 0) {
+                          inProg = true;
+                          ansCount = Math.min(qCount, answeredKeys.size);
+                        }
                       } catch {}
                     }
                   }
@@ -194,15 +228,22 @@ export default function StudentPracticesPage() {
 
                 if (isComp) {
                   completedCount++;
-                  totalProgressSum += 100;
+                  totalAnsweredQuestions += qCount;
                 } else if (inProg) {
-                  const qCount = m.question_count || (m as any).questionCount || 1;
-                  totalProgressSum += Math.min(99, Math.max(0, Math.round((ansCount / qCount) * 100)));
+                  totalAnsweredQuestions += ansCount;
                 }
               });
 
-              const computedPercentage = Math.round(totalProgressSum / totalCount);
-              const progressPercentage = track.progressPercentage !== undefined && track.progressPercentage > 0
+              const isAllDone = completedCount === totalCount && totalCount > 0;
+              const computedPercentage = totalTrackQuestions > 0
+                ? Math.round((totalAnsweredQuestions / totalTrackQuestions) * 100)
+                : isAllDone
+                ? 100
+                : 0;
+
+              const progressPercentage = isAllDone
+                ? 100
+                : track.progressPercentage !== undefined && track.progressPercentage > 0
                 ? Math.max(track.progressPercentage, computedPercentage)
                 : computedPercentage;
 
@@ -236,13 +277,25 @@ export default function StudentPracticesPage() {
                     </p>
                   </CardHeader>
 
-                  <CardContent className="p-4 pt-2 space-y-3">
+                  <CardContent className="p-4 pt-2 space-y-2.5">
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-muted-foreground font-medium">{totalCount} Modules</span>
-                        <span className="font-bold text-foreground">{progressPercentage}%</span>
+                        <span className="text-muted-foreground font-medium">
+                          {completedCount}/{totalCount} {totalCount === 1 ? "Module" : "Modules"} Completed
+                        </span>
+                        <span className={
+                          progressPercentage === 100 ? "font-bold text-[#16A34A]" : progressPercentage > 0 ? "font-bold text-[#F59E0B]" : "font-semibold text-foreground"
+                        }>
+                          {progressPercentage}%
+                        </span>
                       </div>
-                      <Progress value={progressPercentage} className="h-1 bg-border" />
+                      <Progress value={progressPercentage} className="h-1.5 bg-border rounded-full" />
+                      {progressPercentage > 0 && progressPercentage < 100 && totalTrackQuestions > 1 && (
+                        <div className="text-[10px] text-muted-foreground flex items-center justify-between pt-0.5">
+                          <span>{totalAnsweredQuestions} of {totalTrackQuestions} Questions Solved</span>
+                          <span className="text-[#F59E0B] font-semibold">In Progress</span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
 
