@@ -173,13 +173,13 @@ function preprocessJavaForSandbox(code: string): string {
     src = `import java.util.*;\nimport java.io.*;\n${src}`;
   }
 
-  const publicClassMatch = src.match(/public\s+class\s+([A-Za-z0-9_]+)/);
-  const anyClassMatch = src.match(/class\s+([A-Za-z0-9_]+)/);
+  const anyClassMatch = src.match(/\bclass\s+([A-Za-z0-9_]+)/);
   if (!anyClassMatch) {
-    src = `import java.util.*;\nimport java.io.*;\npublic class Main {\n  public static void main(String[] args) throws Exception {\n    ${src}\n  }\n}`;
-  } else if (!publicClassMatch) {
-    const cls = anyClassMatch[1];
-    src = src.replace(new RegExp(`(?<!public\\s{1,10})class\\s+${cls}`), `public class ${cls}`);
+    src = `import java.util.*;\nimport java.io.*;\nclass Main {\n  public static void main(String[] args) throws Exception {\n    ${src}\n  }\n}`;
+  } else {
+    // In Wandbox sandbox, filename is fixed as prog.java.
+    // Removing top-level 'public' modifier allows any class name (Main, Solution, Program) to compile cleanly in prog.java.
+    src = src.replace(/\bpublic\s+(?:final\s+|abstract\s+|static\s+)*class\b/g, "class");
   }
   return src;
 }

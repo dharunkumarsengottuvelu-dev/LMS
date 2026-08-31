@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import cp from "node:child_process";
+
 import { getLanguageDefinition, type SourceFileInfo } from "./language-registry";
-import { sanitizeCompilerOutput, resolveStandardStatus, type StandardExecutionStatus } from "./comparator";
+import { sanitizeCompilerOutput, type StandardExecutionStatus } from "./comparator";
 import { OnlineCompilerService } from "@/services/online-compiler.service";
 
 export interface UniversalExecutionResult {
@@ -18,12 +23,6 @@ export interface UniversalExecutionResult {
   filename: string;
   language: string;
 }
-
-const isNode = typeof window === "undefined";
-const getFs = () => (isNode ? eval("require('node:fs')") : null);
-const getPath = () => (isNode ? eval("require('node:path')") : null);
-const getOs = () => (isNode ? eval("require('node:os')") : null);
-const getChildProcess = () => (isNode ? eval("require('node:child_process')") : null);
 
 function isServerless(): boolean {
   return !!(
@@ -74,17 +73,8 @@ export class UniversalExecutor {
       };
     }
 
-    // 2. Client-side or Serverless environment -> Online Sandbox
-    if (!isNode || isServerless()) {
-      return this.executeOnline(langDef.id, code, cleanStdin, effectiveTimeout, sourceInfo.filename);
-    }
-
-    const fs = getFs();
-    const path = getPath();
-    const os = getOs();
-    const cp = getChildProcess();
-
-    if (!fs || !path || !os || !cp) {
+    // 2. Serverless environment -> Online Sandbox
+    if (isServerless()) {
       return this.executeOnline(langDef.id, code, cleanStdin, effectiveTimeout, sourceInfo.filename);
     }
 
@@ -135,7 +125,7 @@ export class UniversalExecutor {
         case "kotlin":
           result = await this.executeKotlin(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
           break;
-        case "bash" as any:
+        case "bash":
           result = await this.executeBash(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
           break;
         default:
@@ -151,7 +141,7 @@ export class UniversalExecutor {
     } catch {
       return this.executeOnline(langDef.id, code, cleanStdin, effectiveTimeout, sourceInfo.filename);
     } finally {
-      if (tempDir && fs) {
+      if (tempDir) {
         try {
           fs.rmSync(tempDir, { recursive: true, force: true });
         } catch {}
@@ -168,14 +158,13 @@ export class UniversalExecutor {
     timeoutMs: number
   ): Promise<UniversalExecutionResult> {
     return new Promise((resolve) => {
-      const cp = getChildProcess();
       const startTime = Date.now();
       const className = sourceInfo.entryClass || "Main";
 
       const javac = cp.spawn("javac", [sourceInfo.filename], { cwd: tempDir });
       let compileErr = "";
 
-      javac.stderr.on("data", (d: any) => { compileErr += d.toString(); });
+      javac.stderr?.on("data", (d: any) => { compileErr += d.toString(); });
       javac.on("close", (cc: number | null) => {
         if (cc !== 0) {
           const sanitizedErr = sanitizeCompilerOutput(compileErr, sourceInfo.filename);
@@ -199,15 +188,15 @@ export class UniversalExecutor {
         let timedOut = false;
         const timer = setTimeout(() => { timedOut = true; javaProc.kill(); }, timeoutMs);
 
-        if (stdin) {
+        if (stdin && javaProc.stdin) {
           javaProc.stdin.write(stdin);
           javaProc.stdin.end();
-        } else {
+        } else if (javaProc.stdin) {
           javaProc.stdin.end();
         }
 
-        javaProc.stdout.on("data", (d: any) => { stdout += d.toString(); });
-        javaProc.stderr.on("data", (d: any) => { stderr += d.toString(); });
+        javaProc.stdout?.on("data", (d: any) => { stdout += d.toString(); });
+        javaProc.stderr?.on("data", (d: any) => { stderr += d.toString(); });
 
         javaProc.on("close", (rc: number | null) => {
           clearTimeout(timer);
@@ -395,7 +384,6 @@ export class UniversalExecutor {
     memoryKb: number
   ): Promise<UniversalExecutionResult> {
     return new Promise((resolve) => {
-      const cp = getChildProcess();
       const startTime = Date.now();
       const proc = cp.spawn(cmd, args, { cwd });
 
@@ -408,15 +396,15 @@ export class UniversalExecutor {
         proc.kill();
       }, timeoutMs);
 
-      if (stdin) {
+      if (stdin && proc.stdin) {
         proc.stdin.write(stdin);
         proc.stdin.end();
-      } else {
+      } else if (proc.stdin) {
         proc.stdin.end();
       }
 
-      proc.stdout.on("data", (d: any) => { stdout += d.toString(); });
-      proc.stderr.on("data", (d: any) => { stderr += d.toString(); });
+      proc.stdout?.on("data", (d: any) => { stdout += d.toString(); });
+      proc.stderr?.on("data", (d: any) => { stderr += d.toString(); });
 
       proc.on("close", (code: number | null) => {
         clearTimeout(timer);
@@ -460,12 +448,11 @@ export class UniversalExecutor {
     memoryKb: number
   ): Promise<UniversalExecutionResult> {
     return new Promise((resolve) => {
-      const cp = getChildProcess();
       const startTime = Date.now();
       const comp = cp.spawn(compilerCmd, compilerArgs, { cwd });
       let compileErr = "";
 
-      comp.stderr.on("data", (d: any) => { compileErr += d.toString(); });
+      comp.stderr?.on("data", (d: any) => { compileErr += d.toString(); });
       comp.on("close", (cc: number | null) => {
         if (cc !== 0) {
           const sanitized = sanitizeCompilerOutput(compileErr, filename);
@@ -483,23 +470,23 @@ export class UniversalExecutor {
           });
         }
 
-        const runArgs = executableCmd.startsWith("./") ? [executableCmd.slice(2)] : [executableCmd];
-        const runProc = cp.spawn(runArgs[0], [], { cwd });
+        const binaryName = executableCmd.startsWith("./") ? executableCmd.slice(2) : executableCmd;
+        const runProc = cp.spawn(path.join(cwd, binaryName), [], { cwd });
 
         let stdout = "";
         let stderr = "";
         let timedOut = false;
         const timer = setTimeout(() => { timedOut = true; runProc.kill(); }, timeoutMs);
 
-        if (stdin) {
+        if (stdin && runProc.stdin) {
           runProc.stdin.write(stdin);
           runProc.stdin.end();
-        } else {
+        } else if (runProc.stdin) {
           runProc.stdin.end();
         }
 
-        runProc.stdout.on("data", (d: any) => { stdout += d.toString(); });
-        runProc.stderr.on("data", (d: any) => { stderr += d.toString(); });
+        runProc.stdout?.on("data", (d: any) => { stdout += d.toString(); });
+        runProc.stderr?.on("data", (d: any) => { stderr += d.toString(); });
 
         runProc.on("close", (rc: number | null) => {
           clearTimeout(timer);
