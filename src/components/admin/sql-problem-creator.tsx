@@ -20,6 +20,7 @@ import { CodingProblemsService } from "@/services/coding-problems.service";
 import type { CodingProblem, TestCase, Difficulty, SQLEngine, SQLComparisonMode, SQLQuestionMode, SQLColumnSchema, SQLTableSchema } from "@/types/coding";
 import { PageHeader } from "@/components/layouts/page-header";
 import { AutoSaveBadge } from "@/components/ui/auto-save-badge";
+import { Switch } from "@/components/ui/switch";
 
 export type ExtendedSQLEngine = SQLEngine | "sqlserver" | "oracle";
 
@@ -58,7 +59,16 @@ export function SqlProblemCreator({
   const [subcategory, setSubcategory] = useState("Relational Queries");
   const [tags, setTags] = useState<string[]>(["SQL", "Queries", "Database"]);
   const [tagInput, setTagInput] = useState("");
-  const [durationMinutes, setDurationMinutes] = useState(30);
+  const [durationMinutes, setDurationMinutes] = useState(
+    typeof (initialProblem as any)?.durationMinutes === "number" && (initialProblem as any).durationMinutes > 0
+      ? (initialProblem as any).durationMinutes
+      : 30
+  );
+  const [isDurationEnabled, setIsDurationEnabled] = useState(
+    typeof (initialProblem as any)?.durationMinutes === "number"
+      ? (initialProblem as any).durationMinutes > 0
+      : true
+  );
   const [points, setPoints] = useState(initialProblem?.points || 20);
 
   // 2. Problem Statement State
@@ -266,7 +276,7 @@ export function SqlProblemCreator({
       toast({ title: "Problem Statement Required", description: "Please enter the SQL problem statement.", variant: "destructive" });
       return false;
     }
-    if (durationMinutes <= 0) {
+    if (isDurationEnabled && durationMinutes <= 0) {
       toast({ title: "Invalid Duration", description: "Target duration must be greater than 0 minutes.", variant: "destructive" });
       return false;
     }
@@ -352,6 +362,7 @@ export function SqlProblemCreator({
         schema_sql: sqlMode === "QUERY_ONLY" ? schemaSql : undefined,
         seed_sql: sqlMode === "QUERY_ONLY" ? seedSql : undefined,
         comparison_mode: comparisonMode,
+        duration_minutes: isDurationEnabled ? durationMinutes : 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -470,13 +481,26 @@ export function SqlProblemCreator({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Duration (Minutes) *</label>
-            <Input
-              type="number"
-              value={durationMinutes}
-              onChange={(e) => setDurationMinutes(parseInt(e.target.value, 10) || 0)}
-              className="h-9 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"
-            />
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                Target Duration (Minutes) {isDurationEnabled && "*"}
+              </label>
+              <Switch checked={isDurationEnabled} onCheckedChange={setIsDurationEnabled} />
+            </div>
+            {isDurationEnabled ? (
+              <Input
+                type="number"
+                min={1}
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(parseInt(e.target.value, 10) || 0)}
+                placeholder="e.g. 30"
+                className="h-9 text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"
+              />
+            ) : (
+              <div className="h-9 px-3 rounded-xl bg-[#F9FAFB]/60 dark:bg-[#09090B]/60 border border-dashed border-[#E5E7EB] dark:border-[#27272A] flex items-center text-xs text-muted-foreground font-medium">
+                No Time Limit (Unlimited)
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">

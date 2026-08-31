@@ -164,6 +164,7 @@ export interface CodingProblem {
   schema_sql?: string;
   seed_sql?: string;
   comparison_mode?: SQLComparisonMode;
+  duration_minutes?: number;
   created_at: string;
   updated_at: string;
 }
