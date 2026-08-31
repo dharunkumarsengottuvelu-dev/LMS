@@ -1003,6 +1003,8 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
         { token: "string", foreground: "CE9178" },
         { token: "comment", foreground: "6A9955", fontStyle: "italic" },
         { token: "number", foreground: "B5CEA8" },
+        { token: "annotation", foreground: "DCDCAA" },
+        { token: "variable", foreground: "9CDCFE" },
       ],
       colors: {
         "editor.background": "#141417",
@@ -1014,6 +1016,9 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
         "editorCursor.foreground": "#60A5FA",
         "editorBracketMatch.background": "#1E3A5F",
         "editorBracketMatch.border": "#3B82F6",
+        "editorIndentGuide.background": "#27272A",
+        "editorIndentGuide.activeBackground": "#52525B",
+        "editor.selectionBackground": "#2563EB40",
       },
     });
   } catch (e) {
@@ -1046,8 +1051,11 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
     }
   };
 
+  const { formatSourceCode } = require("./compiler/code-formatter");
+
   Object.entries(LANGUAGE_MAP).forEach(([langId, entries]) => {
     try {
+      // 1. Register Code Auto-Completions
       monaco.languages.registerCompletionItemProvider(langId, {
         provideCompletionItems: (model, position) => {
           const word = model.getWordUntilPosition(position);
@@ -1074,8 +1082,26 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
           return { suggestions };
         },
       });
+
+      // 2. Register Native Document Formatting (Shift + Alt + F)
+      monaco.languages.registerDocumentFormattingEditProvider(langId, {
+        provideDocumentFormattingEdits: (model, options) => {
+          const fullText = model.getValue();
+          const formatted = formatSourceCode(fullText, langId, {
+            tabSize: options.tabSize,
+            insertSpaces: options.insertSpaces,
+          });
+
+          return [
+            {
+              range: model.getFullModelRange(),
+              text: formatted,
+            },
+          ];
+        },
+      });
     } catch (e) {
-      console.warn(`[Monaco] Failed to register completions for language ${langId}:`, e);
+      console.warn(`[Monaco] Failed to register completions/formatting for language ${langId}:`, e);
     }
   });
 }
