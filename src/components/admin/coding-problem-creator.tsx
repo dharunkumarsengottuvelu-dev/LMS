@@ -177,6 +177,7 @@ export function CodingProblemCreator({
 
   // Hidden Test Cases
   const [hiddenTestCases, setHiddenTestCases] = useState<TestCase[]>(initialHiddenTestCases || []);
+  const [revealHiddenTestCases, setRevealHiddenTestCases] = useState<boolean>(true);
 
   // Execution Limits
   const [timeLimit, setTimeLimit] = useState(2);
@@ -402,6 +403,7 @@ export function CodingProblemCreator({
         sample_output: publicTestCases[0]?.expected_output || "",
         templates: filteredTemplates,
         test_cases: [...publicTestCases, ...hiddenTestCases],
+        reveal_hidden_testcases: revealHiddenTestCases,
         sql_engine: selectedLanguages.includes("sql") ? sqlEngine : undefined,
         sql_question_mode: selectedLanguages.includes("sql") ? sqlQuestionMode : undefined,
         provide_tables: selectedLanguages.includes("sql") ? provideTables : undefined,
@@ -1304,6 +1306,22 @@ export function CodingProblemCreator({
             >
               <Plus className="h-3.5 w-3.5" /> Add Hidden Test Case
             </Button>
+          </div>
+
+          {/* Trainer / Admin Permission Toggle: Reveal Hidden Test Cases in Results */}
+          <div className="flex items-center justify-between p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-xl">
+            <div className="space-y-0.5">
+              <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] block">
+                Reveal Hidden Test Case Details to Student upon Submission
+              </span>
+              <span className="text-[11px] text-[#6B7280] dark:text-[#A1A1AA]">
+                When enabled (Default), students can inspect input & expected output for hidden cases after submitting. Turn OFF for strict exams.
+              </span>
+            </div>
+            <Switch
+              checked={revealHiddenTestCases}
+              onCheckedChange={setRevealHiddenTestCases}
+            />
           </div>
 
           <div className="space-y-4">

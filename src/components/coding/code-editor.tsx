@@ -128,7 +128,7 @@ export function CodeEditor({
   const [multiOutput, setMultiOutput] = useState<{ results: TestCaseResult[] } | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [activeTab, setActiveTab] = useState<"testcases" | "hiddentestcases" | "customtest" | "testresult">("testcases");
-  const [showConsole, setShowConsole] = useState(true);
+  const [showConsole, setShowConsole] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedTestCaseIdx, setSelectedTestCaseIdx] = useState(0);
   const [useFallbackTextarea, setUseFallbackTextarea] = useState(false);
@@ -323,15 +323,27 @@ export function CodeEditor({
     });
   }, []);
 
+  const scrollToConsole = useCallback(() => {
+    if (consoleRef.current) {
+      consoleRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    if (typeof window !== "undefined" && consoleRef.current) {
+      const rect = consoleRef.current.getBoundingClientRect();
+      if (rect.bottom > window.innerHeight - 60) {
+        window.scrollBy({ top: rect.bottom - window.innerHeight + 100, behavior: "smooth" });
+      }
+    }
+  }, []);
+
   const handleTabClick = (tab: "testcases" | "hiddentestcases" | "customtest" | "testresult") => {
     setActiveTab(tab);
     setShowConsole(true);
     setTimeout(() => {
-      consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      scrollToConsole();
       if (consoleContentRef.current) {
         consoleContentRef.current.scrollTop = 0;
       }
-    }, 60);
+    }, 80);
   };
 
   const handleConsoleToggle = () => {
@@ -339,8 +351,8 @@ export function CodeEditor({
     setShowConsole(nextState);
     if (nextState) {
       setTimeout(() => {
-        consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }, 60);
+        scrollToConsole();
+      }, 80);
     }
   };
 
@@ -363,13 +375,13 @@ export function CodeEditor({
       setActiveTab("testresult");
       setShowConsole(true);
       setTimeout(() => {
-        consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        scrollToConsole();
         if (consoleContentRef.current) {
           consoleContentRef.current.scrollTop = 0;
         }
       }, 80);
     }
-  }, [submissionResult]);
+  }, [submissionResult, scrollToConsole]);
 
   const allowedLanguages = useMemo(() => {
     if (problem?.templates && Object.keys(problem.templates).length > 0) {
@@ -553,9 +565,16 @@ export function CodeEditor({
     setOutput(null);
     setMultiOutput(null);
     setShowConsole(true);
+    const targetTab = activeTab === "customtest" ? "customtest" : "testcases";
+    setActiveTab(targetTab);
+
+    // Immediately scroll down to the Console panel
+    setTimeout(() => {
+      scrollToConsole();
+    }, 80);
 
     try {
-      if (activeTab === "customtest") {
+      if (targetTab === "customtest") {
         const response = await fetch("/api/code/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -603,11 +622,19 @@ export function CodeEditor({
 
         const result = await response.json();
         setMultiOutput(result);
+
+        // Auto-select first failing test case if any, otherwise first testcase
+        if (result?.results && Array.isArray(result.results)) {
+          const firstFail = result.results.findIndex((r: any) => !r.passed);
+          if (firstFail >= 0) {
+            setSelectedTestCaseIdx(firstFail);
+          }
+        }
       }
       setShowConsole(true);
-      setActiveTab(activeTab === "customtest" ? "customtest" : "testcases");
+      setActiveTab(targetTab);
       setTimeout(() => {
-        consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        scrollToConsole();
         if (consoleContentRef.current) {
           consoleContentRef.current.scrollTop = 0;
         }
@@ -626,7 +653,7 @@ export function CodeEditor({
         setShowConsole(true);
         setActiveTab("testresult");
         setTimeout(() => {
-          consoleRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          scrollToConsole();
         }, 80);
         await onSubmit(code, language);
       } catch (err) {
@@ -1053,6 +1080,12 @@ export function CodeEditor({
         {/* Tab 1: Sample Test Cases */}
         {activeTab === "testcases" && (
           <div className="flex-1 overflow-y-auto p-4 bg-white dark:bg-[#141417]">
+            {isRunning && (
+              <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg text-blue-700 dark:text-blue-300 text-xs font-semibold animate-pulse mb-3">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
+                <span>Running code against test cases...</span>
+              </div>
+            )}
             {problem?.test_cases?.filter((tc) => !tc.is_hidden).length ? (
               <div className="space-y-3.5">
                 {/* Test case tabs (Case 1, Case 2...) */}
@@ -1141,6 +1174,11 @@ export function CodeEditor({
                 <pre className="p-3 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg font-mono text-xs text-gray-800 dark:text-zinc-200 whitespace-pre-wrap">
                   {output.stdout || output.stderr || output.compile_output || "Execution completed"}
                 </pre>
+              </div>
+            ) : isRunning ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-8 text-blue-600 dark:text-blue-400 text-sm gap-2">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <p className="text-xs font-semibold">Executing code...</p>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center py-6 text-gray-400 text-sm gap-1.5">
@@ -1262,30 +1300,71 @@ export function CodeEditor({
                         return (
                           <details key={r.test_case_id || i} className="rounded-lg border border-gray-200 dark:border-zinc-800 overflow-hidden shrink-0 group">
                             <summary className={cn(
-                              "px-3 py-2 text-xs font-bold border-b border-gray-200 dark:border-zinc-800 flex justify-between items-center cursor-pointer select-none outline-none list-none [&::-webkit-details-marker]:hidden",
+                              "px-3.5 py-2.5 text-xs font-bold border-b border-gray-200 dark:border-zinc-800 flex justify-between items-center cursor-pointer select-none outline-none list-none [&::-webkit-details-marker]:hidden",
                               r.passed ? "bg-green-50/50 dark:bg-green-950/30 text-green-700 dark:text-green-300 hover:bg-green-100" : "bg-red-50/50 dark:bg-red-950/30 text-red-700 dark:text-red-300 hover:bg-red-100"
                             )}>
-                              <span>Test Case {i + 1} {isHidden && "(Hidden)"}</span>
-                              <span>{r.passed ? "Passed" : "Failed"}</span>
+                              <span className="flex items-center gap-2">
+                                {isHidden && <Lock className="w-3.5 h-3.5 text-blue-500 inline shrink-0" />}
+                                <span>Test Case {i + 1} {isHidden ? "(Hidden)" : ""}</span>
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {r.time_seconds != null && (
+                                  <span className="text-[11px] font-mono opacity-80">{r.time_seconds}s</span>
+                                )}
+                                <span className={cn("px-2 py-0.5 rounded text-[11px] font-bold", r.passed ? "bg-green-600 text-white" : "bg-red-600 text-white")}>
+                                  {r.passed ? "Passed" : "Failed"}
+                                </span>
+                              </div>
                             </summary>
                             
-                            <div className="grid grid-cols-1 divide-y divide-gray-200 dark:divide-zinc-800 bg-white dark:bg-[#141417]">
-                              {tc && !isHidden && (
-                                <div className="p-3 bg-gray-50 dark:bg-zinc-900/50">
-                                  <p className="text-[10px] font-bold text-gray-500 dark:text-zinc-400 uppercase mb-1">Input:</p>
-                                  <pre className="text-xs font-mono text-gray-700 dark:text-zinc-300 whitespace-pre-wrap max-h-24 overflow-y-auto">{tc.input}</pre>
+                            <div className="p-3.5 bg-white dark:bg-[#141417] space-y-2.5">
+                              {isHidden && problem?.reveal_hidden_testcases === false ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Badge className={cn("text-[11px] font-bold px-2 py-0.5", r.passed ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 border-green-300 dark:border-green-800" : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-red-300 dark:border-red-800")}>
+                                      {r.passed ? <CheckCircle2 className="w-3 h-3 mr-1 inline" /> : <XCircle className="w-3 h-3 mr-1 inline" />}
+                                      {r.passed ? "Hidden Test Case Passed" : "Hidden Test Case Failed"}
+                                    </Badge>
+                                    {r.time_seconds != null && (
+                                      <span className="text-[11px] font-mono text-gray-500 dark:text-zinc-400 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" /> {r.time_seconds}s
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-600 dark:text-zinc-400 leading-relaxed">
+                                    {r.passed
+                                      ? "This hidden test case evaluated successfully against scale, constraints, and boundary edge values."
+                                      : (r.error || "The program's output did not match the hidden expected answer.")
+                                    }
+                                  </p>
+                                  {r.error && (
+                                    <pre className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-xs font-mono whitespace-pre-wrap border border-red-200 dark:border-red-900">
+                                      {r.error}
+                                    </pre>
+                                  )}
                                 </div>
-                              )}
-                              <div className="p-3">
-                                <p className="text-[10px] font-bold text-gray-500 dark:text-zinc-400 uppercase mb-1">Error / Output:</p>
-                                <pre className={cn("text-xs font-mono whitespace-pre-wrap max-h-32 overflow-y-auto", r.passed ? "text-green-700 dark:text-green-300" : "text-red-600 dark:text-red-400")}>
-                                  {r.error || r.actual_output || "Unknown error"}
-                                </pre>
-                              </div>
-                              {tc && !isHidden && tc.expected_output && (
-                                <div className="p-3">
-                                  <p className="text-[10px] font-bold text-gray-500 dark:text-zinc-400 uppercase mb-1">Expected Output:</p>
-                                  <pre className="text-xs font-mono text-green-700 dark:text-green-300 whitespace-pre-wrap max-h-24 overflow-y-auto">{tc.expected_output}</pre>
+                              ) : (
+                                <div className="space-y-2.5">
+                                  {(tc?.input || r.input) && (
+                                    <div>
+                                      <p className="text-[10px] font-bold text-gray-500 dark:text-zinc-400 uppercase mb-1">
+                                        Input {isHidden && "(Hidden Case)"}:
+                                      </p>
+                                      <pre className="p-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg text-xs font-mono text-gray-800 dark:text-zinc-200 whitespace-pre-wrap max-h-28 overflow-y-auto">{tc?.input || r.input || "—"}</pre>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="text-[10px] font-bold text-gray-500 dark:text-zinc-400 uppercase mb-1">{r.passed ? "Your Output:" : "Error / Your Output:"}</p>
+                                    <pre className={cn("p-2.5 rounded-lg border text-xs font-mono whitespace-pre-wrap max-h-32 overflow-y-auto", r.passed ? "bg-green-50/40 dark:bg-green-950/20 text-green-800 dark:text-green-300 border-green-200 dark:border-green-900" : "bg-red-50/40 dark:bg-red-950/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900")}>
+                                      {r.error || (r.actual_output && r.actual_output !== "Match" && !r.actual_output.includes("Mismatch (Hidden") ? r.actual_output : (tc?.expected_output || r.expected_output)) || "Execution completed"}
+                                    </pre>
+                                  </div>
+                                  {(tc?.expected_output || r.expected_output) && (
+                                    <div>
+                                      <p className="text-[10px] font-bold text-gray-500 dark:text-zinc-400 uppercase mb-1">Expected Output:</p>
+                                      <pre className="p-2.5 bg-green-50/30 dark:bg-green-950/20 border border-green-200 dark:border-green-900/60 rounded-lg text-xs font-mono text-green-800 dark:text-green-300 whitespace-pre-wrap max-h-28 overflow-y-auto">{(r.expected_output && r.expected_output !== "Hidden" ? r.expected_output : tc?.expected_output) || "—"}</pre>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>

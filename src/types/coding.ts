@@ -128,6 +128,7 @@ export interface TestCase {
 export interface TestCaseResult {
   test_case_id: string;
   passed: boolean;
+  input?: string;
   actual_output?: string;
   expected_output?: string;
   error?: string;
@@ -155,6 +156,7 @@ export interface CodingProblem {
   sample_output?: string;
   templates: Record<string, string>;
   test_cases: TestCase[];
+  reveal_hidden_testcases?: boolean;
   dataset_name?: string;
   sql_engine?: SQLEngine;
   sql_question_mode?: SQLQuestionMode;

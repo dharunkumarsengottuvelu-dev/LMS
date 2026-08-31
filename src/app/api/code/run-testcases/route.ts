@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
         return {
           test_case_id: tc.id,
           passed,
+          input: tc.input,
           actual_output: trimmedActual,
           expected_output: expectedOutput,
           error: resError,

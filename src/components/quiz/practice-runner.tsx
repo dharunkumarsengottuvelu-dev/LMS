@@ -647,7 +647,8 @@ export function PracticeRunnerEngine({
         javascript: "// Write your JavaScript solution here\n",
         c: "/* Write your C solution here */\n"
       },
-      test_cases: testCases
+      test_cases: testCases,
+      reveal_hidden_testcases: (currentQuestion as any).reveal_hidden_testcases !== false
     };
   }, [currentQuestion]);
 
@@ -976,10 +977,10 @@ export function PracticeRunnerEngine({
       )}
 
       {activeSection === "coding" && (
-        <div className="flex items-start gap-4 w-full h-[640px] min-h-[520px] transition-all">
+        <div className="flex items-start gap-4 w-full h-[740px] min-h-[640px] transition-all">
           {/* Left Problem Details Panel (Expandable / Collapsible) */}
           {showProblemStatement ? (
-            <div className="w-[26%] min-w-[270px] max-w-[330px] h-full shrink-0">
+            <div className="w-[32%] min-w-[320px] max-w-[420px] h-full shrink-0">
               <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden h-full flex flex-col">
                 <CardHeader className="p-4 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] bg-muted/20 shrink-0">
                   <div className="flex items-center justify-between">
@@ -1130,9 +1131,9 @@ export function PracticeRunnerEngine({
             </div>
           </div>
 
-          {/* Right Question Palette Panel (Uniform medium width: 260px) */}
+          {/* Right Question Palette Panel (Uniform medium width: 280px) */}
           {showQuestionPalette ? (
-            <div className="w-[260px] shrink-0 h-full overflow-hidden">
+            <div className="w-[280px] lg:w-[300px] shrink-0 h-full overflow-hidden">
               {renderPaletteContent(true)}
             </div>
           ) : (

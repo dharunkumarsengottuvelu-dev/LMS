@@ -271,20 +271,20 @@ export default function StudentCodingIDEPage() {
 
       {/* ── 3-Column Body ── */}
       <div className="flex flex-1 overflow-hidden w-full">
-        {/* ── LEFT: Problem Statement (450px) ── */}
+        {/* ── LEFT: Problem Statement (Enlarged for readability) ── */}
         {showQuestion && (
-        <div className="w-[450px] flex flex-col bg-card border-r border-border shrink-0 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="w-[480px] lg:w-[520px] xl:w-[560px] flex flex-col bg-card border-r border-border shrink-0 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex-1 overflow-y-auto flex flex-col h-full">
           {/* Question header */}
-          <div className="px-4 py-4 border-b border-border">
+          <div className="px-5 py-4 border-b border-border">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-base text-foreground">
-                Question {currentIdx + 1}
+              <h2 className="font-bold text-lg text-foreground">
+                Question {currentIdx + 1}: {selectedProblem.title}
               </h2>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={toggleFlag}
-                  className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded transition-colors duration-200 ${
+                  className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg transition-colors duration-200 ${
                     isFlagged
                       ? "bg-orange-100 text-orange-600"
                       : "bg-muted text-muted-foreground hover:text-orange-500"
@@ -295,7 +295,7 @@ export default function StudentCodingIDEPage() {
                 </button>
                 <button 
                   onClick={() => setShowQuestion(false)} 
-                  className="text-muted-foreground hover:text-primary transition-colors flex items-center justify-center ml-1"
+                  className="text-muted-foreground hover:text-primary transition-colors flex items-center justify-center p-1 rounded-md hover:bg-muted"
                   title="Hide Question"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -303,16 +303,16 @@ export default function StudentCodingIDEPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/10 text-[10px] font-bold uppercase px-2">
+              <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/10 text-[11px] font-bold uppercase px-2.5 py-0.5">
                 CODING
               </Badge>
               {selectedProblem.points != null && (
-                <Badge className="bg-muted text-foreground border-border text-[10px] font-bold px-2">
+                <Badge className="bg-muted text-foreground border-border text-[11px] font-bold px-2.5 py-0.5">
                   {selectedProblem.points} marks
                 </Badge>
               )}
               <Badge
-                className={`text-[10px] font-bold uppercase border px-2 ${
+                className={`text-[11px] font-bold uppercase border px-2.5 py-0.5 ${
                   DIFFICULTY_COLOR[selectedProblem.difficulty] ?? "bg-muted text-muted-foreground border-border"
                 }`}
               >
@@ -327,28 +327,28 @@ export default function StudentCodingIDEPage() {
             onValueChange={(v) => setProblemTab(v as ProblemTab)}
             className="flex-1 flex flex-col"
           >
-            <TabsList className="mx-4 mt-4 mb-2 bg-muted rounded-lg p-0.5 h-8 w-auto justify-start">
+            <TabsList className="mx-5 mt-4 mb-2 bg-muted rounded-lg p-0.5 h-8 w-auto justify-start">
               <TabsTrigger
                 value="statement"
-                className="text-xs font-semibold rounded-md data-[state=active]:bg-card data-[state=active]:shadow px-3 h-7 data-[state=active]:text-foreground"
+                className="text-xs font-semibold rounded-md data-[state=active]:bg-card data-[state=active]:shadow px-3.5 h-7 data-[state=active]:text-foreground"
               >
                 Problem Statement
               </TabsTrigger>
               {latestSubmission && (
                 <TabsTrigger
                   value="solution"
-                  className="text-xs font-semibold rounded-md data-[state=active]:bg-white data-[state=active]:shadow px-3 h-7"
+                  className="text-xs font-semibold rounded-md data-[state=active]:bg-white data-[state=active]:shadow px-3.5 h-7"
                 >
                   Result
                 </TabsTrigger>
               )}
             </TabsList>
 
-            <TabsContent value="statement" className="flex-1 overflow-y-auto px-4 py-4 space-y-6 mt-0 animate-in fade-in duration-200">
+            <TabsContent value="statement" className="flex-1 overflow-y-auto px-5 py-4 space-y-6 mt-0 animate-in fade-in duration-200">
               {/* Problem Statement */}
               <div>
-                <p className="text-[13px] font-bold text-foreground mb-2">Problem Statement:</p>
-                <p className="text-[12.5px] text-muted-foreground leading-relaxed whitespace-pre-line">
+                <p className="text-sm font-bold text-foreground mb-2">Problem Statement:</p>
+                <p className="text-[14px] text-foreground/90 leading-relaxed whitespace-pre-line font-normal">
                   {selectedProblem.description}
                 </p>
               </div>
@@ -356,8 +356,8 @@ export default function StudentCodingIDEPage() {
               {/* Constraints */}
               {selectedProblem.constraints && (
                 <div>
-                  <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Constraints:</p>
-                  <pre className="text-[12px] text-foreground font-mono bg-muted rounded-lg p-4 border border-border whitespace-pre-wrap leading-relaxed">
+                  <p className="text-[12.5px] font-bold text-muted-foreground uppercase tracking-wide mb-2">Constraints:</p>
+                  <pre className="text-[13px] text-foreground font-mono bg-muted/70 rounded-xl p-4 border border-border whitespace-pre-wrap leading-relaxed">
                     {selectedProblem.constraints}
                   </pre>
                 </div>
@@ -366,14 +366,14 @@ export default function StudentCodingIDEPage() {
               {/* Input / Output Format */}
               <div className="space-y-4">
                 <div>
-                  <p className="text-[12px] font-bold text-muted-foreground mb-2">Input Format:</p>
-                  <p className="text-[12px] text-foreground leading-relaxed">
+                  <p className="text-[13px] font-bold text-foreground mb-1.5">Input Format:</p>
+                  <p className="text-[13.5px] text-muted-foreground leading-relaxed">
                     {selectedProblem.input_format ?? "Given via standard input."}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[12px] font-bold text-muted-foreground mb-2">Output Format:</p>
-                  <p className="text-[12px] text-foreground leading-relaxed">
+                  <p className="text-[13px] font-bold text-foreground mb-1.5">Output Format:</p>
+                  <p className="text-[13.5px] text-muted-foreground leading-relaxed">
                     {selectedProblem.output_format ?? "Print the answer to standard output."}
                   </p>
                 </div>
@@ -382,27 +382,27 @@ export default function StudentCodingIDEPage() {
               {/* Sample Test Cases */}
               {selectedProblem.test_cases?.filter((tc: TestCase) => !tc.is_hidden).length > 0 && (
                 <div>
-                  <p className="text-[12px] font-bold text-muted-foreground mb-2">Sample Test Cases:</p>
+                  <p className="text-[13px] font-bold text-foreground mb-2.5">Sample Test Cases:</p>
                   {selectedProblem.test_cases
                     .filter((tc: TestCase) => !tc.is_hidden)
                     .map((tc: TestCase, i: number) => (
-                      <div key={tc.id} className="mb-3 rounded-xl border border-border overflow-hidden">
-                        <div className="bg-muted px-3 py-1.5 text-[11px] font-bold text-muted-foreground uppercase border-b border-border">
-                          Test Case {i + 1}
+                      <div key={tc.id} className="mb-3.5 rounded-xl border border-border overflow-hidden shadow-2xs">
+                        <div className="bg-muted px-3.5 py-2 text-xs font-bold text-foreground border-b border-border flex items-center justify-between">
+                          <span>Test Case {i + 1}</span>
                           {tc.explanation && (
-                            <span className="ml-2 font-normal text-muted-foreground opacity-80 normal-case">— {tc.explanation}</span>
+                            <span className="font-normal text-muted-foreground text-[11px] normal-case truncate max-w-[240px]">{tc.explanation}</span>
                           )}
                         </div>
                         <div className="grid grid-cols-2 divide-x divide-border">
-                          <div className="p-3">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Input:</p>
-                            <pre className="text-[11.5px] font-mono text-primary whitespace-pre-wrap leading-relaxed">
+                          <div className="p-3.5 bg-card">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5">Input:</p>
+                            <pre className="text-[12.5px] font-mono text-primary whitespace-pre-wrap leading-relaxed">
                               {tc.input || "—"}
                             </pre>
                           </div>
-                          <div className="p-3">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Expected Output:</p>
-                            <pre className="text-[11.5px] font-mono text-green-600 dark:text-green-500 whitespace-pre-wrap leading-relaxed">
+                          <div className="p-3.5 bg-card">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5">Expected Output:</p>
+                            <pre className="text-[12.5px] font-mono text-green-600 dark:text-green-500 whitespace-pre-wrap leading-relaxed">
                               {tc.expected_output || "—"}
                             </pre>
                           </div>
@@ -519,87 +519,90 @@ export default function StudentCodingIDEPage() {
         </div>
 
         {showNavigator && (
-          <div className="w-[240px] flex flex-col bg-card border-l border-border shrink-0 relative animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150 fill-mode-both">
-            {/* ── RIGHT: Question Navigator (220px) ── */}
+          <div className="w-[290px] lg:w-[320px] flex flex-col bg-card border-l border-border shrink-0 relative animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150 fill-mode-both">
+            {/* ── RIGHT: Question Navigator ── */}
             <div className="flex-1 overflow-y-auto flex flex-col h-full">
-                  <div className="px-4 py-4 border-b border-border flex items-center gap-2">
-             <button onClick={() => setShowNavigator(false)} className="text-muted-foreground hover:text-primary transition-colors flex items-center justify-center">
-               <ChevronRight className="w-4 h-4" />
-             </button>
-             <h3 className="font-bold text-sm text-foreground">Question Navigator</h3>
-          </div>
-
-          {/* Section */}
-          <div className="px-4 py-5 border-b border-border">
-            <div className="flex items-center justify-between mb-5">
-              <span className="text-xs font-semibold text-primary">Programming Challenges</span>
-              <span className="text-[11px] font-bold text-muted-foreground">
-                {answeredIds.size}/{totalProblems}
-              </span>
-            </div>
-
-            {/* Number grid */}
-            <div className="grid grid-cols-5 gap-2">
-              {problems.map((p, i) => {
-                const answered = answeredIds.has(p.id);
-                const isCurrent = i === currentIdx;
-                const isFlaggd = flagged.has(p.id);
-
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => goTo(i)}
-                    className={`w-9 h-9 rounded-lg text-xs font-bold border transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-sm ${
-                      isCurrent
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                        : answered
-                        ? "bg-green-500 text-white border-green-400"
-                        : isFlaggd
-                        ? "bg-orange-400 text-white border-orange-400"
-                        : "bg-muted text-foreground border-border hover:bg-primary/10 hover:border-primary/30"
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Legend */}
-            <div className="mt-6 space-y-3 text-[11px] text-muted-foreground">
-              <div className="flex items-center gap-3">
-                <span className="w-4 h-4 rounded bg-primary inline-block" />
-                Current
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <h3 className="font-bold text-sm text-foreground">Question Palette</h3>
+                <button onClick={() => setShowNavigator(false)} className="text-muted-foreground hover:text-primary transition-colors flex items-center justify-center p-1 rounded-md hover:bg-muted" title="Close Palette">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="w-4 h-4 rounded bg-green-500 inline-block" />
-                Answered
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-4 h-4 rounded bg-orange-400 inline-block" />
-                Flagged
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="w-4 h-4 rounded bg-muted border border-border inline-block" />
-                Not answered
-              </div>
-            </div>
-          </div>
 
-          {/* Overall Progress */}
-          <div className="px-4 py-5">
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Overall Progress</p>
-            <div className="w-full bg-muted rounded-full h-2 mb-3">
-              <div
-                className="bg-primary h-2 rounded-full transition-all duration-500"
-                style={{ width: `${(answeredIds.size / totalProblems) * 100}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>{answeredIds.size} answered</span>
-              <span>{totalProblems} questions</span>
-            </div>
-          </div>
+              {/* Section */}
+              <div className="px-5 py-4 border-b border-border">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs font-bold text-primary">All Challenges</span>
+                  <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                    {answeredIds.size}/{totalProblems} Solved
+                  </span>
+                </div>
+
+                {/* Number grid */}
+                <div className="grid grid-cols-5 gap-2.5">
+                  {problems.map((p, i) => {
+                    const answered = answeredIds.has(p.id);
+                    const isCurrent = i === currentIdx;
+                    const isFlaggd = flagged.has(p.id);
+
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => goTo(i)}
+                        className={`w-10 h-10 rounded-xl text-xs font-bold border transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-xs flex items-center justify-center ${
+                          isCurrent
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/30"
+                            : answered
+                            ? "bg-green-600 text-white border-green-500 shadow-2xs"
+                            : isFlaggd
+                            ? "bg-orange-500 text-white border-orange-400"
+                            : "bg-muted text-foreground border-border hover:bg-primary/10 hover:border-primary/30"
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Legend */}
+                <div className="mt-5 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 rounded bg-primary inline-block shrink-0" />
+                    <span>Current</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 rounded bg-green-600 inline-block shrink-0" />
+                    <span>Answered</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 rounded bg-orange-500 inline-block shrink-0" />
+                    <span>Flagged</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 rounded bg-muted border border-border inline-block shrink-0" />
+                    <span>Pending</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Overall Progress */}
+              <div className="px-5 py-4">
+                <div className="flex justify-between text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">
+                  <span>Progress</span>
+                  <span className="text-primary font-mono">{Math.round((answeredIds.size / (totalProblems || 1)) * 100)}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2.5 mb-2.5 overflow-hidden">
+                  <div
+                    className="bg-primary h-2.5 rounded-full transition-all duration-500"
+                    style={{ width: `${(answeredIds.size / totalProblems) * 100}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-muted-foreground">
+                  <span>{answeredIds.size} completed</span>
+                  <span>{totalProblems} total</span>
+                </div>
+              </div>
 
           {/* Navigation buttons */}
             <div className="mt-auto border-t border-border p-3 flex items-center justify-center gap-2">
