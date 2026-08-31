@@ -7,10 +7,14 @@ import {
   CheckCircle2, XCircle, Clock,
   PanelLeftOpen, PanelRightOpen,
   ChevronUp, ChevronDown, Lock, Terminal,
-  Sun, Moon, Maximize2, Minimize2
+  Sun, Moon, Maximize2, Minimize2,
+  MoreHorizontal, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -714,78 +718,78 @@ export function CodeEditor({
       <div className={cn("flex flex-col min-h-0 overflow-hidden border-b border-gray-200 dark:border-zinc-800", showConsole ? "flex-[3]" : "flex-1")}>
         
         {/* Modern MNC-Style Editor Header & Toolbar */}
-        <div className="flex items-center justify-between px-3.5 py-2 bg-[#F8FAFC] dark:bg-[#18181C] border-b border-gray-200 dark:border-zinc-800 shrink-0 select-none">
-           <div className="text-xs font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-2.5">
+        <div className="flex items-center justify-between px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-[#F8FAFC] dark:bg-[#18181C] border-b border-gray-200 dark:border-zinc-800 shrink-0 select-none gap-1.5 sm:gap-2">
+           <div className="text-xs font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink-0">
              {showQuestionToggle && onToggleQuestion && (
-               <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-600 p-0" onClick={onToggleQuestion} title="Show Question Statement">
+               <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-blue-600 p-0 shrink-0" onClick={onToggleQuestion} title="Show Question Statement">
                  <PanelLeftOpen className="h-4 w-4" />
                </Button>
              )}
-             <span className="w-2.5 h-2.5 rounded-full bg-blue-600 dark:bg-blue-500 shadow-xs animate-pulse"></span>
-             <span className="font-semibold tracking-tight text-gray-900 dark:text-gray-100">Code Editor</span>
+             <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-blue-600 dark:bg-blue-500 shadow-xs animate-pulse shrink-0"></span>
+             <span className="font-semibold tracking-tight text-gray-900 dark:text-gray-100 hidden md:inline shrink-0">Code Editor</span>
              {isFullscreen && (
-               <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 bg-blue-500/10 text-blue-600 border-blue-500/30">
+               <Badge variant="outline" className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0 bg-blue-500/10 text-blue-600 border-blue-500/30 shrink-0 hidden sm:inline-flex">
                  FULLSCREEN (ESC)
                </Badge>
              )}
            </div>
            
-           <div className="flex items-center gap-1.5 sm:gap-2">
+           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 max-w-full">
              {/* Language Selector */}
              {allowedLanguages.length > 1 ? (
                <Select value={language} onValueChange={(v) => { if (v) handleLanguageChange(v as CodingLanguage); }}>
-                 <SelectTrigger className="h-7.5 min-w-[135px] text-xs font-medium border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 shadow-2xs rounded-lg">
-                   <SelectValue />
+                 <SelectTrigger className="h-7 sm:h-7.5 w-[105px] xs:w-[115px] sm:w-[130px] md:w-[145px] text-xs font-medium border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 shadow-2xs rounded-lg truncate shrink-0">
+                   <SelectValue className="truncate whitespace-nowrap" />
                  </SelectTrigger>
                  <SelectContent>
                     {allowedLanguages.map((lang) => (
-                      <SelectItem key={lang} value={lang} className="text-xs font-medium">
+                      <SelectItem key={lang} value={lang} className="text-xs font-medium whitespace-nowrap">
                         {dbLanguages.find(l => l.id === lang)?.name || LANGUAGE_DISPLAY_NAMES[lang as CodingLanguage] || lang}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="h-7.5 px-3 flex items-center justify-center text-xs border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 rounded-lg font-medium shadow-2xs">
+                <div className="h-7 sm:h-7.5 px-2 sm:px-3 flex items-center justify-center text-xs border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 rounded-lg font-medium shadow-2xs whitespace-nowrap truncate max-w-[125px] shrink-0">
                   {dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language}
                 </div>
               )}
 
               {language === "sql" && (
-                <Badge variant="outline" className="h-7.5 text-[10px] font-bold px-2 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 flex items-center gap-1">
+                <Badge variant="outline" className="h-7 sm:h-7.5 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 flex items-center gap-1 shrink-0">
                   <span>DB:</span>
                   <span className="uppercase">{(problem?.sql_engine || "sqlite")}</span>
                 </Badge>
               )}
 
-             {/* Theme Toggle */}
+             {/* Theme Toggle (Desktop/Tablet) */}
              <Button
                variant="ghost"
                size="icon"
-               className="h-7.5 w-7.5 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg"
+               className="h-7 sm:h-7.5 w-7 sm:w-7.5 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg shrink-0 hidden md:inline-flex"
                onClick={() => setEditorTheme((t) => (t === "lms-light" ? "lms-dark" : "lms-light"))}
                title={editorTheme === "lms-light" ? "Switch to Dark Theme" : "Switch to Light Theme"}
              >
                {editorTheme === "lms-light" ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
              </Button>
 
-             {/* Reset Code */}
+             {/* Reset Code (Desktop/Tablet) */}
              <Button
                variant="ghost"
                size="icon"
-               className="h-7.5 w-7.5 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg"
+               className="h-7 sm:h-7.5 w-7 sm:w-7.5 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg shrink-0 hidden md:inline-flex"
                onClick={handleReset}
                title="Reset to starter template"
              >
                <RotateCcw className="h-3.5 w-3.5" />
              </Button>
 
-             {/* Fullscreen Toggle */}
+             {/* Fullscreen Toggle (Desktop/Tablet) */}
              <Button
                variant="ghost"
                size="icon"
                className={cn(
-                 "h-7.5 w-7.5 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg transition-colors",
+                 "h-7 sm:h-7.5 w-7 sm:w-7.5 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg transition-colors shrink-0 hidden md:inline-flex",
                  isFullscreen && "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50"
                )}
                onClick={toggleFullscreen}
@@ -794,10 +798,37 @@ export function CodeEditor({
                {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
              </Button>
 
-             {/* Run Code Button */}
+             {/* Mobile More Options Dropdown */}
+             <div className="md:hidden">
+               <DropdownMenu>
+                 <DropdownMenuTrigger className="h-7 w-7 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg shrink-0 flex items-center justify-center cursor-pointer hover:bg-gray-200/50 dark:hover:bg-zinc-800">
+                   <MoreHorizontal className="h-3.5 w-3.5" />
+                 </DropdownMenuTrigger>
+                 <DropdownMenuContent align="end" className="w-40">
+                   <DropdownMenuItem onClick={() => setEditorTheme((t) => (t === "lms-light" ? "lms-dark" : "lms-light"))} className="text-xs">
+                     {editorTheme === "lms-light" ? <Moon className="h-3.5 w-3.5 mr-2 inline" /> : <Sun className="h-3.5 w-3.5 mr-2 inline" />}
+                     <span>{editorTheme === "lms-light" ? "Dark Theme" : "Light Theme"}</span>
+                   </DropdownMenuItem>
+                   <DropdownMenuItem onClick={handleReset} className="text-xs">
+                     <RotateCcw className="h-3.5 w-3.5 mr-2 inline" />
+                     <span>Reset Template</span>
+                   </DropdownMenuItem>
+                   <DropdownMenuItem onClick={handleFormatCode} className="text-xs">
+                     <Sparkles className="h-3.5 w-3.5 mr-2 inline" />
+                     <span>Format Code</span>
+                   </DropdownMenuItem>
+                   <DropdownMenuItem onClick={toggleFullscreen} className="text-xs">
+                     {isFullscreen ? <Minimize2 className="h-3.5 w-3.5 mr-2 inline" /> : <Maximize2 className="h-3.5 w-3.5 mr-2 inline" />}
+                     <span>{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
+                   </DropdownMenuItem>
+                 </DropdownMenuContent>
+               </DropdownMenu>
+             </div>
+
+             {/* Run Code Button (Always visible, shrink-0) */}
              <Button
                size="sm"
-               className="h-7.5 px-3 text-xs font-semibold bg-[#16A34A] hover:bg-[#15803D] text-white gap-1.5 rounded-lg shadow-sm"
+               className="h-7 sm:h-7.5 px-2 sm:px-3 text-xs font-semibold bg-[#16A34A] hover:bg-[#15803D] text-white gap-1 sm:gap-1.5 rounded-lg shadow-sm shrink-0"
                onClick={() => handleRun()}
                disabled={isRunning || readOnly}
                title="Run Code (Ctrl+Enter)"
@@ -807,25 +838,25 @@ export function CodeEditor({
                ) : (
                  <Play className="h-3 w-3 fill-current" />
                )}
-               <span>{isRunning ? "Running..." : "Run Code"}</span>
+               <span>{isRunning ? "..." : "Run"}</span>
              </Button>
 
-             {/* Submit Button */}
+             {/* Submit Button (Always visible, shrink-0) */}
              {showSubmit && onSubmit && (
                <Button
                  size="sm"
-                 className="h-7.5 px-3.5 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1.5 rounded-lg shadow-sm"
+                 className="h-7 sm:h-7.5 px-2.5 sm:px-3.5 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1 sm:gap-1.5 rounded-lg shadow-sm shrink-0"
                  onClick={() => handleSubmit()}
                  disabled={isSubmitting || readOnly}
                  title="Submit Solution (Ctrl+Shift+Enter)"
                >
                  {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                 <span>{isSubmitting ? "Submitting..." : "Submit"}</span>
+                 <span>{isSubmitting ? "..." : "Submit"}</span>
                </Button>
              )}
 
              {showNavigatorToggle && onToggleNavigator && (
-                <Button variant="ghost" size="icon" className="h-7.5 w-7.5 text-gray-400 hover:text-blue-600 rounded-lg" onClick={onToggleNavigator} title="Show Question Navigator">
+                <Button variant="ghost" size="icon" className="h-7 sm:h-7.5 w-7 sm:w-7.5 text-gray-400 hover:text-blue-600 rounded-lg shrink-0" onClick={onToggleNavigator} title="Show Question Navigator">
                   <PanelRightOpen className="h-4 w-4" />
                 </Button>
               )}
