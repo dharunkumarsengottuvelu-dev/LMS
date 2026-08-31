@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jobeService } from "@/services/jobe";
+import { UniversalExecutor } from "@/lib/compiler/universal-executor";
 import { SQLExecutionService } from "@/services/sql-execution.service";
-import type { ExecuteCodeInput } from "@/types/coding";
 import { getErrorMessage } from "@/lib/utils";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { isLanguageEnabled } from "@/services/compiler.service";
 
 export async function POST(request: NextRequest) {
@@ -19,13 +17,6 @@ export async function POST(request: NextRequest) {
       ? body.stdin
       : "";
 
-    console.log("[Backend Received Execution Request]", {
-      language,
-      codeLength: code?.length ?? 0,
-      inputLength: typeof stdin === "string" ? stdin.length : 0,
-      inputContent: typeof stdin === "string" ? JSON.stringify(stdin) : "",
-    });
-
     if (!language || !code) {
       return NextResponse.json(
         { error: "Both 'language' and 'code' fields are required." },
@@ -33,7 +24,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Handle SQL execution category
+    // 1. Handle SQL execution sandbox
     if (language === "sql") {
       const sqlEngine = body.sql_engine || body.engine || "sqlite";
       const schemaSql = body.schema_sql || body.schema;
@@ -61,7 +52,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Handle Web Live Preview category (HTML, CSS, React)
+    // 2. Handle Web Live Preview category (HTML, CSS, React)
     if (language === "html" || language === "css" || language === "react") {
       return NextResponse.json({
         stdout: "Live Sandboxed Web Preview rendered successfully.",
@@ -74,9 +65,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 1. Language validation against database (with fallback)
+    // 3. Language validation against database (with fallback)
     const languageEnabled = await isLanguageEnabled(language);
-    
     if (!languageEnabled) {
       return NextResponse.json(
         { error: `Unsupported or disabled programming language: '${language}'` },
@@ -84,21 +74,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Execute via Jobe API with server-side LocalCompiler fallback
-    try {
-      const result = await jobeService.executeCode(language, code, stdin);
-      if (result.status?.id !== 13 && result.outcome !== 20) {
-        return NextResponse.json(result, { status: 200 });
-      }
-      const { LocalCompilerService } = await import("@/services/local-compiler.service");
-      const localResult = await LocalCompilerService.execute(language, code, stdin);
-      return NextResponse.json(localResult, { status: 200 });
-    } catch (jobeErr) {
-      console.warn("Jobe execution failed, falling back to local compiler engine:", jobeErr);
-      const { LocalCompilerService } = await import("@/services/local-compiler.service");
-      const localResult = await LocalCompilerService.execute(language, code, stdin);
-      return NextResponse.json(localResult, { status: 200 });
-    }
+    // 4. Universal multi-language execution
+    const timeoutMs = body.timeout_ms ? parseInt(body.timeout_ms, 10) : undefined;
+    const result = await UniversalExecutor.execute(language, code, stdin, timeoutMs);
+
+    return NextResponse.json(result, { status: 200 });
   } catch (error: unknown) {
     const msg = getErrorMessage(error);
     console.error("API /api/code/run Error:", error);

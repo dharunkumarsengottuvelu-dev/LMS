@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jobeService } from "@/services/jobe";
+import { UniversalExecutor } from "@/lib/compiler/universal-executor";
+import { compareOutput, sanitizeCompilerOutput } from "@/lib/compiler/comparator";
 import { SQLExecutionService } from "@/services/sql-execution.service";
-import { SubmissionService } from "@/services/submission.service";
 import { getErrorMessage } from "@/lib/utils";
 import type { TestCaseResult, TestCase } from "@/types/coding";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -48,13 +48,15 @@ export async function POST(request: NextRequest) {
       testCases = (dbProblem.test_cases as TestCase[]).filter(tc => !tc.is_hidden);
       datasetName = dbProblem.dataset_name ?? "university";
     }
+
     // Evaluate each testcase concurrently in parallel
     const testResults: TestCaseResult[] = await Promise.all(
       testCases.map(async (tc: TestCase) => {
         let passed = false;
         let trimmedActual = "";
-        const trimmedExpected = (tc.expected_output || "").trim();
+        const expectedOutput = tc.expected_output || "";
         let resError: string | undefined;
+        let execTime = 0.02;
 
         if (language === "sql") {
           const sqlEngine = body.sql_engine || problem?.sql_engine || "sqlite";
@@ -68,25 +70,25 @@ export async function POST(request: NextRequest) {
             seedSql,
           });
 
+          execTime = sqlRes.executionTimeMs / 1000;
           if (sqlRes.error) {
             passed = false;
             resError = sqlRes.error;
             trimmedActual = sqlRes.error;
           } else {
             trimmedActual = JSON.stringify(sqlRes.rows);
-            passed = SQLExecutionService.compareSQLResults(sqlRes, trimmedExpected, comparisonMode);
+            passed = SQLExecutionService.compareSQLResults(sqlRes, expectedOutput.trim(), comparisonMode);
           }
         } else {
-          const res = await jobeService.executeCode(language, code, tc.input);
+          const res = await UniversalExecutor.execute(language, code, tc.input);
           trimmedActual = (res.stdout || "").trim();
+          execTime = parseFloat(res.time) || 0.02;
 
-          passed =
-            res.outcome === 15 || res.outcome === 0
-              ? trimmedActual === trimmedExpected
-              : false;
+          const isSuccess = res.outcome === 15 || res.status?.id === 3;
+          passed = isSuccess && compareOutput(trimmedActual, expectedOutput, "WHITESPACE_NORMALIZED");
 
           if (!passed) {
-            resError = res.compile_output || res.stderr || res.message || "Output mismatch";
+            resError = res.compile_output || res.stderr || res.message || (isSuccess ? "Output mismatch" : "Execution Error");
           }
         }
 
@@ -94,7 +96,10 @@ export async function POST(request: NextRequest) {
           test_case_id: tc.id,
           passed,
           actual_output: trimmedActual,
+          expected_output: expectedOutput,
           error: resError,
+          time_seconds: execTime,
+          memory_kb: 16000,
         };
       })
     );

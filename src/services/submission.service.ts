@@ -75,14 +75,15 @@ export class SubmissionService {
       throw new Error(`Test cases not found for problem: ${input.problem_id}`);
     }
 
-    const { jobeService } = await import("@/services/jobe");
-
     // Evaluate all test cases concurrently in parallel for blazing fast execution
+    const { UniversalExecutor } = await import("@/lib/compiler/universal-executor");
+    const { compareOutput } = await import("@/lib/compiler/comparator");
+
     const testResults: TestCaseResult[] = await Promise.all(
       testCases.map(async (tc) => {
         let passed = false;
         let trimmedActual = "";
-        const trimmedExpected = (tc.expected_output || "").trim();
+        const expectedOutput = tc.expected_output || "";
         let resError: string | undefined;
         let executionTime = 0.02;
 
@@ -101,34 +102,21 @@ export class SubmissionService {
             trimmedActual = JSON.stringify(sqlRes.rows);
             passed = SQLExecutionService.compareSQLResults(
               sqlRes,
-              trimmedExpected,
+              expectedOutput.trim(),
               input.comparison_mode || (problem as any)?.comparison_mode || "ORDER_SENSITIVE"
             );
           }
         } else {
-          const cleanInput = (tc.input || "")
-            .replace(/\\r\\n/g, "\n")
-            .replace(/\\n/g, "\n")
-            .replace(/\r\n/g, "\n");
-          const cleanExpected = (tc.expected_output || "")
-            .replace(/\\r\\n/g, "\n")
-            .replace(/\\n/g, "\n")
-            .replace(/\r\n/g, "\n")
-            .trim();
-
-          const res = await jobeService.executeCode(input.language, input.code, cleanInput);
+          const res = await UniversalExecutor.execute(input.language, input.code, tc.input);
 
           trimmedActual = (res.stdout || "").trim();
           executionTime = res.time ? parseFloat(res.time) : 0.02;
 
-          const normalizeOutput = (str: string) =>
-            (str || "").replace(/\r\n/g, "\n").split("\n").map((l) => l.trimEnd()).join("\n").trim();
-
           const isSuccessStatus = res.status?.id === 3 || res.outcome === 15 || res.outcome === 0;
-          passed = isSuccessStatus && normalizeOutput(trimmedActual) === normalizeOutput(cleanExpected);
+          passed = isSuccessStatus && compareOutput(trimmedActual, expectedOutput, "WHITESPACE_NORMALIZED");
 
           if (!passed) {
-            resError = res.compile_output || res.stderr || res.message || "Output mismatch";
+            resError = res.compile_output || res.stderr || res.message || (isSuccessStatus ? "Output mismatch" : "Execution Error");
           }
         }
 
@@ -136,10 +124,10 @@ export class SubmissionService {
           test_case_id: tc.id,
           passed,
           actual_output: tc.is_hidden ? (passed ? "Match" : "Mismatch (Hidden Test Case)") : trimmedActual,
-          expected_output: tc.is_hidden ? "Hidden" : trimmedExpected,
+          expected_output: tc.is_hidden ? "Hidden" : expectedOutput,
           error: !passed ? (tc.is_hidden ? "Hidden Test Failed" : (resError || "Output mismatch")) : undefined,
           time_seconds: executionTime,
-          memory_kb: 12400,
+          memory_kb: 16000,
         };
       })
     );
@@ -148,10 +136,16 @@ export class SubmissionService {
     let overallStatus: SubmissionStatus = "accepted";
     if (passedCount < testCases.length) {
       const firstFailed = testResults.find((r) => !r.passed);
-      const err = firstFailed?.error || "";
-      overallStatus = err.includes("Syntax") || err.includes("compile") || err.includes("Compilation")
-        ? "compilation_error"
-        : "wrong_answer";
+      const err = (firstFailed?.error || "").toLowerCase();
+      if (err.includes("time limit") || err.includes("timed out")) {
+        overallStatus = "time_limit_exceeded";
+      } else if (err.includes("syntax") || err.includes("compile") || err.includes("compilation")) {
+        overallStatus = "compilation_error";
+      } else if (err.includes("exception") || err.includes("error") && !err.includes("mismatch")) {
+        overallStatus = "runtime_error";
+      } else {
+        overallStatus = "wrong_answer";
+      }
     }
 
     const submission: CodingSubmission = {

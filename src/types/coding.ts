@@ -17,7 +17,8 @@ export type CodingLanguage =
   | "sql"
   | "html"
   | "css"
-  | "react";
+  | "react"
+  | "bash";
 
 export type ExecutionCategory = "general" | "web" | "sql";
 
@@ -110,6 +111,7 @@ export const LANGUAGE_REGISTRY: Record<CodingLanguage, LanguageConfig> = {
   html: { id: "html", name: "HTML5", monacoLanguage: "html", jobeLanguage: "html", extension: ".html", category: "web", compilationRequired: false, version: "HTML5" },
   css: { id: "css", name: "CSS3", monacoLanguage: "css", jobeLanguage: "css", extension: ".css", category: "web", compilationRequired: false, version: "CSS3" },
   react: { id: "react", name: "React (JSX/TSX)", monacoLanguage: "typescript", jobeLanguage: "react", extension: ".tsx", category: "web", compilationRequired: false, version: "React 18" },
+  bash: { id: "bash", name: "Bash", monacoLanguage: "shell", jobeLanguage: "bash", extension: ".sh", category: "general", compilationRequired: false, version: "GNU Bash 5+" },
 };
 
 export type Difficulty = "easy" | "medium" | "hard";

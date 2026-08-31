@@ -1,0 +1,61 @@
+# ==============================================================================
+# LMS Multi-Language Sandboxed Runner Base Image
+# Production-ready secure sandbox container with isolated non-root user
+# ==============================================================================
+FROM ubuntu:24.04
+
+LABEL maintainer="EduNexus LMS Engineering <eng@edunexus.io>"
+LABEL description="Production multi-language code execution sandbox with resource restrictions"
+
+# Prevent interactive dialogs during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
+# Install core compilers, runtimes, and build tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    gdb \
+    make \
+    openjdk-21-jdk-headless \
+    python3 \
+    python3-pip \
+    nodejs \
+    npm \
+    golang-go \
+    rustc \
+    cargo \
+    php-cli \
+    ruby \
+    sqlite3 \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install TypeScript runner
+RUN npm install -g tsx typescript
+
+# Create a dedicated, non-root sandbox execution user
+RUN useradd -m -s /bin/bash -u 10001 sandbox && \
+    mkdir -p /sandbox && \
+    chown -R sandbox:sandbox /sandbox
+
+# Restrict root directory access
+RUN chmod 700 /root
+
+# Set default working directory
+WORKDIR /sandbox
+USER sandbox
+
+# Environment settings
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD python3 -c "print('OK')" || exit 1
+
+CMD ["/bin/bash"]

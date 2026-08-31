@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # ── Isolated Code Execution Sandbox Runner ──────────────────────────────────
+  lms-compiler-runner:
+    build:
+      context: .
+      dockerfile: runners/Dockerfile.base
+    container_name: lms-compiler-runner
+    restart: unless-stopped
+    read_only: false
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1024M
+          pids: 100
+    networks:
+      - compiler-net
+
+  # ── Optional Local Jobe In-Memory Server ──────────────────────────────────
+  lms-jobe-server:
+    image: trampgeek/jobeinabox:latest
+    container_name: lms-jobe-server
+    restart: unless-stopped
+    ports:
+      - "4000:80"
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1024M
+    networks:
+      - compiler-net
+
+networks:
+  compiler-net:
+    driver: bridge
+    internal: false
