@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, LayoutDashboard, Users, BookOpen, ClipboardList, FileText, Dumbbell, Activity, Menu, User, Settings, Bell } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, BookOpen, ClipboardList, FileText, Dumbbell, Activity, Menu, User, Settings, Bell, Video } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,7 +24,7 @@ const trainerNavItems = [
   { href: "/trainer/courses", label: "Assigned Courses", icon: BookOpen },
   { href: "/trainer/practices", label: "Practices", icon: Dumbbell },
   { href: "/trainer/assessments", label: "Assessments", icon: ClipboardList },
-  { href: "/trainer/assignments", label: "Submissions", icon: FileText },
+  { href: "/trainer/live-classes", label: "Live Classes", icon: Video },
 ];
 
 export function TrainerTopNav() {

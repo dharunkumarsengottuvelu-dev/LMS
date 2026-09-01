@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
+import { dispatchBatchNotification } from "@/lib/notifications/dispatcher";
 
 export async function GET() {
   try {
@@ -364,6 +365,56 @@ export async function POST(request: NextRequest) {
         }
         throw err;
       }
+    }
+
+    // Asynchronously dispatch in-app & email notifications to target students
+    try {
+      const courseSlug = savedCourse?.slug || slug;
+      const courseTitle = savedCourse?.title || course.title;
+      const courseId = savedCourse?.id || targetCourseId;
+
+      if (isCommon) {
+        dispatchBatchNotification({
+          isCommon: true,
+          eventType: "course_assigned",
+          title: `New Course Assigned: ${courseTitle}`,
+          message: `You have been enrolled in "${courseTitle}". Start your learning journey on FALCON LMS today!`,
+          resourceType: "course",
+          resourceId: courseId,
+          targetUrl: `/student/course/${courseSlug}`,
+          assignedBy: meta.instructor || "FALCON Learning Team",
+          category: meta.category,
+        }).catch((e) => console.warn("Course batch notification dispatch error:", e));
+      } else if (assignedBatches.length > 0) {
+        for (const bName of assignedBatches) {
+          dispatchBatchNotification({
+            batchName: bName,
+            eventType: "course_assigned",
+            title: `New Course Assigned: ${courseTitle}`,
+            message: `A new course "${courseTitle}" has been assigned to your cohort (${bName}).`,
+            resourceType: "course",
+            resourceId: courseId,
+            targetUrl: `/student/course/${courseSlug}`,
+            assignedBy: meta.instructor || "FALCON Learning Team",
+            category: meta.category,
+          }).catch((e) => console.warn("Course batch notification dispatch error:", e));
+        }
+      }
+      if (assignedStudents && assignedStudents.length > 0) {
+        dispatchBatchNotification({
+          studentIds: assignedStudents,
+          eventType: "course_assigned",
+          title: `New Course Assigned: ${courseTitle}`,
+          message: `You have been assigned to "${courseTitle}". Start your lessons on FALCON LMS.`,
+          resourceType: "course",
+          resourceId: courseId,
+          targetUrl: `/student/course/${courseSlug}`,
+          assignedBy: meta.instructor || "FALCON Learning Team",
+          category: meta.category,
+        }).catch((e) => console.warn("Course student notification dispatch error:", e));
+      }
+    } catch (notifErr) {
+      console.warn("Course notification trigger warning:", notifErr);
     }
 
     return NextResponse.json({ success: true, course: savedCourse });

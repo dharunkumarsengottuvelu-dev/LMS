@@ -15,16 +15,30 @@ export default async function AdminLayout({
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (user) {
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("role, status")
-      .eq("user_id", user.id)
-      .maybeSingle();
+  if (!user) {
+    redirect("/login?next=/admin/dashboard");
+  }
 
-    const profile = profileData as { role?: string; status?: string } | null;
-    if (profile?.status === "suspended") {
-      redirect("/login?error=suspended");
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const profile = profileData as { role?: string; status?: string } | null;
+  if (profile?.status === "suspended") {
+    redirect("/login?error=suspended");
+  }
+
+  const role = (profile?.role || user.user_metadata?.role || user.app_metadata?.role || "").toLowerCase();
+  const email = (user.email || "").toLowerCase();
+  const isAdmin = role === "admin" || role === "super_admin" || role === "founder" || role === "ceo" || email.includes("admin");
+
+  if (!isAdmin) {
+    if (role === "trainer" || email.includes("trainer")) {
+      redirect("/trainer/dashboard");
+    } else {
+      redirect("/student/dashboard");
     }
   }
 

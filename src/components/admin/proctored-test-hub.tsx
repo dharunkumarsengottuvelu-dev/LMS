@@ -1041,7 +1041,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       }
 
       toast({
-        title: "Test Reassigned Successfully! 🚀",
+        title: "Test Reassigned Successfully!",
         description: `"${reassigningTest.title}" is now reassigned to ${reassignIsCommon ? "All Students" : `${reassignSelectedBatches.length} batch(es)`}. Previous completions reset so students can retake.`,
       });
 
@@ -2681,7 +2681,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                                       </span>
                                       {q.options && q.options.length > 0 && (
                                         <span className="text-[10px] text-[#16A34A] font-semibold flex items-center gap-1">
-                                          • {q.options.length} Options {q.options.some(o => o.isCorrect) && "✓ Answer Selected"}
+                                          • {q.options.length} Options {q.options.some(o => o.isCorrect) && "(Answer Selected)"}
                                         </span>
                                       )}
                                     </div>
@@ -2769,10 +2769,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     }`}
                   >
                     {selectedTest.scheduleMode === "open" || (!selectedTest.date && !selectedTest.startDate)
-                      ? "⚡ On-Demand"
+                      ? "On-Demand"
                       : selectedTest.scheduleMode === "window"
-                      ? "📅 Validity Window"
-                      : "🔒 Strict Slot"}
+                      ? "Validity Window"
+                      : "Strict Slot"}
                   </Badge>
                 </div>
 
@@ -3428,15 +3428,15 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     <div>
                       {t.scheduleMode === "open" || (!t.date && !t.startDate) ? (
                         <Badge variant="outline" className="bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/30 text-[10px] font-bold">
-                          ⚡ On-Demand (Anytime)
+                          On-Demand (Anytime)
                         </Badge>
                       ) : t.scheduleMode === "window" || (t.startDate || t.endDate) ? (
                         <Badge variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 text-[10px] font-bold">
-                          📅 {t.startDate || "Any"} - {t.endDate || "Open"}
+                          {t.startDate || "Any"} - {t.endDate || "Open"}
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="bg-[#7C3AED]/10 text-[#7C3AED] border-[#7C3AED]/30 text-[10px] font-bold">
-                          ⏰ {t.date} {t.startTime ? `• ${t.startTime}` : ""}
+                          {t.date} {t.startTime ? `• ${t.startTime}` : ""}
                         </Badge>
                       )}
                     </div>

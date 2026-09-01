@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   BookOpen, ClipboardList, Award, Calendar, Bell,
   ChevronRight, Play, Clock, CheckCircle2, AlertCircle,
-  Trophy, ArrowRight, Code2, ShieldCheck, MonitorCheck, FileText, Check
+  Trophy, ArrowRight, Code2, ShieldCheck, MonitorCheck, FileText, Check, Video
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,20 +58,23 @@ function StatCard({
   );
 }
 
-
 import { useState, useEffect, useMemo } from "react";
 import { useLMSStore } from "@/lib/store/lms-store";
 import { computeTrackProgress } from "@/lib/practice-progress";
 import { computeCourseProgress, useCourseProgressVersion } from "@/lib/course-progress";
+import { useStudentNotifications } from "@/lib/notifications";
 
 export function StudentDashboardClient({ data }: { data: StudentDashboardData }) {
   const router = useRouter();
   const { profile } = data;
   const firstName = profile?.first_name || profile?.full_name?.split(" ")[0] || "Student";
+  const { unreadCount: liveUnreadCount } = useStudentNotifications();
 
   const [storeCourses, setStoreCourses] = useState<any[]>((data as any).initialCourses || (data as any).enrollments || []);
   const [storeTracks, setStoreTracks] = useState<any[]>((data as any).initialTracks || []);
   const [storeAssessments, setStoreAssessments] = useState<any[]>((data as any).initialAssessments || (data as any).assessments || data.tests || []);
+  const [liveNowClasses, setLiveNowClasses] = useState<any[]>([]);
+  const [liveStats, setLiveStats] = useState({ total: 0, live: 0, upcoming: 0 });
   const [isMounted, setIsMounted] = useState(false);
 
   // Safe event-driven progress subscriber
@@ -100,10 +103,11 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
     setIsMounted(true);
     async function loadData() {
       try {
-        const [cRes, pRes, aRes] = await Promise.all([
+        const [cRes, pRes, aRes, lRes] = await Promise.all([
           fetch("/api/student/courses"),
           fetch("/api/student/practices"),
-          fetch("/api/student/tests")
+          fetch("/api/student/tests"),
+          fetch("/api/student/live-classes")
         ]);
         if (cRes.ok) {
           const cData = await cRes.json();
@@ -116,6 +120,11 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
         if (aRes.ok) {
           const aData = await aRes.json();
           if (aData.tests && aData.tests.length > 0) setStoreAssessments(aData.tests);
+        }
+        if (lRes.ok) {
+          const lData = await lRes.json();
+          if (lData.liveNow) setLiveNowClasses(lData.liveNow);
+          if (lData.stats) setLiveStats(lData.stats);
         }
       } catch (err) {
         console.error("Dashboard data load error", err);
@@ -170,7 +179,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const displayEnrolledCount = activeCourses.length + enrichedPracticeTracks.length;
   const displayCompletedCount = enrichedPracticeTracks.reduce((acc, t) => acc + t.completedCount, 0);
   const displayAssessmentsCount = enrichedPracticeTracks.length;
-  const displayUnreadNotifications = 0;
+  const displayUnreadNotifications = liveUnreadCount;
 
   return (
     <div className="space-y-6 w-full pb-12">
@@ -206,7 +215,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
         <StatCard icon={Code2} value={enrichedPracticeTracks.length} label="Active Practice Tracks" href="/student/practices" badgeText="Assigned" />
         <StatCard icon={CheckCircle2} value={displayCompletedCount} label="Completed Modules" href="/student/practices" badgeText="Verified" />
         <StatCard icon={BookOpen} value={activeCourses.length} label="Enrolled Courses" href="/student/my-courses" badgeText="Catalog" />
-        <StatCard icon={Bell} value={displayUnreadNotifications} label="Unread Notifications" href="/student/dashboard" badgeText="New Alerts" />
+        <StatCard icon={Bell} value={displayUnreadNotifications} label="Unread Notifications" href="/student/notifications" badgeText={displayUnreadNotifications > 0 ? "New Alerts" : "Updated"} />
       </div>
 
       {/* 3. Main Workspace Grid */}
@@ -351,6 +360,31 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
         {/* RIGHT COLUMN: Upcoming Evaluations & Quick Launch (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
           
+          {/* Active Live Class Alert Card if Live Now */}
+          {liveNowClasses.length > 0 && (
+            <Card className="bg-emerald-950/20 border-emerald-500/40 shadow-card">
+              <CardHeader className="p-4 pb-2 border-b border-emerald-500/20 flex flex-row items-center justify-between">
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> Live Interactive Class
+                </span>
+                <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0">LIVE NOW</Badge>
+              </CardHeader>
+              <CardContent className="p-4 space-y-2">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">
+                  {liveNowClasses[0].title}
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  {liveNowClasses[0].courseName} • Trainer: {liveNowClasses[0].trainerName}
+                </p>
+                <Button className="w-full h-8 text-xs font-semibold gap-1.5 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-2xs" asChild>
+                  <Link href={`/student/live-classes/${liveNowClasses[0].id}`}>
+                    Join Live Class <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Active Evaluations Card */}
           <Card className="bg-card border-border shadow-card">
             <CardHeader className="p-4 border-b border-border bg-primary/5 rounded-t-[calc(var(--radius-xl)-1px)]">
@@ -426,11 +460,16 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </Link>
 
-              <Link href="/student/assignments" className="flex items-center justify-between p-3 rounded-[var(--radius-lg)] bg-background hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all font-semibold text-foreground">
+              <Link href="/student/live-classes" className="flex items-center justify-between p-3 rounded-[var(--radius-lg)] bg-background hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20 transition-all font-semibold text-foreground">
                 <span className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-[#16A34A]" /> Submissions Portal
+                  <Video className={cn("h-4 w-4", liveStats.live > 0 ? "text-emerald-500" : "text-[#2563EB]")} />
+                  <span>Live Classes Hub</span>
                 </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                {liveStats.live > 0 ? (
+                  <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0">LIVE NOW</Badge>
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
               </Link>
             </CardContent>
           </Card>

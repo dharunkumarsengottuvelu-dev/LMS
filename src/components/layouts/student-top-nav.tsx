@@ -17,14 +17,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const studentNavItems = [
-  { label: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
-  { label: "Assigned Courses", href: "/student/my-courses", icon: BookOpen },
-  { label: "Practices", href: "/student/practices", icon: Dumbbell },
-  { label: "Assessments", href: "/student/assessments", icon: ClipboardList },
-  { label: "Submissions", href: "/student/assignments", icon: FileText },
-];
+import { NotificationBellDropdown } from "@/components/notifications/notification-bell-dropdown";
+import { studentNavigation } from "@/config/navigation";
 
 export function StudentTopNav() {
   const pathname = usePathname();
@@ -52,8 +46,11 @@ export function StudentTopNav() {
 
       {/* Centered Desktop Nav Links */}
       <nav className="hidden md:flex items-center gap-1 lg:gap-2 overflow-x-auto no-scrollbar">
-        {studentNavItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/student/dashboard" && pathname.startsWith(item.href));
+        {studentNavigation.slice(0, 5).map((item) => {
+          const isExact = pathname === item.href;
+          const isSubpath = item.href !== "/student/dashboard" && pathname.startsWith(item.href);
+          const isAlias = (item.aliases || []).some((alias) => pathname === alias || pathname.startsWith(alias));
+          const isActive = isExact || isSubpath || isAlias;
           const Icon = item.icon;
 
           return (
@@ -76,15 +73,8 @@ export function StudentTopNav() {
 
       {/* Right Controls (Notification, Mobile Menu Drawer, User Profile) */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        {/* Notifications Icon */}
-        <Link
-          href="/student/notifications"
-          prefetch={true}
-          className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 border border-input shadow-sm"
-          title="Notifications"
-        >
-          <Bell className="h-4 w-4" />
-        </Link>
+        {/* Notifications Icon with Dynamic Dropdown & Badge */}
+        <NotificationBellDropdown />
 
         {/* Mobile Hamburger Menu Trigger */}
         <Sheet>
@@ -102,8 +92,11 @@ export function StudentTopNav() {
             </SheetHeader>
 
             <nav className="flex flex-col gap-1.5 pt-6">
-              {studentNavItems.map((item) => {
-                const isActive = pathname === item.href || (item.href !== "/student/dashboard" && pathname.startsWith(item.href));
+              {studentNavigation.map((item) => {
+                const isExact = pathname === item.href;
+                const isSubpath = item.href !== "/student/dashboard" && pathname.startsWith(item.href);
+                const isAlias = (item.aliases || []).some((alias) => pathname === alias || pathname.startsWith(alias));
+                const isActive = isExact || isSubpath || isAlias;
                 const Icon = item.icon;
                 return (
                   <Link

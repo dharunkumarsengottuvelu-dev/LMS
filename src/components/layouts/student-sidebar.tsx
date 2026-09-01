@@ -13,21 +13,13 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getInitials } from "@/lib/utils";
-
-const studentNavItems = [
-  { label: "Dashboard", href: "/student/dashboard", icon: LayoutDashboard },
-  { label: "My Courses", href: "/student/my-courses", icon: BookOpen },
-  { label: "Practice", href: "/student/practices", icon: Dumbbell },
-  { label: "Assessments", href: "/student/assessments", icon: ClipboardList },
-  { label: "Assignments", href: "/student/assignments", icon: FileText },
-  { label: "Notifications", href: "/student/notifications", icon: Bell },
-  { label: "Profile", href: "/student/profile", icon: User },
-  { label: "Settings", href: "/student/settings", icon: Settings },
-];
+import { useStudentNotifications } from "@/lib/notifications";
+import { studentNavigation } from "@/config/navigation";
 
 export function StudentSidebar() {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
+  const { unreadCount } = useStudentNotifications();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const sidebarContent = (
@@ -44,9 +36,13 @@ export function StudentSidebar() {
 
       {/* Navigation list */}
       <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1">
-        {studentNavItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+        {studentNavigation.map((item) => {
+          const isExact = pathname === item.href;
+          const isSubpath = pathname.startsWith(item.href + "/");
+          const isAlias = (item.aliases || []).some((alias) => pathname === alias || pathname.startsWith(alias + "/"));
+          const isActive = isExact || isSubpath || isAlias;
           const Icon = item.icon;
+          const isNotification = item.href === "/student/notifications";
           return (
             <Link
               key={item.href}
@@ -60,6 +56,11 @@ export function StudentSidebar() {
             >
               <Icon className="h-5 w-5 shrink-0" />
               <span>{item.label}</span>
+              {isNotification && unreadCount > 0 && (
+                <span className="ml-auto flex h-5 min-w-5 px-1.5 items-center justify-center rounded-full bg-[#2563EB] text-[10px] font-bold text-white shadow-xs">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
             </Link>
           );
         })}

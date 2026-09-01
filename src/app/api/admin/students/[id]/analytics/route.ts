@@ -156,16 +156,17 @@ export async function GET(
     const [
       { data: dbPracticeTracks },
       { data: dbAssessments },
-      { data: dbAssignments },
+      { data: dbLiveClasses },
+      { data: dbLiveAttendance },
       { data: rawAssessmentAttempts },
       { data: rawAssessmentSubmissions },
       { data: rawTestAttempts },
       { data: rawCodingSubmissions },
-      { data: rawAssignmentSubmissions },
     ] = await Promise.all([
       adminClient.from("practice_tracks").select("*"),
       adminClient.from("assessments").select("*"),
-      adminClient.from("assignments").select("*"),
+      adminClient.from("live_classes").select("*").order("scheduled_date", { ascending: false }),
+      adminClient.from("live_class_attendance").select("*").or(orFilter),
       adminClient
         .from("assessment_attempts")
         .select("*")
@@ -180,10 +181,6 @@ export async function GET(
         .or(orFilter),
       adminClient
         .from("coding_submissions")
-        .select("*")
-        .or(orFilter),
-      adminClient
-        .from("assignment_submissions")
         .select("*")
         .or(orFilter),
     ]);
@@ -527,13 +524,13 @@ export async function GET(
       }
     });
 
-    // B. Assignment Submissions
-    (rawAssignmentSubmissions || []).forEach((sub: any) => {
-      const timeTaken = 2400; // 40 mins per project submission
+    // B. Live Class Attendance Engagement
+    (dbLiveAttendance || []).forEach((att: any) => {
+      const timeTaken = typeof att.duration_seconds === "number" && att.duration_seconds > 0 ? att.duration_seconds : 3600; // 60 mins per live class attended
       totalTimeSpentSeconds += timeTaken;
 
-      if (sub.submitted_at || sub.created_at) {
-        const ts = new Date(sub.submitted_at || sub.created_at).getTime();
+      if (att.joined_at || att.created_at) {
+        const ts = new Date(att.joined_at || att.created_at).getTime();
         if (range === "all" || (ts >= minTimestamp && ts <= maxTimestamp)) {
           const iso = new Date(ts).toISOString().slice(0, 10);
           const mins = Math.round(timeTaken / 60);
@@ -678,27 +675,65 @@ export async function GET(
       }
     }
 
-    // 6. Assignments List
-    const assignmentsList = (dbAssignments || []).map((asg: any) => {
-      const sub = (rawAssignmentSubmissions || []).find(
-        (s: any) => s.assignment_id === asg.id
-      );
-      const isSubmitted = Boolean(sub);
-      const scoreVal = sub?.score ?? sub?.marks_obtained;
-      return {
-        id: asg.id,
-        title: asg.title,
-        description: asg.description,
-        dueDate: asg.due_date ? new Date(asg.due_date).toLocaleDateString() : "Flexible",
-        totalMarks: asg.total_marks || 100,
-        status: isSubmitted ? (scoreVal !== undefined ? "Graded" : "Submitted (Pending Review)") : "Pending",
-        submittedAt: sub?.submitted_at ? new Date(sub.submitted_at).toLocaleString() : null,
-        score: scoreVal,
-        submissionUrl: sub?.submission_url || sub?.file_url || sub?.github_url,
-        submissionText: sub?.submission_text || sub?.notes,
-        feedback: sub?.feedback || sub?.trainer_notes,
-      };
+    // 6. Live Classes & Attendance Records
+    const attendanceMap = new Map<string, any>();
+    (dbLiveAttendance || []).forEach((att: any) => {
+      if (att.live_class_id) {
+        attendanceMap.set(att.live_class_id, att);
+      }
     });
+
+    const studentBatchNames = [studentBatch, profile?.batch, profile?.batch_name].filter(Boolean);
+
+    const liveClassesList = (dbLiveClasses || [])
+      .filter((cls: any) => {
+        if (cls.is_common) return true;
+        if (!cls.assigned_batches || cls.assigned_batches.length === 0) return true;
+        const matchesBatch = cls.assigned_batches.some((b: string) =>
+          studentBatchNames.some((sbn) => sbn?.toLowerCase() === b.toLowerCase())
+        );
+        const matchesBatchId = targetBatchIds.some((bid) =>
+          cls.assigned_batches.includes(bid)
+        );
+        return matchesBatch || matchesBatchId;
+      })
+      .map((cls: any) => {
+        const att = attendanceMap.get(cls.id);
+        const isAttended = Boolean(att);
+
+        const nowMs = Date.now();
+        const startDateTime = new Date(`${cls.scheduled_date}T${cls.start_time || "00:00"}:00`).getTime();
+        const endDateTime = new Date(`${cls.scheduled_date}T${cls.end_time || "23:59"}:00`).getTime();
+
+        let status = cls.status || "upcoming";
+        if (cls.status !== "cancelled") {
+          if (nowMs >= startDateTime && nowMs <= endDateTime) {
+            status = "live";
+          } else if (nowMs > endDateTime) {
+            status = "completed";
+          } else {
+            status = "upcoming";
+          }
+        }
+
+        return {
+          id: cls.id,
+          title: cls.title,
+          description: cls.description,
+          courseName: cls.course_name || "General Session",
+          trainerName: cls.trainer_name || "Lead Trainer",
+          platform: cls.platform || "google_meet",
+          meetingUrl: cls.meeting_url,
+          scheduledDate: cls.scheduled_date,
+          startTime: cls.start_time,
+          endTime: cls.end_time,
+          durationMinutes: cls.duration_minutes || 60,
+          status,
+          isAttended,
+          attendedAt: att?.joined_at ? new Date(att.joined_at).toLocaleString() : null,
+          durationSeconds: att?.duration_seconds || 0,
+        };
+      });
 
     // 7. Login Activities
     const loginActivities: any[] = [];
@@ -745,7 +780,7 @@ export async function GET(
         coursesList,
         practicesList,
         assessmentsList,
-        assignmentsList,
+        liveClassesList,
         dailyTimeSpent,
         loginActivities,
         totalTimeSpentSeconds,
@@ -753,7 +788,7 @@ export async function GET(
           enrolledCoursesCount: coursesList.length,
           practicesCount: practicesList.length,
           assessmentsCount: assessmentsList.length,
-          assignmentsCount: assignmentsList.length,
+          liveClassesCount: liveClassesList.length,
           totalTimeSpentSeconds,
           avgScore: computedAvgScore,
         },

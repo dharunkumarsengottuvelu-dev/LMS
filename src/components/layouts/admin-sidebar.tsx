@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Users, GraduationCap, BookOpen, FileText,
   BarChart3, Bell, Settings, ChevronDown, ChevronRight,
   Shield, Code2, Calendar, Award, FolderOpen, LogOut,
-  Menu, X, Boxes, ClipboardList, TrendingUp
+  Menu, X, Boxes, ClipboardList, TrendingUp, Video
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -53,7 +53,7 @@ const adminNavItems: NavItem[] = [
     children: [
       { label: "All Practice Modules", href: "/admin/assessments", icon: ClipboardList },
       { label: "Scheduled Tests", href: "/admin/tests", icon: Calendar },
-      { label: "Assignments", href: "/admin/assignments", icon: FileText },
+      { label: "Live Classes", href: "/admin/live-classes", icon: Video },
     ],
   },
   {

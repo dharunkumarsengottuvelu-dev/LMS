@@ -1011,64 +1011,67 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             </div>
 
             <div className="space-y-3">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-                <span>Course Thumbnail Image</span>
-                <span className="text-[10px] font-semibold text-[#2563EB]">Upload Local File OR Paste Image URL</span>
-              </label>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Mode 1: Manual File Upload from Computer / Device */}
-                <div className="relative">
-                  <input
-                    type="file"
-                    id="thumbnail-file-upload"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          if (event.target?.result) {
-                            setFThumbnail(event.target.result as string);
-                            toast({ title: "Image Selected", description: `File "${file.name}" loaded for thumbnail.` });
-                          }
-                        };
-                        reader.onerror = () => {
-                          toast({ title: "File Error", description: "Failed to read the selected file.", variant: "destructive" });
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                  <label
-                    htmlFor="thumbnail-file-upload"
-                    className="flex items-center justify-center gap-2 h-[48px] px-4 rounded-xl border border-dashed border-[#2563EB]/40 bg-[#2563EB]/5 hover:bg-[#2563EB]/10 text-[#2563EB] text-xs font-bold cursor-pointer transition-all w-full text-center"
-                  >
-                    <UploadCloud className="h-4 w-4" />
-                    <span>Upload Image File from Device</span>
-                  </label>
-                </div>
-
-                {/* Mode 2: Direct URL Input */}
-                <div>
-                  <Input
-                    placeholder="Or paste image URL (https://...)"
-                    value={fThumbnail}
-                    onChange={(e) => setFThumbnail(e.target.value)}
-                    className="h-[48px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-                  />
-                </div>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                  Course Thumbnail Image
+                </label>
+                <span className="text-[10px] text-muted-foreground">PNG, JPG, WEBP (Max 5MB)</span>
               </div>
 
-              {/* Live Image Preview Box */}
-              {fThumbnail && (
+              {/* Hidden file input */}
+              <input
+                type="file"
+                id="thumbnail-file-upload"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (!file.type.startsWith("image/")) {
+                      toast({ title: "Invalid File", description: "Please upload a valid image file (JPG, PNG, WEBP).", variant: "destructive" });
+                      return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast({ title: "File Too Large", description: "Maximum image size is 5MB.", variant: "destructive" });
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      if (event.target?.result) {
+                        setFThumbnail(event.target.result as string);
+                        toast({ title: "Image Selected", description: `"${file.name}" loaded for thumbnail.` });
+                      }
+                    };
+                    reader.onerror = () => {
+                      toast({ title: "File Error", description: "Failed to read the selected file.", variant: "destructive" });
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+
+              {!fThumbnail ? (
+                <label
+                  htmlFor="thumbnail-file-upload"
+                  className="flex flex-col items-center justify-center gap-2.5 h-32 px-4 rounded-xl border-2 border-dashed border-[#2563EB]/30 bg-[#2563EB]/5 hover:bg-[#2563EB]/10 text-[#2563EB] text-xs font-semibold cursor-pointer transition-all w-full text-center group"
+                >
+                  <UploadCloud className="h-6 w-6 text-[#2563EB] transition-transform group-hover:scale-110" />
+                  <span className="font-bold">Upload Course Thumbnail</span>
+                  <span className="text-[11px] text-muted-foreground">Click to browse image from device</span>
+                </label>
+              ) : (
                 <div className="relative w-full h-44 rounded-xl overflow-hidden border border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9] dark:bg-[#09090B]">
                   <img src={fThumbnail} alt="Thumbnail Preview" className="w-full h-full object-cover" />
                   <div className="absolute top-2 right-2 flex items-center gap-2">
                     <Badge className="bg-[#111827]/80 text-white text-[10px] font-bold">
                       Active Thumbnail
                     </Badge>
+                    <label
+                      htmlFor="thumbnail-file-upload"
+                      className="inline-flex items-center justify-center h-7 text-[10px] px-2.5 font-bold rounded-md bg-white dark:bg-[#1E293B] text-foreground border border-border cursor-pointer hover:bg-accent transition-colors"
+                    >
+                      Replace
+                    </label>
                     <Button
                       type="button"
                       variant="destructive"

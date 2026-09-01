@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
+import { dispatchBatchNotification } from "@/lib/notifications/dispatcher";
 
 export async function GET() {
   try {
@@ -338,6 +339,42 @@ export async function POST(request: NextRequest) {
         }
         savedTrack = data;
       }
+    }
+
+    // Asynchronously dispatch in-app & email notifications
+    try {
+      const trackTitle = (tracksToSave[0]?.title || "Technical Practice Track").trim();
+      const trackId = tracksToSave[0]?.id || "practice";
+      const isCommon = tracksToSave[0]?.isCommon ?? true;
+      const assignedBatches = tracksToSave[0]?.assignedBatches || [];
+
+      if (isCommon) {
+        dispatchBatchNotification({
+          isCommon: true,
+          eventType: "practice_assigned",
+          title: `New Practice Assigned: ${trackTitle}`,
+          message: `A new hands-on technical practice track "${trackTitle}" has been added to your workspace.`,
+          resourceType: "practice",
+          resourceId: trackId,
+          targetUrl: `/student/practices`,
+          assignedBy: "FALCON Trainer",
+        }).catch((e) => console.warn("Practice batch notification error:", e));
+      } else if (assignedBatches.length > 0) {
+        for (const bName of assignedBatches) {
+          dispatchBatchNotification({
+            batchName: bName,
+            eventType: "practice_assigned",
+            title: `New Practice Assigned: ${trackTitle}`,
+            message: `A new practice track "${trackTitle}" has been assigned to cohort ${bName}.`,
+            resourceType: "practice",
+            resourceId: trackId,
+            targetUrl: `/student/practices`,
+            assignedBy: "FALCON Trainer",
+          }).catch((e) => console.warn("Practice batch notification error:", e));
+        }
+      }
+    } catch (notifErr) {
+      console.warn("Practice notification trigger warning:", notifErr);
     }
 
     return NextResponse.json({ success: true, message: "Practice tracks saved successfully" });

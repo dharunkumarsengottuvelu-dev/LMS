@@ -16,16 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const adminNavItems = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/students", label: "Student Performance", icon: Users },
-  { href: "/admin/courses", label: "Assigned Courses", icon: BookOpen },
-  { href: "/admin/practices", label: "Practices", icon: Dumbbell },
-  { href: "/admin/tests", label: "Assessments", icon: ClipboardList },
-  { href: "/admin/assignments", label: "Submissions", icon: FileText },
-  { href: "/admin/users", label: "Manage Users", icon: ShieldCheck },
-];
+import { NotificationBellDropdown } from "@/components/notifications/notification-bell-dropdown";
+import { adminNavigation } from "@/config/navigation";
 
 export function AdminTopNav() {
   const pathname = usePathname();
@@ -47,8 +39,11 @@ export function AdminTopNav() {
 
       {/* Centered Desktop Nav Links */}
       <nav className="hidden md:flex items-center gap-1 lg:gap-2 overflow-x-auto no-scrollbar">
-        {adminNavItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
+        {adminNavigation.map((item) => {
+          const isExact = pathname === item.href;
+          const isSubpath = item.href !== "/admin/dashboard" && pathname.startsWith(item.href);
+          const isAlias = (item.aliases || []).some((alias) => pathname === alias || pathname.startsWith(alias));
+          const isActive = isExact || isSubpath || isAlias;
           const Icon = item.icon;
 
           return (
@@ -68,8 +63,11 @@ export function AdminTopNav() {
         })}
       </nav>
 
-      {/* Right Controls (Mobile Menu & Profile) */}
+      {/* Right Controls (Notification, Mobile Menu & Profile) */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Real-time Notifications Bell */}
+        <NotificationBellDropdown />
+
         {/* Mobile Hamburger Menu Trigger */}
         <Sheet>
           <SheetTrigger className="md:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-muted-foreground hover:bg-accent border border-input shadow-sm transition-all duration-200">
@@ -87,8 +85,11 @@ export function AdminTopNav() {
             </SheetHeader>
 
             <nav className="flex flex-col gap-1.5 pt-6">
-              {adminNavItems.map((item) => {
-                const isActive = pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
+              {adminNavigation.map((item) => {
+                const isExact = pathname === item.href;
+                const isSubpath = item.href !== "/admin/dashboard" && pathname.startsWith(item.href);
+                const isAlias = (item.aliases || []).some((alias) => pathname === alias || pathname.startsWith(alias));
+                const isActive = isExact || isSubpath || isAlias;
                 const Icon = item.icon;
                 return (
                   <Link

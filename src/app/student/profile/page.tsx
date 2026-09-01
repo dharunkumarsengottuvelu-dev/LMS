@@ -1300,7 +1300,7 @@ export default function StudentProfilePage() {
                                         : "bg-[#334155] text-[#94A3B8]"
                                     )}
                                   >
-                                    {activePt.item.minutes >= 45 ? "🔥 High Activity" : activePt.item.minutes > 0 ? "⚡ Active" : "💤 Rest Day"}
+                                    {activePt.item.minutes >= 45 ? "High Activity" : activePt.item.minutes > 0 ? "Active" : "Rest Day"}
                                   </Badge>
                                 </div>
 

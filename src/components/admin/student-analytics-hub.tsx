@@ -7,7 +7,7 @@ import {
   Award, AlertTriangle, CheckCircle2, FileText, Code2, Clock, ShieldAlert,
   GraduationCap, ArrowUpRight, BarChart3, Lock, ShieldCheck, ArrowLeft, Sparkles, FolderKanban,
   Upload, Download, FileSpreadsheet, FileUp, X, Calendar, CalendarDays, Check,
-  BookOpen, Dumbbell, ClipboardList, Inbox, Loader2, Layers, TrendingUp, Laptop, Copy, ExternalLink, FileCheck
+  BookOpen, Dumbbell, ClipboardList, Inbox, Loader2, Layers, TrendingUp, Laptop, Copy, ExternalLink, FileCheck, Video
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -300,7 +300,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     setTimeout(() => {
       setIsSavingReview(false);
       toast({
-        title: "Review & Grade Saved! ✨",
+        title: "Review & Grade Saved!",
         description: `Feedback and grade score (${reviewScoreInput || "Evaluated"}) recorded successfully.`,
       });
       setReviewModalItem(null);
@@ -996,14 +996,14 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     const courses = analyticsData?.coursesList || [];
     const practices = analyticsData?.practicesList || [];
     const assessments = analyticsData?.assessmentsList || analyticsData?.testsTaken || [];
-    const assignments = analyticsData?.assignmentsList || [];
+    const liveClasses = analyticsData?.liveClassesList || [];
     const dailyTimeSpent = analyticsData?.dailyTimeSpent || [];
     const loginActivities = analyticsData?.loginActivities || [];
     const summary = analyticsData?.summary || {
       enrolledCoursesCount: courses.length,
       practicesCount: practices.length,
       assessmentsCount: assessments.length,
-      assignmentsCount: assignments.length,
+      liveClassesCount: liveClasses.length,
       totalTimeSpentSeconds: 0,
       avgScore: selectedStudent.avgScore || 0,
     };
@@ -1181,8 +1181,8 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                 <TabsTrigger value="tests" className="text-xs font-bold px-4 py-2 gap-1.5">
                   <ClipboardList className="h-3.5 w-3.5" /> Assessments ({assessments.length})
                 </TabsTrigger>
-                <TabsTrigger value="assignments" className="text-xs font-bold px-4 py-2 gap-1.5">
-                  <FileCheck className="h-3.5 w-3.5" /> Assignments ({assignments.length})
+                <TabsTrigger value="live-classes" className="text-xs font-bold px-4 py-2 gap-1.5">
+                  <Video className="h-3.5 w-3.5" /> Live Classes ({liveClasses.length})
                 </TabsTrigger>
                 <TabsTrigger value="time" className="text-xs font-bold px-4 py-2 gap-1.5">
                   <Clock className="h-3.5 w-3.5" /> Time & Logins
@@ -1336,47 +1336,63 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                 )}
               </TabsContent>
 
-              {/* TAB 3: ASSIGNMENTS */}
-              <TabsContent value="assignments" className="space-y-4">
-                {assignments.length === 0 ? (
+              {/* TAB 3: LIVE CLASSES */}
+              <TabsContent value="live-classes" className="space-y-4">
+                {liveClasses.length === 0 ? (
                   <Card className="p-8 text-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl">
-                    <Inbox className="h-8 w-8 text-[#9CA3AF] mx-auto mb-2" />
-                    <p className="text-xs font-semibold text-[#6B7280]">No course assignments recorded yet.</p>
+                    <p className="text-xs font-semibold text-[#6B7280]">No live interactive classes scheduled for this student cohort yet.</p>
                   </Card>
                 ) : (
-                  assignments.map((asg: any) => (
-                    <Card key={asg.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden p-5 space-y-3">
+                  liveClasses.map((cls: any) => (
+                    <Card key={cls.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden p-5 space-y-3">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
                         <div>
-                          <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                            <FileCheck className="h-4 w-4 text-[#2563EB]" /> {asg.title}
+                          <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
+                            {cls.title}
                           </CardTitle>
                           <CardDescription className="text-[11px] text-[#6B7280] mt-0.5">
-                            Due Date: {asg.dueDate} • Total Marks: {asg.totalMarks}
+                            {cls.courseName} • Trainer: {cls.trainerName} • Platform: {cls.platform?.replace("_", " ")?.toUpperCase()}
                           </CardDescription>
                         </div>
-                        <div className="flex items-center gap-3 flex-wrap">
-                          {asg.score !== undefined && (
-                            <span className="text-xs font-extrabold text-[#16A34A]">Score: {asg.score}/{asg.totalMarks}</span>
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          {cls.status === "live" && (
+                            <Badge className="bg-emerald-600 text-white text-[10px] font-bold">
+                              LIVE NOW
+                            </Badge>
                           )}
-                          <Badge className={cn("text-[10px] font-bold", asg.status === "Graded" ? "bg-[#16A34A] text-white" : asg.status?.includes("Submitted") ? "bg-[#2563EB] text-white" : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]")}>
-                            {asg.status}
-                          </Badge>
+                          {cls.status === "upcoming" && (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-semibold">
+                              Upcoming
+                            </Badge>
+                          )}
+                          {cls.status === "completed" && (
+                            <Badge variant="outline" className="text-slate-500 border-slate-200 text-[10px]">
+                              Completed
+                            </Badge>
+                          )}
+                          {cls.isAttended ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 text-[10px] font-semibold">
+                              Attendance: Attended ({cls.attendedAt || "Recorded"})
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-slate-500 border-slate-200 text-[10px]">
+                              Attendance: Absent
+                            </Badge>
+                          )}
                           <Button
                             size="sm"
-                            onClick={() => openAssignmentReview(asg)}
-                            className="h-8 text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-1.5 px-3 rounded-xl shadow-xs"
+                            variant="outline"
+                            onClick={() => window.open(cls.meetingUrl, "_blank")}
+                            className="h-8 text-xs font-semibold rounded-xl"
                           >
-                            <Eye className="h-3.5 w-3.5" /> Review Submission
+                            Launch Meeting Link
                           </Button>
                         </div>
                       </div>
-                      {asg.submissionText && (
-                        <div className="text-xs text-[#4B5563] dark:text-[#9CA3AF] bg-[#F9FAFB] dark:bg-[#09090B] p-3 rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
-                          <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">Candidate Notes: </span>
-                          {asg.submissionText}
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-900/60 p-2.5 rounded-xl">
+                        <span>Schedule: {cls.scheduledDate} • {cls.startTime} – {cls.endTime}</span>
+                        <span>Duration: {cls.durationMinutes} Minutes</span>
+                      </div>
                     </Card>
                   ))
                 )}
@@ -1650,7 +1666,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                                       : "bg-[#334155] text-[#94A3B8]"
                                   )}
                                 >
-                                  {activePt.item.minutes >= 45 ? "🔥 High Activity" : activePt.item.minutes > 0 ? "⚡ Active" : "💤 Rest Day"}
+                                  {activePt.item.minutes >= 45 ? "High Activity" : activePt.item.minutes > 0 ? "Active" : "Rest Day"}
                                 </Badge>
                               </div>
 

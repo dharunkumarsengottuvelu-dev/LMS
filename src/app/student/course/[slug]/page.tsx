@@ -523,7 +523,7 @@ export default function StudentCoursePlayerPage() {
         }
       }
     }
-    toast({ title: "Course Completed! 🎉", description: "You have reached the end of the course curriculum." });
+    toast({ title: "Course Completed!", description: "You have reached the end of the course curriculum." });
   };
 
   const handleOptionSelect = (qId: string, optIdx: number, type: "single" | "multiple") => {
@@ -550,7 +550,7 @@ export default function StudentCoursePlayerPage() {
     }
     setQuizSubmittedMap((prev) => ({ ...prev, [qId]: true }));
     markActiveLessonCompleted();
-    toast({ title: "Quiz Answer Submitted! ✓", description: "Lesson marked completed." });
+    toast({ title: "Quiz Answer Submitted!", description: "Lesson marked completed." });
   };
 
   const handleRunCode = async () => {
@@ -689,7 +689,7 @@ export default function StudentCoursePlayerPage() {
                   }}
                   onEnded={() => {
                     markActiveLessonCompleted();
-                    toast({ title: "Lesson Completed! 🎉", description: `You finished ${activeLesson.title}` });
+                    toast({ title: "Lesson Completed!", description: `You finished ${activeLesson.title}` });
                   }}
                 />
 
@@ -906,7 +906,7 @@ export default function StudentCoursePlayerPage() {
                   <Button
                     onClick={() => {
                       markActiveLessonCompleted();
-                      toast({ title: "Lesson Completed! 🎉", description: `You finished ${activeLesson.title}` });
+                      toast({ title: "Lesson Completed!", description: `You finished ${activeLesson.title}` });
                     }}
                     variant="outline"
                     className="flex-1 sm:flex-initial h-9 text-xs font-semibold gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer"

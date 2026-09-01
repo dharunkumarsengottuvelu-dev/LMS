@@ -22,6 +22,15 @@ export default async function StudentLayout({ children }: { children: React.Reac
 
     const profileData = profile as { role?: string; status?: string } | null;
     if (profileData?.status === "suspended") redirect("/login?error=suspended");
+
+    const role = (profileData?.role || user.user_metadata?.role || user.app_metadata?.role || "").toLowerCase();
+    const email = (user.email || "").toLowerCase();
+
+    if (role === "admin" || role === "super_admin" || role === "founder" || role === "ceo" || email.includes("admin")) {
+      redirect("/admin/dashboard");
+    } else if (role === "trainer" || email.includes("trainer")) {
+      redirect("/trainer/dashboard");
+    }
   }
 
   return (

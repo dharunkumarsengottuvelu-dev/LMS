@@ -309,6 +309,49 @@ export async function proxy(request: NextRequest) {
     return createRedirectWithCookies(loginUrl, request, supabaseResponse);
   }
 
+  // 5. Cross-role boundary enforcement for authenticated users
+  if (user && (pathname.startsWith("/admin") || pathname.startsWith("/student") || pathname.startsWith("/trainer"))) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const userEmail = user.email?.toLowerCase() || "";
+    const dbRole = (
+      (profile as { role?: string } | null)?.role ||
+      (user.user_metadata?.role as string) ||
+      (user.app_metadata?.role as string) ||
+      ""
+    ).toLowerCase();
+
+    let role = "student";
+    if (dbRole === "super_admin" || dbRole === "admin" || dbRole === "founder" || dbRole === "ceo" || userEmail.includes("admin")) {
+      role = "admin";
+    } else if (dbRole === "trainer" || userEmail.includes("trainer")) {
+      role = "trainer";
+    } else if (dbRole === "recruiter") {
+      role = "recruiter";
+    } else if (dbRole) {
+      role = dbRole;
+    }
+
+    // If Admin/Management visits Student portal, redirect to Admin Dashboard
+    if (role === "admin" && pathname.startsWith("/student")) {
+      return createRedirectWithCookies(new URL("/admin/dashboard", request.url), request, supabaseResponse);
+    }
+
+    // If Student visits Admin or Trainer portal, redirect to Student Dashboard
+    if (role === "student" && (pathname.startsWith("/admin") || pathname.startsWith("/trainer"))) {
+      return createRedirectWithCookies(new URL("/student/dashboard", request.url), request, supabaseResponse);
+    }
+
+    // If Trainer visits Student portal, redirect to Trainer Dashboard
+    if (role === "trainer" && pathname.startsWith("/student")) {
+      return createRedirectWithCookies(new URL("/trainer/dashboard", request.url), request, supabaseResponse);
+    }
+  }
+
   return applySecurityHeaders(supabaseResponse);
 }
 

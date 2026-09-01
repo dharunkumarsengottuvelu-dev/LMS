@@ -15,14 +15,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getInitials } from "@/lib/utils";
 
+import { Video } from "lucide-react";
+
 const trainerNavItems = [
   { label: "Dashboard", href: "/trainer/dashboard", icon: LayoutDashboard },
   { label: "My Courses", href: "/trainer/my-courses", icon: BookOpen },
   { label: "Students", href: "/trainer/students", icon: Users },
   { label: "Assessments", href: "/trainer/assessments", icon: ClipboardList },
   { label: "Coding Problems", href: "/trainer/coding", icon: Code2 },
+  { label: "Live Classes", href: "/trainer/live-classes", icon: Video },
   { label: "Tests", href: "/trainer/tests", icon: Calendar },
-  { label: "Assignments", href: "/trainer/assignments", icon: FileText },
   { label: "Reports", href: "/trainer/reports", icon: BarChart3 },
   { label: "Notifications", href: "/trainer/notifications", icon: Bell },
 ];
