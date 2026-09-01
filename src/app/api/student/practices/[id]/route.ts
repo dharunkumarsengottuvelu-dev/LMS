@@ -170,13 +170,33 @@ export async function GET(
 
       const solvedCodingCount = combinedCodingQuestions.filter((p: any) => completedProblemsMap.has(p.id)).length;
 
+      let answeredInAttempt = 0;
+      if (attempt && attempt.answers && typeof attempt.answers === "object") {
+        const ansObj = attempt.answers;
+        const validKeys = new Set<string>();
+        Object.entries(ansObj).forEach(([k, v]) => {
+          if (!v) return;
+          if (Array.isArray(v) && v.length > 0) validKeys.add(k);
+          else if (typeof v === "string" && v.trim().length > 0) validKeys.add(k);
+          else if (typeof v === "object" && (v as any).code && (v as any).code.trim().length > 0) validKeys.add(k);
+        });
+        answeredInAttempt = validKeys.size;
+      }
+      if (solvedCodingCount > 0) {
+        answeredInAttempt = Math.max(answeredInAttempt, solvedCodingCount);
+      }
+
       let modCompletedQuestions = 0;
       let isCompleted = false;
       let isInProgress = false;
 
       if (isAttemptCompleted) {
-        isCompleted = true;
-        modCompletedQuestions = modTotalQuestions;
+        modCompletedQuestions = Math.min(modTotalQuestions, answeredInAttempt);
+        if (modCompletedQuestions >= modTotalQuestions && modTotalQuestions > 0) {
+          isCompleted = true;
+        } else {
+          isInProgress = modCompletedQuestions > 0;
+        }
       } else if (solvedCodingCount > 0) {
         modCompletedQuestions = Math.min(modTotalQuestions, solvedCodingCount);
         if (modCompletedQuestions >= modTotalQuestions && modTotalQuestions > 0) {
@@ -186,8 +206,7 @@ export async function GET(
         }
       } else if (attempt && attempt.status === "in_progress") {
         isInProgress = true;
-        const ansCount = Object.keys(attempt.answers || {}).length;
-        modCompletedQuestions = Math.min(modTotalQuestions, ansCount);
+        modCompletedQuestions = Math.min(modTotalQuestions, answeredInAttempt);
       }
 
       totalQuestionsAcrossTrack += modTotalQuestions;
@@ -195,7 +214,7 @@ export async function GET(
 
       const status: "not_started" | "in_progress" | "completed" = isCompleted
         ? "completed"
-        : isInProgress
+        : isInProgress || isAttemptCompleted
         ? "in_progress"
         : "not_started";
 

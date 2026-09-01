@@ -82,10 +82,13 @@ export default function AssessmentTakePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [reviewFilter, setReviewFilter] = useState<"all" | "mcq" | "coding">("all");
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+  const [runnerKey, setRunnerKey] = useState(0);
 
   const [completedRecord, setCompletedRecord] = useState<CompletedRecord | null>(() => {
     if (typeof window !== "undefined") {
       try {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get("retake") === "true") return null;
         const resStr = localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
         if (resStr) return JSON.parse(resStr);
       } catch {}
@@ -101,14 +104,38 @@ export default function AssessmentTakePage() {
     setLoading(true);
     setErrorMsg(null);
 
-    // Check completion status from storage on load
-    if (typeof window !== "undefined") {
-      try {
-        const resStr = localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
-        if (resStr) {
-          setCompletedRecord(JSON.parse(resStr));
-        }
-      } catch {}
+    const isRetakeRequested = searchParams?.get("retake") === "true";
+
+    // If retake requested, purge all cached state, answers, and drafts
+    if (isRetakeRequested) {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem(`lms_completed_assessment_${subModuleId}`);
+          localStorage.removeItem(`lms_practice_session_${subModuleId}`);
+          localStorage.removeItem(`lms_practice_session_${subModuleId}_submitted`);
+          const keysToRemove: string[] = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && (k.startsWith("edunexus_draft_") || k.startsWith("draft_") || k.includes(subModuleId))) {
+              keysToRemove.push(k);
+            }
+          }
+          keysToRemove.forEach((k) => localStorage.removeItem(k));
+          window.dispatchEvent(new Event("storage"));
+        } catch {}
+      }
+      fetch(`/api/student/drafts?key=lms_practice_session_${subModuleId}`, { method: "DELETE" }).catch(() => {});
+      setCompletedRecord(null);
+    } else {
+      // Check completion status from storage on load
+      if (typeof window !== "undefined") {
+        try {
+          const resStr = localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
+          if (resStr) {
+            setCompletedRecord(JSON.parse(resStr));
+          }
+        } catch {}
+      }
     }
 
     try {
@@ -266,7 +293,7 @@ export default function AssessmentTakePage() {
       });
 
       // If completed in Database, initialize completedRecord from DB data so logout never loses completion
-      if (targetSubModule.status === "completed" || targetSubModule.score !== undefined && targetSubModule.score > 0) {
+      if (!isRetakeRequested && (targetSubModule.status === "completed" || (targetSubModule.score !== undefined && targetSubModule.score > 0))) {
         setCompletedRecord((prev) => prev || {
           score: targetSubModule.score ?? (targetSubModule.totalMarks || 100),
           bestScore: targetSubModule.score ?? (targetSubModule.totalMarks || 100),
@@ -604,6 +631,7 @@ export default function AssessmentTakePage() {
       };
 
       localStorage.setItem(`lms_completed_assessment_${subModuleId}`, JSON.stringify(rec));
+      window.dispatchEvent(new Event("storage"));
       setCompletedRecord(rec);
     }
 
@@ -623,11 +651,29 @@ export default function AssessmentTakePage() {
 
   const handleRetake = () => {
     if (typeof window !== "undefined") {
-      localStorage.removeItem(`lms_completed_assessment_${subModuleId}`);
-      localStorage.removeItem(`lms_practice_session_${subModuleId}`);
-      localStorage.removeItem(`lms_practice_session_${subModuleId}_submitted`);
+      try {
+        localStorage.removeItem(`lms_completed_assessment_${subModuleId}`);
+        localStorage.removeItem(`lms_practice_session_${subModuleId}`);
+        localStorage.removeItem(`lms_practice_session_${subModuleId}_submitted`);
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith("edunexus_draft_") || k.startsWith("draft_") || k.includes(subModuleId))) {
+            keysToRemove.push(k);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+        window.dispatchEvent(new Event("storage"));
+      } catch {}
     }
+    fetch(`/api/student/drafts?key=lms_practice_session_${subModuleId}`, { method: "DELETE" }).catch(() => {});
     setCompletedRecord(null);
+    setRunnerKey((k) => k + 1);
+
+    const params = new URLSearchParams(window.location.search);
+    params.set("retake", "true");
+    params.set("t", Date.now().toString());
+    router.replace(`${window.location.pathname}?${params.toString()}`);
   };
 
   const mcqQuestionsCount = useMemo(() => 
@@ -1055,6 +1101,7 @@ export default function AssessmentTakePage() {
   return (
     <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-6 space-y-4">
       <PracticeRunnerEngine
+        key={`runner_${subModuleId}_${runnerKey}`}
         module={currentSubModule}
         questions={questions}
         onBack={() => router.back()}

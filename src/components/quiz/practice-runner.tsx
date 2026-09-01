@@ -101,14 +101,21 @@ export function PracticeRunnerEngine({
 
   const storageKey = `lms_practice_session_${module.id}`;
 
-  // If the session was already submitted, don't restore any state from localStorage
+  const isRetakeMode =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("retake") === "true";
+
+  // If the session was already submitted or in retake mode, don't restore any state from localStorage
   const isAlreadySubmitted =
+    !isRetakeMode &&
     typeof window !== "undefined" &&
     localStorage.getItem(`${storageKey}_submitted`) === "true";
 
+  const shouldRestoreFromStorage = !isRetakeMode && !isAlreadySubmitted;
+
   // Active section state
   const [activeSection, setActiveSection] = useState<"mcq" | "coding">(() => {
-    if (!isAlreadySubmitted && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -121,7 +128,7 @@ export function PracticeRunnerEngine({
   });
 
   const [mcqIndex, setMcqIndex] = useState<number>(() => {
-    if (!isAlreadySubmitted && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -134,7 +141,7 @@ export function PracticeRunnerEngine({
   });
 
   const [codingIndex, setCodingIndex] = useState<number>(() => {
-    if (!isAlreadySubmitted && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -150,7 +157,7 @@ export function PracticeRunnerEngine({
   const currentSectionIndex = activeSection === "mcq" ? mcqIndex : codingIndex;
 
   const [answers, setAnswers] = useState<Record<string, any>>(() => {
-    if (!isAlreadySubmitted && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -163,7 +170,7 @@ export function PracticeRunnerEngine({
   });
 
   const [codeAnswers, setCodeAnswers] = useState<Record<string, { code: string; language: string }>>(() => {
-    if (!isAlreadySubmitted && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -176,7 +183,7 @@ export function PracticeRunnerEngine({
   });
 
   const [submissionResults, setSubmissionResults] = useState<Record<string, CodingSubmission | null>>(() => {
-    if (!isAlreadySubmitted && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -189,7 +196,7 @@ export function PracticeRunnerEngine({
   });
 
   const [markedForReview, setMarkedForReview] = useState<Set<string>>(() => {
-    if (!isAlreadySubmitted && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -202,7 +209,7 @@ export function PracticeRunnerEngine({
   });
 
   const [sessionStartTime] = useState<number>(() => {
-    if (typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -215,7 +222,7 @@ export function PracticeRunnerEngine({
   });
 
   const [timeLeft, setTimeLeft] = useState<number>(() => {
-    if (!isAlreadySubmitted && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -265,7 +272,7 @@ export function PracticeRunnerEngine({
 
   // Restore progress from cloud if switching devices
   useEffect(() => {
-    if (isSubmitted || isAlreadySubmitted) return;
+    if (isRetakeMode || isSubmitted || isAlreadySubmitted) return;
     const local = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
     if (!local) {
       fetch(`/api/student/drafts?key=${storageKey}`)
@@ -356,6 +363,7 @@ export function PracticeRunnerEngine({
         localStorage.removeItem(storageKey);
         // Also set a submitted marker so we can detect this state
         localStorage.setItem(`${storageKey}_submitted`, "true");
+        window.dispatchEvent(new Event("storage"));
       } catch {}
     }
   }, [answers, codeAnswers, onSubmit, storageKey, module.durationMinutes, sessionStartTime, submissionResults]);
@@ -937,6 +945,7 @@ export function PracticeRunnerEngine({
         localStorage.removeItem(`lms_practice_session_${module.id}_submitted`);
         localStorage.removeItem(`lms_completed_assessment_${module.id}`);
         localStorage.removeItem("lms_proctoring_violations");
+        window.dispatchEvent(new Event("storage"));
       } catch {}
     }
     setIsSubmitted(false);

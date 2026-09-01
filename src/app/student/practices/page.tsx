@@ -122,37 +122,38 @@ export default function StudentPracticesPage() {
   return (
     <div className="w-full space-y-6 pb-12">
       {/* Top Header - Spacious Enterprise MNC Header */}
-      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs overflow-visible">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+      {/* Top Header - Compact Enterprise Header */}
+      <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-4.5 shadow-2xs overflow-visible">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
           {/* Left: Breadcrumb & Title */}
-          <div className="space-y-2 flex-1 min-w-0">
+          <div className="space-y-1 flex-1 min-w-0">
             <div>
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0"
               >
-                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
+                <ArrowLeft className="h-3 w-3 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
                 <span>Back</span>
               </button>
             </div>
 
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
               Practice Tracks & Coding Hub
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal">
+            <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed font-normal line-clamp-1">
               Access interactive coding IDE practice, algorithmic problem sets, and assigned practice tracks.
             </p>
           </div>
 
           {/* Right: Search Input */}
-          <div className="relative w-full lg:w-80 shrink-0">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <div className="relative w-full sm:w-64 shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <Input
               placeholder="Search practice tracks..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 h-10 text-xs bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-700 rounded-xl"
+              className="pl-8.5 h-8.5 text-xs bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-700 rounded-lg"
             />
           </div>
         </div>
@@ -163,14 +164,14 @@ export default function StudentPracticesPage() {
       <div className="space-y-4 pt-2 animate-fade-up stagger-2">
 
         {filteredTracks.length === 0 ? (
-          <Card className="bg-card border border-border p-12 text-center rounded-[var(--radius-xl)] w-full shadow-sm">
-            <h3 className="text-lg font-semibold text-foreground">No Matching Practice Tracks</h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto mt-1.5 font-normal">
+          <Card className="bg-card border border-border p-8 text-center rounded-xl w-full shadow-xs">
+            <h3 className="text-base font-semibold text-foreground">No Matching Practice Tracks</h3>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1 font-normal">
               Try adjusting your search criteria.
             </p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
             {filteredTracks.map((track) => {
               const {
                 progressPercentage,
@@ -178,9 +179,9 @@ export default function StudentPracticesPage() {
               } = computeTrackProgress(track, isMounted);
 
               return (
-                <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-primary/40 transition-all duration-200 bg-card border border-border shadow-sm rounded-[var(--radius-xl)] group">
-                  {/* Thumbnail Header Image */}
-                  <div className="relative w-full h-32 overflow-hidden border-b border-border bg-muted">
+                <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-blue-500/40 transition-all duration-200 bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl group">
+                  {/* Compact Thumbnail Header Image */}
+                  <div className="relative w-full h-24 overflow-hidden border-b border-slate-100 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800">
                     <img
                       src={track.thumbnail}
                       alt={track.title}
@@ -188,49 +189,51 @@ export default function StudentPracticesPage() {
                     />
                   </div>
 
-                  <CardHeader className="p-4 pb-2 space-y-2">
+                  <CardHeader className="p-3.5 pb-2 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-primary/20 text-primary bg-primary/5">
-                        <FolderKanban className="h-3 w-3 mr-1.5 inline" /> {track.category}
+                      <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-blue-200/70 dark:border-blue-800/40 text-blue-700 dark:text-blue-300 bg-blue-50/70 dark:bg-blue-950/30 rounded-md">
+                        <FolderKanban className="h-2.5 w-2.5 mr-1 inline text-blue-600" /> {track.category}
                       </Badge>
-                      <span className="text-[10px] font-medium text-muted-foreground">
+                      <span className="text-[10px] font-medium text-slate-500 dark:text-zinc-400 truncate max-w-[110px]">
                         {track.assignedByName}
                       </span>
                     </div>
 
-                    <CardTitle className="text-base font-bold text-foreground leading-tight line-clamp-1">
+                    <CardTitle className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug line-clamp-1">
                       {track.title}
                     </CardTitle>
 
-                    <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed h-8">
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed h-7">
                       {track.description}
                     </p>
                   </CardHeader>
 
-                  <CardContent className="p-4 pt-2 space-y-3">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-muted-foreground font-medium">{totalSubModulesCount} Modules</span>
+                  <CardContent className="p-3.5 pt-1 space-y-2">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-slate-500 dark:text-zinc-400 font-medium">{totalSubModulesCount} Modules</span>
                         <span className={cn(
                           "font-bold",
                           progressPercentage === 100
                             ? "text-emerald-600 dark:text-emerald-400"
-                            : progressPercentage > 0 && progressPercentage < 40
-                            ? "text-amber-500 dark:text-amber-400"
-                            : progressPercentage >= 40
+                            : progressPercentage >= 50
                             ? "text-blue-600 dark:text-blue-400"
-                            : "text-muted-foreground"
+                            : progressPercentage > 0
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-slate-400 dark:text-zinc-500"
                         )}>
                           {progressPercentage}%
                         </span>
                       </div>
                       <Progress
                         value={progressPercentage}
-                        className="h-1 bg-border"
+                        className="h-1 bg-slate-100 dark:bg-zinc-800 rounded-full"
                         indicatorClassName={
                           progressPercentage === 100
                             ? "bg-emerald-600 dark:bg-emerald-500"
-                            : progressPercentage > 0 && progressPercentage < 40
+                            : progressPercentage >= 50
+                            ? "bg-blue-600 dark:bg-blue-500"
+                            : progressPercentage > 0
                             ? "bg-amber-500"
                             : "bg-primary"
                         }
@@ -238,12 +241,12 @@ export default function StudentPracticesPage() {
                     </div>
                   </CardContent>
 
-                  <CardFooter className="p-4 pt-0 gap-3">
+                  <CardFooter className="p-3.5 pt-0">
                     <Button
                       onClick={() => router.push(`/student/practices/${track.id}`)}
-                      className="w-full h-8 text-[11px] font-semibold gap-2 transition-colors rounded-[var(--radius-md)]"
+                      className="w-full h-8 text-xs font-semibold gap-1.5 transition-all rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-2xs"
                     >
-                      <Layers className="h-3.5 w-3.5" /> Explore Practice Track
+                      <Layers className="h-3 w-3" /> Explore Practice Track
                     </Button>
                   </CardFooter>
                 </Card>

@@ -88,3 +88,47 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const key = searchParams.get("key");
+    const problemId = searchParams.get("problem_id");
+
+    const draftKey = key || (problemId ? `draft_${problemId}` : null);
+
+    if (!draftKey) {
+      return NextResponse.json({ error: "Missing key or problem_id" }, { status: 400 });
+    }
+
+    const adminClient = createAdminClient();
+    const { data: authUser } = await adminClient.auth.admin.getUserById(user.id);
+
+    const existingDrafts = (authUser?.user?.user_metadata?.code_drafts || {}) as Record<string, any>;
+    
+    // Remove all keys matching the prefix
+    Object.keys(existingDrafts).forEach((k) => {
+      if (k === draftKey || k.startsWith(draftKey)) {
+        delete existingDrafts[k];
+      }
+    });
+
+    await adminClient.auth.admin.updateUserById(user.id, {
+      user_metadata: {
+        ...(authUser?.user?.user_metadata || {}),
+        code_drafts: existingDrafts,
+      },
+    });
+
+    return NextResponse.json({ success: true, cleared: draftKey }, { status: 200 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+  }
+}

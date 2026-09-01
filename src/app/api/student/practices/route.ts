@@ -96,14 +96,12 @@ export async function GET(request: NextRequest) {
 
     const { data: attempts } = await adminClient
       .from("assessment_attempts")
-      .select("assessment_id, status, score, total_marks")
+      .select("assessment_id, status, score, total_marks, answers")
       .or(studentFilter) as any;
 
-    const completedSubModuleIds = new Set<string>();
+    const attemptsMap = new Map<string, any>();
     (attempts || []).forEach((att: any) => {
-      if (att.status === "submitted" || att.status === "auto_submitted" || att.status === "passed") {
-        completedSubModuleIds.add(att.assessment_id);
-      }
+      attemptsMap.set(att.assessment_id, att);
     });
 
     // 5. Map tracks with real question-weighted module counts and overall progress strictly from Database
@@ -127,18 +125,41 @@ export async function GET(request: NextRequest) {
           qCount = sm.questionCount || sm.question_count || sm.questions?.length || 1;
         }
 
-        const isAttemptCompleted = completedSubModuleIds.has(sm.id);
+        const attempt = attemptsMap.get(sm.id);
+        const isAttemptCompleted = Boolean(
+          attempt && (attempt.status === "submitted" || attempt.status === "auto_submitted" || attempt.status === "passed")
+        );
         const codingProblemsList = sm.codingQuestions || sm.codingProblems || [];
         const solvedProblemsCount = codingProblemsList.filter((p: any) => completedProblemIds.has(p.id)).length;
+
+        let answeredInAttempt = 0;
+        if (attempt && attempt.answers && typeof attempt.answers === "object") {
+          const ansObj = attempt.answers;
+          const validKeys = new Set<string>();
+          Object.entries(ansObj).forEach(([k, v]) => {
+            if (!v) return;
+            if (Array.isArray(v) && v.length > 0) validKeys.add(k);
+            else if (typeof v === "string" && v.trim().length > 0) validKeys.add(k);
+            else if (typeof v === "object" && (v as any).code && (v as any).code.trim().length > 0) validKeys.add(k);
+          });
+          answeredInAttempt = validKeys.size;
+        }
+        if (solvedProblemsCount > 0) {
+          answeredInAttempt = Math.max(answeredInAttempt, solvedProblemsCount);
+        }
 
         let completedQuestionsInModule = 0;
         let isCompleted = false;
         let status: "not_started" | "in_progress" | "completed" = "not_started";
 
         if (isAttemptCompleted) {
-          isCompleted = true;
-          completedQuestionsInModule = qCount;
-          status = "completed";
+          completedQuestionsInModule = Math.min(qCount, answeredInAttempt);
+          if (completedQuestionsInModule >= qCount && qCount > 0) {
+            isCompleted = true;
+            status = "completed";
+          } else {
+            status = completedQuestionsInModule > 0 ? "in_progress" : "not_started";
+          }
         } else if (solvedProblemsCount > 0) {
           completedQuestionsInModule = Math.min(qCount, solvedProblemsCount);
           if (completedQuestionsInModule >= qCount && qCount > 0) {

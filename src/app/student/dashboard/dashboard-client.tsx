@@ -34,23 +34,23 @@ function StatCard({
 }) {
   return (
     <Link href={href} prefetch={true} className="block h-full">
-      <Card className="h-full hover:border-border transition-all bg-card border border-border shadow-sm group">
-        <CardContent className="p-6 flex items-center gap-4 h-full">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 transition-transform group-hover:scale-105 duration-200">
-            <Icon className="h-6 w-6" />
+      <Card className="h-full hover:border-blue-500/40 transition-all bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-2xs rounded-xl group">
+        <CardContent className="p-4 flex items-center gap-3.5 h-full">
+          <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 transition-transform group-hover:scale-105 duration-200">
+            <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between">
-              <span className="text-3xl font-bold tracking-tight text-foreground">
+              <span className="text-2xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
                 {value}
               </span>
               {badgeText && (
-                <Badge variant="outline" className="bg-primary/5 text-primary text-[10px] font-bold px-2 py-0.5 border-primary/20">
+                <Badge variant="outline" className="bg-blue-50/70 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 text-[10px] font-bold px-1.5 py-0 border-blue-200/70 dark:border-blue-800/40 rounded-md">
                   {badgeText}
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground font-medium mt-1">{label}</p>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium mt-0.5">{label}</p>
           </div>
         </CardContent>
       </Card>
@@ -145,28 +145,28 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const displayUnreadNotifications = 0;
 
   return (
-    <div className="space-y-8 w-full pb-12">
-      {/* 1. Welcome Banner Header - Spacious Enterprise MNC Card */}
-      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs overflow-visible">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-          <div className="space-y-1.5 flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
+    <div className="space-y-6 w-full pb-12">
+      {/* 1. Welcome Banner Header - Compact Enterprise MNC Card */}
+      <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-5 shadow-2xs overflow-visible">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
+          <div className="space-y-1 flex-1 min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
               Welcome back, {firstName}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-2xl leading-relaxed font-normal">
+            <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-2xl leading-relaxed font-normal line-clamp-1">
               Track your active courses, practice modules, and ongoing technical learning tracks.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0 pt-2 lg:pt-0">
-            <Button className="h-10 px-5 gap-2 font-bold text-xs rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs" asChild>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button className="h-8.5 px-4 gap-1.5 font-semibold text-xs rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-2xs" asChild>
               <Link href="/student/practices" prefetch={true}>
-                <Code2 className="h-4 w-4" /> Practice Hub
+                <Code2 className="h-3.5 w-3.5" /> Practice Hub
               </Link>
             </Button>
-            <Button variant="outline" className="h-10 px-4 gap-2 font-semibold text-xs rounded-xl border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 shadow-2xs" asChild>
+            <Button variant="outline" className="h-8.5 px-3.5 gap-1.5 font-semibold text-xs rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 shadow-2xs" asChild>
               <Link href="/student/tests" prefetch={true}>
-                <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Scheduled Tests
+                <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /> Scheduled Tests
               </Link>
             </Button>
           </div>
@@ -174,7 +174,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
       </div>
 
       {/* 2. Statistics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-up stagger-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-up stagger-1">
         <StatCard icon={Code2} value={enrichedPracticeTracks.length} label="Active Practice Tracks" href="/student/practices" badgeText="Assigned" />
         <StatCard icon={CheckCircle2} value={displayCompletedCount} label="Completed Modules" href="/student/practices" badgeText="Verified" />
         <StatCard icon={BookOpen} value={activeCourses.length} label="Enrolled Courses" href="/student/my-courses" badgeText="Catalog" />
@@ -223,42 +223,42 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                     return (
                       <div
                         key={`track-${item.id}`}
-                        className="p-4 bg-background rounded-2xl border border-border flex items-center justify-between gap-4 hover:border-primary/40 transition-all shadow-xs group"
+                        className="p-3 sm:p-3.5 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-3 hover:border-blue-500/40 transition-all shadow-2xs group"
                       >
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <div>
-                            <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-border text-muted-foreground bg-muted/40">
+                        <div className="space-y-0.5 min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-blue-200/70 dark:border-blue-800/40 text-blue-700 dark:text-blue-300 bg-blue-50/70 dark:bg-blue-950/30 rounded-md">
                               {item.category}
                             </Badge>
                           </div>
 
-                          <h3 className="text-sm md:text-base font-bold text-foreground truncate">
+                          <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 truncate">
                             {item.title}
                           </h3>
 
-                          <div className="flex items-center gap-2.5 text-xs text-muted-foreground pt-0.5">
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400">
                             <span>{item.completedCount}/{item.totalCount} Modules</span>
                             <span>•</span>
-                            <span className={isDone ? "text-[#16A34A] font-bold" : isInProgress ? "text-[#F59E0B] font-bold" : "text-foreground font-semibold"}>
+                            <span className={isDone ? "text-emerald-600 font-semibold" : isInProgress ? "text-amber-600 font-semibold" : "text-slate-700 dark:text-zinc-300 font-semibold"}>
                               {item.progressPercentage}% Completed
                             </span>
                           </div>
                         </div>
 
-                        <div className="shrink-0 flex items-center gap-3">
+                        <div className="shrink-0 flex items-center gap-2">
                           <Button
                             size="sm"
-                            className={`h-9 px-4 text-xs font-bold gap-1.5 rounded-xl shadow-xs ${
+                            className={`h-8 px-3.5 text-xs font-semibold gap-1 rounded-lg shadow-2xs ${
                               isDone
                                 ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                                 : isInProgress
-                                ? "bg-amber-600 hover:bg-amber-700 text-white"
+                                ? "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                                 : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                             }`}
                             asChild
                           >
                             <Link href={`/student/practices/${item.id}`}>
-                              <Play className="h-3 w-3 fill-current" />
+                              <Play className="h-2.5 w-2.5 fill-current" />
                               {isDone ? "Review" : isInProgress ? "Continue" : "Start"}
                             </Link>
                           </Button>
@@ -271,27 +271,27 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                   return (
                     <div
                       key={`course-${item.id}`}
-                      className="p-4 bg-background rounded-2xl border border-border flex items-center justify-between gap-4 hover:border-primary/40 transition-all shadow-xs"
+                      className="p-3 sm:p-3.5 bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-3 hover:border-blue-500/40 transition-all shadow-2xs"
                     >
-                      <div className="space-y-1 min-w-0 flex-1">
+                      <div className="space-y-0.5 min-w-0 flex-1">
                         <div>
-                          <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-border text-muted-foreground bg-muted/40">
+                          <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-800/60 rounded-md">
                             {item.category}
                           </Badge>
                         </div>
 
-                        <h3 className="text-sm md:text-base font-bold text-foreground truncate">
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-zinc-100 truncate">
                           {item.title}
                         </h3>
 
-                        <div className="flex items-center gap-2.5 text-xs text-muted-foreground pt-0.5">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400">
                           <span>Course</span>
                           <span>•</span>
-                          <span className="text-primary font-bold">{item.progressPercentage}% Progress</span>
+                          <span className="text-blue-600 font-semibold">{item.progressPercentage}% Progress</span>
                         </div>
                       </div>
 
-                      <Button size="sm" className="h-9 px-4 text-xs font-bold gap-1.5 shrink-0 rounded-xl" asChild>
+                      <Button size="sm" className="h-8 px-3.5 text-xs font-semibold gap-1 shrink-0 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-2xs" asChild>
                         <Link href={`/student/course/${item.slug}`}>
                           Resume <ArrowRight className="h-3 w-3" />
                         </Link>

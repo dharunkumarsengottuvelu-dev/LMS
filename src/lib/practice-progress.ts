@@ -19,6 +19,7 @@ export interface ModuleProgressDetail {
   status: "not_started" | "in_progress" | "completed";
   isCompleted: boolean;
   isInProgress: boolean;
+  isSubmitted: boolean;
   rawModule: any;
   resumeQuestionNumber: number;
   resumeQuestionLabel: string;
@@ -33,6 +34,7 @@ export interface PracticeTrackProgressResult {
   moduleDetails: ModuleProgressDetail[];
   nextSubModuleToContinue: any;
   hasActiveSession: boolean;
+  hasSubmittedModule: boolean;
   resumeQuestionNumber: number;
   resumeQuestionLabel: string;
   resumeModuleTitle: string;
@@ -71,7 +73,7 @@ export function getModuleQuestionCount(module: any): number {
 
 /**
  * Calculates completed questions and exact resume question info for a specific module
- * by seamlessly combining database completion records and live client-side practice session answers.
+ * by dynamically counting actual answered questions from database and live client storage.
  */
 export function getModuleCompletedCount(
   module: any,
@@ -81,21 +83,22 @@ export function getModuleCompletedCount(
   completedCount: number;
   isDone: boolean;
   inProg: boolean;
+  isSubmitted: boolean;
   resumeQuestionNumber: number;
   resumeQuestionLabel: string;
 } {
-  let isDone = module.status === "completed";
-  let inProg = module.status === "in_progress";
-  let completedCount = isDone ? totalQuestions : 0;
+  let completedCount = 0;
+  let isDone = false;
+  let inProg = false;
+  let isSubmitted = module.status === "completed";
   let resumeQuestionNumber = 1;
   let resumeQuestionLabel = module.type === "coding" ? "Problem 1" : "Question 1";
 
   // 1. Initial count from database-supplied module object
-  if (typeof module.completedQuestions === "number" && !isDone) {
+  if (typeof module.completedQuestions === "number") {
     completedCount = Math.min(totalQuestions, Math.max(0, module.completedQuestions));
     if (completedCount >= totalQuestions && totalQuestions > 0) {
       isDone = true;
-      inProg = false;
     } else if (completedCount > 0) {
       inProg = true;
       resumeQuestionNumber = Math.min(totalQuestions, completedCount + 1);
@@ -103,11 +106,51 @@ export function getModuleCompletedCount(
     }
   }
 
-  // 2. Check live client practice session state for real answered questions & active position
+  // 2. Check live client practice session state & completed records
   if (isMounted && typeof window !== "undefined") {
     try {
-      if (!isDone) {
-        const sessionKey = `lms_practice_session_${module.id}`;
+      const completedKey = `lms_completed_assessment_${module.id}`;
+      const submittedKey = `lms_practice_session_${module.id}_submitted`;
+      const sessionKey = `lms_practice_session_${module.id}`;
+
+      const completedStr = localStorage.getItem(completedKey);
+      const isLocallySubmitted = localStorage.getItem(submittedKey) === "true";
+
+      if (completedStr || isLocallySubmitted) {
+        isSubmitted = true;
+        let actualAnsweredCount = 0;
+
+        if (completedStr) {
+          try {
+            const compObj = JSON.parse(completedStr);
+            const ansMap = compObj.answers || {};
+            const answeredKeys = new Set<string>();
+
+            Object.entries(ansMap).forEach(([k, v]) => {
+              if (!v) return;
+              if (Array.isArray(v) && v.length > 0) answeredKeys.add(k);
+              else if (typeof v === "string" && v.trim().length > 0) answeredKeys.add(k);
+              else if (typeof v === "object" && (v as any).code && (v as any).code.trim().length > 0) answeredKeys.add(k);
+            });
+
+            actualAnsweredCount = answeredKeys.size;
+          } catch {}
+        }
+
+        completedCount = Math.min(totalQuestions, actualAnsweredCount);
+
+        if (completedCount >= totalQuestions && totalQuestions > 0) {
+          isDone = true;
+          inProg = false;
+          resumeQuestionNumber = totalQuestions;
+          resumeQuestionLabel = "Finished";
+        } else {
+          isDone = false;
+          inProg = completedCount > 0;
+          resumeQuestionNumber = Math.min(totalQuestions, completedCount + 1);
+          resumeQuestionLabel = (module.type === "coding" ? "Problem " : "Question ") + resumeQuestionNumber;
+        }
+      } else {
         const sessionStr = localStorage.getItem(sessionKey);
         if (sessionStr) {
           const parsed = JSON.parse(sessionStr);
@@ -155,19 +198,20 @@ export function getModuleCompletedCount(
     } catch {}
   }
 
-  // Ensure completedCount is strictly clamped between 0 and totalQuestions
+  // Strictly clamp completedCount between 0 and totalQuestions
   completedCount = Math.min(totalQuestions, Math.max(0, completedCount));
   if (completedCount >= totalQuestions && totalQuestions > 0) {
     isDone = true;
     inProg = false;
     resumeQuestionNumber = totalQuestions;
-    resumeQuestionLabel = "Completed";
+    resumeQuestionLabel = "Finished";
   }
 
   return {
     completedCount,
     isDone,
     inProg,
+    isSubmitted,
     resumeQuestionNumber,
     resumeQuestionLabel,
   };
@@ -198,6 +242,7 @@ export function getPracticeTrackProgress(
       moduleDetails: [],
       nextSubModuleToContinue: null,
       hasActiveSession: false,
+      hasSubmittedModule: false,
       resumeQuestionNumber: 1,
       resumeQuestionLabel: "Question 1",
       resumeModuleTitle: "",
@@ -214,6 +259,7 @@ export function getPracticeTrackProgress(
   let completedModules = 0;
   let nextSubModuleToContinue: any = null;
   let hasActiveSession = false;
+  let hasSubmittedModule = false;
 
   const moduleDetails: ModuleProgressDetail[] = modulesList.map((m: any, idx: number) => {
     const modTotalQuestions = getModuleQuestionCount(m);
@@ -221,6 +267,7 @@ export function getPracticeTrackProgress(
       completedCount,
       isDone,
       inProg,
+      isSubmitted,
       resumeQuestionNumber,
       resumeQuestionLabel,
     } = getModuleCompletedCount(m, modTotalQuestions, isMounted);
@@ -234,7 +281,7 @@ export function getPracticeTrackProgress(
     totalQuestions += modTotalQuestions;
     completedQuestions += completedCount;
 
-    if (isDone) {
+    if (modPercentage === 100) {
       completedModules++;
     } else {
       if (inProg) {
@@ -245,15 +292,20 @@ export function getPracticeTrackProgress(
           ...m,
           subModuleIndex: idx + 1,
           isInProgress: inProg,
+          isSubmitted,
           resumeQuestionNumber,
           resumeQuestionLabel,
         };
       }
     }
 
-    const status: "not_started" | "in_progress" | "completed" = isDone
+    if (isSubmitted) {
+      hasSubmittedModule = true;
+    }
+
+    const status: "not_started" | "in_progress" | "completed" = modPercentage === 100
       ? "completed"
-      : inProg
+      : inProg || isSubmitted
       ? "in_progress"
       : "not_started";
 
@@ -264,8 +316,9 @@ export function getPracticeTrackProgress(
       completedQuestions: completedCount,
       percentage: modPercentage,
       status,
-      isCompleted: isDone,
+      isCompleted: modPercentage === 100,
       isInProgress: inProg,
+      isSubmitted,
       rawModule: m,
       resumeQuestionNumber,
       resumeQuestionLabel,
@@ -281,7 +334,7 @@ export function getPracticeTrackProgress(
 
   const activeModule = nextSubModuleToContinue || moduleDetails.find((m) => !m.isCompleted) || moduleDetails[0];
   const resumeQuestionLabel = percentage === 100
-    ? "Completed"
+    ? "Finished"
     : activeModule?.resumeQuestionLabel || (activeModule?.rawModule?.type === "coding" ? "Problem 1" : "Question 1");
   const resumeQuestionNumber = activeModule?.resumeQuestionNumber || 1;
   const resumeModuleTitle = activeModule?.title || "";
@@ -295,6 +348,7 @@ export function getPracticeTrackProgress(
     moduleDetails,
     nextSubModuleToContinue: activeModule || modulesList[0],
     hasActiveSession,
+    hasSubmittedModule,
     resumeQuestionNumber,
     resumeQuestionLabel,
     resumeModuleTitle,
