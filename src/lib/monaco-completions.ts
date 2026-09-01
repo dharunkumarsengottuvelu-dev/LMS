@@ -2,6 +2,7 @@
 // Supports: Java, C++, C, Python, JavaScript, TypeScript, C#, Go, Rust, Kotlin, Swift, PHP, Ruby, Scala, Dart, SQL, HTML, CSS
 
 import type * as Monaco from "monaco-editor";
+import { formatSourceCode } from "./compiler/code-formatter";
 
 type MonacoInstance = typeof Monaco;
 
@@ -950,80 +951,16 @@ const LANGUAGE_MAP: Record<string, CompletionEntry[]> = {
   css: CSS_COMPLETIONS,
 };
 
+import { registerLMSThemes, registerEnhancedTokenizers } from "./syntax-theme";
+
 let registered = false;
 
 export function registerMonacoCompletions(monaco: MonacoInstance) {
   if (!monaco) return;
 
-  // Define custom themes with distinct gutter styling matching modern IDEs
-  try {
-    monaco.editor.defineTheme("lms-light", {
-      base: "vs",
-      inherit: true,
-      rules: [
-        { token: "keyword", foreground: "0000FF", fontStyle: "bold" },
-        { token: "keyword.control", foreground: "0000FF", fontStyle: "bold" },
-        { token: "type", foreground: "005577" },
-        { token: "type.identifier", foreground: "005577" },
-        { token: "class", foreground: "1A365D", fontStyle: "bold" },
-        { token: "identifier", foreground: "1E293B" },
-        { token: "function", foreground: "795E26" },
-        { token: "string", foreground: "0969DA" },
-        { token: "string.escape", foreground: "D73A49" },
-        { token: "comment", foreground: "6E7781", fontStyle: "italic" },
-        { token: "number", foreground: "098658" },
-        { token: "operator", foreground: "000000" },
-        { token: "delimiter", foreground: "24292F" },
-      ],
-      colors: {
-        "editor.background": "#FFFFFF",
-        "editorGutter.background": "#F5F6F8",
-        "editorLineNumber.foreground": "#8C95A6",
-        "editorLineNumber.activeForeground": "#0F172A",
-        "editor.lineHighlightBackground": "#EBF5FF", // Soft MNC-style active line highlight
-        "editor.lineHighlightBorder": "#00000000",
-        "editorCursor.foreground": "#0055FF",
-        "editorIndentGuide.background": "#E2E8F0",
-        "editorIndentGuide.activeBackground": "#94A3B8",
-        "editorOverviewRuler.border": "#00000000",
-        "editorRuler.foreground": "#F1F5F9",
-        "editorBracketMatch.background": "#D0E5FC",
-        "editorBracketMatch.border": "#93C5FD",
-      },
-    });
-
-    monaco.editor.defineTheme("lms-dark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [
-        { token: "keyword", foreground: "569CD6", fontStyle: "bold" },
-        { token: "type", foreground: "4EC9B0" },
-        { token: "class", foreground: "4EC9B0", fontStyle: "bold" },
-        { token: "function", foreground: "DCDCAA" },
-        { token: "string", foreground: "CE9178" },
-        { token: "comment", foreground: "6A9955", fontStyle: "italic" },
-        { token: "number", foreground: "B5CEA8" },
-        { token: "annotation", foreground: "DCDCAA" },
-        { token: "variable", foreground: "9CDCFE" },
-      ],
-      colors: {
-        "editor.background": "#141417",
-        "editorGutter.background": "#18181C",
-        "editorLineNumber.foreground": "#52525B",
-        "editorLineNumber.activeForeground": "#F4F4F5",
-        "editor.lineHighlightBackground": "#1E293B80",
-        "editor.lineHighlightBorder": "#00000000",
-        "editorCursor.foreground": "#60A5FA",
-        "editorBracketMatch.background": "#1E3A5F",
-        "editorBracketMatch.border": "#3B82F6",
-        "editorIndentGuide.background": "#27272A",
-        "editorIndentGuide.activeBackground": "#52525B",
-        "editor.selectionBackground": "#2563EB40",
-      },
-    });
-  } catch (e) {
-    console.warn("[Monaco] Failed to register custom themes:", e);
-  }
+  // Register centralized LMS themes and enhanced language tokenizers
+  registerLMSThemes(monaco);
+  registerEnhancedTokenizers(monaco);
 
   if (registered || !monaco.languages) return;
   registered = true;
@@ -1050,8 +987,6 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
         return monaco.languages.CompletionItemKind.Keyword;
     }
   };
-
-  const { formatSourceCode } = require("./compiler/code-formatter");
 
   Object.entries(LANGUAGE_MAP).forEach(([langId, entries]) => {
     try {
@@ -1086,6 +1021,24 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
       // 2. Register Native Document Formatting (Shift + Alt + F)
       monaco.languages.registerDocumentFormattingEditProvider(langId, {
         provideDocumentFormattingEdits: (model, options) => {
+          const fullText = model.getValue();
+          const formatted = formatSourceCode(fullText, langId, {
+            tabSize: options.tabSize,
+            insertSpaces: options.insertSpaces,
+          });
+
+          return [
+            {
+              range: model.getFullModelRange(),
+              text: formatted,
+            },
+          ];
+        },
+      });
+
+      // 3. Register Native Range Formatting (Format on Paste / Selection)
+      monaco.languages.registerDocumentRangeFormattingEditProvider(langId, {
+        provideDocumentRangeFormattingEdits: (model, range, options) => {
           const fullText = model.getValue();
           const formatted = formatSourceCode(fullText, langId, {
             tabSize: options.tabSize,

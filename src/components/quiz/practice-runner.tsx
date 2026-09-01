@@ -21,6 +21,7 @@ import {
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { CodeEditor } from "@/components/coding/code-editor";
+import { formatSourceCode } from "@/lib/compiler/code-formatter";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { CodingLanguage, CodingProblem, TestCase, CodingSubmission } from "@/types/coding";
@@ -659,13 +660,22 @@ export function PracticeRunnerEngine({
       sample_output: sampleTc?.expected_output || "",
       created_at: now,
       updated_at: now,
-      templates: currentQuestion.starterCode || {
-        java: "// Write your Java solution here\n",
-        python: "# Write your Python solution here\n",
-        cpp: "// Write your C++ solution here\n",
-        javascript: "// Write your JavaScript solution here\n",
-        c: "/* Write your C solution here */\n"
-      },
+      templates: (() => {
+        const rawTemplates = typeof currentQuestion.starterCode === "string"
+          ? { java: currentQuestion.starterCode }
+          : (currentQuestion.starterCode || {
+              java: "// Write your Java solution here\n",
+              python: "# Write your Python solution here\n",
+              cpp: "// Write your C++ solution here\n",
+              javascript: "// Write your JavaScript solution here\n",
+              c: "/* Write your C solution here */\n"
+            });
+        const formatted: Record<string, string> = {};
+        for (const [lang, tmpl] of Object.entries(rawTemplates)) {
+          formatted[lang] = formatSourceCode(tmpl as string, lang);
+        }
+        return formatted;
+      })(),
       test_cases: testCases,
       reveal_hidden_testcases: (currentQuestion as any).reveal_hidden_testcases !== false
     };

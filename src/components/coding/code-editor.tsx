@@ -155,10 +155,11 @@ export function CodeEditor({
     if (typeof window !== "undefined" && problem?.id) {
       try {
         const savedDraft = localStorage.getItem(`edunexus_draft_${problem.id}_${defaultLanguage}`);
-        if (savedDraft !== null) return savedDraft;
+        if (savedDraft !== null) return formatSourceCode(savedDraft, defaultLanguage);
       } catch {}
     }
-    return defaultCode ?? (problem?.templates?.[defaultLanguage] || "");
+    const rawCode = defaultCode ?? (problem?.templates?.[defaultLanguage] || "");
+    return formatSourceCode(rawCode, defaultLanguage);
   });
   const [stdin, setStdin] = useState(problem?.sample_input ?? "");
   const [output, setOutput] = useState<ExecuteCodeResult | null>(null);
@@ -169,12 +170,14 @@ export function CodeEditor({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedTestCaseIdx, setSelectedTestCaseIdx] = useState(0);
   const [useFallbackTextarea, setUseFallbackTextarea] = useState(false);
-  const [editorTheme, setEditorTheme] = useState<"lms-light" | "lms-dark">("lms-light");
+  const [editorTheme] = useState<string>("falcon-light");
   const [fontSize, setFontSize] = useState<number>(14);
   const [wordWrap, setWordWrap] = useState<"off" | "on">("off");
   const [showMinimap, setShowMinimap] = useState<boolean>(false);
   const [dbLanguages, setDbLanguages] = useState<{id: string, name: string}[]>([]);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
+  const [selectedCharsCount, setSelectedCharsCount] = useState<number>(0);
+  const [customTabSize, setCustomTabSize] = useState<number | null>(null);
 
   const monacoEditorRef = useRef<any>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
@@ -198,10 +201,20 @@ export function CodeEditor({
   }, []);
 
   const tabSize = useMemo(() => {
+    if (customTabSize !== null) return customTabSize;
     return (language === "javascript" || language === "typescript" || language === "html" || language === "css" || language === "react")
       ? 2
       : 4;
-  }, [language]);
+  }, [language, customTabSize]);
+
+  const toggleTabSize = useCallback(() => {
+    const nextSize = tabSize === 4 ? 2 : 4;
+    setCustomTabSize(nextSize);
+    if (monacoEditorRef.current) {
+      monacoEditorRef.current.getModel()?.updateOptions({ tabSize: nextSize, indentSize: nextSize });
+    }
+    toast({ title: `Tab Size: ${nextSize}`, description: `Indentation set to ${nextSize} spaces.` });
+  }, [tabSize, toast]);
 
   const handleCodeChangeInternal = useCallback((newVal: string) => {
     if (readOnly) return;
@@ -274,12 +287,61 @@ export function CodeEditor({
     setUseFallbackTextarea(false);
     if (monaco) registerMonacoCompletions(monaco);
 
+    // Force Monaco to measure JetBrains Mono font metrics immediately & when web font resolves
+    if (monaco?.editor?.remeasureFonts) {
+      try { monaco.editor.remeasureFonts(); } catch {}
+    }
+    if (typeof document !== "undefined" && (document as any).fonts?.ready) {
+      (document as any).fonts.ready.then(() => {
+        try {
+          if (monaco?.editor?.remeasureFonts) {
+            monaco.editor.remeasureFonts();
+          }
+          editor?.layout();
+        } catch {}
+      });
+    }
+    setTimeout(() => {
+      try {
+        if (monaco?.editor?.remeasureFonts) {
+          monaco.editor.remeasureFonts();
+        }
+        editor?.layout();
+      } catch {}
+    }, 200);
+
     if (editor) {
+      // Initialize cursor pos immediately
+      const currentPos = editor.getPosition();
+      if (currentPos) {
+        setCursorPos({
+          line: currentPos.lineNumber || 1,
+          col: currentPos.column || 1,
+        });
+      }
+
       editor.onDidChangeCursorPosition((e: any) => {
         if (e?.position) {
           setCursorPos({
             line: e.position.lineNumber || 1,
             col: e.position.column || 1,
+          });
+        }
+      });
+
+      editor.onDidChangeCursorSelection((e: any) => {
+        if (e?.selection) {
+          const sel = e.selection;
+          const model = editor.getModel();
+          if (model && !sel.isEmpty()) {
+            const selectedText = model.getValueInRange(sel) || "";
+            setSelectedCharsCount(selectedText.length);
+          } else {
+            setSelectedCharsCount(0);
+          }
+          setCursorPos({
+            line: sel.positionLineNumber || sel.endLineNumber || 1,
+            col: sel.positionColumn || sel.endColumn || 1,
           });
         }
       });
@@ -462,8 +524,8 @@ export function CodeEditor({
       const localKey = problem.id ? `edunexus_draft_${problem.id}_${targetLang}` : null;
       const savedDraft = (localKey && typeof window !== "undefined") ? localStorage.getItem(localKey) : null;
       const initialCode = savedDraft !== null
-        ? savedDraft
-        : (isProblemChange && defaultCode !== undefined ? defaultCode : (problem.templates?.[targetLang] || ""));
+        ? formatSourceCode(savedDraft, targetLang)
+        : formatSourceCode(isProblemChange && defaultCode !== undefined ? defaultCode : (problem.templates?.[targetLang] || ""), targetLang);
 
       setCode(initialCode);
       if (problem.sample_input !== undefined) {
@@ -572,7 +634,7 @@ export function CodeEditor({
     const localKey = problem?.id ? `edunexus_draft_${problem.id}_${newLang}` : null;
     const savedDraft = (localKey && typeof window !== "undefined") ? localStorage.getItem(localKey) : null;
     const template = problem?.templates?.[newLang] || "";
-    const newCode = savedDraft !== null ? savedDraft : template;
+    const newCode = savedDraft !== null ? formatSourceCode(savedDraft, newLang) : formatSourceCode(template, newLang);
     setCode(newCode);
     onCodeChange?.(newCode, newLang);
     if (problem?.sample_input !== undefined) {
@@ -714,7 +776,7 @@ export function CodeEditor({
   };
 
   const handleReset = () => {
-    const template = problem?.templates?.[language] || "";
+    const template = formatSourceCode(problem?.templates?.[language] || "", language);
     hasUserEditedRef.current = false;
     setCode(template);
     onCodeChange?.(template, language);
@@ -734,7 +796,7 @@ export function CodeEditor({
   return (
     <div
       className={cn(
-        "flex flex-col bg-white dark:bg-[#141417] w-full h-full overflow-hidden transition-all duration-200 border border-gray-200 dark:border-zinc-800",
+        "flex flex-col bg-white w-full h-full overflow-hidden transition-all duration-200 border border-gray-200",
         isFullscreen
           ? "fixed inset-0 z-50 w-screen h-screen rounded-none border-0 shadow-2xl p-0 m-0"
           : !isFillMode && "rounded-xl shadow-xs"
@@ -748,30 +810,30 @@ export function CodeEditor({
       }
     >
       {/* ── Top Pane: Code Editor ── */}
-      <div className={cn("flex flex-col min-h-0 overflow-hidden border-b border-gray-200 dark:border-zinc-800", showConsole ? "flex-[3]" : "flex-1")}>
+      <div className={cn("flex flex-col min-h-0 overflow-hidden border-b border-gray-200", showConsole ? "flex-[3]" : "flex-1")}>
         
         {/* Modern MNC-Style Editor Header & Toolbar */}
-        <div className="flex items-center justify-between px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-[#F8FAFC] dark:bg-[#18181C] border-b border-gray-200 dark:border-zinc-800 shrink-0 select-none gap-1.5 sm:gap-2">
-           <div className="text-xs font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-1.5 sm:gap-2.5 min-w-0 shrink-0">
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-white border-b border-gray-100 shrink-0 select-none gap-2">
+           <div className="text-sm font-bold text-slate-900 flex items-center gap-2 min-w-0 shrink-0">
              {showQuestionToggle && onToggleQuestion && (
                <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-blue-600 p-0 shrink-0" onClick={onToggleQuestion} title="Show Question Statement">
                  <PanelLeftOpen className="h-4 w-4" />
                </Button>
              )}
-             <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-blue-600 dark:bg-blue-500 shadow-xs animate-pulse shrink-0"></span>
-             <span className="font-semibold tracking-tight text-gray-900 dark:text-gray-100 hidden md:inline shrink-0">Code Editor</span>
+             <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-xs shrink-0"></span>
+             <span className="font-bold tracking-tight text-slate-900 hidden md:inline shrink-0">Code Editor</span>
              {isFullscreen && (
-               <Badge variant="outline" className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0 bg-blue-500/10 text-blue-600 border-blue-500/30 shrink-0 hidden sm:inline-flex">
+               <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 border-blue-200 shrink-0 hidden sm:inline-flex rounded-full">
                  FULLSCREEN (ESC)
                </Badge>
              )}
            </div>
            
-           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 max-w-full">
+           <div className="flex items-center gap-2 shrink-0 max-w-full">
              {/* Language Selector */}
              {allowedLanguages.length > 1 ? (
                <Select value={language} onValueChange={(v) => { if (v) handleLanguageChange(v as CodingLanguage); }}>
-                 <SelectTrigger className="h-7 sm:h-7.5 w-[90px] xs:w-[105px] sm:w-[115px] md:w-[125px] text-xs font-semibold border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 shadow-2xs rounded-lg truncate shrink-0">
+                 <SelectTrigger className="h-8 w-auto min-w-[90px] px-3.5 text-xs font-semibold border-gray-200 bg-white text-slate-800 shadow-2xs rounded-full truncate shrink-0">
                    <SelectValue className="truncate whitespace-nowrap" />
                  </SelectTrigger>
                  <SelectContent>
@@ -783,13 +845,13 @@ export function CodeEditor({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="h-7 sm:h-7.5 px-2.5 sm:px-3 flex items-center justify-center text-xs border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 rounded-lg font-semibold shadow-2xs whitespace-nowrap truncate shrink-0">
+                <div className="h-8 px-3.5 flex items-center justify-center text-xs border border-gray-200 bg-white text-slate-800 rounded-full font-semibold shadow-2xs whitespace-nowrap truncate shrink-0">
                   {getCleanLanguageName(dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language)}
                 </div>
               )}
 
               {language === "sql" && (
-                <Badge variant="outline" className="h-7 sm:h-7.5 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 flex items-center gap-1 shrink-0">
+                <Badge variant="outline" className="h-8 text-[10px] font-bold px-2.5 bg-blue-50 text-blue-600 border-blue-200 flex items-center gap-1 shrink-0 rounded-full">
                   <span>DB:</span>
                   <span className="uppercase">{(problem?.sql_engine || "sqlite")}</span>
                 </Badge>
@@ -799,11 +861,11 @@ export function CodeEditor({
              <Button
                variant="ghost"
                size="icon"
-               className="h-7 sm:h-7.5 w-7 sm:w-7.5 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg shrink-0 hidden md:inline-flex"
+               className="h-8 w-8 text-slate-500 hover:text-slate-900 rounded-full hover:bg-slate-100 shrink-0 hidden md:inline-flex"
                onClick={handleReset}
                title="Reset to starter template"
              >
-               <RotateCcw className="h-3.5 w-3.5" />
+               <RotateCcw className="h-4 w-4" />
              </Button>
 
              {/* Fullscreen Toggle (Desktop/Tablet) */}
@@ -811,22 +873,22 @@ export function CodeEditor({
                variant="ghost"
                size="icon"
                className={cn(
-                 "h-7 sm:h-7.5 w-7 sm:w-7.5 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg transition-colors shrink-0 hidden md:inline-flex",
-                 isFullscreen && "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50"
+                 "h-8 w-8 text-slate-500 hover:text-slate-900 rounded-full hover:bg-slate-100 transition-colors shrink-0 hidden md:inline-flex",
+                 isFullscreen && "text-blue-600 bg-blue-50"
                )}
                onClick={toggleFullscreen}
                title={isFullscreen ? "Exit Fullscreen (Esc)" : "Fullscreen Code Editor"}
              >
-               {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+               {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
              </Button>
 
              {/* Mobile More Options Dropdown */}
              <div className="md:hidden">
                <DropdownMenu>
-                 <DropdownMenuTrigger className="h-7 w-7 text-gray-500 hover:text-gray-900 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-lg shrink-0 flex items-center justify-center cursor-pointer hover:bg-gray-200/50 dark:hover:bg-zinc-800">
-                   <MoreHorizontal className="h-3.5 w-3.5" />
+                 <DropdownMenuTrigger className="h-8 w-8 text-gray-500 hover:text-gray-900 rounded-full shrink-0 flex items-center justify-center cursor-pointer hover:bg-gray-100">
+                   <MoreHorizontal className="h-4 w-4" />
                  </DropdownMenuTrigger>
-                 <DropdownMenuContent align="end" className="w-44 bg-white dark:bg-[#18181B] border border-gray-200 dark:border-zinc-800 shadow-md rounded-xl p-1">
+                 <DropdownMenuContent align="end" className="w-44 bg-white border border-gray-200 shadow-md rounded-xl p-1">
                    <DropdownMenuItem onClick={handleReset} className="text-xs cursor-pointer">
                      <RotateCcw className="h-3.5 w-3.5 mr-2 inline text-blue-600" />
                      <span>Reset Template</span>
@@ -842,7 +904,7 @@ export function CodeEditor({
              {/* Run Code Button (Always visible, shrink-0) */}
              <Button
                size="sm"
-               className="h-7 sm:h-7.5 px-2 sm:px-3 text-xs font-semibold bg-[#16A34A] hover:bg-[#15803D] text-white gap-1 sm:gap-1.5 rounded-lg shadow-sm shrink-0"
+               className="h-8 px-3.5 text-xs font-semibold bg-[#10B981] hover:bg-[#059669] text-white gap-1.5 rounded-xl shadow-xs shrink-0"
                onClick={() => handleRun()}
                disabled={isRunning || readOnly}
                title="Run Code (Ctrl+Enter)"
@@ -859,7 +921,7 @@ export function CodeEditor({
              {showSubmit && onSubmit && (
                <Button
                  size="sm"
-                 className="h-7 sm:h-7.5 px-2.5 sm:px-3.5 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1 sm:gap-1.5 rounded-lg shadow-sm shrink-0"
+                 className="h-8 px-4 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1.5 rounded-xl shadow-xs shrink-0"
                  onClick={() => handleSubmit()}
                  disabled={isSubmitting || readOnly}
                  title="Submit Solution (Ctrl+Shift+Enter)"
@@ -870,7 +932,7 @@ export function CodeEditor({
              )}
 
              {showNavigatorToggle && onToggleNavigator && (
-                <Button variant="ghost" size="icon" className="h-7 sm:h-7.5 w-7 sm:w-7.5 text-gray-400 hover:text-blue-600 rounded-lg shrink-0" onClick={onToggleNavigator} title="Show Question Navigator">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600 rounded-full shrink-0" onClick={onToggleNavigator} title="Show Question Navigator">
                   <PanelRightOpen className="h-4 w-4" />
                 </Button>
               )}
@@ -878,10 +940,10 @@ export function CodeEditor({
         </div>
 
         {/* Monaco Editor Body */}
-        <div ref={editorContainerRef} className="flex-1 min-h-0 min-w-0 w-full h-full relative overflow-hidden bg-white dark:bg-[#141417]">
+        <div ref={editorContainerRef} className="flex-1 min-h-0 min-w-0 w-full h-full relative overflow-hidden bg-white">
           {language === "html" || language === "css" || language === "react" ? (
             <div className="grid grid-cols-2 h-full">
-              <div className="h-full border-r border-gray-200 dark:border-zinc-800">
+              <div className="h-full border-r border-gray-200">
                 {useFallbackTextarea ? (
                   <textarea
                     value={code}
@@ -891,7 +953,8 @@ export function CodeEditor({
                       handleCodeChangeInternal(e.target.value);
                       handleTextareaSelect(e);
                     }}
-                    className="w-full h-full font-mono text-sm p-4 resize-none focus:outline-none bg-white dark:bg-[#141417] text-gray-800 dark:text-zinc-200"
+                    className="w-full h-full font-mono text-sm p-4 resize-none focus:outline-none bg-white text-slate-800"
+                    style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, Menlo, Monaco, monospace", tabSize: 4 }}
                     placeholder="Write your code here..."
                   />
                 ) : (
@@ -903,7 +966,8 @@ export function CodeEditor({
                         handleCodeChangeInternal(e.target.value);
                         handleTextareaSelect(e);
                       }}
-                      className="w-full h-full font-mono text-sm p-4 resize-none bg-white dark:bg-[#141417]"
+                      className="w-full h-full font-mono text-sm p-4 resize-none bg-white text-slate-800"
+                      style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, Menlo, Monaco, monospace", tabSize: 4 }}
                     />
                   }>
                     <MonacoEditor
@@ -916,9 +980,11 @@ export function CodeEditor({
                       height="100%"
                       options={{
                         fixedOverflowWidgets: true,
-                        fontSize,
-                        lineHeight: Math.round(fontSize * 1.6),
-                        fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, Menlo, Monaco, monospace",
+                        fontSize: 14.5,
+                        lineHeight: 26,
+                        fontFamily: '"JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, Menlo, Monaco, monospace',
+                        fontWeight: "400",
+                        letterSpacing: 0,
                         fontLigatures: true,
                         minimap: { enabled: showMinimap, scale: 1, renderCharacters: false },
                         scrollBeyondLastLine: false,
@@ -930,11 +996,15 @@ export function CodeEditor({
                         foldingHighlight: true,
                         foldingStrategy: "auto",
                         showFoldingControls: "mouseover",
-                        renderLineHighlight: "all",
+                        renderLineHighlight: "none",
                         renderLineHighlightOnlyWhenFocus: false,
                         tabSize,
                         insertSpaces: true,
                         detectIndentation: false,
+                        autoIndent: "full" as any,
+                        formatOnPaste: true,
+                        formatOnType: true,
+                        trimAutoWhitespace: true,
                         autoClosingBrackets: "always",
                         autoClosingQuotes: "always",
                         autoClosingOvertype: "always",
@@ -946,16 +1016,16 @@ export function CodeEditor({
                         cursorSmoothCaretAnimation: "on",
                         cursorWidth: 2,
                         smoothScrolling: true,
-                        bracketPairColorization: { enabled: true, independentColorPoolPerBracketType: true },
+                        bracketPairColorization: { enabled: false },
                         guides: {
                           indentation: true,
-                          bracketPairs: true,
-                          bracketPairsHorizontal: true,
+                          bracketPairs: false,
+                          bracketPairsHorizontal: false,
                           highlightActiveIndentation: true,
                           highlightActiveBracketPair: true
                         },
                         matchBrackets: "always",
-                        padding: { top: 14, bottom: 14 },
+                        padding: { top: 16, bottom: 16 },
                         suggestFontSize: 13,
                         suggestLineHeight: 22,
                         quickSuggestions: { other: true, comments: true, strings: true },
@@ -964,6 +1034,7 @@ export function CodeEditor({
                         acceptSuggestionOnEnter: "smart",
                         tabCompletion: "on",
                         wordBasedSuggestions: "allDocuments",
+                        "semanticHighlighting.enabled": true,
                       }}
                     />
                   </MonacoErrorBoundary>
@@ -985,7 +1056,8 @@ export function CodeEditor({
                 handleCodeChangeInternal(e.target.value);
                 handleTextareaSelect(e);
               }}
-              className="w-full h-full font-mono text-sm p-4 resize-none focus:outline-none bg-white dark:bg-[#141417] text-gray-800 dark:text-zinc-200"
+              className="w-full h-full font-mono text-sm p-4 resize-none focus:outline-none bg-white text-slate-800"
+              style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, Menlo, Monaco, monospace", tabSize: 4 }}
               placeholder="Write your code here..."
             />
           ) : (
@@ -997,7 +1069,8 @@ export function CodeEditor({
                   handleCodeChangeInternal(e.target.value);
                   handleTextareaSelect(e);
                 }}
-                className="w-full h-full font-mono text-sm p-4 resize-none bg-white dark:bg-[#141417]"
+                className="w-full h-full font-mono text-sm p-4 resize-none bg-white text-slate-800"
+                style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, Menlo, Monaco, monospace", tabSize: 4 }}
               />
             }>
               <MonacoEditor
@@ -1010,9 +1083,11 @@ export function CodeEditor({
                 height="100%"
                 options={{
                   fixedOverflowWidgets: true,
-                  fontSize,
-                  lineHeight: Math.round(fontSize * 1.6),
-                  fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, Menlo, Monaco, monospace",
+                  fontSize: 14.5,
+                  lineHeight: 26,
+                  fontFamily: '"JetBrains Mono", "Fira Code", "SFMono-Regular", Consolas, Menlo, Monaco, monospace',
+                  fontWeight: "400",
+                  letterSpacing: 0,
                   fontLigatures: true,
                   minimap: { enabled: showMinimap, scale: 1, renderCharacters: false },
                   scrollBeyondLastLine: false,
@@ -1024,11 +1099,15 @@ export function CodeEditor({
                   foldingHighlight: true,
                   foldingStrategy: "auto",
                   showFoldingControls: "mouseover",
-                  renderLineHighlight: "all",
+                  renderLineHighlight: "none",
                   renderLineHighlightOnlyWhenFocus: false,
                   tabSize,
                   insertSpaces: true,
                   detectIndentation: false,
+                  autoIndent: "full" as any,
+                  formatOnPaste: true,
+                  formatOnType: true,
+                  trimAutoWhitespace: true,
                   autoClosingBrackets: "always",
                   autoClosingQuotes: "always",
                   autoClosingOvertype: "always",
@@ -1040,16 +1119,16 @@ export function CodeEditor({
                   cursorSmoothCaretAnimation: "on",
                   cursorWidth: 2,
                   smoothScrolling: true,
-                  bracketPairColorization: { enabled: true, independentColorPoolPerBracketType: true },
+                  bracketPairColorization: { enabled: false },
                   guides: {
                     indentation: true,
-                    bracketPairs: true,
-                    bracketPairsHorizontal: true,
+                    bracketPairs: false,
+                    bracketPairsHorizontal: false,
                     highlightActiveIndentation: true,
                     highlightActiveBracketPair: true
                   },
                   matchBrackets: "always",
-                  padding: { top: 14, bottom: 14 },
+                  padding: { top: 16, bottom: 16 },
                   suggestFontSize: 13,
                   suggestLineHeight: 22,
                   quickSuggestions: { other: true, comments: true, strings: true },
@@ -1058,6 +1137,7 @@ export function CodeEditor({
                   acceptSuggestionOnEnter: "smart",
                   tabCompletion: "on",
                   wordBasedSuggestions: "allDocuments",
+                  "semanticHighlighting.enabled": true,
                 }}
               />
             </MonacoErrorBoundary>
@@ -1065,22 +1145,27 @@ export function CodeEditor({
         </div>
 
         {/* ── Editor Status Bar ── */}
-        <div className="h-7 px-3.5 bg-[#F8FAFC] dark:bg-[#18181C] border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between text-xs select-none shrink-0 z-10">
-          <div className="flex items-center gap-3">
-            <span className="font-mono text-slate-600 dark:text-zinc-400 text-[11px] font-medium tracking-tight">
+        <div className="h-8 px-4 bg-white border-t border-gray-100 flex items-center text-xs select-none shrink-0 z-10 font-mono">
+          <div className="flex items-center gap-4 text-[12px] text-slate-600">
+            <span title="Cursor Position" className="hover:text-slate-900 transition-colors">
               Ln {cursorPos.line}, Col {cursorPos.col}
+              {selectedCharsCount > 0 && <span className="text-slate-400 font-sans ml-1 text-[11px]">({selectedCharsCount} selected)</span>}
             </span>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 shadow-2xs">
-              <span className="h-2 w-2 rounded-full bg-blue-600" />
-              <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-200">
-                {getCleanLanguageName(dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language)}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 font-mono text-slate-500 dark:text-zinc-400 text-[11px]">
-            <span>UTF-8</span>
-            <span>Spaces: {tabSize}</span>
-            <span>{fontSize}px</span>
+            <span className="text-slate-300">|</span>
+            <button
+              type="button"
+              onClick={toggleTabSize}
+              title="Click to toggle tab indentation (2 / 4 spaces)"
+              className="hover:text-blue-600 hover:bg-slate-100 px-1 py-0.5 rounded transition-all cursor-pointer font-medium"
+            >
+              Spaces: {tabSize}
+            </button>
+            <span className="text-slate-300">|</span>
+            <span title="File Encoding: UTF-8" className="text-slate-600">UTF-8</span>
+            <span className="text-slate-300">|</span>
+            <span title="Active Language" className="font-semibold text-slate-800">
+              {getCleanLanguageName(dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language)}
+            </span>
           </div>
         </div>
       </div>

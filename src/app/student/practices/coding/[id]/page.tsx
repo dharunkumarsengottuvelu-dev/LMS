@@ -303,7 +303,7 @@ export default function PracticeCodingRunnerPage() {
         {/* Right Code Editor & Jobe Execution Panel */}
         <div
           className={cn(
-            "flex-1 flex flex-col h-full bg-[#09090B] overflow-hidden",
+            "flex-1 flex flex-col h-full bg-white overflow-hidden",
             mobileTab === "editor" ? "flex" : "hidden md:flex"
           )}
         >
