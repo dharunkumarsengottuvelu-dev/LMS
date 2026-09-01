@@ -32,7 +32,10 @@ import {
   ChevronsUpDown,
   List,
   Minus,
-  Plus
+  Plus,
+  ArrowLeft,
+  User,
+  Video
 } from "lucide-react";
 
 export interface VideoPlayerConfig {
@@ -538,55 +541,81 @@ export default function StudentCoursePlayerPage() {
 
   return (
     <div className="w-full space-y-6 pb-12">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" className="h-9 px-3 text-xs font-semibold rounded-xl border-[#E5E7EB] dark:border-[#27272A]" asChild>
-            <Link href="/student/my-courses">
-              Back to Courses
-            </Link>
-          </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white capitalize">
+      {/* Top Header - Spacious Enterprise MNC Course Header */}
+      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs mb-6 overflow-visible">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+          {/* Left Column: Breadcrumb + Course Title + Instructor Metadata */}
+          <div className="min-w-0 flex-1 space-y-2">
+            {/* Breadcrumb Navigation */}
+            <div>
+              <Link
+                href="/student/my-courses"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
+                <span>Back to My Courses</span>
+              </Link>
+            </div>
+
+            {/* Course Title & Category Badge */}
+            <div className="flex items-center gap-3 flex-wrap py-0.5">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-normal">
                 {courseTitle}
               </h1>
-              <Badge variant="outline" className="text-[10px] text-blue-600 dark:text-blue-400 border-blue-600/30 bg-blue-600/5">
-                {courseCategory}
-              </Badge>
+              {courseCategory && (
+                <Badge variant="outline" className="text-xs font-semibold text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/50 bg-blue-50/80 dark:bg-blue-950/30 px-3 py-1 rounded-full shrink-0 shadow-2xs">
+                  {courseCategory}
+                </Badge>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">Instructor: {courseInstructor}</p>
+
+            {/* Instructor & Lesson Information */}
+            <div className="flex items-center gap-3.5 text-xs sm:text-sm text-slate-500 dark:text-zinc-400 flex-wrap pt-0.5">
+              <span className="flex items-center gap-1.5">
+                <User className="h-4 w-4 text-slate-400 shrink-0" />
+                <span>Instructor: <strong className="font-semibold text-slate-700 dark:text-zinc-200">{courseInstructor}</strong></span>
+              </span>
+              {activeLesson?.title && (
+                <>
+                  <span className="text-slate-300 dark:text-zinc-700 hidden sm:inline">•</span>
+                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-300">
+                    <BookOpen className="h-4 w-4 text-slate-400 shrink-0" />
+                    <span>Lesson: <strong className="font-semibold text-slate-800 dark:text-white">{activeLesson.title}</strong></span>
+                  </span>
+                </>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Content Type Badge & Minimize Sidebar Toggle */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsSidebarMinimized((prev) => !prev)}
-            className="h-9 px-3 text-xs font-semibold rounded-xl border-[#E5E7EB] dark:border-[#27272A] flex items-center gap-1.5 hover:border-[#2563EB]/50 transition-colors"
-            title={isSidebarMinimized ? "Show Course Curriculum Sidebar" : "Minimize Sidebar to Full Screen"}
-          >
-            {isSidebarMinimized ? (
-              <>
-                <PanelRightOpen className="h-4 w-4 text-[#2563EB]" />
-                <span>Show Curriculum</span>
-              </>
-            ) : (
-              <>
-                <PanelRightClose className="h-4 w-4 text-[#6B7280]" />
-                <span className="hidden sm:inline">Minimize Sidebar</span>
-              </>
-            )}
-          </Button>
+          {/* Right Column: Actions & Lesson Mode Badge */}
+          <div className="flex items-center gap-3 shrink-0 self-start lg:self-center pt-2 lg:pt-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSidebarMinimized((prev) => !prev)}
+              className="h-10 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 flex items-center gap-2 transition-all shadow-2xs"
+              title={isSidebarMinimized ? "Show Course Curriculum Sidebar" : "Minimize Sidebar to Full Screen"}
+            >
+              {isSidebarMinimized ? (
+                <>
+                  <PanelRightOpen className="h-4 w-4 text-[#2563EB]" />
+                  <span>Show Curriculum</span>
+                </>
+              ) : (
+                <>
+                  <PanelRightClose className="h-4 w-4 text-slate-500" />
+                  <span className="hidden sm:inline">Minimize Sidebar</span>
+                </>
+              )}
+            </Button>
 
-          <Badge className="px-3 py-1 text-xs font-semibold uppercase bg-[#2563EB] text-white">
-            {activeLesson.type === "video" && "Video Lesson"}
-            {activeLesson.type === "mcq" && "MCQ Quiz Lesson"}
-            {activeLesson.type === "coding" && "Coding Practice Lesson"}
-            {activeLesson.type === "reading" && "Reading Document"}
-          </Badge>
+            <Badge className="h-10 px-4 text-xs font-bold uppercase tracking-wider bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl shadow-xs flex items-center gap-2 shrink-0 border-0">
+              {activeLesson.type === "video" && <><Video className="h-4 w-4" /> Video Lesson</>}
+              {activeLesson.type === "mcq" && <><CheckCircle2 className="h-4 w-4" /> MCQ Quiz</>}
+              {activeLesson.type === "coding" && <><Code2 className="h-4 w-4" /> Coding Practice</>}
+              {activeLesson.type === "reading" && <><BookOpen className="h-4 w-4" /> Reading Document</>}
+            </Badge>
+          </div>
         </div>
       </div>
 

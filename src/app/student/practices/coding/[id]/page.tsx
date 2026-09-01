@@ -145,37 +145,41 @@ export default function PracticeCodingRunnerPage() {
 
   return (
     <div className="flex flex-col h-screen h-[100dvh] bg-[#F9FAFB] dark:bg-[#09090B] overflow-hidden">
-      {/* Top Runner Navbar */}
-      <header className="h-14 border-b border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] px-3 sm:px-4 flex items-center justify-between shrink-0 z-10 gap-2">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+      {/* Top Runner Navbar - Enterprise MNC Layout */}
+      <header className="h-14 border-b border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B] px-3 sm:px-5 flex items-center justify-between shrink-0 z-10 gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={handleBack}
-            className="h-8 px-2 sm:px-2.5 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground rounded-lg shrink-0"
+            className="h-8 px-2.5 sm:px-3 text-xs font-semibold gap-1.5 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 rounded-xl shrink-0 shadow-2xs"
           >
-            <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Back to Practice Track</span><span className="sm:hidden">Back</span>
+            <ArrowLeft className="h-3.5 w-3.5 text-slate-400" />
+            <span className="hidden sm:inline">Back to Practice Track</span>
+            <span className="sm:hidden">Back</span>
           </Button>
-          <div className="h-4 w-[1px] bg-border shrink-0" />
+
+          <div className="h-5 w-px bg-slate-200 dark:bg-zinc-700 shrink-0 hidden sm:block" />
+
           <div className="flex items-center gap-2 min-w-0">
             <Code2 className="h-4 w-4 text-[#2563EB] shrink-0" />
-            <span className="text-xs sm:text-sm font-bold text-[#111827] dark:text-[#FAFAFA] truncate">
+            <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
               {problem.title}
             </span>
           </div>
         </div>
 
         {/* Mobile View Tab Switcher & Difficulty */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Mobile Tab Toggle */}
-          <div className="flex md:hidden bg-muted/60 p-0.5 rounded-lg border border-border">
+          <div className="flex md:hidden bg-slate-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-slate-200 dark:border-zinc-700">
             <button
               onClick={() => setMobileTab("problem")}
               className={cn(
                 "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all",
                 mobileTab === "problem"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs"
+                  : "text-slate-500 hover:text-slate-900"
               )}
             >
               Problem
@@ -185,8 +189,8 @@ export default function PracticeCodingRunnerPage() {
               className={cn(
                 "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all",
                 mobileTab === "editor"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-2xs"
+                  : "text-slate-500 hover:text-slate-900"
               )}
             >
               Code
@@ -194,18 +198,19 @@ export default function PracticeCodingRunnerPage() {
           </div>
 
           <Badge
-            className={`text-[10px] uppercase font-bold px-2 py-0.5 ${
+            className={cn(
+              "text-[10px] uppercase font-bold px-2.5 py-0.5 rounded-md",
               problem.difficulty === "easy"
-                ? "bg-green-600 text-white"
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
                 : problem.difficulty === "hard"
-                ? "bg-red-600 text-white"
-                : "bg-amber-600 text-white"
-            }`}
+                ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800"
+                : "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800"
+            )}
           >
             {problem.difficulty}
           </Badge>
           {submissionResult?.status === "accepted" && (
-            <Badge className="bg-[#16A34A] text-white text-[10px] uppercase font-bold hidden sm:flex items-center gap-1">
+            <Badge className="bg-emerald-600 text-white text-[10px] uppercase font-bold hidden sm:flex items-center gap-1 rounded-md px-2 py-0.5">
               <CheckCircle2 className="h-3 w-3" /> Solved
             </Badge>
           )}

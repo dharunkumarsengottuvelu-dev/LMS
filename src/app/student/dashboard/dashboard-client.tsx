@@ -61,6 +61,7 @@ function StatCard({
 
 import { useState, useEffect } from "react";
 import { useLMSStore } from "@/lib/store/lms-store";
+import { computeTrackProgress } from "@/lib/practice-progress";
 
 export function StudentDashboardClient({ data }: { data: StudentDashboardData }) {
   const upcomingEvents: any[] = [];
@@ -115,69 +116,25 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
 
   // Enrich practice tracks with live dynamic progress and in-progress submodule detection
   const enrichedPracticeTracks = storeTracks.map((track: any) => {
-    const subModules = track.subModules || track.sub_modules || [];
-    let completedCount = 0;
-    let nextSubModuleToContinue: any = null;
-    let hasActiveSession = false;
-    let totalProgressSum = 0;
-
-    subModules.forEach((sm: any, idx: number) => {
-      let isDone = sm.status === "completed";
-      let isInProgress = false;
-      let ansCount = 0;
-
-      if (isMounted && !isDone) {
-        if (localStorage.getItem(`lms_completed_assessment_${sm.id}`)) {
-          isDone = true;
-        } else {
-          const session = localStorage.getItem(`lms_practice_session_${sm.id}`);
-          if (session) {
-            try {
-              const parsed = JSON.parse(session);
-              const ansLen = Object.keys(parsed.answers || {}).length;
-              const codeLen = Object.keys(parsed.codeAnswers || {}).length;
-              ansCount = ansLen + codeLen;
-              if (ansCount > 0) {
-                isInProgress = true;
-                hasActiveSession = true;
-              }
-            } catch {}
-          }
-        }
-      }
-
-      if (isDone) {
-        completedCount++;
-        totalProgressSum += 100;
-      } else {
-        if (isInProgress) {
-          const qCount = sm.questionCount || (sm.codingQuestions?.length || 0) + (sm.mcqQuestions?.length || 0) || 1;
-          totalProgressSum += Math.min(99, Math.max(1, Math.round((ansCount / qCount) * 100)));
-        }
-        if (!nextSubModuleToContinue) {
-          nextSubModuleToContinue = { ...sm, subModuleIndex: idx + 1, isInProgress };
-        }
-      }
-    });
-
-    const totalCount = subModules.length || 1;
-    const computedProgress = Math.round(totalProgressSum / totalCount);
-    const progressPercentage = track.progressPercentage !== undefined && track.progressPercentage > 0
-      ? Math.max(track.progressPercentage, computedProgress)
-      : computedProgress;
-    const targetSubModule = nextSubModuleToContinue || subModules[0];
+    const {
+      progressPercentage,
+      completedSubModulesCount,
+      totalSubModulesCount,
+      nextSubModuleToContinue,
+      hasActiveSession,
+    } = computeTrackProgress(track, isMounted);
 
     return {
       id: track.id,
       title: track.title,
       category: track.category || "Practice Track",
       type: "practice",
-      completedCount,
-      totalCount,
+      completedCount: completedSubModulesCount,
+      totalCount: totalSubModulesCount,
       progressPercentage,
-      targetSubModule,
+      targetSubModule: nextSubModuleToContinue,
       hasActiveSession,
-      isCompleted: progressPercentage === 100 && totalCount > 0,
+      isCompleted: progressPercentage === 100 && totalSubModulesCount > 0,
     };
   });
 
@@ -189,28 +146,30 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
 
   return (
     <div className="space-y-8 w-full pb-12">
-      {/* 1. Welcome Banner Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border animate-fade-up">
-        <div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.15] tracking-tight text-foreground">
-            Welcome back, {firstName}
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-2 font-normal">
-            Track your active courses, practice modules, and ongoing technical learning tracks.
-          </p>
-        </div>
+      {/* 1. Welcome Banner Header - Spacious Enterprise MNC Card */}
+      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs overflow-visible">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+          <div className="space-y-1.5 flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
+              Welcome back, {firstName}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-2xl leading-relaxed font-normal">
+              Track your active courses, practice modules, and ongoing technical learning tracks.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <Button className="h-[44px] px-6 gap-2" asChild>
-            <Link href="/student/practices" prefetch={true}>
-              <Code2 className="h-4 w-4" /> Practice Hub
-            </Link>
-          </Button>
-          <Button variant="outline" className="h-[44px] px-5 gap-2" asChild>
-            <Link href="/student/tests" prefetch={true}>
-              <Calendar className="h-4 w-4 text-primary" /> Scheduled Tests
-            </Link>
-          </Button>
+          <div className="flex items-center gap-3 shrink-0 pt-2 lg:pt-0">
+            <Button className="h-10 px-5 gap-2 font-bold text-xs rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs" asChild>
+              <Link href="/student/practices" prefetch={true}>
+                <Code2 className="h-4 w-4" /> Practice Hub
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-10 px-4 gap-2 font-semibold text-xs rounded-xl border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 shadow-2xs" asChild>
+              <Link href="/student/tests" prefetch={true}>
+                <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Scheduled Tests
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
 

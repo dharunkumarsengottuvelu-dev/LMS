@@ -688,52 +688,15 @@ export default function AssessmentTakePage() {
 
     return (
       <div className="w-full max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6 animate-in fade-in duration-300">
-        {/* Navigation Bar */}
-        <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 px-4 text-xs font-semibold gap-2 border-slate-200 dark:border-zinc-800 rounded-full hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-300 shadow-xs"
-            onClick={() => {
-              if (trackIdParam) {
-                router.push(`/student/practices/${trackIdParam}`);
-              } else {
-                router.push("/student/practices");
-              }
-            }}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to Practice Track
-          </Button>
-        </div>
-
-        {/* Overview Header Card */}
-        <Card className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-xs overflow-hidden">
-          <div className="p-6 md:p-8 space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-2">
-              <div className="space-y-2.5 flex-1 min-w-0">
-                <span className="inline-block bg-emerald-50 text-emerald-600 border border-emerald-200/70 text-xs font-semibold px-3 py-1 rounded-full">
-                  Completed
-                </span>
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.15] max-w-4xl">
-                  {currentSubModule.title}
-                </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-normal pt-0.5">
-                  Assigned by <span className="font-semibold text-slate-800 dark:text-slate-200">{currentSubModule.assignedBy}</span> • {questions.length} Total Questions
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRetake}
-                  className="h-9 px-4 text-xs font-semibold gap-1.5 rounded-full border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" /> Retake Practice
-                </Button>
-                <Button
-                  size="sm"
+        {/* Overview Header Card - Spacious Enterprise MNC Card */}
+        <div className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl shadow-xs overflow-visible p-5 sm:p-7 space-y-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+            {/* Header Left */}
+            <div className="space-y-2.5 flex-1 min-w-0">
+              {/* Breadcrumb Navigation */}
+              <div>
+                <button
+                  type="button"
                   onClick={() => {
                     if (trackIdParam) {
                       router.push(`/student/practices/${trackIdParam}`);
@@ -741,45 +704,83 @@ export default function AssessmentTakePage() {
                       router.push("/student/practices");
                     }
                   }}
-                  className="h-9 px-5 text-xs font-semibold gap-1.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5"
                 >
-                  Done
-                </Button>
+                  <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
+                  <span>Back to Practice Track</span>
+                </button>
               </div>
+
+              <div className="flex items-center gap-3 flex-wrap py-0.5">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
+                  {currentSubModule.title}
+                </h1>
+                <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/70 text-xs font-semibold px-3 py-1 rounded-full dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 shrink-0">
+                  Completed
+                </Badge>
+              </div>
+
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 font-normal pt-0.5">
+                Assigned by <strong className="font-semibold text-slate-800 dark:text-slate-200">{currentSubModule.assignedBy}</strong> • {questions.length} Total Questions
+              </p>
             </div>
 
-            {/* Metrics Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 pt-2">
-              <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
-                <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">FINAL SCORE</p>
-                <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1">
-                  {completedRecord.score} <span className="text-xs font-medium text-slate-400">/ {completedRecord.totalMarks}</span>
-                </p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
-                <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-500">RESULT STATUS</p>
-                <p className="text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-500 mt-1">
-                  {isPassed ? "Passed" : "Completed"}
-                </p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
-                <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">TIME TAKEN</p>
-                <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1">
-                  {formatDuration(completedRecord.timeSpentSeconds)}
-                </p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
-                <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">COMPLETED AT</p>
-                <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1 truncate" title={formatCompletedDateTime(completedRecord.submittedAt)}>
-                  {formatCompletedDateTime(completedRecord.submittedAt)}
-                </p>
-              </div>
+            <div className="flex items-center gap-3 shrink-0 self-start lg:self-center pt-2 lg:pt-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRetake}
+                className="h-10 px-4 text-xs font-semibold gap-1.5 rounded-xl border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-2xs"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Retake Practice
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (trackIdParam) {
+                    router.push(`/student/practices/${trackIdParam}`);
+                  } else {
+                    router.push("/student/practices");
+                  }
+                }}
+                className="h-10 px-5 text-xs font-bold gap-1.5 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs"
+              >
+                Continue Track
+              </Button>
             </div>
           </div>
-        </Card>
+
+          {/* Metrics Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 pt-2">
+            <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">FINAL SCORE</p>
+              <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1">
+                {completedRecord.score} <span className="text-xs font-medium text-slate-400">/ {completedRecord.totalMarks}</span>
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-500">RESULT STATUS</p>
+              <p className="text-base sm:text-lg font-bold text-emerald-600 dark:text-emerald-500 mt-1">
+                {isPassed ? "Passed" : "Completed"}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">TIME TAKEN</p>
+              <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1">
+                {formatDuration(completedRecord.timeSpentSeconds)}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-[#F8FAFC]/70 dark:bg-zinc-900/40 border border-slate-200/60 dark:border-zinc-800">
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">COMPLETED AT</p>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1 truncate" title={formatCompletedDateTime(completedRecord.submittedAt)}>
+                {formatCompletedDateTime(completedRecord.submittedAt)}
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* Question Review Section Header & Filters */}
         <div className="space-y-4 pt-2">
@@ -1052,21 +1053,11 @@ export default function AssessmentTakePage() {
   }
 
   return (
-    <div className="w-full px-3 sm:px-6 lg:px-8 py-3 space-y-4">
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 px-3 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] rounded-xl hover:bg-muted"
-          onClick={() => router.back()}
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Track
-        </Button>
-      </div>
-
+    <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-6 space-y-4">
       <PracticeRunnerEngine
         module={currentSubModule}
         questions={questions}
+        onBack={() => router.back()}
         onSubmit={handleSubmit}
       />
     </div>

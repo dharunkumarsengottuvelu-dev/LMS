@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
-  User, Mail, Phone, Globe, Save, Lock, Shield, Edit3, X,
+  User, Mail, Phone, Globe, Save, Lock, Shield, Edit3, X, ArrowLeft,
   BookOpen, CheckCircle2, Award, Calendar, Layers, Key, Code2, Link2,
   ExternalLink, Terminal, Cpu, BarChart3, Clock, TrendingUp, ArrowUpRight,
   Dumbbell, ClipboardList, Check, Filter, Search, Inbox, Laptop, Download, Loader2, CalendarDays
@@ -35,6 +36,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getInitials, cn } from "@/lib/utils";
 
 export default function StudentProfilePage() {
+  const router = useRouter();
   const { profile, user } = useAuth();
   const { toast } = useToast();
 
@@ -392,15 +394,30 @@ export default function StudentProfilePage() {
 
   return (
     <div className="w-full space-y-6 pb-16">
-      {/* 1. Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div>
-          <h1 className="text-3xl font-extrabold text-[#111827] dark:text-[#FAFAFA] tracking-tight">
-            Student Profile
-          </h1>
-          <p className="text-xs text-[#6B7280] mt-1">
-            Manage your personal profile, credentials, and detailed learning analyses
-          </p>
+      {/* 1. Page Header - Spacious Enterprise MNC Card */}
+      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs overflow-visible">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+          {/* Left Column: Breadcrumb + Title + Subtitle */}
+          <div className="space-y-2 flex-1 min-w-0">
+            <div>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
+                <span>Back</span>
+              </button>
+            </div>
+
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
+              Student Profile & Account
+            </h1>
+
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal">
+              Manage your personal profile, credentials, and detailed learning analyses
+            </p>
+          </div>
         </div>
       </div>
 

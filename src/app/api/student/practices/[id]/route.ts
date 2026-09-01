@@ -143,22 +143,61 @@ export async function GET(
       }
     });
 
+    let totalQuestionsAcrossTrack = 0;
+    let completedQuestionsAcrossTrack = 0;
+
     const enrichedSubModules = subModules.map((sm: any, idx: number) => {
       const problems = codingProblemsMap[sm.id] || [];
-      const attempt = attemptsMap.get(sm.id) || attemptsMap.get(track.id);
-      const isAttemptCompleted = Boolean(attempt);
-      const allProblemsCompleted =
-        problems.length > 0 && problems.every((p: any) => completedProblemsMap.has(p.id));
-      const anyProblemCompleted =
-        problems.length > 0 && problems.some((p: any) => completedProblemsMap.has(p.id));
-
-      const isCompleted = isAttemptCompleted || allProblemsCompleted;
-      const isInProgress = !isCompleted && anyProblemCompleted;
-
       const combinedCodingQuestions =
         sm.codingQuestions && sm.codingQuestions.length > 0
           ? sm.codingQuestions
           : problems;
+
+      const directMcqs = sm.mcqQuestions?.length || sm.mcqs?.length || 0;
+      const sectionMcqs = sm.sections?.flatMap((s: any) => s.mcqQuestions || []).length || 0;
+      const mcqsCount = Math.max(directMcqs, sectionMcqs);
+      const codingCount = combinedCodingQuestions.length;
+
+      let modTotalQuestions = mcqsCount + codingCount;
+      if (modTotalQuestions === 0) {
+        modTotalQuestions = sm.questionCount || sm.question_count || 1;
+      }
+
+      const attempt = attemptsMap.get(sm.id);
+      const isAttemptCompleted = Boolean(
+        attempt && (attempt.status === "submitted" || attempt.status === "auto_submitted" || attempt.status === "passed")
+      );
+
+      const solvedCodingCount = combinedCodingQuestions.filter((p: any) => completedProblemsMap.has(p.id)).length;
+
+      let modCompletedQuestions = 0;
+      let isCompleted = false;
+      let isInProgress = false;
+
+      if (isAttemptCompleted) {
+        isCompleted = true;
+        modCompletedQuestions = modTotalQuestions;
+      } else if (solvedCodingCount > 0) {
+        modCompletedQuestions = Math.min(modTotalQuestions, solvedCodingCount);
+        if (modCompletedQuestions >= modTotalQuestions && modTotalQuestions > 0) {
+          isCompleted = true;
+        } else {
+          isInProgress = true;
+        }
+      } else if (attempt && attempt.status === "in_progress") {
+        isInProgress = true;
+        const ansCount = Object.keys(attempt.answers || {}).length;
+        modCompletedQuestions = Math.min(modTotalQuestions, ansCount);
+      }
+
+      totalQuestionsAcrossTrack += modTotalQuestions;
+      completedQuestionsAcrossTrack += modCompletedQuestions;
+
+      const status: "not_started" | "in_progress" | "completed" = isCompleted
+        ? "completed"
+        : isInProgress
+        ? "in_progress"
+        : "not_started";
 
       return {
         ...sm,
@@ -169,11 +208,10 @@ export async function GET(
         type: sm.type || "coding",
         durationMinutes: typeof sm.durationMinutes === "number" ? sm.durationMinutes : (typeof sm.duration_minutes === "number" ? sm.duration_minutes : 0),
         totalMarks: sm.totalMarks || sm.total_marks || 100,
-        questionCount:
-          combinedCodingQuestions.length > 0
-            ? combinedCodingQuestions.length
-            : sm.questionCount || 1,
-        status: isCompleted ? "completed" : "not_started",
+        questionCount: modTotalQuestions,
+        totalQuestions: modTotalQuestions,
+        completedQuestions: modCompletedQuestions,
+        status,
         score: attempt ? attempt.score : isCompleted ? sm.totalMarks || 100 : 0,
         sections: sm.sections || [],
         codingProblems: combinedCodingQuestions,
@@ -191,7 +229,11 @@ export async function GET(
     const totalSubModules = enrichedSubModules.length;
     const completedCount = enrichedSubModules.filter((sm: any) => sm.status === "completed").length;
     const progressPercentage =
-      totalSubModules > 0 ? Math.round((completedCount / totalSubModules) * 100) : 0;
+      totalQuestionsAcrossTrack > 0
+        ? Math.min(100, Math.max(0, Math.round((completedQuestionsAcrossTrack / totalQuestionsAcrossTrack) * 100)))
+        : completedCount === totalSubModules && totalSubModules > 0
+        ? 100
+        : 0;
 
     return NextResponse.json(
       {
@@ -205,6 +247,10 @@ export async function GET(
           subModules: enrichedSubModules,
           totalSubModules,
           completedCount,
+          totalModules: totalSubModules,
+          completedModules: completedCount,
+          totalQuestions: totalQuestionsAcrossTrack,
+          completedQuestions: completedQuestionsAcrossTrack,
           progressPercentage,
         },
       },

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, FolderKanban, Clock, CheckCircle2, Play, Code2, Layers,
   ClipboardList, ShieldCheck, MonitorCheck, Maximize, CopyX, Award, Check,
-  ChevronRight, BookOpen, AlertCircle, Loader2, RefreshCw, Eye, RotateCcw
+  ChevronRight, BookOpen, AlertCircle, Loader2, RefreshCw, Eye, RotateCcw, User
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { getPracticeTrackProgress } from "@/lib/practice-progress";
 
 interface SubModuleItem {
   id: string;
@@ -41,6 +42,50 @@ interface PracticeTrack {
   subModules: SubModuleItem[];
 }
 
+const getProgressStyles = (percent: number, isDone: boolean) => {
+  if (isDone || percent >= 100) {
+    return {
+      stroke: "text-emerald-500",
+      text: "text-emerald-600 dark:text-emerald-400",
+      badge: "bg-emerald-600 text-white",
+      pillBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    };
+  }
+  if (percent === 0) {
+    return {
+      stroke: "text-transparent",
+      text: "text-slate-400 dark:text-zinc-500",
+      badge: "bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300",
+      pillBg: "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400 border-slate-200 dark:border-zinc-700",
+    };
+  }
+  if (percent < 40) {
+    // 1% - 39%: Warm Vibrant Amber
+    return {
+      stroke: "text-amber-500",
+      text: "text-amber-500 dark:text-amber-400",
+      badge: "bg-amber-500 text-white",
+      pillBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    };
+  }
+  if (percent < 80) {
+    // 40% - 79%: Royal Blue
+    return {
+      stroke: "text-blue-600",
+      text: "text-blue-600 dark:text-blue-400",
+      badge: "bg-blue-600 text-white",
+      pillBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30",
+    };
+  }
+  // 80% - 99%: Teal
+  return {
+    stroke: "text-teal-500",
+    text: "text-teal-600 dark:text-teal-400",
+    badge: "bg-teal-600 text-white",
+    pillBg: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/30",
+  };
+};
+
 export default function StudentTrackDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -51,6 +96,7 @@ export default function StudentTrackDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [storageTick, setStorageTick] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
 
   const fetchTrackDetails = async () => {
     if (!trackId) return;
@@ -81,6 +127,7 @@ export default function StudentTrackDetailPage() {
   };
 
   useEffect(() => {
+    setIsMounted(true);
     fetchTrackDetails();
     setStorageTick((t) => t + 1);
 
@@ -136,172 +183,133 @@ export default function StudentTrackDetailPage() {
     );
   }
 
-  // Calculate live dynamic statuses for all submodules with Database as primary source of truth
-  const subModulesWithStatus = (track.subModules || []).map((sub) => {
-    // Accurate calculation of total questions for this submodule
-    const directMcqs = (sub as any).mcqQuestions?.length || (sub as any).mcqs?.length || 0;
-    const directCoding = (sub as any).codingQuestions?.length || (sub as any).codingProblems?.length || 0;
-    const sectionMcqs = (sub as any).sections?.flatMap((s: any) => s.mcqQuestions || []).length || 0;
-    const sectionCoding = (sub as any).sections?.flatMap((s: any) => s.codingQuestions || []).length || 0;
+  // Authoritative dynamic overall track progress and module details across any number of modules
+  const trackProgress = getPracticeTrackProgress(track.subModules || [], isMounted);
+  const {
+    totalModules: totalSubModulesCount,
+    completedModules: completedSubModulesCount,
+    totalQuestions: totalTrackQuestions,
+    completedQuestions: totalAnsweredQuestions,
+    percentage: dynamicProgressPercentage,
+    moduleDetails,
+    nextSubModuleToContinue,
+    resumeQuestionLabel,
+  } = trackProgress;
 
-    const mcqsCount = Math.max(directMcqs, sectionMcqs);
-    const codingCount = Math.max(
-      directCoding,
-      sectionCoding,
-      (sub.type === "coding" || (sub as any).problemDescription) && (mcqsCount + directCoding + sectionCoding === 0) ? 1 : 0
-    );
-
-    let totalQuestionsCount = mcqsCount + codingCount;
-    if (totalQuestionsCount === 0) {
-      totalQuestionsCount = sub.questionCount || 1;
-    }
-
-    // Database-backed completion status
-    const isDbCompleted = sub.status === "completed";
-    let isLocalInProgress = false;
-    let isLocalCompleted = isDbCompleted;
-    let localScore: number | null = sub.score ?? null;
-    let localAttemptsCount = 1;
-    let answeredQuestionsCount = isDbCompleted ? totalQuestionsCount : 0;
-
-    if (typeof window !== "undefined") {
-      try {
-        const sessionKey = `lms_practice_session_${sub.id}`;
-        const session = localStorage.getItem(sessionKey);
-        const submittedMarker = localStorage.getItem(`${sessionKey}_submitted`);
-
-        if (session && !submittedMarker && !isDbCompleted) {
-          isLocalInProgress = true;
-          const parsed = JSON.parse(session);
-          
-          const answeredKeys = new Set<string>();
-          Object.entries(parsed.answers || {}).forEach(([k, v]) => {
-            if (!v) return;
-            if (Array.isArray(v) && v.length > 0) answeredKeys.add(k);
-            else if (typeof v === "string" && v.trim().length > 0) answeredKeys.add(k);
-            else if (typeof v === "object" && (v as any).code && (v as any).code.trim().length > 0) answeredKeys.add(k);
-          });
-
-          Object.entries(parsed.codeAnswers || {}).forEach(([k, v]: any) => {
-            if (v && v.code && v.code.trim().length > 0) {
-              answeredKeys.add(k);
-            }
-          });
-
-          answeredQuestionsCount = Math.min(totalQuestionsCount, answeredKeys.size);
-        }
-
-        const resultKey = `lms_completed_assessment_${sub.id}`;
-        const resStr = localStorage.getItem(resultKey);
-        if (resStr || submittedMarker === "true") {
-          isLocalCompleted = true;
-          if (resStr) {
-            try {
-              const parsedRes = JSON.parse(resStr);
-              if (parsedRes.score !== undefined) localScore = parsedRes.score;
-              if (parsedRes.attemptsCount) localAttemptsCount = parsedRes.attemptsCount;
-            } catch {}
-          }
-        }
-      } catch {}
-    }
-
-    const isCompleted = isDbCompleted || isLocalCompleted;
-    const isInProgress = !isCompleted && (sub.status === "in_progress" || isLocalInProgress);
-    const maxAtt = (sub as any).maxAttempts ?? (track as any).maxAttempts ?? 0;
-    const isLocked = isCompleted && maxAtt === 1;
-
-    if (isCompleted) {
-      answeredQuestionsCount = totalQuestionsCount;
-    }
-
-    const rawPercent = totalQuestionsCount > 0 ? Math.round((answeredQuestionsCount / totalQuestionsCount) * 100) : 0;
-    const moduleProgressPercent = isCompleted
-      ? 100
-      : isInProgress
-      ? Math.min(99, Math.max(0, rawPercent))
-      : 0;
-
-    return {
-      ...sub,
-      isCompleted,
-      isInProgress,
-      localScore,
-      localAttemptsCount,
-      isLocked,
-      mcqsCount,
-      codingCount,
-      totalQuestionsCount,
-      moduleProgressPercent,
-      answeredQuestionsCount,
-    };
-  });
-
-  const totalSubModulesCount = subModulesWithStatus.length || track.totalSubModules || 1;
-  const completedSubModulesCount = subModulesWithStatus.filter((s) => s.isCompleted).length;
-
-  const totalTrackQuestions = subModulesWithStatus.reduce((acc, s) => acc + s.totalQuestionsCount, 0);
-  const totalAnsweredQuestions = subModulesWithStatus.reduce(
-    (acc, s) => acc + (s.isCompleted ? s.totalQuestionsCount : s.answeredQuestionsCount),
-    0
-  );
-
-  const dynamicProgressPercentage = totalTrackQuestions > 0
-    ? Math.round((totalAnsweredQuestions / totalTrackQuestions) * 100)
-    : completedSubModulesCount === totalSubModulesCount
-    ? 100
-    : 0;
+  const headerProgressStyles = getProgressStyles(dynamicProgressPercentage, dynamicProgressPercentage === 100);
 
   return (
     <div className="w-full space-y-8 pb-12">
-      {/* Back Button */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] rounded-xl hover:bg-muted"
-        onClick={() => router.push("/student/practices")}
-      >
-        <ArrowLeft className="h-4 w-4" /> Back to Practices
-      </Button>
+      {/* Top Header - Spacious Enterprise MNC Track Header */}
+      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs overflow-visible">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          {/* Left Column: Breadcrumb + Track Title + Description + Metadata */}
+          <div className="min-w-0 flex-1 space-y-2.5">
+            {/* Breadcrumb Navigation */}
+            <div>
+              <button
+                type="button"
+                onClick={() => router.push("/student/practices")}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
+                <span>Back to Practice Tracks</span>
+              </button>
+            </div>
 
-      {/* Track Title Header */}
-      <div className="space-y-4 pb-6 border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="space-y-3">
-              <Badge className="bg-[#2563EB] text-white text-xs font-semibold px-2.5 py-0.5">
-                {track.category}
-              </Badge>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[#111827] dark:text-[#FAFAFA] leading-[1.15] max-w-4xl">
+            {/* Track Title & Category Badge */}
+            <div className="flex items-center gap-3 flex-wrap py-0.5">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-normal">
                 {track.title}
               </h1>
+              {track.category && (
+                <Badge variant="outline" className="text-xs font-semibold text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/50 bg-blue-50/80 dark:bg-blue-950/30 px-3 py-1 rounded-full shrink-0 shadow-2xs">
+                  {track.category}
+                </Badge>
+              )}
             </div>
-            <p className="text-sm sm:text-base text-muted-foreground max-w-3xl leading-relaxed font-normal">
+
+            {/* Track Description */}
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal">
               {track.description || "Interactive practice track for hands-on learning."}
             </p>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
-              <span>Assigned By: <strong className="text-foreground font-semibold">{track.assignedByName}</strong></span>
-              <span>•</span>
-              <span>{totalSubModulesCount} Practice Modules</span>
-              <span>•</span>
-              <span>{totalTrackQuestions} Total Questions</span>
+
+            {/* Instructor & Module Counts Metadata */}
+            <div className="flex items-center gap-3.5 text-xs text-slate-500 dark:text-zinc-400 flex-wrap pt-1">
+              <span className="flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <span>Assigned By: <strong className="font-semibold text-slate-700 dark:text-zinc-200">{track.assignedByName}</strong></span>
+              </span>
+              <span className="text-slate-300 dark:text-zinc-700">•</span>
+              <span className="flex items-center gap-1.5">
+                <FolderKanban className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <span>{totalSubModulesCount} Practice Modules</span>
+              </span>
+              <span className="text-slate-300 dark:text-zinc-700">•</span>
+              <span className="flex items-center gap-1.5">
+                <BookOpen className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <span>{totalTrackQuestions} Total Questions</span>
+              </span>
             </div>
           </div>
 
-          <div className="p-4 bg-white dark:bg-[#18181B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] shadow-sm shrink-0 space-y-2.5 min-w-[280px]">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground font-medium">Track Completion:</span>
-              <span className="font-bold text-[#16A34A]">{dynamicProgressPercentage}%</span>
-            </div>
-            <Progress value={dynamicProgressPercentage} className="h-2.5 bg-muted rounded-full" />
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-              <span>
-                {completedSubModulesCount} of {totalSubModulesCount} Modules Completed
-                {dynamicProgressPercentage > 0 && completedSubModulesCount < totalSubModulesCount
-                  ? ` (${totalAnsweredQuestions}/${totalTrackQuestions} Qs Answered)`
-                  : ""}
+          {/* Right Column: Compact Premium MNC Resume Learning Card */}
+          <div className="p-3.5 sm:p-4 bg-slate-50/90 dark:bg-zinc-900/80 rounded-xl border border-slate-200/80 dark:border-zinc-800/90 shadow-2xs shrink-0 space-y-2 min-w-[240px] max-w-[270px] flex flex-col justify-between">
+            {/* Header: Label & Completion Pill */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-bold tracking-wider uppercase text-slate-500 dark:text-zinc-400">
+                Active Module
               </span>
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200/80 dark:border-zinc-700 shadow-2xs">
+                <span className={cn("w-1.5 h-1.5 rounded-full", dynamicProgressPercentage === 100 ? "bg-emerald-500" : dynamicProgressPercentage > 0 ? "bg-amber-500 animate-pulse" : "bg-slate-400")} />
+                <span className={cn("text-[11px] font-bold", headerProgressStyles.text)}>
+                  {dynamicProgressPercentage}% Done
+                </span>
+              </div>
             </div>
+
+            {/* Active Module Title & Left-off Info */}
+            <div className="space-y-0.5">
+              <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white line-clamp-1">
+                {nextSubModuleToContinue?.title || moduleDetails[0]?.title || track.title}
+              </h4>
+              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400">
+                {totalAnsweredQuestions > 0 && dynamicProgressPercentage < 100 ? (
+                  <span className="font-medium text-slate-700 dark:text-zinc-300">
+                    Left off at: <strong className="text-blue-600 dark:text-blue-400 font-bold">{resumeQuestionLabel}</strong>
+                  </span>
+                ) : dynamicProgressPercentage === 100 ? (
+                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Finished
+                  </span>
+                ) : (
+                  <span>Ready to start</span>
+                )}
+                <span className="text-[10px] font-semibold text-slate-400">
+                  {totalAnsweredQuestions}/{totalTrackQuestions} Qs
+                </span>
+              </div>
+            </div>
+
+            {/* High-Impact MNC Action Button - Compact */}
+            {dynamicProgressPercentage < 100 && nextSubModuleToContinue ? (
+              <Button
+                onClick={() => handleStartSubModule(nextSubModuleToContinue.rawModule || nextSubModuleToContinue)}
+                className="w-full h-8 rounded-lg font-bold text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs gap-1.5 flex items-center justify-center transition-all group mt-1"
+              >
+                <Play className="h-3 w-3 fill-current transition-transform group-hover:scale-110" />
+                <span>{totalAnsweredQuestions > 0 ? "Continue" : "Start Practice"}</span>
+              </Button>
+            ) : (
+              <Button
+                onClick={() => handleStartSubModule(moduleDetails[0]?.rawModule || track.subModules[0])}
+                variant="outline"
+                className="w-full h-8 rounded-lg font-bold text-xs border-emerald-500/40 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 gap-1.5 flex items-center justify-center mt-1"
+              >
+                <Eye className="h-3 w-3" />
+                <span>Review Track</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -310,20 +318,33 @@ export default function StudentTrackDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl sm:text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">
-            Practice Modules ({subModulesWithStatus.length})
+            Practice Modules ({moduleDetails.length})
           </h2>
-          <Badge variant="outline" className="text-xs font-semibold border-[#2563EB] text-[#2563EB]">
-            {totalTrackQuestions} Total Questions ({totalSubModulesCount} Modules)
-          </Badge>
         </div>
 
         <div className="space-y-4">
-          {subModulesWithStatus.map((sub, idx) => {
-            const { isCompleted, isInProgress, localScore, isLocked, moduleProgressPercent, totalQuestionsCount, mcqsCount, codingCount, answeredQuestionsCount } = sub;
+          {moduleDetails.map((modDetail, idx) => {
+            const sub = modDetail.rawModule;
+            const {
+              isCompleted,
+              isInProgress,
+              totalQuestions: totalQuestionsCount,
+              completedQuestions: answeredQuestionsCount,
+              percentage: moduleProgressPercent,
+            } = modDetail;
+
+            const modStyles = getProgressStyles(moduleProgressPercent, isCompleted);
+            const directMcqs = (sub as any).mcqQuestions?.length || (sub as any).mcqs?.length || 0;
+            const directCoding = (sub as any).codingQuestions?.length || (sub as any).codingProblems?.length || 0;
+            const mcqsCount = directMcqs;
+            const codingCount = directCoding > 0 ? directCoding : Math.max(0, totalQuestionsCount - directMcqs);
+            const localScore = sub.score ?? null;
+            const maxAtt = (sub as any).maxAttempts ?? (track as any).maxAttempts ?? 0;
+            const isLocked = isCompleted && maxAtt === 1;
 
             return (
               <Card
-                key={sub.id}
+                key={sub.id || `mod_${idx}`}
                 className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden hover:border-[#2563EB]/60 transition-all"
               >
                 <div className="p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5">
@@ -346,8 +367,9 @@ export default function StudentTrackDetailPage() {
                         </Badge>
                       )}
                       {isInProgress && (
-                        <Badge className="bg-[#F59E0B] text-white text-[10px] font-bold">
-                          In Progress ({answeredQuestionsCount}/{totalQuestionsCount} Qs)
+                        <Badge className={cn("text-[10px] font-bold gap-1.5 flex items-center", modStyles.badge)}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          In Progress
                         </Badge>
                       )}
                     </div>
@@ -368,7 +390,7 @@ export default function StudentTrackDetailPage() {
 
                   {/* Circular Tracker & Action Button */}
                   <div className="flex items-center gap-3.5 shrink-0">
-                    {/* Clean Centered Circular Progress Tracker */}
+                    {/* Clean Centered Circular Progress Tracker with Multi-tier Colors */}
                     <div className="relative flex items-center justify-center w-10 h-10 shrink-0">
                       <svg className="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
                         {/* Background Track Circle */}
@@ -379,15 +401,9 @@ export default function StudentTrackDetailPage() {
                           fill="none"
                           d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
-                        {/* Dynamic Progress Fill */}
+                        {/* Dynamic Progress Fill with Multi-Stage Color */}
                         <path
-                          className={
-                            isCompleted
-                              ? "text-[#16A34A] transition-all duration-500"
-                              : isInProgress
-                              ? "text-[#F59E0B] transition-all duration-500"
-                              : "text-transparent"
-                          }
+                          className={cn("transition-all duration-500", modStyles.stroke)}
                           strokeDasharray={`${moduleProgressPercent}, 100`}
                           strokeWidth="3.5"
                           strokeLinecap="round"
@@ -397,15 +413,12 @@ export default function StudentTrackDetailPage() {
                         />
                       </svg>
 
-                      {/* Centered Indicator */}
+                      {/* Centered Indicator with Matching Percentage Text Color */}
                       <div className="absolute inset-0 flex items-center justify-center">
                         {isCompleted ? (
                           <CheckCircle2 className="h-4 w-4 text-[#16A34A]" />
                         ) : (
-                          <span className={cn(
-                            "text-[10px] font-black leading-none",
-                            isInProgress ? "text-[#F59E0B]" : "text-muted-foreground/80"
-                          )}>
+                          <span className={cn("text-[10px] font-black leading-none", modStyles.text)}>
                             {moduleProgressPercent}%
                           </span>
                         )}
@@ -442,15 +455,11 @@ export default function StudentTrackDetailPage() {
                       </div>
                     ) : (
                       <Button
-                        className={`h-11 px-6 font-bold gap-2 rounded-xl transition-all ${
-                          isInProgress
-                            ? "bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
-                            : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-sm"
-                        }`}
+                        className="h-11 px-6 font-bold gap-2 rounded-xl transition-all bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-sm"
                         onClick={() => handleStartSubModule(sub)}
                       >
-                        <Play className="h-4 w-4" />
-                        {isInProgress ? "Continue Module" : "Start Module"}
+                        <Play className="h-4 w-4 fill-current" />
+                        {isInProgress ? "Continue" : "Start Module"}
                       </Button>
                     )}
                   </div>

@@ -62,36 +62,40 @@ export default function StudentCoursesPage() {
 
   return (
     <div className="space-y-8 w-full pb-12">
-      {/* Back Button */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] rounded-xl hover:bg-muted"
-        onClick={() => router.back()}
-      >
-        <ArrowLeft className="h-4 w-4" /> Back
-      </Button>
+      {/* Top Header - Spacious Enterprise MNC Header */}
+      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs overflow-visible">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+          {/* Left: Breadcrumb & Title */}
+          <div className="space-y-2 flex-1 min-w-0">
+            <div>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
+                <span>Back</span>
+              </button>
+            </div>
 
-      {/* Title */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border animate-fade-up">
-        <div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.15] tracking-tight text-foreground">
-            My Enrolled Courses
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-2 font-normal">
-            Access your active training modules with playable video lessons and practice labs
-          </p>
-        </div>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
+              My Enrolled Courses
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal">
+              Access your active training modules with playable video lessons and practice labs
+            </p>
+          </div>
 
-        {/* Search */}
-        <div className="relative w-full md:w-72 animate-fade-up stagger-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search my courses..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-[44px] text-xs bg-background"
-          />
+          {/* Search */}
+          <div className="relative w-full lg:w-72 shrink-0">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search my courses..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10 h-10 text-xs bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-700 rounded-xl"
+            />
+          </div>
         </div>
       </div>
 

@@ -256,41 +256,46 @@ export default function StudentAssessmentsPage() {
 
   return (
     <div className="space-y-8 pb-12 w-full">
-      {/* Back Button */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] rounded-xl hover:bg-muted"
-        onClick={() => router.back()}
-      >
-        <ArrowLeft className="h-4 w-4" /> Back
-      </Button>
+      {/* Top Header - Spacious Enterprise MNC Header */}
+      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs overflow-visible">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+          {/* Left: Breadcrumb & Title */}
+          <div className="space-y-2 flex-1 min-w-0">
+            <div>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
+                <span>Back</span>
+              </button>
+            </div>
 
-      {/* Header */}
-      <div className="pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold leading-[1.15] tracking-tight text-[#111827] dark:text-[#FAFAFA]">
-            Scheduled Assessments & Tests
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-2 font-normal">
-            View your assigned examinations, live proctored assessments, and test schedules
-          </p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
+              Scheduled Assessments & Tests
+            </h1>
+
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal">
+              View your assigned examinations, live proctored assessments, and test schedules
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Tabs Filter */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className="bg-[#F3F4F6] dark:bg-[#18181B] p-1 h-12 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] w-fit flex gap-1">
-          <TabsTrigger value="all" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
+        <TabsList className="bg-slate-100 dark:bg-zinc-800/70 p-1 h-11 rounded-xl border border-slate-200/80 dark:border-zinc-800 w-fit flex gap-1">
+          <TabsTrigger value="all" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
             All Assessments ({assessments.length})
           </TabsTrigger>
-          <TabsTrigger value="live" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
+          <TabsTrigger value="live" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
             Live / Ready ({assessments.filter((t) => t.status === "live").length})
           </TabsTrigger>
-          <TabsTrigger value="upcoming" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
+          <TabsTrigger value="upcoming" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
             Upcoming ({assessments.filter((t) => t.status === "upcoming").length})
           </TabsTrigger>
-          <TabsTrigger value="completed" className="h-10 px-5 text-xs font-semibold rounded-lg data-[state=active]:bg-[#2563EB] data-[state=active]:text-white">
+          <TabsTrigger value="completed" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
             Completed ({assessments.filter((t) => t.status === "completed").length})
           </TabsTrigger>
         </TabsList>

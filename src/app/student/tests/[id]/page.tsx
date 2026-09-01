@@ -687,16 +687,16 @@ export default function StudentTestRunnerPage() {
   }[simpleFaceStatus] || { text: "Face Verified", color: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" };
 
   return (
-    <div className="w-full px-3 sm:px-6 lg:px-8 py-3 space-y-4 relative">
+    <div className="w-full px-3 sm:px-6 lg:px-8 py-4 space-y-4 relative">
       {/* Top Bar Back button */}
       <div className="flex items-center justify-between">
         <Button
           variant="outline"
           size="sm"
-          className="h-8 px-3 text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] rounded-xl hover:bg-muted"
+          className="h-8 px-3 text-xs font-semibold gap-1.5 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 rounded-xl shadow-2xs"
           onClick={() => router.push("/student/assessments")}
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Assessments
+          <ArrowLeft className="h-3.5 w-3.5 text-slate-400" /> Back to Assessments
         </Button>
 
         {/* Real-time Proctoring Alert Ribbon */}

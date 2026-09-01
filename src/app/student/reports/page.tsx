@@ -568,105 +568,109 @@ export default function StudentReportsPage() {
 
   return (
     <div className="p-6 sm:p-8 max-w-7xl mx-auto space-y-8">
-      {/* 1. Header with Back Button and Date Range Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.back()}
-            className="h-10 px-3.5 text-xs font-semibold gap-2 border-[#E5E7EB] dark:border-[#27272A] rounded-xl bg-white dark:bg-[#18181B] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A]"
-          >
-            <ArrowLeft className="h-4 w-4 text-[#2563EB]" />
-            Back
-          </Button>
+      {/* 1. Header with Back Button and Date Range Controls - Spacious Enterprise MNC Card */}
+      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs overflow-visible">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+          {/* Left Column: Breadcrumb + Title + Subtitle */}
+          <div className="space-y-2 flex-1 min-w-0">
+            <div>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
+                <span>Back</span>
+              </button>
+            </div>
 
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#111827] dark:text-[#FAFAFA] tracking-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
               Learning Reports & Performance Analytics
             </h1>
-            <p className="text-xs sm:text-sm text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">
+
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal">
               Live comprehensive report for Courses, Practice Labs, Proctored Assessments, and Platform Time.
             </p>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="h-10 px-4 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] text-xs font-bold text-[#2563EB] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] flex items-center gap-2 shadow-xs transition-colors">
-              <span>{dateRangeLabel}</span>
-              <Filter className="h-3.5 w-3.5 text-[#6B7280]" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-1.5 rounded-xl shadow-lg">
-              <DropdownMenuItem
-                onClick={() => setDateRange("7d")}
-                className={cn(
-                  "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
-                  dateRange === "7d" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
-                )}
-              >
-                <span>Last 7 days</span>
-                {dateRange === "7d" && <Check className="h-4 w-4 text-[#2563EB]" />}
-              </DropdownMenuItem>
+          {/* Right Column: Date Filter & Export Button */}
+          <div className="flex items-center gap-3 shrink-0 self-start lg:self-center pt-2 lg:pt-0 flex-wrap">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-2 shadow-2xs transition-colors">
+                <span>{dateRangeLabel}</span>
+                <Filter className="h-3.5 w-3.5 text-slate-400" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52 bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 p-1.5 rounded-xl shadow-lg">
+                <DropdownMenuItem
+                  onClick={() => setDateRange("7d")}
+                  className={cn(
+                    "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                    dateRange === "7d" ? "text-blue-600 bg-blue-50 dark:bg-blue-950/30" : "text-slate-900 dark:text-white"
+                  )}
+                >
+                  <span>Last 7 days</span>
+                  {dateRange === "7d" && <Check className="h-4 w-4 text-blue-600" />}
+                </DropdownMenuItem>
 
-              <DropdownMenuItem
-                onClick={() => setDateRange("14d")}
-                className={cn(
-                  "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
-                  dateRange === "14d" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
-                )}
-              >
-                <span>Last 14 days</span>
-                {dateRange === "14d" && <Check className="h-4 w-4 text-[#2563EB]" />}
-              </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setDateRange("14d")}
+                  className={cn(
+                    "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                    dateRange === "14d" ? "text-blue-600 bg-blue-50 dark:bg-blue-950/30" : "text-slate-900 dark:text-white"
+                  )}
+                >
+                  <span>Last 14 days</span>
+                  {dateRange === "14d" && <Check className="h-4 w-4 text-blue-600" />}
+                </DropdownMenuItem>
 
-              <DropdownMenuItem
-                onClick={() => setDateRange("30d")}
-                className={cn(
-                  "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
-                  dateRange === "30d" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
-                )}
-              >
-                <span>Last 30 days</span>
-                {dateRange === "30d" && <Check className="h-4 w-4 text-[#2563EB]" />}
-              </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setDateRange("30d")}
+                  className={cn(
+                    "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                    dateRange === "30d" ? "text-blue-600 bg-blue-50 dark:bg-blue-950/30" : "text-slate-900 dark:text-white"
+                  )}
+                >
+                  <span>Last 30 days</span>
+                  {dateRange === "30d" && <Check className="h-4 w-4 text-blue-600" />}
+                </DropdownMenuItem>
 
-              <DropdownMenuItem
-                onClick={() => setDateRange("all")}
-                className={cn(
-                  "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
-                  dateRange === "all" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
-                )}
-              >
-                <span>All time</span>
-                {dateRange === "all" && <Check className="h-4 w-4 text-[#2563EB]" />}
-              </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setDateRange("all")}
+                  className={cn(
+                    "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                    dateRange === "all" ? "text-blue-600 bg-blue-50 dark:bg-blue-950/30" : "text-slate-900 dark:text-white"
+                  )}
+                >
+                  <span>All time</span>
+                  {dateRange === "all" && <Check className="h-4 w-4 text-blue-600" />}
+                </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="my-1 bg-[#E5E7EB] dark:bg-[#27272A]" />
+                <DropdownMenuSeparator className="my-1 bg-slate-200 dark:bg-zinc-800" />
 
-              <DropdownMenuItem
-                onClick={() => setIsCustomModalOpen(true)}
-                className={cn(
-                  "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
-                  dateRange === "custom" ? "text-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20" : "text-[#111827] dark:text-[#FAFAFA]"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-3.5 w-3.5 text-[#2563EB]" />
-                  <span>Custom Date to Date...</span>
-                </div>
-                {dateRange === "custom" && <Check className="h-4 w-4 text-[#2563EB]" />}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuItem
+                  onClick={() => setIsCustomModalOpen(true)}
+                  className={cn(
+                    "flex items-center justify-between p-2.5 rounded-lg text-xs font-semibold cursor-pointer",
+                    dateRange === "custom" ? "text-blue-600 bg-blue-50 dark:bg-blue-950/30" : "text-slate-900 dark:text-white"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-3.5 w-3.5 text-blue-600" />
+                    <span>Custom Date to Date...</span>
+                  </div>
+                  {dateRange === "custom" && <Check className="h-4 w-4 text-blue-600" />}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          <Button
-            onClick={handleExportCsv}
-            variant="outline"
-            className="h-10 text-xs font-bold rounded-xl gap-2 bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
-          >
-            <Download className="h-4 w-4 text-[#2563EB]" /> Export Report (CSV)
-          </Button>
+            <Button
+              onClick={handleExportCsv}
+              variant="outline"
+              className="h-10 text-xs font-bold rounded-xl gap-2 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 shadow-2xs"
+            >
+              <Download className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Export Report (CSV)
+            </Button>
+          </div>
         </div>
       </div>
 

@@ -106,31 +106,77 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 5. Map tracks with real module counts and progress
+    // 5. Map tracks with real question-weighted module counts and overall progress strictly from Database
     const mappedTracks = authorizedTracks.map((track: any) => {
-      const isTrackAttempted = completedSubModuleIds.has(track.id);
+      let totalQuestionsAcrossTrack = 0;
+      let completedQuestionsAcrossTrack = 0;
 
       const subModules = (track.sub_modules || track.subModules || []).map((sm: any) => {
-        const isCompleted =
-          completedSubModuleIds.has(sm.id) ||
-          isTrackAttempted ||
-          (sm.problemId && completedProblemIds.has(sm.problemId));
+        const directMcqs = sm.mcqQuestions?.length || sm.mcqs?.length || 0;
+        const directCoding = sm.codingQuestions?.length || sm.codingProblems?.length || 0;
+        const sectionMcqs = sm.sections?.flatMap((s: any) => s.mcqQuestions || []).length || 0;
+        const sectionCoding = sm.sections?.flatMap((s: any) => s.codingQuestions || []).length || 0;
+        const mcqsCount = Math.max(directMcqs, sectionMcqs);
+        const codingCount = Math.max(
+          directCoding,
+          sectionCoding,
+          (sm.type === "coding" || sm.problemDescription) && (mcqsCount + directCoding + sectionCoding === 0) ? 1 : 0
+        );
+        let qCount = mcqsCount + codingCount;
+        if (qCount === 0) {
+          qCount = sm.questionCount || sm.question_count || sm.questions?.length || 1;
+        }
+
+        const isAttemptCompleted = completedSubModuleIds.has(sm.id);
+        const codingProblemsList = sm.codingQuestions || sm.codingProblems || [];
+        const solvedProblemsCount = codingProblemsList.filter((p: any) => completedProblemIds.has(p.id)).length;
+
+        let completedQuestionsInModule = 0;
+        let isCompleted = false;
+        let status: "not_started" | "in_progress" | "completed" = "not_started";
+
+        if (isAttemptCompleted) {
+          isCompleted = true;
+          completedQuestionsInModule = qCount;
+          status = "completed";
+        } else if (solvedProblemsCount > 0) {
+          completedQuestionsInModule = Math.min(qCount, solvedProblemsCount);
+          if (completedQuestionsInModule >= qCount && qCount > 0) {
+            isCompleted = true;
+            status = "completed";
+          } else {
+            status = "in_progress";
+          }
+        } else if (sm.problemId && completedProblemIds.has(sm.problemId)) {
+          isCompleted = true;
+          completedQuestionsInModule = qCount;
+          status = "completed";
+        }
+
+        totalQuestionsAcrossTrack += qCount;
+        completedQuestionsAcrossTrack += completedQuestionsInModule;
+
         return {
           id: sm.id,
           title: sm.title,
           type: sm.type || "coding",
           durationMinutes: typeof sm.durationMinutes === "number" ? sm.durationMinutes : (typeof sm.duration_minutes === "number" ? sm.duration_minutes : 0),
           totalMarks: sm.totalMarks || sm.total_marks || 100,
-          questionCount: sm.questionCount || sm.question_count || 1,
-          status: isCompleted ? "completed" : "not_started",
+          questionCount: qCount,
+          totalQuestions: qCount,
+          completedQuestions: completedQuestionsInModule,
+          status,
         };
       });
 
       const totalSubModules = subModules.length;
       const completedSubModules = subModules.filter((sm: any) => sm.status === "completed").length;
-      const totalProblems = subModules.reduce((acc: number, sm: any) => acc + (sm.questionCount || 1), 0);
       const progressPercentage =
-        totalSubModules > 0 ? Math.round((completedSubModules / totalSubModules) * 100) : 0;
+        totalQuestionsAcrossTrack > 0
+          ? Math.min(100, Math.max(0, Math.round((completedQuestionsAcrossTrack / totalQuestionsAcrossTrack) * 100)))
+          : completedSubModules === totalSubModules && totalSubModules > 0
+          ? 100
+          : 0;
 
       return {
         id: track.id,
@@ -141,7 +187,10 @@ export async function GET(request: NextRequest) {
         assignedByName: track.assigned_by_name || track.assignedByName || "Admin",
         subModules,
         totalModules: totalSubModules,
-        totalProblems,
+        totalProblems: totalQuestionsAcrossTrack,
+        totalQuestions: totalQuestionsAcrossTrack,
+        completedProblems: completedQuestionsAcrossTrack,
+        completedQuestions: completedQuestionsAcrossTrack,
         completedModules: completedSubModules,
         progressPercentage,
       };

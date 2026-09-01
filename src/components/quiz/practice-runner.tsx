@@ -47,6 +47,8 @@ export interface PracticeQuestion {
   explanation?: string;
 }
 
+import { useRouter } from "next/navigation";
+
 interface PracticeRunnerProps {
   module: {
     id: string;
@@ -67,6 +69,7 @@ interface PracticeRunnerProps {
   };
   questions: PracticeQuestion[];
   extraHeaderContent?: React.ReactNode;
+  onBack?: () => void;
   onSubmit: (
     answers: Record<string, any>,
     metadata?: { timeSpentSeconds: number; completedAt: string; timeLeft: number; submissionResults?: Record<string, any> }
@@ -77,8 +80,10 @@ export function PracticeRunnerEngine({
   module,
   questions,
   extraHeaderContent,
+  onBack,
   onSubmit,
 }: PracticeRunnerProps) {
+  const router = useRouter();
   const { toast } = useToast();
 
   // Separate questions by section
@@ -682,23 +687,23 @@ export function PracticeRunnerEngine({
   }, [currentQuestion]);
 
   const renderProblemStatementContent = (canHide = false) => (
-    <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden h-full flex flex-col min-w-0">
-      <CardHeader className="p-4 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] bg-muted/20 shrink-0">
+    <Card className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-2xl overflow-hidden h-full flex flex-col min-w-0">
+      <CardHeader className="p-4 sm:p-5 pb-3.5 border-b border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge className="bg-[#2563EB] text-white text-xs font-bold px-3 py-1">
+            <Badge className="bg-[#2563EB] text-white text-xs font-bold px-3 py-1 rounded-full shadow-2xs">
               Problem {codingIndex + 1} of {codingQuestions.length}
             </Badge>
             <Badge variant="outline" className={cn(
-              "text-[10px] font-bold uppercase px-2.5 py-0.5",
-              activeCodingProblem.difficulty === "easy" ? "border-green-500/30 text-green-600 bg-green-500/10" :
-              activeCodingProblem.difficulty === "hard" ? "border-red-500/30 text-red-600 bg-red-500/10" :
+              "text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full",
+              activeCodingProblem.difficulty === "easy" ? "border-emerald-500/30 text-emerald-600 bg-emerald-500/10" :
+              activeCodingProblem.difficulty === "hard" ? "border-rose-500/30 text-rose-600 bg-rose-500/10" :
               "border-amber-500/30 text-amber-600 bg-amber-500/10"
             )}>
               {activeCodingProblem.difficulty}
             </Badge>
             {currentQuestion?.marks && (
-              <Badge variant="outline" className="text-[10px] font-bold uppercase px-2.5 py-0.5 border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/10">
+              <Badge variant="outline" className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border-blue-500/30 text-blue-600 bg-blue-500/10">
                 +{currentQuestion.marks} Marks
               </Badge>
             )}
@@ -707,29 +712,29 @@ export function PracticeRunnerEngine({
             <button
               type="button"
               onClick={() => setShowProblemStatement(false)}
-              className="h-7 w-7 rounded-lg border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-center text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-muted transition-all shrink-0"
+              className="h-7 w-7 rounded-lg border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all shrink-0"
               title="Hide Problem Panel"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
           )}
         </div>
-        <CardTitle className="text-base font-bold text-foreground mt-2">
+        <CardTitle className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white mt-2 leading-snug">
           {activeCodingProblem.title}
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="p-4 space-y-4 text-xs leading-relaxed flex-1 overflow-y-auto min-h-0">
+      <CardContent className="p-4 sm:p-5 space-y-4 text-xs leading-relaxed flex-1 overflow-y-auto min-h-0">
         <div className="space-y-2">
-          <strong className="text-foreground text-sm block font-bold">Problem Statement</strong>
-          <p className="text-muted-foreground whitespace-pre-line leading-relaxed text-sm">
+          <strong className="text-slate-900 dark:text-white text-xs font-bold uppercase tracking-wider block">Problem Statement</strong>
+          <p className="text-slate-600 dark:text-zinc-400 whitespace-pre-line leading-relaxed text-sm">
             {activeCodingProblem.description}
           </p>
         </div>
 
         {/* SQL Mode 1: Provided Database Schema & Seed Data Inspector */}
         {activeCodingProblem.schema_sql && (
-          <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/40 space-y-2">
+          <div className="p-3.5 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-900/40 space-y-2">
             <div className="flex items-center justify-between">
               <strong className="text-[#2563EB] font-bold block text-xs flex items-center gap-1.5">
                 <Database className="h-3.5 w-3.5" /> Provided Database Schema (DDL)
@@ -738,13 +743,13 @@ export function PracticeRunnerEngine({
                 {activeCodingProblem.sql_engine || "sqlite"}
               </Badge>
             </div>
-            <pre className="text-foreground font-mono text-[10.5px] p-2 bg-background/80 rounded-lg border border-border/50 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+            <pre className="text-slate-900 dark:text-zinc-100 font-mono text-[11px] p-2.5 bg-white dark:bg-zinc-900 rounded-lg border border-slate-200 dark:border-zinc-800 overflow-x-auto whitespace-pre-wrap leading-relaxed">
               {activeCodingProblem.schema_sql}
             </pre>
             {activeCodingProblem.seed_sql && (
               <div className="pt-1.5 space-y-1">
-                <strong className="text-muted-foreground font-bold block text-[11px]">Sample Data (DML):</strong>
-                <pre className="text-muted-foreground font-mono text-[10px] p-2 bg-background/80 rounded-lg border border-border/50 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
+                <strong className="text-slate-500 font-bold block text-[11px]">Sample Data (DML):</strong>
+                <pre className="text-slate-600 dark:text-zinc-400 font-mono text-[10px] p-2 bg-white dark:bg-zinc-900 rounded-lg border border-slate-200 dark:border-zinc-800 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
                   {activeCodingProblem.seed_sql}
                 </pre>
               </div>
@@ -753,38 +758,38 @@ export function PracticeRunnerEngine({
         )}
 
         {activeCodingProblem.constraints && (
-          <div className="p-3 bg-muted/30 rounded-xl border border-border/60 space-y-1">
-            <strong className="text-foreground font-bold block">Constraints:</strong>
-            <code className="text-muted-foreground font-mono text-[11px] whitespace-pre-line">{activeCodingProblem.constraints}</code>
+          <div className="p-3.5 bg-slate-50/70 dark:bg-zinc-900/50 rounded-xl border border-slate-200/80 dark:border-zinc-800 space-y-1">
+            <strong className="text-slate-900 dark:text-white text-xs font-bold uppercase tracking-wider block">Constraints:</strong>
+            <code className="text-slate-600 dark:text-zinc-400 font-mono text-xs whitespace-pre-line leading-relaxed">{activeCodingProblem.constraints}</code>
           </div>
         )}
 
         {activeCodingProblem.input_format && (
-          <div className="p-3 bg-muted/30 rounded-xl border border-border/60 space-y-1">
-            <strong className="text-foreground font-bold block">Input Format:</strong>
-            <p className="text-muted-foreground whitespace-pre-line">{activeCodingProblem.input_format}</p>
+          <div className="p-3.5 bg-slate-50/70 dark:bg-zinc-900/50 rounded-xl border border-slate-200/80 dark:border-zinc-800 space-y-1">
+            <strong className="text-slate-900 dark:text-white text-xs font-bold uppercase tracking-wider block">Input Format:</strong>
+            <p className="text-slate-600 dark:text-zinc-400 whitespace-pre-line text-xs leading-relaxed">{activeCodingProblem.input_format}</p>
           </div>
         )}
 
         {activeCodingProblem.output_format && (
-          <div className="p-3 bg-muted/30 rounded-xl border border-border/60 space-y-1">
-            <strong className="text-foreground font-bold block">Output Format:</strong>
-            <p className="text-muted-foreground whitespace-pre-line">{activeCodingProblem.output_format}</p>
+          <div className="p-3.5 bg-slate-50/70 dark:bg-zinc-900/50 rounded-xl border border-slate-200/80 dark:border-zinc-800 space-y-1">
+            <strong className="text-slate-900 dark:text-white text-xs font-bold uppercase tracking-wider block">Output Format:</strong>
+            <p className="text-slate-600 dark:text-zinc-400 whitespace-pre-line text-xs leading-relaxed">{activeCodingProblem.output_format}</p>
           </div>
         )}
 
         {/* Sample Test Cases Table */}
         {activeCodingProblem.test_cases && activeCodingProblem.test_cases.length > 0 && (
           <div className="space-y-2 pt-1">
-            <strong className="text-foreground font-bold block">Sample Test Cases:</strong>
+            <strong className="text-slate-900 dark:text-white text-xs font-bold uppercase tracking-wider block">Sample Test Cases:</strong>
             {activeCodingProblem.test_cases.filter(tc => !tc.is_hidden).map((tc, idx) => (
-              <div key={tc.id || idx} className="p-3 rounded-xl bg-background border border-border/70 font-mono text-[11px] space-y-1.5">
+              <div key={tc.id || idx} className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-zinc-900/50 border border-slate-200/80 dark:border-zinc-800 font-mono text-xs space-y-2">
                 <div className="flex items-start gap-2">
-                  <span className="text-muted-foreground font-bold shrink-0">Input:</span>
-                  <pre className="text-foreground font-semibold whitespace-pre-wrap">{tc.input}</pre>
+                  <span className="text-slate-500 font-bold shrink-0">Input:</span>
+                  <pre className="text-slate-900 dark:text-zinc-100 font-semibold whitespace-pre-wrap">{tc.input}</pre>
                 </div>
-                <div className="flex items-start gap-2 pt-1 border-t border-border/40">
-                  <span className="text-muted-foreground font-bold shrink-0">Expected:</span>
+                <div className="flex items-start gap-2 pt-2 border-t border-slate-200/60 dark:border-zinc-800">
+                  <span className="text-slate-500 font-bold shrink-0">Expected:</span>
                   <pre className="text-emerald-600 dark:text-emerald-400 font-semibold whitespace-pre-wrap">{tc.expected_output}</pre>
                 </div>
               </div>
@@ -796,12 +801,12 @@ export function PracticeRunnerEngine({
   );
 
   const renderPaletteContent = (canHide = false) => (
-    <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden flex flex-col h-full min-w-0">
-      <CardHeader className="p-3 pb-2.5 border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0">
-        <CardTitle className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="truncate">Questions</span>
-            <Badge variant="outline" className="text-[9px] font-bold px-1.5 py-0">
+    <Card className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-2xl overflow-hidden flex flex-col h-full min-w-0">
+      <CardHeader className="p-4 pb-3 border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
+        <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="truncate font-bold text-sm">Questions</span>
+            <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 rounded-full border-slate-200 dark:border-zinc-700">
               {answeredCount}/{totalQuestions}
             </Badge>
           </div>
@@ -809,32 +814,32 @@ export function PracticeRunnerEngine({
             <button
               type="button"
               onClick={() => setShowQuestionPalette(false)}
-              className="h-6 w-6 rounded-lg border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-center text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-muted transition-all shrink-0"
+              className="h-7 w-7 rounded-lg border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all shrink-0"
               title="Hide Questions"
             >
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-4 w-4" />
             </button>
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-3 pb-6 space-y-3 flex-1 overflow-y-auto">
+      <CardContent className="p-4 space-y-4 flex-1 overflow-y-auto">
         {mcqQuestions.length > 0 && (
-          <div className="space-y-2">
-            <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5 truncate">
+          <div className="space-y-2.5">
+            <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 truncate">
               <ClipboardList className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
               <span className="truncate">{mcqQuestions[0]?.sectionTitle || (module as any).mcqSectionTitle || "Multiple Choice"}</span>
-              <span className="text-[10px] text-muted-foreground shrink-0">({mcqQuestions.length})</span>
+              <span className="text-[11px] text-slate-400 shrink-0">({mcqQuestions.length})</span>
             </span>
-            <div className="grid grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-5 gap-2">
               {mcqQuestions.map((q, idx) => {
                 const answered = isQuestionAnswered(q.id);
                 const marked = markedForReview.has(q.id);
                 const isCurrent = activeSection === "mcq" && mcqIndex === idx;
 
-                let style = "bg-[#F9FAFB] dark:bg-[#09090B] text-[#4B5563] dark:text-[#A1A1AA] border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB]/50";
+                let style = "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:border-blue-400";
                 if (isCurrent) style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold shadow-xs";
-                else if (marked) style = "bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B] font-bold";
-                else if (answered) style = "bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/40 font-bold";
+                else if (marked) style = "bg-amber-500/15 text-amber-600 border-amber-500/40 font-bold";
+                else if (answered) style = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 font-bold";
 
                 return (
                   <button
@@ -844,7 +849,7 @@ export function PracticeRunnerEngine({
                       setMcqIndex(idx);
                       setShowPaletteDrawer(false);
                     }}
-                    className={`h-8 w-full rounded-xl text-xs font-bold transition-all border flex items-center justify-center ${style}`}
+                    className={`h-9 w-full rounded-xl text-xs font-bold transition-all border flex items-center justify-center ${style}`}
                   >
                     {idx + 1}
                   </button>
@@ -855,30 +860,28 @@ export function PracticeRunnerEngine({
         )}
 
         {codingQuestions.length > 0 && (
-          <div className="space-y-2 pt-2 border-t border-border">
-            <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5 truncate">
+          <div className="space-y-2.5 pt-3 border-t border-slate-200/80 dark:border-zinc-800">
+            <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 truncate">
               <Code2 className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
               <span className="truncate">{codingQuestions[0]?.sectionTitle || (module as any).codingSectionTitle || "Coding Challenges"}</span>
-              <span className="text-[10px] text-muted-foreground shrink-0">({codingQuestions.length})</span>
+              <span className="text-[11px] text-slate-400 shrink-0">({codingQuestions.length})</span>
             </span>
-            <div className="grid grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-5 gap-2">
               {codingQuestions.map((cq, idx) => {
                 const isSubmitted = Boolean(submissionResults[cq.id]);
                 const isAttempted = isQuestionAttempted(cq.id);
                 const marked = markedForReview.has(cq.id);
                 const isCurrent = activeSection === "coding" && codingIndex === idx;
 
-                let style = "bg-[#F9FAFB] dark:bg-[#09090B] text-[#4B5563] dark:text-[#A1A1AA] border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB]/50";
+                let style = "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:border-blue-400";
                 if (isCurrent) {
                   style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold shadow-xs";
                 } else if (marked) {
-                  style = "bg-[#8B5CF6]/15 text-[#7C3AED] dark:text-[#A78BFA] border-[#8B5CF6]/50 font-bold";
+                  style = "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/40 font-bold";
                 } else if (isSubmitted) {
-                  // Only GREEN if user actually clicked Submit!
-                  style = "bg-[#16A34A]/15 text-[#16A34A] dark:text-emerald-400 border-[#16A34A]/50 font-bold";
+                  style = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 font-bold";
                 } else if (isAttempted) {
-                  // YELLOW / ORANGE if user wrote code / attempted without submitting!
-                  style = "bg-[#F59E0B]/20 text-[#D97706] dark:text-[#F59E0B] border-[#F59E0B]/50 font-bold";
+                  style = "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 font-bold";
                 }
 
                 return (
@@ -890,7 +893,7 @@ export function PracticeRunnerEngine({
                       setShowPaletteDrawer(false);
                       setMobileTab("editor");
                     }}
-                    className={`h-8 w-full rounded-xl text-xs font-bold transition-all border flex items-center justify-center ${style}`}
+                    className={`h-9 w-full rounded-xl text-xs font-bold transition-all border flex items-center justify-center ${style}`}
                     title={cq.title}
                   >
                     {idx + 1}
@@ -901,26 +904,26 @@ export function PracticeRunnerEngine({
           </div>
         )}
 
-        <div className="p-2.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-1.5 text-[10px]">
+        <div className="p-3.5 bg-slate-50/70 dark:bg-zinc-900/50 rounded-xl border border-slate-200/80 dark:border-zinc-800 space-y-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[#4B5563] dark:text-zinc-400">
-              <span className="w-2 h-2 rounded-full bg-[#16A34A]" /> Submitted
+            <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Submitted
             </span>
-            <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{answeredCount}</span>
+            <span className="font-bold text-slate-900 dark:text-white">{answeredCount}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[#4B5563] dark:text-zinc-400">
-              <span className="w-2 h-2 rounded-full bg-[#F59E0B]" /> In-Progress / Draft
+            <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> In-Progress / Draft
             </span>
-            <span className="font-bold text-[#D97706] dark:text-[#F59E0B]">
+            <span className="font-bold text-amber-600 dark:text-amber-400">
               {questions.filter((q) => isQuestionAttempted(q.id)).length}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[#4B5563] dark:text-zinc-400">
-              <span className="w-2 h-2 rounded-full bg-[#E5E7EB] dark:bg-zinc-700" /> Total Questions
+            <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-zinc-700" /> Total Questions
             </span>
-            <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{totalQuestions}</span>
+            <span className="font-bold text-slate-900 dark:text-white">{totalQuestions}</span>
           </div>
         </div>
       </CardContent>
@@ -996,41 +999,67 @@ export function PracticeRunnerEngine({
 
   return (
     <div className="space-y-4 w-full pb-28 relative">
-      <div className="sticky top-2 z-20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-base sm:text-lg font-bold text-[#111827] dark:text-[#FAFAFA] tracking-tight">
-              {module.title}
-            </h1>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-[#6B7280] font-medium pt-1 flex-wrap">
-            <span>Assigned by: <strong className="text-[#111827] dark:text-[#FAFAFA]">{module.assignedBy || (module as any).assignedByName || "Instructor"}</strong></span>
-            <span>•</span>
-            <span>Total Questions: <strong>{totalQuestions} ({mcqQuestions.length} MCQs, {codingQuestions.length} Coding Problems)</strong></span>
-            <span>•</span>
-            <span>Max Marks: <strong>{module.totalMarks > 0 ? module.totalMarks : questions.reduce((sum, q) => sum + (q.marks || 0), 0)}</strong></span>
-          </div>
-        </div>
+      {/* Top Header - Spacious Enterprise MNC Header */}
+      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-6 lg:p-7 shadow-xs overflow-visible">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          {/* Left Column: Integrated Breadcrumb + Title + Metadata */}
+          <div className="space-y-2 flex-1 min-w-0">
+            {/* Top Breadcrumb */}
+            <div>
+              <button
+                type="button"
+                onClick={onBack || (() => router.back())}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
+                <span>Back to Track</span>
+              </button>
+            </div>
 
-        {extraHeaderContent && (
-          <div className="flex items-center justify-center shrink-0">
-            {extraHeaderContent}
-          </div>
-        )}
+            {/* Main Row: Module Title */}
+            <div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+                {module.title}
+              </h1>
+            </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          {!isUntimed && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-              <Clock className="h-4 w-4 text-[#2563EB]" />
-              <span>{formatTimerDisplay(timeLeft)}</span>
+            {/* Metadata Row */}
+            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-zinc-400 font-normal leading-relaxed flex-wrap pt-0.5">
+              <span>
+                Assigned by: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{module.assignedBy || (module as any).assignedByName || "Instructor"}</strong>
+              </span>
+              <span>•</span>
+              <span>
+                Total Questions: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{totalQuestions} ({mcqQuestions.length} MCQs, {codingQuestions.length} Coding)</strong>
+              </span>
+              <span>•</span>
+              <span>
+                Max Marks: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{module.totalMarks > 0 ? module.totalMarks : questions.reduce((sum, q) => sum + (q.marks || 0), 0)}</strong>
+              </span>
+            </div>
+          </div>
+
+          {extraHeaderContent && (
+            <div className="flex items-center justify-center shrink-0">
+              {extraHeaderContent}
             </div>
           )}
-          <Button
-            onClick={handleInitiateSubmit}
-            className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-1.5 rounded-xl shadow-sm"
-          >
-            <Send className="h-3.5 w-3.5" /> Submit Practice
-          </Button>
+
+          {/* Right Column: Timer & Submit Action */}
+          <div className="flex items-center gap-3 shrink-0 self-start lg:self-center">
+            {!isUntimed && (
+              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white shadow-2xs">
+                <Clock className="h-4 w-4 text-[#2563EB]" />
+                <span>{formatTimerDisplay(timeLeft)}</span>
+              </div>
+            )}
+            <Button
+              onClick={handleInitiateSubmit}
+              className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-2 rounded-xl shadow-xs transition-all"
+            >
+              <Send className="h-3.5 w-3.5" /> Submit Practice
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -1179,20 +1208,20 @@ export function PracticeRunnerEngine({
           </div>
 
           {/* Desktop Responsive Workspace (>= lg / >= 1024px) */}
-          <div className="hidden lg:flex items-stretch gap-3.5 w-full h-[calc(100vh-210px)] min-h-[580px] max-h-[960px] transition-all">
+          <div className="hidden lg:flex items-stretch gap-4 w-full h-[calc(100vh-210px)] min-h-[580px] max-h-[920px] transition-all">
             {/* Left Problem Details Panel (Expandable / Collapsible) */}
             {showProblemStatement ? (
-              <div className="w-[30%] xl:w-[28%] min-w-[270px] max-w-[380px] h-full shrink-0">
+              <div className="w-[320px] xl:w-[350px] 2xl:w-[380px] h-full shrink-0">
                 {renderProblemStatementContent(true)}
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => setShowProblemStatement(true)}
-                className="h-full w-9 shrink-0 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-[#6B7280] hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
+                className="h-full w-9 shrink-0 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-slate-500 hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
                 title="Show Problem Details"
               >
-                <div className="w-6 h-6 rounded-full bg-muted group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
+                <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
                   <ChevronRight className="h-4 w-4" />
                 </div>
                 <span className="text-[11px] font-bold tracking-wider uppercase [writing-mode:vertical-rl] rotate-180">
@@ -1201,9 +1230,9 @@ export function PracticeRunnerEngine({
               </button>
             )}
 
-            {/* Middle Monaco CodeEditor (Flex-1 with min-w-0 for maximum space) */}
-            <div className="flex-1 min-w-[380px] sm:min-w-[420px] h-full overflow-hidden">
-              <div className="w-full h-full rounded-2xl overflow-hidden shadow-sm border border-[#E5E7EB] dark:border-[#27272A] bg-white">
+            {/* Middle Monaco CodeEditor (Flex-1 for maximum available editor width) */}
+            <div className="flex-1 min-w-[420px] h-full overflow-hidden">
+              <div className="w-full h-full rounded-2xl overflow-hidden shadow-xs border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B]">
                 <CodeEditor
                   key={activeCodingProblem.id}
                   problem={activeCodingProblem}
@@ -1227,17 +1256,17 @@ export function PracticeRunnerEngine({
 
             {/* Right Questions Panel (Responsive width, auto-collapsible) */}
             {showQuestionPalette ? (
-              <div className="w-[230px] xl:w-[250px] 2xl:w-[270px] shrink-0 h-full overflow-hidden">
+              <div className="w-[260px] xl:w-[280px] 2xl:w-[300px] shrink-0 h-full overflow-hidden">
                 {renderPaletteContent(true)}
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => setShowQuestionPalette(true)}
-                className="h-full w-9 shrink-0 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-[#6B7280] hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
+                className="h-full w-9 shrink-0 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-slate-500 hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
                 title="Show Questions"
               >
-                <div className="w-6 h-6 rounded-full bg-muted group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
+                <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
                   <ChevronLeft className="h-4 w-4" />
                 </div>
                 <span className="text-[11px] font-bold tracking-wider uppercase [writing-mode:vertical-rl] rotate-180">
@@ -1256,7 +1285,7 @@ export function PracticeRunnerEngine({
             )}
 
             {mobileTab === "editor" && (
-              <div className="w-full h-[calc(100vh-250px)] min-h-[520px] rounded-2xl overflow-hidden shadow-sm border border-[#E5E7EB] dark:border-[#27272A] bg-white">
+              <div className="w-full h-[calc(100vh-250px)] min-h-[520px] rounded-2xl overflow-hidden shadow-xs border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B]">
                 <CodeEditor
                   key={activeCodingProblem.id}
                   problem={activeCodingProblem}
@@ -1287,18 +1316,18 @@ export function PracticeRunnerEngine({
         </div>
       )}
 
-      {/* ── Sticky Bottom Navigation Bar (Always Visible, Never Hidden on Scroll) ── */}
-      <div className="sticky bottom-3 z-30 w-full bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-3 sm:p-3.5 px-4 sm:px-6 flex items-center justify-between shadow-xl select-none transition-all gap-2">
+      {/* ── Sticky Bottom Navigation Bar (Clean Enterprise Dock) ── */}
+      <div className="sticky bottom-4 z-30 w-full bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-3 px-4 sm:px-6 flex items-center justify-between shadow-lg select-none transition-all gap-4">
         {/* Left Side: Question context or actions */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           {activeSection === "mcq" && (
             <>
               <Button
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "h-9 px-3.5 text-xs font-semibold gap-1.5 rounded-full border-slate-200 dark:border-zinc-700",
-                  markedForReview.has(currentQuestion.id) ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]" : "text-[#4B5563]"
+                  "h-9 px-3.5 text-xs font-semibold gap-1.5 rounded-xl border-slate-200 dark:border-zinc-700",
+                  markedForReview.has(currentQuestion.id) ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]" : "text-slate-600 dark:text-zinc-400"
                 )}
                 onClick={() => toggleMarkForReview(currentQuestion.id)}
               >
@@ -1310,7 +1339,7 @@ export function PracticeRunnerEngine({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-9 px-3 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 gap-1 rounded-full hidden sm:flex"
+                  className="h-9 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 gap-1 rounded-xl hidden sm:flex"
                   onClick={() => handleClearAnswer(currentQuestion.id)}
                 >
                   <RotateCcw className="h-3.5 w-3.5" /> Clear Response
@@ -1319,18 +1348,18 @@ export function PracticeRunnerEngine({
             </>
           )}
           {activeSection === "coding" && (
-            <div className="flex items-center gap-2 min-w-0">
-              <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 font-bold uppercase text-[10px] shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 font-bold uppercase text-[10px] shrink-0 rounded-full px-2.5 py-0.5">
                 Problem {codingIndex + 1} of {codingQuestions.length}
               </Badge>
-              <span className="text-xs font-bold text-slate-700 dark:text-zinc-200 truncate hidden md:inline max-w-[150px] lg:max-w-xs">
+              <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate hidden md:inline max-w-[180px] lg:max-w-xs">
                 {activeCodingProblem.title}
               </span>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowPaletteDrawer(true)}
-                className="h-8 px-2.5 text-xs text-[#2563EB] border-[#2563EB]/30 rounded-xl xl:hidden flex items-center gap-1 font-bold shrink-0"
+                className="h-8 px-2.5 text-xs text-[#2563EB] border-blue-500/30 rounded-xl xl:hidden flex items-center gap-1 font-bold shrink-0"
               >
                 <ClipboardList className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Questions</span>
@@ -1339,12 +1368,12 @@ export function PracticeRunnerEngine({
           )}
         </div>
 
-        {/* Center: Grouped Pill Navigation */}
-        <div className="inline-flex items-center gap-1.5 sm:gap-3 shrink-0">
+        {/* Center: Grouped Navigation */}
+        <div className="inline-flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
             size="sm"
-            className="rounded-full px-3.5 sm:px-5 h-9 font-semibold text-xs border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 gap-1 sm:gap-1.5 shadow-2xs"
+            className="rounded-xl px-4 h-9 font-semibold text-xs border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 gap-1.5 shadow-2xs"
             disabled={activeSection === "mcq" ? mcqIndex === 0 : codingIndex === 0 && mcqQuestions.length === 0}
             onClick={handlePrevClick}
           >
@@ -1352,8 +1381,8 @@ export function PracticeRunnerEngine({
             <span className="hidden xs:inline">Prev</span>
           </Button>
 
-          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 h-9 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
-            <span className="h-2 w-2 rounded-full bg-[#3B82F6]" />
+          <div className="inline-flex items-center gap-2 px-3.5 h-9 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
+            <span className="h-2 w-2 rounded-full bg-[#2563EB]" />
             <span>
               {activeSection === "mcq"
                 ? `${mcqIndex + 1} of ${mcqQuestions.length}`
@@ -1363,7 +1392,7 @@ export function PracticeRunnerEngine({
 
           <Button
             size="sm"
-            className="rounded-full px-3.5 sm:px-5 h-9 font-bold text-xs bg-[#3B82F6] hover:bg-[#1D4ED8] text-white gap-1 sm:gap-1.5 shadow-sm"
+            className="rounded-xl px-4 h-9 font-bold text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1.5 shadow-xs"
             disabled={activeSection === "coding" && codingIndex === codingQuestions.length - 1}
             onClick={handleNextClick}
           >
@@ -1376,15 +1405,14 @@ export function PracticeRunnerEngine({
         </div>
 
         {/* Right Side: Review & Submit */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
             size="sm"
-            className="h-9 px-3 sm:px-4 text-xs font-bold rounded-xl border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10"
+            className="h-9 px-4 text-xs font-bold rounded-xl border-blue-500/40 text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-950/20 shadow-2xs"
             onClick={() => setShowReviewModal(true)}
           >
-            <span className="hidden sm:inline">Review & Submit</span>
-            <span className="sm:hidden">Submit</span>
+            <span>Review & Submit</span>
           </Button>
         </div>
       </div>
