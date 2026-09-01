@@ -62,6 +62,7 @@ function StatCard({
 import { useState, useEffect, useMemo } from "react";
 import { useLMSStore } from "@/lib/store/lms-store";
 import { computeTrackProgress } from "@/lib/practice-progress";
+import { computeCourseProgress, useCourseProgressVersion } from "@/lib/course-progress";
 
 export function StudentDashboardClient({ data }: { data: StudentDashboardData }) {
   const router = useRouter();
@@ -72,6 +73,9 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const [storeTracks, setStoreTracks] = useState<any[]>((data as any).initialTracks || []);
   const [storeAssessments, setStoreAssessments] = useState<any[]>((data as any).initialAssessments || (data as any).assessments || data.tests || []);
   const [isMounted, setIsMounted] = useState(false);
+
+  // Safe event-driven progress subscriber
+  const progressVersion = useCourseProgressVersion();
 
   // Dynamic Upcoming & Live Proctored Evaluations
   const upcomingEvents = useMemo(() => {
@@ -120,17 +124,23 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
     loadData();
   }, []);
 
-  const activeCourses = storeCourses.map((c: any) => ({
-    id: c.id,
-    title: c.title,
-    category: c.category || "Technical Training",
-    completedLessons: 0,
-    totalLessons: c.totalLessons || (c.modules?.length || 1),
-    progressPercentage: c.progress || 0,
-    nextLesson: c.modules?.[0]?.title || "Module 1 Overview",
-    slug: c.slug || c.id,
-    type: "course",
-  }));
+  const activeCourses = useMemo(() => {
+    return storeCourses.map((c: any) => {
+      const courseProgress = computeCourseProgress(c, isMounted);
+      return {
+        id: c.id,
+        title: c.title,
+        category: c.category || "Technical Training",
+        completedLessons: courseProgress.completedLearningUnits,
+        totalLessons: courseProgress.totalLearningUnits,
+        progressPercentage: courseProgress.progressPercentage,
+        nextLesson: courseProgress.nextLessonToResume?.title || "Module 1 Overview",
+        slug: c.slug || c.id,
+        type: "course",
+        isCompleted: courseProgress.isCompleted,
+      };
+    });
+  }, [storeCourses, isMounted, progressVersion]);
 
   // Enrich practice tracks with live dynamic progress and in-progress submodule detection
   const enrichedPracticeTracks = storeTracks.map((track: any) => {
@@ -303,15 +313,31 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                         </h3>
 
                         <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400">
-                          <span>Course</span>
+                          <span>{item.completedLessons} of {item.totalLessons} Lessons</span>
                           <span>•</span>
-                          <span className="text-blue-600 font-semibold">{item.progressPercentage}% Progress</span>
+                          <span className={item.isCompleted ? "text-emerald-600 font-semibold" : item.progressPercentage > 0 ? "text-blue-600 font-semibold" : "text-slate-700 dark:text-zinc-300 font-semibold"}>
+                            {item.progressPercentage}% Completed
+                          </span>
                         </div>
                       </div>
 
-                      <Button size="sm" className="h-8 px-3.5 text-xs font-semibold gap-1 shrink-0 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-2xs" asChild>
+                      <Button
+                        size="sm"
+                        className={`h-8 px-3.5 text-xs font-semibold gap-1 shrink-0 rounded-lg shadow-2xs ${
+                          item.isCompleted
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                            : "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                        }`}
+                        asChild
+                      >
                         <Link href={`/student/course/${item.slug}`}>
-                          Resume <ArrowRight className="h-3 w-3" />
+                          {item.isCompleted ? (
+                            <>Review <CheckCircle2 className="h-3 w-3" /></>
+                          ) : item.progressPercentage > 0 ? (
+                            <>Resume <ArrowRight className="h-3 w-3" /></>
+                          ) : (
+                            <>Start <Play className="h-2.5 w-2.5 fill-current" /></>
+                          )}
                         </Link>
                       </Button>
                     </div>

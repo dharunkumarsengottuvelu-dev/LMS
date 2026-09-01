@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,9 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { useToast, toast as directToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
 import { CustomVideoPlayer } from "@/components/video/custom-video-player";
+import { 
+  computeCourseProgress,
+  markLessonCompleted,
+  useCourseProgressVersion,
+  getStoredCompletedLessonIds,
+} from "@/lib/course-progress";
 import { 
   Play, 
   CheckCircle2, 
@@ -34,8 +41,11 @@ import {
   Minus,
   Plus,
   ArrowLeft,
+  ArrowRight,
   User,
-  Video
+  Video,
+  Layers,
+  Sparkles
 } from "lucide-react";
 
 export interface VideoPlayerConfig {
@@ -317,20 +327,56 @@ export default function StudentCoursePlayerPage() {
   const toastObj = useToast();
   const toast = toastObj?.toast || directToast;
 
+  const [rawCourseData, setRawCourseData] = useState<any>(null);
   const [courseTitle, setCourseTitle] = useState(slug.replace(/-/g, " "));
   const [courseCategory, setCourseCategory] = useState("General");
-  const [courseInstructor, setCourseInstructor] = useState("Lead Instructor");
+  const [courseInstructor, setCourseInstructor] = useState("Lead Technical Trainer");
   const [modules, setModules] = useState<CourseSyllabusModule[]>([]);
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false);
+  const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
 
   const [activeLesson, setActiveLesson] = useState<Lesson>({
     id: "l1",
     title: "1.1 Introduction & Setup",
     duration: "45 mins",
     type: "video",
-    completed: true,
+    completed: false,
   });
+
+  // Safe event-driven progress subscriber
+  const progressVersion = useCourseProgressVersion();
+
+  // Authoritative dynamic course progress calculation
+  const courseProgress = useMemo(() => {
+    return computeCourseProgress(
+      {
+        ...(rawCourseData || {}),
+        id: rawCourseData?.id || slug,
+        slug: rawCourseData?.slug || slug,
+        title: courseTitle,
+        category: courseCategory,
+        instructor: courseInstructor,
+        modules,
+        completedLessonIds,
+      },
+      true
+    );
+  }, [rawCourseData, slug, courseTitle, courseCategory, courseInstructor, modules, completedLessonIds, progressVersion]);
+
+  // Marks the active lesson completed persistently
+  const markActiveLessonCompleted = useCallback(() => {
+    if (!activeLesson?.id) return;
+    const targetCourseId = rawCourseData?.id || slug;
+    markLessonCompleted(targetCourseId, activeLesson.id, {
+      ...(rawCourseData || {}),
+      id: targetCourseId,
+      slug,
+      modules,
+    }).then((res) => {
+      setCompletedLessonIds(res.completedLessonIds);
+    });
+  }, [activeLesson?.id, rawCourseData, slug, modules]);
 
   useEffect(() => {
     async function fetchCourse() {
@@ -383,11 +429,15 @@ export default function StudentCoursePlayerPage() {
         }
 
         if (courseMatch) {
+          setRawCourseData(courseMatch);
           setCourseTitle(courseMatch.title);
           setCourseCategory(courseMatch.category || "General");
           setCourseInstructor(courseMatch.instructor || "Lead Technical Trainer");
           const norm = normalizeCourseModules(courseMatch.modules);
           setModules(norm);
+
+          const stored = getStoredCompletedLessonIds(courseMatch.id || slug);
+          setCompletedLessonIds(stored);
 
           const expMap: Record<string, boolean> = {};
           norm.forEach((m) => { expMap[m.id] = true; });
@@ -499,6 +549,8 @@ export default function StudentCoursePlayerPage() {
       return;
     }
     setQuizSubmittedMap((prev) => ({ ...prev, [qId]: true }));
+    markActiveLessonCompleted();
+    toast({ title: "Quiz Answer Submitted! ✓", description: "Lesson marked completed." });
   };
 
   const handleRunCode = async () => {
@@ -527,6 +579,7 @@ export default function StudentCoursePlayerPage() {
       const result = await response.json();
       const outputText = result.stdout || result.stderr || result.compile_output || "No output";
       setCodeOutput(`[Jobe Engine Status: ${result.status?.description ?? "Success"}]\nExecution Time: ${result.time ?? "0.00"}s\n\nOutput:\n${outputText}`);
+      markActiveLessonCompleted();
     } catch (err: unknown) {
       const msg = getErrorMessage(err);
       setCodeOutput(`[Jobe Execution Error]\n${msg}`);
@@ -629,7 +682,13 @@ export default function StudentCoursePlayerPage() {
                   title={activeLesson.title}
                   instructor={courseInstructor}
                   onNextLesson={handleNextLesson}
+                  onTimeUpdate={(currentTime, duration) => {
+                    if (duration > 0 && currentTime / duration >= 0.9) {
+                      markActiveLessonCompleted();
+                    }
+                  }}
                   onEnded={() => {
+                    markActiveLessonCompleted();
                     toast({ title: "Lesson Completed! 🎉", description: `You finished ${activeLesson.title}` });
                   }}
                 />
@@ -826,6 +885,46 @@ export default function StudentCoursePlayerPage() {
                 )}
               </div>
             )}
+
+            {/* Lesson Footer Action Bar */}
+            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-zinc-900/60 border-t border-slate-200/80 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                {completedLessonIds.includes(activeLesson.id) ? (
+                  <Badge className="bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 gap-1.5 py-1 px-3">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span className="font-semibold text-xs">Completed</span>
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-slate-500 dark:text-zinc-400 border-slate-300 dark:border-zinc-700 text-xs py-1 px-3">
+                    <span>In Progress</span>
+                  </Badge>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                {!completedLessonIds.includes(activeLesson.id) && (
+                  <Button
+                    onClick={() => {
+                      markActiveLessonCompleted();
+                      toast({ title: "Lesson Completed! 🎉", description: `You finished ${activeLesson.title}` });
+                    }}
+                    variant="outline"
+                    className="flex-1 sm:flex-initial h-9 text-xs font-semibold gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    <span>Mark as Completed</span>
+                  </Button>
+                )}
+
+                <Button
+                  onClick={handleNextLesson}
+                  className="flex-1 sm:flex-initial h-9 text-xs font-semibold gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs cursor-pointer"
+                >
+                  <span>Next Lesson</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
           </Card>
         </div>
 
@@ -878,15 +977,33 @@ export default function StudentCoursePlayerPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-3 space-y-3">
+                {/* Dynamic Overall Progress Banner */}
+                <div className="p-3 bg-slate-50 dark:bg-zinc-900/70 rounded-xl border border-slate-200/80 dark:border-zinc-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="flex items-center gap-1.5 text-slate-700 dark:text-zinc-200">
+                      <Layers className="h-3.5 w-3.5 text-blue-600" />
+                      <span>{courseProgress.formattedLessonCount}</span>
+                    </span>
+                    <span className="font-bold font-mono text-blue-600 dark:text-blue-400">{courseProgress.formattedCompletion}</span>
+                  </div>
+                  <Progress value={courseProgress.progressPercentage} className="h-1.5 bg-slate-200 dark:bg-zinc-800" />
+                </div>
+
                 {modules.length === 0 ? (
                   <div className="text-center py-8 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
                     <p className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">No curriculum available</p>
                     <p className="text-[10px] text-[#6B7280] mt-0.5">Lessons will appear once authored.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
                     {modules.map((mainMod, mIdx) => {
                       const isExpanded = expandedModules[mainMod.id] ?? true;
+                      const modSubModules = mainMod.subModules || [];
+                      const modCompletedCount = modSubModules.filter((s) => completedLessonIds.includes(s.id)).length;
+                      const modTotal = modSubModules.length;
+                      const modPercentage = modTotal > 0 ? Math.round((modCompletedCount / modTotal) * 100) : 0;
+                      const isModCompleted = modTotal > 0 && modCompletedCount === modTotal;
+
                       return (
                         <div
                           key={mainMod.id}
@@ -915,25 +1032,24 @@ export default function StudentCoursePlayerPage() {
                               </span>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <Badge variant="outline" className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-600/5 border-blue-600/20">
-                                {mainMod.subModules?.length || 0}
+                              <Badge variant="outline" className={`text-[10px] font-semibold ${isModCompleted ? "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800" : "text-blue-600 dark:text-blue-400 bg-blue-600/5 border-blue-600/20"}`}>
+                                {modCompletedCount}/{modTotal} ({modPercentage}%)
                               </Badge>
-                              <span className="text-[10px] text-muted-foreground hidden group-hover:inline transition-opacity">
-                                {isExpanded ? "Minimize" : "Expand"}
-                              </span>
                             </div>
                           </button>
 
                           {/* Sub-Modules List */}
                           {isExpanded && (
                             <div className="p-2 space-y-1.5 transition-all duration-200">
-                              {(!mainMod.subModules || mainMod.subModules.length === 0) ? (
+                              {modSubModules.length === 0 ? (
                                 <p className="text-[11px] text-muted-foreground italic p-2 text-center">
                                   No sub-modules in this module.
                                 </p>
                               ) : (
-                                mainMod.subModules.map((sub, sIdx) => {
+                                modSubModules.map((sub, sIdx) => {
                                   const isSelected = activeLesson.id === sub.id;
+                                  const isSubCompleted = completedLessonIds.includes(sub.id);
+
                                   return (
                                     <button
                                       key={sub.id}
@@ -946,11 +1062,15 @@ export default function StudentCoursePlayerPage() {
                                       }`}
                                     >
                                       <div className="flex items-center gap-2 min-w-0">
-                                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
-                                          isSelected ? "bg-white/20 text-white" : "bg-[#2563EB]/10 text-[#2563EB]"
-                                        }`}>
-                                          {mIdx + 1}.{sIdx + 1}
-                                        </span>
+                                        {isSubCompleted ? (
+                                          <CheckCircle2 className={`h-3.5 w-3.5 shrink-0 ${isSelected ? "text-white" : "text-emerald-500"}`} />
+                                        ) : (
+                                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
+                                            isSelected ? "bg-white/20 text-white" : "bg-[#2563EB]/10 text-[#2563EB]"
+                                          }`}>
+                                            {mIdx + 1}.{sIdx + 1}
+                                          </span>
+                                        )}
                                         <span className="truncate">{sub.title}</span>
                                       </div>
                                       <Badge
