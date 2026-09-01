@@ -218,11 +218,11 @@ export function MCQAssessmentEngine({
             <Sheet open={showPalette} onOpenChange={setShowPalette}>
               <SheetTrigger className="inline-flex items-center justify-center rounded-lg h-[42px] px-4 gap-2 font-medium text-xs text-[#111827] dark:text-[#FAFAFA] border border-[#E5E7EB] dark:border-[#27272A] hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] transition-colors cursor-pointer">
                 <Grid3x3 className="h-4 w-4 text-[#2563EB]" />
-                <span>Palette</span>
+                <span>Questions</span>
               </SheetTrigger>
               <SheetContent side="right" className="w-80 bg-white dark:bg-[#18181B] border-l border-[#E5E7EB] dark:border-[#27272A]">
                 <SheetHeader>
-                  <SheetTitle className="text-base font-semibold text-[#111827] dark:text-[#FAFAFA]">Question Palette</SheetTitle>
+                  <SheetTitle className="text-base font-semibold text-[#111827] dark:text-[#FAFAFA]">Questions</SheetTitle>
                 </SheetHeader>
                 <div className="mt-6 space-y-5">
                   <div className="grid grid-cols-6 gap-2">

@@ -800,7 +800,7 @@ export function PracticeRunnerEngine({
       <CardHeader className="p-3 pb-2.5 border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0">
         <CardTitle className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center justify-between">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="truncate">Palette</span>
+            <span className="truncate">Questions</span>
             <Badge variant="outline" className="text-[9px] font-bold px-1.5 py-0">
               {answeredCount}/{totalQuestions}
             </Badge>
@@ -810,7 +810,7 @@ export function PracticeRunnerEngine({
               type="button"
               onClick={() => setShowQuestionPalette(false)}
               className="h-6 w-6 rounded-lg border border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-center text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-muted transition-all shrink-0"
-              title="Hide Question Palette"
+              title="Hide Questions"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
@@ -1225,7 +1225,7 @@ export function PracticeRunnerEngine({
               </div>
             </div>
 
-            {/* Right Question Palette Panel (Responsive width, auto-collapsible) */}
+            {/* Right Questions Panel (Responsive width, auto-collapsible) */}
             {showQuestionPalette ? (
               <div className="w-[230px] xl:w-[250px] 2xl:w-[270px] shrink-0 h-full overflow-hidden">
                 {renderPaletteContent(true)}
@@ -1235,13 +1235,13 @@ export function PracticeRunnerEngine({
                 type="button"
                 onClick={() => setShowQuestionPalette(true)}
                 className="h-full w-9 shrink-0 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-[#6B7280] hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
-                title="Show Question Palette"
+                title="Show Questions"
               >
                 <div className="w-6 h-6 rounded-full bg-muted group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
                   <ChevronLeft className="h-4 w-4" />
                 </div>
                 <span className="text-[11px] font-bold tracking-wider uppercase [writing-mode:vertical-rl] rotate-180">
-                  Question Palette
+                  Questions
                 </span>
               </button>
             )}
@@ -1333,7 +1333,7 @@ export function PracticeRunnerEngine({
                 className="h-8 px-2.5 text-xs text-[#2563EB] border-[#2563EB]/30 rounded-xl xl:hidden flex items-center gap-1 font-bold shrink-0"
               >
                 <ClipboardList className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Palette</span>
+                <span className="hidden sm:inline">Questions</span>
               </Button>
             </div>
           )}
@@ -1389,13 +1389,13 @@ export function PracticeRunnerEngine({
         </div>
       </div>
 
-      {/* Slide-over Palette Drawer Modal */}
+      {/* Slide-over Questions Drawer Modal */}
       {showPaletteDrawer && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-in fade-in-0 duration-200">
           <div className="w-[300px] sm:w-[340px] h-full bg-white dark:bg-[#18181B] shadow-2xl p-4 flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-300">
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <span className="font-bold text-sm text-foreground flex items-center gap-2">
-                <ClipboardList className="h-4 w-4 text-[#2563EB]" /> Question Navigator
+                <ClipboardList className="h-4 w-4 text-[#2563EB]" /> Questions
               </span>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowPaletteDrawer(false)}>
                 <X className="h-4 w-4" />

@@ -3,6 +3,7 @@
 // Single Source of Truth for Syntax Highlighting and Code Indentation
 
 import type * as Monaco from "monaco-editor";
+import { formatSourceCode } from "@/lib/compiler/code-formatter";
 
 type MonacoInstance = typeof Monaco;
 
@@ -34,7 +35,7 @@ export const syntaxColors = {
   operator: "#475569",
   bracket: "#475569",
   punctuation: "#64748B",
-  import: "#7C3AED",
+  import: "#2563EB",
   package: "#0F766E",
   regex: "#BE123C",
   error: "#DC2626",
@@ -428,6 +429,9 @@ export const PYTHON_MONARCH_DEFINITION: Monaco.languages.IMonarchLanguage = {
       [/@[a-zA-Z_]\w*/, "tag.decorator"],
       [/[{}()[\]]/, "@brackets"],
 
+      [/\bimport\b/, "keyword.import"],
+      [/\bfrom\b/, "keyword.import"],
+
       [/([a-zA-Z_]\w*)(?=\s*\()/, {
         cases: {
           "@controlKeywords": "keyword.control",
@@ -519,6 +523,10 @@ export const JAVASCRIPT_MONARCH_DEFINITION: Monaco.languages.IMonarchLanguage = 
       { include: "@whitespace" },
 
       [/[{}()[\]]/, "@brackets"],
+
+      [/\bimport\b/, "keyword.import"],
+      [/\bexport\b/, "keyword.import"],
+      [/\bfrom\b/, "keyword.import"],
 
       [/([a-zA-Z_$]\w*)(?=\s*\()/, {
         cases: {
@@ -897,19 +905,39 @@ export function registerLanguageConfigurations(monaco: MonacoInstance) {
     ],
     indentationRules: {
       increaseIndentPattern: /^((?!\/\/).)*(\{[^}"']*|\([^)"']*|\[[^\]"']*)$/,
-      decreaseIndentPattern: /^((?!\/\/).)*(\}[^}"']*|\)[^)"']*|\][^\]"']*)$/,
-      indentNextLinePattern: /^\s*(if|else|for|while|do)\b[^{]*$/,
+      decreaseIndentPattern: /^(.*\*\/)?\s*(\}[;\s]*|\)[;\s]*|\][;\s]*)$/,
+      indentNextLinePattern: /^\s*(if|else|for|while|do)\b[^{;]*$/,
     },
     onEnterRules: [
+      // 1. Enter between braces `{}` -> Indent + Outdent closing brace
       {
-        beforeText: /^\s*({|\[|\().*$/,
-        afterText: /^\s*(}|\]|\)).*$/,
+        beforeText: /\{[^}]*$/,
+        afterText: /^\s*\}/,
         action: { indentAction: monaco.languages.IndentAction.IndentOutdent },
       },
+      // 2. Enter between brackets `[]` -> Indent + Outdent closing bracket
       {
-        beforeText: /^\s*({|\[|\()|(\b(class|interface|record|enum|if|else|for|while|do|switch|case|try|catch|finally|synchronized|func|function)\b[^{]*\{?)\s*$/,
+        beforeText: /\[[^\]]*$/,
+        afterText: /^\s*\]/,
+        action: { indentAction: monaco.languages.IndentAction.IndentOutdent },
+      },
+      // 3. Enter between parentheses `()` -> Indent + Outdent closing parenthesis
+      {
+        beforeText: /\([^)]*$/,
+        afterText: /^\s*\)/,
+        action: { indentAction: monaco.languages.IndentAction.IndentOutdent },
+      },
+      // 4. Line ending in `{` or `(` or `[` -> Indent
+      {
+        beforeText: /\{[^}]*$/,
         action: { indentAction: monaco.languages.IndentAction.Indent },
       },
+      // 5. Block headers without braces (e.g. single-line if/else)
+      {
+        beforeText: /^\s*(class|interface|record|enum|if|else|for|while|do|switch|case|try|catch|finally|synchronized|func|function|public|private|protected|static|void|int|bool|def)\b.*[^;{]$/,
+        action: { indentAction: monaco.languages.IndentAction.Indent },
+      },
+      // 6. Javadoc & block comment continuation
       {
         beforeText: /^\s*\/\*\*.*$/,
         afterText: /^\s*\*\/$/,
@@ -965,8 +993,148 @@ export function registerLanguageConfigurations(monaco: MonacoInstance) {
         action: { indentAction: monaco.languages.IndentAction.Indent },
       },
       {
-        beforeText: /^\s*({|\[|\().*$/,
-        afterText: /^\s*(}|\]|\)).*$/,
+        beforeText: /:\s*$/,
+        action: { indentAction: monaco.languages.IndentAction.Indent },
+      },
+      {
+        beforeText: /\{[^}]*$/,
+        afterText: /^\s*\}/,
+        action: { indentAction: monaco.languages.IndentAction.IndentOutdent },
+      },
+      {
+        beforeText: /\[[^\]]*$/,
+        afterText: /^\s*\]/,
+        action: { indentAction: monaco.languages.IndentAction.IndentOutdent },
+      },
+      {
+        beforeText: /\([^)]*$/,
+        afterText: /^\s*\)/,
+        action: { indentAction: monaco.languages.IndentAction.IndentOutdent },
+      },
+      {
+        beforeText: /^\s*(return|pass|break|continue|raise)\b.*$/,
+        action: { indentAction: monaco.languages.IndentAction.None },
+      },
+    ],
+  };
+
+  const htmlConfig: Monaco.languages.LanguageConfiguration = {
+    comments: {
+      blockComment: ["<!--", "-->"],
+    },
+    brackets: [
+      ["<", ">"],
+      ["{", "}"],
+      ["[", "]"],
+      ["(", ")"],
+    ],
+    autoClosingPairs: [
+      { open: "{", close: "}" },
+      { open: "[", close: "]" },
+      { open: "(", close: ")" },
+      { open: '"', close: '"' },
+      { open: "'", close: "'" },
+      { open: "<", close: ">" },
+    ],
+    onEnterRules: [
+      {
+        beforeText: /<([_a-zA-Z0-9-]+)([^>]*[^\/])?>$/,
+        afterText: /^<\/([_a-zA-Z0-9-]+)>/,
+        action: { indentAction: monaco.languages.IndentAction.IndentOutdent },
+      },
+      {
+        beforeText: /<([_a-zA-Z0-9-]+)([^>]*[^\/])?>$/,
+        action: { indentAction: monaco.languages.IndentAction.Indent },
+      },
+      {
+        beforeText: /\{[^}]*$/,
+        afterText: /^\s*\}/,
+        action: { indentAction: monaco.languages.IndentAction.IndentOutdent },
+      },
+    ],
+  };
+
+  const cssConfig: Monaco.languages.LanguageConfiguration = {
+    comments: {
+      blockComment: ["/*", "*/"],
+    },
+    brackets: [
+      ["{", "}"],
+      ["[", "]"],
+      ["(", ")"],
+    ],
+    autoClosingPairs: [
+      { open: "{", close: "}" },
+      { open: "[", close: "]" },
+      { open: "(", close: ")" },
+      { open: '"', close: '"' },
+      { open: "'", close: "'" },
+    ],
+    onEnterRules: [
+      {
+        beforeText: /\{[^}]*$/,
+        afterText: /^\s*\}/,
+        action: { indentAction: monaco.languages.IndentAction.IndentOutdent },
+      },
+      {
+        beforeText: /\{[^}]*$/,
+        action: { indentAction: monaco.languages.IndentAction.Indent },
+      },
+    ],
+  };
+
+  const sqlConfig: Monaco.languages.LanguageConfiguration = {
+    comments: {
+      lineComment: "--",
+      blockComment: ["/*", "*/"],
+    },
+    brackets: [
+      ["[", "]"],
+      ["(", ")"],
+    ],
+    autoClosingPairs: [
+      { open: "[", close: "]" },
+      { open: "(", close: ")" },
+      { open: '"', close: '"' },
+      { open: "'", close: "'" },
+    ],
+    onEnterRules: [
+      {
+        beforeText: /\b(BEGIN|CASE|LOOP|IF|THEN|ELSE|ELSEIF|WHEN)\b[^;]*$/i,
+        action: { indentAction: monaco.languages.IndentAction.Indent },
+      },
+      {
+        beforeText: /\b(END)\b/i,
+        action: { indentAction: monaco.languages.IndentAction.Outdent },
+      },
+    ],
+  };
+
+  const shellConfig: Monaco.languages.LanguageConfiguration = {
+    comments: {
+      lineComment: "#",
+    },
+    brackets: [
+      ["{", "}"],
+      ["[", "]"],
+      ["(", ")"],
+    ],
+    autoClosingPairs: [
+      { open: "{", close: "}" },
+      { open: "[", close: "]" },
+      { open: "(", close: ")" },
+      { open: '"', close: '"' },
+      { open: "'", close: "'" },
+      { open: "`", close: "`" },
+    ],
+    onEnterRules: [
+      {
+        beforeText: /^\s*(if|then|else|elif|for|while|until|do|case)\b.*$/,
+        action: { indentAction: monaco.languages.IndentAction.Indent },
+      },
+      {
+        beforeText: /\{[^}]*$/,
+        afterText: /^\s*\}/,
         action: { indentAction: monaco.languages.IndentAction.IndentOutdent },
       },
     ],
@@ -981,9 +1149,59 @@ export function registerLanguageConfigurations(monaco: MonacoInstance) {
     }
   }
 
-  try {
-    monaco.languages.setLanguageConfiguration("python", pythonConfig);
-  } catch (e) {
-    console.warn("[SyntaxTheme] Failed to set language config for python:", e);
+  try { monaco.languages.setLanguageConfiguration("python", pythonConfig); } catch {}
+  try { monaco.languages.setLanguageConfiguration("html", htmlConfig); } catch {}
+  try { monaco.languages.setLanguageConfiguration("xml", htmlConfig); } catch {}
+  try { monaco.languages.setLanguageConfiguration("css", cssConfig); } catch {}
+  try { monaco.languages.setLanguageConfiguration("scss", cssConfig); } catch {}
+  try { monaco.languages.setLanguageConfiguration("less", cssConfig); } catch {}
+  try { monaco.languages.setLanguageConfiguration("sql", sqlConfig); } catch {}
+  try { monaco.languages.setLanguageConfiguration("shell", shellConfig); } catch {}
+  try { monaco.languages.setLanguageConfiguration("bat", shellConfig); } catch {}
+
+  // Register Native Document Formatting & On-Type Formatting Providers
+  const allSupportedLangs = [...cStyleLangs, "python", "html", "css", "scss", "sql", "shell"];
+  for (const lang of allSupportedLangs) {
+    try {
+      // 1. Full Document Formatter (Shift + Alt + F / formatOnPaste / formatDocument)
+      monaco.languages.registerDocumentFormattingEditProvider(lang, {
+        provideDocumentFormattingEdits(model, options) {
+          const text = model.getValue();
+          const formatted = formatSourceCode(text, lang, { tabSize: options.tabSize, insertSpaces: options.insertSpaces });
+          return [
+            {
+              range: model.getFullModelRange(),
+              text: formatted,
+            },
+          ];
+        },
+      });
+
+      // 2. On-Type Smart Formatter (triggers on typing closing braces or Enter)
+      monaco.languages.registerOnTypeFormattingEditProvider(lang, {
+        autoFormatTriggerCharacters: ["}", ";", "\n", "{", ":"],
+        provideOnTypeFormattingEdits(model, position, ch, options) {
+          const lineContent = model.getLineContent(position.lineNumber);
+          // Auto-normalize space around `{`: e.g. `class Main{` -> `class Main {`
+          if (ch === "{" && lineContent.includes("{")) {
+            const normalized = lineContent.replace(/([a-zA-Z0-9_\)\]])\{/, "$1 {");
+            if (normalized !== lineContent) {
+              return [
+                {
+                  range: {
+                    startLineNumber: position.lineNumber,
+                    startColumn: 1,
+                    endLineNumber: position.lineNumber,
+                    endColumn: lineContent.length + 1,
+                  },
+                  text: normalized,
+                },
+              ];
+            }
+          }
+          return [];
+        },
+      });
+    } catch {}
   }
 }

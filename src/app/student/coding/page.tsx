@@ -523,8 +523,8 @@ export default function StudentCodingIDEPage() {
             {/* ── RIGHT: Question Navigator ── */}
             <div className="flex-1 overflow-y-auto flex flex-col h-full">
               <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                <h3 className="font-bold text-sm text-foreground">Question Palette</h3>
-                <button onClick={() => setShowNavigator(false)} className="text-muted-foreground hover:text-primary transition-colors flex items-center justify-center p-1 rounded-md hover:bg-muted" title="Close Palette">
+                <h3 className="font-bold text-sm text-foreground">Questions</h3>
+                <button onClick={() => setShowNavigator(false)} className="text-muted-foreground hover:text-primary transition-colors flex items-center justify-center p-1 rounded-md hover:bg-muted" title="Close Questions">
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
