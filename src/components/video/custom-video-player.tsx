@@ -734,16 +734,165 @@ export function CustomVideoPlayer({
     handleUserActivity();
   };
 
-  const toggleFullscreen = () => {
+  // Enter fullscreen with auto landscape orientation on mobile devices
+  const enterFullscreen = async () => {
     const container = containerRef.current;
     if (!container) return;
 
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen().catch(() => {});
+    try {
+      const el = container as any;
+      if (el.requestFullscreen) {
+        await el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        await el.webkitRequestFullscreen();
+      } else if (el.mozRequestFullScreen) {
+        await el.mozRequestFullScreen();
+      } else if (el.msRequestFullscreen) {
+        await el.msRequestFullscreen();
+      }
+
+      // Check if mobile / touch device
+      const isMobile =
+        typeof window !== "undefined" &&
+        (window.innerWidth <= 1024 ||
+          /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent) ||
+          navigator.maxTouchPoints > 0);
+
+      // Lock to landscape orientation on mobile if supported
+      if (isMobile) {
+        const orientation =
+          (screen as any)?.orientation ||
+          (screen as any)?.mozOrientation ||
+          (screen as any)?.msOrientation;
+        if (orientation && typeof orientation.lock === "function") {
+          try {
+            await orientation.lock("landscape");
+          } catch {
+            // Orientation lock may not be supported by some browsers; ignore gracefully.
+          }
+        } else if (typeof (screen as any).lockOrientation === "function") {
+          try {
+            (screen as any).lockOrientation("landscape");
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.warn("Fullscreen request error:", err);
     }
   };
+
+  // Exit fullscreen and unlock orientation
+  const exitFullscreen = async () => {
+    try {
+      const doc = document as any;
+      if (
+        doc.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.mozFullScreenElement ||
+        doc.msFullscreenElement
+      ) {
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        }
+      }
+
+      // Unlock orientation if supported
+      const orientation =
+        (screen as any)?.orientation ||
+        (screen as any)?.mozOrientation ||
+        (screen as any)?.msOrientation;
+      if (orientation && typeof orientation.unlock === "function") {
+        try {
+          orientation.unlock();
+        } catch {}
+      } else if (typeof (screen as any).unlockOrientation === "function") {
+        try {
+          (screen as any).unlockOrientation();
+        } catch {}
+      }
+    } catch (err) {
+      console.warn("Exit fullscreen error:", err);
+    }
+  };
+
+  const toggleFullscreen = () => {
+    const doc = document as any;
+    const isFs = Boolean(
+      doc.fullscreenElement ||
+      doc.webkitFullscreenElement ||
+      doc.mozFullScreenElement ||
+      doc.msFullscreenElement
+    );
+    if (!isFs) {
+      enterFullscreen();
+    } else {
+      exitFullscreen();
+    }
+    handleUserActivity();
+  };
+
+  // Listen to native fullscreen changes and synchronize state & orientation unlock
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const doc = document as any;
+      const isCurrentlyFullscreen = Boolean(
+        doc.fullscreenElement === containerRef.current ||
+        doc.webkitFullscreenElement === containerRef.current ||
+        doc.mozFullScreenElement === containerRef.current ||
+        doc.msFullscreenElement === containerRef.current
+      );
+
+      setIsFullscreen(isCurrentlyFullscreen);
+
+      if (!isCurrentlyFullscreen) {
+        const orientation =
+          (screen as any)?.orientation ||
+          (screen as any)?.mozOrientation ||
+          (screen as any)?.msOrientation;
+        if (orientation && typeof orientation.unlock === "function") {
+          try {
+            orientation.unlock();
+          } catch {}
+        } else if (typeof (screen as any).unlockOrientation === "function") {
+          try {
+            (screen as any).unlockOrientation();
+          } catch {}
+        }
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+
+      const orientation =
+        (screen as any)?.orientation ||
+        (screen as any)?.mozOrientation ||
+        (screen as any)?.msOrientation;
+      if (orientation && typeof orientation.unlock === "function") {
+        try {
+          orientation.unlock();
+        } catch {}
+      } else if (typeof (screen as any).unlockOrientation === "function") {
+        try {
+          (screen as any).unlockOrientation();
+        } catch {}
+      }
+    };
+  }, []);
 
   // Seekbar Drag/Click Logic
   const calculateSeekTime = (clientX: number): number => {
@@ -872,33 +1021,13 @@ export function CustomVideoPlayer({
         ) : (
           <div
             onClick={handleStartPlay}
-            className="relative w-full h-full cursor-pointer overflow-hidden bg-cover bg-center"
+            className="relative w-full h-full cursor-pointer overflow-hidden bg-cover bg-center bg-no-repeat"
             style={{
               backgroundImage: computedPoster ? `url(${computedPoster})` : "none",
               backgroundColor: "#09090b",
             }}
           >
-            {/* Dark Vignette Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/75 flex flex-col justify-between p-6 z-10">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-extrabold tracking-wider uppercase shadow-lg">
-                  <GraduationCap className="h-4 w-4" />
-                  <span>FALCON LMS</span>
-                </div>
-              </div>
-
-              <div className="space-y-2 max-w-xl">
-                <Badge className="bg-blue-600 text-white text-[11px] font-bold px-2.5 py-0.5 uppercase shadow-md">
-                  Video Lesson
-                </Badge>
-                <h3 className="text-white text-xl sm:text-2xl md:text-3xl font-black tracking-tight drop-shadow-[0_4px_12px_rgba(0,0,0,1)]">
-                  {title}
-                </h3>
-                <p className="text-xs sm:text-sm text-white font-semibold drop-shadow-md">
-                  Instructor: <span className="text-white font-extrabold">{instructor}</span>
-                </p>
-              </div>
-            </div>
+            <div className="absolute inset-0 bg-black/25 hover:bg-black/35 transition-colors" />
           </div>
         )
       ) : (
@@ -920,52 +1049,54 @@ export function CustomVideoPlayer({
         />
       )}
 
-
-
       {/* 3. CENTER PLAYBACK AREA */}
       {/* Loading Spinner */}
       {isLoading && (
         <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none bg-black/30 backdrop-blur-xs">
-          <Loader2 className="w-12 h-12 text-blue-500 animate-spin drop-shadow-lg" />
+          <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-blue-500 animate-spin drop-shadow-lg" />
         </div>
       )}
 
-      {/* Center Big Circular Play Button */}
+      {/* Center Big Circular Play Button (YouTube-Style) */}
       {!isPlaying && !isLoading && !isEnded && (
         <div
-          onClick={togglePlay}
-          className="absolute inset-0 z-20 flex items-center justify-center cursor-pointer bg-black/20 transition-all"
+          onClick={handleStartPlay}
+          className="absolute inset-0 z-20 flex items-center justify-center cursor-pointer pointer-events-auto"
         >
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-blue-600 text-white shadow-2xl backdrop-blur-md flex items-center justify-center transition-transform duration-200 hover:scale-110 active:scale-95 hover:bg-blue-700 border border-white/30">
-            <Play className="h-7 w-7 sm:h-9 sm:w-9 fill-current ml-1" />
-          </div>
+          <button
+            type="button"
+            aria-label="Play Video"
+            className="w-14 h-14 sm:w-18 sm:h-18 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-2xl flex items-center justify-center transition-transform duration-200 hover:scale-110 active:scale-95 border border-white/20 cursor-pointer"
+          >
+            <Play className="h-6 w-6 sm:h-8 sm:w-8 fill-current ml-1" />
+          </button>
         </div>
       )}
 
       {/* Quick Visual Click Animation Feedback */}
       {clickRipple && (
         <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-          <div className="w-16 h-16 rounded-full bg-black/60 text-white flex items-center justify-center backdrop-blur-md animate-ping">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-black/60 text-white flex items-center justify-center backdrop-blur-md animate-ping">
             {clickRipple === "play" ? (
-              <Play className="h-7 w-7 fill-current ml-0.5" />
+              <Play className="h-6 w-6 sm:h-7 sm:w-7 fill-current ml-0.5" />
             ) : (
-              <Pause className="h-7 w-7 fill-current" />
+              <Pause className="h-6 w-6 sm:h-7 sm:w-7 fill-current" />
             )}
           </div>
         </div>
       )}
 
-      {/* 4. REAL-TIME CLOSED CAPTIONS OVERLAY (Live Synchronized Rounded Pill & Dynamic Auto-Hide Positioning) */}
+      {/* 4. REAL-TIME CLOSED CAPTIONS OVERLAY */}
       {showCaptions && currentSubtitle && !isEnded && hasStarted && (
         <div
           className={cn(
             "absolute inset-x-4 z-25 flex justify-center pointer-events-none transition-all duration-300 ease-out",
             isControlsVisible || !isPlaying
-              ? "bottom-18 sm:bottom-20"
-              : "bottom-4 sm:bottom-5"
+              ? "bottom-14 sm:bottom-16"
+              : "bottom-3 sm:bottom-4"
           )}
         >
-          <div className="max-w-2xl px-6 py-2 rounded-full bg-black/95 backdrop-blur-md border border-white/40 text-white text-xs sm:text-sm md:text-base font-semibold text-center shadow-2xl leading-relaxed animate-in fade-in zoom-in-95 duration-100 drop-shadow-[0_4px_12px_rgba(0,0,0,1)]">
+          <div className="max-w-2xl px-4 py-1.5 sm:px-6 sm:py-2 rounded-full bg-black/95 backdrop-blur-md border border-white/40 text-white text-xs sm:text-sm font-semibold text-center shadow-2xl leading-relaxed animate-in fade-in zoom-in-95 duration-100 drop-shadow-[0_4px_12px_rgba(0,0,0,1)]">
             {currentSubtitle}
           </div>
         </div>
@@ -974,16 +1105,16 @@ export function CustomVideoPlayer({
       {/* 5. LMS LESSON COMPLETION OVERLAY (When Video Ends) */}
       {isEnded && (
         <div className="absolute inset-0 z-35 flex flex-col items-center justify-center bg-black/95 backdrop-blur-md p-6 text-center animate-in fade-in duration-300 pointer-events-auto">
-          <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mb-4 shadow-lg animate-bounce">
-            <CheckCircle2 className="h-8 w-8" />
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mb-3 sm:mb-4 shadow-lg animate-bounce">
+            <CheckCircle2 className="h-7 w-7 sm:h-8 sm:w-8" />
           </div>
 
           <Badge className="bg-emerald-600 text-white text-xs font-bold px-3 py-1 mb-2">
             LESSON COMPLETED
           </Badge>
 
-          <h3 className="text-xl sm:text-2xl font-bold text-white mb-1">{title}</h3>
-          <p className="text-xs sm:text-sm text-white/80 max-w-md mb-6">
+          <h3 className="text-lg sm:text-2xl font-bold text-white mb-1">{title}</h3>
+          <p className="text-xs sm:text-sm text-white/80 max-w-md mb-5 sm:mb-6">
             Great job! You have finished watching this video module. Your learning progress has been saved to your dashboard.
           </p>
 
@@ -991,7 +1122,7 @@ export function CustomVideoPlayer({
             <Button
               variant="outline"
               onClick={handleReplay}
-              className="h-10 px-4 text-xs font-semibold gap-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border-white/20 shadow-md transition-all cursor-pointer"
+              className="h-9 sm:h-10 px-4 text-xs font-semibold gap-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border-white/20 shadow-md transition-all cursor-pointer"
             >
               <RotateCcw className="h-4 w-4" /> Replay Lesson
             </Button>
@@ -999,7 +1130,7 @@ export function CustomVideoPlayer({
             {hasNextLesson && onNextLesson && (
               <Button
                 onClick={onNextLesson}
-                className="h-10 px-5 text-xs font-bold gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
+                className="h-9 sm:h-10 px-5 text-xs font-bold gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
               >
                 <span>Next Lesson</span>
                 <ArrowRight className="h-4 w-4" />
@@ -1009,99 +1140,94 @@ export function CustomVideoPlayer({
         </div>
       )}
 
-      {/* 6. BOTTOM CONTROL BAR (Pixel-Perfect Single Horizontal Flex Layout) */}
+      {/* 6. BOTTOM CONTROL BAR (YouTube-Style Responsive Layout) */}
       <div
         className={cn(
-          "absolute bottom-3 inset-x-3 md:inset-x-4 z-30 transition-all duration-300 pointer-events-auto",
+          "absolute bottom-0 inset-x-0 z-30 transition-all duration-300 pointer-events-auto bg-gradient-to-t from-black/95 via-black/60 to-transparent px-2.5 pb-2 pt-4 sm:px-4 sm:pb-2.5 sm:pt-6 flex flex-col gap-1 select-none",
           isControlsVisible || !isPlaying ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"
         )}
       >
-        <div className="relative w-full h-12 bg-black/90 backdrop-blur-md border border-white/15 rounded-xl px-3 flex items-center gap-3 shadow-2xl">
-          {/* LEFT SECTION: [ Play/Pause ] [ 00:25 / 08:03 ] */}
-          <div className="flex items-center gap-2.5 shrink-0">
+        {/* ROW 1: Full-Width Seek / Progress Bar */}
+        <div
+          ref={progressBarRef}
+          onMouseDown={handleProgressBarMouseDown}
+          onMouseMove={handleProgressBarMouseMove}
+          onMouseLeave={handleProgressBarMouseLeave}
+          className="relative w-full h-3 flex items-center cursor-pointer group/seek"
+        >
+          {/* Background Track */}
+          <div className="relative w-full h-1 bg-white/30 rounded-full overflow-hidden transition-all group-hover/seek:h-1.5">
+            {/* Buffered Track */}
+            <div
+              style={{ width: `${bufferedPercent}%` }}
+              className="absolute top-0 bottom-0 left-0 bg-white/40 rounded-full transition-all duration-300"
+            />
+            {/* Played Progress Track */}
+            <div
+              style={{ width: `${playedPercent}%` }}
+              className="absolute top-0 bottom-0 left-0 bg-[#2563EB] rounded-full"
+            />
+          </div>
+
+          {/* Scrubber Thumb Handle */}
+          <div
+            style={{ left: `${playedPercent}%` }}
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-md scale-0 group-hover/seek:scale-100 transition-transform pointer-events-none"
+          />
+
+          {/* Hover Tooltip */}
+          {hoverSeekTime !== null && (
+            <div
+              style={{ left: `${hoverSeekPosition}%` }}
+              className="absolute bottom-5 -translate-x-1/2 px-1.5 py-0.5 rounded bg-black/90 border border-white/10 text-white font-mono text-[9px] font-semibold shadow-lg pointer-events-none whitespace-nowrap"
+            >
+              {formatTime(hoverSeekTime)}
+            </div>
+          )}
+        </div>
+
+        {/* ROW 2: Action Buttons & Duration Row */}
+        <div className="flex items-center justify-between w-full h-7 sm:h-8">
+          {/* Left Section: [ Play/Pause ] [ Volume ] [ Time ] */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
             <button
+              type="button"
               onClick={togglePlay}
               aria-label={isPlaying ? "Pause" : "Play"}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white/90 hover:text-white hover:bg-white/15 transition-all focus:outline-hidden active:scale-90 cursor-pointer"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center text-white/90 hover:text-white hover:bg-white/15 transition-all focus:outline-hidden active:scale-90 cursor-pointer shrink-0"
             >
               {isPlaying ? (
-                <Pause className="h-4 w-4 fill-current" />
+                <Pause className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-current" />
               ) : (
-                <Play className="h-4 w-4 fill-current ml-0.5" />
+                <Play className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-current ml-0.5" />
               )}
             </button>
 
-            <span className="font-mono text-xs font-bold text-white min-w-[85px] tracking-tight shrink-0 select-none">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </span>
-          </div>
-
-          {/* CENTER SECTION (flex: 1): [==================== Progress / Seek Bar ====================] */}
-          <div
-            ref={progressBarRef}
-            onMouseDown={handleProgressBarMouseDown}
-            onMouseMove={handleProgressBarMouseMove}
-            onMouseLeave={handleProgressBarMouseLeave}
-            className="relative flex-1 h-8 flex items-center cursor-pointer group/seek"
-          >
-            {/* Background Track */}
-            <div className="relative w-full h-1.5 bg-white/20 rounded-full overflow-hidden transition-all group-hover/seek:h-2.5">
-              {/* Buffered Track */}
-              <div
-                style={{ width: `${bufferedPercent}%` }}
-                className="absolute top-0 bottom-0 left-0 bg-white/30 rounded-full transition-all duration-300"
-              />
-              {/* Played Progress Track */}
-              <div
-                style={{ width: `${playedPercent}%` }}
-                className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-blue-600 to-indigo-500 rounded-full"
-              />
-            </div>
-
-            {/* Scrubber Thumb Handle */}
-            <div
-              style={{ left: `${playedPercent}%` }}
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-md scale-0 group-hover/seek:scale-100 transition-transform pointer-events-none"
-            />
-
-            {/* Hover Tooltip */}
-            {hoverSeekTime !== null && (
-              <div
-                style={{ left: `${hoverSeekPosition}%` }}
-                className="absolute bottom-7 -translate-x-1/2 px-2 py-0.5 rounded-md bg-black/90 border border-white/10 text-white font-mono text-[10px] font-semibold shadow-lg pointer-events-none whitespace-nowrap"
-              >
-                {formatTime(hoverSeekTime)}
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT SECTION: [ Volume ] [ CC ] [ Settings ] [ Fullscreen ] */}
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {/* Volume Control */}
+            {/* Volume & Slider */}
             <div
               onMouseEnter={() => setIsVolumeHovered(true)}
               onMouseLeave={() => setIsVolumeHovered(false)}
-              className="relative flex items-center"
+              className="hidden sm:flex items-center"
             >
               <button
+                type="button"
                 onClick={toggleMute}
                 aria-label={isMuted ? "Unmute" : "Mute"}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-white/90 hover:text-white hover:bg-white/15 transition-all focus:outline-hidden active:scale-90 cursor-pointer"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center text-white/90 hover:text-white hover:bg-white/15 transition-all focus:outline-hidden active:scale-90 cursor-pointer shrink-0"
               >
                 {isMuted || volume === 0 ? (
-                  <VolumeX className="h-4 w-4" />
+                  <VolumeX className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 ) : volume < 0.5 ? (
-                  <Volume1 className="h-4 w-4" />
+                  <Volume1 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 ) : (
-                  <Volume2 className="h-4 w-4" />
+                  <Volume2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 )}
               </button>
 
-              {/* Smooth Slide-out Volume Slider */}
               <div
                 className={cn(
                   "overflow-hidden transition-all duration-200 flex items-center",
-                  isVolumeHovered ? "w-16 sm:w-20 opacity-100 mr-1" : "w-0 opacity-0"
+                  isVolumeHovered ? "w-14 sm:w-18 opacity-100 mr-1" : "w-0 opacity-0"
                 )}
               >
                 <input
@@ -1116,83 +1242,94 @@ export function CustomVideoPlayer({
               </div>
             </div>
 
-            {/* Closed Captions Toggle */}
-            <button
-              onClick={toggleCaptions}
-              aria-label="Closed Captions"
-              className={cn(
-                "w-8 h-8 rounded-lg flex items-center justify-center transition-all focus:outline-hidden active:scale-90 relative cursor-pointer",
-                showCaptions
-                  ? "text-blue-400 bg-blue-600/20 font-bold"
-                  : "text-white/80 hover:text-white hover:bg-white/15"
-              )}
-            >
-              <Subtitles className="h-4 w-4" />
-              {showCaptions && (
-                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-400" />
-              )}
-            </button>
+            {/* Time Display */}
+            <span className="font-mono text-[10px] sm:text-xs font-semibold text-white/90 tracking-tight shrink-0 select-none">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+          </div>
+
+          {/* Right Section: [ CC ] [ Settings ] [ Fullscreen ] */}
+          <div className="flex items-center gap-1 shrink-0">
+            {liveCaptions.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleCaptions}
+                aria-label="Closed Captions"
+                className={cn(
+                  "w-7 h-7 sm:w-8 sm:h-8 rounded-md text-[10px] font-bold transition-all active:scale-90 cursor-pointer flex items-center justify-center",
+                  showCaptions
+                    ? "bg-[#2563EB] text-white font-extrabold shadow-xs"
+                    : "text-white/80 hover:text-white hover:bg-white/15"
+                )}
+              >
+                CC
+              </button>
+            )}
 
             {/* Settings Menu Toggle */}
             <div className="relative">
               <button
+                type="button"
                 onClick={() => {
                   setShowSettings((prev) => !prev);
                   setSettingsView("main");
                 }}
                 aria-label="Settings"
                 className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center transition-all focus:outline-hidden active:scale-90 cursor-pointer",
+                  "w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center transition-all focus:outline-hidden active:scale-90 cursor-pointer shrink-0",
                   showSettings
-                    ? "text-blue-400 bg-blue-600/20"
+                    ? "text-[#2563EB] bg-white/20"
                     : "text-white/80 hover:text-white hover:bg-white/15"
                 )}
               >
-                <Settings className="h-4 w-4" />
+                <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
 
-              {/* Custom LMS Settings Panel */}
+              {/* Custom LMS Settings Panel (Compact & Responsive) */}
               {showSettings && (
-                <div className="absolute bottom-11 right-0 w-56 p-2 rounded-xl bg-black/95 backdrop-blur-xl border border-white/15 text-white shadow-2xl z-40 text-xs animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute bottom-8 sm:bottom-10 right-0 w-44 sm:w-52 max-h-[140px] sm:max-h-[180px] overflow-y-auto p-1.5 rounded-lg bg-black/95 backdrop-blur-xl border border-white/20 text-white shadow-2xl z-40 text-[11px] animate-in fade-in zoom-in-95 duration-100">
                   {settingsView === "main" && (
-                    <div className="space-y-1">
-                      <div className="px-2.5 py-1.5 text-[10px] font-bold text-white/50 uppercase tracking-wider border-b border-white/10 mb-1">
-                        Player Settings
+                    <div className="space-y-0.5">
+                      <div className="px-2 py-1 text-[9px] font-bold text-white/50 uppercase tracking-wider border-b border-white/10 mb-0.5">
+                        Settings
                       </div>
 
                       {/* Speed Item */}
                       <button
+                        type="button"
                         onClick={() => setSettingsView("speed")}
-                        className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-white/10 text-white/90 transition-all cursor-pointer"
+                        className="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-white/10 text-white/90 transition-all cursor-pointer text-[11px]"
                       >
                         <span>Playback Speed</span>
-                        <div className="flex items-center gap-1 text-white/60">
+                        <div className="flex items-center gap-1 text-white/60 text-[10px]">
                           <span>{playbackSpeed === 1 ? "Normal" : `${playbackSpeed}x`}</span>
-                          <ChevronRight className="h-3.5 w-3.5" />
+                          <ChevronRight className="h-3 w-3" />
                         </div>
                       </button>
 
                       {/* Quality Item */}
                       <button
+                        type="button"
                         onClick={() => setSettingsView("quality")}
-                        className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-white/10 text-white/90 transition-all cursor-pointer"
+                        className="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-white/10 text-white/90 transition-all cursor-pointer text-[11px]"
                       >
                         <span>Quality</span>
-                        <div className="flex items-center gap-1 text-white/60">
-                          <span className="truncate max-w-[80px]">{quality}</span>
-                          <ChevronRight className="h-3.5 w-3.5" />
+                        <div className="flex items-center gap-1 text-white/60 text-[10px]">
+                          <span className="truncate max-w-[65px]">{quality}</span>
+                          <ChevronRight className="h-3 w-3" />
                         </div>
                       </button>
 
                       {/* Captions Item */}
                       <button
+                        type="button"
                         onClick={() => setSettingsView("captions")}
-                        className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-white/10 text-white/90 transition-all cursor-pointer"
+                        className="w-full flex items-center justify-between px-2 py-1 rounded hover:bg-white/10 text-white/90 transition-all cursor-pointer text-[11px]"
                       >
                         <span>Captions</span>
-                        <div className="flex items-center gap-1 text-white/60">
-                          <span>{showCaptions ? (liveCaptions.length > 0 ? "English (Official)" : "On") : "Off"}</span>
-                          <ChevronRight className="h-3.5 w-3.5" />
+                        <div className="flex items-center gap-1 text-white/60 text-[10px]">
+                          <span>{showCaptions ? "On" : "Off"}</span>
+                          <ChevronRight className="h-3 w-3" />
                         </div>
                       </button>
                     </div>
@@ -1200,28 +1337,30 @@ export function CustomVideoPlayer({
 
                   {/* Playback Speed Submenu */}
                   {settingsView === "speed" && (
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                       <button
+                        type="button"
                         onClick={() => setSettingsView("main")}
-                        className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-white/70 hover:text-white border-b border-white/10 mb-1 cursor-pointer"
+                        className="w-full flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-white/70 hover:text-white border-b border-white/10 mb-0.5 cursor-pointer"
                       >
-                        <ChevronLeft className="h-3.5 w-3.5" />
+                        <ChevronLeft className="h-3 w-3" />
                         <span>Playback Speed</span>
                       </button>
 
                       {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((s) => (
                         <button
                           key={s}
+                          type="button"
                           onClick={() => handleSpeedSelect(s)}
                           className={cn(
-                            "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all cursor-pointer",
+                            "w-full flex items-center justify-between px-2 py-0.5 rounded transition-all cursor-pointer text-[10px]",
                             playbackSpeed === s
-                              ? "bg-blue-600/30 text-blue-400 font-bold"
+                              ? "bg-blue-600/40 text-blue-300 font-bold"
                               : "hover:bg-white/10 text-white/80"
                           )}
                         >
                           <span>{s === 1 ? "1.0x (Normal)" : `${s}x`}</span>
-                          {playbackSpeed === s && <Check className="h-3.5 w-3.5" />}
+                          {playbackSpeed === s && <Check className="h-3 w-3" />}
                         </button>
                       ))}
                     </div>
@@ -1229,28 +1368,30 @@ export function CustomVideoPlayer({
 
                   {/* Quality Submenu */}
                   {settingsView === "quality" && (
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                       <button
+                        type="button"
                         onClick={() => setSettingsView("main")}
-                        className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-white/70 hover:text-white border-b border-white/10 mb-1 cursor-pointer"
+                        className="w-full flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-white/70 hover:text-white border-b border-white/10 mb-0.5 cursor-pointer"
                       >
-                        <ChevronLeft className="h-3.5 w-3.5" />
+                        <ChevronLeft className="h-3 w-3" />
                         <span>Video Quality</span>
                       </button>
 
-                      {["1080p Full HD", "720p HD", "480p SD", "Auto (Recommended)"].map((q) => (
+                      {["1080p Full HD", "720p HD", "480p SD", "Auto"].map((q) => (
                         <button
                           key={q}
+                          type="button"
                           onClick={() => handleQualitySelect(q)}
                           className={cn(
-                            "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all cursor-pointer",
+                            "w-full flex items-center justify-between px-2 py-0.5 rounded transition-all cursor-pointer text-[10px]",
                             quality === q
-                              ? "bg-blue-600/30 text-blue-400 font-bold"
+                              ? "bg-blue-600/40 text-blue-300 font-bold"
                               : "hover:bg-white/10 text-white/80"
                           )}
                         >
                           <span>{q}</span>
-                          {quality === q && <Check className="h-3.5 w-3.5" />}
+                          {quality === q && <Check className="h-3 w-3" />}
                         </button>
                       ))}
                     </div>
@@ -1258,16 +1399,18 @@ export function CustomVideoPlayer({
 
                   {/* Captions Submenu */}
                   {settingsView === "captions" && (
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                       <button
+                        type="button"
                         onClick={() => setSettingsView("main")}
-                        className="w-full flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-white/70 hover:text-white border-b border-white/10 mb-1 cursor-pointer"
+                        className="w-full flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-white/70 hover:text-white border-b border-white/10 mb-0.5 cursor-pointer"
                       >
-                        <ChevronLeft className="h-3.5 w-3.5" />
+                        <ChevronLeft className="h-3 w-3" />
                         <span>Captions</span>
                       </button>
 
                       <button
+                        type="button"
                         onClick={() => {
                           setShowCaptions(false);
                           setShowSettings(false);
@@ -1277,30 +1420,31 @@ export function CustomVideoPlayer({
                           }
                         }}
                         className={cn(
-                          "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all cursor-pointer",
+                          "w-full flex items-center justify-between px-2 py-0.5 rounded transition-all cursor-pointer text-[10px]",
                           !showCaptions
-                            ? "bg-blue-600/30 text-blue-400 font-bold"
+                            ? "bg-blue-600/40 text-blue-300 font-bold"
                             : "hover:bg-white/10 text-white/80"
                         )}
                       >
                         <span>Off</span>
-                        {!showCaptions && <Check className="h-3.5 w-3.5" />}
+                        {!showCaptions && <Check className="h-3 w-3" />}
                       </button>
 
                       <button
+                        type="button"
                         onClick={() => {
                           setShowCaptions(true);
                           setShowSettings(false);
                         }}
                         className={cn(
-                          "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all cursor-pointer",
+                          "w-full flex items-center justify-between px-2 py-0.5 rounded transition-all cursor-pointer text-[10px]",
                           showCaptions
-                            ? "bg-blue-600/30 text-blue-400 font-bold"
+                            ? "bg-blue-600/40 text-blue-300 font-bold"
                             : "hover:bg-white/10 text-white/80"
                         )}
                       >
-                        <span>English (Live Synchronized)</span>
-                        {showCaptions && <Check className="h-3.5 w-3.5" />}
+                        <span>English (Live)</span>
+                        {showCaptions && <Check className="h-3 w-3" />}
                       </button>
                     </div>
                   )}
@@ -1310,14 +1454,15 @@ export function CustomVideoPlayer({
 
             {/* Fullscreen Toggle */}
             <button
+              type="button"
               onClick={toggleFullscreen}
               aria-label={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white/90 hover:text-white hover:bg-white/15 transition-all focus:outline-hidden active:scale-90 cursor-pointer"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center text-white/90 hover:text-white hover:bg-white/15 transition-all focus:outline-hidden active:scale-90 cursor-pointer shrink-0"
             >
               {isFullscreen ? (
-                <Minimize className="h-4 w-4" />
+                <Minimize className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               ) : (
-                <Maximize className="h-4 w-4" />
+                <Maximize className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               )}
             </button>
           </div>

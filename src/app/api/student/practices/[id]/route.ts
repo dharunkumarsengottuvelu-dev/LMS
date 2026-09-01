@@ -4,6 +4,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage, getTopicThumbnail } from "@/lib/utils";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
 
+import {
+  calculateModuleProgress,
+  calculateTrackProgressPercentage,
+  calculateCompletedModules,
+  calculateAnsweredQuestions,
+} from "@/lib/practice-progress";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -172,15 +179,7 @@ export async function GET(
 
       let answeredInAttempt = 0;
       if (attempt && attempt.answers && typeof attempt.answers === "object") {
-        const ansObj = attempt.answers;
-        const validKeys = new Set<string>();
-        Object.entries(ansObj).forEach(([k, v]) => {
-          if (!v) return;
-          if (Array.isArray(v) && v.length > 0) validKeys.add(k);
-          else if (typeof v === "string" && v.trim().length > 0) validKeys.add(k);
-          else if (typeof v === "object" && (v as any).code && (v as any).code.trim().length > 0) validKeys.add(k);
-        });
-        answeredInAttempt = validKeys.size;
+        answeredInAttempt = calculateAnsweredQuestions(attempt.answers, modTotalQuestions);
       }
       if (solvedCodingCount > 0) {
         answeredInAttempt = Math.max(answeredInAttempt, solvedCodingCount);
@@ -212,6 +211,8 @@ export async function GET(
       totalQuestionsAcrossTrack += modTotalQuestions;
       completedQuestionsAcrossTrack += modCompletedQuestions;
 
+      const modulePercentage = calculateModuleProgress(modCompletedQuestions, modTotalQuestions);
+
       const status: "not_started" | "in_progress" | "completed" = isCompleted
         ? "completed"
         : isInProgress || isAttemptCompleted
@@ -230,6 +231,7 @@ export async function GET(
         questionCount: modTotalQuestions,
         totalQuestions: modTotalQuestions,
         completedQuestions: modCompletedQuestions,
+        percentage: modulePercentage,
         status,
         score: attempt ? attempt.score : isCompleted ? sm.totalMarks || 100 : 0,
         sections: sm.sections || [],
@@ -246,13 +248,11 @@ export async function GET(
     });
 
     const totalSubModules = enrichedSubModules.length;
-    const completedCount = enrichedSubModules.filter((sm: any) => sm.status === "completed").length;
-    const progressPercentage =
-      totalQuestionsAcrossTrack > 0
-        ? Math.min(100, Math.max(0, Math.round((completedQuestionsAcrossTrack / totalQuestionsAcrossTrack) * 100)))
-        : completedCount === totalSubModules && totalSubModules > 0
-        ? 100
-        : 0;
+    const completedCount = calculateCompletedModules(enrichedSubModules);
+    const progressPercentage = calculateTrackProgressPercentage(
+      completedQuestionsAcrossTrack,
+      totalQuestionsAcrossTrack
+    );
 
     return NextResponse.json(
       {

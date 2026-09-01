@@ -4,6 +4,7 @@ import { jobeService } from "@/services/jobe";
 import type { SubmitCodeInput } from "@/types/coding";
 import { getErrorMessage } from "@/lib/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { isLanguageEnabled } from "@/services/compiler.service";
 
 export async function POST(request: NextRequest) {
@@ -86,13 +87,23 @@ export async function POST(request: NextRequest) {
       ];
     }
 
-    // 4. Submit solution for automated evaluation against public & hidden test cases
-    const submission = await SubmissionService.submitSolution({
-      problem_id,
-      language,
-      code,
-      test_cases: testCasesToRun
-    });
+    // 4. Resolve authenticated student ID
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const studentId = user?.id || (body as any).student_id || "student-1";
+
+    // 5. Submit solution for automated evaluation against public & hidden test cases
+    const submission = await SubmissionService.submitSolution(
+      {
+        problem_id,
+        language,
+        code,
+        test_cases: testCasesToRun,
+      },
+      studentId
+    );
 
     return NextResponse.json(submission, { status: 200 });
   } catch (error: unknown) {

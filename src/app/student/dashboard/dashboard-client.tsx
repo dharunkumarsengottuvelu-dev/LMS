@@ -59,20 +59,38 @@ function StatCard({
 }
 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLMSStore } from "@/lib/store/lms-store";
 import { computeTrackProgress } from "@/lib/practice-progress";
 
 export function StudentDashboardClient({ data }: { data: StudentDashboardData }) {
-  const upcomingEvents: any[] = [];
   const router = useRouter();
   const { profile } = data;
   const firstName = profile?.first_name || profile?.full_name?.split(" ")[0] || "Student";
 
   const [storeCourses, setStoreCourses] = useState<any[]>((data as any).initialCourses || (data as any).enrollments || []);
   const [storeTracks, setStoreTracks] = useState<any[]>((data as any).initialTracks || []);
-  const [storeAssessments, setStoreAssessments] = useState<any[]>(data.tests || []);
+  const [storeAssessments, setStoreAssessments] = useState<any[]>((data as any).initialAssessments || (data as any).assessments || data.tests || []);
   const [isMounted, setIsMounted] = useState(false);
+
+  // Dynamic Upcoming & Live Proctored Evaluations
+  const upcomingEvents = useMemo(() => {
+    return storeAssessments
+      .filter((test: any) => test.status !== "completed" && test.status !== "submitted")
+      .map((test: any) => {
+        const isLive = test.status === "live" || test.status === "active";
+        return {
+          id: test.id,
+          type: test.type || (test.proctoring?.enabled ? "Proctored Exam" : "Assessment"),
+          title: test.title || "Proctored Evaluation",
+          time: test.scheduledAt || (test.scheduled_at ? new Date(test.scheduled_at).toLocaleString() : "Available Now"),
+          duration: `${test.duration || test.duration_minutes || 60} Mins`,
+          badge: isLive ? "LIVE NOW" : "UPCOMING",
+          href: `/student/tests/${test.id}`,
+          isLive,
+        };
+      });
+  }, [storeAssessments]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -237,7 +255,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                           </h3>
 
                           <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-zinc-400">
-                            <span>{item.completedCount}/{item.totalCount} Modules</span>
+                            <span>{item.completedCount}/{item.totalCount} {item.totalCount === 1 ? "Module" : "Modules"}</span>
                             <span>•</span>
                             <span className={isDone ? "text-emerald-600 font-semibold" : isInProgress ? "text-amber-600 font-semibold" : "text-slate-700 dark:text-zinc-300 font-semibold"}>
                               {item.progressPercentage}% Completed
@@ -314,35 +332,44 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                 <Clock className="h-4 w-4 text-[#2563EB]" /> Upcoming Proctored Evaluations
               </span>
             </CardHeader>
-
             <CardContent className="p-4 space-y-3">
               {upcomingEvents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-6 text-center bg-background rounded-[var(--radius-xl)] border border-border border-dashed">
+                <div className="flex flex-col items-center justify-center p-6 text-center bg-background rounded-xl border border-border border-dashed">
                   <Clock className="h-8 w-8 text-muted-foreground opacity-50 mb-2" />
                   <p className="text-xs text-muted-foreground">No upcoming evaluations scheduled.</p>
                 </div>
               ) : (
-                upcomingEvents.map((evt) => (
-                  <div key={evt.id} className="p-3.5 bg-background rounded-[var(--radius-lg)] border border-border space-y-2 shadow-sm">
+                upcomingEvents.map((evt: any) => (
+                  <div key={evt.id} className="p-3.5 bg-background rounded-xl border border-border space-y-2 shadow-2xs hover:border-blue-500/40 transition-colors">
                     <div className="flex items-center justify-between">
-                      <Badge className="bg-primary text-primary-foreground text-[9px] font-bold uppercase">
+                      <Badge className={cn(
+                        "text-[9px] font-bold uppercase",
+                        evt.isLive
+                          ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                          : "bg-blue-600 text-white hover:bg-blue-700"
+                      )}>
                         {evt.type}
                       </Badge>
-                      <span className="text-[10px] font-bold text-[#2563EB]">{evt.badge}</span>
+                      <span className={cn(
+                        "text-[10px] font-bold",
+                        evt.isLive ? "text-emerald-600 dark:text-emerald-400" : "text-[#2563EB]"
+                      )}>
+                        {evt.badge}
+                      </span>
                     </div>
 
-                    <h4 className="text-xs font-semibold text-foreground">
+                    <h4 className="text-xs font-bold text-foreground line-clamp-1">
                       {evt.title}
                     </h4>
 
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                      <span>{evt.time}</span>
-                      <span>{evt.duration}</span>
+                      <span className="truncate max-w-[150px]">{evt.time}</span>
+                      <span className="shrink-0">{evt.duration}</span>
                     </div>
 
-                    <Button className="w-full h-8 text-xs font-semibold gap-1 mt-1" asChild>
+                    <Button className="w-full h-8 text-xs font-semibold gap-1.5 mt-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-lg shadow-2xs" asChild>
                       <Link href={evt.href}>
-                        Start Now <ArrowRight className="h-3.5 w-3.5" />
+                        {evt.isLive ? "Start Evaluation" : "View Assessment"} <ArrowRight className="h-3 w-3" />
                       </Link>
                     </Button>
                   </div>

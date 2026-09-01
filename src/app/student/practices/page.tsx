@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { useLMSStore } from "@/lib/store/lms-store";
-import { getTopicThumbnail, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { computeTrackProgress } from "@/lib/practice-progress";
 
 interface SubModuleItem {
@@ -32,7 +32,6 @@ interface PracticeCourseTrack {
   title: string;
   category: string;
   description: string;
-  thumbnail: string;
   assignedBy?: "Admin" | "Trainer" | string;
   assignedByName: string;
   subModules: SubModuleItem[];
@@ -105,7 +104,6 @@ export default function StudentPracticesPage() {
     title: t.title,
     category: t.category,
     description: t.description || "Practice Track",
-    thumbnail: getTopicThumbnail(t.title, t.category, t.thumbnail_url || t.thumbnail),
     assignedBy: "Admin",
     assignedByName: t.assignedByName || t.assigned_by_name || "System Admin",
     subModules: t.subModules || t.sub_modules || [] 
@@ -179,31 +177,22 @@ export default function StudentPracticesPage() {
               } = computeTrackProgress(track, isMounted);
 
               return (
-                <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-blue-500/40 transition-all duration-200 bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-xl group">
-                  {/* Compact Thumbnail Header Image */}
-                  <div className="relative w-full h-24 overflow-hidden border-b border-slate-100 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800">
-                    <img
-                      src={track.thumbnail}
-                      alt={track.title}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  </div>
-
-                  <CardHeader className="p-3.5 pb-2 space-y-1.5">
+                <Card key={track.id} className="flex flex-col justify-between overflow-hidden hover:border-blue-500/40 hover:shadow-md transition-all duration-200 bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-2xl group">
+                  <CardHeader className="p-4 pb-2 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0 border-blue-200/70 dark:border-blue-800/40 text-blue-700 dark:text-blue-300 bg-blue-50/70 dark:bg-blue-950/30 rounded-md">
-                        <FolderKanban className="h-2.5 w-2.5 mr-1 inline text-blue-600" /> {track.category}
+                      <Badge variant="outline" className="text-[10px] font-semibold px-2.5 py-0.5 border-blue-200/70 dark:border-blue-800/40 text-blue-700 dark:text-blue-300 bg-blue-50/70 dark:bg-blue-950/30 rounded-lg">
+                        <FolderKanban className="h-3 w-3 mr-1 inline text-blue-600" /> {track.category}
                       </Badge>
-                      <span className="text-[10px] font-medium text-slate-500 dark:text-zinc-400 truncate max-w-[110px]">
+                      <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate max-w-[120px]">
                         {track.assignedByName}
                       </span>
                     </div>
 
-                    <CardTitle className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug line-clamp-1">
+                    <CardTitle className="text-base font-bold text-slate-900 dark:text-zinc-100 leading-snug line-clamp-1">
                       {track.title}
                     </CardTitle>
 
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed h-7">
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed min-h-[36px]">
                       {track.description}
                     </p>
                   </CardHeader>
@@ -211,7 +200,9 @@ export default function StudentPracticesPage() {
                   <CardContent className="p-3.5 pt-1 space-y-2">
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-slate-500 dark:text-zinc-400 font-medium">{totalSubModulesCount} Modules</span>
+                        <span className="text-slate-500 dark:text-zinc-400 font-medium">
+                          {totalSubModulesCount} {totalSubModulesCount === 1 ? "Module" : "Modules"}
+                        </span>
                         <span className={cn(
                           "font-bold",
                           progressPercentage === 100

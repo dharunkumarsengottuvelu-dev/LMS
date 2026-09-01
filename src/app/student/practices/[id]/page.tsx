@@ -260,12 +260,9 @@ export default function StudentTrackDetailPage() {
               <span className="text-slate-300 dark:text-zinc-700">•</span>
               <span className="flex items-center gap-1">
                 <FolderKanban className="h-3 w-3 text-slate-400 shrink-0" />
-                <span>{totalSubModulesCount} Practice Modules</span>
-              </span>
-              <span className="text-slate-300 dark:text-zinc-700">•</span>
-              <span className="flex items-center gap-1">
-                <BookOpen className="h-3 w-3 text-slate-400 shrink-0" />
-                <span>{totalTrackQuestions} Total Questions</span>
+                <span>
+                  {completedSubModulesCount} of {totalSubModulesCount} {totalSubModulesCount === 1 ? "Module" : "Modules"} Completed ({totalAnsweredQuestions}/{totalTrackQuestions} Questions)
+                </span>
               </span>
             </div>
           </div>
@@ -275,12 +272,12 @@ export default function StudentTrackDetailPage() {
             {/* Header: Label & Completion Pill */}
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] font-bold tracking-wider uppercase text-slate-500 dark:text-zinc-400">
-                Active Module
+                Track Completion
               </span>
               <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white dark:bg-zinc-800 border border-slate-200/80 dark:border-zinc-700 shadow-2xs">
                 <span className={cn("w-1.5 h-1.5 rounded-full", headerProgressStyles.dotBg)} />
                 <span className={cn("text-[10px] font-bold", headerProgressStyles.text)}>
-                  {dynamicProgressPercentage}% Done
+                  {dynamicProgressPercentage}%
                 </span>
               </div>
             </div>
@@ -403,17 +400,16 @@ export default function StudentTrackDetailPage() {
                           <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
                           Completed {localScore !== null ? `(${localScore}/${sub.totalMarks || 100} Marks)` : ""}
                         </Badge>
-                      ) : isSubmitted ? (
-                        <Badge variant="outline" className="bg-blue-50/90 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/80 dark:border-blue-800/50 text-[10px] font-semibold flex items-center gap-1 px-2 py-0 rounded-md shadow-2xs">
-                          <ClipboardList className="h-2.5 w-2.5 text-blue-600" />
-                          Submitted {localScore !== null ? `(${localScore}/${sub.totalMarks || 100} Marks)` : `(${answeredQuestionsCount}/${totalQuestionsCount} Qs)`}
-                        </Badge>
-                      ) : isInProgress ? (
+                      ) : answeredQuestionsCount > 0 ? (
                         <Badge variant="outline" className={cn("text-[10px] font-semibold flex items-center gap-1.5 px-2 py-0 rounded-md border shadow-2xs", modStyles.badge)}>
                           <span className={cn("w-1.5 h-1.5 rounded-full", modStyles.dotBg)} />
                           In Progress ({answeredQuestionsCount}/{totalQuestionsCount} Qs)
                         </Badge>
-                      ) : null}
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] font-semibold border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 bg-slate-50/50 dark:bg-zinc-800/40 px-2 py-0 rounded-md">
+                          Not Started
+                        </Badge>
+                      )}
                     </div>
 
                     <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 leading-snug">

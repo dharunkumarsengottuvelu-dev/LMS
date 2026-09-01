@@ -179,6 +179,8 @@ export class SubmissionService {
       const supabase = createClient();
       await (supabase as any).from("coding_submissions").insert([
         {
+          problem_id: submission.problem_id,
+          student_id: submission.student_id,
           language: submission.language,
           code: submission.code,
           status: submission.status,

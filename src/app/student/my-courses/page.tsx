@@ -101,26 +101,28 @@ export default function StudentCoursesPage() {
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="bg-slate-100 dark:bg-zinc-800/80 p-1.5 rounded-2xl h-12 w-fit border border-slate-200/80 dark:border-zinc-700/80 flex gap-1.5">
-          <TabsTrigger
-            value="all"
-            className="h-9.5 px-5 text-sm font-bold rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all"
-          >
-            All Courses ({allCoursesList.length})
-          </TabsTrigger>
-          <TabsTrigger
-            value="in-progress"
-            className="h-9.5 px-5 text-sm font-bold rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all"
-          >
-            In Progress ({allCoursesList.filter((c) => c.progress > 0 && c.progress < 100).length})
-          </TabsTrigger>
-          <TabsTrigger
-            value="completed"
-            className="h-9.5 px-5 text-sm font-bold rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all"
-          >
-            Completed ({allCoursesList.filter((c) => c.progress === 100).length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto no-scrollbar pb-1 -mx-1 px-1 sm:mx-0 sm:px-0">
+          <TabsList className="bg-slate-100 dark:bg-zinc-800/80 p-1.5 rounded-2xl h-11 sm:h-12 w-max min-w-full sm:w-fit border border-slate-200/80 dark:border-zinc-700/80 flex gap-1 sm:gap-1.5 shrink-0">
+            <TabsTrigger
+              value="all"
+              className="h-8.5 sm:h-9.5 px-3.5 sm:px-5 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all"
+            >
+              All Courses ({allCoursesList.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="in-progress"
+              className="h-8.5 sm:h-9.5 px-3.5 sm:px-5 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all"
+            >
+              In Progress ({allCoursesList.filter((c) => c.progress > 0 && c.progress < 100).length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="completed"
+              className="h-8.5 sm:h-9.5 px-3.5 sm:px-5 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all"
+            >
+              Completed ({allCoursesList.filter((c) => c.progress === 100).length})
+            </TabsTrigger>
+          </TabsList>
+        </div>
       </Tabs>
 
       {/* Course Cards Grid */}

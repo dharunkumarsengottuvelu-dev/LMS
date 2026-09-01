@@ -127,7 +127,7 @@ export default function StudentTestsPage() {
 
   // Initialize/stop camera preview when lobby opens/closes
   useEffect(() => {
-    if (isLobbyOpen && selectedLobbyTest?.proctoring.webcamTracking) {
+    if (isLobbyOpen && selectedLobbyTest?.proctoring?.webcamTracking) {
       startLobbyCamera();
     } else {
       if (lobbyStream) {
@@ -137,22 +137,27 @@ export default function StudentTestsPage() {
     }
   }, [isLobbyOpen, selectedLobbyTest]);
 
-  // Bind lobbyStream to lobbyVideoRef when element mounts
-  const setLobbyVideoRef = useCallback((node: HTMLVideoElement | null) => {
-    (lobbyVideoRef as any).current = node;
-    if (node && lobbyStream) {
-      node.srcObject = lobbyStream;
-      node.onloadedmetadata = () => {
-        node.play().catch((e) => console.warn("Lobby video play error:", e));
-      };
-      node.play().catch((e) => console.warn("Lobby video play error:", e));
-    }
-  }, [lobbyStream]);
-
+  // Bind lobbyStream to lobbyVideoRef cleanly without competing play() requests
   useEffect(() => {
-    if (lobbyStream && lobbyVideoRef.current) {
-      lobbyVideoRef.current.srcObject = lobbyStream;
-      lobbyVideoRef.current.play().catch((e) => console.warn("Lobby video play error:", e));
+    const video = lobbyVideoRef.current;
+    if (!video) return;
+
+    if (lobbyStream) {
+      if (video.srcObject !== lobbyStream) {
+        video.srcObject = lobbyStream;
+      }
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          if (err?.name !== "AbortError") {
+            console.warn("Lobby video play notice:", err);
+          }
+        });
+      }
+    } else {
+      if (video.srcObject) {
+        video.srcObject = null;
+      }
     }
   }, [lobbyStream]);
 
@@ -222,13 +227,13 @@ export default function StudentTestsPage() {
       } catch {}
     }
 
-    if (selectedLobbyTest.proctoring.webcamTracking && !referencePhoto) {
+    if (selectedLobbyTest?.proctoring?.webcamTracking && !referencePhoto) {
       handleCaptureReferencePhoto();
     }
 
     setIsLobbyOpen(false);
 
-    if (selectedLobbyTest.proctoring.fullscreenLock) {
+    if (selectedLobbyTest?.proctoring?.fullscreenLock) {
       try {
         if (document.documentElement.requestFullscreen) {
           await document.documentElement.requestFullscreen();
@@ -241,7 +246,7 @@ export default function StudentTestsPage() {
     toast({
       title: "Entering Exam Environment",
       description: `Starting ${selectedLobbyTest.title}... ${
-        selectedLobbyTest.proctoring.enabled ? "Live Face Monitoring Stream Active." : "Standard Mode."
+        selectedLobbyTest?.proctoring?.enabled ? "Live Face Monitoring Stream Active." : "Standard Mode."
       }`,
     });
     router.push(`/student/tests/${selectedLobbyTest.id}`);
@@ -285,20 +290,34 @@ export default function StudentTestsPage() {
 
       {/* 2. Tabs Filter */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className="bg-slate-100 dark:bg-zinc-800/70 p-1 h-11 rounded-xl border border-slate-200/80 dark:border-zinc-800 w-fit flex gap-1">
-          <TabsTrigger value="all" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
-            All Tests ({testsData.length})
-          </TabsTrigger>
-          <TabsTrigger value="live" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
-            Live / Ready ({testsData.filter((t) => t.status === "live").length})
-          </TabsTrigger>
-          <TabsTrigger value="upcoming" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
-            Upcoming ({testsData.filter((t) => t.status === "upcoming").length})
-          </TabsTrigger>
-          <TabsTrigger value="completed" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
-            Completed ({testsData.filter((t) => t.status === "completed").length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto no-scrollbar pb-1 -mx-1 px-1 sm:mx-0 sm:px-0">
+          <TabsList className="bg-slate-100 dark:bg-zinc-800/70 p-1.5 h-11 sm:h-12 rounded-2xl border border-slate-200/80 dark:border-zinc-800 w-max min-w-full sm:w-fit flex gap-1 sm:gap-1.5 shrink-0">
+            <TabsTrigger
+              value="all"
+              className="h-8.5 sm:h-9 px-3.5 sm:px-4 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs transition-all"
+            >
+              All Tests ({testsData.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="live"
+              className="h-8.5 sm:h-9 px-3.5 sm:px-4 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs transition-all"
+            >
+              Live / Ready ({testsData.filter((t) => t.status === "live").length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="upcoming"
+              className="h-8.5 sm:h-9 px-3.5 sm:px-4 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs transition-all"
+            >
+              Upcoming ({testsData.filter((t) => t.status === "upcoming").length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="completed"
+              className="h-8.5 sm:h-9 px-3.5 sm:px-4 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs transition-all"
+            >
+              Completed ({testsData.filter((t) => t.status === "completed").length})
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value={activeTab} className="mt-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -360,22 +379,22 @@ export default function StudentTestsPage() {
 
                     {/* Security Tags */}
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      {test.proctoring.webcamTracking && (
+                      {test.proctoring?.webcamTracking && (
                         <Badge variant="outline" className="text-[9px] border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
                           Face Monitoring Stream
                         </Badge>
                       )}
-                      {test.proctoring.safeExamBrowserRequired && (
+                      {test.proctoring?.safeExamBrowserRequired && (
                         <Badge variant="outline" className="text-[9px] border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
                           SEB Required
                         </Badge>
                       )}
-                      {test.proctoring.fullscreenLock && (
+                      {test.proctoring?.fullscreenLock && (
                         <Badge variant="outline" className="text-[9px] border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
                           Fullscreen Lock
                         </Badge>
                       )}
-                      {test.proctoring.copyPasteRestricted && (
+                      {test.proctoring?.copyPasteRestricted && (
                         <Badge variant="outline" className="text-[9px] border-[#DC2626]/30 text-[#DC2626] bg-[#DC2626]/5">
                           Copy-Paste Disabled
                         </Badge>
@@ -384,7 +403,7 @@ export default function StudentTestsPage() {
 
                     <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between text-[11px]">
                       <span className="text-[#6B7280]">Assigned By:</span>
-                      <span className="font-bold text-[#2563EB]">{test.proctoring.assignedBy}: {test.proctoring.assignedByName}</span>
+                      <span className="font-bold text-[#2563EB]">{test.proctoring?.assignedBy || "Admin"}: {test.proctoring?.assignedByName || "System"}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -451,7 +470,7 @@ export default function StudentTestsPage() {
               </div>
 
               {/* CANDIDATE REFERENCE PHOTO CAPTURE BOX WITH LIVE WEBCAM FIX */}
-              {selectedLobbyTest.proctoring.webcamTracking && (
+              {selectedLobbyTest?.proctoring?.webcamTracking && (
                 <div className="p-4 bg-[#2563EB]/5 border border-[#2563EB]/20 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-[#2563EB] flex items-center gap-1.5">
@@ -472,7 +491,7 @@ export default function StudentTestsPage() {
                     {/* Live Camera Stream Container */}
                     <div className="aspect-video bg-[#09090B] rounded-xl overflow-hidden relative border border-[#27272A] flex items-center justify-center">
                       <video
-                        ref={setLobbyVideoRef}
+                        ref={lobbyVideoRef}
                         autoPlay
                         playsInline
                         muted
@@ -528,17 +547,17 @@ export default function StudentTestsPage() {
 
               <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
                 <p className="font-bold text-[#111827] dark:text-[#FAFAFA] uppercase text-[11px]">
-                  {selectedLobbyTest?.proctoring.enabled ? "PROCTORING & SECURITY CONTROLS" : "Standard Test Rules"}
+                  {selectedLobbyTest?.proctoring?.enabled ? "PROCTORING & SECURITY CONTROLS" : "Standard Test Rules"}
                 </p>
-                {selectedLobbyTest?.proctoring.enabled ? (
+                {selectedLobbyTest?.proctoring?.enabled ? (
                   <ul className="list-disc list-inside space-y-1.5 text-[#4B5563] dark:text-[#D1D5DB] leading-relaxed text-xs">
-                    {selectedLobbyTest.proctoring.safeExamBrowserRequired && (
+                    {selectedLobbyTest?.proctoring?.safeExamBrowserRequired && (
                       <li className="font-semibold text-[#2563EB]">Safe Exam Browser (SEB) Environment: <strong>Required & Enforced</strong></li>
                     )}
-                    {selectedLobbyTest.proctoring.fullscreenLock && (
+                    {selectedLobbyTest?.proctoring?.fullscreenLock && (
                       <li>Mandatory Fullscreen Mode: <strong>Enforced (Auto-exit warning)</strong></li>
                     )}
-                    {selectedLobbyTest.proctoring.copyPasteRestricted && (
+                    {selectedLobbyTest?.proctoring?.copyPasteRestricted && (
                       <li>Copy / Paste & Clipboard Restrictions: <strong>Blocked</strong></li>
                     )}
                     <li>Live Real-time Camera Monitoring Stream: <strong>Active</strong></li>
@@ -551,19 +570,19 @@ export default function StudentTestsPage() {
           )}
 
           <DialogFooter className="pt-2 flex-col gap-2.5 border-t border-[#E5E7EB] dark:border-[#27272A]">
-            {selectedLobbyTest?.proctoring.webcamTracking && !referencePhoto && (
+            {selectedLobbyTest?.proctoring?.webcamTracking && !referencePhoto && (
               <div className="w-full p-2.5 bg-[#DC2626]/10 border border-[#DC2626]/30 text-[#DC2626] rounded-xl text-xs font-semibold flex items-center justify-center gap-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 Candidate Reference Photo Snapshot Required to Unlock Exam!
               </div>
             )}
             <Button
-              disabled={Boolean(selectedLobbyTest?.proctoring.webcamTracking && !referencePhoto)}
+              disabled={Boolean(selectedLobbyTest?.proctoring?.webcamTracking && !referencePhoto)}
               className="w-full h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] disabled:bg-[#9CA3AF] disabled:cursor-not-allowed text-white font-bold gap-2 text-sm rounded-xl"
               onClick={handleStartExam}
             >
               <Play className="h-4 w-4" />
-              {selectedLobbyTest?.proctoring.webcamTracking && !referencePhoto
+              {selectedLobbyTest?.proctoring?.webcamTracking && !referencePhoto
                 ? "Capture Reference Photo Below to Unlock Exam"
                 : "Start Proctored Examination Now"}
             </Button>

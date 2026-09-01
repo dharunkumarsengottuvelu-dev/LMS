@@ -141,22 +141,27 @@ export default function StudentAssessmentsPage() {
     }
   }, [isLobbyOpen, selectedLobbyTest]);
 
-  // Bind lobbyStream to lobbyVideoRef when element mounts
-  const setLobbyVideoRef = useCallback((node: HTMLVideoElement | null) => {
-    (lobbyVideoRef as any).current = node;
-    if (node && lobbyStream) {
-      node.srcObject = lobbyStream;
-      node.onloadedmetadata = () => {
-        node.play().catch((e) => console.warn("Lobby video play error:", e));
-      };
-      node.play().catch((e) => console.warn("Lobby video play error:", e));
-    }
-  }, [lobbyStream]);
-
+  // Bind lobbyStream to lobbyVideoRef cleanly without competing play() requests
   useEffect(() => {
-    if (lobbyStream && lobbyVideoRef.current) {
-      lobbyVideoRef.current.srcObject = lobbyStream;
-      lobbyVideoRef.current.play().catch((e) => console.warn("Lobby video play error:", e));
+    const video = lobbyVideoRef.current;
+    if (!video) return;
+
+    if (lobbyStream) {
+      if (video.srcObject !== lobbyStream) {
+        video.srcObject = lobbyStream;
+      }
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          if (err?.name !== "AbortError") {
+            console.warn("Lobby video play notice:", err);
+          }
+        });
+      }
+    } else {
+      if (video.srcObject) {
+        video.srcObject = null;
+      }
     }
   }, [lobbyStream]);
 
@@ -285,20 +290,34 @@ export default function StudentAssessmentsPage() {
 
       {/* Tabs Filter */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className="bg-slate-100 dark:bg-zinc-800/80 p-1.5 rounded-2xl h-12 w-fit border border-slate-200/80 dark:border-zinc-700/80 flex gap-1.5">
-          <TabsTrigger value="all" className="h-9.5 px-5 text-sm font-bold rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all">
-            All Assessments ({assessments.length})
-          </TabsTrigger>
-          <TabsTrigger value="live" className="h-9.5 px-5 text-sm font-bold rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all">
-            Live / Ready ({assessments.filter((t) => t.status === "live").length})
-          </TabsTrigger>
-          <TabsTrigger value="upcoming" className="h-9.5 px-5 text-sm font-bold rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all">
-            Upcoming ({assessments.filter((t) => t.status === "upcoming").length})
-          </TabsTrigger>
-          <TabsTrigger value="completed" className="h-9.5 px-5 text-sm font-bold rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all">
-            Completed ({assessments.filter((t) => t.status === "completed").length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto no-scrollbar pb-1 -mx-1 px-1 sm:mx-0 sm:px-0">
+          <TabsList className="bg-slate-100 dark:bg-zinc-800/80 p-1.5 rounded-2xl h-11 sm:h-12 w-max min-w-full sm:w-fit border border-slate-200/80 dark:border-zinc-700/80 flex gap-1 sm:gap-1.5 shrink-0">
+            <TabsTrigger
+              value="all"
+              className="h-8.5 sm:h-9.5 px-3.5 sm:px-5 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all"
+            >
+              All Assessments ({assessments.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="live"
+              className="h-8.5 sm:h-9.5 px-3.5 sm:px-5 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all"
+            >
+              Live / Ready ({assessments.filter((t) => t.status === "live").length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="upcoming"
+              className="h-8.5 sm:h-9.5 px-3.5 sm:px-5 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all"
+            >
+              Upcoming ({assessments.filter((t) => t.status === "upcoming").length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="completed"
+              className="h-8.5 sm:h-9.5 px-3.5 sm:px-5 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-600 dark:text-zinc-400 transition-all"
+            >
+              Completed ({assessments.filter((t) => t.status === "completed").length})
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value={activeTab} className="mt-0">
           {loading ? (
@@ -480,7 +499,7 @@ export default function StudentAssessmentsPage() {
                     {/* Live Camera Stream Container */}
                     <div className="aspect-video bg-[#09090B] rounded-xl overflow-hidden relative border border-[#27272A] flex items-center justify-center">
                       <video
-                        ref={setLobbyVideoRef}
+                        ref={lobbyVideoRef}
                         autoPlay
                         playsInline
                         muted

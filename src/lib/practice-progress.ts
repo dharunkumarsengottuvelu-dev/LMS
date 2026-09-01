@@ -1,13 +1,30 @@
 /**
- * Authoritative Practice Track Progress Calculation System
- * Dynamic question-weighted aggregation across any number of modules (1, 2, 3, 5, 10, 20+ modules).
- * Accurately merges database submission records and live student practice session answers.
- * Provides exact resume question tracking ("Continue from Problem X / Question X").
- *
- * Formula:
- *   overallCompletedQuestions = SUM(completedQuestions of every module)
- *   overallTotalQuestions = SUM(totalQuestions of every module)
- *   percentage = overallTotalQuestions === 0 ? 0 : Math.min(100, Math.max(0, Math.round((overallCompletedQuestions / overallTotalQuestions) * 100)))
+ * ============================================================
+ * AUTHORITATIVE PRACTICE TRACK PROGRESS SYSTEM
+ * ============================================================
+ * 
+ * Production-grade, 100% dynamic, SUBMISSION-BASED progress calculation.
+ * 
+ * CORE RULES:
+ * 1. ONLY A VALID SUBMISSION COUNTS AS ANSWERED.
+ *    - DO NOT count opening, viewing, visiting, or navigating to questions.
+ *    - DO NOT count typing code, editing text, or saving draft sessions.
+ *    - DO NOT count clicking "Run" or running test cases.
+ *    - ONLY an actual successful "Submit" action marks a question as answered.
+ * 
+ * 2. DUPLICATE-SAFE:
+ *    - Submitting the same question multiple times counts as EXACTLY 1 answered question.
+ *    - Uses Set<string> of unique question IDs.
+ * 
+ * 3. MODULE PROGRESS:
+ *    - answeredQuestions / totalQuestions * 100 (rounded).
+ * 
+ * 4. OVERALL TRACK PROGRESS:
+ *    - Question-weighted: totalAnsweredAcrossAllModules / totalQuestionsAcrossAllModules * 100.
+ * 
+ * 5. PERSISTENCE & SAFETY:
+ *    - Survives page refreshes, reloads, and logins.
+ *    - Safe against 0 total questions (returns 0%, never NaN/undefined).
  */
 
 export interface ModuleProgressDetail {
@@ -38,6 +55,9 @@ export interface PracticeTrackProgressResult {
   resumeQuestionNumber: number;
   resumeQuestionLabel: string;
   resumeModuleTitle: string;
+  formattedModuleCount: string;
+  formattedModuleCompletion: string;
+  // Aliases for 100% backward compatibility
   totalSubModulesCount: number;
   completedSubModulesCount: number;
   totalTrackQuestions: number;
@@ -46,7 +66,95 @@ export interface PracticeTrackProgressResult {
 }
 
 /**
- * Normalizes question counts for any module structure
+ * 1. Calculates percentage for an individual module.
+ * Formula: Math.round((answeredQuestions / totalQuestions) * 100)
+ */
+export function calculateModuleProgress(answeredQuestions: number, totalQuestions: number): number {
+  if (!totalQuestions || totalQuestions <= 0) return 0;
+  const answered = Math.max(0, answeredQuestions || 0);
+  return Math.min(100, Math.max(0, Math.round((answered / totalQuestions) * 100)));
+}
+
+/**
+ * 2. Calculates overall track progress percentage across all modules (Question-Weighted).
+ * Formula: Math.round((totalAnsweredQuestions / totalTrackQuestions) * 100)
+ */
+export function calculateTrackProgressPercentage(
+  totalAnsweredQuestions: number,
+  totalTrackQuestions: number
+): number {
+  if (!totalTrackQuestions || totalTrackQuestions <= 0) return 0;
+  const answered = Math.max(0, totalAnsweredQuestions || 0);
+  return Math.min(100, Math.max(0, Math.round((answered / totalTrackQuestions) * 100)));
+}
+
+/**
+ * 3. Counts the number of completed modules.
+ * A module is completed ONLY when answeredQuestions === totalQuestions (and totalQuestions > 0).
+ */
+export function calculateCompletedModules(
+  moduleDetails: { completedQuestions?: number; answeredQuestions?: number; totalQuestions: number }[]
+): number {
+  if (!Array.isArray(moduleDetails) || moduleDetails.length === 0) return 0;
+  return moduleDetails.filter((m) => {
+    const answered = typeof m.completedQuestions === "number" ? m.completedQuestions : m.answeredQuestions || 0;
+    const total = m.totalQuestions || 0;
+    return total > 0 && answered >= total;
+  }).length;
+}
+
+/**
+ * 4. Counts unique answered questions from a SUBMISSION dictionary or submitted attempt object.
+ * Strictly duplicate-safe using a Set of unique question IDs.
+ * ONLY counts valid submitted answers (non-empty strings/arrays or valid submitted code objects).
+ */
+export function calculateAnsweredQuestions(
+  answersMap: Record<string, any> | undefined | null,
+  maxAllowed?: number
+): number {
+  if (!answersMap || typeof answersMap !== "object") return 0;
+  const uniqueAnsweredKeys = new Set<string>();
+
+  Object.entries(answersMap).forEach(([k, v]) => {
+    if (!v) return;
+    if (Array.isArray(v) && v.length > 0) {
+      uniqueAnsweredKeys.add(k);
+    } else if (typeof v === "string" && v.trim().length > 0) {
+      uniqueAnsweredKeys.add(k);
+    } else if (typeof v === "object") {
+      if ((v as any).status === "accepted" || (v as any).status === "passed" || (v as any).status === "SUBMITTED" || (v as any).status === "submitted") {
+        uniqueAnsweredKeys.add(k);
+      } else if ((v as any).code && typeof (v as any).code === "string" && (v as any).code.trim().length > 0 && (v as any).isSubmitted !== false) {
+        uniqueAnsweredKeys.add(k);
+      }
+    }
+  });
+
+  const count = uniqueAnsweredKeys.size;
+  return typeof maxAllowed === "number" && maxAllowed > 0 ? Math.min(maxAllowed, count) : count;
+}
+
+/**
+ * 5. Formats module count with proper singular/plural grammar.
+ * e.g., 1 -> "1 Module", 5 -> "5 Modules"
+ */
+export function formatModuleCount(count: number): string {
+  const c = Math.max(0, count || 0);
+  return `${c} ${c === 1 ? "Module" : "Modules"}`;
+}
+
+/**
+ * 6. Formats module completion string.
+ * e.g., "1 of 3 Modules Completed", "0 of 1 Module Completed"
+ */
+export function formatModuleCompletion(completed: number, total: number): string {
+  const c = Math.max(0, completed || 0);
+  const t = Math.max(0, total || 0);
+  return `${c} of ${t} ${t === 1 ? "Module" : "Modules"} Completed`;
+}
+
+/**
+ * 7. Normalizes total question count for any module structure.
  */
 export function getModuleQuestionCount(module: any): number {
   if (!module) return 1;
@@ -72,8 +180,12 @@ export function getModuleQuestionCount(module: any): number {
 }
 
 /**
- * Calculates completed questions and exact resume question info for a specific module
- * by dynamically counting actual answered questions from database and live client storage.
+ * 8. Calculates completed questions and exact resume question info for a specific module
+ * by dynamically counting actual SUBMITTED questions from database and live client storage.
+ * 
+ * SUBMISSION-ONLY RULE:
+ * - Opening, viewing, typing, or running code does NOT increase completedCount.
+ * - Only verified submissions (completed assessment / accepted coding submit) increase completedCount.
  */
 export function getModuleCompletedCount(
   module: any,
@@ -94,7 +206,7 @@ export function getModuleCompletedCount(
   let resumeQuestionNumber = 1;
   let resumeQuestionLabel = module.type === "coding" ? "Problem 1" : "Question 1";
 
-  // 1. Initial count from database-supplied module object
+  // 1. Initial count from database-supplied module object (authoritative database records)
   if (typeof module.completedQuestions === "number") {
     completedCount = Math.min(totalQuestions, Math.max(0, module.completedQuestions));
     if (completedCount >= totalQuestions && totalQuestions > 0) {
@@ -106,7 +218,7 @@ export function getModuleCompletedCount(
     }
   }
 
-  // 2. Check live client practice session state & completed records
+  // 2. Check live client submission state & completed records (SUBMISSION-BASED ONLY)
   if (isMounted && typeof window !== "undefined") {
     try {
       const completedKey = `lms_completed_assessment_${module.id}`;
@@ -116,6 +228,7 @@ export function getModuleCompletedCount(
       const completedStr = localStorage.getItem(completedKey);
       const isLocallySubmitted = localStorage.getItem(submittedKey) === "true";
 
+      // Case A: The module has been formally SUBMITTED by the student
       if (completedStr || isLocallySubmitted) {
         isSubmitted = true;
         let actualAnsweredCount = 0;
@@ -124,20 +237,16 @@ export function getModuleCompletedCount(
           try {
             const compObj = JSON.parse(completedStr);
             const ansMap = compObj.answers || {};
-            const answeredKeys = new Set<string>();
-
-            Object.entries(ansMap).forEach(([k, v]) => {
-              if (!v) return;
-              if (Array.isArray(v) && v.length > 0) answeredKeys.add(k);
-              else if (typeof v === "string" && v.trim().length > 0) answeredKeys.add(k);
-              else if (typeof v === "object" && (v as any).code && (v as any).code.trim().length > 0) answeredKeys.add(k);
-            });
-
-            actualAnsweredCount = answeredKeys.size;
+            actualAnsweredCount = calculateAnsweredQuestions(ansMap, totalQuestions);
           } catch {}
         }
 
-        completedCount = Math.min(totalQuestions, actualAnsweredCount);
+        // If marked completed but answers map was serialized as summary, fallback to total questions
+        if (completedStr && actualAnsweredCount === 0 && totalQuestions > 0) {
+          actualAnsweredCount = totalQuestions;
+        }
+
+        completedCount = Math.min(totalQuestions, Math.max(completedCount, actualAnsweredCount));
 
         if (completedCount >= totalQuestions && totalQuestions > 0) {
           isDone = true;
@@ -151,48 +260,75 @@ export function getModuleCompletedCount(
           resumeQuestionLabel = (module.type === "coding" ? "Problem " : "Question ") + resumeQuestionNumber;
         }
       } else {
+        // Case B: Unsubmitted session (draft / active navigation)
+        // CHECK ONLY ACTUAL SUBMITTED PROBLEMS (e.g. from coding submit button)
         const sessionStr = localStorage.getItem(sessionKey);
+        const submittedQuestionIds = new Set<string>();
+
+        // Check individually submitted coding problems in this session
         if (sessionStr) {
-          const parsed = JSON.parse(sessionStr);
-          const answeredKeys = new Set<string>();
+          try {
+            const parsed = JSON.parse(sessionStr);
 
-          // Count answered MCQs
-          Object.entries(parsed.answers || {}).forEach(([k, v]) => {
-            if (!v) return;
-            if (Array.isArray(v) && v.length > 0) answeredKeys.add(k);
-            else if (typeof v === "string" && v.trim().length > 0) answeredKeys.add(k);
-            else if (typeof v === "object" && (v as any).code && (v as any).code.trim().length > 0) answeredKeys.add(k);
-          });
+            // ONLY submissionResults (from clicking "Submit Solution", NOT "Run")
+            Object.entries(parsed.submissionResults || {}).forEach(([k, v]: any) => {
+              if (
+                v &&
+                (v.status === "accepted" ||
+                  v.status === "passed" ||
+                  v.status === "SUBMITTED" ||
+                  v.status === "submitted" ||
+                  (v.total_test_cases > 0 && v.passed_test_cases === v.total_test_cases))
+              ) {
+                submittedQuestionIds.add(k);
+              }
+            });
 
-          // Count written coding answers
-          Object.entries(parsed.codeAnswers || {}).forEach(([k, v]: any) => {
-            if (v && v.code && v.code.trim().length > 0) answeredKeys.add(k);
-          });
-
-          // Count submitted coding problems
-          Object.entries(parsed.submissionResults || {}).forEach(([k, v]: any) => {
-            if (v && (v.status === "accepted" || v.status === "passed" || v.test_cases_passed > 0)) {
-              answeredKeys.add(k);
-            }
-          });
-
-          const localAnswered = Math.min(totalQuestions, answeredKeys.size);
-          if (localAnswered > 0 || typeof parsed.codingIndex === "number" || typeof parsed.mcqIndex === "number") {
-            inProg = true;
-            completedCount = Math.max(completedCount, localAnswered);
-
-            // Determine where the user actually left off in this session
+            // Track active navigation position for "Left off at" ONLY
             if (parsed.activeSection === "coding" && typeof parsed.codingIndex === "number") {
               resumeQuestionNumber = Math.min(totalQuestions, parsed.codingIndex + 1);
               resumeQuestionLabel = `Problem ${resumeQuestionNumber}`;
+              inProg = true;
             } else if (parsed.activeSection === "mcq" && typeof parsed.mcqIndex === "number") {
               resumeQuestionNumber = Math.min(totalQuestions, parsed.mcqIndex + 1);
               resumeQuestionLabel = `Question ${resumeQuestionNumber}`;
-            } else {
-              resumeQuestionNumber = Math.min(totalQuestions, completedCount + 1);
-              resumeQuestionLabel = (module.type === "coding" ? "Problem " : "Question ") + resumeQuestionNumber;
+              inProg = true;
+            }
+          } catch {}
+        }
+
+        // Also check global coding submissions store for any accepted submissions for this module's questions
+        try {
+          const globalSubsRaw = localStorage.getItem("edunexus_coding_submissions_v1");
+          if (globalSubsRaw) {
+            const globalSubs = JSON.parse(globalSubsRaw);
+            if (Array.isArray(globalSubs)) {
+              const moduleQuestions = module.codingQuestions || module.codingProblems || [];
+              moduleQuestions.forEach((cq: any) => {
+                const hasAccepted = globalSubs.some(
+                  (s: any) => (s.problem_id === cq.id || s.problem_id === cq.slug) && (s.status === "accepted" || s.status === "passed")
+                );
+                if (hasAccepted) {
+                  submittedQuestionIds.add(cq.id);
+                }
+              });
             }
           }
+        } catch {}
+
+        // ONLY submitted question IDs increase completedCount
+        const verifiedSubmittedCount = Math.min(totalQuestions, submittedQuestionIds.size);
+        completedCount = Math.max(completedCount, verifiedSubmittedCount);
+
+        if (completedCount > 0) {
+          inProg = true;
+        }
+
+        if (completedCount >= totalQuestions && totalQuestions > 0) {
+          isDone = true;
+          inProg = false;
+          resumeQuestionNumber = totalQuestions;
+          resumeQuestionLabel = "Finished";
         }
       }
     } catch {}
@@ -218,9 +354,9 @@ export function getModuleCompletedCount(
 }
 
 /**
- * Universal dynamic overall Practice Track progress calculator.
- * Supports 0, 1, 2, 3, 5, 10, 20+ modules.
- * Weights accurately by actual questions across all modules.
+ * 9. Universal dynamic overall Practice Track progress calculator.
+ * Supports ANY number of modules (0, 1, 2, 3, 5, 10, 20+ modules).
+ * Calculates strictly QUESTION-WEIGHTED overall progress across all modules.
  */
 export function getPracticeTrackProgress(
   modulesOrTrack: any[] | any,
@@ -246,6 +382,8 @@ export function getPracticeTrackProgress(
       resumeQuestionNumber: 1,
       resumeQuestionLabel: "Question 1",
       resumeModuleTitle: "",
+      formattedModuleCount: formatModuleCount(0),
+      formattedModuleCompletion: formatModuleCompletion(0, 0),
       totalSubModulesCount: 0,
       completedSubModulesCount: 0,
       totalTrackQuestions: 0,
@@ -272,11 +410,7 @@ export function getPracticeTrackProgress(
       resumeQuestionLabel,
     } = getModuleCompletedCount(m, modTotalQuestions, isMounted);
 
-    const modPercentage = modTotalQuestions > 0
-      ? Math.min(100, Math.max(0, Math.round((completedCount / modTotalQuestions) * 100)))
-      : isDone
-      ? 100
-      : 0;
+    const modPercentage = calculateModuleProgress(completedCount, modTotalQuestions);
 
     totalQuestions += modTotalQuestions;
     completedQuestions += completedCount;
@@ -325,12 +459,8 @@ export function getPracticeTrackProgress(
     };
   });
 
-  // Calculate overall track progress using total questions across ALL modules
-  const rawPercentage = totalQuestions === 0
-    ? 0
-    : Math.round((completedQuestions / totalQuestions) * 100);
-
-  const percentage = Math.min(100, Math.max(0, rawPercentage));
+  // Calculate overall track progress using total questions across ALL modules (question-weighted)
+  const percentage = calculateTrackProgressPercentage(completedQuestions, totalQuestions);
 
   const activeModule = nextSubModuleToContinue || moduleDetails.find((m) => !m.isCompleted) || moduleDetails[0];
   const resumeQuestionLabel = percentage === 100
@@ -352,6 +482,8 @@ export function getPracticeTrackProgress(
     resumeQuestionNumber,
     resumeQuestionLabel,
     resumeModuleTitle,
+    formattedModuleCount: formatModuleCount(totalModules),
+    formattedModuleCompletion: formatModuleCompletion(completedModules, totalModules),
     // Aliases for compatibility
     totalSubModulesCount: totalModules,
     completedSubModulesCount: completedModules,
@@ -362,6 +494,7 @@ export function getPracticeTrackProgress(
 }
 
 /**
- * Backward compatibility wrapper
+ * Backward compatibility aliases
  */
 export const computeTrackProgress = getPracticeTrackProgress;
+export const calculateTrackProgress = getPracticeTrackProgress;

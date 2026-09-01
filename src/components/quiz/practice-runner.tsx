@@ -99,7 +99,7 @@ export function PracticeRunnerEngine({
 
   const hasBothSections = mcqQuestions.length > 0 && codingQuestions.length > 0;
 
-  const storageKey = `lms_practice_session_${module.id}`;
+  const storageKey = module?.id ? `lms_practice_session_${module.id}` : "lms_practice_session_default";
 
   const isRetakeMode =
     typeof window !== "undefined" &&
@@ -111,11 +111,11 @@ export function PracticeRunnerEngine({
     typeof window !== "undefined" &&
     localStorage.getItem(`${storageKey}_submitted`) === "true";
 
-  const shouldRestoreFromStorage = !isRetakeMode && !isAlreadySubmitted;
+  const shouldRestoreFromStorage = !isRetakeMode && !isAlreadySubmitted && Boolean(module?.id);
 
   // Active section state
   const [activeSection, setActiveSection] = useState<"mcq" | "coding">(() => {
-    if (shouldRestoreFromStorage && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined" && module?.id) {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -128,7 +128,7 @@ export function PracticeRunnerEngine({
   });
 
   const [mcqIndex, setMcqIndex] = useState<number>(() => {
-    if (shouldRestoreFromStorage && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined" && module?.id) {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -141,7 +141,7 @@ export function PracticeRunnerEngine({
   });
 
   const [codingIndex, setCodingIndex] = useState<number>(() => {
-    if (shouldRestoreFromStorage && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined" && module?.id) {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -157,7 +157,7 @@ export function PracticeRunnerEngine({
   const currentSectionIndex = activeSection === "mcq" ? mcqIndex : codingIndex;
 
   const [answers, setAnswers] = useState<Record<string, any>>(() => {
-    if (shouldRestoreFromStorage && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined" && module?.id) {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -170,7 +170,7 @@ export function PracticeRunnerEngine({
   });
 
   const [codeAnswers, setCodeAnswers] = useState<Record<string, { code: string; language: string }>>(() => {
-    if (shouldRestoreFromStorage && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined" && module?.id) {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -183,7 +183,7 @@ export function PracticeRunnerEngine({
   });
 
   const [submissionResults, setSubmissionResults] = useState<Record<string, CodingSubmission | null>>(() => {
-    if (shouldRestoreFromStorage && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined" && module?.id) {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -196,7 +196,7 @@ export function PracticeRunnerEngine({
   });
 
   const [markedForReview, setMarkedForReview] = useState<Set<string>>(() => {
-    if (shouldRestoreFromStorage && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined" && module?.id) {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -209,7 +209,7 @@ export function PracticeRunnerEngine({
   });
 
   const [sessionStartTime] = useState<number>(() => {
-    if (shouldRestoreFromStorage && typeof window !== "undefined") {
+    if (shouldRestoreFromStorage && typeof window !== "undefined" && module?.id) {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -222,7 +222,8 @@ export function PracticeRunnerEngine({
   });
 
   const [timeLeft, setTimeLeft] = useState<number>(() => {
-    if (shouldRestoreFromStorage && typeof window !== "undefined") {
+    const defaultSecs = (module?.durationMinutes || 0) * 60;
+    if (shouldRestoreFromStorage && typeof window !== "undefined" && module?.id) {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
         if (saved) {
@@ -233,14 +234,14 @@ export function PracticeRunnerEngine({
             if (parsed.savedAt) {
               const elapsed = Math.floor((Date.now() - new Date(parsed.savedAt).getTime()) / 1000);
               const adjusted = parsed.timeLeft - elapsed;
-              return Math.max(0, Math.min(adjusted, module.durationMinutes * 60));
+              return Math.max(0, Math.min(adjusted, (module?.durationMinutes || 60) * 60));
             }
-            return Math.min(parsed.timeLeft, module.durationMinutes * 60);
+            return Math.min(parsed.timeLeft, (module?.durationMinutes || 60) * 60);
           }
         }
       } catch {}
     }
-    return module.durationMinutes * 60;
+    return defaultSecs;
   });
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -252,6 +253,7 @@ export function PracticeRunnerEngine({
   const [mobileTab, setMobileTab] = useState<"problem" | "editor" | "palette">("editor");
   const [showPaletteDrawer, setShowPaletteDrawer] = useState(false);
 
+  const [isFinalSubmitting, setIsFinalSubmitting] = useState<boolean>(false);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(() => isAlreadySubmitted);
   const timerRef = React.useRef<NodeJS.Timeout | null>(null);
   const timeLeftRef = React.useRef<number>(timeLeft);
@@ -263,7 +265,7 @@ export function PracticeRunnerEngine({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    if (module.allowReviewBeforeSubmit !== false) {
+    if (module?.allowReviewBeforeSubmit !== false) {
       setShowReviewModal(true);
     } else {
       setShowSubmitDialog(true);
@@ -334,22 +336,23 @@ export function PracticeRunnerEngine({
   const currentQuestion = currentSectionQuestions[currentSectionIndex] || questions[0];
 
   const handleFinalSubmit = useCallback(async () => {
+    if (isFinalSubmitting) return;
+    setIsFinalSubmitting(true);
+
     // 1. Immediately halt and clear the countdown timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    setIsSubmitted(true);
-    setShowSubmitDialog(false);
-    setShowReviewModal(false);
 
     const completedAt = new Date().toISOString();
     const finalRemainingTime = timeLeftRef.current;
     
     // Compute elapsed time accurately
     const elapsedFromStart = Math.max(1, Math.floor((Date.now() - sessionStartTime) / 1000));
-    const timeSpentSeconds = module.durationMinutes > 0
-      ? Math.max(1, (module.durationMinutes * 60) - finalRemainingTime)
+    const durationMinutes = module?.durationMinutes || 0;
+    const timeSpentSeconds = durationMinutes > 0
+      ? Math.max(1, (durationMinutes * 60) - finalRemainingTime)
       : elapsedFromStart;
 
     try {
@@ -357,6 +360,12 @@ export function PracticeRunnerEngine({
         { ...answers, ...codeAnswers },
         { timeSpentSeconds, completedAt, timeLeft: finalRemainingTime, submissionResults }
       );
+      setIsSubmitted(true);
+      setShowSubmitDialog(false);
+      setShowReviewModal(false);
+    } catch (err) {
+      console.error("Final submit error:", err);
+      setIsFinalSubmitting(false);
     } finally {
       // Always clear session after submit — prevents refresh from restoring the editor
       try {
@@ -366,9 +375,9 @@ export function PracticeRunnerEngine({
         window.dispatchEvent(new Event("storage"));
       } catch {}
     }
-  }, [answers, codeAnswers, onSubmit, storageKey, module.durationMinutes, sessionStartTime, submissionResults]);
+  }, [isFinalSubmitting, answers, codeAnswers, onSubmit, storageKey, module?.durationMinutes, sessionStartTime, submissionResults]);
 
-  const isUntimed = !module.durationMinutes || module.durationMinutes <= 0;
+  const isUntimed = !module?.durationMinutes || (module?.durationMinutes ?? 0) <= 0;
 
   // Countdown Timer — stops immediately when submitted, untimed, completed, or reviewing submission
   useEffect(() => {
@@ -404,7 +413,7 @@ export function PracticeRunnerEngine({
 
   // Anti-Cheating: Plagiarism & Clipboard Lock
   useEffect(() => {
-    if (!module.proctoring?.copyPasteRestricted) return;
+    if (!module?.proctoring?.copyPasteRestricted) return;
 
     const preventClipboard = (e: ClipboardEvent) => {
       e.preventDefault();
@@ -424,7 +433,7 @@ export function PracticeRunnerEngine({
       window.removeEventListener("cut", preventClipboard);
       window.removeEventListener("paste", preventClipboard);
     };
-  }, [module.proctoring?.copyPasteRestricted, toast]);
+  }, [module?.proctoring?.copyPasteRestricted, toast]);
 
   const handleSingleAnswer = (questionId: string, optionId: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: [optionId] }));
@@ -808,142 +817,335 @@ export function PracticeRunnerEngine({
     </Card>
   );
 
-  const renderPaletteContent = (canHide = false) => (
-    <Card className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-2xl overflow-hidden flex flex-col h-full min-w-0">
-      <CardHeader className="p-4 pb-3 border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
-        <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="truncate font-bold text-sm">Questions</span>
-            <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 rounded-full border-slate-200 dark:border-zinc-700">
-              {answeredCount}/{totalQuestions}
-            </Badge>
-          </div>
-          {canHide && (
-            <button
-              type="button"
-              onClick={() => setShowQuestionPalette(false)}
-              className="h-7 w-7 rounded-lg border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all shrink-0"
-              title="Hide Questions"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+  const renderPaletteContent = (canHide = false) => {
+    const draftCount = questions.filter((q) => isQuestionAttempted(q.id)).length;
+    const notAttemptedCount = Math.max(0, totalQuestions - answeredCount - draftCount);
+
+    return (
+      <Card className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-2xl overflow-hidden flex flex-col h-full min-w-0">
+        <CardHeader className="p-4 pb-3 border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
+          <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="truncate font-bold text-sm">Questions</span>
+              <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 rounded-full border-slate-200 dark:border-zinc-700">
+                {answeredCount}/{totalQuestions}
+              </Badge>
+            </div>
+            {canHide && (
+              <button
+                type="button"
+                onClick={() => setShowQuestionPalette(false)}
+                className="h-7 w-7 rounded-lg border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all shrink-0 cursor-pointer"
+                title="Hide Questions"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 space-y-4 flex-1 overflow-y-auto">
+          {mcqQuestions.length > 0 && (
+            <div className="space-y-2.5">
+              <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 truncate">
+                <ClipboardList className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
+                <span className="truncate">{mcqQuestions[0]?.sectionTitle || (module as any).mcqSectionTitle || "Multiple Choice"}</span>
+                <span className="text-[11px] text-slate-400 shrink-0">({mcqQuestions.length})</span>
+              </span>
+              <div className="grid grid-cols-5 gap-2">
+                {mcqQuestions.map((q, idx) => {
+                  const answered = isQuestionAnswered(q.id);
+                  const marked = markedForReview.has(q.id);
+                  const isCurrent = activeSection === "mcq" && mcqIndex === idx;
+
+                  let style = "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:border-blue-400";
+                  if (isCurrent) style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold shadow-xs";
+                  else if (marked) style = "bg-amber-500/15 text-amber-600 border-amber-500/40 font-bold";
+                  else if (answered) style = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 font-bold";
+
+                  return (
+                    <button
+                      key={q.id || idx}
+                      onClick={() => {
+                        setActiveSection("mcq");
+                        setMcqIndex(idx);
+                        setShowPaletteDrawer(false);
+                      }}
+                      className={`h-9 w-full rounded-xl text-xs font-bold transition-all border flex items-center justify-center cursor-pointer ${style}`}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 space-y-4 flex-1 overflow-y-auto">
-        {mcqQuestions.length > 0 && (
-          <div className="space-y-2.5">
-            <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 truncate">
-              <ClipboardList className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
-              <span className="truncate">{mcqQuestions[0]?.sectionTitle || (module as any).mcqSectionTitle || "Multiple Choice"}</span>
-              <span className="text-[11px] text-slate-400 shrink-0">({mcqQuestions.length})</span>
-            </span>
-            <div className="grid grid-cols-5 gap-2">
-              {mcqQuestions.map((q, idx) => {
-                const answered = isQuestionAnswered(q.id);
-                const marked = markedForReview.has(q.id);
-                const isCurrent = activeSection === "mcq" && mcqIndex === idx;
 
-                let style = "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:border-blue-400";
-                if (isCurrent) style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold shadow-xs";
-                else if (marked) style = "bg-amber-500/15 text-amber-600 border-amber-500/40 font-bold";
-                else if (answered) style = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 font-bold";
+          {codingQuestions.length > 0 && (
+            <div className="space-y-2.5 pt-3 border-t border-slate-200/80 dark:border-zinc-800">
+              <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 truncate">
+                <Code2 className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
+                <span className="truncate">{codingQuestions[0]?.sectionTitle || (module as any).codingSectionTitle || "Coding Challenges"}</span>
+                <span className="text-[11px] text-slate-400 shrink-0">({codingQuestions.length})</span>
+              </span>
+              <div className="grid grid-cols-5 gap-2">
+                {codingQuestions.map((cq, idx) => {
+                  const isSubmitted = Boolean(submissionResults[cq.id]);
+                  const isAttempted = isQuestionAttempted(cq.id);
+                  const marked = markedForReview.has(cq.id);
+                  const isCurrent = activeSection === "coding" && codingIndex === idx;
 
-                return (
-                  <button
-                    key={q.id || idx}
-                    onClick={() => {
-                      setActiveSection("mcq");
-                      setMcqIndex(idx);
-                      setShowPaletteDrawer(false);
-                    }}
-                    className={`h-9 w-full rounded-xl text-xs font-bold transition-all border flex items-center justify-center ${style}`}
-                  >
-                    {idx + 1}
-                  </button>
-                );
-              })}
+                  let style = "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:border-blue-400";
+                  if (isCurrent) {
+                    style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold shadow-xs";
+                  } else if (marked) {
+                    style = "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/40 font-bold";
+                  } else if (isSubmitted) {
+                    style = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 font-bold";
+                  } else if (isAttempted) {
+                    style = "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 font-bold";
+                  }
+
+                  return (
+                    <button
+                      key={cq.id || idx}
+                      onClick={() => {
+                        setActiveSection("coding");
+                        setCodingIndex(idx);
+                        setShowPaletteDrawer(false);
+                        setMobileTab("editor");
+                      }}
+                      className={`h-9 w-full rounded-xl text-xs font-bold transition-all border flex items-center justify-center cursor-pointer ${style}`}
+                      title={cq.title}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="p-3.5 bg-slate-50/70 dark:bg-zinc-900/50 rounded-xl border border-slate-200/80 dark:border-zinc-800 space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Submitted
+              </span>
+              <span className="font-bold text-slate-900 dark:text-white">{answeredCount}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> In-Progress / Draft
+              </span>
+              <span className="font-bold text-amber-600 dark:text-amber-400">
+                {draftCount}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-zinc-700" /> Not Attempted
+              </span>
+              <span className="font-bold text-slate-700 dark:text-zinc-300">{notAttemptedCount}</span>
+            </div>
+            <div className="pt-2 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between">
+              <span className="font-bold text-slate-800 dark:text-zinc-200">Total Questions</span>
+              <span className="font-bold text-slate-900 dark:text-white">{totalQuestions}</span>
             </div>
           </div>
-        )}
+        </CardContent>
+      </Card>
+    );
+  };
 
-        {codingQuestions.length > 0 && (
-          <div className="space-y-2.5 pt-3 border-t border-slate-200/80 dark:border-zinc-800">
-            <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 truncate">
-              <Code2 className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
-              <span className="truncate">{codingQuestions[0]?.sectionTitle || (module as any).codingSectionTitle || "Coding Challenges"}</span>
-              <span className="text-[11px] text-slate-400 shrink-0">({codingQuestions.length})</span>
-            </span>
-            <div className="grid grid-cols-5 gap-2">
-              {codingQuestions.map((cq, idx) => {
-                const isSubmitted = Boolean(submissionResults[cq.id]);
-                const isAttempted = isQuestionAttempted(cq.id);
-                const marked = markedForReview.has(cq.id);
-                const isCurrent = activeSection === "coding" && codingIndex === idx;
+  const renderMobileQuestionNavigation = () => {
+    const draftCount = questions.filter((q) => isQuestionAttempted(q.id)).length;
+    const notAttemptedCount = Math.max(0, totalQuestions - answeredCount - draftCount);
 
-                let style = "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:border-blue-400";
-                if (isCurrent) {
-                  style = "ring-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold shadow-xs";
-                } else if (marked) {
-                  style = "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/40 font-bold";
-                } else if (isSubmitted) {
-                  style = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 font-bold";
-                } else if (isAttempted) {
-                  style = "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 font-bold";
-                }
-
-                return (
-                  <button
-                    key={cq.id || idx}
-                    onClick={() => {
-                      setActiveSection("coding");
-                      setCodingIndex(idx);
-                      setShowPaletteDrawer(false);
-                      setMobileTab("editor");
-                    }}
-                    className={`h-9 w-full rounded-xl text-xs font-bold transition-all border flex items-center justify-center ${style}`}
-                    title={cq.title}
-                  >
-                    {idx + 1}
-                  </button>
-                );
-              })}
+    return (
+      <div className="flex flex-col h-full bg-white dark:bg-[#18181B] text-slate-900 dark:text-zinc-100">
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] flex items-center justify-center shadow-2xs shrink-0">
+              <ClipboardList className="h-4 w-4" />
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold text-sm sm:text-base text-slate-900 dark:text-white truncate">Questions</span>
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-[#2563EB] border border-blue-200/80 dark:border-blue-800/50 shrink-0">
+                {answeredCount}/{totalQuestions}
+              </span>
             </div>
           </div>
-        )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 shrink-0 cursor-pointer"
+            onClick={() => setShowPaletteDrawer(false)}
+            aria-label="Close questions navigation"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
-        <div className="p-3.5 bg-slate-50/70 dark:bg-zinc-900/50 rounded-xl border border-slate-200/80 dark:border-zinc-800 space-y-2 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Submitted
-            </span>
-            <span className="font-bold text-slate-900 dark:text-white">{answeredCount}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> In-Progress / Draft
-            </span>
-            <span className="font-bold text-amber-600 dark:text-amber-400">
-              {questions.filter((q) => isQuestionAttempted(q.id)).length}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-zinc-700" /> Total Questions
-            </span>
-            <span className="font-bold text-slate-900 dark:text-white">{totalQuestions}</span>
+        {/* Scrollable Categories Body */}
+        <div className="p-4 space-y-5 flex-1 overflow-y-auto">
+          {mcqQuestions.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-zinc-300">
+                <span className="flex items-center gap-1.5 truncate">
+                  <ClipboardList className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
+                  <span className="truncate">{mcqQuestions[0]?.sectionTitle || (module as any).mcqSectionTitle || "Multiple Choice (MCQ)"}</span>
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400 dark:text-zinc-500 shrink-0">
+                  ({mcqQuestions.length})
+                </span>
+              </div>
+
+              <div className="grid grid-cols-5 gap-2.5">
+                {mcqQuestions.map((q, idx) => {
+                  const answered = isQuestionAnswered(q.id);
+                  const marked = markedForReview.has(q.id);
+                  const isCurrent = activeSection === "mcq" && mcqIndex === idx;
+
+                  let stateClass = "bg-slate-50 text-slate-700 dark:bg-zinc-800/80 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-blue-400";
+                  let stateLabel = "Not attempted";
+
+                  if (isCurrent) {
+                    stateClass = "ring-2 ring-offset-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold shadow-xs";
+                    stateLabel = "Current question";
+                  } else if (marked) {
+                    stateClass = "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-300 dark:border-purple-800 font-bold";
+                    stateLabel = "Marked for review";
+                  } else if (answered) {
+                    stateClass = "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 font-bold";
+                    stateLabel = "Submitted";
+                  }
+
+                  return (
+                    <button
+                      key={q.id || `mcq_${idx}`}
+                      onClick={() => {
+                        setActiveSection("mcq");
+                        setMcqIndex(idx);
+                        setShowPaletteDrawer(false);
+                      }}
+                      aria-label={`Question ${idx + 1}, ${stateLabel}`}
+                      className={cn(
+                        "h-11 w-full rounded-xl text-xs sm:text-sm font-bold transition-all border flex items-center justify-center cursor-pointer active:scale-95",
+                        stateClass
+                      )}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {codingQuestions.length > 0 && (
+            <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-zinc-300">
+                <span className="flex items-center gap-1.5 truncate">
+                  <Code2 className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
+                  <span className="truncate">{codingQuestions[0]?.sectionTitle || (module as any).codingSectionTitle || "Coding Challenges"}</span>
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400 dark:text-zinc-500 shrink-0">
+                  ({codingQuestions.length})
+                </span>
+              </div>
+
+              <div className="grid grid-cols-5 gap-2.5">
+                {codingQuestions.map((cq, idx) => {
+                  const isSubmitted = Boolean(submissionResults[cq.id]);
+                  const isAttempted = isQuestionAttempted(cq.id);
+                  const marked = markedForReview.has(cq.id);
+                  const isCurrent = activeSection === "coding" && codingIndex === idx;
+
+                  let stateClass = "bg-slate-50 text-slate-700 dark:bg-zinc-800/80 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-blue-400";
+                  let stateLabel = "Not attempted";
+
+                  if (isCurrent) {
+                    stateClass = "ring-2 ring-offset-2 ring-[#2563EB] bg-[#2563EB] text-white font-bold shadow-xs";
+                    stateLabel = "Current problem";
+                  } else if (marked) {
+                    stateClass = "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-300 dark:border-purple-800 font-bold";
+                    stateLabel = "Marked for review";
+                  } else if (isSubmitted) {
+                    stateClass = "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 font-bold";
+                    stateLabel = "Submitted";
+                  } else if (isAttempted) {
+                    stateClass = "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-bold";
+                    stateLabel = "In-progress draft";
+                  }
+
+                  return (
+                    <button
+                      key={cq.id || `coding_${idx}`}
+                      onClick={() => {
+                        setActiveSection("coding");
+                        setCodingIndex(idx);
+                        setShowPaletteDrawer(false);
+                        setMobileTab("editor");
+                      }}
+                      aria-label={`Problem ${idx + 1}, ${stateLabel}`}
+                      className={cn(
+                        "h-11 w-full rounded-xl text-xs sm:text-sm font-bold transition-all border flex items-center justify-center cursor-pointer active:scale-95",
+                        stateClass
+                      )}
+                      title={cq.title}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Bottom Status Summary Card */}
+          <div className="p-3.5 bg-slate-50/90 dark:bg-zinc-900/60 rounded-2xl border border-slate-200/80 dark:border-zinc-800 space-y-2.5 text-xs mt-2">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400 font-medium">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                <span>Submitted</span>
+              </span>
+              <span className="font-bold text-slate-900 dark:text-white">{answeredCount}</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400 font-medium">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                <span>In-Progress / Draft</span>
+              </span>
+              <span className="font-bold text-amber-600 dark:text-amber-400">{draftCount}</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400 font-medium">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-zinc-600 shrink-0" />
+                <span>Not Attempted</span>
+              </span>
+              <span className="font-bold text-slate-700 dark:text-zinc-300">{notAttemptedCount}</span>
+            </div>
+
+            <div className="pt-2 border-t border-slate-200/80 dark:border-zinc-800 flex items-center justify-between">
+              <span className="font-bold text-slate-800 dark:text-zinc-200">Total Questions</span>
+              <span className="font-bold text-slate-900 dark:text-white">{totalQuestions}</span>
+            </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
-  );
+      </div>
+    );
+  };
 
   const handleResetAndRetake = () => {
     if (typeof window !== "undefined") {
       try {
-        localStorage.removeItem(`lms_practice_session_${module.id}`);
-        localStorage.removeItem(`lms_practice_session_${module.id}_submitted`);
-        localStorage.removeItem(`lms_completed_assessment_${module.id}`);
+        if (module?.id) {
+          localStorage.removeItem(`lms_practice_session_${module.id}`);
+          localStorage.removeItem(`lms_practice_session_${module.id}_submitted`);
+          localStorage.removeItem(`lms_completed_assessment_${module.id}`);
+        }
         localStorage.removeItem("lms_proctoring_violations");
         window.dispatchEvent(new Event("storage"));
       } catch {}
@@ -953,8 +1155,9 @@ export function PracticeRunnerEngine({
     setCodeAnswers({});
     setSubmissionResults({});
     setMarkedForReview(new Set());
-    setTimeLeft(module.durationMinutes * 60);
-    timeLeftRef.current = module.durationMinutes * 60;
+    const duration = (module?.durationMinutes || 0) * 60;
+    setTimeLeft(duration);
+    timeLeftRef.current = duration;
   };
 
   if (isSubmitted || isAlreadySubmitted) {
@@ -1007,9 +1210,9 @@ export function PracticeRunnerEngine({
   }
 
   return (
-    <div className="space-y-4 w-full pb-28 relative">
+    <div className="space-y-4 w-full pb-36 sm:pb-28 relative max-w-full overflow-x-hidden">
       {/* Top Header - Spacious Enterprise MNC Header */}
-      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-6 lg:p-7 shadow-xs overflow-visible">
+      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-6 lg:p-7 shadow-xs overflow-visible">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           {/* Left Column: Integrated Breadcrumb + Title + Metadata */}
           <div className="space-y-2 flex-1 min-w-0">
@@ -1027,146 +1230,196 @@ export function PracticeRunnerEngine({
 
             {/* Main Row: Module Title */}
             <div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
-                {module.title}
+              <h1 className="text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight break-words">
+                {module?.title || "Assessment"}
               </h1>
             </div>
 
             {/* Metadata Row */}
-            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-zinc-400 font-normal leading-relaxed flex-wrap pt-0.5">
+            <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 font-normal leading-relaxed flex-wrap pt-0.5">
               <span>
-                Assigned by: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{module.assignedBy || (module as any).assignedByName || "Instructor"}</strong>
+                Assigned by: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{module?.assignedBy || (module as any)?.assignedByName || "Instructor"}</strong>
               </span>
-              <span>•</span>
+              <span className="hidden xs:inline">•</span>
               <span>
                 Total Questions: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{totalQuestions} ({mcqQuestions.length} MCQs, {codingQuestions.length} Coding)</strong>
               </span>
-              <span>•</span>
+              <span className="hidden xs:inline">•</span>
               <span>
-                Max Marks: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{module.totalMarks > 0 ? module.totalMarks : questions.reduce((sum, q) => sum + (q.marks || 0), 0)}</strong>
+                Max Marks: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{(module?.totalMarks ?? 0) > 0 ? module?.totalMarks : (questions || []).reduce((sum, q) => sum + (q?.marks || 0), 0)}</strong>
               </span>
             </div>
           </div>
 
-          {extraHeaderContent && (
-            <div className="flex items-center justify-center shrink-0">
-              {extraHeaderContent}
-            </div>
-          )}
-
-          {/* Right Column: Timer & Submit Action */}
-          <div className="flex items-center gap-3 shrink-0 self-start lg:self-center">
-            {!isUntimed && (
-              <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white shadow-2xs">
-                <Clock className="h-4 w-4 text-[#2563EB]" />
-                <span>{formatTimerDisplay(timeLeft)}</span>
+          {/* Right Section: Proctor + Timer + Submit on Mobile / Desktop */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between lg:justify-end gap-3 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-zinc-800">
+            {extraHeaderContent && (
+              <div className="flex items-center justify-center shrink-0 self-center sm:self-auto">
+                {extraHeaderContent}
               </div>
             )}
-            <Button
-              onClick={handleInitiateSubmit}
-              className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-2 rounded-xl shadow-xs transition-all"
-            >
-              <Send className="h-3.5 w-3.5" /> Submit Practice
-            </Button>
+
+            {/* Timer & Submit Action */}
+            <div className="flex items-center justify-between sm:justify-start gap-2.5 sm:gap-3 shrink-0 w-full sm:w-auto">
+              {!isUntimed && (
+                <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white shadow-2xs">
+                  <Clock className="h-4 w-4 text-[#2563EB] shrink-0" />
+                  <span>{formatTimerDisplay(timeLeft)}</span>
+                </div>
+              )}
+              <Button
+                onClick={handleInitiateSubmit}
+                className="h-9 sm:h-10 px-4 sm:px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-1.5 sm:gap-2 rounded-xl shadow-xs transition-all flex-1 sm:flex-initial"
+              >
+                <Send className="h-3.5 w-3.5 shrink-0" /> <span>Submit</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       {activeSection === "mcq" && (
-        <div className="flex flex-col lg:flex-row items-start gap-6 w-full">
-          <div className="flex-1 min-w-0 space-y-6">
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden">
-              <CardHeader className="p-6 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[11px] font-bold tracking-wider uppercase text-[#2563EB]">
-                      Question {mcqIndex + 1} of {mcqQuestions.length}
-                    </span>
-                    <Badge
-                      className={cn(
-                        "text-[10px] font-bold px-2.5 py-0.5 rounded-lg",
-                        isMultiSelectQuestion(currentQuestion)
-                          ? "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/30"
-                          : "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/30"
-                      )}
-                    >
-                      {isMultiSelectQuestion(currentQuestion) ? "Multiple Choice (Checkboxes)" : "Single Choice (Radio)"}
-                    </Badge>
-                  </div>
-                  <CardTitle className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">
-                    {currentQuestion.text || currentQuestion.title}
-                  </CardTitle>
-                  {isMultiSelectQuestion(currentQuestion) && (
-                    <p className="text-[11px] font-semibold text-[#2563EB]">
-                      * You can select multiple correct options for this question.
-                    </p>
-                  )}
-                </div>
-                {currentQuestion.marks && (
-                  <Badge variant="outline" className="text-xs font-bold bg-[#F9FAFB] dark:bg-[#09090B]">
-                    +{currentQuestion.marks} Marks
-                  </Badge>
-                )}
-              </CardHeader>
-
-              <CardContent className="p-6 space-y-6">
-                <div className="space-y-3 pt-2">
-                  {(!currentQuestion.options || currentQuestion.options.length === 0) ? (
-                    <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 text-xs">
-                      No options defined for this question.
-                    </div>
-                  ) : (
-                    currentQuestion.options.map((option, idx) => {
-                      const isMulti = isMultiSelectQuestion(currentQuestion);
-                      const isSelected = isOptionSelected(currentQuestion.id, option.id);
-                      return (
-                        <button
-                          key={option.id || idx}
-                          type="button"
-                          onClick={() => handleAnswerSelect(currentQuestion, option.id)}
-                          className={cn(
-                            "w-full p-4 rounded-xl text-left border transition-all duration-200 flex items-center justify-between group text-xs font-medium cursor-pointer",
-                            isSelected
-                              ? "border-[#2563EB] bg-[#2563EB]/5 text-[#2563EB] ring-1 ring-[#2563EB] shadow-xs"
-                              : "border-[#E5E7EB] dark:border-[#27272A] hover:border-slate-300 dark:hover:border-zinc-700 bg-white dark:bg-[#18181B] text-[#374151] dark:text-[#D1D5DB]"
-                          )}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className={cn(
-                              "w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold border transition-colors shrink-0",
-                              isSelected
-                                ? "bg-[#2563EB] text-white border-[#2563EB]"
-                                : "bg-muted border-border text-muted-foreground group-hover:border-foreground/40"
-                            )}>
-                              {String.fromCharCode(65 + idx)}
-                            </div>
-                            <span className="leading-snug">{option.text}</span>
-                          </div>
-                          {isSelected ? (
-                            isMulti ? (
-                              <div className="w-5 h-5 rounded-md bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-xs">
-                                <Check className="h-3.5 w-3.5 stroke-[3]" />
-                              </div>
-                            ) : (
-                              <CheckCircle2 className="h-5 w-5 text-[#2563EB] shrink-0" />
-                            )
-                          ) : (
-                            <div className={cn(
-                              "w-5 h-5 border-2 border-[#D1D5DB] dark:border-[#3F3F46] shrink-0",
-                              isMulti ? "rounded-md" : "rounded-full"
-                            )} />
-                          )}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+        <div className="space-y-4 w-full">
+          {/* Mobile & Tablet Segmented View Switcher (< lg / < 1024px) for MCQ */}
+          <div className="flex lg:hidden items-center justify-between p-1 bg-[#F8FAFC] dark:bg-[#18181C] rounded-2xl border border-slate-200/80 dark:border-zinc-800 gap-1 select-none shadow-2xs w-full max-w-full overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setMobileTab("problem")}
+              className={cn(
+                "flex-1 py-1.5 px-2 sm:px-3 text-[11px] sm:text-xs font-semibold rounded-full flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap min-w-0",
+                mobileTab !== "palette"
+                  ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs font-bold"
+                  : "text-[#64748B] dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+              )}
+            >
+              <FileText className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0", mobileTab !== "palette" ? "text-[#2563EB]" : "text-[#64748B] dark:text-zinc-400")} />
+              <span className="truncate">Question</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab("palette")}
+              className={cn(
+                "flex-1 py-1.5 px-2 sm:px-3 text-[11px] sm:text-xs font-semibold rounded-full flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap min-w-0",
+                mobileTab === "palette"
+                  ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs font-bold"
+                  : "text-[#64748B] dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+              )}
+            >
+              <ClipboardList className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0", mobileTab === "palette" ? "text-[#2563EB]" : "text-[#64748B] dark:text-zinc-400")} />
+              <span className="flex items-center gap-0.5 sm:gap-1 truncate">
+                <span className="truncate">Questions</span>
+                <span className={cn("text-[10px] sm:text-[11px] font-medium shrink-0", mobileTab === "palette" ? "text-[#2563EB]/80" : "text-[#64748B] dark:text-zinc-400")}>
+                  ({answeredCount}/{totalQuestions})
+                </span>
+              </span>
+            </button>
           </div>
 
-          <div className="w-full lg:w-[260px] shrink-0">
-            {renderPaletteContent()}
+          {/* If mobile palette tab is active on mobile, show question navigation */}
+          <div className="lg:hidden w-full">
+            {mobileTab === "palette" && (
+              <div className="min-h-[460px] h-[calc(100vh-250px)] rounded-2xl border border-slate-200/80 dark:border-zinc-800 overflow-hidden shadow-xs">
+                {renderMobileQuestionNavigation()}
+              </div>
+            )}
+          </div>
+
+          <div className={cn("flex flex-col lg:flex-row items-start gap-6 w-full", mobileTab === "palette" ? "hidden lg:flex" : "flex")}>
+            <div className="flex-1 min-w-0 space-y-6 w-full">
+              <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden">
+                <CardHeader className="p-4 sm:p-6 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between gap-2">
+                  <div className="space-y-1.5 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] font-bold tracking-wider uppercase text-[#2563EB]">
+                        Question {mcqIndex + 1} of {mcqQuestions.length}
+                      </span>
+                      <Badge
+                        className={cn(
+                          "text-[10px] font-bold px-2.5 py-0.5 rounded-lg",
+                          isMultiSelectQuestion(currentQuestion)
+                            ? "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/30"
+                            : "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/30"
+                        )}
+                      >
+                        {isMultiSelectQuestion(currentQuestion) ? "Multiple Choice (Checkboxes)" : "Single Choice (Radio)"}
+                      </Badge>
+                    </div>
+                    <CardTitle className="text-sm sm:text-base font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug break-words">
+                      {currentQuestion.text || currentQuestion.title}
+                    </CardTitle>
+                    {isMultiSelectQuestion(currentQuestion) && (
+                      <p className="text-[11px] font-semibold text-[#2563EB]">
+                        * You can select multiple correct options for this question.
+                      </p>
+                    )}
+                  </div>
+                  {currentQuestion.marks && (
+                    <Badge variant="outline" className="text-xs font-bold bg-[#F9FAFB] dark:bg-[#09090B] shrink-0">
+                      +{currentQuestion.marks} Marks
+                    </Badge>
+                  )}
+                </CardHeader>
+
+                <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                  <div className="space-y-2.5 sm:space-y-3 pt-1">
+                    {(!currentQuestion.options || currentQuestion.options.length === 0) ? (
+                      <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 text-xs">
+                        No options defined for this question.
+                      </div>
+                    ) : (
+                      currentQuestion.options.map((option, idx) => {
+                        const isMulti = isMultiSelectQuestion(currentQuestion);
+                        const isSelected = isOptionSelected(currentQuestion.id, option.id);
+                        return (
+                          <button
+                            key={option.id || idx}
+                            type="button"
+                            onClick={() => handleAnswerSelect(currentQuestion, option.id)}
+                            className={cn(
+                              "w-full p-3 sm:p-4 rounded-xl text-left border transition-all duration-200 flex items-center justify-between group text-xs font-medium cursor-pointer gap-2.5",
+                              isSelected
+                                ? "border-[#2563EB] bg-[#2563EB]/5 text-[#2563EB] ring-1 ring-[#2563EB] shadow-xs"
+                                : "border-[#E5E7EB] dark:border-[#27272A] hover:border-slate-300 dark:hover:border-zinc-700 bg-white dark:bg-[#18181B] text-[#374151] dark:text-[#D1D5DB]"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                              <div className={cn(
+                                "w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold border transition-colors shrink-0",
+                                isSelected
+                                  ? "bg-[#2563EB] text-white border-[#2563EB]"
+                                  : "bg-muted border-border text-muted-foreground group-hover:border-foreground/40"
+                              )}>
+                                {String.fromCharCode(65 + idx)}
+                              </div>
+                              <span className="leading-snug break-words text-xs sm:text-sm">{option.text}</span>
+                            </div>
+                            {isSelected ? (
+                              isMulti ? (
+                                <div className="w-5 h-5 rounded-md bg-[#2563EB] text-white flex items-center justify-center shrink-0 shadow-xs">
+                                  <Check className="h-3.5 w-3.5 stroke-[3]" />
+                                </div>
+                              ) : (
+                                <CheckCircle2 className="h-5 w-5 text-[#2563EB] shrink-0" />
+                              )
+                            ) : (
+                              <div className={cn(
+                                "w-5 h-5 border-2 border-[#D1D5DB] dark:border-[#3F3F46] shrink-0",
+                                isMulti ? "rounded-md" : "rounded-full"
+                              )} />
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Desktop Question Palette (Hidden on mobile/tablet to give full hero space to active question) */}
+            <div className="hidden lg:block w-[260px] shrink-0">
+              {renderPaletteContent()}
+            </div>
           </div>
         </div>
       )}
@@ -1174,45 +1427,50 @@ export function PracticeRunnerEngine({
       {activeSection === "coding" && (
         <div className="space-y-3 w-full">
           {/* Mobile & Tablet Segmented View Switcher (< lg / < 1024px) */}
-          <div className="flex lg:hidden items-center p-1 bg-[#F1F5F9] dark:bg-[#18181C] rounded-xl border border-slate-200 dark:border-zinc-800 gap-1 select-none">
+          <div className="flex lg:hidden items-center justify-between p-1 bg-[#F8FAFC] dark:bg-[#18181C] rounded-2xl border border-slate-200/80 dark:border-zinc-800 gap-1 select-none shadow-2xs w-full max-w-full overflow-hidden">
             <button
               type="button"
               onClick={() => setMobileTab("problem")}
               className={cn(
-                "flex-1 py-2 px-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all",
+                "flex-1 py-1.5 px-2 sm:px-3 text-[11px] sm:text-xs font-semibold rounded-full flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap min-w-0",
                 mobileTab === "problem"
-                  ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs"
-                  : "text-[#64748B] dark:text-zinc-400 hover:text-foreground"
+                  ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs font-bold"
+                  : "text-[#64748B] dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
               )}
             >
-              <FileText className="h-3.5 w-3.5" />
-              <span>Problem</span>
+              <FileText className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0", mobileTab === "problem" ? "text-[#2563EB]" : "text-[#64748B] dark:text-zinc-400")} />
+              <span className="truncate">Problem</span>
             </button>
             <button
               type="button"
               onClick={() => setMobileTab("editor")}
               className={cn(
-                "flex-1 py-2 px-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all",
+                "flex-1 py-1.5 px-2 sm:px-3 text-[11px] sm:text-xs font-semibold rounded-full flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap min-w-0",
                 mobileTab === "editor"
-                  ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs"
-                  : "text-[#64748B] dark:text-zinc-400 hover:text-foreground"
+                  ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs font-bold"
+                  : "text-[#64748B] dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
               )}
             >
-              <Code2 className="h-3.5 w-3.5" />
-              <span>Code & Output</span>
+              <Code2 className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0", mobileTab === "editor" ? "text-[#2563EB]" : "text-[#64748B] dark:text-zinc-400")} />
+              <span className="truncate">Code & Output</span>
             </button>
             <button
               type="button"
               onClick={() => setMobileTab("palette")}
               className={cn(
-                "flex-1 py-2 px-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all",
+                "flex-1 py-1.5 px-2 sm:px-3 text-[11px] sm:text-xs font-semibold rounded-full flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer whitespace-nowrap min-w-0",
                 mobileTab === "palette"
-                  ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs"
-                  : "text-[#64748B] dark:text-zinc-400 hover:text-foreground"
+                  ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs font-bold"
+                  : "text-[#64748B] dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
               )}
             >
-              <ClipboardList className="h-3.5 w-3.5" />
-              <span>Questions ({answeredCount}/{totalQuestions})</span>
+              <ClipboardList className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0", mobileTab === "palette" ? "text-[#2563EB]" : "text-[#64748B] dark:text-zinc-400")} />
+              <span className="flex items-center gap-0.5 sm:gap-1 truncate">
+                <span className="truncate">Questions</span>
+                <span className={cn("text-[10px] sm:text-[11px] font-medium shrink-0", mobileTab === "palette" ? "text-[#2563EB]/80" : "text-[#64748B] dark:text-zinc-400")}>
+                  ({answeredCount}/{totalQuestions})
+                </span>
+              </span>
             </button>
           </div>
 
@@ -1288,13 +1546,13 @@ export function PracticeRunnerEngine({
           {/* Mobile & Tablet Body Views (< lg / < 1024px) */}
           <div className="lg:hidden w-full">
             {mobileTab === "problem" && (
-              <div className="min-h-[500px] h-[calc(100vh-250px)]">
+              <div className="min-h-[460px] h-[calc(100vh-250px)]">
                 {renderProblemStatementContent(false)}
               </div>
             )}
 
             {mobileTab === "editor" && (
-              <div className="w-full h-[calc(100vh-250px)] min-h-[520px] rounded-2xl overflow-hidden shadow-xs border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B]">
+              <div className="w-full h-[calc(100vh-250px)] min-h-[460px] rounded-2xl overflow-hidden shadow-xs border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B]">
                 <CodeEditor
                   key={activeCodingProblem.id}
                   problem={activeCodingProblem}
@@ -1317,108 +1575,175 @@ export function PracticeRunnerEngine({
             )}
 
             {mobileTab === "palette" && (
-              <div className="min-h-[500px] h-[calc(100vh-250px)]">
-                {renderPaletteContent(false)}
+              <div className="min-h-[460px] h-[calc(100vh-250px)] rounded-2xl border border-slate-200/80 dark:border-zinc-800 overflow-hidden shadow-xs">
+                {renderMobileQuestionNavigation()}
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* ── Sticky Bottom Navigation Bar (Clean Enterprise Dock) ── */}
-      <div className="sticky bottom-4 z-30 w-full bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-3 px-4 sm:px-6 flex items-center justify-between shadow-lg select-none transition-all gap-4">
-        {/* Left Side: Question context or actions */}
-        <div className="flex items-center gap-2.5 min-w-0">
-          {activeSection === "mcq" && (
-            <>
+      {/* ── Sticky Bottom Navigation Bar (Responsive Dual-Tier on Mobile, Sleek Dock on Desktop) ── */}
+      <div className="sticky bottom-2 sm:bottom-4 z-30 w-full bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-2.5 sm:p-3 sm:px-6 shadow-lg select-none transition-all">
+        {/* Desktop Single-Row Layout (>= md / >= 768px) */}
+        <div className="hidden md:flex items-center justify-between gap-4">
+          {/* Left Side: Question context or actions */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            {activeSection === "mcq" && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "h-9 px-3.5 text-xs font-semibold gap-1.5 rounded-xl border-slate-200 dark:border-zinc-700",
+                    markedForReview.has(currentQuestion.id) ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]" : "text-slate-600 dark:text-zinc-400"
+                  )}
+                  onClick={() => toggleMarkForReview(currentQuestion.id)}
+                >
+                  <Flag className="h-3.5 w-3.5" />
+                  <span>{markedForReview.has(currentQuestion.id) ? "Marked" : "Mark for Review"}</span>
+                </Button>
+
+                {answers[currentQuestion.id] !== undefined && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 gap-1 rounded-xl"
+                    onClick={() => handleClearAnswer(currentQuestion.id)}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Clear Response
+                  </Button>
+                )}
+              </>
+            )}
+            {activeSection === "coding" && (
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 font-bold uppercase text-[10px] shrink-0 rounded-full px-2.5 py-0.5">
+                  Problem {codingIndex + 1} of {codingQuestions.length}
+                </Badge>
+                <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate max-w-[180px] lg:max-w-xs">
+                  {activeCodingProblem.title}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPaletteDrawer(true)}
+                  className="h-8 px-2.5 text-xs text-[#2563EB] border-blue-500/30 rounded-xl xl:hidden flex items-center gap-1 font-bold shrink-0"
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  <span>Questions</span>
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Center: Grouped Navigation */}
+          <div className="inline-flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl px-4 h-9 font-semibold text-xs border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 gap-1.5 shadow-2xs"
+              disabled={activeSection === "mcq" ? mcqIndex === 0 : codingIndex === 0 && mcqQuestions.length === 0}
+              onClick={handlePrevClick}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span>Prev</span>
+            </Button>
+
+            <div className="inline-flex items-center gap-2 px-3.5 h-9 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
+              <span className="h-2 w-2 rounded-full bg-[#2563EB]" />
+              <span>
+                {activeSection === "mcq"
+                  ? `${mcqIndex + 1} of ${mcqQuestions.length}`
+                  : `${codingIndex + 1} of ${codingQuestions.length}`}
+              </span>
+            </div>
+
+            <Button
+              size="sm"
+              className="rounded-xl px-4 h-9 font-bold text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1.5 shadow-xs"
+              disabled={activeSection === "coding" && codingIndex === codingQuestions.length - 1}
+              onClick={handleNextClick}
+            >
+              {activeSection === "mcq" && mcqIndex === mcqQuestions.length - 1 && codingQuestions.length > 0 ? (
+                <><span>Coding</span> <ArrowRight className="h-4 w-4" /></>
+              ) : (
+                <><span>Next</span> <ChevronRight className="h-4 w-4" /></>
+              )}
+            </Button>
+          </div>
+
+          {/* Right Side: Review & Submit */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-4 text-xs font-bold rounded-xl border-blue-500/40 text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-950/20 shadow-2xs"
+              onClick={() => setShowReviewModal(true)}
+            >
+              <span>Review & Submit</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile Dedicated Two-Tier Navigation (< md / < 768px / 360px) */}
+        <div className="flex md:hidden flex-col gap-2 w-full">
+          {/* Row 1: Grouped Controls (Prev, Position Pill, Next, Flag/Palette) */}
+          <div className="flex items-center justify-between gap-1.5 w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-xl px-2.5 h-9 font-semibold text-xs border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 gap-1 shadow-2xs flex-1 cursor-pointer"
+              disabled={activeSection === "mcq" ? mcqIndex === 0 : codingIndex === 0 && mcqQuestions.length === 0}
+              onClick={handlePrevClick}
+            >
+              <ChevronLeft className="h-4 w-4 shrink-0" />
+              <span>Prev</span>
+            </Button>
+
+            <div className="inline-flex items-center justify-center gap-1.5 px-2.5 h-9 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs flex-1.2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB] shrink-0" />
+              <span className="truncate text-[11px] sm:text-xs">
+                {activeSection === "mcq"
+                  ? `${mcqIndex + 1}/${mcqQuestions.length}`
+                  : `${codingIndex + 1}/${codingQuestions.length}`}
+              </span>
+            </div>
+
+            <Button
+              size="sm"
+              className="rounded-xl px-2.5 h-9 font-bold text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1 shadow-xs flex-1 cursor-pointer"
+              disabled={activeSection === "coding" && codingIndex === codingQuestions.length - 1}
+              onClick={handleNextClick}
+            >
+              {activeSection === "mcq" && mcqIndex === mcqQuestions.length - 1 && codingQuestions.length > 0 ? (
+                <><span>Coding</span> <ArrowRight className="h-3.5 w-3.5 shrink-0" /></>
+              ) : (
+                <><span>Next</span> <ChevronRight className="h-3.5 w-3.5 shrink-0" /></>
+              )}
+            </Button>
+
+            {activeSection === "mcq" && (
               <Button
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "h-9 px-3.5 text-xs font-semibold gap-1.5 rounded-xl border-slate-200 dark:border-zinc-700",
-                  markedForReview.has(currentQuestion.id) ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]" : "text-slate-600 dark:text-zinc-400"
+                  "h-9 w-9 p-0 rounded-xl border-slate-200 dark:border-zinc-700 shrink-0 flex items-center justify-center cursor-pointer",
+                  markedForReview.has(currentQuestion.id) ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]" : "text-slate-500 dark:text-zinc-400"
                 )}
                 onClick={() => toggleMarkForReview(currentQuestion.id)}
+                title={markedForReview.has(currentQuestion.id) ? "Marked for review" : "Mark for review"}
               >
-                <Flag className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{markedForReview.has(currentQuestion.id) ? "Marked" : "Mark for Review"}</span>
+                <Flag className="h-4 w-4" />
               </Button>
-
-              {answers[currentQuestion.id] !== undefined && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 gap-1 rounded-xl hidden sm:flex"
-                  onClick={() => handleClearAnswer(currentQuestion.id)}
-                >
-                  <RotateCcw className="h-3.5 w-3.5" /> Clear Response
-                </Button>
-              )}
-            </>
-          )}
-          {activeSection === "coding" && (
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 font-bold uppercase text-[10px] shrink-0 rounded-full px-2.5 py-0.5">
-                Problem {codingIndex + 1} of {codingQuestions.length}
-              </Badge>
-              <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate hidden md:inline max-w-[180px] lg:max-w-xs">
-                {activeCodingProblem.title}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPaletteDrawer(true)}
-                className="h-8 px-2.5 text-xs text-[#2563EB] border-blue-500/30 rounded-xl xl:hidden flex items-center gap-1 font-bold shrink-0"
-              >
-                <ClipboardList className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Questions</span>
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* Center: Grouped Navigation */}
-        <div className="inline-flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-xl px-4 h-9 font-semibold text-xs border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 gap-1.5 shadow-2xs"
-            disabled={activeSection === "mcq" ? mcqIndex === 0 : codingIndex === 0 && mcqQuestions.length === 0}
-            onClick={handlePrevClick}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            <span className="hidden xs:inline">Prev</span>
-          </Button>
-
-          <div className="inline-flex items-center gap-2 px-3.5 h-9 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 shadow-2xs">
-            <span className="h-2 w-2 rounded-full bg-[#2563EB]" />
-            <span>
-              {activeSection === "mcq"
-                ? `${mcqIndex + 1} of ${mcqQuestions.length}`
-                : `${codingIndex + 1} of ${codingQuestions.length}`}
-            </span>
+            )}
           </div>
 
-          <Button
-            size="sm"
-            className="rounded-xl px-4 h-9 font-bold text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1.5 shadow-xs"
-            disabled={activeSection === "coding" && codingIndex === codingQuestions.length - 1}
-            onClick={handleNextClick}
-          >
-            {activeSection === "mcq" && mcqIndex === mcqQuestions.length - 1 && codingQuestions.length > 0 ? (
-              <><span>Coding</span> <ArrowRight className="h-4 w-4" /></>
-            ) : (
-              <><span className="hidden xs:inline">Next</span> <ChevronRight className="h-4 w-4" /></>
-            )}
-          </Button>
-        </div>
-
-        {/* Right Side: Review & Submit */}
-        <div className="flex items-center gap-2 shrink-0">
+          {/* Row 2: Review & Submit (Full Width on Mobile) */}
           <Button
             variant="outline"
             size="sm"
-            className="h-9 px-4 text-xs font-bold rounded-xl border-blue-500/40 text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-950/20 shadow-2xs"
+            className="w-full h-9 text-xs font-bold rounded-xl border-blue-500/40 text-[#2563EB] bg-blue-50/60 hover:bg-blue-100/60 dark:bg-blue-950/30 dark:hover:bg-blue-900/40 shadow-2xs transition-all cursor-pointer"
             onClick={() => setShowReviewModal(true)}
           >
             <span>Review & Submit</span>
@@ -1428,19 +1753,14 @@ export function PracticeRunnerEngine({
 
       {/* Slide-over Questions Drawer Modal */}
       {showPaletteDrawer && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-in fade-in-0 duration-200">
-          <div className="w-[300px] sm:w-[340px] h-full bg-white dark:bg-[#18181B] shadow-2xl p-4 flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-300">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <span className="font-bold text-sm text-foreground flex items-center gap-2">
-                <ClipboardList className="h-4 w-4 text-[#2563EB]" /> Questions
-              </span>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowPaletteDrawer(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto pt-3">
-              {renderPaletteContent(false)}
-            </div>
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex justify-end animate-in fade-in-0 duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowPaletteDrawer(false);
+          }}
+        >
+          <div className="w-[310px] sm:w-[350px] max-w-[88vw] h-full bg-white dark:bg-[#18181B] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
+            {renderMobileQuestionNavigation()}
           </div>
         </div>
       )}
@@ -1468,37 +1788,37 @@ export function PracticeRunnerEngine({
             <Card className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-xs overflow-hidden">
               <div className="p-6 md:p-8 space-y-6">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-2">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 sm:gap-6 pb-2">
                   <div className="space-y-2.5 flex-1 min-w-0">
                     <span className="inline-block bg-blue-50 text-[#2563EB] border border-blue-200/70 text-xs font-semibold px-3 py-1 rounded-full">
                       Submission Review
                     </span>
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.15] max-w-4xl">
+                    <h1 className="text-xl sm:text-3xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.15] max-w-4xl break-words">
                       {module.title}
                     </h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 font-normal pt-0.5">
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-normal pt-0.5">
                       Assigned by <span className="font-semibold text-slate-800 dark:text-slate-200">{module.assignedBy || (module as any).assignedByName || "Instructor"}</span> • {questions.length} Total Questions
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0 w-full sm:w-auto">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setShowReviewModal(false)}
-                      className="h-9 px-4 text-xs font-semibold gap-1.5 rounded-full border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs"
+                      className="h-9 px-4 text-xs font-semibold gap-1.5 rounded-full border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-xs cursor-pointer"
                     >
                       <RotateCcw className="h-3.5 w-3.5" /> Continue Practice
                     </Button>
                     <Button
                       size="sm"
+                      disabled={isFinalSubmitting}
                       onClick={() => {
-                        setShowReviewModal(false);
                         handleFinalSubmit();
                       }}
-                      className="h-9 px-5 text-xs font-semibold gap-1.5 rounded-full bg-[#16A34A] hover:bg-[#15803D] text-white shadow-xs"
+                      className="h-9 px-5 text-xs font-semibold gap-1.5 rounded-full bg-[#16A34A] hover:bg-[#15803D] disabled:opacity-60 text-white shadow-xs cursor-pointer"
                     >
-                      <CheckCircle2 className="h-4 w-4" /> Confirm & Final Submit
+                      <CheckCircle2 className="h-4 w-4" /> {isFinalSubmitting ? "Submitting..." : "Confirm & Final Submit"}
                     </Button>
                   </div>
                 </div>
@@ -1914,13 +2234,13 @@ export function PracticeRunnerEngine({
               </Button>
               <Button
                 type="button"
+                disabled={isFinalSubmitting}
                 onClick={() => {
-                  setShowReviewModal(false);
                   handleFinalSubmit();
                 }}
-                className="h-9 px-5 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs gap-1.5 rounded-full shadow-xs"
+                className="h-9 px-5 bg-[#16A34A] hover:bg-[#15803D] disabled:opacity-60 text-white font-semibold text-xs gap-1.5 rounded-full shadow-xs cursor-pointer"
               >
-                <CheckCircle2 className="h-4 w-4" /> Confirm & Final Submit
+                <CheckCircle2 className="h-4 w-4" /> {isFinalSubmitting ? "Submitting..." : "Confirm & Final Submit"}
               </Button>
             </div>
           </div>
@@ -1937,8 +2257,8 @@ export function PracticeRunnerEngine({
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-2 gap-2 sm:gap-0">
             <AlertDialogCancel className="h-10 text-xs font-semibold rounded-xl">Continue Practice</AlertDialogCancel>
-            <AlertDialogAction onClick={() => handleFinalSubmit()} className="h-10 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold rounded-xl">
-              Yes, Submit Practice
+            <AlertDialogAction disabled={isFinalSubmitting} onClick={() => handleFinalSubmit()} className="h-10 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white font-bold rounded-xl">
+              {isFinalSubmitting ? "Submitting..." : "Yes, Submit Practice"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

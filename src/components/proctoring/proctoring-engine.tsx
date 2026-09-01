@@ -253,11 +253,13 @@ export function ProctoringEngine({
         setShowSecurityModal(true);
       }
 
-      toast({
-        variant: severity === "INFO" ? "default" : "destructive",
-        title: toastTitle,
-        description: message,
-      });
+      setTimeout(() => {
+        toast({
+          variant: severity === "INFO" ? "default" : "destructive",
+          title: toastTitle,
+          description: message,
+        });
+      }, 0);
 
       if (autoSubmitEnabled && nextCount >= maxWarnings && !isAutoSubmittedRef.current) {
         isAutoSubmittedRef.current = true;

@@ -542,8 +542,8 @@ export default function StudentCoursePlayerPage() {
   return (
     <div className="w-full space-y-6 pb-12">
       {/* Top Header - Spacious Enterprise MNC Course Header */}
-      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs mb-6 overflow-visible">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-6 shadow-xs overflow-visible">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           {/* Left Column: Breadcrumb + Course Title + Instructor Metadata */}
           <div className="min-w-0 flex-1 space-y-2">
             {/* Breadcrumb Navigation */}
@@ -558,63 +558,33 @@ export default function StudentCoursePlayerPage() {
             </div>
 
             {/* Course Title & Category Badge */}
-            <div className="flex items-center gap-3 flex-wrap py-0.5">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-normal">
+            <div className="flex items-center gap-2.5 flex-wrap py-0.5">
+              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
                 {courseTitle}
               </h1>
               {courseCategory && (
-                <Badge variant="outline" className="text-xs font-semibold text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/50 bg-blue-50/80 dark:bg-blue-950/30 px-3 py-1 rounded-full shrink-0 shadow-2xs">
+                <Badge variant="outline" className="text-[11px] sm:text-xs font-semibold text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/50 bg-blue-50/80 dark:bg-blue-950/30 px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
                   {courseCategory}
                 </Badge>
               )}
             </div>
 
             {/* Instructor & Lesson Information */}
-            <div className="flex items-center gap-3.5 text-xs sm:text-sm text-slate-500 dark:text-zinc-400 flex-wrap pt-0.5">
+            <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-500 dark:text-zinc-400 flex-wrap pt-0.5">
               <span className="flex items-center gap-1.5">
-                <User className="h-4 w-4 text-slate-400 shrink-0" />
+                <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 shrink-0" />
                 <span>Instructor: <strong className="font-semibold text-slate-700 dark:text-zinc-200">{courseInstructor}</strong></span>
               </span>
               {activeLesson?.title && (
                 <>
                   <span className="text-slate-300 dark:text-zinc-700 hidden sm:inline">•</span>
                   <span className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-300">
-                    <BookOpen className="h-4 w-4 text-slate-400 shrink-0" />
+                    <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 shrink-0" />
                     <span>Lesson: <strong className="font-semibold text-slate-800 dark:text-white">{activeLesson.title}</strong></span>
                   </span>
                 </>
               )}
             </div>
-          </div>
-
-          {/* Right Column: Actions & Lesson Mode Badge */}
-          <div className="flex items-center gap-3 shrink-0 self-start lg:self-center pt-2 lg:pt-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsSidebarMinimized((prev) => !prev)}
-              className="h-10 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 flex items-center gap-2 transition-all shadow-2xs"
-              title={isSidebarMinimized ? "Show Course Curriculum Sidebar" : "Minimize Sidebar to Full Screen"}
-            >
-              {isSidebarMinimized ? (
-                <>
-                  <PanelRightOpen className="h-4 w-4 text-[#2563EB]" />
-                  <span>Show Curriculum</span>
-                </>
-              ) : (
-                <>
-                  <PanelRightClose className="h-4 w-4 text-slate-500" />
-                  <span className="hidden sm:inline">Minimize Sidebar</span>
-                </>
-              )}
-            </Button>
-
-            <Badge className="h-10 px-4 text-xs font-bold uppercase tracking-wider bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl shadow-xs flex items-center gap-2 shrink-0 border-0">
-              {activeLesson.type === "video" && <><Video className="h-4 w-4" /> Video Lesson</>}
-              {activeLesson.type === "mcq" && <><CheckCircle2 className="h-4 w-4" /> MCQ Quiz</>}
-              {activeLesson.type === "coding" && <><Code2 className="h-4 w-4" /> Coding Practice</>}
-              {activeLesson.type === "reading" && <><BookOpen className="h-4 w-4" /> Reading Document</>}
-            </Badge>
           </div>
         </div>
       </div>
@@ -622,17 +592,17 @@ export default function StudentCoursePlayerPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* LEFT / CENTER: Multi-format Lesson Player (Video / MCQ / Coding / Notes) */}
         <div className={isSidebarMinimized ? "lg:col-span-3 space-y-6" : "lg:col-span-2 space-y-6"}>
-          <Card className="bg-card border border-border overflow-hidden shadow-sm">
-            <CardHeader className="p-6 pb-4 border-b border-border flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          <Card className="bg-card border border-border overflow-hidden shadow-xs rounded-2xl">
+            <CardHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border flex flex-row items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-base sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight truncate">
                   {activeLesson.title}
                 </CardTitle>
-                <CardDescription className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
                   Duration: {activeLesson.duration}
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <Badge variant="outline" className="text-xs font-semibold text-[#2563EB] border-[#2563EB]/30 uppercase">
                   {activeLesson.type}
                 </Badge>
@@ -652,7 +622,7 @@ export default function StudentCoursePlayerPage() {
 
             {/* FORMAT 1: CUSTOM ENTERPRISE LMS VIDEO PLAYER */}
             {activeLesson.type === "video" && (
-              <div className="p-6 space-y-4">
+              <div className="p-3 sm:p-6 space-y-4">
                 <CustomVideoPlayer
                   key={activeLesson.id + (activeLesson.videoUrl || "")}
                   src={activeLesson.videoUrl}

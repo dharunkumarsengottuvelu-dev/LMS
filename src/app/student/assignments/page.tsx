@@ -179,20 +179,34 @@ export default function StudentAssignmentsPage() {
 
       {/* 2. Tabs Filter */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className="bg-slate-100 dark:bg-zinc-800/70 p-1 h-11 rounded-xl border border-slate-200/80 dark:border-zinc-800 w-fit flex gap-1">
-          <TabsTrigger value="all" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
-            All Assignments ({assignments.length})
-          </TabsTrigger>
-          <TabsTrigger value="pending" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
-            Pending Submission ({assignments.filter((a) => a.status === "pending").length})
-          </TabsTrigger>
-          <TabsTrigger value="submitted" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
-            Submitted ({assignments.filter((a) => a.status === "submitted").length})
-          </TabsTrigger>
-          <TabsTrigger value="graded" className="h-9 px-4 text-xs font-semibold rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs">
-            Graded ({assignments.filter((a) => a.status === "graded").length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto no-scrollbar pb-1 -mx-1 px-1 sm:mx-0 sm:px-0">
+          <TabsList className="bg-slate-100 dark:bg-zinc-800/70 p-1.5 h-11 sm:h-12 rounded-2xl border border-slate-200/80 dark:border-zinc-800 w-max min-w-full sm:w-fit flex gap-1 sm:gap-1.5 shrink-0">
+            <TabsTrigger
+              value="all"
+              className="h-8.5 sm:h-9 px-3.5 sm:px-4 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs transition-all"
+            >
+              All Assignments ({assignments.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="pending"
+              className="h-8.5 sm:h-9 px-3.5 sm:px-4 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs transition-all"
+            >
+              Pending Submission ({assignments.filter((a) => a.status === "pending").length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="submitted"
+              className="h-8.5 sm:h-9 px-3.5 sm:px-4 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs transition-all"
+            >
+              Submitted ({assignments.filter((a) => a.status === "submitted").length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="graded"
+              className="h-8.5 sm:h-9 px-3.5 sm:px-4 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-2xs transition-all"
+            >
+              Graded ({assignments.filter((a) => a.status === "graded").length})
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value={activeTab} className="w-full mt-6">
           {filteredAssignments.length === 0 ? (

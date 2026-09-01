@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Clock, ShieldCheck, CheckCircle2, Code2,
   ChevronLeft, ChevronRight, Award, Camera, Video, VideoOff,
-  AlertTriangle, RotateCcw, Check, X, RefreshCw
+  AlertTriangle, RotateCcw, Check, X, RefreshCw, GripVertical, Minus, Maximize2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,7 @@ export default function StudentTestRunnerPage() {
   >("verified");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const desktopVideoRef = useRef<HTMLVideoElement | null>(null);
   const trackerRef = useRef<AIFaceTracker | null>(null);
 
   // Grace period duration timers (in seconds)
@@ -75,23 +76,37 @@ export default function StudentTestRunnerPage() {
   const lookingAwayFlaggedRef = useRef<boolean>(false);
   const mismatchFlaggedRef = useRef<boolean>(false);
 
+  const lastViolationTimeRef = useRef<number>(0);
+  const violationsCountRef = useRef<number>(0);
+
   const maxWarnings = testData?.proctoring?.maxWarningsLimit ?? 3;
 
-  // Unified Violation Handler
+  // Unified Violation Handler — NEVER execute toast() inside setState updater function!
   const recordViolation = useCallback((reason: string, status?: typeof simpleFaceStatus) => {
-    setViolationsCount((prev) => {
-      const next = prev + 1;
-      toast({
-        variant: "destructive",
-        title: `Proctoring Alert (${next}/${maxWarnings})`,
-        description: reason,
-      });
-      return next;
-    });
+    if (isExamSubmitted) return;
+
+    const now = Date.now();
+    // Debounce duplicate events within 3000ms
+    if (now - lastViolationTimeRef.current < 3000) return;
+    lastViolationTimeRef.current = now;
+
+    violationsCountRef.current += 1;
+    const currentCount = violationsCountRef.current;
+    setViolationsCount(currentCount);
+
     if (status) {
       setSimpleFaceStatus(status);
     }
-  }, [maxWarnings, toast]);
+
+    // Schedule toast outside of render cycle asynchronously
+    setTimeout(() => {
+      toast({
+        variant: "destructive",
+        title: `Proctoring Alert (${currentCount}/${maxWarnings})`,
+        description: reason,
+      });
+    }, 0);
+  }, [maxWarnings, isExamSubmitted, toast]);
 
   // Initialize AI Face Tracker
   useEffect(() => {
@@ -212,6 +227,158 @@ export default function StudentTestRunnerPage() {
       });
   }, [testId]);
 
+  // Restore completed submission on refresh if test was previously submitted
+  useEffect(() => {
+    if (typeof window !== "undefined" && testId) {
+      const savedAttempt = localStorage.getItem(`lms_completed_assessment_${testId}`);
+      if (savedAttempt) {
+        try {
+          const parsed = JSON.parse(savedAttempt);
+          if (parsed.isCompleted || parsed.score !== undefined) {
+            setSubmissionData({
+              score: parsed.score ?? 0,
+              totalMarks: parsed.totalMarks ?? 100,
+              percentage: parsed.percentage ?? Math.round(((parsed.score || 0) / (parsed.totalMarks || 100)) * 100),
+              passed: parsed.passed ?? ((parsed.percentage || 0) >= 40),
+              timeSpentSeconds: parsed.timeSpentSeconds || 0,
+            });
+            setIsExamSubmitted(true);
+          }
+        } catch {}
+      }
+    }
+  }, [testId]);
+
+  // Movable Floating Live Proctor Position & Drag State
+  const [proctorPos, setProctorPos] = useState<{ x: number; y: number } | null>(null);
+  const [isMinimized, setIsMinimized] = useState<boolean>(false);
+  const proctorRef = useRef<HTMLDivElement | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+
+  // Initialize position on mount with responsive clamping
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isMobile = window.innerWidth < 768;
+    const width = isMobile ? 140 : 170;
+    const height = isMobile ? 150 : 190;
+
+    const stored = sessionStorage.getItem(`proctor_pos_${testId}`);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const clampedX = Math.max(8, Math.min(window.innerWidth - width - 8, parsed.x));
+        const clampedY = Math.max(8, Math.min(window.innerHeight - height - 8, parsed.y));
+        setProctorPos({ x: clampedX, y: clampedY });
+        return;
+      } catch {}
+    }
+
+    if (isMobile) {
+      setProctorPos({
+        x: Math.max(8, window.innerWidth - width - 12),
+        y: Math.max(8, window.innerHeight - height - 90),
+      });
+    } else {
+      setProctorPos({
+        x: Math.max(8, window.innerWidth - width - 24),
+        y: 80,
+      });
+    }
+  }, [testId]);
+
+  // Recalculate & Clamp Position on Viewport Resize / Orientation Change
+  useEffect(() => {
+    const handleResize = () => {
+      setProctorPos((prev) => {
+        if (!prev || !proctorRef.current) return prev;
+        const rect = proctorRef.current.getBoundingClientRect();
+        const maxX = Math.max(8, window.innerWidth - rect.width - 8);
+        const maxY = Math.max(8, window.innerHeight - rect.height - 8);
+        return {
+          x: Math.max(8, Math.min(maxX, prev.x)),
+          y: Math.max(8, Math.min(maxY, prev.y)),
+        };
+      });
+    };
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, []);
+
+  // Mouse / Touch Drag Handlers
+  const handleDragStart = (clientX: number, clientY: number) => {
+    if (!proctorRef.current) return;
+    const rect = proctorRef.current.getBoundingClientRect();
+    isDraggingRef.current = true;
+    dragOffsetRef.current = {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    };
+  };
+
+  const handleDragMove = useCallback((clientX: number, clientY: number) => {
+    if (!isDraggingRef.current || !proctorRef.current) return;
+    const rect = proctorRef.current.getBoundingClientRect();
+    const minX = 8;
+    const maxX = window.innerWidth - rect.width - 8;
+    const minY = 8;
+    const maxY = window.innerHeight - rect.height - 8;
+
+    const newX = Math.max(minX, Math.min(maxX, clientX - dragOffsetRef.current.x));
+    const newY = Math.max(minY, Math.min(maxY, clientY - dragOffsetRef.current.y));
+
+    setProctorPos({ x: newX, y: newY });
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      setProctorPos((current) => {
+        if (current) {
+          try {
+            sessionStorage.setItem(`proctor_pos_${testId}`, JSON.stringify(current));
+          } catch {}
+        }
+        return current;
+      });
+    }
+  }, [testId]);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (isDraggingRef.current) {
+        handleDragMove(e.clientX, e.clientY);
+      }
+    };
+    const onMouseUp = () => handleDragEnd();
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (isDraggingRef.current && e.touches[0]) {
+        e.preventDefault();
+        handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+    const onTouchEnd = () => handleDragEnd();
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchEnd);
+
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [handleDragMove, handleDragEnd]);
+
   // Request & Start Hardware Webcam with error handling
   const startCamera = useCallback(async () => {
     setCameraError(null);
@@ -242,8 +409,17 @@ export default function StudentTestRunnerPage() {
 
         // Immediate video element bind
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => {});
+          if (videoRef.current.srcObject !== stream) {
+            videoRef.current.srcObject = stream;
+          }
+          const playPromise = videoRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((err) => {
+              if (err?.name !== "AbortError") {
+                console.warn("Camera video play notice:", err);
+              }
+            });
+          }
         }
       } else {
         setCameraStatus("denied");
@@ -275,22 +451,29 @@ export default function StudentTestRunnerPage() {
     };
   }, [testData?.proctoring?.webcamTracking, isExamSubmitted, startCamera]);
 
-  // Dynamic Callback ref for Video element
-  const setVideoCallbackRef = useCallback((node: HTMLVideoElement | null) => {
-    videoRef.current = node;
-    if (node && cameraStream) {
-      node.srcObject = cameraStream;
-      node.onloadedmetadata = () => {
-        node.play().catch((e) => console.warn("Video play error:", e));
-      };
-      node.play().catch((e) => console.warn("Video play error:", e));
-    }
-  }, [cameraStream]);
-
+  // Safe single-point cameraStream binding (syncs mobile & desktop video elements)
   useEffect(() => {
-    if (videoRef.current && cameraStream) {
-      videoRef.current.srcObject = cameraStream;
-      videoRef.current.play().catch((e) => console.warn("Video play effect error:", e));
+    const videoElements = [videoRef.current, desktopVideoRef.current].filter(Boolean) as HTMLVideoElement[];
+    if (videoElements.length === 0) return;
+
+    if (cameraStream) {
+      videoElements.forEach((video) => {
+        if (video.srcObject !== cameraStream) {
+          video.srcObject = cameraStream;
+        }
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((e) => {
+            if (e?.name !== "AbortError") console.warn("Video play notice:", e);
+          });
+        }
+      });
+    } else {
+      videoElements.forEach((video) => {
+        if (video.srcObject) {
+          video.srcObject = null;
+        }
+      });
     }
   }, [cameraStream]);
 
@@ -357,14 +540,16 @@ export default function StudentTestRunnerPage() {
       !isExamSubmitted &&
       formattedQuestions.length > 0
     ) {
-      toast({
-        variant: "destructive",
-        title: "Exam Auto-Submitted",
-        description: `Maximum allowed security warnings (${maxWarnings}) exceeded. Submitting examination...`,
-      });
+      setTimeout(() => {
+        toast({
+          variant: "destructive",
+          title: "Exam Auto-Submitted",
+          description: `Maximum allowed security warnings (${maxWarnings}) exceeded. Submitting examination...`,
+        });
+      }, 0);
       handleSubmit({});
     }
-  }, [violationsCount, maxWarnings, testData?.proctoring?.autoSubmitOnWarning, isExamSubmitted, formattedQuestions.length]);
+  }, [violationsCount, maxWarnings, testData?.proctoring?.autoSubmitOnWarning, isExamSubmitted, formattedQuestions.length, toast]);
 
   // Real-Time AI Face Monitoring Loop with Reference Face Matching & Grace Periods (500ms Interval)
   useEffect(() => {
@@ -577,14 +762,25 @@ export default function StudentTestRunnerPage() {
       });
 
       const resData = await response.json();
-      setSubmissionData({
+      const finalSubmission = {
         score: resData.score ?? 0,
         totalMarks: resData.totalMarks ?? moduleMeta?.totalMarks ?? 100,
         percentage: resData.percentage ?? Math.round(((resData.score || 0) / (resData.totalMarks || 100)) * 100),
         passed: resData.passed ?? ((resData.percentage || 0) >= 40),
         timeSpentSeconds: meta?.timeSpentSeconds || 0,
-      });
+        isCompleted: true,
+      };
+
+      setSubmissionData(finalSubmission);
       setIsExamSubmitted(true);
+
+      // Persist completed state to localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`lms_completed_assessment_${testId}`, JSON.stringify(finalSubmission));
+        localStorage.removeItem(`lms_practice_session_${testId}`);
+        localStorage.setItem(`lms_practice_session_${testId}_submitted`, "true");
+        window.dispatchEvent(new Event("storage"));
+      }
 
       // Stop camera stream tracks on submit
       if (cameraStream) {
@@ -630,7 +826,7 @@ export default function StudentTestRunnerPage() {
 
   if (isExamSubmitted && submissionData) {
     return (
-      <div className="max-w-2xl mx-auto my-12 p-8 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-3xl shadow-xl text-center space-y-6 animate-in zoom-in-95 duration-300">
+      <div className="max-w-2xl mx-auto my-12 p-6 sm:p-8 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-3xl shadow-xl text-center space-y-6 animate-in zoom-in-95 duration-300">
         <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center ${submissionData.passed ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}>
           {submissionData.passed ? <Award className="h-8 w-8" /> : <AlertTriangle className="h-8 w-8" />}
         </div>
@@ -639,31 +835,31 @@ export default function StudentTestRunnerPage() {
           <Badge className={`text-xs font-bold uppercase px-3 py-1 ${submissionData.passed ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}>
             {submissionData.passed ? "Passed Examination" : "Assessment Completed"}
           </Badge>
-          <h2 className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">{moduleMeta.title}</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">{moduleMeta.title}</h2>
           <p className="text-xs text-[#6B7280]">Your examination submission has been evaluated.</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 p-5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A]">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 p-4 sm:p-5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-2xl border border-[#E5E7EB] dark:border-[#27272A]">
           <div className="space-y-1">
-            <p className="text-[11px] font-bold text-[#6B7280] uppercase">Score</p>
-            <p className="text-xl font-extrabold text-[#111827] dark:text-[#FAFAFA]">
+            <p className="text-[10px] sm:text-[11px] font-bold text-[#6B7280] uppercase">Score</p>
+            <p className="text-base sm:text-xl font-extrabold text-[#111827] dark:text-[#FAFAFA]">
               {submissionData.score} / {submissionData.totalMarks}
             </p>
           </div>
           <div className="space-y-1">
-            <p className="text-[11px] font-bold text-[#6B7280] uppercase">Percentage</p>
-            <p className="text-xl font-extrabold text-[#2563EB]">{submissionData.percentage}%</p>
+            <p className="text-[10px] sm:text-[11px] font-bold text-[#6B7280] uppercase">Percentage</p>
+            <p className="text-base sm:text-xl font-extrabold text-[#2563EB]">{submissionData.percentage}%</p>
           </div>
           <div className="space-y-1">
-            <p className="text-[11px] font-bold text-[#6B7280] uppercase">Time Spent</p>
-            <p className="text-xl font-extrabold text-[#111827] dark:text-[#FAFAFA]">
-              {Math.floor(submissionData.timeSpentSeconds / 60)}m {submissionData.timeSpentSeconds % 60}s
+            <p className="text-[10px] sm:text-[11px] font-bold text-[#6B7280] uppercase">Time Spent</p>
+            <p className="text-base sm:text-xl font-extrabold text-[#111827] dark:text-[#FAFAFA]">
+              {Math.floor((submissionData.timeSpentSeconds || 0) / 60)}m {(submissionData.timeSpentSeconds || 0) % 60}s
             </p>
           </div>
         </div>
 
         <div className="pt-2 flex justify-center gap-3">
-          <Button onClick={() => router.push("/student/assessments")} className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl shadow-md">
+          <Button onClick={() => router.push("/student/assessments")} className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl shadow-md cursor-pointer">
             Return to Assessments Hub
           </Button>
         </div>
@@ -687,13 +883,13 @@ export default function StudentTestRunnerPage() {
   }[simpleFaceStatus] || { text: "Face Verified", color: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" };
 
   return (
-    <div className="w-full px-3 sm:px-6 lg:px-8 py-4 space-y-4 relative">
+    <div className="w-full max-w-[1680px] mx-auto px-2.5 sm:px-6 lg:px-8 py-3 sm:py-4 space-y-4 relative max-w-full overflow-x-hidden">
       {/* Top Bar Back button */}
       <div className="flex items-center justify-between">
         <Button
           variant="outline"
           size="sm"
-          className="h-8 px-3 text-xs font-semibold gap-1.5 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 rounded-xl shadow-2xs"
+          className="h-8 px-3 text-xs font-semibold gap-1.5 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 rounded-xl shadow-2xs cursor-pointer"
           onClick={() => router.push("/student/assessments")}
         >
           <ArrowLeft className="h-3.5 w-3.5 text-slate-400" /> Back to Assessments
@@ -714,29 +910,96 @@ export default function StudentTestRunnerPage() {
         )}
       </div>
 
-      {/* Full PracticeRunnerEngine with Integrated Live Proctor in the Header Card */}
+      {/* Full PracticeRunnerEngine with Fixed Desktop Proctor */}
       <PracticeRunnerEngine
         module={moduleMeta}
         questions={formattedQuestions}
+        onSubmit={handleSubmit}
         extraHeaderContent={
-          testData?.proctoring?.webcamTracking ? (
-            <div className="w-[156px] h-auto rounded-xl border border-[#E5E7EB] dark:border-[#27272A] shadow-xs bg-white dark:bg-[#18181B] p-1.5 flex flex-col gap-1.5 select-none shrink-0">
-              {/* Header (Above Video) */}
-              <div className="flex items-center justify-between px-0.5 shrink-0 pointer-events-none">
-                <div className="flex items-center gap-1">
-                  <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
-                  <span className="text-[9px] font-bold text-[#111827] dark:text-[#FAFAFA] tracking-tight">LIVE PROCTOR</span>
-                </div>
-                <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 leading-none">
-                  {violationsCount}/{maxWarnings}
-                </span>
-              </div>
-
-              {/* Camera Video (Middle, Restored to original size) */}
-              <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden bg-black flex items-center justify-center shrink-0">
+          testData?.proctoring?.webcamTracking && !isExamSubmitted ? (
+            <div className="hidden lg:flex items-center gap-2.5 px-3 py-1.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl shadow-2xs">
+              <div className="relative w-10 h-7 rounded-lg overflow-hidden bg-black flex items-center justify-center shrink-0">
                 {cameraStatus === "active" ? (
                   <video
-                    ref={setVideoCallbackRef}
+                    ref={desktopVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover transform -scale-x-100"
+                  />
+                ) : (
+                  <VideoOff className="h-3.5 w-3.5 text-red-500" />
+                )}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot} shrink-0`} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-900 dark:text-white">PROCTOR</span>
+                  <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                    {violationsCount}/{maxWarnings}
+                  </span>
+                </div>
+                <span className={cn("text-[9px] font-semibold truncate", statusConfig.color)}>
+                  {statusConfig.text}
+                </span>
+              </div>
+            </div>
+          ) : undefined
+        }
+      />
+
+      {/* Movable / Draggable Live Proctor Monitor (Mobile Only - lg:hidden) */}
+      {testData?.proctoring?.webcamTracking && proctorPos && !isExamSubmitted && (
+        <div
+          ref={proctorRef}
+          style={{
+            left: `${proctorPos.x}px`,
+            top: `${proctorPos.y}px`,
+          }}
+          className="lg:hidden fixed z-40 select-none touch-none animate-in zoom-in-95 duration-200"
+        >
+          {!isMinimized ? (
+            <div className="w-[136px] sm:w-[160px] bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/90 dark:border-zinc-800 shadow-xl p-1.5 flex flex-col gap-1.5 backdrop-blur-xs">
+              {/* Draggable Header Handle */}
+              <div
+                onMouseDown={(e) => {
+                  if ((e.target as HTMLElement).tagName !== "BUTTON" && !(e.target as HTMLElement).closest("button")) {
+                    handleDragStart(e.clientX, e.clientY);
+                  }
+                }}
+                onTouchStart={(e) => {
+                  if ((e.target as HTMLElement).tagName !== "BUTTON" && !(e.target as HTMLElement).closest("button") && e.touches[0]) {
+                    handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
+                  }
+                }}
+                className="flex items-center justify-between px-1 py-0.5 cursor-grab active:cursor-grabbing hover:bg-slate-50 dark:hover:bg-zinc-800/50 rounded-lg transition-colors"
+                title="Drag to move live proctor"
+              >
+                <div className="flex items-center gap-1.5 min-w-0 pointer-events-none">
+                  <GripVertical className="h-3 w-3 text-slate-400 shrink-0" />
+                  <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot} shrink-0`} />
+                  <span className="text-[9px] font-bold text-slate-900 dark:text-white tracking-tight truncate">PROCTOR</span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 leading-none">
+                    {violationsCount}/{maxWarnings}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsMinimized(true)}
+                    className="h-4 w-4 rounded flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    title="Minimize"
+                  >
+                    <Minus className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Camera Video (4:3 aspect ratio) */}
+              <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-black flex items-center justify-center shrink-0">
+                {cameraStatus === "active" ? (
+                  <video
+                    ref={videoRef}
                     autoPlay
                     muted
                     playsInline
@@ -748,7 +1011,7 @@ export default function StudentTestRunnerPage() {
                     <Button
                       size="sm"
                       onClick={startCamera}
-                      className="h-5 text-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-2 rounded"
+                      className="h-5 text-[8px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-2 rounded cursor-pointer"
                     >
                       Enable
                     </Button>
@@ -756,17 +1019,45 @@ export default function StudentTestRunnerPage() {
                 )}
               </div>
 
-              {/* Warning / Status (Below Video) */}
-              <div className="flex items-center justify-center px-1 py-0.5 h-[18px] shrink-0 bg-slate-50 dark:bg-[#09090B] rounded-sm pointer-events-none overflow-hidden">
+              {/* Warning / Verification Status Footer */}
+              <div className="flex items-center justify-center px-1 py-0.5 h-[18px] shrink-0 bg-slate-50 dark:bg-[#09090B] rounded-lg pointer-events-none overflow-hidden">
                 <span className={cn("text-[9px] font-bold truncate text-center w-full block", statusConfig.color)}>
                   {statusConfig.text}
                 </span>
               </div>
             </div>
-          ) : undefined
-        }
-        onSubmit={handleSubmit}
-      />
+          ) : (
+            /* Minimized Draggable Pill */
+            <div
+              onMouseDown={(e) => {
+                if ((e.target as HTMLElement).tagName !== "BUTTON" && !(e.target as HTMLElement).closest("button")) {
+                  handleDragStart(e.clientX, e.clientY);
+                }
+              }}
+              onTouchStart={(e) => {
+                if ((e.target as HTMLElement).tagName !== "BUTTON" && !(e.target as HTMLElement).closest("button") && e.touches[0]) {
+                  handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
+                }
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-full shadow-xl text-slate-800 dark:text-zinc-200 cursor-grab active:cursor-grabbing backdrop-blur-xs"
+              title="Drag to move or click expand"
+            >
+              <GripVertical className="h-3 w-3 text-slate-400 shrink-0 pointer-events-none" />
+              <span className={`w-2 h-2 rounded-full ${statusConfig.dot} shrink-0 pointer-events-none`} />
+              <span className="text-[10px] font-bold pointer-events-none">PROCTOR</span>
+              <span className="text-[9px] font-bold text-slate-500 dark:text-zinc-400 pointer-events-none">({violationsCount}/{maxWarnings})</span>
+              <button
+                type="button"
+                onClick={() => setIsMinimized(false)}
+                className="h-4 w-4 rounded-full flex items-center justify-center hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500 cursor-pointer ml-0.5"
+                title="Expand live proctor"
+              >
+                <Maximize2 className="h-2.5 w-2.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

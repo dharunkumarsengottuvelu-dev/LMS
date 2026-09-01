@@ -2780,22 +2780,22 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                   <div className="flex items-center justify-between">
                     <span className="text-[#6B7280]">Test Timer:</span>
                     <span className="font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1">
-                      <Timer className="h-3.5 w-3.5 text-[#2563EB]" /> {selectedTest.duration} Minutes
+                      <Timer className="h-3.5 w-3.5 text-[#2563EB]" /> {selectedTest?.duration || 60} Minutes
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-[#6B7280]">Access Window:</span>
                     <span className="font-bold text-[#111827] dark:text-[#FAFAFA] text-right">
-                      {selectedTest.scheduleMode === "window" && (selectedTest.startDate || selectedTest.endDate)
-                        ? `${selectedTest.startDate || "Any"} to ${selectedTest.endDate || "Open"}`
-                        : selectedTest.date
-                        ? `${selectedTest.date} ${selectedTest.startTime ? `(${selectedTest.startTime} - ${selectedTest.endTime || "..."})` : ""}`
+                      {selectedTest?.scheduleMode === "window" && (selectedTest?.startDate || selectedTest?.endDate)
+                        ? `${selectedTest?.startDate || "Any"} to ${selectedTest?.endDate || "Open"}`
+                        : selectedTest?.date
+                        ? `${selectedTest?.date} ${selectedTest?.startTime ? `(${selectedTest.startTime} - ${selectedTest?.endTime || "..."})` : ""}`
                         : "Available 24/7 (On-Demand)"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-[#6B7280]">Timezone:</span>
-                    <span className="font-mono text-[#6B7280]">{selectedTest.timezone || "Asia/Kolkata (IST)"}</span>
+                    <span className="font-mono text-[#6B7280]">{selectedTest?.timezone || "Asia/Kolkata (IST)"}</span>
                   </div>
                 </div>
 

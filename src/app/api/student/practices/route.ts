@@ -4,6 +4,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage, getTopicThumbnail } from "@/lib/utils";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
 
+import {
+  calculateModuleProgress,
+  calculateTrackProgressPercentage,
+  calculateCompletedModules,
+  calculateAnsweredQuestions,
+} from "@/lib/practice-progress";
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -134,15 +141,7 @@ export async function GET(request: NextRequest) {
 
         let answeredInAttempt = 0;
         if (attempt && attempt.answers && typeof attempt.answers === "object") {
-          const ansObj = attempt.answers;
-          const validKeys = new Set<string>();
-          Object.entries(ansObj).forEach(([k, v]) => {
-            if (!v) return;
-            if (Array.isArray(v) && v.length > 0) validKeys.add(k);
-            else if (typeof v === "string" && v.trim().length > 0) validKeys.add(k);
-            else if (typeof v === "object" && (v as any).code && (v as any).code.trim().length > 0) validKeys.add(k);
-          });
-          answeredInAttempt = validKeys.size;
+          answeredInAttempt = calculateAnsweredQuestions(attempt.answers, qCount);
         }
         if (solvedProblemsCount > 0) {
           answeredInAttempt = Math.max(answeredInAttempt, solvedProblemsCount);
@@ -177,6 +176,8 @@ export async function GET(request: NextRequest) {
         totalQuestionsAcrossTrack += qCount;
         completedQuestionsAcrossTrack += completedQuestionsInModule;
 
+        const modulePercentage = calculateModuleProgress(completedQuestionsInModule, qCount);
+
         return {
           id: sm.id,
           title: sm.title,
@@ -186,18 +187,17 @@ export async function GET(request: NextRequest) {
           questionCount: qCount,
           totalQuestions: qCount,
           completedQuestions: completedQuestionsInModule,
+          percentage: modulePercentage,
           status,
         };
       });
 
       const totalSubModules = subModules.length;
-      const completedSubModules = subModules.filter((sm: any) => sm.status === "completed").length;
-      const progressPercentage =
-        totalQuestionsAcrossTrack > 0
-          ? Math.min(100, Math.max(0, Math.round((completedQuestionsAcrossTrack / totalQuestionsAcrossTrack) * 100)))
-          : completedSubModules === totalSubModules && totalSubModules > 0
-          ? 100
-          : 0;
+      const completedSubModules = calculateCompletedModules(subModules);
+      const progressPercentage = calculateTrackProgressPercentage(
+        completedQuestionsAcrossTrack,
+        totalQuestionsAcrossTrack
+      );
 
       return {
         id: track.id,

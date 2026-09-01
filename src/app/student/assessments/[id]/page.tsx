@@ -292,15 +292,20 @@ export default function AssessmentTakePage() {
           "Section 2: Coding",
       });
 
-      // If completed in Database, initialize completedRecord from DB data so logout never loses completion
-      if (!isRetakeRequested && (targetSubModule.status === "completed" || (targetSubModule.score !== undefined && targetSubModule.score > 0))) {
+      // If explicitly marked completed in Database or localStorage, initialize completedRecord
+      const localSubmitted = typeof window !== "undefined" && localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
+      if (!isRetakeRequested && (targetSubModule.status === "completed" || targetSubModule.isCompleted === true || localSubmitted)) {
+        let localParsed: any = null;
+        if (localSubmitted) {
+          try { localParsed = JSON.parse(localSubmitted); } catch {}
+        }
         setCompletedRecord((prev) => prev || {
-          score: targetSubModule.score ?? (targetSubModule.totalMarks || 100),
-          bestScore: targetSubModule.score ?? (targetSubModule.totalMarks || 100),
-          totalMarks: targetSubModule.totalMarks || targetSubModule.total_marks || 100,
-          attemptsCount: 1,
-          submittedAt: targetSubModule.submittedAt || new Date().toISOString(),
-          answers: {},
+          score: localParsed?.score ?? targetSubModule.score ?? (targetSubModule.totalMarks || 100),
+          bestScore: localParsed?.bestScore ?? targetSubModule.score ?? (targetSubModule.totalMarks || 100),
+          totalMarks: localParsed?.totalMarks ?? targetSubModule.totalMarks ?? targetSubModule.total_marks ?? 100,
+          attemptsCount: localParsed?.attemptsCount ?? 1,
+          submittedAt: localParsed?.submittedAt ?? targetSubModule.submittedAt ?? new Date().toISOString(),
+          answers: localParsed?.answers ?? {},
         });
       }
 
@@ -1099,7 +1104,7 @@ export default function AssessmentTakePage() {
   }
 
   return (
-    <div className="w-full max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-6 space-y-4">
+    <div className="w-full max-w-[1680px] mx-auto px-2.5 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-6 space-y-4 max-w-full overflow-x-hidden">
       <PracticeRunnerEngine
         key={`runner_${subModuleId}_${runnerKey}`}
         module={currentSubModule}

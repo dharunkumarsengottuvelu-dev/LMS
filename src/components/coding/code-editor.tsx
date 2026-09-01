@@ -813,14 +813,14 @@ export function CodeEditor({
       <div className={cn("flex flex-col min-h-0 overflow-hidden border-b border-gray-200", showConsole ? "flex-[3]" : "flex-1")}>
         
         {/* Modern MNC-Style Editor Header & Toolbar */}
-        <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-white border-b border-gray-100 shrink-0 select-none gap-2">
-           <div className="text-sm font-bold text-slate-900 flex items-center gap-2 min-w-0 shrink-0">
+        <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2 bg-white border-b border-gray-100 shrink-0 select-none gap-1 sm:gap-2 w-full max-w-full overflow-hidden">
+           <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5 sm:gap-2 min-w-0 shrink-0">
              {showQuestionToggle && onToggleQuestion && (
                <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-blue-600 p-0 shrink-0" onClick={onToggleQuestion} title="Show Question Statement">
                  <PanelLeftOpen className="h-4 w-4" />
                </Button>
              )}
-             <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-xs shrink-0"></span>
+             <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-blue-600 shadow-xs shrink-0"></span>
              <span className="font-bold tracking-tight text-slate-900 hidden md:inline shrink-0">Code Editor</span>
              {isFullscreen && (
                <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 border-blue-200 shrink-0 hidden sm:inline-flex rounded-full">
@@ -829,11 +829,11 @@ export function CodeEditor({
              )}
            </div>
            
-           <div className="flex items-center gap-2 shrink-0 max-w-full">
+           <div className="flex items-center gap-1 sm:gap-2 shrink-0 max-w-full">
              {/* Language Selector */}
              {allowedLanguages.length > 1 ? (
                <Select value={language} onValueChange={(v) => { if (v) handleLanguageChange(v as CodingLanguage); }}>
-                 <SelectTrigger className="h-8 w-auto min-w-[90px] px-3.5 text-xs font-semibold border-gray-200 bg-white text-slate-800 shadow-2xs rounded-full truncate shrink-0">
+                 <SelectTrigger className="h-7 sm:h-8 w-auto min-w-[68px] sm:min-w-[90px] px-2 sm:px-3.5 text-[11px] sm:text-xs font-semibold border-gray-200 bg-white text-slate-800 shadow-2xs rounded-full truncate shrink-0">
                    <SelectValue className="truncate whitespace-nowrap" />
                  </SelectTrigger>
                  <SelectContent>
@@ -845,13 +845,13 @@ export function CodeEditor({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="h-8 px-3.5 flex items-center justify-center text-xs border border-gray-200 bg-white text-slate-800 rounded-full font-semibold shadow-2xs whitespace-nowrap truncate shrink-0">
+                <div className="h-7 sm:h-8 px-2 sm:px-3.5 flex items-center justify-center text-[11px] sm:text-xs border border-gray-200 bg-white text-slate-800 rounded-full font-semibold shadow-2xs whitespace-nowrap truncate shrink-0">
                   {getCleanLanguageName(dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language)}
                 </div>
               )}
 
               {language === "sql" && (
-                <Badge variant="outline" className="h-8 text-[10px] font-bold px-2.5 bg-blue-50 text-blue-600 border-blue-200 flex items-center gap-1 shrink-0 rounded-full">
+                <Badge variant="outline" className="h-7 sm:h-8 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2.5 bg-blue-50 text-blue-600 border-blue-200 flex items-center gap-1 shrink-0 rounded-full">
                   <span>DB:</span>
                   <span className="uppercase">{(problem?.sql_engine || "sqlite")}</span>
                 </Badge>
@@ -885,8 +885,8 @@ export function CodeEditor({
              {/* Mobile More Options Dropdown */}
              <div className="md:hidden">
                <DropdownMenu>
-                 <DropdownMenuTrigger className="h-8 w-8 text-gray-500 hover:text-gray-900 rounded-full shrink-0 flex items-center justify-center cursor-pointer hover:bg-gray-100">
-                   <MoreHorizontal className="h-4 w-4" />
+                 <DropdownMenuTrigger className="h-7 w-7 text-gray-500 hover:text-gray-900 rounded-full shrink-0 flex items-center justify-center cursor-pointer hover:bg-gray-100">
+                   <MoreHorizontal className="h-3.5 w-3.5" />
                  </DropdownMenuTrigger>
                  <DropdownMenuContent align="end" className="w-44 bg-white border border-gray-200 shadow-md rounded-xl p-1">
                    <DropdownMenuItem onClick={handleReset} className="text-xs cursor-pointer">
@@ -904,15 +904,15 @@ export function CodeEditor({
              {/* Run Code Button (Always visible, shrink-0) */}
              <Button
                size="sm"
-               className="h-8 px-3.5 text-xs font-semibold bg-[#10B981] hover:bg-[#059669] text-white gap-1.5 rounded-xl shadow-xs shrink-0"
+               className="h-7 sm:h-8 px-2.5 sm:px-3.5 text-[11px] sm:text-xs font-semibold bg-[#10B981] hover:bg-[#059669] text-white gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl shadow-xs shrink-0 cursor-pointer"
                onClick={() => handleRun()}
                disabled={isRunning || readOnly}
                title="Run Code (Ctrl+Enter)"
              >
                {isRunning ? (
-                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                 <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin" />
                ) : (
-                 <Play className="h-3 w-3 fill-current" />
+                 <Play className="h-2.5 w-2.5 sm:h-3 sm:w-3 fill-current" />
                )}
                <span>{isRunning ? "..." : "Run"}</span>
              </Button>
@@ -921,12 +921,12 @@ export function CodeEditor({
              {showSubmit && onSubmit && (
                <Button
                  size="sm"
-                 className="h-8 px-4 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1.5 rounded-xl shadow-xs shrink-0"
+                 className="h-7 sm:h-8 px-2.5 sm:px-4 text-[11px] sm:text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl shadow-xs shrink-0 cursor-pointer"
                  onClick={() => handleSubmit()}
                  disabled={isSubmitting || readOnly}
                  title="Submit Solution (Ctrl+Shift+Enter)"
                >
-                 {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                 {isSubmitting ? <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin" /> : <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
                  <span>{isSubmitting ? "..." : "Submit"}</span>
                </Button>
              )}
