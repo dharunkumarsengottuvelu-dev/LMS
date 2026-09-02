@@ -78,13 +78,27 @@ CREATE TABLE IF NOT EXISTS public.live_class_attendance (
 CREATE INDEX IF NOT EXISTS idx_live_class_attendance_class_id ON public.live_class_attendance (live_class_id);
 CREATE INDEX IF NOT EXISTS idx_live_class_attendance_student_id ON public.live_class_attendance (student_id);
 
--- 5. RLS Policies
+-- 5. Live Class Messages Table (Chat logs)
+CREATE TABLE IF NOT EXISTS public.live_class_messages (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  live_class_id UUID NOT NULL REFERENCES public.live_classes(id) ON DELETE CASCADE,
+  sender_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  sender_name TEXT,
+  sender_role TEXT DEFAULT 'student',
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_live_class_messages_class_id ON public.live_class_messages (live_class_id);
+
+-- 6. RLS Policies
 ALTER TABLE public.live_classes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.live_class_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.live_class_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.live_class_attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.live_class_messages ENABLE ROW LEVEL SECURITY;
 
--- Allow authenticated users to view live classes
+-- Allow authenticated users to view live classes and messages
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated read live_classes') THEN
     CREATE POLICY "Allow authenticated read live_classes" ON public.live_classes FOR SELECT TO authenticated USING (true);
@@ -98,4 +112,11 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated read live_class_attendance') THEN
     CREATE POLICY "Allow authenticated read live_class_attendance" ON public.live_class_attendance FOR SELECT TO authenticated USING (true);
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated read live_class_messages') THEN
+    CREATE POLICY "Allow authenticated read live_class_messages" ON public.live_class_messages FOR SELECT TO authenticated USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow authenticated insert live_class_messages') THEN
+    CREATE POLICY "Allow authenticated insert live_class_messages" ON public.live_class_messages FOR INSERT TO authenticated WITH CHECK (true);
+  END IF;
 END $$;
+
