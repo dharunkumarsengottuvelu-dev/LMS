@@ -7,7 +7,13 @@ CREATE TABLE IF NOT EXISTS public.live_classes (
   title TEXT NOT NULL,
   description TEXT,
   course_id UUID REFERENCES public.courses(id) ON DELETE SET NULL,
+  course_title TEXT DEFAULT '',
+  module_id UUID,
+  module_title TEXT DEFAULT '',
   trainer_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  trainer_name TEXT DEFAULT '',
+  platform TEXT DEFAULT 'falcon_webrtc',
+  meeting_url TEXT DEFAULT '',
   created_by UUID,
   scheduled_date DATE NOT NULL,
   start_time TEXT NOT NULL,
@@ -22,6 +28,20 @@ CREATE TABLE IF NOT EXISTS public.live_classes (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Ensure all columns exist on existing table if table was created previously
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS course_title TEXT DEFAULT '';
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS module_id UUID;
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS module_title TEXT DEFAULT '';
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS trainer_name TEXT DEFAULT '';
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS platform TEXT DEFAULT 'falcon_webrtc';
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS meeting_url TEXT DEFAULT '';
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS created_by UUID;
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS start_at TIMESTAMPTZ;
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS end_at TIMESTAMPTZ;
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS is_common BOOLEAN DEFAULT true;
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS assigned_batches TEXT[] DEFAULT '{}';
+ALTER TABLE public.live_classes ADD COLUMN IF NOT EXISTS assigned_students TEXT[] DEFAULT '{}';
 
 -- Index on date and status
 CREATE INDEX IF NOT EXISTS idx_live_classes_scheduled_date ON public.live_classes (scheduled_date);
