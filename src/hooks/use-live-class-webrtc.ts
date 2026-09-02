@@ -21,7 +21,23 @@ export interface PeerInfo {
   hasAudio: boolean;
   hasVideo: boolean;
   isScreenSharing?: boolean;
+  isHandRaised?: boolean;
   stream?: MediaStream;
+}
+
+export interface LiveReaction {
+  id: string;
+  emoji: string;
+  senderName: string;
+  timestamp: number;
+}
+
+export interface WhiteboardStroke {
+  id: string;
+  tool: "pen" | "highlighter" | "eraser" | "line" | "rect" | "circle";
+  color: string;
+  size: number;
+  points: { x: number; y: number }[];
 }
 
 interface UseLiveClassWebRTCOptions {
@@ -40,6 +56,66 @@ const RTC_CONFIG: RTCConfiguration = {
   ],
 };
 
+// Web Audio API Sound Synthesizer (Zero external dependencies)
+function playSoundEffect(type: "join" | "leave" | "hand" | "message") {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    if (type === "message") {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1); // A5
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.16);
+    } else if (type === "hand") {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.26);
+    } else if (type === "join") {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08); // E5
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.21);
+    } else if (type === "leave") {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.setValueAtTime(330, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.21);
+    }
+  } catch {}
+}
+
 export function useLiveClassWebRTC({
   classId,
   userId,
@@ -54,21 +130,90 @@ export function useLiveClassWebRTC({
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isHandRaised, setIsHandRaised] = useState(false);
+  const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected" | "error">("connecting");
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
+  const [reactions, setReactions] = useState<LiveReaction[]>([]);
+  const [whiteboardStrokes, setWhiteboardStrokes] = useState<WhiteboardStroke[]>([]);
+  const [audioLevel, setAudioLevel] = useState(0);
 
   const supabaseRef = useRef(createClient());
   const channelRef = useRef<any>(null);
+  const isSubscribedRef = useRef(false);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const myPeerIdRef = useRef<string>(userId || `peer_${Math.random().toString(36).slice(2, 9)}`);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number | null>(null);
 
-  // Update localStreamRef when localStream state changes
+  // Safe Broadcast Helper - Never crashes on unready socket or drops
+  const safeBroadcast = useCallback((event: string, payload: any) => {
+    if (!channelRef.current || !isSubscribedRef.current) return;
+    try {
+      const res = channelRef.current.send({
+        type: "broadcast",
+        event,
+        payload,
+      });
+      if (res && typeof res.catch === "function") {
+        res.catch(() => {});
+      }
+    } catch {}
+  }, []);
+
+  // Update localStreamRef
   useEffect(() => {
     localStreamRef.current = localStream;
   }, [localStream]);
+
+  // Audio energy analyzer for mic meter and active speaker
+  useEffect(() => {
+    if (!localStream) return;
+    const audioTrack = localStream.getAudioTracks()[0];
+    if (!audioTrack) return;
+
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      audioContextRef.current = ctx;
+
+      const source = ctx.createMediaStreamSource(localStream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const checkAudio = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i] ?? 0;
+        }
+        const avg = sum / dataArray.length;
+        setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
+
+        if (avg > 25 && !isMuted) {
+          setActiveSpeakerId(myPeerIdRef.current);
+        }
+
+        animFrameRef.current = requestAnimationFrame(checkAudio);
+      };
+      checkAudio();
+    } catch {}
+
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+        audioContextRef.current.close().catch(() => {});
+      }
+    };
+  }, [localStream, isMuted]);
 
   // Load message history on initial load
   useEffect(() => {
@@ -84,9 +229,7 @@ export function useLiveClassWebRTC({
             setMessages(data.messages);
           }
         }
-      } catch (err) {
-        console.warn("Could not load past chat messages:", err);
-      }
+      } catch {}
     }
 
     loadHistory();
@@ -95,7 +238,7 @@ export function useLiveClassWebRTC({
     };
   }, [classId]);
 
-  // 1. Initialize Local Media (Camera & Mic)
+  // 1. Initialize Local Media (Camera & Mic with crystal-clear fallback)
   const initLocalMedia = useCallback(async () => {
     try {
       setConnectionStatus("connecting");
@@ -108,21 +251,18 @@ export function useLiveClassWebRTC({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         });
       } catch (err: any) {
-        console.warn("Full media access failed, trying audio only:", err);
-        // Fallback to audio only if camera is unavailable or denied
+        console.warn("Full camera+audio request failed, trying audio only:", err);
         try {
           stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           setIsCameraOff(true);
         } catch (audioErr: any) {
-          console.warn("Audio access also failed, trying video only:", audioErr);
+          console.warn("Audio access also failed, creating virtual track:", audioErr);
           try {
             stream = await navigator.mediaDevices.getUserMedia({ video: true });
             setIsMuted(true);
-          } catch (vidErr: any) {
-            console.warn("No media devices accessible:", vidErr);
-            // Create an empty stream so user can still listen and chat
+          } catch {
             stream = new MediaStream();
-            setMediaError("Camera or Microphone permission was not granted. You can still listen and chat in the classroom.");
+            setMediaError("Camera or Microphone permission was not granted. You can still listen, participate in chat, whiteboard, and reactions.");
             setIsMuted(true);
             setIsCameraOff(true);
           }
@@ -150,7 +290,7 @@ export function useLiveClassWebRTC({
     const pc = new RTCPeerConnection(RTC_CONFIG);
     peerConnectionsRef.current.set(remotePeerId, pc);
 
-    // Add local media tracks to peer connection
+    // Add local tracks
     const currentStream = screenStreamRef.current || localStreamRef.current;
     if (currentStream) {
       currentStream.getTracks().forEach((track) => {
@@ -160,7 +300,7 @@ export function useLiveClassWebRTC({
       });
     }
 
-    // Handle incoming remote media tracks
+    // Remote Track Receiver
     pc.ontrack = (event) => {
       const [remoteMediaStream] = event.streams;
       if (remoteMediaStream) {
@@ -173,6 +313,7 @@ export function useLiveClassWebRTC({
             role: remoteInfo.role || "student",
             hasAudio: true,
             hasVideo: true,
+            isHandRaised: false,
           };
           updated.set(remotePeerId, {
             ...existing,
@@ -183,17 +324,13 @@ export function useLiveClassWebRTC({
       }
     };
 
-    // Handle ICE Candidate generation
+    // ICE Candidate generation
     pc.onicecandidate = (event) => {
-      if (event.candidate && channelRef.current) {
-        channelRef.current.send({
-          type: "broadcast",
-          event: "ice-candidate",
-          payload: {
-            fromPeerId: myPeerIdRef.current,
-            toPeerId: remotePeerId,
-            candidate: event.candidate,
-          },
+      if (event.candidate) {
+        safeBroadcast("ice-candidate", {
+          fromPeerId: myPeerIdRef.current,
+          toPeerId: remotePeerId,
+          candidate: event.candidate,
         });
       }
     };
@@ -210,13 +347,13 @@ export function useLiveClassWebRTC({
     };
 
     return pc;
-  }, []);
+  }, [safeBroadcast]);
 
   // 3. Setup Supabase Realtime Signaling & Presence Channel
   useEffect(() => {
     if (!classId) return;
 
-    let isSubscribed = true;
+    let active = true;
     const channelName = `live-classroom:${classId}`;
     const channel = supabaseRef.current.channel(channelName, {
       config: {
@@ -230,9 +367,9 @@ export function useLiveClassWebRTC({
       await initLocalMedia();
 
       channel
-        // Presence Sync (ensures 100% accurate participant roster without ghosts)
+        // Presence Sync (Roster)
         .on("presence", { event: "sync" }, () => {
-          if (!isSubscribed) return;
+          if (!active) return;
           const presenceState = channel.presenceState();
           const presentPeerIds = new Set<string>();
 
@@ -252,6 +389,7 @@ export function useLiveClassWebRTC({
                     hasAudio: p.hasAudio ?? true,
                     hasVideo: p.hasVideo ?? true,
                     isScreenSharing: p.isScreenSharing ?? false,
+                    isHandRaised: p.isHandRaised ?? false,
                   };
                   updated.set(key, {
                     ...existing,
@@ -260,6 +398,7 @@ export function useLiveClassWebRTC({
                     hasAudio: p.hasAudio ?? existing.hasAudio,
                     hasVideo: p.hasVideo ?? existing.hasVideo,
                     isScreenSharing: p.isScreenSharing ?? existing.isScreenSharing,
+                    isHandRaised: p.isHandRaised ?? existing.isHandRaised,
                   });
                 }
               });
@@ -283,7 +422,8 @@ export function useLiveClassWebRTC({
 
         // Peer Joined via Broadcast
         .on("broadcast", { event: "peer-join" }, async ({ payload }) => {
-          if (!isSubscribed || payload.peerId === myPeerIdRef.current) return;
+          if (!active || payload.peerId === myPeerIdRef.current) return;
+          playSoundEffect("join");
 
           setPeers((prev) => {
             const updated = new Map(prev);
@@ -295,32 +435,29 @@ export function useLiveClassWebRTC({
               hasAudio: payload.hasAudio ?? true,
               hasVideo: payload.hasVideo ?? true,
               isScreenSharing: payload.isScreenSharing ?? false,
+              isHandRaised: payload.isHandRaised ?? false,
             });
             return updated;
           });
 
-          // Trainer creates offer to new joiner
+          // Trainer / Admin initiates WebRTC offer
           if (userRole === "trainer" || userRole === "admin") {
             const pc = createPeerConnection(payload.peerId, payload);
             try {
               const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
               await pc.setLocalDescription(offer);
 
-              channel.send({
-                type: "broadcast",
-                event: "webrtc-offer",
-                payload: {
-                  fromPeerId: myPeerIdRef.current,
-                  toPeerId: payload.peerId,
-                  offer,
-                  senderInfo: {
-                    userId,
-                    name: userName,
-                    role: userRole,
-                    hasAudio: !isMuted,
-                    hasVideo: !isCameraOff,
-                    isScreenSharing,
-                  },
+              safeBroadcast("webrtc-offer", {
+                fromPeerId: myPeerIdRef.current,
+                toPeerId: payload.peerId,
+                offer,
+                senderInfo: {
+                  userId,
+                  name: userName,
+                  role: userRole,
+                  hasAudio: !isMuted,
+                  hasVideo: !isCameraOff,
+                  isScreenSharing,
                 },
               });
             } catch (err) {
@@ -331,7 +468,7 @@ export function useLiveClassWebRTC({
 
         // WebRTC Offer received
         .on("broadcast", { event: "webrtc-offer" }, async ({ payload }) => {
-          if (!isSubscribed || payload.toPeerId !== myPeerIdRef.current) return;
+          if (!active || payload.toPeerId !== myPeerIdRef.current) return;
 
           const pc = createPeerConnection(payload.fromPeerId, payload.senderInfo || {});
           try {
@@ -339,51 +476,46 @@ export function useLiveClassWebRTC({
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
 
-            channel.send({
-              type: "broadcast",
-              event: "webrtc-answer",
-              payload: {
-                fromPeerId: myPeerIdRef.current,
-                toPeerId: payload.fromPeerId,
-                answer,
-              },
+            safeBroadcast("webrtc-answer", {
+              fromPeerId: myPeerIdRef.current,
+              toPeerId: payload.fromPeerId,
+              answer,
             });
           } catch (err) {
-            console.error("Error handling WebRTC offer / creating answer:", err);
+            console.error("Error answering WebRTC offer:", err);
           }
         })
 
         // WebRTC Answer received
         .on("broadcast", { event: "webrtc-answer" }, async ({ payload }) => {
-          if (!isSubscribed || payload.toPeerId !== myPeerIdRef.current) return;
+          if (!active || payload.toPeerId !== myPeerIdRef.current) return;
 
           const pc = peerConnectionsRef.current.get(payload.fromPeerId);
           if (pc && pc.signalingState !== "stable") {
             try {
               await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
             } catch (err) {
-              console.error("Error setting remote description from answer:", err);
+              console.error("Error setting answer remote description:", err);
             }
           }
         })
 
         // ICE Candidate received
         .on("broadcast", { event: "ice-candidate" }, async ({ payload }) => {
-          if (!isSubscribed || payload.toPeerId !== myPeerIdRef.current) return;
+          if (!active || payload.toPeerId !== myPeerIdRef.current) return;
 
           const pc = peerConnectionsRef.current.get(payload.fromPeerId);
           if (pc && payload.candidate) {
             try {
               await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-            } catch (err) {
-              console.error("Error adding ICE candidate:", err);
-            }
+            } catch {}
           }
         })
 
         // Peer Left
         .on("broadcast", { event: "peer-leave" }, ({ payload }) => {
-          if (!isSubscribed) return;
+          if (!active) return;
+          playSoundEffect("leave");
           const remotePeerId = payload.peerId;
           const pc = peerConnectionsRef.current.get(remotePeerId);
           if (pc) {
@@ -397,9 +529,9 @@ export function useLiveClassWebRTC({
           });
         })
 
-        // Media track state change (mute / camera toggle)
+        // Media track state change
         .on("broadcast", { event: "track-state-change" }, ({ payload }) => {
-          if (!isSubscribed) return;
+          if (!active) return;
           setPeers((prev) => {
             const updated = new Map(prev);
             const peer = updated.get(payload.peerId);
@@ -415,9 +547,45 @@ export function useLiveClassWebRTC({
           });
         })
 
+        // Hand Raise Toggle
+        .on("broadcast", { event: "hand-raise" }, ({ payload }) => {
+          if (!active) return;
+          if (payload.isHandRaised) {
+            playSoundEffect("hand");
+          }
+          setPeers((prev) => {
+            const updated = new Map(prev);
+            const peer = updated.get(payload.peerId);
+            if (peer) {
+              updated.set(payload.peerId, {
+                ...peer,
+                isHandRaised: payload.isHandRaised,
+              });
+            }
+            return updated;
+          });
+        })
+
+        // Live Reaction (Emoji)
+        .on("broadcast", { event: "reaction" }, ({ payload }) => {
+          if (!active) return;
+          setReactions((prev) => [...prev.slice(-15), payload]);
+        })
+
+        // Whiteboard Stroke Sync
+        .on("broadcast", { event: "whiteboard-stroke" }, ({ payload }) => {
+          if (!active) return;
+          if (payload.action === "clear") {
+            setWhiteboardStrokes([]);
+          } else if (payload.stroke) {
+            setWhiteboardStrokes((prev) => [...prev, payload.stroke]);
+          }
+        })
+
         // Realtime Chat Message
         .on("broadcast", { event: "chat-message" }, ({ payload }) => {
-          if (!isSubscribed) return;
+          if (!active) return;
+          playSoundEffect("message");
           setMessages((prev) => {
             if (prev.some((m) => m.id === payload.id)) return prev;
             return [...prev, payload];
@@ -426,13 +594,13 @@ export function useLiveClassWebRTC({
 
         // Trainer Ended Class
         .on("broadcast", { event: "class-ended" }, () => {
-          if (!isSubscribed) return;
+          if (!active) return;
           if (onClassEnded) onClassEnded();
         })
 
         .subscribe(async (status) => {
           if (status === "SUBSCRIBED") {
-            // Track Presence
+            isSubscribedRef.current = true;
             try {
               await channel.track({
                 peerId: myPeerIdRef.current,
@@ -442,23 +610,20 @@ export function useLiveClassWebRTC({
                 hasAudio: !isMuted,
                 hasVideo: !isCameraOff,
                 isScreenSharing: false,
+                isHandRaised: false,
                 joinedAt: new Date().toISOString(),
               });
             } catch {}
 
-            // Announce join to other peers
-            channel.send({
-              type: "broadcast",
-              event: "peer-join",
-              payload: {
-                peerId: myPeerIdRef.current,
-                userId,
-                name: userName,
-                role: userRole,
-                hasAudio: !isMuted,
-                hasVideo: !isCameraOff,
-                isScreenSharing: false,
-              },
+            safeBroadcast("peer-join", {
+              peerId: myPeerIdRef.current,
+              userId,
+              name: userName,
+              role: userRole,
+              hasAudio: !isMuted,
+              hasVideo: !isCameraOff,
+              isScreenSharing: false,
+              isHandRaised: false,
             });
           }
         });
@@ -467,23 +632,17 @@ export function useLiveClassWebRTC({
     setupSignaling();
 
     return () => {
-      isSubscribed = false;
-      // Untrack and Broadcast leave
+      active = false;
+      isSubscribedRef.current = false;
       try {
         channel.untrack();
-        channel.send({
-          type: "broadcast",
-          event: "peer-leave",
-          payload: { peerId: myPeerIdRef.current, userId },
-        });
+        safeBroadcast("peer-leave", { peerId: myPeerIdRef.current, userId });
         supabaseRef.current.removeChannel(channel);
       } catch {}
 
-      // Close all peer connections
       peerConnectionsRef.current.forEach((pc) => pc.close());
       peerConnectionsRef.current.clear();
 
-      // Stop local tracks
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
       }
@@ -491,7 +650,7 @@ export function useLiveClassWebRTC({
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [classId, userId, userName, userRole, initLocalMedia, createPeerConnection, onClassEnded]);
+  }, [classId, userId, userName, userRole, initLocalMedia, createPeerConnection, onClassEnded, safeBroadcast]);
 
   // 4. Toggle Microphone
   const toggleMute = useCallback(() => {
@@ -503,30 +662,26 @@ export function useLiveClassWebRTC({
     });
     setIsMuted(nextMuted);
 
-    if (channelRef.current) {
-      channelRef.current.send({
-        type: "broadcast",
-        event: "track-state-change",
-        payload: {
-          peerId: myPeerIdRef.current,
-          hasAudio: !nextMuted,
-          hasVideo: !isCameraOff,
-          isScreenSharing,
-        },
+    safeBroadcast("track-state-change", {
+      peerId: myPeerIdRef.current,
+      hasAudio: !nextMuted,
+      hasVideo: !isCameraOff,
+      isScreenSharing,
+    });
+
+    try {
+      channelRef.current?.track({
+        peerId: myPeerIdRef.current,
+        userId,
+        name: userName,
+        role: userRole,
+        hasAudio: !nextMuted,
+        hasVideo: !isCameraOff,
+        isScreenSharing,
+        isHandRaised,
       });
-      try {
-        channelRef.current.track({
-          peerId: myPeerIdRef.current,
-          userId,
-          name: userName,
-          role: userRole,
-          hasAudio: !nextMuted,
-          hasVideo: !isCameraOff,
-          isScreenSharing,
-        });
-      } catch {}
-    }
-  }, [isMuted, isCameraOff, isScreenSharing, userId, userName, userRole]);
+    } catch {}
+  }, [isMuted, isCameraOff, isScreenSharing, isHandRaised, userId, userName, userRole, safeBroadcast]);
 
   // 5. Toggle Video Camera
   const toggleCamera = useCallback(() => {
@@ -538,35 +693,30 @@ export function useLiveClassWebRTC({
     });
     setIsCameraOff(nextCameraOff);
 
-    if (channelRef.current) {
-      channelRef.current.send({
-        type: "broadcast",
-        event: "track-state-change",
-        payload: {
-          peerId: myPeerIdRef.current,
-          hasAudio: !isMuted,
-          hasVideo: !nextCameraOff,
-          isScreenSharing,
-        },
+    safeBroadcast("track-state-change", {
+      peerId: myPeerIdRef.current,
+      hasAudio: !isMuted,
+      hasVideo: !nextCameraOff,
+      isScreenSharing,
+    });
+
+    try {
+      channelRef.current?.track({
+        peerId: myPeerIdRef.current,
+        userId,
+        name: userName,
+        role: userRole,
+        hasAudio: !isMuted,
+        hasVideo: !nextCameraOff,
+        isScreenSharing,
+        isHandRaised,
       });
-      try {
-        channelRef.current.track({
-          peerId: myPeerIdRef.current,
-          userId,
-          name: userName,
-          role: userRole,
-          hasAudio: !isMuted,
-          hasVideo: !nextCameraOff,
-          isScreenSharing,
-        });
-      } catch {}
-    }
-  }, [isMuted, isCameraOff, isScreenSharing, userId, userName, userRole]);
+    } catch {}
+  }, [isMuted, isCameraOff, isScreenSharing, isHandRaised, userId, userName, userRole, safeBroadcast]);
 
   // 6. Screen Sharing
   const toggleScreenShare = useCallback(async () => {
     if (isScreenSharing) {
-      // Stop Screen Share and restore camera
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((t) => t.stop());
         screenStreamRef.current = null;
@@ -574,7 +724,6 @@ export function useLiveClassWebRTC({
       setScreenStream(null);
       setIsScreenSharing(false);
 
-      // Replace track on all peer connections back to camera video
       const localVideoTrack = localStreamRef.current?.getVideoTracks()[0];
       if (localVideoTrack) {
         peerConnectionsRef.current.forEach((pc) => {
@@ -585,20 +734,13 @@ export function useLiveClassWebRTC({
         });
       }
 
-      if (channelRef.current) {
-        channelRef.current.send({
-          type: "broadcast",
-          event: "track-state-change",
-          payload: {
-            peerId: myPeerIdRef.current,
-            hasAudio: !isMuted,
-            hasVideo: !isCameraOff,
-            isScreenSharing: false,
-          },
-        });
-      }
+      safeBroadcast("track-state-change", {
+        peerId: myPeerIdRef.current,
+        hasAudio: !isMuted,
+        hasVideo: !isCameraOff,
+        isScreenSharing: false,
+      });
     } else {
-      // Start Screen Share
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({
           video: { cursor: "always" } as any,
@@ -610,14 +752,12 @@ export function useLiveClassWebRTC({
         setScreenStream(stream);
         setIsScreenSharing(true);
 
-        // When user stops screen sharing from browser UI bar
         if (screenTrack) {
           screenTrack.onended = () => {
             toggleScreenShare();
           };
         }
 
-        // Replace track on all peer connections to screen track
         peerConnectionsRef.current.forEach((pc) => {
           const sender = pc.getSenders().find((s) => s.track?.kind === "video");
           if (sender && screenTrack) {
@@ -627,27 +767,61 @@ export function useLiveClassWebRTC({
           }
         });
 
-        if (channelRef.current) {
-          channelRef.current.send({
-            type: "broadcast",
-            event: "track-state-change",
-            payload: {
-              peerId: myPeerIdRef.current,
-              hasAudio: !isMuted,
-              hasVideo: true,
-              isScreenSharing: true,
-            },
-          });
-        }
+        safeBroadcast("track-state-change", {
+          peerId: myPeerIdRef.current,
+          hasAudio: !isMuted,
+          hasVideo: true,
+          isScreenSharing: true,
+        });
       } catch (err) {
-        console.warn("Screen sharing cancelled or denied:", err);
+        console.warn("Screen sharing cancelled:", err);
       }
     }
-  }, [isScreenSharing, isMuted, isCameraOff]);
+  }, [isScreenSharing, isMuted, isCameraOff, safeBroadcast]);
 
-  // 7. Send Chat Message (Persists via API + Broadcasts via Realtime Channel)
+  // 7. Toggle Raise Hand
+  const toggleRaiseHand = useCallback(() => {
+    const nextHand = !isHandRaised;
+    setIsHandRaised(nextHand);
+    if (nextHand) {
+      playSoundEffect("hand");
+    }
+
+    safeBroadcast("hand-raise", {
+      peerId: myPeerIdRef.current,
+      userId,
+      name: userName,
+      isHandRaised: nextHand,
+    });
+  }, [isHandRaised, userId, userName, safeBroadcast]);
+
+  // 8. Send Live Reaction (Emoji)
+  const sendReaction = useCallback((emoji: string) => {
+    const reaction: LiveReaction = {
+      id: `react_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      emoji,
+      senderName: userName,
+      timestamp: Date.now(),
+    };
+
+    setReactions((prev) => [...prev.slice(-15), reaction]);
+    safeBroadcast("reaction", reaction);
+  }, [userName, safeBroadcast]);
+
+  // 9. Whiteboard Broadcast & Local Append
+  const addWhiteboardStroke = useCallback((stroke: WhiteboardStroke) => {
+    setWhiteboardStrokes((prev) => [...prev, stroke]);
+    safeBroadcast("whiteboard-stroke", { action: "draw", stroke });
+  }, [safeBroadcast]);
+
+  const clearWhiteboard = useCallback(() => {
+    setWhiteboardStrokes([]);
+    safeBroadcast("whiteboard-stroke", { action: "clear" });
+  }, [safeBroadcast]);
+
+  // 10. Send Chat Message
   const sendMessage = useCallback((text: string) => {
-    if (!text.trim() || !channelRef.current) return;
+    if (!text.trim()) return;
 
     const message: ChatMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -659,17 +833,9 @@ export function useLiveClassWebRTC({
       createdAt: new Date().toISOString(),
     };
 
-    // Append to local state instantly
     setMessages((prev) => [...prev, message]);
+    safeBroadcast("chat-message", message);
 
-    // Broadcast to classroom channel for 0ms latency to other peers
-    channelRef.current.send({
-      type: "broadcast",
-      event: "chat-message",
-      payload: message,
-    });
-
-    // Persist to server in background
     fetch("/api/live-classes/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -679,19 +845,15 @@ export function useLiveClassWebRTC({
         senderName: userName,
         senderRole: userRole,
       }),
-    }).catch((err) => console.warn("Chat message persist warning:", err));
-  }, [classId, userId, userName, userRole]);
+    }).catch(() => {});
+  }, [classId, userId, userName, userRole, safeBroadcast]);
 
-  // 8. End Class Broadcast (Trainer only)
+  // 11. End Class (Host only)
   const endClass = useCallback(() => {
-    if (channelRef.current && (userRole === "trainer" || userRole === "admin")) {
-      channelRef.current.send({
-        type: "broadcast",
-        event: "class-ended",
-        payload: { byUserId: userId, timestamp: new Date().toISOString() },
-      });
+    if (userRole === "trainer" || userRole === "admin") {
+      safeBroadcast("class-ended", { byUserId: userId, timestamp: new Date().toISOString() });
     }
-  }, [userId, userRole]);
+  }, [userId, userRole, safeBroadcast]);
 
   return {
     localStream,
@@ -701,12 +863,20 @@ export function useLiveClassWebRTC({
     isMuted,
     isCameraOff,
     isScreenSharing,
+    isHandRaised,
+    audioLevel,
+    activeSpeakerId,
     connectionStatus,
     mediaError,
-    activeSpeakerId,
+    reactions,
+    whiteboardStrokes,
     toggleMute,
     toggleCamera,
     toggleScreenShare,
+    toggleRaiseHand,
+    sendReaction,
+    addWhiteboardStroke,
+    clearWhiteboard,
     sendMessage,
     endClass,
   };
