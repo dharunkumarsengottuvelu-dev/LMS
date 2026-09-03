@@ -1,0 +1,27 @@
+{
+  "students": {
+    "946a9df9-c3f2-47b1-801f-f3cdd8da7482": {
+      "studentId": "946a9df9-c3f2-47b1-801f-f3cdd8da7482",
+      "studentEmail": "dharunkumarsengottuvelu@gmail.com",
+      "totalActiveSeconds": 1,
+      "dailyBreakdown": {
+        "2026-09-03": 1
+      },
+      "sessions": [
+        {
+          "sessionId": "sess_1788430627963_3zeq5my",
+          "studentId": "946a9df9-c3f2-47b1-801f-f3cdd8da7482",
+          "studentEmail": "dharunkumarsengottuvelu@gmail.com",
+          "startedAt": "2026-09-03T10:17:24.931Z",
+          "lastHeartbeatAt": "2026-09-03T10:28:49.671Z",
+          "durationSeconds": 1,
+          "isClosed": true,
+          "deviceInfo": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Sa",
+          "closedAt": "2026-09-03T10:17:25.209Z"
+        }
+      ],
+      "lastActiveAt": "2026-09-03T10:17:24.931Z"
+    }
+  },
+  "lastUpdated": "2026-09-03T10:28:49.671Z"
+}

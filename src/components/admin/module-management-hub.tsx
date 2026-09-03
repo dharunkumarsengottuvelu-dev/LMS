@@ -523,11 +523,17 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 inline
                 initialTitle={newTitle || "Find the Largest Element"}
                 initialDescription={practiceDesc}
-                onChange={(problem) => {
-                  if (!newTitle && problem.title) setNewTitle(problem.title);
-                  setPracticeDesc(problem.description);
-                  setPracticeStarter(Object.values(problem.templates)[0] || "");
-                  setPracticeTestCases(problem.publicTestCases.map((t) => `${t.input} -> ${t.expected_output}`).join("\n"));
+                onChange={(problem: any) => {
+                  if (!newTitle && problem?.title) setNewTitle(problem.title);
+                  if (problem?.description) setPracticeDesc(problem.description);
+                  if (problem?.templates) {
+                    const firstTmpl = Object.values(problem.templates)[0];
+                    if (typeof firstTmpl === "string") setPracticeStarter(firstTmpl);
+                  }
+                  const cases = (problem?.test_cases || problem?.publicTestCases || []) as any[];
+                  if (cases.length > 0) {
+                    setPracticeTestCases(cases.map((t: any) => `${t.input} -> ${t.expected_output}`).join("\n"));
+                  }
                 }}
               />
             </SectionCard>

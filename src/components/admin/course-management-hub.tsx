@@ -1772,11 +1772,17 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                         inline
                         initialTitle={modTitle || "Find the Largest Element"}
                         initialDescription={modDesc}
-                        onChange={(problem) => {
-                          if (!modTitle && problem.title) setModTitle(problem.title);
-                          setModDesc(problem.description);
-                          setModStarter(Object.values(problem.templates)[0] || "");
-                          setModTestCases(problem.publicTestCases.map((t) => `${t.input} -> ${t.expected_output}`).join("\n"));
+                        onChange={(problem: any) => {
+                          if (!modTitle && problem?.title) setModTitle(problem.title);
+                          if (problem?.description) setModDesc(problem.description);
+                          if (problem?.templates) {
+                            const firstTmpl = Object.values(problem.templates)[0];
+                            if (typeof firstTmpl === "string") setModStarter(firstTmpl);
+                          }
+                          const cases = (problem?.test_cases || problem?.publicTestCases || []) as any[];
+                          if (cases.length > 0) {
+                            setModTestCases(cases.map((t: any) => `${t.input} -> ${t.expected_output}`).join("\n"));
+                          }
                         }}
                       />
                     </div>
@@ -2164,87 +2170,125 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         </div>
       </div>
 
-      {/* Course Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map((course) => (
-          <Card key={course.id}
-            className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between hover:border-[#2563EB]/40 transition-colors">
-            {course.thumbnail && (
-              <div className="relative w-full h-36 overflow-hidden border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F1F5F9]">
-                <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
-              </div>
-            )}
-            <CardContent className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <Badge variant="outline" className="text-[10px] font-semibold border-[#2563EB]/30 text-[#2563EB]">
-                  {course.category}
-                </Badge>
-                <Badge className={course.status === "published" ? "bg-[#16A34A] text-white text-[10px] font-medium" : "bg-[#6B7280] text-white text-[10px] font-medium"}>
-                  {course.status}
-                </Badge>
-              </div>
+      {/* Course Linear Table */}
+      <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-[#27272A] shadow-xs rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-[#27272A] bg-slate-50/70 dark:bg-[#09090B] text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                <th className="py-2.5 px-4 w-12">#</th>
+                <th className="py-2.5 px-4">Course Title</th>
+                <th className="py-2.5 px-4 w-28">Category</th>
+                <th className="py-2.5 px-4 w-32">Instructor</th>
+                <th className="py-2.5 px-4 w-24">Learners</th>
+                <th className="py-2.5 px-4 w-24">Lessons</th>
+                <th className="py-2.5 px-4 w-24">Duration</th>
+                <th className="py-2.5 px-4 w-24">Status</th>
+                <th className="py-2.5 px-4 text-right w-64">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-[#27272A]">
+              {filtered.map((course, idx) => (
+                <tr key={course.id} className="hover:bg-slate-50/70 dark:hover:bg-[#27272A]/40 transition-colors">
+                  <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-400">
+                    #{idx + 1}
+                  </td>
 
-              <div>
-                <h3 className="font-bold text-base text-[#111827] dark:text-[#FAFAFA] leading-snug">{course.title}</h3>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <Badge variant="secondary" className="text-[10px] font-medium">{course.level}</Badge>
-                  <span className="text-xs text-[#6B7280]">Instructor: <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{course.instructor}</span></span>
-                </div>
-                <p className="text-xs text-[#6B7280] line-clamp-2 mt-1.5 leading-relaxed">{course.description}</p>
-              </div>
+                  <td className="py-3 px-4">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-900 dark:text-white text-xs">
+                          {course.title}
+                        </span>
+                        <span className="text-[10px] font-medium bg-slate-100 dark:bg-[#27272A] text-slate-600 dark:text-slate-300 px-1.5 py-0.2 rounded">
+                          {course.level}
+                        </span>
+                      </div>
+                      {course.description && (
+                        <span className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                          {course.description}
+                        </span>
+                      )}
+                    </div>
+                  </td>
 
-              <div className="flex items-center justify-between text-xs text-[#6B7280] pt-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                <span className="flex items-center gap-1 font-bold text-[#111827] dark:text-[#FAFAFA]">
-                  <Users className="h-3.5 w-3.5 text-[#2563EB]" /> {course.enrolledStudents} Learners
-                </span>
-                <span className="flex items-center gap-1">
-                  <GraduationCap className="h-3.5 w-3.5 text-[#2563EB]" /> {course.totalLessons} Lessons
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5 text-[#16A34A]" /> {calculateModulesTotalDuration(course.modules)}
-                </span>
-              </div>
+                  <td className="py-3 px-4">
+                    <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                      {course.category}
+                    </span>
+                  </td>
 
-              <div className="pt-4 flex flex-col gap-3">
-                <Button onClick={() => openAssignModal(course)} size="sm"
-                  className="w-full h-9 text-[13px] font-bold gap-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-sm transition-all hover:-translate-y-[1px]">
-                  <Users className="h-4 w-4" /> Assign Course
-                </Button>
-                <div className="flex items-center justify-between gap-2 w-full">
-                  <Button onClick={() => { setSelectedCourse(course); setViewState("syllabus"); }}
-                    variant="outline" size="sm"
-                    className="flex-1 h-8 text-[11px] font-semibold gap-1 border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/5 px-1 shadow-sm transition-colors">
-                    <Eye className="h-3 w-3 shrink-0" /> Syllabus
-                  </Button>
-                  <Button onClick={() => openEditWizard(course)} variant="outline" size="sm"
-                    className="flex-1 h-8 text-[11px] font-semibold gap-1 border-[#D97706]/40 text-[#D97706] hover:bg-[#D97706]/5 px-1 shadow-sm transition-colors">
-                    <Edit className="h-3 w-3 shrink-0" /> Edit
-                  </Button>
-                  <Button onClick={() => handleToggleStatus(course.id)} variant="outline" size="sm"
-                    className={`flex-1 h-8 text-[11px] font-semibold px-1 shadow-xs transition-colors ${
-                      course.status === "published"
-                        ? "text-amber-600 dark:text-amber-400 border-amber-500/40 hover:bg-amber-500/10"
-                        : "text-emerald-600 dark:text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/10"
-                    }`}>
-                    {course.status === "published" ? (
-                      <>
-                        <EyeOff className="h-3 w-3 shrink-0 mr-1" /> Unpublish
-                      </>
-                    ) : (
-                      <>
-                        <UploadCloud className="h-3 w-3 shrink-0 mr-1" /> Publish
-                      </>
-                    )}
-                  </Button>
-                  <Button onClick={() => handleDeleteCourse(course.id, course.title)} variant="outline" size="icon"
-                    className="h-8 w-8 shrink-0 text-[#DC2626] border-[#DC2626]/30 hover:bg-[#DC2626]/10 hover:border-[#DC2626]/50 shadow-sm transition-colors">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                  <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                    {course.instructor}
+                  </td>
+
+                  <td className="py-3 px-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    {course.enrolledStudents}
+                  </td>
+
+                  <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-400">
+                    {course.totalLessons}
+                  </td>
+
+                  <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-400">
+                    {calculateModulesTotalDuration(course.modules)}
+                  </td>
+
+                  <td className="py-3 px-4">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold capitalize ${
+                        course.status === "published"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-slate-100 text-slate-600 border border-slate-200"
+                      }`}
+                    >
+                      {course.status === "published" ? "Published" : "Draft"}
+                    </span>
+                  </td>
+
+                  <td className="py-3 px-4 text-right">
+                    <div className="flex items-center justify-end gap-2 text-xs">
+                      <button
+                        onClick={() => openAssignModal(course)}
+                        className="font-medium text-slate-600 hover:text-slate-900 hover:underline"
+                      >
+                        Assign
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        onClick={() => { setSelectedCourse(course); setViewState("syllabus"); }}
+                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        Syllabus
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        onClick={() => handleToggleStatus(course.id)}
+                        className="font-medium text-slate-600 hover:text-slate-900 hover:underline"
+                      >
+                        {course.status === "published" ? "Unpublish" : "Publish"}
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        onClick={() => openEditWizard(course)}
+                        className="font-medium text-amber-600 hover:text-amber-800 hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        onClick={() => handleDeleteCourse(course.id, course.title)}
+                        className="font-medium text-rose-600 hover:text-rose-800 hover:underline"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ── ASSIGN COURSE MODAL DIALOG ── */}

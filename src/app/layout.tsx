@@ -7,6 +7,7 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { AutoLogoutProvider } from "@/components/providers/auto-logout-provider";
 
 import { LMSProvider } from "@/lib/store/lms-store";
+import { ActiveTimeProvider } from "@/components/providers/active-time-provider";
 
 export const metadata: Metadata = {
   title: {
@@ -73,7 +74,9 @@ export default function RootLayout({
             <AuthProvider>
               <AutoLogoutProvider>
                 <LMSProvider>
-                  {children}
+                  <ActiveTimeProvider>
+                    {children}
+                  </ActiveTimeProvider>
                 </LMSProvider>
                 <Toaster />
               </AutoLogoutProvider>

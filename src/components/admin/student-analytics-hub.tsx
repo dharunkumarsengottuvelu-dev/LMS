@@ -295,6 +295,28 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     setReviewFeedbackInput(asg.feedback || "");
   };
 
+  const openCodingReview = (prob: any) => {
+    setReviewModalItem({
+      type: "practice",
+      title: prob.title || "Coding Challenge",
+      parentTitle: "Algorithmic Problem Bank",
+      difficulty: prob.difficulty || "Medium",
+      score: prob.score,
+      totalMarks: prob.totalMarks || 100,
+      status: prob.status,
+      submittedCode: prob.code || "// No source code submitted",
+      testCasesPassed: `${prob.passedTestCases || 0}/${prob.totalTestCases || 0} Test Cases Passed`,
+      startedAt: prob.submittedAt ? new Date(prob.submittedAt).toLocaleString() : "Recent",
+      completedAt: prob.submittedAt ? new Date(prob.submittedAt).toLocaleString() : "Completed",
+      attemptsCount: 1,
+      feedback: prob.isAccepted
+        ? "Candidate solution passed all automated verification test suites."
+        : "Automated evaluation detected test case mismatches or runtime errors.",
+    });
+    setReviewScoreInput(String(prob.score ?? ""));
+    setReviewFeedbackInput("");
+  };
+
   const handleSaveReviewGrade = () => {
     setIsSavingReview(true);
     setTimeout(() => {
@@ -996,6 +1018,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     const courses = analyticsData?.coursesList || [];
     const practices = analyticsData?.practicesList || [];
     const assessments = analyticsData?.assessmentsList || analyticsData?.testsTaken || [];
+    const codingProblems = analyticsData?.codingList || [];
     const liveClasses = analyticsData?.liveClassesList || [];
     const dailyTimeSpent = analyticsData?.dailyTimeSpent || [];
     const loginActivities = analyticsData?.loginActivities || [];
@@ -1003,6 +1026,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
       enrolledCoursesCount: courses.length,
       practicesCount: practices.length,
       assessmentsCount: assessments.length,
+      codingCount: codingProblems.length,
       liveClassesCount: liveClasses.length,
       totalTimeSpentSeconds: 0,
       avgScore: selectedStudent.avgScore || 0,
@@ -1165,7 +1189,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
                 <span className="text-[11px] font-bold uppercase text-[#6B7280]">Total Active Time</span>
                 <p className="text-2xl font-extrabold text-[#111827] dark:text-[#FAFAFA]">{formatTimeSpent(summary.totalTimeSpentSeconds || 0)}</p>
-                <p className="text-[11px] text-[#6B7280]">Time spent on evaluations</p>
+                <p className="text-[11px] text-[#6B7280]">Time spent actively using the LMS</p>
               </Card>
             </div>
 
@@ -1177,6 +1201,9 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                 </TabsTrigger>
                 <TabsTrigger value="practices" className="text-xs font-bold px-4 py-2 gap-1.5">
                   <Dumbbell className="h-3.5 w-3.5" /> Practice Labs ({practices.length})
+                </TabsTrigger>
+                <TabsTrigger value="coding" className="text-xs font-bold px-4 py-2 gap-1.5">
+                  <Code2 className="h-3.5 w-3.5" /> Coding Problems ({codingProblems.length})
                 </TabsTrigger>
                 <TabsTrigger value="tests" className="text-xs font-bold px-4 py-2 gap-1.5">
                   <ClipboardList className="h-3.5 w-3.5" /> Assessments ({assessments.length})
@@ -1333,6 +1360,108 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                       </CardContent>
                     </Card>
                   ))
+                )}
+              </TabsContent>
+
+              {/* TAB: CODING PROBLEMS */}
+              <TabsContent value="coding" className="space-y-4">
+                {codingProblems.length === 0 ? (
+                  <Card className="p-8 text-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl">
+                    <Inbox className="h-8 w-8 text-[#9CA3AF] mx-auto mb-2" />
+                    <p className="text-xs font-semibold text-[#6B7280]">No algorithmic coding problems attempted yet by this student.</p>
+                  </Card>
+                ) : (
+                  <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden">
+                    <CardHeader className="p-5 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                          <Code2 className="h-4 w-4 text-[#2563EB]" /> Algorithmic Problem Submissions
+                        </CardTitle>
+                        <CardDescription className="text-[11px] text-[#6B7280]">
+                          {codingProblems.filter((p: any) => p.isAccepted).length} of {codingProblems.length} challenges solved successfully
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge className="bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/30 text-xs font-bold px-3 py-1">
+                          Total Score: {codingProblems.reduce((acc: number, p: any) => acc + (p.score || 0), 0)} pts
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
+                              <th className="py-3 px-4">Problem</th>
+                              <th className="py-3 px-4">Difficulty</th>
+                              <th className="py-3 px-4">Language</th>
+                              <th className="py-3 px-4">Status</th>
+                              <th className="py-3 px-4">Test Cases</th>
+                              <th className="py-3 px-4">Score</th>
+                              <th className="py-3 px-4">Submitted At</th>
+                              <th className="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                            {codingProblems.map((prob: any) => (
+                              <tr key={prob.id} className="hover:bg-[#F9FAFB]/70 dark:hover:bg-[#09090B]/70 transition-colors">
+                                <td className="py-3.5 px-4 font-bold text-[#111827] dark:text-[#FAFAFA]">
+                                  {prob.title}
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] font-bold capitalize px-2 py-0.5 ${
+                                      prob.difficulty === "easy"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"
+                                        : prob.difficulty === "hard"
+                                        ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400"
+                                        : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
+                                    }`}
+                                  >
+                                    {prob.difficulty}
+                                  </Badge>
+                                </td>
+                                <td className="py-3.5 px-4 font-mono text-[11px] font-semibold text-[#6B7280] uppercase">
+                                  {prob.language}
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  <Badge
+                                    className={`text-[10px] font-bold px-2 py-0.5 ${
+                                      prob.isAccepted
+                                        ? "bg-[#16A34A] text-white"
+                                        : "bg-[#DC2626] text-white"
+                                    }`}
+                                  >
+                                    {prob.status}
+                                  </Badge>
+                                </td>
+                                <td className="py-3.5 px-4 text-[11px] font-medium text-[#6B7280]">
+                                  {prob.passedTestCases} / {prob.totalTestCases} passed
+                                </td>
+                                <td className="py-3.5 px-4 font-extrabold text-[#111827] dark:text-[#FAFAFA]">
+                                  {prob.score} / {prob.totalMarks}
+                                </td>
+                                <td className="py-3.5 px-4 text-[11px] text-[#6B7280]">
+                                  {prob.submittedAt ? new Date(prob.submittedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                                </td>
+                                <td className="py-3.5 px-4 text-right">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openCodingReview(prob)}
+                                    className="h-8 text-xs px-3 font-bold text-[#2563EB] border-[#2563EB]/40 hover:bg-[#2563EB]/10 hover:border-[#2563EB] gap-1.5 rounded-xl shadow-xs transition-all"
+                                  >
+                                    <Code2 className="h-3.5 w-3.5" /> Review Code
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
               </TabsContent>
 
@@ -1746,7 +1875,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                   <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
                     <span className="text-[11px] font-bold uppercase text-[#6B7280]">Total Active Time</span>
                     <p className="text-2xl font-extrabold text-[#2563EB]">{formatTimeSpent(summary.totalTimeSpentSeconds || 0)}</p>
-                    <p className="text-[11px] text-[#6B7280]">Total recorded platform hours</p>
+                    <p className="text-[11px] text-[#6B7280]">Time spent actively using the LMS</p>
                   </Card>
                   <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
                     <span className="text-[11px] font-bold uppercase text-[#6B7280]">Course Modules</span>

@@ -46,7 +46,7 @@ export function StudentTopNav() {
 
       {/* Centered Desktop Nav Links */}
       <nav className="hidden md:flex items-center gap-1 lg:gap-2 overflow-x-auto no-scrollbar">
-        {studentNavigation.slice(0, 5).map((item) => {
+        {studentNavigation.slice(0, 6).map((item) => {
           const isExact = pathname === item.href;
           const isSubpath = item.href !== "/student/dashboard" && pathname.startsWith(item.href);
           const isAlias = (item.aliases || []).some((alias) => pathname === alias || pathname.startsWith(alias));

@@ -41,7 +41,10 @@ export default function StudentCodingIDEPage() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const trackId = params.get("track");
-    if (!trackId) return;
+    if (!trackId) {
+      window.location.replace("/coding");
+      return;
+    }
 
     async function fetchTrack() {
       try {

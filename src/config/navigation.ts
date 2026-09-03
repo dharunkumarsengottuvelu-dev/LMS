@@ -10,6 +10,7 @@ import {
   User,
   GraduationCap,
   Video,
+  Code2,
 } from "lucide-react";
 
 export interface NavItem {
@@ -44,6 +45,11 @@ export const adminNavigation: NavItem[] = [
     label: "Practices",
     href: "/admin/practices",
     icon: Dumbbell,
+  },
+  {
+    label: "Coding Problems",
+    href: "/admin/coding",
+    icon: Code2,
   },
   {
     label: "Assessments",
@@ -82,6 +88,12 @@ export const studentNavigation: NavItem[] = [
     label: "Practices",
     href: "/student/practices",
     icon: Dumbbell,
+  },
+  {
+    label: "Coding",
+    href: "/coding",
+    aliases: ["/coding/problems", "/student/coding"],
+    icon: Code2,
   },
   {
     label: "Assessments",
@@ -125,6 +137,11 @@ export const trainerNavigation: NavItem[] = [
     label: "Practices",
     href: "/trainer/practices",
     icon: Dumbbell,
+  },
+  {
+    label: "Coding Problems",
+    href: "/trainer/coding",
+    icon: Code2,
   },
   {
     label: "Assessments",

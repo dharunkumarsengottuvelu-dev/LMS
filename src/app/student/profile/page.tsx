@@ -1380,7 +1380,7 @@ export default function StudentProfilePage() {
                     <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
                       <span className="text-[11px] font-bold uppercase text-[#6B7280]">Total Active Time</span>
                       <p className="text-2xl font-extrabold text-[#2563EB]">{formatTimeSpent(reportSummary.totalTimeSpentSeconds || 0)}</p>
-                      <p className="text-[11px] text-[#6B7280]">Overall site usage</p>
+                      <p className="text-[11px] text-[#6B7280]">Time spent actively using the LMS</p>
                     </Card>
                     <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl p-5 space-y-1">
                       <span className="text-[11px] font-bold uppercase text-[#6B7280]">Course Modules</span>

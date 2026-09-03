@@ -166,47 +166,51 @@ body {
 }
 
 /* MNC Typography System */
-h1, .h1 {
-  font-size: 2.5rem;
-  line-height: 1.2;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  color: var(--color-foreground);
-}
-
-@media (min-width: 768px) {
+@layer base {
   h1, .h1 {
-    font-size: 3rem;
+    font-size: 2rem;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--color-foreground);
+  }
+
+  @media (min-width: 768px) {
+    h1, .h1 {
+      font-size: 2.5rem;
+    }
   }
 }
 
-h2, .h2 {
-  font-size: 1.75rem;
-  line-height: 1.3;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--color-foreground);
-}
-
-@media (min-width: 768px) {
+@layer base {
   h2, .h2 {
-    font-size: 2.25rem;
+    font-size: 1.5rem;
+    line-height: 1.3;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-foreground);
   }
-}
 
-h3, .h3 {
-  font-size: 1.25rem;
-  line-height: 1.4;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  color: var(--color-foreground);
-}
+  @media (min-width: 768px) {
+    h2, .h2 {
+      font-size: 1.875rem;
+    }
+  }
 
-h4, .h4 {
-  font-size: 1.125rem;
-  line-height: 1.4;
-  font-weight: 600;
-  color: var(--color-foreground);
+  h3, .h3 {
+    font-size: 1.125rem;
+    line-height: 1.4;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--color-foreground);
+  }
+
+  h4, .h4 {
+    font-size: 1rem;
+    line-height: 1.4;
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
 }
 
 p, span, div {

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
+import { ActiveTimeService } from "@/services/active-time.service";
 
 export async function GET(request: NextRequest) {
   try {
@@ -425,21 +426,21 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // E. Login Session Engagement
-    if (user.last_sign_in_at || user.created_at) {
-      const loginTs = new Date(user.last_sign_in_at || user.created_at).getTime();
-      const loginSessionSeconds = 3600; // 1 hour session
-      if (totalTimeSpentSeconds === 0) {
-        totalTimeSpentSeconds += loginSessionSeconds;
-      }
-      if (range === "all" || (loginTs >= minTimestamp && loginTs <= maxTimestamp)) {
-        const iso = new Date(loginTs).toISOString().slice(0, 10);
-        const mins = Math.round(loginSessionSeconds / 60);
-        if (!dayMap.has(iso) || (dayMap.get(iso) || 0) < mins) {
-          dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
+    // E. Real-time Active Session Tracking & LMS Usage
+    const realActiveTime = ActiveTimeService.getStudentActiveTime(studentId);
+    if (realActiveTime && realActiveTime.totalActiveSeconds > 0) {
+      totalTimeSpentSeconds = realActiveTime.totalActiveSeconds;
+    }
+
+    if (realActiveTime && realActiveTime.dailyBreakdown) {
+      for (const [isoDate, activeSecs] of Object.entries(realActiveTime.dailyBreakdown)) {
+        const ts = new Date(isoDate).getTime();
+        if (range === "all" || (ts >= minTimestamp && ts <= maxTimestamp)) {
+          const mins = Math.round(activeSecs / 60);
+          dayMap.set(isoDate, (dayMap.get(isoDate) || 0) + mins);
+          const act = getOrCreateDayAct(isoDate);
+          act.loginsCount = Math.max(act.loginsCount, 1);
         }
-        const act = getOrCreateDayAct(iso);
-        act.loginsCount = Math.max(act.loginsCount, 1);
       }
     }
 

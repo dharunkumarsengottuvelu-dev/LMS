@@ -117,12 +117,36 @@ export const LANGUAGE_REGISTRY: Record<CodingLanguage, LanguageConfig> = {
 export type Difficulty = "easy" | "medium" | "hard";
 export type SubmissionStatus = "accepted" | "wrong_answer" | "time_limit_exceeded" | "compilation_error" | "runtime_error" | "pending";
 
+export interface ExampleCase {
+  id?: string;
+  input: string;
+  output: string;
+  explanation?: string;
+}
+
+export interface SolutionApproach {
+  name: string;
+  timeComplexity: string;
+  spaceComplexity: string;
+  explanation: string;
+  code: Record<string, string>;
+}
+
+export interface SolutionEditorial {
+  overview: string;
+  approaches: SolutionApproach[];
+}
+
 export interface TestCase {
   id: string;
+  name?: string;
   input: string;
   expected_output: string;
   is_hidden: boolean;
   explanation?: string;
+  weight?: number;
+  is_enabled?: boolean;
+  order_index?: number;
 }
 
 export interface TestCaseResult {
@@ -148,13 +172,19 @@ export interface CodingProblem {
   description: string;
   difficulty: Difficulty;
   category?: string;
+  topic_tags?: string[];
+  points?: number;
+  acceptance_rate?: string;
   constraints?: string;
   input_format?: string;
   output_format?: string;
-  points?: number;
   sample_input?: string;
   sample_output?: string;
+  example_cases?: ExampleCase[];
+  solution_editorial?: SolutionEditorial;
   templates: Record<string, string>;
+  function_signature?: string;
+  driver_code?: Record<string, string>;
   test_cases: TestCase[];
   reveal_hidden_testcases?: boolean;
   dataset_name?: string;
@@ -165,6 +195,15 @@ export interface CodingProblem {
   seed_sql?: string;
   comparison_mode?: SQLComparisonMode;
   duration_minutes?: number;
+  time_limit_ms?: number;
+  memory_limit_mb?: number;
+  max_attempts?: number;
+  status?: "draft" | "published";
+  start_date?: string;
+  due_date?: string;
+  allow_run?: boolean;
+  allow_submit?: boolean;
+  is_mandatory?: boolean;
   created_at: string;
   updated_at: string;
 }

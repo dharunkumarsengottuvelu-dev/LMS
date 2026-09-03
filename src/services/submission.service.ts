@@ -29,7 +29,7 @@ export class SubmissionService {
    * Saves a new or updated coding problem to memory, localStorage, and Supabase DB.
    */
   public static async saveProblem(problem: CodingProblem): Promise<void> {
-    return CodingProblemsService.saveProblem(problem);
+    await CodingProblemsService.saveProblem(problem);
   }
 
   /**
@@ -76,8 +76,11 @@ export class SubmissionService {
     }
 
     // Evaluate all test cases concurrently in parallel for blazing fast execution
-    const { UniversalExecutor } = await import("@/lib/compiler/universal-executor");
-    const { compareOutput } = await import("@/lib/compiler/comparator");
+    // Use dynamic evaluation to prevent client-side chunking context from bundling node:fs
+    const getUniversalModule = new Function('return import("@/lib/compiler/universal-executor")');
+    const { UniversalExecutor } = await getUniversalModule();
+    const getComparatorModule = new Function('return import("@/lib/compiler/comparator")');
+    const { compareOutput } = await getComparatorModule();
 
     const testResults: TestCaseResult[] = await Promise.all(
       testCases.map(async (tc) => {

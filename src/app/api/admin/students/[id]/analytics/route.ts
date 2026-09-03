@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
+import { ActiveTimeService } from "@/services/active-time.service";
 
 export async function GET(
   request: NextRequest,
@@ -576,21 +577,21 @@ export async function GET(
       }
     });
 
-    // E. Login Session Engagement
-    if (profile?.last_sign_in_at || profile?.created_at) {
-      const loginTs = new Date(profile.last_sign_in_at || profile.created_at).getTime();
-      const loginSessionSeconds = 3600; // 1 hour session
-      if (totalTimeSpentSeconds === 0) {
-        totalTimeSpentSeconds += loginSessionSeconds;
-      }
-      if (range === "all" || (loginTs >= minTimestamp && loginTs <= maxTimestamp)) {
-        const iso = new Date(loginTs).toISOString().slice(0, 10);
-        const mins = Math.round(loginSessionSeconds / 60);
-        if (!dayMap.has(iso) || (dayMap.get(iso) || 0) < mins) {
-          dayMap.set(iso, (dayMap.get(iso) || 0) + mins);
+    // E. Real-time Active Session Tracking & LMS Usage
+    const realActiveTime = ActiveTimeService.getStudentActiveTime(studentId);
+    if (realActiveTime && realActiveTime.totalActiveSeconds > 0) {
+      totalTimeSpentSeconds = realActiveTime.totalActiveSeconds;
+    }
+
+    if (realActiveTime && realActiveTime.dailyBreakdown) {
+      for (const [isoDate, activeSecs] of Object.entries(realActiveTime.dailyBreakdown)) {
+        const ts = new Date(isoDate).getTime();
+        if (range === "all" || (ts >= minTimestamp && ts <= maxTimestamp)) {
+          const mins = Math.round(activeSecs / 60);
+          dayMap.set(isoDate, (dayMap.get(isoDate) || 0) + mins);
+          const act = getOrCreateDayAct(isoDate);
+          act.loginsCount = Math.max(act.loginsCount, 1);
         }
-        const act = getOrCreateDayAct(iso);
-        act.loginsCount = Math.max(act.loginsCount, 1);
       }
     }
 
@@ -748,6 +749,41 @@ export async function GET(
       });
     }
 
+    // 8. Coding Problems & Submissions
+    const { data: allProblemsData } = await adminClient
+      .from("coding_problems")
+      .select("id, title, slug, difficulty, tags, starter_code");
+
+    const problemMap = new Map<string, any>();
+    (allProblemsData || []).forEach((p: any) => {
+      problemMap.set(p.id, p);
+      if (p.slug) problemMap.set(p.slug, p);
+    });
+
+    const codingList = (rawCodingSubmissions || []).map((sub: any) => {
+      const prob = problemMap.get(sub.problem_id) || {};
+      const points = prob.starter_code?.points || 100;
+      const isAccepted = sub.status === "accepted";
+      const passedTC = typeof sub.passed_test_cases === "number" ? sub.passed_test_cases : (isAccepted ? 10 : 0);
+      const totalTC = typeof sub.total_test_cases === "number" ? sub.total_test_cases : 10;
+      return {
+        id: sub.id,
+        problemId: sub.problem_id,
+        title: prob.title || `Coding Problem #${sub.problem_id}`,
+        difficulty: prob.difficulty || "medium",
+        language: sub.language || "python",
+        status: isAccepted ? "Solved" : sub.status === "wrong_answer" ? "Wrong Answer" : sub.status || "Submitted",
+        isAccepted,
+        passedTestCases: passedTC,
+        totalTestCases: totalTC,
+        score: isAccepted ? points : Math.round((passedTC / Math.max(1, totalTC)) * points),
+        totalMarks: points,
+        submittedAt: sub.submitted_at || sub.created_at || new Date().toISOString(),
+        code: sub.code || "",
+        results: sub.test_results || [],
+      };
+    });
+
     const computedAvgScore =
       scoredAttemptsCount > 0 ? Math.round(totalScoreSum / scoredAttemptsCount) : (profile?.avg_score || 0);
     const computedMcqAcc =
@@ -780,6 +816,7 @@ export async function GET(
         coursesList,
         practicesList,
         assessmentsList,
+        codingList,
         liveClassesList,
         dailyTimeSpent,
         loginActivities,
@@ -788,6 +825,7 @@ export async function GET(
           enrolledCoursesCount: coursesList.length,
           practicesCount: practicesList.length,
           assessmentsCount: assessmentsList.length,
+          codingCount: codingList.length,
           liveClassesCount: liveClassesList.length,
           totalTimeSpentSeconds,
           avgScore: computedAvgScore,
