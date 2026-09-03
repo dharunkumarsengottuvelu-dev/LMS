@@ -9,15 +9,25 @@
       },
       "sessions": [
         {
+          "sessionId": "sess_1788431548118_9gd3kf4",
+          "studentId": "946a9df9-c3f2-47b1-801f-f3cdd8da7482",
+          "studentEmail": "dharunkumarsengottuvelu@gmail.com",
+          "startedAt": "2026-09-03T19:57:25.577Z",
+          "lastHeartbeatAt": "2026-09-03T20:03:51.977Z",
+          "durationSeconds": 0,
+          "isClosed": false,
+          "deviceInfo": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Sa"
+        },
+        {
           "sessionId": "sess_1788431870039_1fq9y3w",
           "studentId": "946a9df9-c3f2-47b1-801f-f3cdd8da7482",
           "studentEmail": "dharunkumarsengottuvelu@gmail.com",
           "startedAt": "2026-09-03T10:38:03.350Z",
-          "lastHeartbeatAt": "2026-09-03T15:29:58.361Z",
+          "lastHeartbeatAt": "2026-09-03T15:31:21.664Z",
           "durationSeconds": 1,
           "isClosed": true,
           "deviceInfo": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Sa",
-          "closedAt": "2026-09-03T10:58:58.851Z"
+          "closedAt": "2026-09-03T15:31:21.515Z"
         },
         {
           "sessionId": "sess_1788430627963_3zeq5my",
@@ -46,7 +56,7 @@
           "studentId": "20d4f2ec-2788-473a-a6fc-5597ae64afde",
           "studentEmail": "admin@lms.com",
           "startedAt": "2026-09-03T10:32:44.248Z",
-          "lastHeartbeatAt": "2026-09-03T15:29:48.357Z",
+          "lastHeartbeatAt": "2026-09-03T15:58:47.863Z",
           "durationSeconds": 58,
           "isClosed": false,
           "deviceInfo": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Sa"
@@ -55,5 +65,5 @@
       "lastActiveAt": "2026-09-03T10:44:15.847Z"
     }
   },
-  "lastUpdated": "2026-09-03T15:29:58.361Z"
+  "lastUpdated": "2026-09-03T20:03:51.979Z"
 }

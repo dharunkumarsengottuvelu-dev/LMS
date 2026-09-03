@@ -380,3 +380,82 @@ p, span, div {
   height: 100% !important;
   object-fit: contain !important;
 }
+
+/* 3D Continuous Enterprise Moving Carousel / Marquee */
+@keyframes marquee-scroll-3d {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-marquee-infinite {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll-3d 60s linear infinite;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.animate-marquee-infinite:hover {
+  animation-play-state: paused;
+}
+
+/* Subtle MNC-Level Text Shimmer / Light Sweep */
+@keyframes text-shimmer {
+  0% {
+    background-position: 100% center;
+  }
+  100% {
+    background-position: -100% center;
+  }
+}
+
+.animate-text-shimmer {
+  background: linear-gradient(
+    90deg,
+    #2563EB 0%,
+    #2563EB 35%,
+    #93C5FD 50%,
+    #60A5FA 55%,
+    #2563EB 70%,
+    #2563EB 100%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  display: inline;
+  animation: text-shimmer 4.5s ease-in-out infinite;
+  will-change: background-position;
+}
+
+/* Gentle ambient floating motion for enterprise cards */
+@keyframes float-subtle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-float-subtle {
+  animation: float-subtle 6s ease-in-out infinite;
+}
+
+/* Subtle accent beam slide for enterprise cards */
+@keyframes beam-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-beam-slide {
+  animation: beam-slide 4s ease-in-out infinite;
+}
