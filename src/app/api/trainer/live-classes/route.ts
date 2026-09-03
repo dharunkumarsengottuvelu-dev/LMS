@@ -121,24 +121,39 @@ export async function GET(request: NextRequest) {
       if (cls.status === "cancelled") {
         cancelledCount++;
         computedStatus = "cancelled";
+      } else if (cls.status === "completed") {
+        completedCount++;
+        computedStatus = "completed";
       } else {
-        const startParts = (cls.start_time || "00:00").split(":");
-        const endParts = (cls.end_time || "23:59").split(":");
-        const startDate = new Date(cls.scheduled_date);
-        startDate.setHours(parseInt(startParts[0] || "0", 10), parseInt(startParts[1] || "0", 10), 0, 0);
+        const [year, month, day] = (cls.scheduled_date || "").split("-").map(Number);
+        const [startH, startM] = (cls.start_time || "00:00").split(":").map(Number);
+        const [endH, endM] = (cls.end_time || "23:59").split(":").map(Number);
 
-        const endDate = new Date(cls.scheduled_date);
-        endDate.setHours(parseInt(endParts[0] || "23", 10), parseInt(endParts[1] || "59", 10), 59, 999);
+        if (year && month && day) {
+          const startDate = new Date(year, month - 1, day, startH || 0, startM || 0, 0, 0);
+          const endDate = new Date(year, month - 1, day, endH || 23, endM || 59, 59, 999);
 
-        if (now >= startDate && now <= endDate) {
-          computedStatus = "live";
-          liveCount++;
-        } else if (now < startDate) {
+          if (cls.status === "live") {
+            if (now.getTime() > endDate.getTime() + 2 * 60 * 60 * 1000) {
+              computedStatus = "completed";
+              completedCount++;
+            } else {
+              computedStatus = "live";
+              liveCount++;
+            }
+          } else if (now >= startDate && now <= endDate) {
+            computedStatus = "live";
+            liveCount++;
+          } else if (now < startDate) {
+            computedStatus = "upcoming";
+            upcomingCount++;
+          } else {
+            computedStatus = "completed";
+            completedCount++;
+          }
+        } else {
           computedStatus = "upcoming";
           upcomingCount++;
-        } else {
-          computedStatus = "completed";
-          completedCount++;
         }
       }
 
@@ -261,11 +276,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, status: "completed" });
     }
 
+    if (action === "cancel_class" && liveClassId) {
+      await adminClient
+        .from("live_classes")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("id", liveClassId);
+
+      return NextResponse.json({ success: true, status: "cancelled" });
+    }
+
     if (!title || !scheduledDate || !startTime) {
       return NextResponse.json(
         { error: "Title, Scheduled Date, and Start Time are required." },
         { status: 400 }
       );
+    }
+
+    let initialStatus = body.status;
+    if (!initialStatus || initialStatus === "upcoming" || initialStatus === "scheduled") {
+      const now = new Date();
+      const [y, m, d] = (scheduledDate || "").split("-").map(Number);
+      const [sH, sM] = (startTime || "00:00").split(":").map(Number);
+      const [eH, eM] = (endTime || "23:59").split(":").map(Number);
+      if (y && m && d) {
+        const startDt = new Date(y, m - 1, d, sH || 0, sM || 0, 0, 0);
+        const endDt = new Date(y, m - 1, d, eH || 23, eM || 59, 59, 999);
+        if (now >= startDt && now <= endDt) {
+          initialStatus = "live";
+        } else if (now > endDt) {
+          initialStatus = "completed";
+        } else {
+          initialStatus = "upcoming";
+        }
+      } else {
+        initialStatus = "upcoming";
+      }
     }
 
     const payload: any = {
@@ -285,7 +330,7 @@ export async function POST(request: NextRequest) {
       duration_minutes: Number(durationMinutes) || 60,
       is_common: Boolean(isCommon),
       assigned_batches: assignedBatches || [],
-      status: "upcoming",
+      status: initialStatus,
       created_by: user.id,
       updated_at: new Date().toISOString(),
     };

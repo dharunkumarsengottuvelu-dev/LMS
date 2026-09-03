@@ -183,9 +183,6 @@ export default function StudentPracticesPage() {
                       <Badge variant="outline" className="text-[10px] font-semibold px-2.5 py-0.5 border-blue-200/70 dark:border-blue-800/40 text-blue-700 dark:text-blue-300 bg-blue-50/70 dark:bg-blue-950/30 rounded-lg">
                         <FolderKanban className="h-3 w-3 mr-1 inline text-blue-600" /> {track.category}
                       </Badge>
-                      <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate max-w-[120px]">
-                        {track.assignedByName}
-                      </span>
                     </div>
 
                     <CardTitle className="text-base font-bold text-slate-900 dark:text-zinc-100 leading-snug line-clamp-1">

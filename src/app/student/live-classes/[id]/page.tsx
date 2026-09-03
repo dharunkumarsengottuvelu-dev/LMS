@@ -73,6 +73,7 @@ export default function StudentLiveClassRoomPage() {
               endTime: found.endTime,
               durationMinutes: found.durationMinutes,
               status: found.status,
+              startAt: found.startAt || found.start_at || found.created_at,
             });
           } else {
             setError("Live classroom session not found or access is restricted.");
@@ -91,6 +92,7 @@ export default function StudentLiveClassRoomPage() {
             endTime: classRecord.end_time,
             durationMinutes: classRecord.duration_minutes || 60,
             status: classRecord.status,
+            startAt: classRecord.start_at || classRecord.created_at,
           });
         }
       } catch (err: any) {

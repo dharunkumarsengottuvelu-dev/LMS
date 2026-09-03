@@ -622,22 +622,15 @@ export default function StudentCoursePlayerPage() {
               )}
             </div>
 
-            {/* Instructor & Lesson Information */}
-            <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-500 dark:text-zinc-400 flex-wrap pt-0.5">
-              <span className="flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 shrink-0" />
-                <span>Instructor: <strong className="font-semibold text-slate-700 dark:text-zinc-200">{courseInstructor}</strong></span>
-              </span>
-              {activeLesson?.title && (
-                <>
-                  <span className="text-slate-300 dark:text-zinc-700 hidden sm:inline">•</span>
-                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-300">
-                    <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 shrink-0" />
-                    <span>Lesson: <strong className="font-semibold text-slate-800 dark:text-white">{activeLesson.title}</strong></span>
-                  </span>
-                </>
-              )}
-            </div>
+            {/* Active Lesson Information */}
+            {activeLesson?.title && (
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-500 dark:text-zinc-400 flex-wrap pt-0.5">
+                <span className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-300">
+                  <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-400 shrink-0" />
+                  <span>Current Lesson: <strong className="font-semibold text-slate-800 dark:text-white">{activeLesson.title}</strong></span>
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>

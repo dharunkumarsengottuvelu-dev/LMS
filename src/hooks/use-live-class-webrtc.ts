@@ -3,6 +3,19 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+export type JoinState =
+  | "IDLE"
+  | "INITIALIZING"
+  | "REQUESTING_MEDIA"
+  | "MEDIA_READY"
+  | "CHANNEL_CONNECTING"
+  | "CHANNEL_SUBSCRIBED"
+  | "PRESENCE_READY"
+  | "CONNECTED"
+  | "RECONNECTING"
+  | "DISCONNECTED"
+  | "ERROR";
+
 export interface ChatMessage {
   id: string;
   senderId: string;
@@ -53,10 +66,19 @@ const RTC_CONFIG: RTCConfiguration = {
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
   ],
+  iceCandidatePoolSize: 10,
 };
 
-// Web Audio API Sound Synthesizer (Zero external dependencies)
+// Structured Diagnostic Logger
+function log(tag: "MEETING" | "REALTIME" | "PRESENCE" | "SIGNALING" | "WEBRTC" | "MEDIA" | "RECONNECT" | "CLEANUP", ...args: any[]) {
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`%c[${tag}]`, "color: #38bdf8; font-weight: bold;", ...args);
+  }
+}
+
+// Web Audio API Sound Synthesizer (Native, zero dependencies)
 function playSoundEffect(type: "join" | "leave" | "hand" | "message") {
   if (typeof window === "undefined") return;
   try {
@@ -68,9 +90,9 @@ function playSoundEffect(type: "join" | "leave" | "hand" | "message") {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1); // A5
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -80,9 +102,9 @@ function playSoundEffect(type: "join" | "leave" | "hand" | "message") {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "triangle";
-      osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
-      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -92,9 +114,9 @@ function playSoundEffect(type: "join" | "leave" | "hand" | "message") {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08); // E5
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -106,7 +128,7 @@ function playSoundEffect(type: "join" | "leave" | "hand" | "message") {
       osc.type = "sine";
       osc.frequency.setValueAtTime(440, ctx.currentTime);
       osc.frequency.setValueAtTime(330, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -123,6 +145,7 @@ export function useLiveClassWebRTC({
   userRole,
   onClassEnded,
 }: UseLiveClassWebRTCOptions) {
+  const [joinState, setJoinState] = useState<JoinState>("IDLE");
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [peers, setPeers] = useState<Map<string, PeerInfo>>(new Map());
@@ -132,7 +155,6 @@ export function useLiveClassWebRTC({
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected" | "error">("connecting");
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [reactions, setReactions] = useState<LiveReaction[]>([]);
   const [whiteboardStrokes, setWhiteboardStrokes] = useState<WhiteboardStroke[]>([]);
@@ -141,17 +163,24 @@ export function useLiveClassWebRTC({
   const supabaseRef = useRef(createClient());
   const channelRef = useRef<any>(null);
   const isSubscribedRef = useRef(false);
+  const myPeerIdRef = useRef<string>(userId || `peer_${Math.random().toString(36).slice(2, 9)}`);
+
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const iceCandidateQueuesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
-  const myPeerIdRef = useRef<string>(userId || `peer_${Math.random().toString(36).slice(2, 9)}`);
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Safe Broadcast Helper - Never crashes on unready socket or drops
+  // Safe Broadcast - Guarantees channel is subscribed and handles promise safety
   const safeBroadcast = useCallback((event: string, payload: any) => {
-    if (!channelRef.current || !isSubscribedRef.current) return;
+    if (!channelRef.current || !isSubscribedRef.current) {
+      log("SIGNALING", `Skipping broadcast ${event} (channel not subscribed)`);
+      return;
+    }
     try {
       const res = channelRef.current.send({
         type: "broadcast",
@@ -159,9 +188,11 @@ export function useLiveClassWebRTC({
         payload,
       });
       if (res && typeof res.catch === "function") {
-        res.catch(() => {});
+        res.catch((err: any) => log("SIGNALING", `Broadcast error for ${event}:`, err));
       }
-    } catch {}
+    } catch (err) {
+      log("SIGNALING", `Failed to send broadcast ${event}:`, err);
+    }
   }, []);
 
   // Update localStreamRef
@@ -205,7 +236,9 @@ export function useLiveClassWebRTC({
         animFrameRef.current = requestAnimationFrame(checkAudio);
       };
       checkAudio();
-    } catch {}
+    } catch (err) {
+      log("MEDIA", "Audio analyzer setup error:", err);
+    }
 
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
@@ -229,7 +262,9 @@ export function useLiveClassWebRTC({
             setMessages(data.messages);
           }
         }
-      } catch {}
+      } catch (err) {
+        log("MEETING", "History load warning:", err);
+      }
     }
 
     loadHistory();
@@ -238,71 +273,72 @@ export function useLiveClassWebRTC({
     };
   }, [classId]);
 
-  // 1. Initialize Local Media (Camera & Mic with crystal-clear fallback)
+  // 1. Initialize Local Media (Camera & Mic with clean graceful fallback)
   const initLocalMedia = useCallback(async () => {
-    try {
-      setConnectionStatus("connecting");
-      setMediaError(null);
+    setJoinState("REQUESTING_MEDIA");
+    setMediaError(null);
 
-      let stream: MediaStream;
+    let stream: MediaStream;
+    try {
+      log("MEDIA", "Requesting user media (video + audio)");
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      log("MEDIA", "User media granted");
+    } catch (err: any) {
+      log("MEDIA", "Camera+mic request denied/unavailable, attempting audio only:", err);
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        });
-      } catch (err: any) {
-        console.warn("Full camera+audio request failed, trying audio only:", err);
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setIsCameraOff(true);
+      } catch (audioErr: any) {
+        log("MEDIA", "Audio also unavailable, attempting video only:", audioErr);
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setIsMuted(true);
+        } catch {
+          log("MEDIA", "No media hardware accessible; creating empty stream for listener mode");
+          stream = new MediaStream();
+          setMediaError("Camera or Microphone permission was not granted. You can still listen and participate in chat, whiteboard, and reactions.");
+          setIsMuted(true);
           setIsCameraOff(true);
-        } catch (audioErr: any) {
-          console.warn("Audio access also failed, creating virtual track:", audioErr);
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            setIsMuted(true);
-          } catch {
-            stream = new MediaStream();
-            setMediaError("Camera or Microphone permission was not granted. You can still listen, participate in chat, whiteboard, and reactions.");
-            setIsMuted(true);
-            setIsCameraOff(true);
-          }
         }
       }
-
-      setLocalStream(stream);
-      localStreamRef.current = stream;
-      setConnectionStatus("connected");
-      return stream;
-    } catch (err: any) {
-      console.error("Failed to initialize media devices:", err);
-      setMediaError("Could not access media devices.");
-      setConnectionStatus("error");
-      return null;
     }
+
+    setLocalStream(stream);
+    localStreamRef.current = stream;
+    setJoinState("MEDIA_READY");
+    return stream;
   }, []);
 
-  // 2. Create Peer Connection Helper
+  // 2. Create RTCPeerConnection with ICE Candidate Queuing & State Handling
   const createPeerConnection = useCallback((remotePeerId: string, remoteInfo: Partial<PeerInfo>) => {
     if (peerConnectionsRef.current.has(remotePeerId)) {
       return peerConnectionsRef.current.get(remotePeerId)!;
     }
 
+    log("WEBRTC", `Creating RTCPeerConnection for ${remotePeerId}`);
     const pc = new RTCPeerConnection(RTC_CONFIG);
     peerConnectionsRef.current.set(remotePeerId, pc);
+    iceCandidateQueuesRef.current.set(remotePeerId, []);
 
-    // Add local tracks
+    // Add local media tracks
     const currentStream = screenStreamRef.current || localStreamRef.current;
     if (currentStream) {
       currentStream.getTracks().forEach((track) => {
         try {
           pc.addTrack(track, currentStream);
-        } catch {}
+        } catch (err) {
+          log("WEBRTC", "addTrack warning:", err);
+        }
       });
     }
 
-    // Remote Track Receiver
+    // Remote Track Handler
     pc.ontrack = (event) => {
       const [remoteMediaStream] = event.streams;
+      log("WEBRTC", `Remote track received from ${remotePeerId}`, event.track.kind);
       if (remoteMediaStream) {
         setPeers((prev) => {
           const updated = new Map(prev);
@@ -324,18 +360,20 @@ export function useLiveClassWebRTC({
       }
     };
 
-    // ICE Candidate generation
+    // ICE Candidate Generation
     pc.onicecandidate = (event) => {
-      if (event.candidate) {
+      if (event.candidate && isSubscribedRef.current) {
         safeBroadcast("ice-candidate", {
           fromPeerId: myPeerIdRef.current,
           toPeerId: remotePeerId,
-          candidate: event.candidate,
+          candidate: event.candidate.toJSON(),
         });
       }
     };
 
+    // Connection State Handling
     pc.onconnectionstatechange = () => {
+      log("WEBRTC", `Peer ${remotePeerId} connection state: ${pc.connectionState}`);
       if (pc.connectionState === "disconnected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
         setPeers((prev) => {
           const updated = new Map(prev);
@@ -343,18 +381,38 @@ export function useLiveClassWebRTC({
           return updated;
         });
         peerConnectionsRef.current.delete(remotePeerId);
+        iceCandidateQueuesRef.current.delete(remotePeerId);
       }
     };
 
     return pc;
   }, [safeBroadcast]);
 
-  // 3. Setup Supabase Realtime Signaling & Presence Channel
+  // Drain buffered ICE candidates after setting remote description
+  const drainIceCandidates = useCallback(async (remotePeerId: string, pc: RTCPeerConnection) => {
+    const queue = iceCandidateQueuesRef.current.get(remotePeerId) || [];
+    while (queue.length > 0) {
+      const candidate = queue.shift();
+      if (candidate) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          log("WEBRTC", `Error adding queued ICE candidate for ${remotePeerId}:`, err);
+        }
+      }
+    }
+    iceCandidateQueuesRef.current.set(remotePeerId, []);
+  }, []);
+
+  // 3. Supabase Realtime Channel Lifecycle with strict SUBSCRIBED gate
   useEffect(() => {
     if (!classId) return;
 
-    let active = true;
+    let isDestroyed = false;
     const channelName = `live-classroom:${classId}`;
+    log("REALTIME", `Initializing channel ${channelName}`);
+    setJoinState("CHANNEL_CONNECTING");
+
     const channel = supabaseRef.current.channel(channelName, {
       config: {
         broadcast: { self: false },
@@ -365,11 +423,12 @@ export function useLiveClassWebRTC({
 
     const setupSignaling = async () => {
       await initLocalMedia();
+      if (isDestroyed) return;
 
       channel
-        // Presence Sync (Roster)
+        // Presence Sync
         .on("presence", { event: "sync" }, () => {
-          if (!active) return;
+          if (isDestroyed || !isSubscribedRef.current) return;
           const presenceState = channel.presenceState();
           const presentPeerIds = new Set<string>();
 
@@ -412,6 +471,7 @@ export function useLiveClassWebRTC({
                 if (pc) {
                   pc.close();
                   peerConnectionsRef.current.delete(key);
+                  iceCandidateQueuesRef.current.delete(key);
                 }
               }
             }
@@ -420,9 +480,10 @@ export function useLiveClassWebRTC({
           });
         })
 
-        // Peer Joined via Broadcast
+        // Broadcast: Peer Joined
         .on("broadcast", { event: "peer-join" }, async ({ payload }) => {
-          if (!active || payload.peerId === myPeerIdRef.current) return;
+          if (isDestroyed || payload.peerId === myPeerIdRef.current) return;
+          log("SIGNALING", `Peer joined broadcast received: ${payload.name} (${payload.peerId})`);
           playSoundEffect("join");
 
           setPeers((prev) => {
@@ -440,7 +501,7 @@ export function useLiveClassWebRTC({
             return updated;
           });
 
-          // Trainer / Admin initiates WebRTC offer
+          // Trainer or Admin initiates offer to new participant
           if (userRole === "trainer" || userRole === "admin") {
             const pc = createPeerConnection(payload.peerId, payload);
             try {
@@ -460,19 +521,23 @@ export function useLiveClassWebRTC({
                   isScreenSharing,
                 },
               });
+              log("WEBRTC", `Sent WebRTC offer to ${payload.peerId}`);
             } catch (err) {
-              console.error("Error creating WebRTC offer:", err);
+              log("WEBRTC", "Error creating WebRTC offer:", err);
             }
           }
         })
 
-        // WebRTC Offer received
+        // Broadcast: WebRTC Offer received
         .on("broadcast", { event: "webrtc-offer" }, async ({ payload }) => {
-          if (!active || payload.toPeerId !== myPeerIdRef.current) return;
+          if (isDestroyed || payload.toPeerId !== myPeerIdRef.current) return;
+          log("WEBRTC", `Received WebRTC offer from ${payload.fromPeerId}`);
 
           const pc = createPeerConnection(payload.fromPeerId, payload.senderInfo || {});
           try {
             await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
+            await drainIceCandidates(payload.fromPeerId, pc);
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
 
@@ -481,46 +546,59 @@ export function useLiveClassWebRTC({
               toPeerId: payload.fromPeerId,
               answer,
             });
+            log("WEBRTC", `Sent WebRTC answer to ${payload.fromPeerId}`);
           } catch (err) {
-            console.error("Error answering WebRTC offer:", err);
+            log("WEBRTC", "Error handling WebRTC offer / creating answer:", err);
           }
         })
 
-        // WebRTC Answer received
+        // Broadcast: WebRTC Answer received
         .on("broadcast", { event: "webrtc-answer" }, async ({ payload }) => {
-          if (!active || payload.toPeerId !== myPeerIdRef.current) return;
+          if (isDestroyed || payload.toPeerId !== myPeerIdRef.current) return;
+          log("WEBRTC", `Received WebRTC answer from ${payload.fromPeerId}`);
 
           const pc = peerConnectionsRef.current.get(payload.fromPeerId);
           if (pc && pc.signalingState !== "stable") {
             try {
               await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+              await drainIceCandidates(payload.fromPeerId, pc);
             } catch (err) {
-              console.error("Error setting answer remote description:", err);
+              log("WEBRTC", "Error setting remote description from answer:", err);
             }
           }
         })
 
-        // ICE Candidate received
+        // Broadcast: ICE Candidate received
         .on("broadcast", { event: "ice-candidate" }, async ({ payload }) => {
-          if (!active || payload.toPeerId !== myPeerIdRef.current) return;
+          if (isDestroyed || payload.toPeerId !== myPeerIdRef.current) return;
 
           const pc = peerConnectionsRef.current.get(payload.fromPeerId);
           if (pc && payload.candidate) {
-            try {
-              await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-            } catch {}
+            if (!pc.remoteDescription) {
+              // Buffer candidate until remote description is set
+              const queue = iceCandidateQueuesRef.current.get(payload.fromPeerId) || [];
+              queue.push(payload.candidate);
+              iceCandidateQueuesRef.current.set(payload.fromPeerId, queue);
+            } else {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+              } catch (err) {
+                log("WEBRTC", "Error adding ICE candidate:", err);
+              }
+            }
           }
         })
 
-        // Peer Left
+        // Broadcast: Peer Left
         .on("broadcast", { event: "peer-leave" }, ({ payload }) => {
-          if (!active) return;
+          if (isDestroyed) return;
           playSoundEffect("leave");
           const remotePeerId = payload.peerId;
           const pc = peerConnectionsRef.current.get(remotePeerId);
           if (pc) {
             pc.close();
             peerConnectionsRef.current.delete(remotePeerId);
+            iceCandidateQueuesRef.current.delete(remotePeerId);
           }
           setPeers((prev) => {
             const updated = new Map(prev);
@@ -529,9 +607,9 @@ export function useLiveClassWebRTC({
           });
         })
 
-        // Media track state change
+        // Broadcast: Track State Changed
         .on("broadcast", { event: "track-state-change" }, ({ payload }) => {
-          if (!active) return;
+          if (isDestroyed) return;
           setPeers((prev) => {
             const updated = new Map(prev);
             const peer = updated.get(payload.peerId);
@@ -547,12 +625,11 @@ export function useLiveClassWebRTC({
           });
         })
 
-        // Hand Raise Toggle
+        // Broadcast: Hand Raise
         .on("broadcast", { event: "hand-raise" }, ({ payload }) => {
-          if (!active) return;
-          if (payload.isHandRaised) {
-            playSoundEffect("hand");
-          }
+          if (isDestroyed) return;
+          if (payload.isHandRaised) playSoundEffect("hand");
+
           setPeers((prev) => {
             const updated = new Map(prev);
             const peer = updated.get(payload.peerId);
@@ -566,15 +643,15 @@ export function useLiveClassWebRTC({
           });
         })
 
-        // Live Reaction (Emoji)
+        // Broadcast: Live Emoji Reaction
         .on("broadcast", { event: "reaction" }, ({ payload }) => {
-          if (!active) return;
+          if (isDestroyed) return;
           setReactions((prev) => [...prev.slice(-15), payload]);
         })
 
-        // Whiteboard Stroke Sync
+        // Broadcast: Whiteboard Sync
         .on("broadcast", { event: "whiteboard-stroke" }, ({ payload }) => {
-          if (!active) return;
+          if (isDestroyed) return;
           if (payload.action === "clear") {
             setWhiteboardStrokes([]);
           } else if (payload.stroke) {
@@ -582,9 +659,9 @@ export function useLiveClassWebRTC({
           }
         })
 
-        // Realtime Chat Message
+        // Broadcast: Chat Message
         .on("broadcast", { event: "chat-message" }, ({ payload }) => {
-          if (!active) return;
+          if (isDestroyed) return;
           playSoundEffect("message");
           setMessages((prev) => {
             if (prev.some((m) => m.id === payload.id)) return prev;
@@ -592,17 +669,24 @@ export function useLiveClassWebRTC({
           });
         })
 
-        // Trainer Ended Class
+        // Broadcast: Trainer Ended Class
         .on("broadcast", { event: "class-ended" }, () => {
-          if (!active) return;
+          if (isDestroyed) return;
+          log("MEETING", "Host ended classroom session");
           if (onClassEnded) onClassEnded();
         })
 
+        // Channel Subscription Lifecycle
         .subscribe(async (status) => {
+          log("REALTIME", `Channel status: ${status}`);
+
           if (status === "SUBSCRIBED") {
             isSubscribedRef.current = true;
+            setJoinState("CHANNEL_SUBSCRIBED");
+
+            // ONLY track presence after status === "SUBSCRIBED"
             try {
-              await channel.track({
+              const trackStatus = await channel.track({
                 peerId: myPeerIdRef.current,
                 userId,
                 name: userName,
@@ -613,8 +697,15 @@ export function useLiveClassWebRTC({
                 isHandRaised: false,
                 joinedAt: new Date().toISOString(),
               });
-            } catch {}
+              if (trackStatus === "ok") {
+                setJoinState("CONNECTED");
+                log("PRESENCE", "User successfully tracked in presence");
+              }
+            } catch (trackErr) {
+              log("PRESENCE", "Presence track error:", trackErr);
+            }
 
+            // Announce join to peers
             safeBroadcast("peer-join", {
               peerId: myPeerIdRef.current,
               userId,
@@ -625,23 +716,52 @@ export function useLiveClassWebRTC({
               isScreenSharing: false,
               isHandRaised: false,
             });
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            isSubscribedRef.current = false;
+            setJoinState("RECONNECTING");
+            log("REALTIME", `Channel connection dropped (${status}). Scheduling recovery...`);
+
+            if (!reconnectTimeoutRef.current) {
+              reconnectTimeoutRef.current = setTimeout(() => {
+                reconnectTimeoutRef.current = null;
+                if (!isDestroyed) {
+                  log("RECONNECT", "Attempting channel reconnect");
+                  channel.subscribe();
+                }
+              }, 3000);
+            }
           }
         });
     };
 
     setupSignaling();
 
+    // Clean unmount
     return () => {
-      active = false;
+      isDestroyed = true;
+      log("CLEANUP", "Cleaning up live classroom WebRTC & Realtime channel");
+
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+
+      if (isSubscribedRef.current && channelRef.current) {
+        try {
+          channelRef.current.untrack().catch(() => {});
+          safeBroadcast("peer-leave", { peerId: myPeerIdRef.current, userId });
+        } catch {}
+      }
+
       isSubscribedRef.current = false;
-      try {
-        channel.untrack();
-        safeBroadcast("peer-leave", { peerId: myPeerIdRef.current, userId });
-        supabaseRef.current.removeChannel(channel);
-      } catch {}
+
+      if (channelRef.current) {
+        supabaseRef.current.removeChannel(channelRef.current).catch(() => {});
+        channelRef.current = null;
+      }
 
       peerConnectionsRef.current.forEach((pc) => pc.close());
       peerConnectionsRef.current.clear();
+      iceCandidateQueuesRef.current.clear();
 
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -650,7 +770,7 @@ export function useLiveClassWebRTC({
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [classId, userId, userName, userRole, initLocalMedia, createPeerConnection, onClassEnded, safeBroadcast]);
+  }, [classId, userId, userName, userRole, initLocalMedia, createPeerConnection, drainIceCandidates, onClassEnded, safeBroadcast]);
 
   // 4. Toggle Microphone
   const toggleMute = useCallback(() => {
@@ -669,18 +789,20 @@ export function useLiveClassWebRTC({
       isScreenSharing,
     });
 
-    try {
-      channelRef.current?.track({
-        peerId: myPeerIdRef.current,
-        userId,
-        name: userName,
-        role: userRole,
-        hasAudio: !nextMuted,
-        hasVideo: !isCameraOff,
-        isScreenSharing,
-        isHandRaised,
-      });
-    } catch {}
+    if (isSubscribedRef.current && channelRef.current) {
+      channelRef.current
+        .track({
+          peerId: myPeerIdRef.current,
+          userId,
+          name: userName,
+          role: userRole,
+          hasAudio: !nextMuted,
+          hasVideo: !isCameraOff,
+          isScreenSharing,
+          isHandRaised,
+        })
+        .catch(() => {});
+    }
   }, [isMuted, isCameraOff, isScreenSharing, isHandRaised, userId, userName, userRole, safeBroadcast]);
 
   // 5. Toggle Video Camera
@@ -700,18 +822,20 @@ export function useLiveClassWebRTC({
       isScreenSharing,
     });
 
-    try {
-      channelRef.current?.track({
-        peerId: myPeerIdRef.current,
-        userId,
-        name: userName,
-        role: userRole,
-        hasAudio: !isMuted,
-        hasVideo: !nextCameraOff,
-        isScreenSharing,
-        isHandRaised,
-      });
-    } catch {}
+    if (isSubscribedRef.current && channelRef.current) {
+      channelRef.current
+        .track({
+          peerId: myPeerIdRef.current,
+          userId,
+          name: userName,
+          role: userRole,
+          hasAudio: !isMuted,
+          hasVideo: !nextCameraOff,
+          isScreenSharing,
+          isHandRaised,
+        })
+        .catch(() => {});
+    }
   }, [isMuted, isCameraOff, isScreenSharing, isHandRaised, userId, userName, userRole, safeBroadcast]);
 
   // 6. Screen Sharing
@@ -729,7 +853,7 @@ export function useLiveClassWebRTC({
         peerConnectionsRef.current.forEach((pc) => {
           const sender = pc.getSenders().find((s) => s.track?.kind === "video");
           if (sender) {
-            sender.replaceTrack(localVideoTrack);
+            sender.replaceTrack(localVideoTrack).catch(() => {});
           }
         });
       }
@@ -761,9 +885,11 @@ export function useLiveClassWebRTC({
         peerConnectionsRef.current.forEach((pc) => {
           const sender = pc.getSenders().find((s) => s.track?.kind === "video");
           if (sender && screenTrack) {
-            sender.replaceTrack(screenTrack);
+            sender.replaceTrack(screenTrack).catch(() => {});
           } else if (screenTrack) {
-            pc.addTrack(screenTrack, stream);
+            try {
+              pc.addTrack(screenTrack, stream);
+            } catch {}
           }
         });
 
@@ -774,7 +900,7 @@ export function useLiveClassWebRTC({
           isScreenSharing: true,
         });
       } catch (err) {
-        console.warn("Screen sharing cancelled:", err);
+        log("MEDIA", "Screen sharing cancelled:", err);
       }
     }
   }, [isScreenSharing, isMuted, isCameraOff, safeBroadcast]);
@@ -783,9 +909,7 @@ export function useLiveClassWebRTC({
   const toggleRaiseHand = useCallback(() => {
     const nextHand = !isHandRaised;
     setIsHandRaised(nextHand);
-    if (nextHand) {
-      playSoundEffect("hand");
-    }
+    if (nextHand) playSoundEffect("hand");
 
     safeBroadcast("hand-raise", {
       peerId: myPeerIdRef.current,
@@ -795,7 +919,7 @@ export function useLiveClassWebRTC({
     });
   }, [isHandRaised, userId, userName, safeBroadcast]);
 
-  // 8. Send Live Reaction (Emoji)
+  // 8. Live Reaction (Emoji)
   const sendReaction = useCallback((emoji: string) => {
     const reaction: LiveReaction = {
       id: `react_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -856,6 +980,7 @@ export function useLiveClassWebRTC({
   }, [userId, userRole, safeBroadcast]);
 
   return {
+    joinState,
     localStream,
     screenStream,
     peers: Array.from(peers.values()),
@@ -866,7 +991,6 @@ export function useLiveClassWebRTC({
     isHandRaised,
     audioLevel,
     activeSpeakerId,
-    connectionStatus,
     mediaError,
     reactions,
     whiteboardStrokes,

@@ -251,13 +251,8 @@ export default function StudentTrackDetailPage() {
               {track.description || "Interactive practice track for hands-on learning."}
             </p>
 
-            {/* Instructor & Module Counts Metadata */}
+            {/* Module Counts Metadata */}
             <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-zinc-400 flex-wrap pt-0.5">
-              <span className="flex items-center gap-1">
-                <User className="h-3 w-3 text-slate-400 shrink-0" />
-                <span>Assigned By: <strong className="font-semibold text-slate-700 dark:text-zinc-200">{track.assignedByName}</strong></span>
-              </span>
-              <span className="text-slate-300 dark:text-zinc-700">•</span>
               <span className="flex items-center gap-1">
                 <FolderKanban className="h-3 w-3 text-slate-400 shrink-0" />
                 <span>

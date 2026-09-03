@@ -369,7 +369,6 @@ export default function StudentLiveClassesPage() {
                     <CardContent className="p-4 pt-1 space-y-2.5 flex-1 flex flex-col justify-end">
                       <div className="text-xs text-slate-600 dark:text-zinc-300 space-y-1 bg-slate-50/70 dark:bg-zinc-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-zinc-800">
                         <p className="font-semibold text-slate-900 dark:text-white truncate">{scheduleText}</p>
-                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">Trainer: {cls.trainerName}</p>
                         {isCompleted && (
                           <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 pt-0.5">
                             {cls.isAttended ? "Attendance: Attended" : "Attendance: Absent"}
@@ -452,8 +451,8 @@ export default function StudentLiveClassesPage() {
 
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className="p-2.5 rounded-lg bg-slate-50/70 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800">
-                    <span className="text-[10px] font-medium text-slate-400 uppercase">Trainer</span>
-                    <p className="font-semibold text-slate-900 dark:text-white text-xs mt-0.5">{selectedClass.trainerName}</p>
+                    <span className="text-[10px] font-medium text-slate-400 uppercase">Platform</span>
+                    <p className="font-semibold text-slate-900 dark:text-white text-xs mt-0.5">{getPlatformBadge(selectedClass.platform).name}</p>
                   </div>
 
                   <div className="p-2.5 rounded-lg bg-slate-50/70 dark:bg-zinc-800/40 border border-slate-100 dark:border-zinc-800">

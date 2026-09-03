@@ -252,9 +252,9 @@ export default function StudentCoursesPage() {
                   {course.title}
                 </CardTitle>
 
-                {/* Instructor */}
+                {/* Course Category / Level */}
                 <CardDescription className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium truncate pt-0.5">
-                  Instructor: <span className="font-semibold text-slate-700 dark:text-zinc-300">{course.instructor}</span>
+                  {course.category}
                 </CardDescription>
               </CardHeader>
 

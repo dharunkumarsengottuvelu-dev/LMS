@@ -70,6 +70,7 @@ export default function TrainerLiveClassRoomPage() {
             endTime: classRecord.end_time,
             durationMinutes: classRecord.duration_minutes || 60,
             status: classRecord.status,
+            startAt: classRecord.start_at || classRecord.created_at,
           });
 
           // Activate live session in database

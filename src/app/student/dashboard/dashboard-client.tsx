@@ -374,7 +374,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                   {liveNowClasses[0].title}
                 </h4>
                 <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  {liveNowClasses[0].courseName} • Trainer: {liveNowClasses[0].trainerName}
+                  {liveNowClasses[0].courseName || "Interactive Session"}
                 </p>
                 <Button className="w-full h-8 text-xs font-semibold gap-1.5 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-2xs" asChild>
                   <Link href={`/student/live-classes/${liveNowClasses[0].id}`}>
