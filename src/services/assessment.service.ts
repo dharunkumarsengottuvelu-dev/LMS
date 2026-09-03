@@ -72,14 +72,15 @@ export class AssessmentService {
       const supabase = createClient();
       const { data, error } = await (supabase as any)
         .from("assessments")
-        .select("*");
-      if (!error && data && data.length > 0) {
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (!error && Array.isArray(data)) {
         return data as unknown as Assessment[];
       }
     } catch (e) {
-      console.error(e);
+      console.error("Failed to query assessments from Supabase:", e);
     }
-    return this.getLocalAssessments();
+    return [];
   }
 
   static async getAssessmentById(id: string): Promise<Assessment | null> {
@@ -148,9 +149,10 @@ export class AssessmentService {
       const supabase = createClient();
       const { data, error } = await (supabase as any)
         .from("practice_tracks")
-        .select("*");
+        .select("*")
+        .order("created_at", { ascending: false });
       
-      if (!error && data) {
+      if (!error && Array.isArray(data)) {
         return data.map((t: any) => ({
           id: t.id,
           title: t.title,
@@ -172,15 +174,9 @@ export class AssessmentService {
         })) as PracticeTrackItem[];
       }
     } catch (e) {
-      console.error(e);
+      console.error("Failed to query practice tracks from Supabase:", e);
     }
-    
-    if (typeof window === "undefined") return INITIAL_MOCK_PRACTICE_TRACKS;
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_PRACTICE_TRACKS);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return INITIAL_MOCK_PRACTICE_TRACKS;
+    return [];
   }
 
   static async upsertPracticeTrack(track: PracticeTrackItem): Promise<boolean> {

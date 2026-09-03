@@ -34,15 +34,16 @@ export class CourseService {
       const supabase = createClient();
       const { data, error } = await (supabase as any)
         .from("courses")
-        .select("*");
+        .select("*")
+        .order("created_at", { ascending: false });
       
-      if (!error && data && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         return data as unknown as Course[];
       }
-    } catch {
-      // Supabase connection unconfigured or failed, fallback to local persistence store
+    } catch (err) {
+      console.error("Failed to query courses from Supabase:", err);
     }
-    return this.getLocalCourses();
+    return [];
   }
 
   static async getCourseBySlug(slug: string): Promise<Course | null> {
@@ -57,11 +58,10 @@ export class CourseService {
       if (!error && data) {
         return data as unknown as Course;
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      console.error("Failed to query course by slug from Supabase:", err);
     }
-    const courses = this.getLocalCourses();
-    return courses.find(c => c.slug === slug || c.id === slug) || null;
+    return null;
   }
 
   static async createCourse(input: CreateCourseInput, trainerId: string = "trainer-admin"): Promise<Course> {

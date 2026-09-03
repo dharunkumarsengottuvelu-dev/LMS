@@ -650,13 +650,15 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
                       )}
                     </div>
 
-                    {/* Instructor Row */}
-                    <div className="flex items-center gap-1.5 text-xs text-[#6B7280]">
-                      <User className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
-                      <span>
-                        Instructor: <strong className="text-[#111827] dark:text-[#FAFAFA] font-semibold">{cls.trainerName}</strong>
-                      </span>
-                    </div>
+                    {/* Instructor Row (Only if real trainer exists in DB) */}
+                    {cls.trainerName ? (
+                      <div className="flex items-center gap-1.5 text-xs text-[#6B7280]">
+                        <User className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
+                        <span>
+                          Instructor: <strong className="text-[#111827] dark:text-[#FAFAFA] font-semibold">{cls.trainerName}</strong>
+                        </span>
+                      </div>
+                    ) : null}
 
                     {/* Title & Description */}
                     <div>
@@ -667,9 +669,11 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
                       >
                         {cls.title}
                       </h3>
-                      <p className="text-xs text-[#6B7280] line-clamp-2 mt-1.5 leading-relaxed">
-                        {cls.description || "Interactive live session with HD WebRTC audio/video, screen sharing, and realtime participation."}
-                      </p>
+                      {cls.description ? (
+                        <p className="text-xs text-[#6B7280] line-clamp-2 mt-1.5 leading-relaxed">
+                          {cls.description}
+                        </p>
+                      ) : null}
                     </div>
 
                     {/* Parameters Box (Matching Practice Track Management screenshot) */}

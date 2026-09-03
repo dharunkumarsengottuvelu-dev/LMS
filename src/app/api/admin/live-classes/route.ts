@@ -107,14 +107,6 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    if (mappedBatches.length === 0) {
-      mappedBatches.push(
-        { id: "Batch A", name: "Batch A", collegeName: "Campus Engineering", studentCount: 0 },
-        { id: "Batch B", name: "Batch B", collegeName: "Technology Division", studentCount: 0 },
-        { id: "General Cohort", name: "General Cohort", collegeName: "All Enrolled Students", studentCount: 0 }
-      );
-    }
-
     // 5. Fetch all attendance counts grouped by live_class_id
     let attendanceCounts: Record<string, number> = {};
     try {
@@ -183,11 +175,11 @@ export async function GET(request: NextRequest) {
         title: cls.title,
         description: cls.description || "",
         courseId: cls.course_id || null,
-        courseName: cls.course_title || cls.course_name || "Enterprise Training",
+        courseName: cls.course_title || cls.course_name || "",
         moduleId: cls.module_id || null,
         moduleName: cls.module_title || cls.module_name || null,
         trainerId: cls.trainer_id || null,
-        trainerName: cls.trainer_name || "Lead Technical Trainer",
+        trainerName: cls.trainer_name || "",
         platform: "falcon_webrtc",
         meetingUrl: `/student/live-classes/${cls.id}`,
         scheduledDate: cls.scheduled_date,
@@ -304,7 +296,7 @@ export async function POST(request: NextRequest) {
     const effectiveCourseId = course_id || courseId || null;
     const effectiveCourseName = course_name || courseName || "";
     const effectiveTrainerId = trainer_id || trainerId || null;
-    const effectiveTrainerName = trainer_name || trainerName || "Lead Technical Trainer";
+    const effectiveTrainerName = trainer_name || trainerName || "";
     const effectiveIsCommon = is_common !== undefined ? is_common : isCommon !== undefined ? isCommon : true;
     const effectiveBatches = assigned_batches || assignedBatches || [];
 

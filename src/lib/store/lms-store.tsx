@@ -113,85 +113,56 @@ export function LMSProvider({ children }: { children: React.ReactNode }) {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  // Synchronous initial hydration from localStorage for 0 latency
+  // Clean stale local storage caches so nothing from local mock interferes with DB
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
         localStorage.removeItem("edunexus_practice_tracks_v1");
         localStorage.removeItem("edunexus_practice_tracks_v2");
-
-        const c = localStorage.getItem(STORAGE_KEYS.COURSES);
-        if (c) setCourses(JSON.parse(c));
-
-        const a = localStorage.getItem(STORAGE_KEYS.ASSESSMENTS);
-        if (a) setAssessments(JSON.parse(a));
-
-        const p = localStorage.getItem(STORAGE_KEYS.PRACTICE_TRACKS);
-        if (p) setPracticeTracks(JSON.parse(p));
-
-        const sub = localStorage.getItem(STORAGE_KEYS.ASSIGNMENTS);
-        if (sub) setAssignments(JSON.parse(sub));
-
-        const m = localStorage.getItem(STORAGE_KEYS.MODULES);
-        if (m) setModules(JSON.parse(m));
-
-        const s = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-        if (s) setStudents(JSON.parse(s));
-
-        const att = localStorage.getItem(STORAGE_KEYS.ATTEMPTS);
-        if (att) setStudentAttempts(JSON.parse(att));
-
-        const b = localStorage.getItem(STORAGE_KEYS.BATCHES);
-        if (b) setBatches(JSON.parse(b));
+        localStorage.removeItem("enterprise_lms_courses_v1");
+        localStorage.removeItem("enterprise_lms_courses_v2");
+        localStorage.removeItem("enterprise_lms_assessments_v1");
+        localStorage.removeItem("enterprise_lms_tests_v2");
+        localStorage.removeItem("enterprise_lms_practice_tracks_v2");
+        localStorage.removeItem("enterprise_lms_modules_v2");
+        localStorage.removeItem("enterprise_lms_assignments_v2");
       } catch (e) {
-        console.warn("Could not read LMS storage cache:", e);
+        console.warn("Could not clear LMS storage cache:", e);
       }
     }
   }, []);
 
   const refreshData = useCallback(async () => {
     try {
-      const fetchedCourses = await CourseService.getCourses();
-      const fetchedAssessments = await AssessmentService.getAssessments();
-      const fetchedTracks = await AssessmentService.getPracticeTracks();
-      const fetchedAttempts = await AssessmentService.getStudentAttempts();
-      const fetchedBatches = await BatchService.getBatches();
-      const fetchedStudents = await StudentService.getStudents();
-      const fetchedAssignments = await AssignmentService.getSubmissions();
-      const fetchedModules = await ModuleService.getModules();
+      const [
+        fetchedCourses,
+        fetchedAssessments,
+        fetchedTracks,
+        fetchedAttempts,
+        fetchedBatches,
+        fetchedStudents,
+        fetchedAssignments,
+        fetchedModules,
+      ] = await Promise.all([
+        CourseService.getCourses(),
+        AssessmentService.getAssessments(),
+        AssessmentService.getPracticeTracks(),
+        AssessmentService.getStudentAttempts(),
+        BatchService.getBatches(),
+        StudentService.getStudents(),
+        AssignmentService.getSubmissions(),
+        ModuleService.getModules(),
+      ]);
 
-      if (fetchedCourses.length > 0) {
-        setCourses(fetchedCourses);
-        localStorage.setItem(STORAGE_KEYS.COURSES, JSON.stringify(fetchedCourses));
-      }
-      if (fetchedAssessments.length > 0) {
-        setAssessments(fetchedAssessments);
-        localStorage.setItem(STORAGE_KEYS.ASSESSMENTS, JSON.stringify(fetchedAssessments));
-      }
-      if (fetchedTracks.length > 0) {
-        setPracticeTracks(fetchedTracks);
-        localStorage.setItem(STORAGE_KEYS.PRACTICE_TRACKS, JSON.stringify(fetchedTracks));
-      }
-      if (fetchedAttempts.length > 0) {
-        setStudentAttempts(fetchedAttempts);
-        localStorage.setItem(STORAGE_KEYS.ATTEMPTS, JSON.stringify(fetchedAttempts));
-      }
-      if (fetchedBatches.length > 0) {
-        setBatches(fetchedBatches);
-        localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(fetchedBatches));
-      }
-      if (fetchedStudents.length > 0) {
-        setStudents(fetchedStudents);
-        localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(fetchedStudents));
-      }
-      if (fetchedAssignments.length > 0) {
-        setAssignments(fetchedAssignments);
-        localStorage.setItem(STORAGE_KEYS.ASSIGNMENTS, JSON.stringify(fetchedAssignments));
-      }
-      if (fetchedModules.length > 0) {
-        setModules(fetchedModules);
-        localStorage.setItem(STORAGE_KEYS.MODULES, JSON.stringify(fetchedModules));
-      }
+      // Strictly set real data from Supabase DB
+      setCourses(Array.isArray(fetchedCourses) ? fetchedCourses : []);
+      setAssessments(Array.isArray(fetchedAssessments) ? fetchedAssessments : []);
+      setPracticeTracks(Array.isArray(fetchedTracks) ? fetchedTracks : []);
+      setStudentAttempts(Array.isArray(fetchedAttempts) ? fetchedAttempts : []);
+      setBatches(Array.isArray(fetchedBatches) ? fetchedBatches : []);
+      setStudents(Array.isArray(fetchedStudents) ? fetchedStudents : []);
+      setAssignments(Array.isArray(fetchedAssignments) ? fetchedAssignments : []);
+      setModules(Array.isArray(fetchedModules) ? fetchedModules : []);
     } catch (error) {
       console.error("Failed to fetch data from Supabase", error);
     }
