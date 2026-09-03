@@ -11,9 +11,14 @@ export async function GET(request: Request) {
   const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
 
-  if (code) {
+  const token_hash = requestUrl.searchParams.get("token_hash");
+  const otpType = (requestUrl.searchParams.get("type") as any) || "magiclink";
+
+  if (code || token_hash) {
     const supabase = await createClient();
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = code
+      ? await supabase.auth.exchangeCodeForSession(code)
+      : await supabase.auth.verifyOtp({ token_hash: token_hash!, type: otpType });
 
     if (!error && data.user) {
       // Fetch user role to redirect to correct dashboard

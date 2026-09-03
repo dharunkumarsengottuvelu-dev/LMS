@@ -34,6 +34,7 @@ import {
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/hooks/use-toast";
 import { getInitials, cn } from "@/lib/utils";
+import { StudentActivityHeatmap } from "@/components/student/student-activity-heatmap";
 
 export default function StudentProfilePage() {
   const router = useRouter();
@@ -1438,6 +1439,9 @@ export default function StudentProfilePage() {
 
             </div>
           )}
+
+          {/* Real-Time Student Activity Contribution Heatmap inside right column */}
+          <StudentActivityHeatmap studentId={user?.id} />
 
         </div>
       </div>

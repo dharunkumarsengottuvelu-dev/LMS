@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,48 +68,42 @@ const AVAILABLE_TOPICS = [
 
 const DEFAULT_STARTER_CODES: Record<string, string> = {
   python: `class Solution:
-    def solve(self, nums: list[int]) -> list[int]:
+    def solve(self):
         # Write your code here
         pass
 `,
   java: `class Solution {
-    public int[] solve(int[] nums) {
+    public void solve() {
         // Write your code here
-        return new int[0];
     }
 }
 `,
-  cpp: `#include <vector>
+  cpp: `#include <iostream>
 using namespace std;
 
 class Solution {
 public:
-    vector<int> solve(vector<int>& nums) {
+    void solve() {
         // Write your code here
-        return {};
     }
 };
 `,
   c: `#include <stdio.h>
 #include <stdlib.h>
 
-int* solve(int* nums, int numsSize, int* returnSize) {
+void solve() {
     // Write your code here
-    *returnSize = 0;
-    return NULL;
 }
 `,
   javascript: `/**
- * @param {number[]} nums
- * @return {number[]}
+ * @return {void}
  */
-var solve = function(nums) {
+var solve = function() {
     // Write your code here
 };
 `,
-  typescript: `function solve(nums: number[]): number[] {
+  typescript: `function solve(): void {
     // Write your code here
-    return [];
 }
 `,
 };
@@ -168,14 +162,27 @@ export function CodingProblemCreator({
     const maxId = all.reduce((max, p) => Math.max(max, parseInt(p.id, 10) || 0), 0);
     return String(maxId + 1);
   });
+
+  // Auto-sync problem number if creating a new problem and existing problem list loads
+  useEffect(() => {
+    if (!existing.id) {
+      CodingProblemsService.fetchProblems().then((all) => {
+        if (all && all.length > 0) {
+          const maxId = all.reduce((max, p) => Math.max(max, parseInt(p.id, 10) || 0), 0);
+          setProblemNumber((curr) => (!curr || curr === "1" ? String(maxId + 1) : curr));
+        }
+      });
+    }
+  }, [existing.id]);
+
   const [title, setTitle] = useState<string>(existing.title || initialTitle || "");
   const [slug, setSlug] = useState<string>(existing.slug || "");
   const [difficulty, setDifficulty] = useState<Difficulty>(
     existing.difficulty || initialDifficulty || "easy"
   );
-  const [category, setCategory] = useState<string>(existing.category || "Algorithms");
+  const [category, setCategory] = useState<string>(existing.category || "");
   const [selectedTopics, setSelectedTopics] = useState<string[]>(
-    (existing as ExtendedCodingProblem).topic_tags || ["Array"]
+    (existing as ExtendedCodingProblem).topic_tags || []
   );
   const [points, setPoints] = useState<number>(existing.points || 100);
   const [customTags, setCustomTags] = useState<string>("");
@@ -193,24 +200,24 @@ export function CodingProblemCreator({
     return [
       {
         id: "1",
-        input: "nums = [2,7,11,15], target = 9",
-        output: "[0,1]",
-        explanation: "Because nums[0] + nums[1] == 9, we return [0,1].",
+        input: "",
+        output: "",
+        explanation: "",
       },
     ];
   });
 
   // 4. CONSTRAINTS
   const [constraints, setConstraints] = useState<string>(
-    existing.constraints || initialConstraints || "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9"
+    existing.constraints || initialConstraints || ""
   );
 
   // 5. INPUT / OUTPUT
   const [inputFormat, setInputFormat] = useState<string>(
-    existing.input_format || initialInputFormat || "First line contains array nums. Second line contains target integer."
+    existing.input_format || initialInputFormat || ""
   );
   const [outputFormat, setOutputFormat] = useState<string>(
-    existing.output_format || initialOutputFormat || "Return array containing the two indices."
+    existing.output_format || initialOutputFormat || ""
   );
 
   // 6. CODE CONFIGURATION
@@ -225,7 +232,7 @@ export function CodingProblemCreator({
   });
   const [activeCodeLang, setActiveCodeLang] = useState<string>("python");
   const [functionSignature, setFunctionSignature] = useState<string>(
-    existing.function_signature || "def solve(nums: list[int], target: int) -> list[int]:"
+    existing.function_signature || ""
   );
   const [driverCode, setDriverCode] = useState<string>(
     (existing as any).driver_code?.[activeCodeLang] || ""
@@ -251,19 +258,10 @@ export function CodingProblemCreator({
       {
         id: "tc-1",
         name: "Test Case 1",
-        input: "2 7 11 15\n9",
-        expected_output: "0 1",
+        input: "",
+        expected_output: "",
         is_hidden: false,
         weight: 10,
-        is_enabled: true,
-      },
-      {
-        id: "tc-2",
-        name: "Test Case 2",
-        input: "3 2 4\n6",
-        expected_output: "1 2",
-        is_hidden: true,
-        weight: 15,
         is_enabled: true,
       },
     ];
@@ -278,24 +276,16 @@ export function CodingProblemCreator({
     if (edit && edit.approaches && edit.approaches.length > 0) {
       return edit.approaches;
     }
-    return [
-      {
-        name: "Approach 1: One-pass Hash Table",
-        timeComplexity: "O(n)",
-        spaceComplexity: "O(n)",
-        explanation: "While iterating through the array, we check if the complement exists in our hash table.",
-        code: {
-          python: `class Solution:\n    def solve(self, nums: list[int], target: int) -> list[int]:\n        seen = {}\n        for i, num in enumerate(nums):\n            comp = target - num\n            if comp in seen:\n                return [seen[comp], i]\n            seen[num] = i\n        return []`,
-        },
-      },
-    ];
+    return [];
   });
 
   // 10. PROBLEM SETTINGS
   const [maxAttempts, setMaxAttempts] = useState<number>(existing.max_attempts || 0);
   const [startDate, setStartDate] = useState<string>(existing.start_date || "");
   const [dueDate, setDueDate] = useState<string>(existing.due_date || "");
-  const [status, setStatus] = useState<"draft" | "published">(existing.status || "published");
+  const [status, setStatus] = useState<"draft" | "published">(
+    existing.status || (existing.id ? "published" : "draft")
+  );
   const [allowRun, setAllowRun] = useState<boolean>(existing.allow_run !== false);
   const [allowSubmit, setAllowSubmit] = useState<boolean>(existing.allow_submit !== false);
   const [isMandatory, setIsMandatory] = useState<boolean>(!!existing.is_mandatory);
@@ -328,9 +318,9 @@ export function CodingProblemCreator({
       ...prev,
       {
         id: String(Date.now()),
-        input: `nums = [2,7,11,15], target = 9`,
-        output: `[0,1]`,
-        explanation: `Because nums[0] + nums[1] == 9, we return [0,1].`,
+        input: "",
+        output: "",
+        explanation: "",
       },
     ]);
   };
@@ -401,11 +391,11 @@ export function CodingProblemCreator({
     setApproaches((prev) => [
       ...prev,
       {
-        name: `Approach ${nextIdx}: Optimal Solution`,
-        timeComplexity: "O(n)",
-        spaceComplexity: "O(1)",
-        explanation: "Detail the algorithmic technique and steps here.",
-        code: { python: "# Reference solution" },
+        name: `Approach ${nextIdx}`,
+        timeComplexity: "",
+        spaceComplexity: "",
+        explanation: "",
+        code: { python: "" },
       },
     ]);
   };
@@ -546,7 +536,7 @@ export function CodingProblemCreator({
                 {difficulty}
               </span>
               <span className="text-xs text-slate-400 font-normal">
-                Acceptance: <strong>54.2%</strong>
+                Acceptance: <strong>{(existing as any).acceptance_rate ? `${(existing as any).acceptance_rate}%` : "—"}</strong>
               </span>
               <span className="text-slate-300">|</span>
               <span className="text-xs text-slate-600 font-medium">
@@ -887,7 +877,7 @@ export function CodingProblemCreator({
                   : "bg-slate-100 text-slate-600 border border-slate-200"
               }`}
             >
-              {status}
+              {existing.id ? status : `New ${status}`}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -933,9 +923,19 @@ export function CodingProblemCreator({
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">
             1. Basic Problem Information
           </h2>
-          <span className="text-xs text-slate-500 font-medium">
-            Acceptance Rate: <strong className="text-emerald-700 font-mono">54.2%</strong> (Calculated from real submissions)
-          </span>
+          {existing.id ? (
+            <span className="text-xs text-slate-500 font-medium">
+              Acceptance Rate:{" "}
+              <strong className="text-emerald-700 font-mono">
+                {(existing as any).acceptance_rate !== undefined ? `${(existing as any).acceptance_rate}%` : "0.0%"}
+              </strong>{" "}
+              (Calculated from real submissions)
+            </span>
+          ) : (
+            <span className="text-xs text-slate-400 font-medium">
+              Acceptance Rate: <span className="font-mono">—</span> (No submissions yet)
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
@@ -959,7 +959,7 @@ export function CodingProblemCreator({
                   setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
                 }
               }}
-              placeholder="e.g. Two Sum"
+              placeholder="e.g. Reverse Linked List"
               className="h-9 text-xs bg-slate-50/70 border-slate-200 rounded-xl font-bold"
             />
           </div>
@@ -969,7 +969,7 @@ export function CodingProblemCreator({
             <Input
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="two-sum"
+              placeholder="e.g. reverse-linked-list"
               className="h-9 text-xs bg-slate-50/70 border-slate-200 rounded-xl font-mono"
             />
           </div>
@@ -1005,7 +1005,7 @@ export function CodingProblemCreator({
             <Input
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Array, Algorithms, SQL"
+              placeholder="e.g. Algorithms, Data Structures, SQL"
               className="h-9 text-xs bg-slate-50/70 border-slate-200 rounded-xl"
             />
           </div>
@@ -1067,7 +1067,7 @@ export function CodingProblemCreator({
           rows={7}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target..."
+          placeholder="Enter problem statement, detailed explanation, input requirements, expected output, and edge cases (Markdown supported)..."
           className="text-xs sm:text-sm bg-slate-50/70 border-slate-200 rounded-xl font-mono leading-relaxed focus:bg-white"
         />
       </div>
@@ -1140,7 +1140,7 @@ export function CodingProblemCreator({
                   <Input
                     value={eg.input}
                     onChange={(e) => handleUpdateExample(idx, "input", e.target.value)}
-                    placeholder="nums = [2,7,11,15], target = 9"
+                    placeholder="e.g. Input data"
                     className="h-8.5 text-xs bg-white border-slate-200 rounded-lg font-mono"
                   />
                 </div>
@@ -1149,7 +1149,7 @@ export function CodingProblemCreator({
                   <Input
                     value={eg.output}
                     onChange={(e) => handleUpdateExample(idx, "output", e.target.value)}
-                    placeholder="[0,1]"
+                    placeholder="e.g. Expected output"
                     className="h-8.5 text-xs bg-white border-slate-200 rounded-lg font-mono"
                   />
                 </div>
@@ -1160,7 +1160,7 @@ export function CodingProblemCreator({
                 <Input
                   value={eg.explanation || ""}
                   onChange={(e) => handleUpdateExample(idx, "explanation", e.target.value)}
-                  placeholder="Because nums[0] + nums[1] == 9, we return [0,1]."
+                  placeholder="e.g. Explanation of the example (optional)"
                   className="h-8.5 text-xs bg-white border-slate-200 rounded-lg"
                 />
               </div>
@@ -1184,7 +1184,7 @@ export function CodingProblemCreator({
           rows={4}
           value={constraints}
           onChange={(e) => setConstraints(e.target.value)}
-          placeholder="2 <= nums.length <= 10^4&#10;-10^9 <= nums[i] <= 10^9&#10;-10^9 <= target <= 10^9"
+          placeholder="e.g.&#10;1 <= n <= 10^5&#10;0 <= arr[i] <= 10^9"
           className="text-xs sm:text-sm bg-slate-50/70 border-slate-200 rounded-xl font-mono leading-relaxed"
         />
       </div>
@@ -1204,7 +1204,7 @@ export function CodingProblemCreator({
               rows={3}
               value={inputFormat}
               onChange={(e) => setInputFormat(e.target.value)}
-              placeholder="First line contains space-separated integers..."
+              placeholder="Describe input parameters and format..."
               className="text-xs bg-slate-50/70 border-slate-200 rounded-xl font-mono"
             />
           </div>
@@ -1215,7 +1215,7 @@ export function CodingProblemCreator({
               rows={3}
               value={outputFormat}
               onChange={(e) => setOutputFormat(e.target.value)}
-              placeholder="Print space-separated indices..."
+              placeholder="Describe expected output and return value..."
               className="text-xs bg-slate-50/70 border-slate-200 rounded-xl font-mono"
             />
           </div>
@@ -1261,7 +1261,7 @@ export function CodingProblemCreator({
             <Input
               value={functionSignature}
               onChange={(e) => setFunctionSignature(e.target.value)}
-              placeholder="def solve(nums: list[int]) -> list[int]:"
+              placeholder="e.g. def solve(nums: list[int]) -> int:"
               className="h-9 text-xs bg-slate-50/70 border-slate-200 rounded-xl font-mono"
             />
           </div>
@@ -1419,7 +1419,7 @@ export function CodingProblemCreator({
                     rows={2}
                     value={tc.input}
                     onChange={(e) => handleUpdateTestCase(idx, "input", e.target.value)}
-                    placeholder="2 7 11 15&#10;9"
+                    placeholder="Input data for this test case"
                     className="text-xs bg-white border-slate-200 rounded-lg font-mono"
                   />
                 </div>
@@ -1429,7 +1429,7 @@ export function CodingProblemCreator({
                     rows={2}
                     value={tc.expected_output}
                     onChange={(e) => handleUpdateTestCase(idx, "expected_output", e.target.value)}
-                    placeholder="0 1"
+                    placeholder="Expected output result"
                     className="text-xs bg-white border-slate-200 rounded-lg font-mono"
                   />
                 </div>
