@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SubmissionService } from "@/services/submission.service";
+import { SubmissionEvaluatorService } from "@/services/submission-evaluator.service";
 import { jobeService } from "@/services/jobe";
 import type { SubmitCodeInput } from "@/types/coding";
 import { getErrorMessage } from "@/lib/utils";
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     const studentId = user?.id || (body as any).student_id || "student-1";
 
     // 5. Submit solution for automated evaluation against public & hidden test cases
-    const submission = await SubmissionService.submitSolution(
+    const submission = await SubmissionEvaluatorService.evaluateSolution(
       {
         problem_id,
         language,

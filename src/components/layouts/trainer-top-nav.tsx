@@ -41,88 +41,89 @@ export function TrainerTopNav() {
     : `${defaultFirstName} ${defaultLastName}`.trim();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 sm:px-6 lg:px-10 transition-colors duration-200">
-      {/* Brand Logo */}
-      <div className="flex items-center gap-3">
-        <Link href="/trainer/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0 group">
-          <span className="font-extrabold text-xl tracking-tight text-foreground">
-            FALCON<span className="text-[#2563EB] font-black">.</span>
-          </span>
-          <Badge variant="outline" className="hidden sm:inline-flex bg-[#2563EB]/5 text-[#2563EB] border-[#2563EB]/20 text-[10px] font-bold px-2 py-0.5">
-            TRAINER
-          </Badge>
-        </Link>
-      </div>
+    <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-background/80 backdrop-blur-md border-b border-border transition-colors duration-200">
+      <div className="lms-page-container h-full flex items-center justify-between gap-4">
+        {/* Brand Logo */}
+        <div className="flex items-center shrink-0">
+          <Link href="/trainer/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0 group">
+            <span className="font-extrabold text-xl tracking-tight text-foreground">
+              FALCON<span className="text-[#2563EB] font-black">.</span>
+            </span>
+            <Badge variant="outline" className="hidden sm:inline-flex bg-[#2563EB]/5 text-[#2563EB] border-[#2563EB]/20 text-[10px] font-bold px-2 py-0.5">
+              TRAINER
+            </Badge>
+          </Link>
+        </div>
 
-      {/* Centered Desktop Nav Links */}
-      <nav className="hidden md:flex items-center gap-1 lg:gap-2 overflow-x-auto no-scrollbar">
-        {trainerNavItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/trainer/dashboard" && pathname.startsWith(item.href));
-          const Icon = item.icon;
+        {/* Centered Desktop Nav Links */}
+        <div className="hidden lg:flex flex-1 items-center justify-center min-w-0 px-2">
+          <nav className="flex items-center gap-0.5 xl:gap-1.5 overflow-x-auto no-scrollbar py-1">
+            {trainerNavItems.map((item) => {
+              const isActive = pathname === item.href || (item.href !== "/trainer/dashboard" && pathname.startsWith(item.href));
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-2 px-3 lg:px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap duration-200 ease-out hover:-translate-y-[1px]",
-                isActive
-                  ? "bg-[#2563EB]/10 text-[#2563EB]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              )}
-            >
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap duration-150 ease-out hover:-translate-y-[0.5px]",
+                    isActive
+                      ? "bg-[#2563EB]/10 text-[#2563EB] font-bold shadow-xs dark:bg-[#2563EB]/20 dark:text-[#93C5FD]"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}
+                >
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
 
-      {/* Right Controls (Notification, Mobile Menu Drawer, User Profile) */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        <Link
-          href="/trainer/notifications"
-          className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 border border-input shadow-sm"
-        >
-          <Bell className="h-4 w-4" />
-        </Link>
+        {/* Right Controls (Notification, Mobile Menu Drawer, User Profile) */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <Link
+            href="/trainer/notifications"
+            className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 border border-input shadow-sm"
+          >
+            <Bell className="h-4 w-4" />
+          </Link>
 
-        {/* Mobile Hamburger Menu Trigger */}
-        <Sheet>
-          <SheetTrigger className="md:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-muted-foreground hover:bg-accent border border-input shadow-sm transition-all duration-200">
-            <Menu className="h-5 w-5" />
-          </SheetTrigger>
-          <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-background border-l border-border p-6">
-            <SheetHeader className="text-left pb-4 border-b border-border">
-              <SheetTitle className="flex items-center gap-2.5">
-                <span className="font-extrabold text-xl text-foreground">
-                  FALCON<span className="text-[#2563EB] font-black">.</span>
-                </span>
-                <Badge variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] text-[9px] font-bold border-[#2563EB]/30">TRAINER</Badge>
-              </SheetTitle>
-            </SheetHeader>
+          {/* Mobile Hamburger Menu Trigger */}
+          <Sheet>
+            <SheetTrigger className="lg:hidden inline-flex items-center justify-center rounded-lg h-9 w-9 text-muted-foreground hover:bg-accent border border-input shadow-sm transition-all duration-200">
+              <Menu className="h-5 w-5" />
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-background border-l border-border p-6">
+              <SheetHeader className="text-left pb-4 border-b border-border">
+                <SheetTitle className="flex items-center gap-2.5">
+                  <span className="font-extrabold text-xl text-foreground">
+                    FALCON<span className="text-[#2563EB] font-black">.</span>
+                  </span>
+                  <Badge variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] text-[9px] font-bold border-[#2563EB]/30">TRAINER</Badge>
+                </SheetTitle>
+              </SheetHeader>
 
-            <nav className="flex flex-col gap-1.5 pt-6">
-              {trainerNavItems.map((item) => {
-                const isActive = pathname === item.href || (item.href !== "/trainer/dashboard" && pathname.startsWith(item.href));
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
-                      isActive
-                        ? "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#93C5FD]"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                    )}
-                  >
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </SheetContent>
-        </Sheet>
+              <nav className="flex flex-col gap-1.5 pt-6">
+                {trainerNavItems.map((item) => {
+                  const isActive = pathname === item.href || (item.href !== "/trainer/dashboard" && pathname.startsWith(item.href));
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
+                        isActive
+                          ? "bg-[#2563EB]/10 text-[#2563EB] dark:bg-[#2563EB]/20 dark:text-[#93C5FD]"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                      )}
+                    >
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </SheetContent>
+          </Sheet>
 
         {/* Profile Avatar */}
         <DropdownMenu>
@@ -157,6 +158,7 @@ export function TrainerTopNav() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </header>
+    </div>
+  </header>
   );
 }
