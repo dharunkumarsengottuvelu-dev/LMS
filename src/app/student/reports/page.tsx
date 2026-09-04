@@ -587,10 +587,6 @@ export default function StudentReportsPage() {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
               Learning Reports & Performance Analytics
             </h1>
-
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal">
-              Live comprehensive report for Courses, Practice Labs, Proctored Assessments, and Platform Time.
-            </p>
           </div>
 
           {/* Right Column: Date Filter & Export Button */}

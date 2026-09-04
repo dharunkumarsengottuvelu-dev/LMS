@@ -136,10 +136,6 @@ export default function StudentNotificationsPage() {
                 </Badge>
               )}
             </div>
-
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal">
-              Live updates on assigned assessments, scheduled evaluations, courses, and announcements.
-            </p>
           </div>
 
           {/* Right Action: Mark All Read */}
@@ -200,9 +196,6 @@ export default function StudentNotificationsPage() {
           </div>
         ) : filteredNotifications.length === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 shadow-xs space-y-3">
-            <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-400 mx-auto">
-              <Bell className="h-6 w-6" />
-            </div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               {search ? "No notifications match your search" : "No notifications in this category"}
             </h3>

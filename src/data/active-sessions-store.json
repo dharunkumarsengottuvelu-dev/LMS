@@ -3,17 +3,29 @@
     "946a9df9-c3f2-47b1-801f-f3cdd8da7482": {
       "studentId": "946a9df9-c3f2-47b1-801f-f3cdd8da7482",
       "studentEmail": "dharunkumarsengottuvelu@gmail.com",
-      "totalActiveSeconds": 2,
+      "totalActiveSeconds": 130,
       "dailyBreakdown": {
-        "2026-09-03": 2
+        "2026-09-03": 2,
+        "2026-09-04": 128
       },
       "sessions": [
+        {
+          "sessionId": "sess_1788495001544_y6g1zu5",
+          "studentId": "946a9df9-c3f2-47b1-801f-f3cdd8da7482",
+          "studentEmail": "dharunkumarsengottuvelu@gmail.com",
+          "startedAt": "2026-09-04T04:10:08.518Z",
+          "lastHeartbeatAt": "2026-09-04T04:50:47.098Z",
+          "durationSeconds": 128,
+          "isClosed": true,
+          "deviceInfo": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Sa",
+          "closedAt": "2026-09-04T04:41:19.089Z"
+        },
         {
           "sessionId": "sess_1788431548118_9gd3kf4",
           "studentId": "946a9df9-c3f2-47b1-801f-f3cdd8da7482",
           "studentEmail": "dharunkumarsengottuvelu@gmail.com",
           "startedAt": "2026-09-03T19:57:25.577Z",
-          "lastHeartbeatAt": "2026-09-03T20:03:51.977Z",
+          "lastHeartbeatAt": "2026-09-03T20:09:48.346Z",
           "durationSeconds": 0,
           "isClosed": false,
           "deviceInfo": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Sa"
@@ -41,7 +53,7 @@
           "closedAt": "2026-09-03T10:17:25.209Z"
         }
       ],
-      "lastActiveAt": "2026-09-03T10:42:54.103Z"
+      "lastActiveAt": "2026-09-04T04:16:32.706Z"
     },
     "20d4f2ec-2788-473a-a6fc-5597ae64afde": {
       "studentId": "20d4f2ec-2788-473a-a6fc-5597ae64afde",
@@ -65,5 +77,5 @@
       "lastActiveAt": "2026-09-03T10:44:15.847Z"
     }
   },
-  "lastUpdated": "2026-09-03T20:03:51.979Z"
+  "lastUpdated": "2026-09-04T04:50:47.098Z"
 }

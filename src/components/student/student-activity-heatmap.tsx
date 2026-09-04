@@ -38,7 +38,9 @@ export interface ActivityDetailItem {
 export interface DayActivityData {
   date: string; // YYYY-MM-DD
   count: number;
-  intensity: 0 | 1 | 2 | 3 | 4;
+  successfulCount: number;
+  performancePct: number;
+  intensity: 0 | 1 | 2 | 3 | 4 | 5;
   categories: {
     coding: number;
     learning: number;
@@ -66,6 +68,32 @@ interface StudentActivityHeatmapProps {
   className?: string;
 }
 
+/**
+ * Deterministic color intensity calculation based on activity count & performance
+ */
+export function calculateHeatmapIntensity(
+  count: number,
+  successfulCount: number
+): 0 | 1 | 2 | 3 | 4 | 5 {
+  if (count <= 0) return 0;
+  const performancePct = Math.round((successfulCount / count) * 100);
+
+  let tier: number;
+  if (count === 1) tier = 1;
+  else if (count <= 3) tier = 2;
+  else if (count <= 6) tier = 3;
+  else if (count <= 10) tier = 4;
+  else tier = 5;
+
+  if (performancePct < 50) {
+    tier = Math.max(1, tier - 1);
+  } else if (performancePct >= 90 && count >= 4) {
+    tier = Math.min(5, tier + 1);
+  }
+
+  return tier as 0 | 1 | 2 | 3 | 4 | 5;
+}
+
 export function StudentActivityHeatmap({
   studentId,
   className,
@@ -78,7 +106,7 @@ export function StudentActivityHeatmap({
 
   // Hover Tooltip state
   const [hoveredDay, setHoveredDay] = useState<DayActivityData | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number; arrowLeft: number } | null>(null);
   const gridContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch real activity data from our dedicated API
@@ -88,9 +116,14 @@ export function StudentActivityHeatmap({
       else setIsLoading(true);
 
       try {
-        let url = `/api/student/activity-heatmap?range=12m`;
+        const userTz =
+          typeof Intl !== "undefined" && Intl.DateTimeFormat
+            ? Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata"
+            : "Asia/Kolkata";
+
+        let url = `/api/student/activity-heatmap?range=12m&tz=${encodeURIComponent(userTz)}`;
         if (selectedYear) {
-          url = `/api/student/activity-heatmap?year=${selectedYear}`;
+          url = `/api/student/activity-heatmap?year=${selectedYear}&tz=${encodeURIComponent(userTz)}`;
         }
 
         const res = await fetch(url);
@@ -114,16 +147,32 @@ export function StudentActivityHeatmap({
                     const tsStr = sub.created_at || sub.submitted_at;
                     if (!tsStr) return;
                     const ts = new Date(tsStr).getTime();
-                    const iso = new Date(ts).toISOString().slice(0, 10);
-                    const day = dayMap.get(iso);
+                    if (isNaN(ts)) return;
+
+                    // Format date in student's timezone
+                    let localIso = "";
+                    try {
+                      localIso = new Intl.DateTimeFormat("en-CA", {
+                        timeZone: userTz,
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                      }).format(new Date(ts));
+                    } catch {
+                      localIso = new Date(ts).toISOString().slice(0, 10);
+                    }
+
+                    const day = dayMap.get(localIso);
                     if (day) {
-                      // Check if already in details
                       const exists = day.details.some(
                         (item) => item.id === sub.id || (item.category === "coding" && Math.abs(item.timestamp - ts) < 2000)
                       );
                       if (!exists) {
                         const isAccepted = sub.status === "accepted" || sub.status === "passed";
                         day.count += 1;
+                        if (isAccepted) {
+                          day.successfulCount = (day.successfulCount || 0) + 1;
+                        }
                         day.categories.coding += 1;
                         day.details.unshift({
                           id: sub.id || `local-${ts}`,
@@ -132,17 +181,13 @@ export function StudentActivityHeatmap({
                           subtitle: `Language: ${(sub.language || "code").toUpperCase()} • ${isAccepted ? "Accepted" : "Wrong Answer"}`,
                           status: isAccepted ? "Accepted" : "Wrong Answer",
                           passed: isAccepted,
-                          timeStr: new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+                          timeStr: new Intl.DateTimeFormat("en-US", { timeZone: userTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
                           timestamp: ts,
                         });
                         addedCount += 1;
 
-                        // Recalculate intensity
-                        if (day.count <= 0) day.intensity = 0;
-                        else if (day.count <= 2) day.intensity = 1;
-                        else if (day.count <= 5) day.intensity = 2;
-                        else if (day.count <= 10) day.intensity = 3;
-                        else day.intensity = 4;
+                        day.performancePct = Math.round((day.successfulCount / day.count) * 100);
+                        day.intensity = calculateHeatmapIntensity(day.count, day.successfulCount);
                       }
                     }
                   });
@@ -200,7 +245,15 @@ export function StudentActivityHeatmap({
     // Listen for tab focus to keep real-time activity updated
     const handleFocus = () => fetchHeatmapData(true);
     window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
+
+    // Listen for custom activity update event when student submits code/tests/assignments
+    const handleActivityUpdate = () => fetchHeatmapData(true);
+    window.addEventListener("student-activity-updated", handleActivityUpdate);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("student-activity-updated", handleActivityUpdate);
+    };
   }, [fetchHeatmapData]);
 
   // Organize calendarDays into 53 week columns (each containing 7 days: Sun=0 to Sat=6)
@@ -214,7 +267,7 @@ export function StudentActivityHeatmap({
     const months: { label: string; weekIndex: number }[] = [];
 
     // Identify first day of week
-    const firstDate = new Date(days[0]?.date || new Date().toISOString());
+    const firstDate = new Date(days[0]?.date + "T00:00:00");
     const firstDayOfWeek = firstDate.getDay(); // 0 = Sun, 6 = Sat
 
     let currentWeek: (DayActivityData | null)[] = [];
@@ -271,7 +324,7 @@ export function StudentActivityHeatmap({
     return { weekColumns: weeks, monthLabels: filteredMonths };
   }, [data]);
 
-  // Handle day cell hover with floating tooltip
+  // Handle day cell hover with floating tooltip (MNC Level Alignment)
   const handleCellMouseEnter = (
     e: React.MouseEvent<HTMLDivElement>,
     day: DayActivityData
@@ -280,10 +333,23 @@ export function StudentActivityHeatmap({
     const containerRect = gridContainerRef.current.getBoundingClientRect();
     const cellRect = e.currentTarget.getBoundingClientRect();
 
+    const cellCenterX = cellRect.left - containerRect.left + cellRect.width / 2;
+    const cellTopY = cellRect.top - containerRect.top;
+
+    const tooltipWidth = 280;
+    const minLeft = 8;
+    const maxLeft = Math.max(minLeft, containerRect.width - tooltipWidth - 8);
+    const desiredLeft = cellCenterX - tooltipWidth / 2;
+    const boxLeft = Math.max(minLeft, Math.min(maxLeft, desiredLeft));
+
+    // Arrow points directly to the cell center, clamped inside the tooltip box
+    const arrowLeft = Math.max(16, Math.min(tooltipWidth - 16, cellCenterX - boxLeft));
+
     setHoveredDay(day);
     setTooltipPos({
-      x: cellRect.left - containerRect.left + cellRect.width / 2,
-      y: cellRect.top - containerRect.top - 8,
+      x: boxLeft,
+      y: cellTopY - 10,
+      arrowLeft,
     });
   };
 
@@ -292,17 +358,19 @@ export function StudentActivityHeatmap({
     setTooltipPos(null);
   };
 
-  // Color intensities based on real activity (Clean Light UI with Dark mode fallback)
+  // Color intensities based on real activity count and performance (Levels 0 to 5)
   const getCellColor = (intensity: number) => {
     switch (intensity) {
       case 1:
-        return "bg-[#bbf7d0] dark:bg-[#14532d] hover:bg-[#86efac] dark:hover:bg-[#166534] border border-[#86efac]/80 dark:border-[#166534]/60"; // 1-2 activities
+        return "bg-[#dcfce7] dark:bg-[#14532d]/50 hover:bg-[#bbf7d0] dark:hover:bg-[#14532d]/80 border border-[#bbf7d0] dark:border-[#14532d]"; // 1 activity (Very light green)
       case 2:
-        return "bg-[#4ade80] dark:bg-[#16a34a] hover:bg-[#22c55e] dark:hover:bg-[#22c55e] border border-[#22c55e]/80 dark:border-[#22c55e]/40"; // 3-5 activities
+        return "bg-[#86efac] dark:bg-[#166534] hover:bg-[#4ade80] dark:hover:bg-[#15803d] border border-[#4ade80] dark:border-[#166534]"; // 2-3 activities (Light green)
       case 3:
-        return "bg-[#22c55e] dark:bg-[#22c55e] hover:bg-[#16a34a] dark:hover:bg-[#4ade80] border border-[#16a34a] shadow-[0_0_6px_rgba(34,197,94,0.3)]"; // 6-10 activities
+        return "bg-[#22c55e] dark:bg-[#15803d] hover:bg-[#16a34a] dark:hover:bg-[#22c55e] border border-[#16a34a] dark:border-[#22c55e] shadow-[0_0_4px_rgba(34,197,94,0.25)]"; // 4-6 activities (Medium green)
       case 4:
-        return "bg-[#15803d] dark:bg-[#4ade80] hover:bg-[#166534] dark:hover:bg-[#86efac] border border-[#166534] shadow-[0_0_8px_rgba(21,128,61,0.4)]"; // 10+ activities
+        return "bg-[#15803d] dark:bg-[#22c55e] hover:bg-[#166534] dark:hover:bg-[#4ade80] border border-[#166534] dark:border-[#4ade80] shadow-[0_0_6px_rgba(21,128,61,0.35)]"; // 7-10 activities (Dark green)
+      case 5:
+        return "bg-[#14532d] dark:bg-[#4ade80] hover:bg-[#052e16] dark:hover:bg-[#86efac] border border-[#052e16] dark:border-[#86efac] shadow-[0_0_8px_rgba(20,83,45,0.45)]"; // 10+ activities (Strongest green)
       case 0:
       default:
         return "bg-[#F3F4F6] dark:bg-[#27272A] hover:bg-[#E5E7EB] dark:hover:bg-[#3F3F46] border border-[#E5E7EB] dark:border-white/[0.03]"; // Empty / 0 activities
@@ -333,7 +401,7 @@ export function StudentActivityHeatmap({
           <div className="group relative cursor-pointer inline-flex items-center">
             <Info className="w-3.5 h-3.5 text-[#9CA3AF] dark:text-zinc-500 hover:text-[#4B5563] dark:hover:text-zinc-300 transition-colors ml-0.5" />
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col w-56 p-2 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl z-50 pointer-events-none leading-relaxed">
-              <span>Calculated dynamically from real verified student actions across coding, courses, practices, assessments, and active sessions.</span>
+              <span>Calculated dynamically from real verified student actions across coding, courses, practices, assessments, and learning sessions.</span>
             </div>
           </div>
           {isRefreshing && (
@@ -423,7 +491,7 @@ export function StudentActivityHeatmap({
       ════════════════════════════════════════════════════════════ */}
       <div className="relative" ref={gridContainerRef}>
         {isLoading ? (
-          /* Sleek Dark Skeleton */
+          /* Sleek Light/Dark Skeleton */
           <div className="h-32 flex items-center justify-center">
             <div className="flex items-center gap-2 text-zinc-500 text-xs">
               <RotateCw className="w-4 h-4 animate-spin text-emerald-500" />
@@ -431,7 +499,7 @@ export function StudentActivityHeatmap({
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+          <div className="overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
             <div className="inline-block min-w-full">
               {/* Day cells grid (53 columns x 7 rows) */}
               <div className="flex gap-[4px]">
@@ -455,7 +523,7 @@ export function StudentActivityHeatmap({
                           className={cn(
                             "w-[12px] h-[12px] sm:w-[13px] sm:h-[13px] rounded-[2.5px] transition-transform duration-100 cursor-pointer",
                             getCellColor(day.intensity),
-                            hoveredDay?.date === day.date && "scale-125 z-10 ring-2 ring-white"
+                            hoveredDay?.date === day.date && "scale-125 z-10 ring-2 ring-emerald-500"
                           )}
                         />
                       );
@@ -483,156 +551,165 @@ export function StudentActivityHeatmap({
         )}
 
         {/* ════════════════════════════════════════════════════════════
-            FLOATING INTERACTIVE TOOLTIP
+            FLOATING INTERACTIVE TOOLTIP (MNC LIGHT ENTERPRISE THEME)
         ════════════════════════════════════════════════════════════ */}
-        {hoveredDay && tooltipPos && (
-          <div
-            className="absolute z-50 pointer-events-none -translate-x-1/2 -translate-y-full mb-2.5 transition-all duration-75"
-            style={{
-              left: `${tooltipPos.x}px`,
-              top: `${tooltipPos.y}px`,
-            }}
-          >
-            <div className="w-72 bg-zinc-950/95 backdrop-blur-md text-white rounded-xl border border-zinc-700/80 shadow-2xl p-3.5 space-y-2.5 animate-in fade-in zoom-in-95 duration-100">
-              {/* Header: Date + Total count */}
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                <div>
-                  <p className="text-[11px] font-semibold text-zinc-400">
-                    {new Date(hoveredDay.date + "T00:00:00").toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+        {hoveredDay && tooltipPos && (() => {
+          const [yStr, mStr, dStr] = hoveredDay.date.split("-");
+          const dateObj = new Date(Number(yStr), Number(mStr) - 1, Number(dStr));
+          const dateFormatted = dateObj.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+
+          return (
+            <div
+              className="absolute z-50 pointer-events-none -translate-y-full mb-2 transition-all duration-75"
+              style={{
+                left: `${tooltipPos.x}px`,
+                top: `${tooltipPos.y}px`,
+              }}
+            >
+              <div className="w-[280px] bg-white text-slate-900 rounded-xl border border-slate-200 shadow-[0_12px_36px_rgba(0,0,0,0.14)] p-3.5 space-y-2.5 relative">
+                {/* Tooltip Header / Summary */}
+                <div className="border-b border-slate-100 pb-2">
+                  <p className="text-xs font-semibold text-slate-500">
+                    {dateFormatted}
                   </p>
-                  <p className="text-xs font-bold text-white mt-0.5">
-                    {hoveredDay.count === 0
-                      ? "No activity"
-                      : `${hoveredDay.count} activit${hoveredDay.count === 1 ? "y" : "ies"}`}
-                  </p>
-                </div>
 
-                {hoveredDay.count > 0 && (
-                  <span
-                    className={cn(
-                      "text-[10px] font-bold px-2 py-0.5 rounded-full border",
-                      hoveredDay.intensity === 4
-                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-                        : hoveredDay.intensity >= 2
-                        ? "bg-green-500/20 text-green-400 border-green-500/40"
-                        : "bg-zinc-800 text-zinc-300 border-zinc-700"
-                    )}
-                  >
-                    Level {hoveredDay.intensity}
-                  </span>
-                )}
-              </div>
-
-              {/* Categorized Actions Details */}
-              {hoveredDay.count === 0 ? (
-                <p className="text-[11px] text-zinc-500 italic py-1">
-                  No learning activities recorded on this date.
-                </p>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1 text-[11px] scrollbar-thin scrollbar-thumb-zinc-700">
-                  {/* Category Breakdown Badges */}
-                  <div className="flex flex-wrap gap-1 pb-1">
-                    {hoveredDay.categories.coding > 0 && (
-                      <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-300 rounded text-[10px] font-mono">
-                        {hoveredDay.categories.coding} Coding
-                      </span>
-                    )}
-                    {hoveredDay.categories.learning > 0 && (
-                      <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded text-[10px] font-mono">
-                        {hoveredDay.categories.learning} Learning
-                      </span>
-                    )}
-                    {hoveredDay.categories.practice > 0 && (
-                      <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[10px] font-mono">
-                        {hoveredDay.categories.practice} Practice
-                      </span>
-                    )}
-                    {hoveredDay.categories.assessment > 0 && (
-                      <span className="px-1.5 py-0.5 bg-rose-500/20 text-rose-300 rounded text-[10px] font-mono">
-                        {hoveredDay.categories.assessment} Exam
-                      </span>
-                    )}
-                    {hoveredDay.categories.session > 0 && (
-                      <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-[10px] font-mono">
-                        {hoveredDay.categories.session} Session
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Individual Action Items */}
-                  <div className="space-y-1.5 pt-1 border-t border-zinc-800/80">
-                    {hoveredDay.details.slice(0, 6).map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-start justify-between gap-2 p-1.5 rounded-md bg-zinc-900/80 border border-zinc-800/60 text-[11px]"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            {item.category === "coding" ? (
-                              item.passed ? (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              ) : (
-                                <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                              )
-                            ) : item.category === "learning" ? (
-                              <BookOpen className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                            ) : item.category === "practice" ? (
-                              <Dumbbell className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                            ) : item.category === "assessment" ? (
-                              <Award className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                            ) : (
-                              <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            )}
-                            <p className="font-semibold text-zinc-100 truncate">
-                              {item.title}
-                            </p>
-                          </div>
-                          {item.subtitle && (
-                            <p className="text-[10px] text-zinc-400 pl-5 truncate">
-                              {item.subtitle}
-                            </p>
+                  {hoveredDay.count === 0 ? (
+                    <p className="text-xs font-medium text-slate-700 mt-1">
+                      No activity
+                    </p>
+                  ) : (
+                    <div className="mt-1 space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-slate-900">
+                          {hoveredDay.count} activit{hoveredDay.count === 1 ? "y" : "ies"}
+                        </p>
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                            hoveredDay.intensity >= 4
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : hoveredDay.intensity >= 2
+                              ? "bg-green-50 text-green-700 border-green-200"
+                              : "bg-slate-100 text-slate-700 border-slate-200"
                           )}
-                        </div>
-
-                        <span className="text-[10px] text-zinc-500 font-mono shrink-0 pt-0.5">
-                          {item.timeStr}
+                        >
+                          Level {hoveredDay.intensity}
                         </span>
                       </div>
-                    ))}
-
-                    {hoveredDay.details.length > 6 && (
-                      <p className="text-[10px] text-zinc-500 text-center italic pt-0.5">
-                        +{hoveredDay.details.length - 6} more activities on this date
+                      <p className="text-xs text-slate-600">
+                        {hoveredDay.successfulCount ?? hoveredDay.count} completed successfully
                       </p>
-                    )}
-                  </div>
+                      <p className="text-xs font-semibold text-emerald-600">
+                        Performance: {hoveredDay.performancePct ?? 100}%
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* Little Tooltip Arrow */}
-            <div className="w-2.5 h-2.5 bg-zinc-950 border-r border-b border-zinc-700/80 rotate-45 mx-auto -mt-1.5" />
-          </div>
-        )}
+                {/* Categorized Actions Details (Only when activities exist) */}
+                {hoveredDay.count > 0 && (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1 text-[11px] scrollbar-thin scrollbar-thumb-slate-200">
+                    {/* Category Breakdown Badges */}
+                    <div className="flex flex-wrap gap-1 pb-1">
+                      {hoveredDay.categories.coding > 0 && (
+                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200/60 rounded text-[10px] font-medium">
+                          {hoveredDay.categories.coding} Coding
+                        </span>
+                      )}
+                      {hoveredDay.categories.practice > 0 && (
+                        <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/60 rounded text-[10px] font-medium">
+                          {hoveredDay.categories.practice} Practice
+                        </span>
+                      )}
+                      {hoveredDay.categories.assessment > 0 && (
+                        <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200/60 rounded text-[10px] font-medium">
+                          {hoveredDay.categories.assessment} Test
+                        </span>
+                      )}
+                      {hoveredDay.categories.learning > 0 && (
+                        <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200/60 rounded text-[10px] font-medium">
+                          {hoveredDay.categories.learning} Learning
+                        </span>
+                      )}
+                      {hoveredDay.categories.session > 0 && (
+                        <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded text-[10px] font-medium">
+                          {hoveredDay.categories.session} Live Session
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Individual Action Items */}
+                    <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                      {hoveredDay.details.slice(0, 6).map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-start justify-between gap-2 p-1.5 rounded-lg bg-slate-50 border border-slate-200/70 text-[11px]"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={cn(
+                                  "w-1.5 h-1.5 rounded-full shrink-0",
+                                  item.passed ? "bg-emerald-500" : "bg-rose-500"
+                                )}
+                              />
+                              <p className="font-semibold text-slate-800 truncate">
+                                {item.title}
+                              </p>
+                            </div>
+                            {item.subtitle && (
+                              <p className="text-[10px] text-slate-500 pl-3 truncate mt-0.5">
+                                {item.subtitle}
+                              </p>
+                            )}
+                          </div>
+
+                          <span className="text-[10px] text-slate-400 font-mono shrink-0 pt-0.5">
+                            {item.timeStr}
+                          </span>
+                        </div>
+                      ))}
+
+                      {hoveredDay.details.length > 6 && (
+                        <p className="text-[10px] text-slate-400 text-center italic pt-0.5">
+                          +{hoveredDay.details.length - 6} more activities
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Mathematically Aligned Tooltip Arrow */}
+                <div
+                  className="w-2.5 h-2.5 bg-white border-r border-b border-slate-200 rotate-45 absolute -bottom-1.5"
+                  style={{
+                    left: `${tooltipPos.arrowLeft}px`,
+                    transform: "translateX(-50%) rotate(45deg)",
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ════════════════════════════════════════════════════════════
-          BOTTOM LEGEND: LESS [ ][ ][ ][ ][ ] MORE
+          BOTTOM LEGEND: LESS [ ][ ][ ][ ][ ][ ] MORE
       ════════════════════════════════════════════════════════════ */}
       <div className="flex items-center justify-end pt-2 border-t border-[#E5E7EB] dark:border-[#27272A] text-xs text-[#6B7280] dark:text-zinc-400">
         <div className="flex items-center gap-1.5 text-[11px]">
           <span>Less</span>
           <div className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#F3F4F6] dark:bg-[#27272A] border border-[#E5E7EB] dark:border-white/[0.03]" />
-            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#bbf7d0] dark:bg-[#14532d]" />
-            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#4ade80] dark:bg-[#16a34a]" />
-            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#22c55e] dark:bg-[#22c55e]" />
-            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#15803d] dark:bg-[#4ade80]" />
+            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#F3F4F6] dark:bg-[#27272A] border border-[#E5E7EB] dark:border-white/[0.03]" title="0 activities" />
+            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#dcfce7] dark:bg-[#14532d]/50 border border-[#bbf7d0]" title="1 activity (Very light green)" />
+            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#86efac] dark:bg-[#166534] border border-[#4ade80]" title="2–3 activities (Light green)" />
+            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#22c55e] dark:bg-[#15803d] border border-[#16a34a]" title="4–6 activities (Medium green)" />
+            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#15803d] dark:bg-[#22c55e] border border-[#166534]" title="7–10 activities (Dark green)" />
+            <div className="w-2.5 h-2.5 rounded-[2px] bg-[#14532d] dark:bg-[#4ade80] border border-[#052e16]" title="10+ activities (Strongest green)" />
           </div>
           <span>More</span>
         </div>

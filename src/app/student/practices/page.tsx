@@ -139,9 +139,6 @@ export default function StudentPracticesPage() {
             <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
               Practice Tracks & Coding Hub
             </h1>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed font-normal line-clamp-1">
-              Access interactive coding IDE practice, algorithmic problem sets, and assigned practice tracks.
-            </p>
           </div>
 
           {/* Right: Search Input */}

@@ -169,9 +169,6 @@ export default function ProblemsListPage() {
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             Problem Explorer
           </h1>
-          <p className="text-slate-500 text-xs mt-0.5">
-            Select a problem to start coding in the interactive workspace.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">

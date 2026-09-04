@@ -28,30 +28,25 @@ interface StudentDashboardData {
 }
 
 function StatCard({
-  icon: Icon, value, label, href, badgeText
+  value, label, href, badgeText
 }: {
-  icon: React.ElementType; value: number; label: string; href: string; badgeText?: string;
+  icon?: React.ElementType; value: number; label: string; href: string; badgeText?: string;
 }) {
   return (
     <Link href={href} prefetch={true} className="block h-full">
-      <Card className="h-full hover:border-blue-500/40 transition-all bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-2xs rounded-xl group">
-        <CardContent className="p-4 flex items-center gap-3.5 h-full">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 transition-transform group-hover:scale-105 duration-200">
-            <Icon className="h-5 w-5" />
+      <Card className="h-full hover:border-blue-500/40 hover:shadow-xs transition-all bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-2xs rounded-xl group">
+        <CardContent className="p-4.5 flex flex-col justify-center h-full">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
+              {value}
+            </span>
+            {badgeText && (
+              <Badge variant="outline" className="bg-blue-50/70 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 border-blue-200/70 dark:border-blue-800/40 rounded-md shrink-0">
+                {badgeText}
+              </Badge>
+            )}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
-                {value}
-              </span>
-              {badgeText && (
-                <Badge variant="outline" className="bg-blue-50/70 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 text-[10px] font-bold px-1.5 py-0 border-blue-200/70 dark:border-blue-800/40 rounded-md">
-                  {badgeText}
-                </Badge>
-              )}
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium mt-0.5">{label}</p>
-          </div>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium mt-2">{label}</p>
         </CardContent>
       </Card>
     </Link>
@@ -186,13 +181,10 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
       {/* 1. Welcome Banner Header - Compact Enterprise MNC Card */}
       <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-5 shadow-2xs overflow-visible">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
-          <div className="space-y-1 flex-1 min-w-0">
+          <div className="flex-1 min-w-0">
             <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
               Welcome back, {firstName}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-2xl leading-relaxed font-normal line-clamp-1">
-              Track your active courses, practice modules, and ongoing technical learning tracks.
-            </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -212,10 +204,10 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
 
       {/* 2. Statistics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-up stagger-1">
-        <StatCard icon={Code2} value={enrichedPracticeTracks.length} label="Active Practice Tracks" href="/student/practices" badgeText="Assigned" />
-        <StatCard icon={CheckCircle2} value={displayCompletedCount} label="Completed Modules" href="/student/practices" badgeText="Verified" />
-        <StatCard icon={BookOpen} value={activeCourses.length} label="Enrolled Courses" href="/student/my-courses" badgeText="Catalog" />
-        <StatCard icon={Bell} value={displayUnreadNotifications} label="Unread Notifications" href="/student/notifications" badgeText={displayUnreadNotifications > 0 ? "New Alerts" : "Updated"} />
+        <StatCard value={enrichedPracticeTracks.length} label="Active Practice Tracks" href="/student/practices" badgeText="Assigned" />
+        <StatCard value={displayCompletedCount} label="Completed Modules" href="/student/practices" badgeText="Verified" />
+        <StatCard value={activeCourses.length} label="Enrolled Courses" href="/student/my-courses" badgeText="Catalog" />
+        <StatCard value={displayUnreadNotifications} label="Unread Notifications" href="/student/notifications" badgeText={displayUnreadNotifications > 0 ? "New Alerts" : "Updated"} />
       </div>
 
       {/* 3. Main Workspace Grid */}
@@ -229,9 +221,6 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                 <CardTitle className="text-lg font-bold text-foreground">
                   Continue Learning & Practice
                 </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground mt-1 font-medium">
-                  Pick up right where you left off in your ongoing technical tracks and coding exercises
-                </CardDescription>
               </div>
 
               <Button variant="ghost" size="sm" className="text-xs font-semibold text-primary" asChild>
@@ -242,7 +231,6 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
             <CardContent className="p-6 space-y-4">
               {allActiveLearning.length === 0 ? (
                 <div className="py-8 text-center space-y-3">
-                  <Code2 className="h-10 w-10 text-primary mx-auto opacity-80" />
                   <p className="text-sm font-semibold text-foreground">No Active Practices or Courses Assigned</p>
                   <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                     Practice tracks and courses assigned by your Trainer or Admin will appear here automatically.

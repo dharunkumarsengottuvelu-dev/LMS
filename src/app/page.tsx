@@ -1390,7 +1390,7 @@ export default function LandingPage() {
                 Explore FALCON <ArrowRight className="h-4 w-4 ml-2" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="h-12 px-8 border-white/25 hover:border-white/50 text-white hover:bg-white/10 text-sm font-semibold rounded-xl backdrop-blur-md transition-all hover:scale-105 active:scale-95" asChild>
+            <Button size="lg" className="h-12 px-8 bg-white hover:bg-slate-100 text-slate-900 hover:text-slate-950 text-sm font-bold rounded-xl shadow-lg border border-white/90 transition-all hover:scale-105 active:scale-95" asChild>
               <Link href="#how-it-works">
                 See How It Works
               </Link>

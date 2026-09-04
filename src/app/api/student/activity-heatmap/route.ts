@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ActiveTimeService } from "@/services/active-time.service";
 import { getStudentBatchAccess } from "@/lib/auth/batch-access";
 
 export interface ActivityDetailItem {
@@ -19,7 +18,9 @@ export interface ActivityDetailItem {
 export interface DayActivityData {
   date: string; // YYYY-MM-DD
   count: number;
-  intensity: 0 | 1 | 2 | 3 | 4;
+  successfulCount: number;
+  performancePct: number;
+  intensity: 0 | 1 | 2 | 3 | 4 | 5;
   categories: {
     coding: number;
     learning: number;
@@ -28,6 +29,65 @@ export interface DayActivityData {
     session: number;
   };
   details: ActivityDetailItem[];
+}
+
+/**
+ * Deterministic color intensity calculation based on activity volume AND performance quality.
+ *
+ * Volume Base:
+ *  0 activities  -> Level 0 (Empty/light grey)
+ *  1 activity    -> Level 1 (Very light green)
+ *  2–3 activities -> Level 2 (Light green)
+ *  4–6 activities -> Level 3 (Medium green)
+ *  7–10 activities -> Level 4 (Dark green)
+ *  10+ activities  -> Level 5 (Strongest/darkest green)
+ *
+ * Performance Modulation:
+ *  - Low performance (< 50% success rate): step down 1 level (minimum 1)
+ *  - Moderate performance (50%–89%): maintains base tier
+ *  - High / excellent performance (>= 90% with 4+ activities): step up 1 level (maximum 5)
+ */
+export function calculateHeatmapIntensity(
+  count: number,
+  successfulCount: number
+): 0 | 1 | 2 | 3 | 4 | 5 {
+  if (count <= 0) return 0;
+
+  const performancePct = Math.round((successfulCount / count) * 100);
+
+  let tier: number;
+  if (count === 1) tier = 1;
+  else if (count <= 3) tier = 2;
+  else if (count <= 6) tier = 3;
+  else if (count <= 10) tier = 4;
+  else tier = 5;
+
+  if (performancePct < 50) {
+    tier = Math.max(1, tier - 1);
+  } else if (performancePct >= 90 && count >= 4) {
+    tier = Math.min(5, tier + 1);
+  }
+
+  return tier as 0 | 1 | 2 | 3 | 4 | 5;
+}
+
+/**
+ * Format a Date, timestamp, or ISO string into local YYYY-MM-DD for a specific timezone
+ */
+function getLocalDateStr(dateOrTs: Date | number | string, timeZone: string): string {
+  try {
+    const d = typeof dateOrTs === "object" ? dateOrTs : new Date(dateOrTs);
+    if (isNaN(d.getTime())) return "";
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(d);
+  } catch {
+    const d = typeof dateOrTs === "object" ? dateOrTs : new Date(dateOrTs);
+    return d.toISOString().slice(0, 10);
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -42,8 +102,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const range = searchParams.get("range") || "12m"; // "12m" or "year" or "all"
+    const range = searchParams.get("range") || "12m"; // "12m" or "year"
     const targetYearParam = searchParams.get("year");
+    const clientTz = searchParams.get("tz") || "Asia/Kolkata";
 
     const adminClient = createAdminClient();
 
@@ -52,31 +113,29 @@ export async function GET(request: NextRequest) {
     const studentId = batchContext.profileId || user.id;
     const studentUserId = batchContext.studentUserId || user.id;
 
-    // 2. Define Date Range Window (Default: Last 12 months / 365 days ending today)
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
+    // 2. Define Date Range Window strictly in student's local timezone
+    const todayLocalStr = getLocalDateStr(new Date(), clientTz);
+    const parts = todayLocalStr.split("-").map(Number);
+    const nowY = parts[0] ?? new Date().getFullYear();
+    const nowM = parts[1] ?? 1;
+    const nowD = parts[2] ?? 1;
 
-    let startDate: Date;
-    let endDate: Date = today;
+    let startDateStr: string;
+    let endDateStr: string;
 
     if (targetYearParam) {
       const yr = parseInt(targetYearParam, 10);
-      startDate = new Date(yr, 0, 1, 0, 0, 0, 0);
-      endDate = new Date(yr, 11, 31, 23, 59, 59, 999);
-      if (endDate.getTime() > today.getTime()) {
-        endDate = today;
-      }
+      startDateStr = `${yr}-01-01`;
+      endDateStr = yr === nowY ? todayLocalStr : `${yr}-12-31`;
     } else {
-      // Past 365 days (52 weeks)
-      startDate = new Date(today);
-      startDate.setDate(today.getDate() - 364);
-      startDate.setHours(0, 0, 0, 0);
+      // Past 365 days (52 weeks) ending today
+      endDateStr = todayLocalStr;
+      const endUtc = new Date(Date.UTC(nowY, nowM - 1, nowD, 23, 59, 59, 999));
+      const startUtc = new Date(Date.UTC(nowY, nowM - 1, nowD - 364, 0, 0, 0, 0));
+      startDateStr = startUtc.toISOString().slice(0, 10);
     }
 
-    const minTimestamp = startDate.getTime();
-    const maxTimestamp = endDate.getTime();
-
-    // Map of date string YYYY-MM-DD -> DayActivityData
+    // Map of local date string YYYY-MM-DD -> DayActivityData
     const dayMap = new Map<string, DayActivityData>();
 
     const getOrCreateDay = (dateStr: string): DayActivityData => {
@@ -85,6 +144,8 @@ export async function GET(request: NextRequest) {
         entry = {
           date: dateStr,
           count: 0,
+          successfulCount: 0,
+          performancePct: 0,
           intensity: 0,
           categories: {
             coding: 0,
@@ -110,21 +171,22 @@ export async function GET(request: NextRequest) {
       if (p.slug) problemNameMap.set(p.slug, p.title || p.slug);
     });
 
-    // 4. Fetch Real Coding Submissions
+    // 4. Fetch Real Coding Submissions (Meaningful coding activities)
     const { data: rawCodingSubs } = await adminClient
       .from("coding_submissions")
       .select("*")
       .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
       .order("created_at", { ascending: false });
 
-    // Track unique problem solves per day vs attempts
     (rawCodingSubs || []).forEach((sub: any) => {
       const createdStr = sub.submitted_at || sub.created_at;
       if (!createdStr) return;
       const ts = new Date(createdStr).getTime();
-      if (ts < minTimestamp || ts > maxTimestamp) return;
+      if (isNaN(ts)) return;
 
-      const dateStr = new Date(ts).toISOString().slice(0, 10);
+      const dateStr = getLocalDateStr(ts, clientTz);
+      if (dateStr < startDateStr || dateStr > endDateStr) return;
+
       const day = getOrCreateDay(dateStr);
 
       const probTitle = problemNameMap.get(sub.problem_id) || sub.problem_id || "Coding Problem";
@@ -142,6 +204,9 @@ export async function GET(request: NextRequest) {
         : sub.status || "Evaluated";
 
       day.count += 1;
+      if (isAccepted) {
+        day.successfulCount += 1;
+      }
       day.categories.coding += 1;
       day.details.push({
         id: sub.id || `coding-${ts}`,
@@ -150,12 +215,12 @@ export async function GET(request: NextRequest) {
         subtitle: `Language: ${(sub.language || "code").toUpperCase()} • Status: ${statusLabel}`,
         status: statusLabel,
         passed: isAccepted,
-        timeStr: new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+        timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
         timestamp: ts,
       });
     });
 
-    // 5. Fetch Real Enrollments & Course Learning Milestones
+    // 5. Fetch Real Course Completions (Meaningful course milestones only - NO page visits / enrollments)
     const { data: rawCourses } = await adminClient.from("courses").select("id, title");
     const courseTitleMap = new Map<string, string>();
     (rawCourses || []).forEach((c: any) => courseTitleMap.set(c.id, c.title));
@@ -168,58 +233,30 @@ export async function GET(request: NextRequest) {
     (rawEnrollments || []).forEach((enr: any) => {
       const cTitle = courseTitleMap.get(enr.course_id) || "Course";
 
-      // A. Enrollment activity
-      if (enr.enrolled_at) {
-        const enrTs = new Date(enr.enrolled_at).getTime();
-        if (enrTs >= minTimestamp && enrTs <= maxTimestamp) {
-          const dateStr = new Date(enrTs).toISOString().slice(0, 10);
-          const day = getOrCreateDay(dateStr);
-          day.count += 1;
-          day.categories.learning += 1;
-          day.details.push({
-            id: `enr-${enr.id || enrTs}`,
-            category: "learning",
-            title: `Enrolled in Course: ${cTitle}`,
-            subtitle: `Progress: ${enr.progress_percentage || 0}%`,
-            timeStr: new Date(enrTs).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
-            timestamp: enrTs,
-          });
-        }
-      }
-
-      // B. Course Completion / Update milestone
-      if (enr.completed_at) {
-        const compTs = new Date(enr.completed_at).getTime();
-        if (compTs >= minTimestamp && compTs <= maxTimestamp) {
-          const dateStr = new Date(compTs).toISOString().slice(0, 10);
-          const day = getOrCreateDay(dateStr);
-          day.count += 1;
-          day.categories.learning += 1;
-          day.details.push({
-            id: `comp-${enr.id || compTs}`,
-            category: "learning",
-            title: `Completed Course: ${cTitle}`,
-            subtitle: `100% Curriculum Completed`,
-            passed: true,
-            timeStr: new Date(compTs).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
-            timestamp: compTs,
-          });
-        }
-      } else if (enr.last_accessed_at && enr.last_accessed_at !== enr.enrolled_at) {
-        const accessTs = new Date(enr.last_accessed_at).getTime();
-        if (accessTs >= minTimestamp && accessTs <= maxTimestamp) {
-          const dateStr = new Date(accessTs).toISOString().slice(0, 10);
-          const day = getOrCreateDay(dateStr);
-          day.count += 1;
-          day.categories.learning += 1;
-          day.details.push({
-            id: `learn-${enr.id || accessTs}`,
-            category: "learning",
-            title: `Learning Session: ${cTitle}`,
-            subtitle: `${enr.completed_lessons || 0} lessons completed (${enr.progress_percentage || 0}%)`,
-            timeStr: new Date(accessTs).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
-            timestamp: accessTs,
-          });
+      // Track ONLY actual Course / Module Completion
+      if (enr.completed_at || enr.status === "completed" || enr.progress_percentage === 100) {
+        const compDateStr = enr.completed_at || enr.updated_at;
+        if (compDateStr) {
+          const compTs = new Date(compDateStr).getTime();
+          if (!isNaN(compTs)) {
+            const dateStr = getLocalDateStr(compTs, clientTz);
+            if (dateStr >= startDateStr && dateStr <= endDateStr) {
+              const day = getOrCreateDay(dateStr);
+              day.count += 1;
+              day.successfulCount += 1;
+              day.categories.learning += 1;
+              day.details.push({
+                id: `comp-${enr.id || compTs}`,
+                category: "learning",
+                title: `Completed Course: ${cTitle}`,
+                subtitle: `100% Curriculum Completed`,
+                status: "Completed",
+                passed: true,
+                timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(compTs)),
+                timestamp: compTs,
+              });
+            }
+          }
         }
       }
     });
@@ -241,17 +278,23 @@ export async function GET(request: NextRequest) {
       const attDateStr = att.submitted_at || att.created_at;
       if (!attDateStr) return;
       const ts = new Date(attDateStr).getTime();
-      if (ts < minTimestamp || ts > maxTimestamp) return;
+      if (isNaN(ts)) return;
 
-      const dateStr = new Date(ts).toISOString().slice(0, 10);
+      const dateStr = getLocalDateStr(ts, clientTz);
+      if (dateStr < startDateStr || dateStr > endDateStr) return;
+
       const day = getOrCreateDay(dateStr);
 
       const assMeta = assessmentTitleMap.get(att.assessment_id);
       const isPractice = assMeta?.type === "practice" || att.is_practice;
       const title = assMeta?.title || (isPractice ? "Practice Challenge" : "Assessment Exam");
-      const passed = att.passed || (att.score !== undefined && att.score >= 50);
+      const passed = att.passed === true || (att.score !== undefined && att.score >= 50);
 
       day.count += 1;
+      if (passed) {
+        day.successfulCount += 1;
+      }
+
       if (isPractice) {
         day.categories.practice += 1;
         day.details.push({
@@ -259,9 +302,10 @@ export async function GET(request: NextRequest) {
           category: "practice",
           title: `Practice: ${title}`,
           subtitle: `Score: ${att.score ?? 0}% • ${passed ? "Passed" : "Attempted"}`,
+          status: passed ? "Passed" : "Attempted",
           passed,
           score: att.score,
-          timeStr: new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+          timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
           timestamp: ts,
         });
       } else {
@@ -271,9 +315,10 @@ export async function GET(request: NextRequest) {
           category: "assessment",
           title: `Assessment: ${title}`,
           subtitle: `Score: ${att.score ?? 0} pts • ${passed ? "Passed" : "Submitted"}`,
+          status: passed ? "Passed" : "Submitted",
           passed,
           score: att.score,
-          timeStr: new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+          timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
           timestamp: ts,
         });
       }
@@ -294,73 +339,107 @@ export async function GET(request: NextRequest) {
       const subDateStr = asub.submitted_at || asub.created_at;
       if (!subDateStr) return;
       const ts = new Date(subDateStr).getTime();
-      if (ts < minTimestamp || ts > maxTimestamp) return;
+      if (isNaN(ts)) return;
 
-      const dateStr = new Date(ts).toISOString().slice(0, 10);
+      const dateStr = getLocalDateStr(ts, clientTz);
+      if (dateStr < startDateStr || dateStr > endDateStr) return;
+
       const day = getOrCreateDay(dateStr);
       const assignTitle = assignmentTitleMap.get(asub.assignment_id) || "Assignment";
+      const isGradedOrSubmitted = asub.status === "submitted" || asub.status === "graded" || asub.content || asub.file_url;
+      const passed = asub.grade !== undefined ? asub.grade >= 50 : true;
 
       day.count += 1;
+      if (passed && isGradedOrSubmitted) {
+        day.successfulCount += 1;
+      }
       day.categories.learning += 1;
       day.details.push({
         id: asub.id || `assign-${ts}`,
         category: "learning",
         title: `Submitted Assignment: ${assignTitle}`,
         subtitle: `Status: ${asub.status || "Submitted"}`,
-        timeStr: new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+        status: asub.status || "Submitted",
+        passed,
+        timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
         timestamp: ts,
       });
     });
 
-    // 8. Integrate Real-Time Active Sessions from ActiveTimeService
-    const studentActiveData = ActiveTimeService.getStudentActiveTime(studentId);
-    if (studentActiveData && studentActiveData.sessions) {
-      studentActiveData.sessions.forEach((sess) => {
-        const startStr = sess.startedAt;
-        if (!startStr) return;
-        const ts = new Date(startStr).getTime();
-        if (ts < minTimestamp || ts > maxTimestamp) return;
+    // 8. Fetch Real Attended Live Learning Sessions (Actual session participation only - NO passive logins/heartbeats)
+    try {
+      const { data: rawLiveAttendance } = await adminClient
+        .from("live_class_attendance")
+        .select("*")
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`);
 
-        const dateStr = new Date(ts).toISOString().slice(0, 10);
+      const { data: rawLiveClasses } = await adminClient.from("live_classes").select("id, title");
+      const liveClassMap = new Map<string, string>();
+      (rawLiveClasses || []).forEach((lc: any) => liveClassMap.set(lc.id, lc.title));
+
+      (rawLiveAttendance || []).forEach((att: any) => {
+        const isAttended = att.attendance_status === "attended" || (att.duration_seconds && att.duration_seconds >= 300);
+        if (!isAttended) return;
+
+        const attDateStr = att.joined_at || att.created_at;
+        if (!attDateStr) return;
+        const ts = new Date(attDateStr).getTime();
+        if (isNaN(ts)) return;
+
+        const dateStr = getLocalDateStr(ts, clientTz);
+        if (dateStr < startDateStr || dateStr > endDateStr) return;
+
         const day = getOrCreateDay(dateStr);
+        const classTitle = liveClassMap.get(att.live_class_id) || "Live Learning Session";
+        const durationMin = Math.max(1, Math.round((att.duration_seconds || 300) / 60));
 
-        const durationMinutes = Math.max(1, Math.round((sess.durationSeconds || 60) / 60));
-
-        // Active session counts towards active day and activity
         day.count += 1;
+        day.successfulCount += 1;
         day.categories.session += 1;
         day.details.push({
-          id: sess.sessionId,
+          id: att.id || `live-${ts}`,
           category: "session",
-          title: `Active Platform Session`,
-          subtitle: `Active Time: ${durationMinutes} min${durationMinutes > 1 ? "s" : ""}`,
-          timeStr: new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+          title: `Attended Class: ${classTitle}`,
+          subtitle: `Session duration: ${durationMin} mins`,
+          status: "Attended",
+          passed: true,
+          timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
           timestamp: ts,
         });
       });
+    } catch (attErr) {
+      console.warn("live_class_attendance query notice:", attErr);
     }
 
-    // 9. Calculate Intensity and sort details by timestamp for each active day
+    // 9. Calculate Intensity and Performance for each day
     for (const [, day] of dayMap.entries()) {
-      if (day.count <= 0) {
-        day.intensity = 0;
-      } else if (day.count <= 2) {
-        day.intensity = 1;
-      } else if (day.count <= 5) {
-        day.intensity = 2;
-      } else if (day.count <= 10) {
-        day.intensity = 3;
+      if (day.count > 0) {
+        day.performancePct = Math.round((day.successfulCount / day.count) * 100);
+        day.intensity = calculateHeatmapIntensity(day.count, day.successfulCount);
       } else {
-        day.intensity = 4;
+        day.performancePct = 0;
+        day.intensity = 0;
       }
       day.details.sort((a, b) => b.timestamp - a.timestamp);
     }
 
     // 10. Generate Full Calendar Array of Days (Every single day in range)
     const calendarDays: DayActivityData[] = [];
-    let curDate = new Date(startDate);
-    while (curDate.getTime() <= endDate.getTime()) {
-      const iso = curDate.toISOString().slice(0, 10);
+    const sParts = startDateStr.split("-").map(Number);
+    const startY = sParts[0] ?? 2025;
+    const startM = sParts[1] ?? 1;
+    const startD = sParts[2] ?? 1;
+
+    const eParts = endDateStr.split("-").map(Number);
+    const endY = eParts[0] ?? 2026;
+    const endM = eParts[1] ?? 12;
+    const endD = eParts[2] ?? 31;
+
+    const curUtc = new Date(Date.UTC(startY, startM - 1, startD, 0, 0, 0, 0));
+    const limitUtc = new Date(Date.UTC(endY, endM - 1, endD, 23, 59, 59, 999));
+
+    while (curUtc.getTime() <= limitUtc.getTime()) {
+      const iso = curUtc.toISOString().slice(0, 10);
       const existing = dayMap.get(iso);
       if (existing) {
         calendarDays.push(existing);
@@ -368,6 +447,8 @@ export async function GET(request: NextRequest) {
         calendarDays.push({
           date: iso,
           count: 0,
+          successfulCount: 0,
+          performancePct: 0,
           intensity: 0,
           categories: {
             coding: 0,
@@ -379,7 +460,7 @@ export async function GET(request: NextRequest) {
           details: [],
         });
       }
-      curDate.setDate(curDate.getDate() + 1);
+      curUtc.setUTCDate(curUtc.getUTCDate() + 1);
     }
 
     // 11. Calculate Overall Summary Metrics (Total activities, active days, streaks)
@@ -403,13 +484,11 @@ export async function GET(request: NextRequest) {
     });
 
     // Calculate current streak ending today or yesterday
-    const todayIso = today.toISOString().slice(0, 10);
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const yesterdayIso = yesterday.toISOString().slice(0, 10);
+    const yesterdayDate = new Date(Date.UTC(nowY, nowM - 1, nowD - 1, 0, 0, 0, 0));
+    const yesterdayIso = yesterdayDate.toISOString().slice(0, 10);
 
     const reversed = [...calendarDays].reverse();
-    const todayIndex = reversed.findIndex((d) => d.date === todayIso);
+    const todayIndex = reversed.findIndex((d) => d.date === todayLocalStr);
     const hasToday = todayIndex !== -1 && (reversed[todayIndex]?.count ?? 0) > 0;
     const startIndex = hasToday ? todayIndex : reversed.findIndex((d) => d.date === yesterdayIso);
 
@@ -434,8 +513,8 @@ export async function GET(request: NextRequest) {
         totalActiveDays,
         maxStreak,
         currentStreak,
-        startDate: startDate.toISOString().slice(0, 10),
-        endDate: endDate.toISOString().slice(0, 10),
+        startDate: startDateStr,
+        endDate: endDateStr,
         calendarDays,
         availableYears,
         range,

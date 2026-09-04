@@ -202,6 +202,7 @@ export class SubmissionService {
         const existing = this.getStudentSubmissions(submission.student_id);
         const updated = [submission, ...existing.filter((s) => s.id !== submission.id)];
         localStorage.setItem(LOCAL_STORAGE_SUBMISSIONS_KEY, JSON.stringify(updated.slice(0, 50)));
+        window.dispatchEvent(new CustomEvent("student-activity-updated"));
       } catch (err) {
         console.error("Failed to save submission to localStorage:", err);
       }

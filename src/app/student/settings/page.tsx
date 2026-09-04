@@ -32,10 +32,6 @@ export default function StudentSettingsPage() {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
               Account Settings & Security
             </h1>
-
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal">
-              Configure security credentials and password preferences
-            </p>
           </div>
         </div>
       </div>

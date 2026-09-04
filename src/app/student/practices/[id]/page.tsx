@@ -234,17 +234,10 @@ export default function StudentTrackDetailPage() {
               </button>
             </div>
 
-            {/* Track Title & Category Badge */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-                {track.title}
-              </h1>
-              {track.category && (
-                <Badge variant="outline" className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 border-blue-200/70 dark:border-blue-900/50 bg-blue-50/70 dark:bg-blue-950/30 px-2 py-0.5 rounded-md shrink-0">
-                  {track.category}
-                </Badge>
-              )}
-            </div>
+            {/* Track Title */}
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+              {track.title}
+            </h1>
 
             {/* Track Description */}
             <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal line-clamp-1">

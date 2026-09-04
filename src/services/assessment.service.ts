@@ -259,6 +259,11 @@ export class AssessmentService {
 
     attempts.push(newAttempt);
     this.saveLocalAttempts(attempts);
+    if (typeof window !== "undefined") {
+      try {
+        window.dispatchEvent(new CustomEvent("student-activity-updated"));
+      } catch {}
+    }
     return newAttempt;
   }
 

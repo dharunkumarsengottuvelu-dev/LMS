@@ -610,17 +610,10 @@ export default function StudentCoursePlayerPage() {
               </Link>
             </div>
 
-            {/* Course Title & Category Badge */}
-            <div className="flex items-center gap-2.5 flex-wrap py-0.5">
-              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-                {courseTitle}
-              </h1>
-              {courseCategory && (
-                <Badge variant="outline" className="text-[11px] sm:text-xs font-semibold text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/50 bg-blue-50/80 dark:bg-blue-950/30 px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
-                  {courseCategory}
-                </Badge>
-              )}
-            </div>
+            {/* Course Title */}
+            <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight py-0.5">
+              {courseTitle}
+            </h1>
 
             {/* Active Lesson Information */}
             {activeLesson?.title && (

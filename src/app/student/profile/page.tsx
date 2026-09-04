@@ -414,10 +414,6 @@ export default function StudentProfilePage() {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
               Student Profile & Account
             </h1>
-
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal">
-              Manage your personal profile, credentials, and detailed learning analyses
-            </p>
           </div>
         </div>
       </div>

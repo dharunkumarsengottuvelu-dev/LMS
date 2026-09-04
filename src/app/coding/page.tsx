@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -16,6 +17,7 @@ import type { CodingSubmission } from "@/types/coding";
 import { toast } from "sonner";
 
 export default function CodingDashboardPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>("problems");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
@@ -85,7 +87,20 @@ export default function CodingDashboardPage() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 lg:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== "undefined" && window.history.length > 1) {
+                    router.back();
+                  } else {
+                    router.push("/student/dashboard");
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-md transition-colors cursor-pointer mr-1"
+              >
+                ← Back
+              </button>
               <span className="px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 rounded">
                 Practice Workspace
               </span>
@@ -96,9 +111,21 @@ export default function CodingDashboardPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
               FALCON Coding Workspace
             </h1>
-            <p className="text-slate-500 text-xs sm:text-sm mt-1 max-w-2xl">
-              Sharpen your algorithmic thinking and data structure implementation with real-time compilation and automated test case evaluation.
-            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push("/student/dashboard");
+                }
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-slate-700 hover:text-slate-950 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
+            >
+              ← Back to Dashboard
+            </button>
           </div>
         </div>
 

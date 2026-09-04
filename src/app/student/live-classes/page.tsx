@@ -200,17 +200,9 @@ export default function StudentLiveClassesPage() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
-                Live Classes
-              </h1>
-              <Badge variant="outline" className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/50 bg-blue-50/80 dark:bg-blue-950/30 px-2 py-0.5 rounded-full">
-                {counts.all} Total
-              </Badge>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal line-clamp-1">
-              Join your scheduled classes and track your attendance
-            </p>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
+              Live Classes
+            </h1>
           </div>
 
           {/* Right: Search */}

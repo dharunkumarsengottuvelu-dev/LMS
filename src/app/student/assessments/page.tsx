@@ -280,10 +280,6 @@ export default function StudentAssessmentsPage() {
             <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
               Scheduled Assessments & Tests
             </h1>
-
-            <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal line-clamp-1">
-              View your assigned examinations, live proctored assessments, and test schedules
-            </p>
           </div>
         </div>
       </div>
