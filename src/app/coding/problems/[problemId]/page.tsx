@@ -660,15 +660,15 @@ export default function ProblemSolvingWorkspace() {
                         </div>
                         <div className="text-xs font-mono">
                           <strong className="text-slate-900 font-sans">Input: </strong>
-                          <span className="text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
+                          <pre className="inline-block text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 font-mono text-xs whitespace-pre-wrap max-w-full align-top">
                             {eg.input}
-                          </span>
+                          </pre>
                         </div>
                         <div className="text-xs font-mono">
                           <strong className="text-slate-900 font-sans">Output: </strong>
-                          <span className="text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
+                          <pre className="inline-block text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 font-mono text-xs whitespace-pre-wrap max-w-full align-top">
                             {eg.output}
-                          </span>
+                          </pre>
                         </div>
                         {eg.explanation && (
                           <div className="text-xs text-slate-500 mt-1">

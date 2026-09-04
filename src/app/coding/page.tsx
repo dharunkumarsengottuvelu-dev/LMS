@@ -273,7 +273,7 @@ export default function CodingDashboardPage() {
 
             {/* Problem Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {filteredProblems.slice(0, 9).map((prob) => {
+              {filteredProblems.slice(0, 9).map((prob, idx) => {
                 const status = CodingProgressService.getProblemStatus(prob.id);
                 return (
                   <div
@@ -282,8 +282,8 @@ export default function CodingDashboardPage() {
                   >
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="text-xs font-mono text-slate-400">
-                          #{prob.id}
+                        <span className="text-xs font-mono font-semibold text-slate-400 whitespace-nowrap" title={prob.id}>
+                          #{idx + 1}
                         </span>
                         <div className="flex items-center gap-1.5">
                           <span

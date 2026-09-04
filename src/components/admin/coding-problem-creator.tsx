@@ -889,16 +889,6 @@ export function CodingProblemCreator({
           <Button
             type="button"
             variant="outline"
-            onClick={() => setActiveView("live_preview")}
-            className="h-[40px] px-4 text-xs font-semibold rounded-xl border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs"
-          >
-            <Eye className="w-4 h-4" />
-            <span>Live Preview</span>
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
             onClick={() => handleSave("draft")}
             className="h-[40px] px-4 text-xs font-semibold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs"
           >
@@ -1136,32 +1126,44 @@ export function CodingProblemCreator({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Input:</label>
-                  <Input
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700">Input:</label>
+                    <span className="text-[10px] text-slate-400">Auto-expands with content</span>
+                  </div>
+                  <Textarea
                     value={eg.input}
                     onChange={(e) => handleUpdateExample(idx, "input", e.target.value)}
-                    placeholder="e.g. Input data"
-                    className="h-8.5 text-xs bg-white border-slate-200 rounded-lg font-mono"
+                    placeholder="e.g. 5 10 5 8 20 15"
+                    rows={Math.max(1, Math.min(10, (eg.input || "").split("\n").length))}
+                    className="min-h-[38px] text-xs bg-white border-slate-200 rounded-lg font-mono resize-y py-2 leading-relaxed"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Output:</label>
-                  <Input
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700">Output:</label>
+                    <span className="text-[10px] text-slate-400">Auto-expands with content</span>
+                  </div>
+                  <Textarea
                     value={eg.output}
                     onChange={(e) => handleUpdateExample(idx, "output", e.target.value)}
                     placeholder="e.g. Expected output"
-                    className="h-8.5 text-xs bg-white border-slate-200 rounded-lg font-mono"
+                    rows={Math.max(1, Math.min(10, (eg.output || "").split("\n").length))}
+                    className="min-h-[38px] text-xs bg-white border-slate-200 rounded-lg font-mono resize-y py-2 leading-relaxed"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Explanation:</label>
-                <Input
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-700">Explanation:</label>
+                  <span className="text-[10px] text-slate-400">Auto-expands with content</span>
+                </div>
+                <Textarea
                   value={eg.explanation || ""}
                   onChange={(e) => handleUpdateExample(idx, "explanation", e.target.value)}
                   placeholder="e.g. Explanation of the example (optional)"
-                  className="h-8.5 text-xs bg-white border-slate-200 rounded-lg"
+                  rows={Math.max(1, Math.min(8, (eg.explanation || "").split("\n").length))}
+                  className="min-h-[38px] text-xs bg-white border-slate-200 rounded-lg resize-y py-2 leading-relaxed"
                 />
               </div>
             </div>
@@ -1414,23 +1416,29 @@ export function CodingProblemCreator({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Input:</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700">Input:</label>
+                    <span className="text-[10px] text-slate-400">Auto-expands with content</span>
+                  </div>
                   <Textarea
-                    rows={2}
+                    rows={Math.max(2, Math.min(12, (tc.input || "").split("\n").length))}
                     value={tc.input}
                     onChange={(e) => handleUpdateTestCase(idx, "input", e.target.value)}
                     placeholder="Input data for this test case"
-                    className="text-xs bg-white border-slate-200 rounded-lg font-mono"
+                    className="min-h-[48px] text-xs bg-white border-slate-200 rounded-lg font-mono resize-y py-2 leading-relaxed"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Expected Output:</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700">Expected Output:</label>
+                    <span className="text-[10px] text-slate-400">Auto-expands with content</span>
+                  </div>
                   <Textarea
-                    rows={2}
+                    rows={Math.max(2, Math.min(12, (tc.expected_output || "").split("\n").length))}
                     value={tc.expected_output}
                     onChange={(e) => handleUpdateTestCase(idx, "expected_output", e.target.value)}
                     placeholder="Expected output result"
-                    className="text-xs bg-white border-slate-200 rounded-lg font-mono"
+                    className="min-h-[48px] text-xs bg-white border-slate-200 rounded-lg font-mono resize-y py-2 leading-relaxed"
                   />
                 </div>
               </div>

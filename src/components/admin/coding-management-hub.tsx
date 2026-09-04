@@ -253,7 +253,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
                   </td>
                 </tr>
               ) : (
-                filteredProblems.map((prob) => {
+                filteredProblems.map((prob, idx) => {
                   const testCases = prob.test_cases || [];
                   const publicCount = testCases.filter((tc) => !tc.is_hidden).length;
                   const hiddenCount = testCases.filter((tc) => tc.is_hidden).length;
@@ -261,8 +261,8 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
 
                   return (
                     <tr key={prob.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-400">
-                        #{prob.id}
+                      <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-400 whitespace-nowrap" title={prob.id}>
+                        #{idx + 1}
                       </td>
 
                       <td className="py-3 px-4">

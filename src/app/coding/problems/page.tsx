@@ -336,7 +336,7 @@ export default function ProblemsListPage() {
                   </td>
                 </tr>
               ) : (
-                paginatedProblems.map((prob) => {
+                paginatedProblems.map((prob, idx) => {
                   const status = CodingProgressService.getProblemStatus(prob.id);
                   const isAssigned = assignedProblemIds.has(prob.id);
 
@@ -346,8 +346,8 @@ export default function ProblemsListPage() {
                       className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
                     >
                       {/* # Number */}
-                      <td className="py-3.5 px-4 font-mono text-xs font-medium text-slate-400">
-                        {prob.id}
+                      <td className="py-3.5 px-4 font-mono text-xs font-medium text-slate-400 whitespace-nowrap" title={prob.id}>
+                        {(currentPage - 1) * itemsPerPage + idx + 1}
                       </td>
 
                       {/* Status */}
