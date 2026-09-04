@@ -97,8 +97,11 @@ export function LMSProvider({ children }: { children: React.ReactNode }) {
   const [studentAttempts, setStudentAttempts] = useState<AssessmentAttempt[]>([]);
   const [batches, setBatches] = useState<LMSBatch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const isFetchingRef = React.useRef(false);
 
   const refreshData = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setIsLoading(true);
     try {
       const [
@@ -133,12 +136,9 @@ export function LMSProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to fetch data from Supabase", error);
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
   }, []);
-
-  useEffect(() => {
-    refreshData();
-  }, [refreshData]);
 
   // Courses Actions (Database Backed)
   const addCourse = async (newCourse: Course) => {

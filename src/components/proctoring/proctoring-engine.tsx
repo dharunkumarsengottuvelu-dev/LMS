@@ -510,21 +510,36 @@ export function ProctoringEngine({
           }
         }
 
-        // Update Proctoring State & Alert
-        setProctoringState({
-          faceCount: result.faceCount,
-          positionState: result.positionState,
-          headPoseState: result.headPoseState,
-          lightingState: result.lightingState,
-          confidence: result.confidence,
-          statusText,
+        // Update Proctoring State & Alert (guarded to prevent 100 redundant parent re-renders/minute)
+        setProctoringState((prev) => {
+          if (
+            prev.faceCount === result.faceCount &&
+            prev.positionState === result.positionState &&
+            prev.headPoseState === result.headPoseState &&
+            prev.lightingState === result.lightingState &&
+            prev.statusText === statusText &&
+            Math.abs(prev.confidence - result.confidence) < 0.5
+          ) {
+            return prev;
+          }
+          return {
+            faceCount: result.faceCount,
+            positionState: result.positionState,
+            headPoseState: result.headPoseState,
+            lightingState: result.lightingState,
+            confidence: result.confidence,
+            statusText,
+          };
         });
 
         if (newWarningMessage) {
-          setActiveAlert({ message: newWarningMessage, severity: newSeverity });
+          setActiveAlert((prev) => {
+            if (prev && prev.message === newWarningMessage && prev.severity === newSeverity) return prev;
+            return { message: newWarningMessage, severity: newSeverity };
+          });
           onWarningMessage?.(newWarningMessage);
         } else {
-          setActiveAlert(null);
+          setActiveAlert((prev) => (prev === null ? prev : null));
           onWarningMessage?.(null);
         }
       } catch (e) {
@@ -537,7 +552,10 @@ export function ProctoringEngine({
     isExamSubmitted,
     webcamStream,
     cameraStatus,
-    config,
+    config.detectionIntervalMs,
+    config.multipleFaceDetection,
+    config.lookingAwayDetection,
+    config.lowLightDetection,
     noFaceGracePeriod,
     lookingAwayGracePeriod,
     positionGracePeriod,

@@ -23,13 +23,19 @@ const LOCAL_STORAGE_ACTIVE_PROBLEM_KEY = "falcon_coding_active_problem_v2";
 
 export class CodingProgressService {
   private static memoryStore: Map<string, ProblemSavedState> = new Map();
+  private static storeLoaded = false;
 
   private static isBrowser(): boolean {
     return typeof window !== "undefined";
   }
 
+  public static invalidateCache(): void {
+    this.storeLoaded = false;
+  }
+
   private static loadStore(): Map<string, ProblemSavedState> {
     if (!this.isBrowser()) return this.memoryStore;
+    if (this.storeLoaded) return this.memoryStore;
     try {
       const raw = localStorage.getItem(LOCAL_STORAGE_PROGRESS_KEY);
       if (raw) {
@@ -37,11 +43,13 @@ export class CodingProgressService {
         const map = new Map<string, ProblemSavedState>();
         Object.entries(parsed).forEach(([k, v]) => map.set(k, v));
         this.memoryStore = map;
+        this.storeLoaded = true;
         return map;
       }
     } catch (e) {
       console.error("Failed to load coding progress from localStorage:", e);
     }
+    this.storeLoaded = true;
     return this.memoryStore;
   }
 

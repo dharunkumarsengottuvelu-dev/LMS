@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useLMSStore } from "@/lib/store/lms-store";
 import { PageHeader } from "@/components/layouts/page-header";
 
 export default function TrainerDashboardPage() {
@@ -28,10 +27,24 @@ export default function TrainerDashboardPage() {
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
 
-        // 1. Batches & Memberships
-        const { data: bData } = await supabase.from("batches").select("*");
-        const { data: bmData } = await supabase.from("batch_members").select("batch_id, user_id");
+        // Concurrently fetch all trainer dashboard datasets
+        const [
+          { data: bData },
+          { data: bmData },
+          { data: attemptsData },
+          { data: sData },
+          { data: aData },
+          { data: asData }
+        ] = await Promise.all([
+          supabase.from("batches").select("id, name, batch_name, college_name, course_name, course_id, joining_time, status"),
+          supabase.from("batch_members").select("batch_id, user_id"),
+          supabase.from("assessment_attempts").select("student_id, score"),
+          supabase.from("profiles").select("id, user_id, first_name, last_name, email, batch_id, batch, batch_name, status, violation_count").eq("role", "student"),
+          supabase.from("assessments").select("id, title, status, duration_minutes, total_marks"),
+          supabase.from("assignments").select("id, title, status, due_date"),
+        ]);
 
+        // 1. Batches & Memberships
         const batchStudentMap = new Map<string, string[]>();
         (bmData || []).forEach((bm: any) => {
           const list = batchStudentMap.get(bm.batch_id) || [];
@@ -54,10 +67,6 @@ export default function TrainerDashboardPage() {
         }
 
         // 2. Real assessment attempts for calculating real student scores
-        const { data: attemptsData } = await (supabase as any)
-          .from("assessment_attempts")
-          .select("student_id, score");
-
         const studentScoreMap = new Map<string, { total: number; count: number }>();
         (attemptsData || []).forEach((att: any) => {
           if (!att.student_id) return;
@@ -69,7 +78,6 @@ export default function TrainerDashboardPage() {
         });
 
         // 3. Students
-        const { data: sData } = await supabase.from("profiles").select("*").eq("role", "student");
         if (sData) {
           setStudents(
             sData.map((s: any) => {
@@ -89,10 +97,7 @@ export default function TrainerDashboardPage() {
         }
 
         // 4. Assessments & Assignments
-        const { data: aData } = await supabase.from("assessments").select("*");
         if (aData) setAssessments(aData);
-
-        const { data: asData } = await supabase.from("assignments").select("*");
         if (asData) setAssignments(asData);
       } catch (err) {
         console.error("Failed to load trainer dashboard data:", err);

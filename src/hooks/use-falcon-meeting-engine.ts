@@ -1454,20 +1454,17 @@ export function useFalconMeetingEngine({
     leaveMeeting();
   }, [userRole, safeBroadcast, leaveMeeting]);
 
-  // Window beforeunload cleanup
+  // Window beforeunload and component unmount cleanup
   useEffect(() => {
     const handleBeforeUnload = () => {
-      stopAllMediaTracks();
-      if (channelRef.current) {
-        channelRef.current.untrack().catch(() => {});
-      }
+      leaveMeeting();
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      stopAllMediaTracks();
+      leaveMeeting();
     };
-  }, [stopAllMediaTracks]);
+  }, [leaveMeeting]);
 
   const remoteParticipants = Array.from(remoteParticipantsMap.values());
 

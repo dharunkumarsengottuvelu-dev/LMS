@@ -154,7 +154,57 @@ export async function GET(request: NextRequest) {
       minTimestamp = now - 30 * 86400000;
     }
 
-    // 3. Trainer Batch Scoping: Trainers can only view batches they are assigned to
+    // 3. Concurrently fetch all datasets in parallel with lean column projections
+    const [
+      { data: rawStudents, error: studentsErr },
+      { data: allBatches },
+      { data: allBatchMembers },
+      { data: allCourses },
+      { data: allEnrollments },
+      { data: allCodingSubs },
+      { data: allAttempts },
+      { data: allAssignments },
+      rawLiveAttResult,
+      allStudentsActiveTime,
+    ] = await Promise.all([
+      adminClient
+        .from("profiles")
+        .select("id, user_id, email, first_name, last_name, role, status, employee_id, department, joined_date, created_at, violation_count, proctoring_compliance, avg_score, batch_id, batch, batch_name")
+        .eq("role", "student")
+        .order("created_at", { ascending: false }),
+      adminClient
+        .from("batches")
+        .select("id, name, batch_name, college_name, course_name, lead_trainer, trainer_name, trainer_email, trainer_id, status"),
+      adminClient
+        .from("batch_members")
+        .select("batch_id, user_id"),
+      adminClient
+        .from("courses")
+        .select("id, title"),
+      adminClient
+        .from("enrollments")
+        .select("id, student_id, user_id, course_id, status, progress_percentage, completed_at"),
+      adminClient
+        .from("coding_submissions")
+        .select("id, student_id, user_id, problem_id, status, score, language, submitted_at, created_at")
+        .order("created_at", { ascending: false }),
+      adminClient
+        .from("assessment_attempts")
+        .select("id, student_id, user_id, assessment_id, score, is_practice, passed, submitted_at, created_at")
+        .order("submitted_at", { ascending: false }),
+      adminClient
+        .from("assignment_submissions")
+        .select("id, student_id, user_id, assignment_id, status, grade, submitted_at, created_at")
+        .order("submitted_at", { ascending: false }),
+      adminClient
+        .from("live_class_attendance")
+        .select("id, student_id, user_id, live_class_id, attendance_status, duration_seconds, joined_at, created_at"),
+      ActiveTimeService.getAllStudentsActiveTime().catch(() => ({})),
+    ]);
+
+    if (studentsErr) throw studentsErr;
+
+    // Trainer Batch Scoping: filter from pre-fetched allBatches
     let trainerAuthorizedBatchNames: string[] | null = null;
     let trainerAuthorizedBatchIds: string[] | null = null;
 
@@ -162,8 +212,7 @@ export async function GET(request: NextRequest) {
       const trainerName = `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim().toLowerCase();
       const trainerEmail = (profile?.email || user.email || "").toLowerCase();
 
-      const { data: rawBatches } = await adminClient.from("batches").select("*");
-      const assignedBatches = (rawBatches || []).filter((b: any) => {
+      const assignedBatches = (allBatches || []).filter((b: any) => {
         const bLead = (b.lead_trainer || b.trainer_name || "").toLowerCase();
         const bEmail = (b.trainer_email || "").toLowerCase();
         const bId = b.trainer_id || "";
@@ -179,24 +228,13 @@ export async function GET(request: NextRequest) {
       trainerAuthorizedBatchNames = assignedBatches.map((b: any) => (b.batch_name || b.name || "").toLowerCase());
     }
 
-    // 4. Query All Student Profiles
-    const { data: rawStudents, error: studentsErr } = await adminClient
-      .from("profiles")
-      .select("*")
-      .eq("role", "student")
-      .order("created_at", { ascending: false });
-
-    if (studentsErr) throw studentsErr;
-
-    // 5. Query Batches and Batch Memberships
-    const { data: allBatches } = await adminClient.from("batches").select("*");
+    // Map Batches and Batch Memberships
     const batchNameMap = new Map<string, string>();
     (allBatches || []).forEach((b: any) => {
       const title = b.batch_name || b.name || `Batch #${b.id}`;
       batchNameMap.set(b.id, title);
     });
 
-    const { data: allBatchMembers } = await adminClient.from("batch_members").select("batch_id, user_id");
     const userBatchMap = new Map<string, string[]>();
     (allBatchMembers || []).forEach((bm: any) => {
       const list = userBatchMap.get(bm.user_id) || [];
@@ -207,12 +245,10 @@ export async function GET(request: NextRequest) {
       userBatchMap.set(bm.user_id, list);
     });
 
-    // 6. Query Courses & Course Enrollments
-    const { data: allCourses } = await adminClient.from("courses").select("id, title");
+    // Map Courses & Course Enrollments
     const courseTitleMap = new Map<string, string>();
     (allCourses || []).forEach((c: any) => courseTitleMap.set(c.id, c.title));
 
-    const { data: allEnrollments } = await adminClient.from("enrollments").select("*");
     const userEnrollmentsMap = new Map<string, any[]>();
     (allEnrollments || []).forEach((e: any) => {
       const uId = e.student_id || e.user_id;
@@ -222,12 +258,7 @@ export async function GET(request: NextRequest) {
       userEnrollmentsMap.set(uId, list);
     });
 
-    // 7. Query Coding Submissions (filtered by date range)
-    const { data: allCodingSubs } = await adminClient
-      .from("coding_submissions")
-      .select("*")
-      .order("created_at", { ascending: false });
-
+    // Map Coding Submissions (filtered by date range)
     const userCodingMap = new Map<string, any[]>();
     (allCodingSubs || []).forEach((sub: any) => {
       const cStr = sub.submitted_at || sub.created_at;
@@ -242,12 +273,7 @@ export async function GET(request: NextRequest) {
       userCodingMap.set(uId, list);
     });
 
-    // 8. Query Assessment & Test Attempts (filtered by date range)
-    const { data: allAttempts } = await adminClient
-      .from("assessment_attempts")
-      .select("*")
-      .order("submitted_at", { ascending: false });
-
+    // Map Assessment & Test Attempts (filtered by date range)
     const userAttemptsMap = new Map<string, any[]>();
     (allAttempts || []).forEach((att: any) => {
       const aStr = att.submitted_at || att.created_at;
@@ -262,12 +288,7 @@ export async function GET(request: NextRequest) {
       userAttemptsMap.set(uId, list);
     });
 
-    // 9. Query Assignment Submissions (filtered by date range)
-    const { data: allAssignments } = await adminClient
-      .from("assignment_submissions")
-      .select("*")
-      .order("submitted_at", { ascending: false });
-
+    // Map Assignment Submissions (filtered by date range)
     const userAssignmentsMap = new Map<string, any[]>();
     (allAssignments || []).forEach((asub: any) => {
       const sStr = asub.submitted_at || asub.created_at;
@@ -282,13 +303,8 @@ export async function GET(request: NextRequest) {
       userAssignmentsMap.set(uId, list);
     });
 
-    // 10. Query Live Class Attendance (filtered by date range)
-    let allLiveAttendance: any[] = [];
-    try {
-      const { data: rawLiveAtt } = await adminClient.from("live_class_attendance").select("*");
-      allLiveAttendance = rawLiveAtt || [];
-    } catch {}
-
+    // Map Live Class Attendance (filtered by date range)
+    const allLiveAttendance: any[] = rawLiveAttResult?.data || [];
     const userLiveAttendanceMap = new Map<string, any[]>();
     allLiveAttendance.forEach((latt: any) => {
       const lStr = latt.joined_at || latt.created_at;
@@ -302,9 +318,6 @@ export async function GET(request: NextRequest) {
       list.push({ ...latt, timestamp: ts });
       userLiveAttendanceMap.set(uId, list);
     });
-
-    // 11. Fetch authoritative active time for all students in one batch query
-    const allStudentsActiveTime = await ActiveTimeService.getAllStudentsActiveTime();
 
     // Process & Aggregate Each Student (GUARANTEE: Exactly 1 record per student, NO duplicates)
     const reportRows: StudentReportItem[] = [];
@@ -438,7 +451,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Real Active Learning Time (from ActiveTimeService)
-      const activeData = allStudentsActiveTime[studentId] || allStudentsActiveTime[studentUserId];
+      const activeTimeMap = (allStudentsActiveTime || {}) as Record<string, any>;
+      const activeData = activeTimeMap[studentId] || activeTimeMap[studentUserId];
       const activeTimeSeconds = activeData?.totalActiveSeconds || 0;
       const activeTimeFormatted = formatSeconds(activeTimeSeconds);
 

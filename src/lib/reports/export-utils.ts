@@ -1,4 +1,3 @@
-import * as XLSX from "xlsx";
 import type { ReportSummary, StudentReportItem } from "@/app/api/admin/reports/student-performance/route";
 
 /**
@@ -16,11 +15,12 @@ function escapeCsv(val: any): string {
 /**
  * Generates and downloads a multi-sheet Enterprise Excel workbook (.xlsx)
  */
-export function exportReportToExcel(
+export async function exportReportToExcel(
   summary: ReportSummary,
   students: StudentReportItem[],
   customFilename?: string
-): void {
+): Promise<void> {
+  const XLSX = await import("xlsx");
   const wb = XLSX.utils.book_new();
 
   // ══════════════════════════════════════════════════════════════

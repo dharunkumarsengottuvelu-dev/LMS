@@ -161,23 +161,57 @@ export async function GET(request: NextRequest) {
       return entry;
     };
 
-    // 3. Fetch Coding Problems for Name Mapping
-    const { data: rawProblems } = await adminClient
-      .from("coding_problems")
-      .select("id, title, slug");
+    // 3. Concurrently fetch all activity datasets in parallel with lean column projections
+    const [
+      { data: rawProblems },
+      { data: rawCodingSubs },
+      { data: rawCourses },
+      { data: rawEnrollments },
+      { data: rawAssessments },
+      { data: rawAttempts },
+      { data: rawAssignments },
+      { data: rawAssignSubs },
+      { data: rawLiveAttendance },
+      { data: rawLiveClasses },
+    ] = await Promise.all([
+      adminClient.from("coding_problems").select("id, title, slug"),
+      adminClient
+        .from("coding_submissions")
+        .select("id, problem_id, status, language, score, submitted_at, created_at")
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+        .order("created_at", { ascending: false }),
+      adminClient.from("courses").select("id, title"),
+      adminClient
+        .from("enrollments")
+        .select("id, course_id, completed_at, updated_at, status, progress_percentage")
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`),
+      adminClient.from("assessments").select("id, title, type"),
+      adminClient
+        .from("assessment_attempts")
+        .select("id, assessment_id, is_practice, passed, score, submitted_at, created_at")
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+        .order("submitted_at", { ascending: false }),
+      adminClient.from("assignments").select("id, title"),
+      adminClient
+        .from("assignment_submissions")
+        .select("id, assignment_id, status, grade, content, file_url, submitted_at, created_at")
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+        .order("submitted_at", { ascending: false }),
+      adminClient
+        .from("live_class_attendance")
+        .select("id, live_class_id, attendance_status, duration_seconds, joined_at, created_at")
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`),
+      adminClient.from("live_classes").select("id, title"),
+    ]);
+
+    // Map Coding Problems
     const problemNameMap = new Map<string, string>();
     (rawProblems || []).forEach((p: any) => {
       if (p.id) problemNameMap.set(p.id, p.title || p.slug || `Problem #${p.id}`);
       if (p.slug) problemNameMap.set(p.slug, p.title || p.slug);
     });
 
-    // 4. Fetch Real Coding Submissions (Meaningful coding activities)
-    const { data: rawCodingSubs } = await adminClient
-      .from("coding_submissions")
-      .select("*")
-      .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
-      .order("created_at", { ascending: false });
-
+    // Process Coding Submissions
     (rawCodingSubs || []).forEach((sub: any) => {
       const createdStr = sub.submitted_at || sub.created_at;
       if (!createdStr) return;
@@ -220,15 +254,9 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // 5. Fetch Real Course Completions (Meaningful course milestones only - NO page visits / enrollments)
-    const { data: rawCourses } = await adminClient.from("courses").select("id, title");
+    // Map Course Titles and process Course Completions
     const courseTitleMap = new Map<string, string>();
     (rawCourses || []).forEach((c: any) => courseTitleMap.set(c.id, c.title));
-
-    const { data: rawEnrollments } = await adminClient
-      .from("enrollments")
-      .select("*")
-      .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`);
 
     (rawEnrollments || []).forEach((enr: any) => {
       const cTitle = courseTitleMap.get(enr.course_id) || "Course";
@@ -261,18 +289,11 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 6. Fetch Real Assessment & Practice Attempts
-    const { data: rawAssessments } = await adminClient.from("assessments").select("id, title, type");
+    // Map Assessments and process Attempts
     const assessmentTitleMap = new Map<string, { title: string; type: string }>();
     (rawAssessments || []).forEach((a: any) =>
       assessmentTitleMap.set(a.id, { title: a.title, type: a.type || "assessment" })
     );
-
-    const { data: rawAttempts } = await adminClient
-      .from("assessment_attempts")
-      .select("*")
-      .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
-      .order("submitted_at", { ascending: false });
 
     (rawAttempts || []).forEach((att: any) => {
       const attDateStr = att.submitted_at || att.created_at;
@@ -324,16 +345,9 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 7. Fetch Real Assignment Submissions
-    const { data: rawAssignments } = await adminClient.from("assignments").select("id, title");
+    // Map Assignments and process Assignment Submissions
     const assignmentTitleMap = new Map<string, string>();
     (rawAssignments || []).forEach((a: any) => assignmentTitleMap.set(a.id, a.title));
-
-    const { data: rawAssignSubs } = await adminClient
-      .from("assignment_submissions")
-      .select("*")
-      .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
-      .order("submitted_at", { ascending: false });
 
     (rawAssignSubs || []).forEach((asub: any) => {
       const subDateStr = asub.submitted_at || asub.created_at;
@@ -366,50 +380,40 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // 8. Fetch Real Attended Live Learning Sessions (Actual session participation only - NO passive logins/heartbeats)
-    try {
-      const { data: rawLiveAttendance } = await adminClient
-        .from("live_class_attendance")
-        .select("*")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`);
+    // Map Live Classes and process Attendance
+    const liveClassMap = new Map<string, string>();
+    (rawLiveClasses || []).forEach((lc: any) => liveClassMap.set(lc.id, lc.title));
 
-      const { data: rawLiveClasses } = await adminClient.from("live_classes").select("id, title");
-      const liveClassMap = new Map<string, string>();
-      (rawLiveClasses || []).forEach((lc: any) => liveClassMap.set(lc.id, lc.title));
+    (rawLiveAttendance || []).forEach((att: any) => {
+      const isAttended = att.attendance_status === "attended" || (att.duration_seconds && att.duration_seconds >= 300);
+      if (!isAttended) return;
 
-      (rawLiveAttendance || []).forEach((att: any) => {
-        const isAttended = att.attendance_status === "attended" || (att.duration_seconds && att.duration_seconds >= 300);
-        if (!isAttended) return;
+      const attDateStr = att.joined_at || att.created_at;
+      if (!attDateStr) return;
+      const ts = new Date(attDateStr).getTime();
+      if (isNaN(ts)) return;
 
-        const attDateStr = att.joined_at || att.created_at;
-        if (!attDateStr) return;
-        const ts = new Date(attDateStr).getTime();
-        if (isNaN(ts)) return;
+      const dateStr = getLocalDateStr(ts, clientTz);
+      if (dateStr < startDateStr || dateStr > endDateStr) return;
 
-        const dateStr = getLocalDateStr(ts, clientTz);
-        if (dateStr < startDateStr || dateStr > endDateStr) return;
+      const day = getOrCreateDay(dateStr);
+      const classTitle = liveClassMap.get(att.live_class_id) || "Live Learning Session";
+      const durationMin = Math.max(1, Math.round((att.duration_seconds || 300) / 60));
 
-        const day = getOrCreateDay(dateStr);
-        const classTitle = liveClassMap.get(att.live_class_id) || "Live Learning Session";
-        const durationMin = Math.max(1, Math.round((att.duration_seconds || 300) / 60));
-
-        day.count += 1;
-        day.successfulCount += 1;
-        day.categories.session += 1;
-        day.details.push({
-          id: att.id || `live-${ts}`,
-          category: "session",
-          title: `Attended Class: ${classTitle}`,
-          subtitle: `Session duration: ${durationMin} mins`,
-          status: "Attended",
-          passed: true,
-          timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
-          timestamp: ts,
-        });
+      day.count += 1;
+      day.successfulCount += 1;
+      day.categories.session += 1;
+      day.details.push({
+        id: att.id || `live-${ts}`,
+        category: "session",
+        title: `Attended Class: ${classTitle}`,
+        subtitle: `Session duration: ${durationMin} mins`,
+        status: "Attended",
+        passed: true,
+        timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
+        timestamp: ts,
       });
-    } catch (attErr) {
-      console.warn("live_class_attendance query notice:", attErr);
-    }
+    });
 
     // 9. Calculate Intensity and Performance for each day
     for (const [, day] of dayMap.entries()) {

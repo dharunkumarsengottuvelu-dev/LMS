@@ -142,13 +142,22 @@ export function useActiveTimeTracker() {
     [isIdle]
   );
 
-  // User activity listeners: reset idle timer
+  const lastThrottleCheckRef = useRef<number>(0);
+
+  // User activity listeners: reset idle timer with 2s throttling
   const handleUserActivity = useCallback(() => {
-    lastActivityTimeRef.current = Date.now();
+    const now = Date.now();
+    lastActivityTimeRef.current = now;
 
     if (isIdle) {
       setIsIdle(false);
     }
+
+    // Throttle idle timer reset to at most once every 2 seconds
+    if (now - lastThrottleCheckRef.current < 2000) {
+      return;
+    }
+    lastThrottleCheckRef.current = now;
 
     // Claim primary tab leadership if focused
     if (document.hasFocus() && !isPrimaryTabRef.current) {
@@ -237,11 +246,18 @@ export function useActiveTimeTracker() {
     setIsTracking(active);
 
     if (active) {
+      let bufferedSeconds = 0;
       localTickTimerRef.current = setInterval(() => {
-        setTotalActiveSeconds((prev) => prev + 1);
-        setTodayActiveSeconds((prev) => prev + 1);
-        setSessionActiveSeconds((prev) => prev + 1);
         pendingIncrementRef.current += 1;
+        bufferedSeconds += 1;
+        // Batch React state updates every 5 seconds to prevent continuous root re-render churn
+        if (bufferedSeconds >= 5) {
+          const delta = bufferedSeconds;
+          setTotalActiveSeconds((prev) => prev + delta);
+          setTodayActiveSeconds((prev) => prev + delta);
+          setSessionActiveSeconds((prev) => prev + delta);
+          bufferedSeconds = 0;
+        }
       }, 1000);
     } else {
       if (localTickTimerRef.current) {

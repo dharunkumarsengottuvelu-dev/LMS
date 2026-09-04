@@ -34,20 +34,20 @@ export class CourseService {
    */
   static async getCourseBySlug(slug: string): Promise<Course | null> {
     try {
-      const courses = await this.getCourses();
-      const found = courses.find((c) => c.slug === slug || c.id === slug);
-      if (found) return found;
-
       const res = await fetch(`/api/student/courses/${encodeURIComponent(slug)}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
-        cache: "no-store",
       });
 
       if (res.ok) {
         const data = await res.json();
         if (data?.course) return data.course;
       }
+
+      // Fallback: search courses list if slug endpoint was not matched directly
+      const courses = await this.getCourses();
+      const found = courses.find((c) => c.slug === slug || c.id === slug);
+      if (found) return found;
     } catch (err) {
       console.error("Failed to query course by slug:", err);
     }

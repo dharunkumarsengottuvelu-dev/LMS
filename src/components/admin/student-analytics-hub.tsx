@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useLMSStore, StudentUserRecord } from "@/lib/store/lms-store";
 import {
   Users, Search, Plus, UserCheck, Shield, Trash2, Edit, Eye, Filter,
@@ -236,6 +236,23 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   const [reportCustomTo, setReportCustomTo] = useState<string>("");
   const [reportCourseFilter, setReportCourseFilter] = useState<string>("all");
   const [isCustomDateModalOpen, setIsCustomDateModalOpen] = useState<boolean>(false);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Authoritative Backend Report Data
   const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
@@ -252,6 +269,12 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   }, [reportBatches, selectedReportBatch]);
 
   const fetchAuthoritativeReport = useCallback(async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setIsLoadingReport(true);
     try {
       const targetBatch = reportScope === "batch"
@@ -264,7 +287,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
         status: statusFilter,
         dateRange: reportDateRange,
         courseId: reportCourseFilter,
-        search: searchQuery,
+        search: debouncedSearchQuery,
       });
 
       if (reportDateRange === "custom" && reportCustomFrom && reportCustomTo) {
@@ -272,7 +295,9 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
         params.set("to", reportCustomTo);
       }
 
-      const res = await fetch(`/api/admin/reports/student-performance?${params.toString()}`);
+      const res = await fetch(`/api/admin/reports/student-performance?${params.toString()}`, {
+        signal: controller.signal,
+      });
       const json = await res.json();
       if (json.success && json.summary) {
         setReportSummary(json.summary);
@@ -287,12 +312,15 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
           setAvailableCoursesList(json.metadata.availableCourses);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === "AbortError") return;
       console.error("Failed to load authoritative student performance report:", err);
     } finally {
-      setIsLoadingReport(false);
+      if (abortControllerRef.current === controller) {
+        setIsLoadingReport(false);
+      }
     }
-  }, [reportScope, selectedReportBatch, batchFilter, statusFilter, reportDateRange, reportCustomFrom, reportCustomTo, reportCourseFilter, searchQuery]);
+  }, [reportScope, selectedReportBatch, batchFilter, statusFilter, reportDateRange, reportCustomFrom, reportCustomTo, reportCourseFilter, debouncedSearchQuery]);
 
   useEffect(() => {
     fetchAuthoritativeReport();
@@ -346,7 +374,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
       };
 
       if (format === "excel") {
-        exportReportToExcel(batchSummary, batchItem.students);
+        await exportReportToExcel(batchSummary, batchItem.students);
         toast({
           title: "Batch Excel Exported",
           description: `Successfully exported workbook for batch "${batchItem.batchName}".`,
@@ -390,7 +418,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     setIsExporting(true);
     try {
       if (format === "excel") {
-        exportReportToExcel(reportSummary, reportStudents);
+        await exportReportToExcel(reportSummary, reportStudents);
         toast({
           title: "Excel Report Generated",
           description: `Successfully exported ${reportStudents.length} candidate performance records across all workbook sheets.`,

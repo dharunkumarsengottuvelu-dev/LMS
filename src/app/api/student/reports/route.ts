@@ -45,17 +45,50 @@ export async function GET(request: NextRequest) {
       minTimestamp = now - 30 * 86400000;
     }
 
-    // 2. Fetch all Courses
-    const { data: rawCourses } = await adminClient
-      .from("courses")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    // Fetch enrollments
-    const { data: enrollments } = await adminClient
-      .from("enrollments")
-      .select("*")
-      .or(`user_id.eq.${studentId},user_id.eq.${studentUserId}`);
+    // 2. Concurrently fetch all datasets in parallel with lean column projections
+    const [
+      { data: rawCourses },
+      { data: enrollments },
+      { data: rawTracks },
+      { data: rawAttempts },
+      { data: rawAssessments },
+      { data: rawSubmissions },
+      { data: rawCodingSubmissions },
+      realActiveTime,
+    ] = await Promise.all([
+      adminClient
+        .from("courses")
+        .select("id, title, updated_at, tags, assigned_batches, is_common")
+        .order("created_at", { ascending: false }),
+      adminClient
+        .from("enrollments")
+        .select("id, course_id, completed_lessons, progress_percentage, created_at, updated_at")
+        .or(`user_id.eq.${studentId},user_id.eq.${studentUserId}`),
+      adminClient
+        .from("practice_tracks")
+        .select("id, title, description, tags, assigned_batches, is_common, sub_modules")
+        .order("created_at", { ascending: false }),
+      adminClient
+        .from("assessment_attempts")
+        .select("id, assessment_id, is_practice, passed, score, time_taken_seconds, submitted_at, created_at")
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+        .order("submitted_at", { ascending: false }),
+      adminClient
+        .from("assessments")
+        .select("id, title, duration_minutes, total_marks, passing_marks, tags, assigned_batches, is_common")
+        .order("created_at", { ascending: false }),
+      adminClient
+        .from("assignment_submissions")
+        .select("id, assignment_id, status, grade, submitted_at, created_at")
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+        .order("submitted_at", { ascending: false }),
+      adminClient
+        .from("coding_submissions")
+        .select("id, problem_id, status, language, score, execution_time_ms, submitted_at, created_at")
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
+        .order("created_at", { ascending: false }),
+      ActiveTimeService.getStudentActiveTime(studentId).catch(() => null),
+    ]);
 
     const enrollmentMap = new Map<string, any>();
     (enrollments || []).forEach((e: any) => enrollmentMap.set(e.course_id, e));
@@ -145,19 +178,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 3. Fetch all Practice Tracks (Practices)
-    const { data: rawTracks } = await adminClient
-      .from("practice_tracks")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    // Fetch attempts for practices & assessments
-    const { data: rawAttempts } = await adminClient
-      .from("assessment_attempts")
-      .select("*")
-      .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
-      .order("submitted_at", { ascending: false });
-
+    // 3. Process Practice Tracks (Practices)
     const attemptsMap = new Map<string, any[]>();
     (rawAttempts || []).forEach((att: any) => {
       const list = attemptsMap.get(att.assessment_id) || [];
@@ -244,12 +265,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 4. Fetch all Assessments
-    const { data: rawAssessments } = await adminClient
-      .from("assessments")
-      .select("*")
-      .order("created_at", { ascending: false });
-
+    // 4. Process Assessments
     const assessmentsList: any[] = [];
     let completedAssessmentsCount = 0;
 
@@ -317,20 +333,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 5. Fetch Additional Student Submissions (Assignments & Coding submissions)
-    const { data: rawSubmissions } = await adminClient
-      .from("assignment_submissions")
-      .select("*")
-      .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
-      .order("submitted_at", { ascending: false });
-
-    const { data: rawCodingSubmissions } = await adminClient
-      .from("coding_submissions")
-      .select("*")
-      .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
-      .order("created_at", { ascending: false });
-
-    // 6. Calculate total active time spent and day-by-day distribution with detailed activity breakdown
+    // 5. Calculate total active time spent and day-by-day distribution with detailed activity breakdown
     let totalTimeSpentSeconds = 0;
     const dayMap = new Map<string, number>();
     const dayActivitiesMap = new Map<
@@ -426,8 +429,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // E. Real-time Active Session Tracking & LMS Usage
-    const realActiveTime = await ActiveTimeService.getStudentActiveTime(studentId);
+    // E. Real-time Active Session Tracking & LMS Usage (pre-fetched concurrently)
     if (realActiveTime && realActiveTime.totalActiveSeconds > 0) {
       totalTimeSpentSeconds = realActiveTime.totalActiveSeconds;
     }

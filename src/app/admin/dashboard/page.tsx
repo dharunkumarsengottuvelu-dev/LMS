@@ -37,30 +37,42 @@ async function getDashboardStats() {
     return Math.round((recent / previous) * 100);
   };
 
-  // Enrollment trend (last 7 days)
-  const trendData = [];
-  for (let i = 6; i >= 0; i--) {
+  // Enrollment trend (last 7 days in parallel) & activities
+  const dayRanges = Array.from({ length: 7 }, (_, idx) => {
+    const i = 6 - idx;
     const date = new Date();
     date.setDate(date.getDate() - i);
     const start = new Date(date.setHours(0, 0, 0, 0)).toISOString();
     const end = new Date(date.setHours(23, 59, 59, 999)).toISOString();
-    const { count } = await supabase
-      .from("enrollments")
-      .select("id", { count: "exact", head: true })
-      .gte("enrolled_at", start)
-      .lte("enrolled_at", end);
-    trendData.push({
+    return {
       day: new Date(start).toLocaleDateString("en", { weekday: "short" }),
-      enrollments: count ?? 0,
-    });
-  }
+      start,
+      end,
+    };
+  });
 
-  // Activity logs
-  const { data: activities } = await supabase
-    .from("activity_logs")
-    .select("*, profiles!inner(first_name, last_name, avatar_url, role)")
-    .order("created_at", { ascending: false })
-    .limit(10);
+  const [trendCounts, activitiesRes] = await Promise.all([
+    Promise.all(
+      dayRanges.map((d) =>
+        supabase
+          .from("enrollments")
+          .select("id", { count: "exact", head: true })
+          .gte("enrolled_at", d.start)
+          .lte("enrolled_at", d.end)
+      )
+    ),
+    supabase
+      .from("activity_logs")
+      .select("id, action, entity_type, created_at, profiles!inner(first_name, last_name, avatar_url, role)")
+      .order("created_at", { ascending: false })
+      .limit(10),
+  ]);
+
+  const trendData = dayRanges.map((d, idx) => ({
+    day: d.day,
+    enrollments: trendCounts[idx]?.count ?? 0,
+  }));
+  const activities = activitiesRes.data ?? [];
 
   return {
     stats: {

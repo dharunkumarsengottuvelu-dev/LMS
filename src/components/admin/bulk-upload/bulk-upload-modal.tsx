@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import * as XLSX from "xlsx";
 import {
   Download, UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle,
   XCircle, ArrowRight, ArrowLeft, RefreshCw, Layers, FileText, Check,
@@ -113,7 +112,7 @@ export function BulkUploadComponent({
   };
 
   // ─── 1. TEMPLATE GENERATION & DOWNLOAD ──────────────────────────────────────
-  const handleDownloadTemplate = (format: "xlsx" | "csv" = "xlsx") => {
+  const handleDownloadTemplate = async (format: "xlsx" | "csv" = "xlsx") => {
     try {
       // 1. Build Header Row for Active Selected Columns
       const headerRow = activeColumns.map((col) => col.label);
@@ -126,7 +125,8 @@ export function BulkUploadComponent({
         });
       });
 
-      // 3. Create Worksheet
+      // 3. Create Worksheet (dynamically import xlsx on demand)
+      const XLSX = await import("xlsx");
       const wsData = [headerRow, ...sampleDataRows];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
 
@@ -207,6 +207,7 @@ export function BulkUploadComponent({
     setIsProcessing(true);
 
     try {
+      const XLSX = await import("xlsx");
       const buffer = await file.arrayBuffer();
       const wb = XLSX.read(buffer, { type: "array" });
       const sheetName = wb.SheetNames[0] || "";
@@ -355,7 +356,7 @@ export function BulkUploadComponent({
   };
 
   // ─── 3. ERROR REPORT EXPORT ────────────────────────────────────────────────
-  const handleDownloadErrorReport = () => {
+  const handleDownloadErrorReport = async () => {
     try {
       const invalidRows = parsedRows.filter((r) => !r.isValid);
       if (invalidRows.length === 0) {
@@ -384,6 +385,7 @@ export function BulkUploadComponent({
         });
       });
 
+      const XLSX = await import("xlsx");
       const ws = XLSX.utils.aoa_to_sheet([reportHeaders, ...reportData]);
       ws["!cols"] = [
         { wch: 12 },
