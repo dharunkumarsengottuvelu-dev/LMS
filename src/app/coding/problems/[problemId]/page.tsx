@@ -346,6 +346,15 @@ export default function ProblemSolvingWorkspace() {
       // Record in progress service
       CodingProgressService.markAttempted(problem.id, selectedLanguage, code, submission);
 
+      // Notify Activity Heatmap & listeners that a verified submission was completed
+      if (typeof window !== "undefined") {
+        try {
+          window.dispatchEvent(new CustomEvent("student-activity-updated", { detail: submission }));
+        } catch (storageErr) {
+          console.warn("Storage sync notice:", storageErr);
+        }
+      }
+
       if (submission.status === "accepted") {
         toast.success("ACCEPTED! You solved this problem!", {
           description: `Passed all ${submission.total_test_cases} test cases.`,
@@ -373,18 +382,20 @@ export default function ProblemSolvingWorkspace() {
   };
 
   // Add Comment Helper
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!newCommentText.trim() || !problem) return;
-    const post = CodingDiscussService.addPost({
+    const post = await CodingDiscussService.addPost({
       problemId: problem.id,
       title: `Approach for ${problem.title}`,
-      author: { name: "You (Student)", badge: "Student" },
+      author: { name: "You (Student)", role: "student", badge: "Student" },
       tags: [selectedLanguage, problem.difficulty],
       content: newCommentText.trim(),
     });
-    setDiscussions([post, ...discussions]);
-    setNewCommentText("");
-    toast.success("Discussion post published");
+    if (post) {
+      setDiscussions([post, ...discussions]);
+      setNewCommentText("");
+      toast.success("Discussion post published");
+    }
   };
 
   // Format timer

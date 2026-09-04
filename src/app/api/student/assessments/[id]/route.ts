@@ -193,21 +193,41 @@ export async function POST(
     const profileId = profile?.id || user.id;
     const studentUserId = user.id;
 
+function toDeterministicUUID(str: string): string {
+  if (!str) return "00000000-0000-0000-0000-000000000000";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
+    return str;
+  }
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex1 = Math.abs(hash).toString(16).padStart(8, "0");
+  const hex2 = Math.abs((hash * 31) | 0).toString(16).padStart(8, "0");
+  const hex3 = Math.abs((hash * 57) | 0).toString(16).padStart(8, "0");
+  const hex4 = Math.abs((hash * 93) | 0).toString(16).padStart(8, "0");
+  const full = (hex1 + hex2 + hex3 + hex4).slice(0, 32);
+  return `${full.slice(0, 8)}-${full.slice(8, 12)}-4${full.slice(13, 16)}-a${full.slice(17, 20)}-${full.slice(20, 32)}`;
+}
+
+    const assessmentUUID = toDeterministicUUID(id);
+
     // 2. Ensure assessment record exists to satisfy foreign key constraints
     const { data: existingAssessment } = await adminClient
       .from("assessments")
       .select("id")
-      .eq("id", id)
+      .eq("id", assessmentUUID)
       .maybeSingle() as any;
 
     if (!existingAssessment) {
       await (adminClient.from("assessments") as any).insert({
-        id: id,
+        id: assessmentUUID,
         title: body.title || "Practice Assessment Module",
         type: body.type || "coding",
         total_marks: totalMarks,
         passing_marks: Math.floor(totalMarks / 2),
-        created_by: studentUserId,
+        created_by: profileId,
         status: "active",
         duration_minutes: body.durationMinutes || 60,
         max_attempts: 10,
@@ -219,7 +239,7 @@ export async function POST(
 
     // 3. Insert or update attempt record in database for both profileId and studentUserId
     const attemptPayload = {
-      assessment_id: id,
+      assessment_id: assessmentUUID,
       student_id: profileId,
       status: "submitted",
       score: score,
@@ -254,17 +274,39 @@ export async function POST(
       for (const [qId, ans] of Object.entries(answers)) {
         if (ans && typeof ans === "object" && (ans as any).code) {
           try {
+            const problemUUID = toDeterministicUUID(qId);
+            // Ensure problem exists in coding_problems
+            const { data: exProb } = await adminClient
+              .from("coding_problems")
+              .select("id")
+              .eq("id", problemUUID)
+              .maybeSingle();
+
+            if (!exProb) {
+              await (adminClient.from("coding_problems") as any).insert({
+                id: problemUUID,
+                title: `Problem ${qId}`,
+                slug: `prob-${qId.toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
+                description: "Practice problem",
+                created_by: profileId,
+                status: "published",
+              });
+            }
+
             await (adminClient.from("coding_submissions") as any).insert({
-              problem_id: qId,
+              problem_id: problemUUID,
               student_id: profileId,
               language: (ans as any).language || "java",
-              code: (ans as any).code,
+              source_code: (ans as any).code,
               status: "accepted",
-              score: totalMarks,
-              max_score: totalMarks,
-              submitted_at: new Date().toISOString(),
+              passed_test_cases: 1,
+              total_test_cases: 1,
+              test_results: [],
+              created_at: new Date().toISOString(),
             });
-          } catch {}
+          } catch (codeSubErr) {
+            console.warn("coding_submissions batch notice:", codeSubErr);
+          }
         }
       }
     }

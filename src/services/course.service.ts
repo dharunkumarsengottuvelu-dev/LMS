@@ -1,147 +1,127 @@
-import { createClient } from "@/lib/supabase/client";
-import type { Course, Module, Lesson, Enrollment, CreateCourseInput } from "@/types/course";
+import type { Course, CreateCourseInput } from "@/types/course";
 
-// Clean initial courses array (Ready for dynamic authoring and assignment)
 export const INITIAL_MOCK_COURSES: Course[] = [];
 
-const LOCAL_STORAGE_KEY = "enterprise_lms_courses_v2";
-
 export class CourseService {
-  static getLocalCourses(): Course[] {
-    if (typeof window === "undefined") return INITIAL_MOCK_COURSES;
-    try {
-      localStorage.removeItem("enterprise_lms_courses_v1");
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_MOCK_COURSES));
-    } catch {
-      // Fallback if localStorage throws
-    }
-    return INITIAL_MOCK_COURSES;
-  }
-
-  static saveLocalCourses(courses: Course[]) {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(courses));
-    } catch {
-      // Ignore write errors
-    }
-  }
-
+  /**
+   * Fetches all courses from the authoritative backend API / Supabase DB
+   */
   static async getCourses(): Promise<Course[]> {
     try {
-      const supabase = createClient();
-      const { data, error } = await (supabase as any)
-        .from("courses")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (!error && Array.isArray(data)) {
-        return data as unknown as Course[];
+      const res = await fetch("/api/admin/courses", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.courses)) {
+          return data.courses;
+        }
+        if (Array.isArray(data)) {
+          return data;
+        }
       }
     } catch (err) {
-      console.error("Failed to query courses from Supabase:", err);
+      console.error("Failed to query courses from API:", err);
     }
     return [];
   }
 
+  /**
+   * Fetches a course by slug from the backend API
+   */
   static async getCourseBySlug(slug: string): Promise<Course | null> {
     try {
-      const supabase = createClient();
-      const { data, error } = await (supabase as any)
-        .from("courses")
-        .select("*, modules(*, lessons(*))")
-        .eq("slug", slug)
-        .maybeSingle();
-      
-      if (!error && data) {
-        return data as unknown as Course;
+      const courses = await this.getCourses();
+      const found = courses.find((c) => c.slug === slug || c.id === slug);
+      if (found) return found;
+
+      const res = await fetch(`/api/student/courses/${encodeURIComponent(slug)}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.course) return data.course;
       }
     } catch (err) {
-      console.error("Failed to query course by slug from Supabase:", err);
+      console.error("Failed to query course by slug:", err);
     }
     return null;
   }
 
+  /**
+   * Creates a new course via the authoritative /api/admin/courses POST endpoint
+   */
   static async createCourse(input: CreateCourseInput, trainerId: string = "trainer-admin"): Promise<Course> {
-    const slug = input.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
-    const newCourse: Course = {
-      id: `course-${Date.now()}`,
-      title: input.title,
-      slug,
-      description: input.description,
-      short_description: input.short_description || input.description.slice(0, 120),
-      thumbnail_url: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80",
-      category_id: input.category_id,
-      trainer_id: trainerId,
-      difficulty: input.difficulty,
-      visibility: input.visibility,
-      status: "published",
-      duration_hours: 10,
-      language: input.language || "English",
-      tags: input.tags || ["New"],
-      what_you_learn: input.what_you_learn || [],
-      requirements: input.requirements || [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      rating: 5.0,
-      enrollment_count: 1,
-      modules: []
-    };
-
     try {
-      const supabase = createClient();
-      const { data, error } = await (supabase as any)
-        .from("courses")
-        .insert([{
-          title: input.title,
-          slug,
-          description: input.description,
-          category_id: input.category_id,
+      const res = await fetch("/api/admin/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...input,
           trainer_id: trainerId,
-          difficulty: input.difficulty,
-          visibility: input.visibility,
-          status: "published"
-        }])
-        .select()
-        .single();
+        }),
+      });
 
-      if (!error && data) {
-        return data as unknown as Course;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to create course on server");
       }
-    } catch {
-      // Fallback to local store
+
+      const data = await res.json();
+      if (data?.course) {
+        return data.course;
+      }
+    } catch (err) {
+      console.error("Error creating course in database:", err);
+      throw err;
     }
 
-    const currentCourses = this.getLocalCourses();
-    const updated = [newCourse, ...currentCourses];
-    this.saveLocalCourses(updated);
-    return newCourse;
+    throw new Error("Failed to create course in database");
   }
 
+  /**
+   * Updates an existing course via /api/admin/courses
+   */
   static async updateCourse(id: string, updates: Partial<Course>): Promise<Course> {
-    const courses = this.getLocalCourses();
-    const index = courses.findIndex(c => c.id === id);
-    if (index !== -1 && courses[index]) {
-      const existing = courses[index];
-      const updatedCourse: Course = {
-        ...existing,
-        ...updates,
-        id: existing.id,
-        updated_at: new Date().toISOString(),
-      };
-      courses[index] = updatedCourse;
-      this.saveLocalCourses(courses);
-      return updatedCourse;
+    try {
+      const res = await fetch("/api/admin/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          ...updates,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.course) return data.course;
+      }
+    } catch (err) {
+      console.error("Failed to update course in database:", err);
+      throw err;
     }
-    throw new Error("Course not found");
+    throw new Error("Failed to update course in database");
   }
 
+  /**
+   * Deletes a course from the database via DELETE /api/admin/courses?id=
+   */
   static async deleteCourse(id: string): Promise<boolean> {
-    const courses = this.getLocalCourses();
-    const filtered = courses.filter(c => c.id !== id);
-    this.saveLocalCourses(filtered);
-    return true;
+    try {
+      const res = await fetch(`/api/admin/courses?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      return res.ok;
+    } catch (err) {
+      console.error("Failed to delete course from database:", err);
+      return false;
+    }
   }
 }

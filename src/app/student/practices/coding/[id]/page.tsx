@@ -79,6 +79,15 @@ export default function PracticeCodingRunnerPage() {
 
       setSubmissionResult(data);
 
+      // Notify Activity Heatmap & listeners that a verified submission was completed
+      if (typeof window !== "undefined") {
+        try {
+          window.dispatchEvent(new CustomEvent("student-activity-updated", { detail: data }));
+        } catch (storageErr) {
+          console.warn("Storage sync notice:", storageErr);
+        }
+      }
+
       if (data.status === "accepted" || data.status === "passed") {
         toast({
           title: "Practice Problem Solved",

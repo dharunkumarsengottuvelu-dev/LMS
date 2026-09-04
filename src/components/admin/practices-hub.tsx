@@ -613,14 +613,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     });
     const uniqueTracks = Array.from(seen.values());
     setTracks(uniqueTracks);
-
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("enterprise_lms_practice_tracks_v2", JSON.stringify(uniqueTracks));
-      } catch (e) {
-        console.warn("Local storage track sync warning", e);
-      }
-    }
     try {
       const res = await fetch("/api/admin/practices", {
         method: "POST",

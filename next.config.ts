@@ -67,6 +67,7 @@ const nextConfig: NextConfig = {
 
   // Experimental features & compiler performance optimizations
   experimental: {
+    cpus: 2,
     optimizePackageImports: [
       "lucide-react",
       "recharts",

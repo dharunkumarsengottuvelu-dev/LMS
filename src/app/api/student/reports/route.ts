@@ -327,7 +327,7 @@ export async function GET(request: NextRequest) {
     const { data: rawCodingSubmissions } = await adminClient
       .from("coding_submissions")
       .select("*")
-      .or(`user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+      .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
       .order("created_at", { ascending: false });
 
     // 6. Calculate total active time spent and day-by-day distribution with detailed activity breakdown
@@ -427,7 +427,7 @@ export async function GET(request: NextRequest) {
     });
 
     // E. Real-time Active Session Tracking & LMS Usage
-    const realActiveTime = ActiveTimeService.getStudentActiveTime(studentId);
+    const realActiveTime = await ActiveTimeService.getStudentActiveTime(studentId);
     if (realActiveTime && realActiveTime.totalActiveSeconds > 0) {
       totalTimeSpentSeconds = realActiveTime.totalActiveSeconds;
     }
@@ -436,7 +436,7 @@ export async function GET(request: NextRequest) {
       for (const [isoDate, activeSecs] of Object.entries(realActiveTime.dailyBreakdown)) {
         const ts = new Date(isoDate).getTime();
         if (range === "all" || (ts >= minTimestamp && ts <= maxTimestamp)) {
-          const mins = Math.round(activeSecs / 60);
+          const mins = Math.round(Number(activeSecs) / 60);
           dayMap.set(isoDate, (dayMap.get(isoDate) || 0) + mins);
           const act = getOrCreateDayAct(isoDate);
           act.loginsCount = Math.max(act.loginsCount, 1);
@@ -553,7 +553,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Total submissions count
-    const totalSubmissionsCount = (rawAttempts || []).length + (rawSubmissions || []).length;
+    const totalSubmissionsCount = (rawAttempts || []).length + (rawSubmissions || []).length + (rawCodingSubmissions || []).length;
 
     return NextResponse.json({
       reports: {

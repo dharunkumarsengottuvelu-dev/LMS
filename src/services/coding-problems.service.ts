@@ -3,10 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import axios from "axios";
 
-// No static mock problems - clean slate connected directly to DB
 export const SAMPLE_CODING_PROBLEMS: (ExtendedCodingProblem | CodingProblem)[] = [];
-
-const LOCAL_STORAGE_PROBLEMS_KEY = "edunexus_coding_problems_db_cache_v2";
 
 export class CodingProblemsService {
   private static cachedProblems: (ExtendedCodingProblem | CodingProblem)[] = [];
@@ -22,59 +19,18 @@ export class CodingProblemsService {
 
       this.cachedProblems = dbProblems;
       this.isInitialized = true;
-
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem(LOCAL_STORAGE_PROBLEMS_KEY, JSON.stringify(dbProblems));
-        } catch (e) {
-          console.warn("Failed to update localStorage cache:", e);
-        }
-      }
-
       return dbProblems;
     } catch (err) {
-      console.warn("API fetch from /api/admin/coding failed, checking cache:", err);
-
-      // Fallback to localStorage cache
-      if (typeof window !== "undefined") {
-        try {
-          const raw = localStorage.getItem(LOCAL_STORAGE_PROBLEMS_KEY);
-          if (raw) {
-            const cached: CodingProblem[] = JSON.parse(raw);
-            this.cachedProblems = cached;
-            return cached;
-          }
-        } catch (e) {
-          console.error("Failed to parse cached problems:", e);
-        }
-      }
-
+      console.warn("API fetch from /api/admin/coding failed:", err);
       return this.cachedProblems;
     }
   }
 
   /**
-   * Synchronous getter that returns in-memory cache or localStorage cache
+   * Synchronous getter that returns in-memory cache
    */
   public static getAllProblems(): (ExtendedCodingProblem | CodingProblem)[] {
-    if (this.cachedProblems.length > 0) {
-      return this.cachedProblems;
-    }
-
-    if (typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem(LOCAL_STORAGE_PROBLEMS_KEY);
-        if (raw) {
-          const parsed: CodingProblem[] = JSON.parse(raw);
-          this.cachedProblems = parsed;
-          return parsed;
-        }
-      } catch (err) {
-        console.error("Failed to read problems from cache:", err);
-      }
-    }
-
-    return [];
+    return this.cachedProblems;
   }
 
   /**
@@ -93,27 +49,9 @@ export class CodingProblemsService {
         this.cachedProblems.unshift({ ...problem, id: saved.id || problem.id });
       }
 
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem(LOCAL_STORAGE_PROBLEMS_KEY, JSON.stringify(this.cachedProblems));
-        } catch (e) {
-          console.warn("Failed to update cache after save:", e);
-        }
-      }
-
       return saved;
     } catch (err) {
       console.error("Failed to save problem via /api/admin/coding:", err);
-      // Local fallback
-      const idx = this.cachedProblems.findIndex((p) => p.id === problem.id);
-      if (idx >= 0) {
-        this.cachedProblems[idx] = problem;
-      } else {
-        this.cachedProblems.unshift(problem);
-      }
-      if (typeof window !== "undefined") {
-        localStorage.setItem(LOCAL_STORAGE_PROBLEMS_KEY, JSON.stringify(this.cachedProblems));
-      }
       throw err;
     }
   }
@@ -132,19 +70,10 @@ export class CodingProblemsService {
   public static async deleteProblem(id: string): Promise<void> {
     this.cachedProblems = this.cachedProblems.filter((p) => p.id !== id);
 
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(LOCAL_STORAGE_PROBLEMS_KEY, JSON.stringify(this.cachedProblems));
-      } catch (err) {
-        console.error("Failed to update localStorage after delete:", err);
-      }
-    }
-
     try {
       await axios.delete(`/api/admin/coding?id=${encodeURIComponent(id)}`);
     } catch (err) {
       console.warn("Failed to delete problem via API:", err);
-      // Direct Supabase fallback
       try {
         const supabase = createClient();
         await (supabase as any).from("coding_problems").delete().eq("id", id);

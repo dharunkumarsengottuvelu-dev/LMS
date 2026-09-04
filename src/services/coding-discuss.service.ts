@@ -1,63 +1,105 @@
-import { INITIAL_DISCUSS_POSTS, type CodingDiscussPost } from "@/data/coding-problems-data";
-export type { CodingDiscussPost } from "@/data/coding-problems-data";
+export interface CodingDiscussPost {
+  id: string;
+  problemId?: string;
+  title: string;
+  content: string;
+  author: {
+    name: string;
+    avatar?: string;
+    role: "student" | "trainer" | "admin";
+    badge?: string;
+  };
+  upvotes: number;
+  commentsCount: number;
+  tags: string[];
+  createdAt: string;
+}
 
-const LOCAL_STORAGE_DISCUSS_KEY = "falcon_coding_discuss_v2";
+let cachedPosts: CodingDiscussPost[] = [];
 
 export class CodingDiscussService {
-  private static posts: CodingDiscussPost[] = [...INITIAL_DISCUSS_POSTS];
+  /**
+   * Fetches discussion posts dynamically from the backend database API
+   */
+  public static async fetchPosts(problemId?: string): Promise<CodingDiscussPost[]> {
+    try {
+      const url = problemId ? `/api/coding/discuss?problemId=${encodeURIComponent(problemId)}` : "/api/coding/discuss";
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
 
-  private static isBrowser(): boolean {
-    return typeof window !== "undefined";
+      if (!res.ok) {
+        console.error("Failed to fetch discuss posts, status:", res.status);
+        return cachedPosts;
+      }
+
+      const data = await res.json();
+      if (data && Array.isArray(data.posts)) {
+        cachedPosts = data.posts;
+        return data.posts;
+      }
+    } catch (err) {
+      console.error("Error fetching discuss posts from database:", err);
+    }
+    return cachedPosts;
   }
 
-  private static loadPosts(): CodingDiscussPost[] {
-    if (!this.isBrowser()) return this.posts;
+  /**
+   * Synchronous getter returning current cached posts
+   */
+  public static getPosts(problemId?: string): CodingDiscussPost[] {
+    if (problemId) {
+      return cachedPosts.filter((p) => p.problemId === problemId || !p.problemId);
+    }
+    return cachedPosts;
+  }
+
+  /**
+   * Creates a discussion post in the database
+   */
+  public static async addPost(
+    post: Omit<CodingDiscussPost, "id" | "upvotes" | "commentsCount" | "createdAt" | "author"> & {
+      author?: { name: string; avatar?: string; role?: "student" | "trainer" | "admin"; badge?: string };
+    }
+  ): Promise<CodingDiscussPost | null> {
     try {
-      const raw = localStorage.getItem(LOCAL_STORAGE_DISCUSS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          this.posts = parsed;
-          return parsed;
+      const res = await fetch("/api/coding/discuss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(post),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.post) {
+          cachedPosts.unshift(data.post);
+          return data.post;
         }
       }
-    } catch {}
-    return this.posts;
-  }
-
-  private static savePosts(): void {
-    if (!this.isBrowser()) return;
-    try {
-      localStorage.setItem(LOCAL_STORAGE_DISCUSS_KEY, JSON.stringify(this.posts));
-    } catch {}
-  }
-
-  public static getPosts(problemId?: string): CodingDiscussPost[] {
-    const list = this.loadPosts();
-    if (problemId) {
-      return list.filter((p) => p.problemId === problemId || !p.problemId);
+    } catch (err) {
+      console.error("Error adding discuss post to database:", err);
     }
-    return list;
+    return null;
   }
 
-  public static addPost(post: Omit<CodingDiscussPost, "id" | "upvotes" | "commentsCount" | "createdAt">): CodingDiscussPost {
-    const newPost: CodingDiscussPost = {
-      ...post,
-      id: `disc-${Date.now()}`,
-      upvotes: 1,
-      commentsCount: 0,
-      createdAt: new Date().toISOString(),
-    };
-    this.posts.unshift(newPost);
-    this.savePosts();
-    return newPost;
-  }
+  /**
+   * Upvotes a post in the database
+   */
+  public static async upvotePost(id: string): Promise<void> {
+    try {
+      // Optimistic update
+      const p = cachedPosts.find((item) => item.id === id);
+      if (p) p.upvotes += 1;
 
-  public static upvotePost(id: string): void {
-    const p = this.posts.find((item) => item.id === id);
-    if (p) {
-      p.upvotes += 1;
-      this.savePosts();
+      await fetch("/api/coding/discuss", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+    } catch (err) {
+      console.error("Error upvoting discuss post in database:", err);
     }
   }
 }

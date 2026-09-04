@@ -106,19 +106,19 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
         ]);
         if (cRes.ok) {
           const cData = await cRes.json();
-          if (cData.courses && cData.courses.length > 0) setStoreCourses(cData.courses);
+          if (Array.isArray(cData.courses)) setStoreCourses(cData.courses);
         }
         if (pRes.ok) {
           const pData = await pRes.json();
-          if (pData.tracks && pData.tracks.length > 0) setStoreTracks(pData.tracks);
+          if (Array.isArray(pData.tracks)) setStoreTracks(pData.tracks);
         }
         if (aRes.ok) {
           const aData = await aRes.json();
-          if (aData.tests && aData.tests.length > 0) setStoreAssessments(aData.tests);
+          if (Array.isArray(aData.tests)) setStoreAssessments(aData.tests);
         }
         if (lRes.ok) {
           const lData = await lRes.json();
-          if (lData.liveNow) setLiveNowClasses(lData.liveNow);
+          if (Array.isArray(lData.liveNow)) setLiveNowClasses(lData.liveNow);
           if (lData.stats) setLiveStats(lData.stats);
         }
       } catch (err) {

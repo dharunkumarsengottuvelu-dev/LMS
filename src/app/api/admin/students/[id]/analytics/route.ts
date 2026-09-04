@@ -578,7 +578,7 @@ export async function GET(
     });
 
     // E. Real-time Active Session Tracking & LMS Usage
-    const realActiveTime = ActiveTimeService.getStudentActiveTime(studentId);
+    const realActiveTime = await ActiveTimeService.getStudentActiveTime(studentId);
     if (realActiveTime && realActiveTime.totalActiveSeconds > 0) {
       totalTimeSpentSeconds = realActiveTime.totalActiveSeconds;
     }
@@ -587,7 +587,7 @@ export async function GET(
       for (const [isoDate, activeSecs] of Object.entries(realActiveTime.dailyBreakdown)) {
         const ts = new Date(isoDate).getTime();
         if (range === "all" || (ts >= minTimestamp && ts <= maxTimestamp)) {
-          const mins = Math.round(activeSecs / 60);
+          const mins = Math.round(Number(activeSecs) / 60);
           dayMap.set(isoDate, (dayMap.get(isoDate) || 0) + mins);
           const act = getOrCreateDayAct(isoDate);
           act.loginsCount = Math.max(act.loginsCount, 1);

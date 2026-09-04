@@ -182,3 +182,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const adminClient = createAdminClient();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing batch ID" }, { status: 400 });
+    }
+
+    await adminClient.from("batch_members").delete().eq("batch_id", id);
+    const { error } = await adminClient.from("batches").delete().eq("id", id);
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, message: "Batch deleted" });
+  } catch (error) {
+    console.error("DELETE /api/admin/batches error:", error);
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+  }
+}

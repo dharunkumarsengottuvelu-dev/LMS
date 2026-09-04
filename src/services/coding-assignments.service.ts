@@ -10,43 +10,67 @@ export interface CodingAssignment {
   status: "pending" | "in_progress" | "completed";
 }
 
-// Clean initial assignments array - no fake mock assignments
 export const SAMPLE_ASSIGNMENTS: CodingAssignment[] = [];
 
-const LOCAL_STORAGE_KEY_CODING_ASSIGNMENTS = "falcon_coding_assignments_v2";
+let cachedAssignments: CodingAssignment[] = [];
 
 export class CodingAssignmentsService {
-  public static getAssignments(): CodingAssignment[] {
-    if (typeof window === "undefined") return [];
+  /**
+   * Fetches coding assignments dynamically from the database API route
+   */
+  public static async fetchAssignments(): Promise<CodingAssignment[]> {
     try {
-      const raw = localStorage.getItem(LOCAL_STORAGE_KEY_CODING_ASSIGNMENTS);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
+      const res = await fetch("/api/coding/assignments", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        console.error("Failed to fetch assignments, status:", res.status);
+        return cachedAssignments;
+      }
+
+      const data = await res.json();
+      if (data && Array.isArray(data.assignments)) {
+        cachedAssignments = data.assignments;
+        return data.assignments;
       }
     } catch (e) {
-      console.error("Failed to load assignments from storage:", e);
+      console.error("Failed to load assignments from API:", e);
     }
-    return [];
+    return cachedAssignments;
+  }
+
+  /**
+   * Synchronous getter returning latest cached assignments from database
+   */
+  public static getAssignments(): CodingAssignment[] {
+    return cachedAssignments;
   }
 
   public static getAssignmentById(id: string): CodingAssignment | undefined {
-    return this.getAssignments().find((a) => a.id === id);
+    return cachedAssignments.find((a) => a.id === id);
   }
 
-  public static saveAssignment(assignment: CodingAssignment): void {
-    if (typeof window === "undefined") return;
+  /**
+   * Saves or creates a coding assignment by sending a POST request to backend API
+   */
+  public static async saveAssignment(assignment: Omit<CodingAssignment, "id"> & { id?: string }): Promise<boolean> {
     try {
-      const list = this.getAssignments();
-      const idx = list.findIndex((a) => a.id === assignment.id);
-      if (idx >= 0) {
-        list[idx] = assignment;
-      } else {
-        list.unshift(assignment);
+      const res = await fetch("/api/coding/assignments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(assignment),
+      });
+
+      if (res.ok) {
+        await this.fetchAssignments();
+        return true;
       }
-      localStorage.setItem(LOCAL_STORAGE_KEY_CODING_ASSIGNMENTS, JSON.stringify(list));
     } catch (e) {
-      console.error("Failed to save assignment:", e);
+      console.error("Failed to save assignment to database:", e);
     }
+    return false;
   }
 }

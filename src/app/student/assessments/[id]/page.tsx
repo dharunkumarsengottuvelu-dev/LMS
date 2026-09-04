@@ -228,26 +228,7 @@ export default function AssessmentTakePage() {
         }
       }
 
-      // 5. Local Storage fallback (for development / offline tracks)
-      if (!targetSubModule && typeof window !== "undefined") {
-        try {
-          const localStr = localStorage.getItem("enterprise_lms_practice_tracks_v2");
-          if (localStr) {
-            const localTracks = JSON.parse(localStr);
-            for (const t of localTracks) {
-              const subs = t.subModules || t.sub_modules || [];
-              const found = subs.find((s: any) => s.id === subModuleId);
-              if (found || t.id === subModuleId) {
-                targetTrack = t;
-                targetSubModule = found || subs[0] || t;
-                break;
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("Local storage lookup warning:", e);
-        }
-      }
+
 
       if (!targetSubModule) {
         setErrorMsg("This practice module was not found or is currently not assigned to your batch.");

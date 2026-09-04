@@ -501,6 +501,15 @@ export function PracticeRunnerEngine({
         [currentQuestion.id]: submission,
       }));
 
+      // Notify Activity Heatmap & listeners that a verified submission was completed
+      if (typeof window !== "undefined") {
+        try {
+          window.dispatchEvent(new CustomEvent("student-activity-updated", { detail: submission }));
+        } catch (eventErr) {
+          console.warn("Event dispatch notice:", eventErr);
+        }
+      }
+
       const isAccepted = submission.status === "accepted";
       toast({
         title: isAccepted ? "All Test Cases Passed" : "Submission Evaluated",
@@ -1585,17 +1594,17 @@ export function PracticeRunnerEngine({
 
       {/* ── Sticky Bottom Navigation Bar (Responsive Dual-Tier on Mobile, Sleek Dock on Desktop) ── */}
       <div className="sticky bottom-2 sm:bottom-4 z-30 w-full bg-white/95 dark:bg-[#18181B]/95 backdrop-blur-md border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-2.5 sm:p-3 sm:px-6 shadow-lg select-none transition-all">
-        {/* Desktop Single-Row Layout (>= md / >= 768px) */}
-        <div className="hidden md:flex items-center justify-between gap-4">
-          {/* Left Side: Question context or actions */}
-          <div className="flex items-center gap-2.5 min-w-0">
+        {/* Desktop Single-Row Layout (>= md / >= 768px) with True Mathematical Center */}
+        <div className="hidden md:grid grid-cols-[1fr_auto_1fr] items-center gap-4 w-full">
+          {/* Left Column (1fr): Question context or actions */}
+          <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
             {activeSection === "mcq" && (
               <>
                 <Button
                   variant="outline"
                   size="sm"
                   className={cn(
-                    "h-9 px-3.5 text-xs font-semibold gap-1.5 rounded-xl border-slate-200 dark:border-zinc-700",
+                    "h-9 px-3.5 text-xs font-semibold gap-1.5 rounded-xl border-slate-200 dark:border-zinc-700 shrink-0",
                     markedForReview.has(currentQuestion.id) ? "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]" : "text-slate-600 dark:text-zinc-400"
                   )}
                   onClick={() => toggleMarkForReview(currentQuestion.id)}
@@ -1608,7 +1617,7 @@ export function PracticeRunnerEngine({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-9 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 gap-1 rounded-xl"
+                    className="h-9 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 gap-1 rounded-xl shrink-0"
                     onClick={() => handleClearAnswer(currentQuestion.id)}
                   >
                     <RotateCcw className="h-3.5 w-3.5" /> Clear Response
@@ -1621,7 +1630,7 @@ export function PracticeRunnerEngine({
                 <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 font-bold uppercase text-[10px] shrink-0 rounded-full px-2.5 py-0.5">
                   Problem {codingIndex + 1} of {codingQuestions.length}
                 </Badge>
-                <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate max-w-[180px] lg:max-w-xs">
+                <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate" title={activeCodingProblem.title}>
                   {activeCodingProblem.title}
                 </span>
                 <Button
@@ -1637,8 +1646,8 @@ export function PracticeRunnerEngine({
             )}
           </div>
 
-          {/* Center: Grouped Navigation */}
-          <div className="inline-flex items-center gap-2 shrink-0">
+          {/* Center Column (auto): Perfectly Centered Grouped Navigation */}
+          <div className="inline-flex items-center justify-center gap-2 shrink-0 justify-self-center">
             <Button
               variant="outline"
               size="sm"
@@ -1673,8 +1682,8 @@ export function PracticeRunnerEngine({
             </Button>
           </div>
 
-          {/* Right Side: Review & Submit */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Right Column (1fr): Review & Submit Button Aligned to Right */}
+          <div className="flex items-center justify-end gap-2 shrink-0 justify-self-end">
             <Button
               variant="outline"
               size="sm"

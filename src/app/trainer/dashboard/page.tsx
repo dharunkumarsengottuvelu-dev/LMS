@@ -24,39 +24,79 @@ export default function TrainerDashboardPage() {
 
   React.useEffect(() => {
     async function loadData() {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      
-      const { data: bData } = await supabase.from("batches").select("*");
-      if (bData) {
-        setBatches(bData.map((b: any) => ({
-          id: b.id,
-          batchName: b.batch_name,
-          collegeName: b.college_name,
-          course: b.course_id,
-          joiningTime: "Morning Session",
-          status: b.status,
-          studentIds: [] // Can join with batch_members later
-        })));
-      }
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
 
-      const { data: sData } = await supabase.from("profiles").select("*").eq("role", "student");
-      if (sData) {
-        setStudents(sData.map((s: any) => ({
-          id: s.id,
-          name: s.first_name + " " + s.last_name,
-          batchId: s.batch_id,
-          avgScore: 0,
-          status: s.status,
-          violationCount: 0
-        })));
-      }
+        // 1. Batches & Memberships
+        const { data: bData } = await supabase.from("batches").select("*");
+        const { data: bmData } = await supabase.from("batch_members").select("batch_id, user_id");
 
-      const { data: aData } = await supabase.from("assessments").select("*");
-      if (aData) setAssessments(aData);
-      
-      const { data: asData } = await supabase.from("assignments").select("*");
-      if (asData) setAssignments(asData);
+        const batchStudentMap = new Map<string, string[]>();
+        (bmData || []).forEach((bm: any) => {
+          const list = batchStudentMap.get(bm.batch_id) || [];
+          if (!list.includes(bm.user_id)) list.push(bm.user_id);
+          batchStudentMap.set(bm.batch_id, list);
+        });
+
+        if (bData) {
+          setBatches(
+            bData.map((b: any) => ({
+              id: b.id,
+              batchName: b.name || b.batch_name || "Batch",
+              collegeName: b.college_name || "General Campus",
+              course: b.course_name || b.course_id || "Enterprise Track",
+              joiningTime: b.joining_time || "Scheduled Session",
+              status: b.status || "active",
+              studentIds: batchStudentMap.get(b.id) || [],
+            }))
+          );
+        }
+
+        // 2. Real assessment attempts for calculating real student scores
+        const { data: attemptsData } = await (supabase as any)
+          .from("assessment_attempts")
+          .select("student_id, score");
+
+        const studentScoreMap = new Map<string, { total: number; count: number }>();
+        (attemptsData || []).forEach((att: any) => {
+          if (!att.student_id) return;
+          const prev = studentScoreMap.get(att.student_id) || { total: 0, count: 0 };
+          studentScoreMap.set(att.student_id, {
+            total: prev.total + (Number(att.score) || 0),
+            count: prev.count + 1,
+          });
+        });
+
+        // 3. Students
+        const { data: sData } = await supabase.from("profiles").select("*").eq("role", "student");
+        if (sData) {
+          setStudents(
+            sData.map((s: any) => {
+              const scoreData = studentScoreMap.get(s.id) || studentScoreMap.get(s.user_id);
+              const realAvgScore = scoreData && scoreData.count > 0 ? Math.round(scoreData.total / scoreData.count) : 0;
+              return {
+                id: s.id,
+                name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email?.split("@")[0] || "Student",
+                batchId: s.batch_id,
+                batch: s.batch || s.batch_name,
+                avgScore: realAvgScore,
+                status: s.status || "active",
+                violationCount: s.violation_count || 0,
+              };
+            })
+          );
+        }
+
+        // 4. Assessments & Assignments
+        const { data: aData } = await supabase.from("assessments").select("*");
+        if (aData) setAssessments(aData);
+
+        const { data: asData } = await supabase.from("assignments").select("*");
+        if (asData) setAssignments(asData);
+      } catch (err) {
+        console.error("Failed to load trainer dashboard data:", err);
+      }
     }
     loadData();
   }, []);

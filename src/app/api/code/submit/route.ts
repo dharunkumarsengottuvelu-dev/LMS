@@ -87,12 +87,25 @@ export async function POST(request: NextRequest) {
       ];
     }
 
-    // 4. Resolve authenticated student ID
+    // 4. Resolve authenticated student ID & profile ID
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const studentId = user?.id || (body as any).student_id || "student-1";
+
+    let studentProfileId = user?.id || (body as any).student_id || "student-1";
+    if (user?.id) {
+      const adminClient = createAdminClient();
+      const { data: profile } = await adminClient
+        .from("profiles")
+        .select("id")
+        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+        .maybeSingle();
+
+      if (profile?.id) {
+        studentProfileId = profile.id;
+      }
+    }
 
     // 5. Submit solution for automated evaluation against public & hidden test cases
     const submission = await SubmissionEvaluatorService.evaluateSolution(
@@ -102,7 +115,7 @@ export async function POST(request: NextRequest) {
         code,
         test_cases: testCasesToRun,
       },
-      studentId
+      studentProfileId
     );
 
     return NextResponse.json(submission, { status: 200 });

@@ -30,7 +30,7 @@ export async function GET(
     }
 
     const { id: studentId } = await context.params;
-    const activeTimeData = ActiveTimeService.getStudentActiveTime(studentId);
+    const activeTimeData = await ActiveTimeService.getStudentActiveTime(studentId);
 
     return NextResponse.json({
       success: true,

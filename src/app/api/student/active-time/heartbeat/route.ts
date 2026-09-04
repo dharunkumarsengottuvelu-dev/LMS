@@ -43,11 +43,11 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (isClosing && sessionId) {
-      ActiveTimeService.closeSession(sessionId, studentId);
+      await ActiveTimeService.closeSession(sessionId, studentId);
       return NextResponse.json({ success: true, closed: true });
     }
 
-    const result = ActiveTimeService.recordHeartbeat({
+    const result = await ActiveTimeService.recordHeartbeat({
       studentId,
       studentEmail: user.email,
       sessionId,

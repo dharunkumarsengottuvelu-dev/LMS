@@ -42,12 +42,6 @@ export class ModuleService {
       console.error(e);
     }
     
-    // Fallback
-    if (typeof window === "undefined") return [];
-    try {
-      const saved = localStorage.getItem("enterprise_lms_modules_v2");
-      if (saved) return JSON.parse(saved);
-    } catch {}
     return [];
   }
 

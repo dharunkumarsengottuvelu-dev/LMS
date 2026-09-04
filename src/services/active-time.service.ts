@@ -1,5 +1,4 @@
-import fs from "fs";
-import path from "path";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface StudentSessionRecord {
   sessionId: string;
@@ -17,64 +16,46 @@ export interface StudentActiveTimeData {
   studentId: string;
   studentEmail?: string;
   totalActiveSeconds: number;
+  todayActiveSeconds: number;
+  weekActiveSeconds: number;
+  monthActiveSeconds: number;
   dailyBreakdown: Record<string, number>; // YYYY-MM-DD -> seconds
   sessions: StudentSessionRecord[];
   lastActiveAt?: string;
 }
 
-interface ActiveSessionsStore {
-  students: Record<string, StudentActiveTimeData>;
-  lastUpdated: string;
-}
-
-const DATA_DIR = path.resolve(process.cwd(), "src/data");
-const STORE_FILE = path.join(DATA_DIR, "active-sessions-store.json");
-
-// Ensure store directory exists
-function ensureStoreExists(): ActiveSessionsStore {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (fs.existsSync(STORE_FILE)) {
-      const raw = fs.readFileSync(STORE_FILE, "utf-8");
-      if (raw && raw.trim().length > 0) {
-        return JSON.parse(raw);
-      }
-    }
-  } catch (err) {
-    console.error("Error reading active sessions store:", err);
-  }
-
-  const initialStore: ActiveSessionsStore = {
-    students: {},
-    lastUpdated: new Date().toISOString(),
-  };
-
-  try {
-    fs.writeFileSync(STORE_FILE, JSON.stringify(initialStore, null, 2), "utf-8");
-  } catch (err) {
-    console.error("Error creating active sessions store:", err);
-  }
-
-  return initialStore;
-}
-
-function saveStore(store: ActiveSessionsStore) {
-  try {
-    store.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(STORE_FILE, JSON.stringify(store, null, 2), "utf-8");
-  } catch (err) {
-    console.error("Error saving active sessions store:", err);
-  }
-}
-
 export class ActiveTimeService {
+  private static async resolveProfileId(admin: any, studentIdOrUserId: string): Promise<string> {
+    if (!studentIdOrUserId) return "";
+    try {
+      // Check if it's already a profile id
+      const { data: p1 } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("id", studentIdOrUserId)
+        .maybeSingle();
+
+      if (p1?.id) return p1.id;
+
+      // Check if it's a user_id from auth.users
+      const { data: p2 } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("user_id", studentIdOrUserId)
+        .maybeSingle();
+
+      if (p2?.id) return p2.id;
+    } catch (e) {
+      console.error("Error resolving profile ID in ActiveTimeService:", e);
+    }
+    return studentIdOrUserId;
+  }
+
   /**
-   * Records a validated heartbeat from the client.
+   * Records a validated heartbeat from the client directly in Supabase PostgreSQL.
    * Enforces security constraints to prevent fake/jumped time.
    */
-  public static recordHeartbeat(params: {
+  public static async recordHeartbeat(params: {
     studentId: string;
     studentEmail?: string;
     sessionId: string;
@@ -82,12 +63,12 @@ export class ActiveTimeService {
     isIdle?: boolean;
     isHidden?: boolean;
     deviceInfo?: string;
-  }): {
+  }): Promise<{
     totalActiveSeconds: number;
     todayActiveSeconds: number;
     sessionActiveSeconds: number;
     isTracking: boolean;
-  } {
+  }> {
     const {
       studentId,
       studentEmail,
@@ -102,196 +83,260 @@ export class ActiveTimeService {
       return { totalActiveSeconds: 0, todayActiveSeconds: 0, sessionActiveSeconds: 0, isTracking: false };
     }
 
-    const store = ensureStoreExists();
-    if (!store.students[studentId]) {
-      store.students[studentId] = {
-        studentId,
-        studentEmail,
-        totalActiveSeconds: 0,
-        dailyBreakdown: {},
-        sessions: [],
-        lastActiveAt: new Date().toISOString(),
-      };
-    }
+    const admin = createAdminClient();
+    const profileId = await this.resolveProfileId(admin, studentId);
 
-    const studentData = store.students[studentId];
-    if (studentEmail && !studentData.studentEmail) {
-      studentData.studentEmail = studentEmail;
-    }
+    const isTracking = !isIdle && !isHidden;
+    const safeIncrement = isTracking ? Math.min(Math.max(0, Math.round(incrementSeconds)), 30) : 0;
+    const nowIso = new Date().toISOString();
+    const todayIso = nowIso.slice(0, 10);
 
-    const now = new Date();
-    const nowIso = now.toISOString();
-    const todayIso = nowIso.slice(0, 10); // YYYY-MM-DD
+    let sessionActiveSeconds = 0;
 
-    // Find or create the active session
-    let session = studentData.sessions.find((s) => s.sessionId === sessionId);
-    if (!session) {
-      session = {
-        sessionId,
-        studentId,
-        studentEmail,
-        startedAt: nowIso,
-        lastHeartbeatAt: nowIso,
-        durationSeconds: 0,
-        isClosed: false,
-        deviceInfo,
-      };
-      // Keep up to 100 recent sessions per student to manage storage
-      studentData.sessions.unshift(session);
-      if (studentData.sessions.length > 100) {
-        studentData.sessions = studentData.sessions.slice(0, 100);
+    try {
+      // Find existing active session row
+      const { data: existingSession } = await admin
+        .from("notifications")
+        .select("id, metadata")
+        .eq("type", "session_heartbeat")
+        .eq("user_id", profileId)
+        .eq("message", sessionId)
+        .maybeSingle();
+
+      if (existingSession) {
+        const prevMeta = existingSession.metadata || {};
+        const prevDuration = Number(prevMeta.durationSeconds || 0);
+        sessionActiveSeconds = prevDuration + safeIncrement;
+
+        await admin
+          .from("notifications")
+          .update({
+            metadata: {
+              ...prevMeta,
+              sessionId,
+              durationSeconds: sessionActiveSeconds,
+              todayIso: prevMeta.todayIso || todayIso,
+              lastHeartbeatAt: nowIso,
+              isClosed: false,
+              deviceInfo,
+            },
+            created_at: nowIso,
+          })
+          .eq("id", existingSession.id);
+      } else {
+        sessionActiveSeconds = safeIncrement;
+        await admin.from("notifications").insert({
+          user_id: profileId,
+          title: "Active Learning Session",
+          message: sessionId,
+          type: "session_heartbeat",
+          metadata: {
+            sessionId,
+            durationSeconds: sessionActiveSeconds,
+            todayIso,
+            startedAt: nowIso,
+            lastHeartbeatAt: nowIso,
+            isClosed: false,
+            deviceInfo,
+            studentEmail,
+          },
+          created_at: nowIso,
+        });
       }
+    } catch (err) {
+      console.error("Error recording heartbeat in database:", err);
     }
 
-    // Determine if tracking should advance
-    const isTracking = !isIdle && !isHidden && !session.isClosed;
-
-    if (isTracking) {
-      // Security Validation:
-      // Client cannot send arbitrary values like 999999 seconds.
-      // Maximum allowed increment per heartbeat is capped to 30 seconds.
-      const safeIncrement = Math.min(Math.max(0, Math.round(incrementSeconds)), 30);
-      const effectiveIncrement = safeIncrement;
-
-      session.durationSeconds += effectiveIncrement;
-      session.lastHeartbeatAt = nowIso;
-      studentData.totalActiveSeconds += effectiveIncrement;
-      studentData.dailyBreakdown[todayIso] = (studentData.dailyBreakdown[todayIso] || 0) + effectiveIncrement;
-      studentData.lastActiveAt = nowIso;
-
-      saveStore(store);
-    } else {
-      session.lastHeartbeatAt = nowIso;
-      saveStore(store);
-    }
-
-    const todayActive = studentData.dailyBreakdown[todayIso] || 0;
+    // Query aggregated authoritative metrics for this student
+    const metrics = await this.getStudentActiveTime(profileId);
 
     return {
-      totalActiveSeconds: studentData.totalActiveSeconds,
-      todayActiveSeconds: todayActive,
-      sessionActiveSeconds: session.durationSeconds,
+      totalActiveSeconds: metrics.totalActiveSeconds,
+      todayActiveSeconds: metrics.todayActiveSeconds,
+      sessionActiveSeconds,
       isTracking,
     };
   }
 
   /**
-   * Retrieves the authoritative active time metrics for a student.
+   * Retrieves the authoritative active time metrics for a student from Supabase PostgreSQL.
    */
-  public static getStudentActiveTime(studentId: string): {
-    totalActiveSeconds: number;
-    todayActiveSeconds: number;
-    weekActiveSeconds: number;
-    monthActiveSeconds: number;
-    dailyBreakdown: Record<string, number>;
-    sessions: StudentSessionRecord[];
-    lastActiveAt?: string;
-  } {
-    if (!studentId) {
-      return {
-        totalActiveSeconds: 0,
-        todayActiveSeconds: 0,
-        weekActiveSeconds: 0,
-        monthActiveSeconds: 0,
-        dailyBreakdown: {},
-        sessions: [],
-      };
-    }
-
-    const store = ensureStoreExists();
-    const data = store.students[studentId];
-
-    if (!data) {
-      return {
-        totalActiveSeconds: 0,
-        todayActiveSeconds: 0,
-        weekActiveSeconds: 0,
-        monthActiveSeconds: 0,
-        dailyBreakdown: {},
-        sessions: [],
-      };
-    }
-
-    const now = new Date();
-    const todayIso = now.toISOString().slice(0, 10);
-    const todayActiveSeconds = data.dailyBreakdown[todayIso] || 0;
-
-    // Calculate this week (last 7 days)
-    let weekActiveSeconds = 0;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      weekActiveSeconds += data.dailyBreakdown[d] || 0;
-    }
-
-    // Calculate this month (last 30 days)
-    let monthActiveSeconds = 0;
-    for (let i = 0; i < 30; i++) {
-      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      monthActiveSeconds += data.dailyBreakdown[d] || 0;
-    }
-
-    return {
-      totalActiveSeconds: data.totalActiveSeconds,
-      todayActiveSeconds,
-      weekActiveSeconds,
-      monthActiveSeconds,
-      dailyBreakdown: data.dailyBreakdown,
-      sessions: data.sessions || [],
-      lastActiveAt: data.lastActiveAt,
+  public static async getStudentActiveTime(studentId: string): Promise<StudentActiveTimeData> {
+    const emptyResult: StudentActiveTimeData = {
+      studentId,
+      totalActiveSeconds: 0,
+      todayActiveSeconds: 0,
+      weekActiveSeconds: 0,
+      monthActiveSeconds: 0,
+      dailyBreakdown: {},
+      sessions: [],
     };
+
+    if (!studentId) return emptyResult;
+
+    try {
+      const admin = createAdminClient();
+      const profileId = await this.resolveProfileId(admin, studentId);
+
+      const { data: rows, error } = await admin
+        .from("notifications")
+        .select("id, user_id, message, metadata, created_at")
+        .eq("type", "session_heartbeat")
+        .eq("user_id", profileId)
+        .order("created_at", { ascending: false });
+
+      if (error || !rows || rows.length === 0) {
+        return emptyResult;
+      }
+
+      const now = new Date();
+      const todayIso = now.toISOString().slice(0, 10);
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      let totalActiveSeconds = 0;
+      let todayActiveSeconds = 0;
+      let weekActiveSeconds = 0;
+      let monthActiveSeconds = 0;
+      const dailyBreakdown: Record<string, number> = {};
+      const sessions: StudentSessionRecord[] = [];
+      let lastActiveAt: string | undefined = undefined;
+
+      rows.forEach((r: any) => {
+        const meta = r.metadata || {};
+        const dur = Number(meta.durationSeconds || 0);
+        const dateStr = meta.todayIso || (r.created_at ? r.created_at.slice(0, 10) : todayIso);
+        const createdAtDate = new Date(r.created_at || Date.now());
+
+        totalActiveSeconds += dur;
+        dailyBreakdown[dateStr] = (dailyBreakdown[dateStr] || 0) + dur;
+
+        if (dateStr === todayIso) {
+          todayActiveSeconds += dur;
+        }
+        if (createdAtDate >= weekAgo) {
+          weekActiveSeconds += dur;
+        }
+        if (createdAtDate >= monthAgo) {
+          monthActiveSeconds += dur;
+        }
+
+        if (!lastActiveAt || (r.created_at && r.created_at > lastActiveAt)) {
+          lastActiveAt = r.created_at;
+        }
+
+        sessions.push({
+          sessionId: meta.sessionId || r.message || r.id,
+          studentId: profileId,
+          studentEmail: meta.studentEmail,
+          startedAt: meta.startedAt || r.created_at,
+          lastHeartbeatAt: meta.lastHeartbeatAt || r.created_at,
+          durationSeconds: dur,
+          isClosed: !!meta.isClosed,
+          closedAt: meta.closedAt,
+          deviceInfo: meta.deviceInfo,
+        });
+      });
+
+      return {
+        studentId: profileId,
+        totalActiveSeconds,
+        todayActiveSeconds,
+        weekActiveSeconds,
+        monthActiveSeconds,
+        dailyBreakdown,
+        sessions,
+        lastActiveAt,
+      };
+    } catch (err) {
+      console.error("Error retrieving student active time from database:", err);
+      return emptyResult;
+    }
   }
 
   /**
-   * Closes a session cleanly (e.g. on logout or tab close).
+   * Closes a session cleanly in the database (e.g. on logout or tab close).
    */
-  public static closeSession(sessionId: string, studentId?: string): boolean {
+  public static async closeSession(sessionId: string, studentId?: string): Promise<boolean> {
     if (!sessionId) return false;
-    const store = ensureStoreExists();
+    try {
+      const admin = createAdminClient();
+      let query = admin
+        .from("notifications")
+        .select("id, metadata")
+        .eq("type", "session_heartbeat")
+        .eq("message", sessionId);
 
-    const checkStudent = (sData: StudentActiveTimeData) => {
-      const s = sData.sessions.find((sess) => sess.sessionId === sessionId);
-      if (s) {
-        s.isClosed = true;
-        s.closedAt = new Date().toISOString();
-        return true;
+      if (studentId) {
+        const profileId = await this.resolveProfileId(admin, studentId);
+        query = query.eq("user_id", profileId);
       }
-      return false;
-    };
 
-    if (studentId && store.students[studentId]) {
-      if (checkStudent(store.students[studentId])) {
-        saveStore(store);
-        return true;
-      }
-    } else {
-      for (const sId of Object.keys(store.students)) {
-        const sData = store.students[sId];
-        if (sData && checkStudent(sData)) {
-          saveStore(store);
-          return true;
+      const { data: rows } = await query;
+      if (rows && rows.length > 0) {
+        for (const row of rows) {
+          const meta = row.metadata || {};
+          await admin
+            .from("notifications")
+            .update({
+              metadata: {
+                ...meta,
+                isClosed: true,
+                closedAt: new Date().toISOString(),
+              },
+            })
+            .eq("id", row.id);
         }
+        return true;
       }
+    } catch (e) {
+      console.error("Error closing session in database:", e);
     }
-
     return false;
   }
 
   /**
-   * Gets active time for all students (for Admin / Trainer directory views).
+   * Gets active time for all students (for Admin / Trainer directory and reporting views).
    */
-  public static getAllStudentsActiveTime(): Record<string, { totalActiveSeconds: number; todayActiveSeconds: number; lastActiveAt?: string }> {
-    const store = ensureStoreExists();
+  public static async getAllStudentsActiveTime(): Promise<
+    Record<string, { totalActiveSeconds: number; todayActiveSeconds: number; lastActiveAt?: string }>
+  > {
     const result: Record<string, { totalActiveSeconds: number; todayActiveSeconds: number; lastActiveAt?: string }> = {};
+    try {
+      const admin = createAdminClient();
+      const { data: rows } = await admin
+        .from("notifications")
+        .select("user_id, metadata, created_at")
+        .eq("type", "session_heartbeat");
 
-    const todayIso = new Date().toISOString().slice(0, 10);
-    for (const [sId, data] of Object.entries(store.students)) {
-      result[sId] = {
-        totalActiveSeconds: data.totalActiveSeconds,
-        todayActiveSeconds: data.dailyBreakdown[todayIso] || 0,
-        lastActiveAt: data.lastActiveAt,
-      };
+      if (!rows || rows.length === 0) return result;
+
+      const todayIso = new Date().toISOString().slice(0, 10);
+
+      rows.forEach((r: any) => {
+        const uId = r.user_id;
+        if (!uId) return;
+
+        if (!result[uId]) {
+          result[uId] = { totalActiveSeconds: 0, todayActiveSeconds: 0 };
+        }
+
+        const meta = r.metadata || {};
+        const dur = Number(meta.durationSeconds || 0);
+        const dateStr = meta.todayIso || (r.created_at ? r.created_at.slice(0, 10) : todayIso);
+
+        result[uId].totalActiveSeconds += dur;
+        if (dateStr === todayIso) {
+          result[uId].todayActiveSeconds += dur;
+        }
+
+        if (!result[uId].lastActiveAt || (r.created_at && r.created_at > result[uId].lastActiveAt!)) {
+          result[uId].lastActiveAt = r.created_at;
+        }
+      });
+    } catch (err) {
+      console.error("Error getting all students active time from database:", err);
     }
-
     return result;
   }
 }

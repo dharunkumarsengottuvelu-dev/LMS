@@ -260,8 +260,7 @@ export function getModuleCompletedCount(
           resumeQuestionLabel = (module.type === "coding" ? "Problem " : "Question ") + resumeQuestionNumber;
         }
       } else {
-        // Case B: Unsubmitted session (draft / active navigation)
-        // CHECK ONLY ACTUAL SUBMITTED PROBLEMS (e.g. from coding submit button)
+        // Only active session-scoped client drafts/navigation state should be read if unsubmitted
         const sessionStr = localStorage.getItem(sessionKey);
         const submittedQuestionIds = new Set<string>();
 
@@ -296,25 +295,6 @@ export function getModuleCompletedCount(
             }
           } catch {}
         }
-
-        // Also check global coding submissions store for any accepted submissions for this module's questions
-        try {
-          const globalSubsRaw = localStorage.getItem("edunexus_coding_submissions_v1");
-          if (globalSubsRaw) {
-            const globalSubs = JSON.parse(globalSubsRaw);
-            if (Array.isArray(globalSubs)) {
-              const moduleQuestions = module.codingQuestions || module.codingProblems || [];
-              moduleQuestions.forEach((cq: any) => {
-                const hasAccepted = globalSubs.some(
-                  (s: any) => (s.problem_id === cq.id || s.problem_id === cq.slug) && (s.status === "accepted" || s.status === "passed")
-                );
-                if (hasAccepted) {
-                  submittedQuestionIds.add(cq.id);
-                }
-              });
-            }
-          }
-        } catch {}
 
         // ONLY submitted question IDs increase completedCount
         const verifiedSubmittedCount = Math.min(totalQuestions, submittedQuestionIds.size);

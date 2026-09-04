@@ -33,10 +33,10 @@ export default function CodingDashboardPage() {
     const all = CodingProblemsService.getAllProblems() as ExtendedCodingProblem[];
     return CodingProgressService.getSolvedProblems(all);
   });
-  const [assignments] = useState<CodingAssignment[]>(() => CodingAssignmentsService.getAssignments());
-  const [leaderboard] = useState<LeaderboardEntry[]>(() => CodingLeaderboardService.getLeaderboard());
-  const [discussPosts, setDiscussPosts] = useState<CodingDiscussPost[]>(() => CodingDiscussService.getPosts());
-  const [submissions, setSubmissions] = useState<CodingSubmission[]>(() => SubmissionService.getStudentSubmissions());
+  const [assignments, setAssignments] = useState<CodingAssignment[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [discussPosts, setDiscussPosts] = useState<CodingDiscussPost[]>([]);
+  const [submissions, setSubmissions] = useState<CodingSubmission[]>([]);
 
   useEffect(() => {
     const refreshData = async () => {
@@ -51,8 +51,21 @@ export default function CodingDashboardPage() {
         setInProgressItems(CodingProgressService.getInProgressProblems(all));
         setSolvedItems(CodingProgressService.getSolvedProblems(all));
       }
-      setDiscussPosts(CodingDiscussService.getPosts());
-      setSubmissions(SubmissionService.getStudentSubmissions());
+
+      try {
+        const [leads, asgs, posts, subs] = await Promise.all([
+          CodingLeaderboardService.fetchLeaderboard(),
+          CodingAssignmentsService.fetchAssignments(),
+          CodingDiscussService.fetchPosts(),
+          SubmissionService.fetchStudentSubmissions(),
+        ]);
+        setLeaderboard(leads);
+        setAssignments(asgs);
+        setDiscussPosts(posts);
+        setSubmissions(subs);
+      } catch (e) {
+        console.error("Error refreshing coding data:", e);
+      }
     };
 
     refreshData();

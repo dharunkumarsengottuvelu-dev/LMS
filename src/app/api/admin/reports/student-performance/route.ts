@@ -303,7 +303,10 @@ export async function GET(request: NextRequest) {
       userLiveAttendanceMap.set(uId, list);
     });
 
-    // 11. Process & Aggregate Each Student (GUARANTEE: Exactly 1 record per student, NO duplicates)
+    // 11. Fetch authoritative active time for all students in one batch query
+    const allStudentsActiveTime = await ActiveTimeService.getAllStudentsActiveTime();
+
+    // Process & Aggregate Each Student (GUARANTEE: Exactly 1 record per student, NO duplicates)
     const reportRows: StudentReportItem[] = [];
 
     (rawStudents || []).forEach((p: any) => {
@@ -435,7 +438,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Real Active Learning Time (from ActiveTimeService)
-      const activeData = ActiveTimeService.getStudentActiveTime(studentId);
+      const activeData = allStudentsActiveTime[studentId] || allStudentsActiveTime[studentUserId];
       const activeTimeSeconds = activeData?.totalActiveSeconds || 0;
       const activeTimeFormatted = formatSeconds(activeTimeSeconds);
 

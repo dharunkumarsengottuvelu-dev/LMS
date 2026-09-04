@@ -130,104 +130,7 @@ export function StudentActivityHeatmap({
         const json = await res.json();
 
         if (json.success && json.data) {
-          let resData: HeatmapResponseData = json.data;
-
-          // Merge any unsynced client-side coding submissions from localStorage if available
-          if (typeof window !== "undefined") {
-            try {
-              const rawLocal = localStorage.getItem("edunexus_coding_submissions_v1");
-              if (rawLocal) {
-                const localSubs = JSON.parse(rawLocal);
-                if (Array.isArray(localSubs) && localSubs.length > 0) {
-                  const dayMap = new Map<string, DayActivityData>();
-                  resData.calendarDays.forEach((d) => dayMap.set(d.date, { ...d }));
-
-                  let addedCount = 0;
-                  localSubs.forEach((sub: any) => {
-                    const tsStr = sub.created_at || sub.submitted_at;
-                    if (!tsStr) return;
-                    const ts = new Date(tsStr).getTime();
-                    if (isNaN(ts)) return;
-
-                    // Format date in student's timezone
-                    let localIso = "";
-                    try {
-                      localIso = new Intl.DateTimeFormat("en-CA", {
-                        timeZone: userTz,
-                        year: "numeric",
-                        month: "2-digit",
-                        day: "2-digit",
-                      }).format(new Date(ts));
-                    } catch {
-                      localIso = new Date(ts).toISOString().slice(0, 10);
-                    }
-
-                    const day = dayMap.get(localIso);
-                    if (day) {
-                      const exists = day.details.some(
-                        (item) => item.id === sub.id || (item.category === "coding" && Math.abs(item.timestamp - ts) < 2000)
-                      );
-                      if (!exists) {
-                        const isAccepted = sub.status === "accepted" || sub.status === "passed";
-                        day.count += 1;
-                        if (isAccepted) {
-                          day.successfulCount = (day.successfulCount || 0) + 1;
-                        }
-                        day.categories.coding += 1;
-                        day.details.unshift({
-                          id: sub.id || `local-${ts}`,
-                          category: "coding",
-                          title: isAccepted ? `Solved Problem` : `Submitted Code`,
-                          subtitle: `Language: ${(sub.language || "code").toUpperCase()} • ${isAccepted ? "Accepted" : "Wrong Answer"}`,
-                          status: isAccepted ? "Accepted" : "Wrong Answer",
-                          passed: isAccepted,
-                          timeStr: new Intl.DateTimeFormat("en-US", { timeZone: userTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
-                          timestamp: ts,
-                        });
-                        addedCount += 1;
-
-                        day.performancePct = Math.round((day.successfulCount / day.count) * 100);
-                        day.intensity = calculateHeatmapIntensity(day.count, day.successfulCount);
-                      }
-                    }
-                  });
-
-                  if (addedCount > 0) {
-                    const updatedCalendar = Array.from(dayMap.values()).sort((a, b) =>
-                      a.date.localeCompare(b.date)
-                    );
-                    let totAct = 0;
-                    let totActiveDays = 0;
-                    let maxStr = 0;
-                    let runStr = 0;
-
-                    updatedCalendar.forEach((d) => {
-                      totAct += d.count;
-                      if (d.count > 0) {
-                        totActiveDays += 1;
-                        runStr += 1;
-                        if (runStr > maxStr) maxStr = runStr;
-                      } else {
-                        runStr = 0;
-                      }
-                    });
-
-                    resData = {
-                      ...resData,
-                      totalActivities: totAct,
-                      totalActiveDays: totActiveDays,
-                      maxStreak: maxStr,
-                      calendarDays: updatedCalendar,
-                    };
-                  }
-                }
-              }
-            } catch (err) {
-              console.warn("Client localStorage submission merge skipped:", err);
-            }
-          }
-
-          setData(resData);
+          setData(json.data);
         }
       } catch (err) {
         console.error("Failed to load student activity heatmap:", err);
@@ -249,10 +152,12 @@ export function StudentActivityHeatmap({
     // Listen for custom activity update event when student submits code/tests/assignments
     const handleActivityUpdate = () => fetchHeatmapData(true);
     window.addEventListener("student-activity-updated", handleActivityUpdate);
+    window.addEventListener("storage", handleActivityUpdate);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("student-activity-updated", handleActivityUpdate);
+      window.removeEventListener("storage", handleActivityUpdate);
     };
   }, [fetchHeatmapData]);
 

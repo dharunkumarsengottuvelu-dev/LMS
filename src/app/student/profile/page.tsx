@@ -135,7 +135,8 @@ export default function StudentProfilePage() {
         setReportSummary(sum);
         setEnrolledCount(sum.enrolledCoursesCount || 0);
         setPracticeCount(sum.practicesCount || 0);
-        setSubmissionsCount(sum.totalSubmissionsCount || 0);
+        const totalSubs = sum.totalSubmissionsCount || 0;
+        setSubmissionsCount(totalSubs);
         setCoursesList(repData.reports.coursesList || []);
 
         let rawPractices = repData.reports.practicesList || [];
@@ -233,7 +234,14 @@ export default function StudentProfilePage() {
     if (dateRange !== "custom" || (customFromDate && customToDate)) {
       fetchReportData();
     }
-  }, [fetchReportData, dateRange]);
+    const handleSync = () => fetchReportData();
+    window.addEventListener("student-activity-updated", handleSync);
+    window.addEventListener("storage", handleSync);
+    return () => {
+      window.removeEventListener("student-activity-updated", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
+  }, [fetchReportData, dateRange, customFromDate, customToDate]);
 
   const dateRangeLabel = useMemo(() => {
     switch (dateRange) {
@@ -552,108 +560,113 @@ export default function StudentProfilePage() {
 
           {/* TAB 1: PERSONAL INFORMATION */}
           {activeTab === "personal" && (
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
-              <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA]">
-                    Personal & Academic Details
-                  </CardTitle>
-                  <CardDescription className="text-xs text-[#6B7280]">
-                    View and manage your identity details, phone number, and technical bio
-                  </CardDescription>
-                </div>
-                {!isEditingPersonal ? (
-                  <Button
-                    onClick={() => setIsEditingPersonal(true)}
-                    variant="outline"
-                    className="h-9 px-4 text-xs font-bold gap-1.5 border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10"
-                  >
-                    <Edit3 className="h-3.5 w-3.5" /> Edit Profile
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-2">
+            <div className="space-y-6">
+              <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
+                <CardHeader className="p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-[18px] font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      Personal & Academic Details
+                    </CardTitle>
+                    <CardDescription className="text-xs text-[#6B7280]">
+                      View and manage your identity details, phone number, and technical bio
+                    </CardDescription>
+                  </div>
+                  {!isEditingPersonal ? (
                     <Button
-                      onClick={() => setIsEditingPersonal(false)}
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs font-medium text-[#6B7280]"
+                      onClick={() => setIsEditingPersonal(true)}
+                      variant="outline"
+                      className="h-9 px-4 text-xs font-bold gap-1.5 border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10"
                     >
-                      Cancel
+                      <Edit3 className="h-3.5 w-3.5" /> Edit Profile
                     </Button>
-                    <Button
-                      onClick={handleSavePersonalInfo}
-                      size="sm"
-                      className="h-8 px-3 text-xs font-bold gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-                    >
-                      <Save className="h-3.5 w-3.5" /> Save Changes
-                    </Button>
-                  </div>
-                )}
-              </CardHeader>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={() => setIsEditingPersonal(false)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs font-medium text-[#6B7280]"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSavePersonalInfo}
+                        size="sm"
+                        className="h-8 px-3 text-xs font-bold gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+                      >
+                        <Save className="h-3.5 w-3.5" /> Save Changes
+                      </Button>
+                    </div>
+                  )}
+                </CardHeader>
 
-              <CardContent className="p-6 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <CardContent className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-[#6B7280]">First Name</Label>
+                      <Input
+                        disabled={!isEditingPersonal}
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        className="h-10 text-xs font-medium"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-[#6B7280]">Last Name</Label>
+                      <Input
+                        disabled={!isEditingPersonal}
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        className="h-10 text-xs font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-[#6B7280]">Email Address (Primary)</Label>
+                      <Input disabled value={email} className="h-10 text-xs font-medium bg-[#F9FAFB] dark:bg-[#09090B]" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-[#6B7280]">Phone Number</Label>
+                      <Input
+                        disabled={!isEditingPersonal}
+                        placeholder="+91 98765 43210"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="h-10 text-xs font-medium"
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-[#6B7280]">First Name</Label>
+                    <Label className="text-xs font-semibold text-[#6B7280]">Technical Bio</Label>
+                    <Textarea
+                      disabled={!isEditingPersonal}
+                      placeholder="Briefly describe your programming passion, stack, or target career roles..."
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      rows={3}
+                      className="text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-[#6B7280]">Tech Stack & Skills</Label>
                     <Input
                       disabled={!isEditingPersonal}
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Java, Python, Data Structures, Spring Boot, React, SQL..."
+                      value={skills}
+                      onChange={(e) => setSkills(e.target.value)}
                       className="h-10 text-xs font-medium"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-[#6B7280]">Last Name</Label>
-                    <Input
-                      disabled={!isEditingPersonal}
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="h-10 text-xs font-medium"
-                    />
-                  </div>
-                </div>
+                </CardContent>
+              </Card>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-[#6B7280]">Email Address (Primary)</Label>
-                    <Input disabled value={email} className="h-10 text-xs font-medium bg-[#F9FAFB] dark:bg-[#09090B]" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-[#6B7280]">Phone Number</Label>
-                    <Input
-                      disabled={!isEditingPersonal}
-                      placeholder="+91 98765 43210"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="h-10 text-xs font-medium"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#6B7280]">Technical Bio</Label>
-                  <Textarea
-                    disabled={!isEditingPersonal}
-                    placeholder="Briefly describe your programming passion, stack, or target career roles..."
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    rows={3}
-                    className="text-xs"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#6B7280]">Tech Stack & Skills</Label>
-                  <Input
-                    disabled={!isEditingPersonal}
-                    placeholder="Java, Python, Data Structures, Spring Boot, React, SQL..."
-                    value={skills}
-                    onChange={(e) => setSkills(e.target.value)}
-                    className="h-10 text-xs font-medium"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+              {/* Real-Time Student Activity Contribution Heatmap inside Personal Information Tab ONLY */}
+              <StudentActivityHeatmap studentId={user?.id} />
+            </div>
           )}
 
           {/* TAB 2: CODING PROFILES & LINKS */}
@@ -1436,9 +1449,7 @@ export default function StudentProfilePage() {
             </div>
           )}
 
-          {/* Real-Time Student Activity Contribution Heatmap inside right column */}
-          <StudentActivityHeatmap studentId={user?.id} />
-
+          {/* Bottom spacer or end of right column */}
         </div>
       </div>
 

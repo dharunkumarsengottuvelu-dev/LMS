@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const batchContext = await getStudentBatchAccess(adminClient, user);
     const studentId = batchContext.profileId || user.id;
 
-    const activeTimeData = ActiveTimeService.getStudentActiveTime(studentId);
+    const activeTimeData = await ActiveTimeService.getStudentActiveTime(studentId);
 
     return NextResponse.json({
       success: true,

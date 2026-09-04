@@ -72,4 +72,43 @@ export class BatchService {
     }
     return null;
   }
+
+  static async deleteBatch(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/admin/batches?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      return res.ok;
+    } catch (e) {
+      console.error("Error deleting batch:", e);
+      return false;
+    }
+  }
+
+  static async assignStudent(batchId: string, studentId: string): Promise<boolean> {
+    try {
+      const supabase = createClient();
+      await (supabase as any).from("batch_members").upsert([
+        { batch_id: batchId, user_id: studentId },
+      ], { onConflict: "batch_id,user_id" });
+
+      await (supabase as any).from("profiles").update({ batch_id: batchId }).eq("id", studentId);
+      return true;
+    } catch (e) {
+      console.error("Error assigning student to batch:", e);
+      return false;
+    }
+  }
+
+  static async removeStudent(batchId: string, studentId: string): Promise<boolean> {
+    try {
+      const supabase = createClient();
+      await (supabase as any).from("batch_members").delete().eq("batch_id", batchId).eq("user_id", studentId);
+      await (supabase as any).from("profiles").update({ batch_id: null }).eq("id", studentId);
+      return true;
+    } catch (e) {
+      console.error("Error removing student from batch:", e);
+      return false;
+    }
+  }
 }

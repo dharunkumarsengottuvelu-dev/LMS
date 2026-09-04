@@ -59,33 +59,8 @@ export default function StudentTestsPage() {
         if (res.ok) {
           const data = await res.json();
           if (data.tests && Array.isArray(data.tests)) {
-            const mapped = data.tests.map((t: any) => {
-              if (typeof window !== "undefined") {
-                const localRec = localStorage.getItem(`lms_completed_assessment_${t.id}`);
-                const completedMap = JSON.parse(localStorage.getItem("edunexus_completed_tests") || "{}");
-                if (localRec) {
-                  try {
-                    const parsed = JSON.parse(localRec);
-                    return {
-                      ...t,
-                      status: "completed",
-                      score: parsed.score ?? t.score,
-                      percentage: parsed.percentage ?? t.percentage,
-                    };
-                  } catch {}
-                } else if (completedMap[t.id]) {
-                  return {
-                    ...t,
-                    status: "completed",
-                    score: completedMap[t.id].score ?? t.score,
-                    percentage: completedMap[t.id].percentage ?? t.percentage,
-                  };
-                }
-              }
-              return t;
-            });
-            setTests(mapped);
-            setTestsData(mapped);
+            setTests(data.tests);
+            setTestsData(data.tests);
           }
         }
       } catch (err) {
