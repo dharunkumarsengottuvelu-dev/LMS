@@ -438,8 +438,7 @@ export default function ProblemSolvingWorkspace() {
           <span className="text-slate-300">|</span>
 
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-semibold text-slate-400">#{problem.id}.</span>
-            <span className="font-semibold text-slate-900 text-xs sm:text-sm truncate max-w-[180px] sm:max-w-md">
+            <span className="font-semibold text-slate-900 text-xs sm:text-sm truncate max-w-[220px] sm:max-w-md">
               {problem.title}
             </span>
             <span

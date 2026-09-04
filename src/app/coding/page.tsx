@@ -434,14 +434,14 @@ export default function CodingDashboardPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {inProgressItems.map(({ problem, state }) => (
+                {inProgressItems.map(({ problem, state }, idx) => (
                   <div
                     key={problem.id}
                     className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-mono text-slate-400">#{problem.id}</span>
+                        <span className="text-xs font-mono font-semibold text-slate-400" title={problem.id}>#{idx + 1}</span>
                         <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-medium">
                           In Progress
                         </span>
@@ -493,11 +493,11 @@ export default function CodingDashboardPage() {
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {solvedItems.map(({ problem, state }) => (
+                {solvedItems.map(({ problem, state }, idx) => (
                   <div key={problem.id} className="py-3 flex items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-slate-400">#{problem.id}</span>
+                        <span className="text-xs font-mono font-semibold text-slate-400" title={problem.id}>#{idx + 1}</span>
                         <h4 className="font-semibold text-slate-900 text-xs sm:text-sm">{problem.title}</h4>
                         <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded capitalize bg-slate-100 text-slate-700">
                           {problem.difficulty}
