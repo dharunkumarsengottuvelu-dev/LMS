@@ -69,7 +69,7 @@
           "studentId": "20d4f2ec-2788-473a-a6fc-5597ae64afde",
           "studentEmail": "admin@lms.com",
           "startedAt": "2026-09-04T06:16:46.857Z",
-          "lastHeartbeatAt": "2026-09-04T08:44:46.607Z",
+          "lastHeartbeatAt": "2026-09-04T08:45:46.584Z",
           "durationSeconds": 224,
           "isClosed": true,
           "deviceInfo": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Sa",
@@ -89,5 +89,5 @@
       "lastActiveAt": "2026-09-04T06:39:34.972Z"
     }
   },
-  "lastUpdated": "2026-09-04T08:44:46.608Z"
+  "lastUpdated": "2026-09-04T08:45:46.584Z"
 }

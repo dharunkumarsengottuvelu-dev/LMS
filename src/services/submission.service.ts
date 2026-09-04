@@ -7,7 +7,6 @@ import type {
   SubmissionStatus,
   SubmitCodeInput,
 } from "@/types/coding";
-import { SQLExecutionService } from "@/services/sql-execution.service";
 import { CodingProblemsService } from "@/services/coding-problems.service";
 export { SAMPLE_CODING_PROBLEMS } from "@/services/coding-problems.service";
 
@@ -48,17 +47,6 @@ export class SubmissionService {
     }
 
     return problem;
-  }
-
-  /**
-   * Evaluates a solution against test cases via the Jobe execution server.
-   */
-  public static async submitSolution(
-    input: SubmitCodeInput,
-    studentId: string = "student-1"
-  ): Promise<CodingSubmission> {
-    const { SubmissionEvaluatorService } = await import("./submission-evaluator.service");
-    return SubmissionEvaluatorService.evaluateSolution(input, studentId);
   }
 
   /**
