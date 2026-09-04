@@ -10,7 +10,6 @@ export default function AdminSettingsPage() {
     <div className="space-y-8">
       <PageHeader 
         title="Platform Settings"
-        description="Configure Judge0 API endpoints, Supabase keys, and organization branding"
       />
       <Card className="max-w-xl">
         <CardHeader className="p-6 pb-4"><CardTitle className="text-[18px]">Organization Config</CardTitle></CardHeader>

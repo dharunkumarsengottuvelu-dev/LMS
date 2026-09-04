@@ -907,7 +907,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         {/* Header */}
         <PageHeader
           title={editingCourseId ? "Course Configuration Wizard" : "Enterprise Course Creation Wizard"}
-          description="Structured multi-step curriculum authoring"
           backAction={{ label: "Exit Authoring", onClick: () => setViewState("list") }}
           actions={!editingCourseId ? <AutoSaveBadge isSaved={isSavedCourseDraft} lastSaved={lastSavedCourseDraft} /> : undefined}
         />
@@ -2018,7 +2017,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     <div className="space-y-8 w-full">
       <PageHeader
         title={selectedCourse.title}
-        description={`${selectedCourse.category} • ${selectedCourse.level} • Instructor: ${selectedCourse.instructor}`}
         backAction={{ label: "Back to Courses", onClick: () => setViewState("list") }}
         actions={
           <Button onClick={() => openEditWizard(selectedCourse)}
@@ -2116,7 +2114,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     <div className="space-y-8">
       <PageHeader
         title={role === "admin" ? "Enterprise Course & Curriculum Management" : "Assigned Training Courses"}
-        description="Author courses with step-by-step wizard (Course Info → Curriculum Modules → Review & Deploy)"
         actions={
           <div className="flex items-center gap-2.5">
             <Button

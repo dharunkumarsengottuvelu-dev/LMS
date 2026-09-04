@@ -389,7 +389,6 @@ export default function AdminBatchesPage() {
       {/* 1. Header & Primary Action */}
       <PageHeader
         title="Batch Management"
-        description="Group learners into cohort batches to control visibility across Courses, Practices, Assessments, and Assignments."
         actions={
           <Button
             onClick={handleOpenCreateModal}

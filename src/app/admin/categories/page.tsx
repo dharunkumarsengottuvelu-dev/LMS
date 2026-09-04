@@ -9,7 +9,6 @@ export default function AdminCategoriesPage() {
     <div className="space-y-8">
       <PageHeader 
         title="Course Categories"
-        description="Organize courses by technical domain, skill track, and technology stack"
         actions={<Button className="h-[44px] bg-[#2563EB] text-white gap-2"><Plus className="h-4 w-4" /> Add Category</Button>}
       />
       <Card><CardContent className="p-6 text-sm text-[#6B7280]">Course taxonomy and skill category tree.</CardContent></Card>

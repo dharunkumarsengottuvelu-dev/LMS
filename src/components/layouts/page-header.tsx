@@ -1,5 +1,8 @@
+"use client";
+
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ChevronRight, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +25,8 @@ export function PageHeader({
   className,
   badge,
 }: PageHeaderProps) {
+  const pathname = usePathname() || '';
+  const isAdminOrTrainer = pathname.startsWith('/admin') || pathname.startsWith('/trainer');
   return (
     <div className={cn("w-full bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs mb-6 overflow-visible", className)}>
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
@@ -80,8 +85,8 @@ export function PageHeader({
             {badge}
           </div>
 
-          {/* Description */}
-          {description && (
+          {/* Description - hidden in admin and trainer portals */}
+          {!isAdminOrTrainer && description && (
             <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-3xl leading-relaxed font-normal">
               {description}
             </p>

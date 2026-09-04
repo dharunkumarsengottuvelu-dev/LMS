@@ -28,6 +28,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/layouts/page-header";
 import { cn } from "@/lib/utils";
+import { exportReportToExcel, exportReportToCSV, exportReportToPDF } from "@/lib/reports/export-utils";
+import type { ReportSummary, StudentReportItem, BatchReportItem } from "@/app/api/admin/reports/student-performance/route";
 
 export interface TestSubmissionAnswer {
   questionId: string;
@@ -223,6 +225,200 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   const flaggedAlertsCount = useMemo(() => {
     return filteredStudents.filter((s) => s.status === "flagged" || s.violationCount > 0).length;
   }, [filteredStudents]);
+
+  // ══════════════════════════════════════════════════════════════
+  // ENTERPRISE REPORTING & MULTI-FORMAT EXPORT STATES
+  // ══════════════════════════════════════════════════════════════
+  const [reportScope, setReportScope] = useState<"overall" | "batch">("overall");
+  const [selectedReportBatch, setSelectedReportBatch] = useState<string>("all");
+  const [reportDateRange, setReportDateRange] = useState<"all" | "today" | "7d" | "30d" | "custom">("all");
+  const [reportCustomFrom, setReportCustomFrom] = useState<string>("");
+  const [reportCustomTo, setReportCustomTo] = useState<string>("");
+  const [reportCourseFilter, setReportCourseFilter] = useState<string>("all");
+  const [isCustomDateModalOpen, setIsCustomDateModalOpen] = useState<boolean>(false);
+
+  // Authoritative Backend Report Data
+  const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
+  const [reportStudents, setReportStudents] = useState<StudentReportItem[]>([]);
+  const [reportBatches, setReportBatches] = useState<BatchReportItem[]>([]);
+  const [availableBatchesList, setAvailableBatchesList] = useState<string[]>([]);
+  const [availableCoursesList, setAvailableCoursesList] = useState<{ id: string; title: string }[]>([]);
+  const [isLoadingReport, setIsLoadingReport] = useState<boolean>(true);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  const currentBatchItem = useMemo(() => {
+    if (selectedReportBatch === "all") return null;
+    return reportBatches.find((b) => b.batchName.toLowerCase() === selectedReportBatch.toLowerCase()) || null;
+  }, [reportBatches, selectedReportBatch]);
+
+  const fetchAuthoritativeReport = useCallback(async () => {
+    setIsLoadingReport(true);
+    try {
+      const targetBatch = reportScope === "batch"
+        ? (selectedReportBatch !== "all" ? selectedReportBatch : batchFilter !== "all" ? batchFilter : "all")
+        : (batchFilter || "all");
+
+      const params = new URLSearchParams({
+        reportType: reportScope,
+        batch: targetBatch,
+        status: statusFilter,
+        dateRange: reportDateRange,
+        courseId: reportCourseFilter,
+        search: searchQuery,
+      });
+
+      if (reportDateRange === "custom" && reportCustomFrom && reportCustomTo) {
+        params.set("from", reportCustomFrom);
+        params.set("to", reportCustomTo);
+      }
+
+      const res = await fetch(`/api/admin/reports/student-performance?${params.toString()}`);
+      const json = await res.json();
+      if (json.success && json.summary) {
+        setReportSummary(json.summary);
+        setReportStudents(json.students || []);
+        if (json.batches) {
+          setReportBatches(json.batches);
+        }
+        if (json.metadata?.availableBatches && json.metadata.availableBatches.length > 0) {
+          setAvailableBatchesList(json.metadata.availableBatches);
+        }
+        if (json.metadata?.availableCourses && json.metadata.availableCourses.length > 0) {
+          setAvailableCoursesList(json.metadata.availableCourses);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load authoritative student performance report:", err);
+    } finally {
+      setIsLoadingReport(false);
+    }
+  }, [reportScope, selectedReportBatch, batchFilter, statusFilter, reportDateRange, reportCustomFrom, reportCustomTo, reportCourseFilter, searchQuery]);
+
+  useEffect(() => {
+    fetchAuthoritativeReport();
+  }, [fetchAuthoritativeReport]);
+
+  const handleExportBatch = async (batchItem: BatchReportItem, format: "excel" | "csv" | "pdf") => {
+    if (isExporting) return;
+    if (!batchItem || batchItem.students.length === 0) {
+      toast({
+        title: "No Students in Batch",
+        description: `Batch "${batchItem.batchName}" currently has 0 enrolled students to export.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const batchSummary: ReportSummary = {
+        scope: `Batch: ${batchItem.batchName}`,
+        reportType: "batch",
+        batchName: batchItem.batchName,
+        totalStudents: batchItem.studentCount,
+        activeStudents: batchItem.activeStudents,
+        inactiveStudents: Math.max(0, batchItem.studentCount - batchItem.activeStudents),
+        flaggedStudents: batchItem.totalViolations > 0 ? 1 : 0,
+        averageScore: batchItem.avgScore,
+        averagePracticeScore: batchItem.avgPracticeScore,
+        averageCodingAccuracy: batchItem.avgCodingAccuracy,
+        averageAssessmentScore: batchItem.avgAssessmentScore,
+        totalAssignmentsSubmitted: batchItem.students.reduce((acc, s) => acc + s.assignmentCount, 0),
+        averageProctoringCompliance: batchItem.avgProctoringCompliance,
+        totalViolationsLogged: batchItem.totalViolations,
+        totalActiveTimeSeconds: batchItem.totalActiveTimeSeconds,
+        totalActiveTimeFormatted: batchItem.totalActiveTimeFormatted,
+        averageActiveTimeFormatted:
+          batchItem.studentCount > 0
+            ? `${Math.floor(batchItem.totalActiveTimeSeconds / batchItem.studentCount / 60)}m`
+            : "0m",
+        courseCompletionRate: 0,
+        generatedAt: new Date().toISOString(),
+        generatedBy: "Enterprise LMS Administrator",
+        filtersApplied: {
+          reportType: "batch",
+          batch: batchItem.batchName,
+          status: statusFilter,
+          dateRange: reportDateRange,
+          courseId: reportCourseFilter,
+          search: searchQuery,
+        },
+      };
+
+      if (format === "excel") {
+        exportReportToExcel(batchSummary, batchItem.students);
+        toast({
+          title: "Batch Excel Exported",
+          description: `Successfully exported workbook for batch "${batchItem.batchName}".`,
+        });
+      } else if (format === "csv") {
+        exportReportToCSV(batchSummary, batchItem.students);
+        toast({
+          title: "Batch CSV Exported",
+          description: `Successfully exported CSV for batch "${batchItem.batchName}".`,
+        });
+      } else if (format === "pdf") {
+        await exportReportToPDF(batchSummary, batchItem.students);
+        toast({
+          title: "Batch PDF Ready",
+          description: `Printable document ready for batch "${batchItem.batchName}".`,
+        });
+      }
+    } catch (err: any) {
+      console.error("Batch export error:", err);
+      toast({
+        title: "Export Failed",
+        description: err.message || "Failed to generate batch export.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExport = async (format: "excel" | "csv" | "pdf") => {
+    if (isExporting) return;
+    if (!reportSummary || reportStudents.length === 0) {
+      toast({
+        title: "No Records to Export",
+        description: "There are no candidate performance records matching the selected filters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      if (format === "excel") {
+        exportReportToExcel(reportSummary, reportStudents);
+        toast({
+          title: "Excel Report Generated",
+          description: `Successfully exported ${reportStudents.length} candidate performance records across all workbook sheets.`,
+        });
+      } else if (format === "csv") {
+        exportReportToCSV(reportSummary, reportStudents);
+        toast({
+          title: "CSV Report Generated",
+          description: `Successfully exported ${reportStudents.length} candidate records in UTF-8 CSV format.`,
+        });
+      } else if (format === "pdf") {
+        await exportReportToPDF(reportSummary, reportStudents);
+        toast({
+          title: "PDF Report Ready",
+          description: "Printable enterprise document launched successfully.",
+        });
+      }
+    } catch (err: any) {
+      console.error("Export error:", err);
+      toast({
+        title: "Export Failed",
+        description: err.message || "Failed to generate report export.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const [viewState, setViewState] = useState<"list" | "enroll" | "analytics">("list");
   const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
@@ -859,7 +1055,6 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
       <div className="space-y-8 w-full">
         <PageHeader
           title="Enterprise Student Onboarding"
-          description="Configure employee credentials, department, and custom cohort batch"
           backAction={{ label: "Back to Student Directory", onClick: () => setViewState("list") }}
         />
 
@@ -1037,7 +1232,6 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
         {/* 0. Top Page Header with Back Action and Live Controls */}
         <PageHeader
           title={`${selectedStudent.name} Performance & Learning Reports`}
-          description={`${selectedStudent.email} • ${selectedStudent.batch}`}
           backAction={{ label: "Back to Student Directory", onClick: () => setViewState("list") }}
           actions={
             <div className="flex items-center gap-2.5 flex-wrap">
@@ -2209,7 +2403,6 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
       {/* Top Banner */}
       <PageHeader
         title={portalRole === "admin" ? "Enterprise Student Performance & Proctoring Hub" : "Batch Performance & Proctoring Analytics"}
-        description="Real-time individual performance metrics, proctoring security logs, MCQ/Coding accuracy, and batch management"
         actions={
           <div className="flex items-center gap-3 shrink-0 flex-wrap">
             <Button
@@ -2218,18 +2411,18 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                 setIsAssignBatchOpen(false);
               }}
               variant="outline"
-              className="h-[44px] border-[#2563EB] text-[#2563EB] dark:border-[#3B82F6] dark:text-[#3B82F6] hover:bg-[#2563EB]/10 font-bold gap-2 px-5 rounded-xl shadow-xs"
+              className="h-[44px] border-[#2563EB] text-[#2563EB] dark:border-[#3B82F6] dark:text-[#3B82F6] hover:bg-[#2563EB]/10 font-bold px-5 rounded-xl shadow-xs"
             >
-              <FolderKanban className="h-4 w-4" /> Create New Batch
+              Create New Batch
             </Button>
             <Button
               onClick={() => {
                 setIsAssignBatchOpen(!isAssignBatchOpen);
                 setIsCreateBatchOpen(false);
               }}
-              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-2 px-5 rounded-xl shadow-md shadow-[#2563EB]/20"
+              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-5 rounded-xl shadow-md shadow-[#2563EB]/20"
             >
-              <UserCheck className="h-4 w-4" /> Add Student to Batch
+              Add Student to Batch
             </Button>
           </div>
         }
@@ -2505,104 +2698,275 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280]">Total Enrolled Students</span>
-            <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
-              <Users className="h-4 w-4" />
-            </div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">
+              {reportScope === "batch" && selectedReportBatch === "all"
+                ? "Total Batches"
+                : reportScope === "batch"
+                ? "Enrolled in Batch"
+                : "Total Candidates"}
+            </span>
+            <Badge variant="outline" className="text-[10px] font-semibold text-[#2563EB] border-[#2563EB]/20 bg-[#2563EB]/5">
+              {reportScope === "batch" && selectedReportBatch === "all" ? "Cohort Roster" : reportScope === "batch" ? "Batch Roster" : "Platform Active"}
+            </Badge>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">{students.length}</span>
-            <span className={`text-xs font-semibold ml-2 ${students.length > 0 ? "text-[#16A34A]" : "text-[#6B7280]"}`}>
-              {students.length > 0 ? "100% Active Students" : "No active students"}
+            <span className="text-3xl font-bold text-[#111827] dark:text-[#FAFAFA]">
+              {reportScope === "batch" && selectedReportBatch === "all"
+                ? reportBatches.length
+                : currentBatchItem
+                ? currentBatchItem.studentCount
+                : reportSummary ? reportSummary.totalStudents : students.length}
             </span>
+            <p className="text-xs text-[#6B7280] mt-1 font-medium">
+              {reportScope === "batch" && selectedReportBatch === "all"
+                ? `${reportBatches.reduce((acc, b) => acc + b.studentCount, 0)} Total Learners Enrolled`
+                : currentBatchItem
+                ? `${currentBatchItem.activeStudents} Active Learners`
+                : reportSummary ? `${reportSummary.activeStudents} Active • ${reportSummary.flaggedStudents} Flagged` : "Verified database records"}
+            </p>
           </div>
         </Card>
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280]">Average Test Score</span>
-            <div className="w-8 h-8 rounded-lg bg-[#16A34A]/10 text-[#16A34A] flex items-center justify-center">
-              <BarChart3 className="h-4 w-4" />
-            </div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">
+              {reportScope === "batch" && selectedReportBatch === "all" ? "Batches Avg Score" : "Average Test Score"}
+            </span>
+            <Badge variant="outline" className="text-[10px] font-semibold text-[#16A34A] border-[#16A34A]/20 bg-[#16A34A]/5">
+              Evaluated
+            </Badge>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">
-              {students.length > 0 ? `${avgTestScore}%` : "0%"}
+            <span className="text-3xl font-bold text-[#111827] dark:text-[#FAFAFA]">
+              {reportScope === "batch" && selectedReportBatch === "all"
+                ? reportBatches.length > 0
+                  ? `${Math.round(reportBatches.reduce((acc, b) => acc + b.avgScore, 0) / reportBatches.length)}%`
+                  : "0%"
+                : currentBatchItem
+                ? `${currentBatchItem.avgScore}%`
+                : reportSummary ? `${reportSummary.averageAssessmentScore}%` : `${avgTestScore}%`}
             </span>
-            <span className={`text-xs font-semibold ml-2 ${students.length > 0 ? "text-[#16A34A]" : "text-[#6B7280]"}`}>
-              {students.length > 0 ? "Calculated Average" : "No test records"}
-            </span>
+            <p className="text-xs text-[#6B7280] mt-1 font-medium">
+              {reportScope === "batch" && selectedReportBatch === "all"
+                ? "Real batch assessment performance"
+                : reportSummary && reportSummary.totalStudents > 0 ? "Real assessment performance" : "No evaluations recorded"}
+            </p>
           </div>
         </Card>
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280]">Proctoring Compliance</span>
-            <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
-              <ShieldCheck className="h-4 w-4" />
-            </div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Proctoring Compliance</span>
+            <Badge
+              variant="outline"
+              className={`text-[10px] font-semibold ${
+                (reportScope === "batch" && selectedReportBatch === "all"
+                  ? (reportBatches.length > 0 ? Math.round(reportBatches.reduce((acc, b) => acc + b.avgProctoringCompliance, 0) / reportBatches.length) : 100)
+                  : currentBatchItem
+                  ? currentBatchItem.avgProctoringCompliance
+                  : (reportSummary?.averageProctoringCompliance ?? avgCompliance)) >= 90
+                  ? "text-[#16A34A] border-[#16A34A]/20 bg-[#16A34A]/5"
+                  : "text-[#DC2626] border-[#DC2626]/20 bg-[#DC2626]/5"
+              }`}
+            >
+              {(reportScope === "batch" && selectedReportBatch === "all"
+                ? (reportBatches.length > 0 ? Math.round(reportBatches.reduce((acc, b) => acc + b.avgProctoringCompliance, 0) / reportBatches.length) : 100)
+                : currentBatchItem
+                ? currentBatchItem.avgProctoringCompliance
+                : (reportSummary?.averageProctoringCompliance ?? avgCompliance)) >= 90 ? "High Integrity" : "Review Needed"}
+            </Badge>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">
-              {students.length > 0 ? `${avgCompliance}%` : "0%"}
+            <span className="text-3xl font-bold text-[#111827] dark:text-[#FAFAFA]">
+              {reportScope === "batch" && selectedReportBatch === "all"
+                ? reportBatches.length > 0
+                  ? `${Math.round(reportBatches.reduce((acc, b) => acc + b.avgProctoringCompliance, 0) / reportBatches.length)}%`
+                  : "100%"
+                : currentBatchItem
+                ? `${currentBatchItem.avgProctoringCompliance}%`
+                : reportSummary ? `${reportSummary.averageProctoringCompliance}%` : `${avgCompliance}%`}
             </span>
-            <span className={`text-xs font-semibold ml-2 ${students.length > 0 && avgCompliance >= 90 ? "text-[#16A34A]" : "text-[#6B7280]"}`}>
-              {students.length > 0 && avgCompliance >= 90 ? "High Trust Rating" : students.length > 0 ? "Standard Rating" : "No proctoring logs"}
-            </span>
+            <p className="text-xs text-[#6B7280] mt-1 font-medium">
+              {reportScope === "batch" && selectedReportBatch === "all"
+                ? `${reportBatches.reduce((acc, b) => acc + b.totalViolations, 0)} Total Violation(s)`
+                : currentBatchItem
+                ? `${currentBatchItem.totalViolations} Security Alert(s)`
+                : reportSummary ? `${reportSummary.flaggedStudents} Security Alert(s)` : "Proctoring audit stream"}
+            </p>
           </div>
         </Card>
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280]">Proctoring Flagged Alerts</span>
-            <div className="w-8 h-8 rounded-lg bg-[#DC2626]/10 text-[#DC2626] flex items-center justify-center">
-              <ShieldAlert className="h-4 w-4" />
-            </div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Cumulative Learning Time</span>
+            <Badge variant="outline" className="text-[10px] font-semibold text-[#6366F1] border-[#6366F1]/20 bg-[#6366F1]/5">
+              Active Time
+            </Badge>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">
-              {flaggedAlertsCount}
+            <span className="text-3xl font-bold text-[#111827] dark:text-[#FAFAFA]">
+              {reportScope === "batch" && selectedReportBatch === "all"
+                ? reportBatches.length > 0
+                  ? (() => {
+                      const totalSecs = reportBatches.reduce((acc, b) => acc + b.totalActiveTimeSeconds, 0);
+                      const hours = Math.floor(totalSecs / 3600);
+                      const minutes = Math.floor((totalSecs % 3600) / 60);
+                      return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                    })()
+                  : "0m"
+                : currentBatchItem
+                ? currentBatchItem.totalActiveTimeFormatted || "0m"
+                : reportSummary?.totalActiveTimeFormatted || "0m"}
             </span>
-            <span className={`text-xs font-semibold ml-2 ${flaggedAlertsCount > 0 ? "text-[#DC2626]" : "text-[#6B7280]"}`}>
-              {flaggedAlertsCount > 0 ? "Requires Review" : "All clear"}
-            </span>
+            <p className="text-xs text-[#6B7280] mt-1 font-medium">
+              Verified platform interaction time
+            </p>
           </div>
         </Card>
       </div>
 
-      {/* Interactive Controls & Filters */}
-      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:w-80">
+      {/* Enterprise Reporting Controls & Filter Bar */}
+      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 shadow-xs space-y-4">
+        {/* Top Controls Row: Report Scope Switch & Export Button */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
+          <div className="flex items-center gap-1.5 p-1 bg-[#F3F4F6] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] self-start">
+            <button
+              type="button"
+              onClick={() => {
+                setReportScope("overall");
+                setSelectedReportBatch("all");
+              }}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                reportScope === "overall"
+                  ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-xs"
+                  : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+              }`}
+            >
+              Overall Report
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setReportScope("batch");
+                if (batchFilter !== "all") {
+                  setSelectedReportBatch(batchFilter);
+                } else {
+                  setSelectedReportBatch("all");
+                }
+              }}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                reportScope === "batch"
+                  ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-xs"
+                  : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+              }`}
+            >
+              Batch-wise Report
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                disabled={isExporting || isLoadingReport}
+                className="h-[40px] bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 text-white font-bold px-5 rounded-xl text-xs shadow-md shadow-[#2563EB]/20 outline-none inline-flex items-center justify-center transition-colors cursor-pointer"
+              >
+                {isExporting ? "Generating Export..." : "Export Report"}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 p-1.5 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl shadow-xl">
+                <DropdownMenuItem
+                  onClick={() => handleExport("excel")}
+                  className="text-xs font-semibold py-2.5 px-3 cursor-pointer rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
+                >
+                  Excel Workbook (.xlsx)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleExport("csv")}
+                  className="text-xs font-semibold py-2.5 px-3 cursor-pointer rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
+                >
+                  CSV Document (.csv)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleExport("pdf")}
+                  className="text-xs font-semibold py-2.5 px-3 cursor-pointer rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
+                >
+                  Printable PDF Document (.pdf)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* Filter Controls Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* Search Input */}
+          <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
             <Input
-              placeholder="Search student name or email..."
+              placeholder="Search candidate, email, ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]"
+              className="pl-10 h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]"
             />
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <Select value={batchFilter} onValueChange={(val) => setBatchFilter(val || "all")}>
-              <SelectTrigger className="h-[44px] text-xs w-[170px] bg-[#F9FAFB] dark:bg-[#09090B]">
-                <SelectValue>
-                  {batchFilter === "all" ? "Batch: All Batches" : batchFilter}
-                </SelectValue>
+          {/* Batch Selector */}
+          <div>
+            <Select
+              value={reportScope === "batch" ? (selectedReportBatch || "all") : (batchFilter || "all")}
+              onValueChange={(val) => {
+                const target = val || "all";
+                if (reportScope === "batch") {
+                  setSelectedReportBatch(target);
+                } else {
+                  setBatchFilter(target);
+                }
+              }}
+            >
+              <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]">
+                <SelectValue placeholder={reportScope === "batch" ? "Select Batch..." : "Batch: All Batches"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Batch: All Batches</SelectItem>
-                {availableBatches.map((batch) => (
-                  <SelectItem key={batch} value={batch}>{batch}</SelectItem>
+                <SelectItem value="all">
+                  {reportScope === "batch" ? "All Batches (Unfiltered)" : "Batch: All Batches"}
+                </SelectItem>
+                {Array.from(new Set([...availableBatchesList, ...availableBatches])).filter(Boolean).map((batch) => (
+                  <SelectItem key={batch} value={batch}>Batch: {batch}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
 
+          {/* Date Range Selector */}
+          <div>
+            <Select
+              value={reportDateRange}
+              onValueChange={(val: any) => {
+                setReportDateRange(val || "all");
+                if (val === "custom") {
+                  setIsCustomDateModalOpen(true);
+                }
+              }}
+            >
+              <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]">
+                <SelectValue placeholder="Date: All Time" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Date: All Time</SelectItem>
+                <SelectItem value="today">Date: Today</SelectItem>
+                <SelectItem value="7d">Date: Last 7 Days</SelectItem>
+                <SelectItem value="30d">Date: Last 30 Days</SelectItem>
+                <SelectItem value="custom">
+                  {reportCustomFrom && reportCustomTo ? `Date: ${reportCustomFrom} to ${reportCustomTo}` : "Date: Custom Range..."}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Status Selector */}
+          <div>
             <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "all")}>
-              <SelectTrigger className="h-[44px] text-xs w-[160px] bg-[#F9FAFB] dark:bg-[#09090B]">
-                <SelectValue>
-                  {statusFilter === "all" ? "Status: All" : statusFilter === "active" ? "Status: Active" : statusFilter === "flagged" ? "Status: Flagged" : "Status: Suspended"}
-                </SelectValue>
+              <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]">
+                <SelectValue placeholder="Status: All Statuses" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Status: All Statuses</SelectItem>
@@ -2612,118 +2976,561 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               </SelectContent>
             </Select>
           </div>
+
+          {/* Course Selector */}
+          <div>
+            <Select value={reportCourseFilter} onValueChange={(val) => setReportCourseFilter(val || "all")}>
+              <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]">
+                <SelectValue placeholder="Course: All Courses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Course: All Courses</SelectItem>
+                {availableCoursesList.map((course) => (
+                  <SelectItem key={course.id} value={course.id}>
+                    Course: {course.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </Card>
 
-      {/* Main Student Performance Table */}
-      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden">
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-xs font-bold text-[#6B7280] uppercase tracking-wider">
-              <tr>
-                <th className="p-4 pl-6 w-[28%]">Student Details</th>
-                <th className="p-4 w-[15%]">Assigned Batch</th>
-                <th className="p-4 w-[15%]">Average Score</th>
-                <th className="p-4 w-[17%]">Proctoring Status</th>
-                <th className="p-4 w-[10%]">Account Status</th>
-                <th className="p-4 pr-6 text-right w-[15%]">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-              {filteredStudents.map((std) => (
-                <tr key={std.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors">
-                  <td className="p-4 pl-6 align-middle">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Avatar className="h-10 w-10 shrink-0 border border-[#E5E7EB] dark:border-[#27272A]">
-                        <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs">
-                          {std.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 truncate">
-                        <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs flex items-center gap-2 truncate">
-                          <span className="truncate">{std.name}</span>
-                          <span className="font-mono text-[10px] text-[#2563EB] font-normal shrink-0">({std.employeeId})</span>
-                        </p>
-                        <p className="text-[11px] text-[#6B7280] truncate">{std.email} • <span className="font-medium text-[#111827] dark:text-[#FAFAFA]">{std.designation}</span></p>
+      {/* ── CONDITIONAL VIEW: BATCH-WISE ROSTER vs. CANDIDATE ROSTER ── */}
+      {reportScope === "batch" && selectedReportBatch === "all" ? (
+        /* ENTERPRISE BATCH PERFORMANCE ROSTER TABLE */
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-xs overflow-hidden">
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
+                <tr>
+                  <th className="p-3.5 pl-6 min-w-[240px]">Batch Name & Details</th>
+                  <th className="p-3.5 min-w-[140px]">Lead Trainer</th>
+                  <th className="p-3.5 min-w-[130px]">Enrolled Learners</th>
+                  <th className="p-3.5 min-w-[140px]">Batch Avg Score</th>
+                  <th className="p-3.5 min-w-[140px]">Proctoring Integrity</th>
+                  <th className="p-3.5 min-w-[130px]">Learning Time</th>
+                  <th className="p-3.5 pr-6 text-right min-w-[190px]">Download & Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                {isLoadingReport ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-[#6B7280]">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-[#2563EB]" />
+                        <p className="text-xs font-semibold">Loading batch performance records...</p>
                       </div>
-                    </div>
-                  </td>
-
-                  <td className="p-4">
-                    <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
-                      {std.batch}
-                    </Badge>
-                  </td>
-
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs text-[#111827] dark:text-[#FAFAFA]">{std.avgScore}%</span>
-                      <div className="w-20 bg-[#E5E7EB] dark:bg-[#27272A] h-2 rounded-full overflow-hidden">
-                        <div className="bg-[#16A34A] h-full rounded-full" style={{ width: `${std.avgScore}%` }} />
+                    </td>
+                  </tr>
+                ) : reportBatches.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-[#6B7280]">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <div className="p-3.5 rounded-2xl bg-[#2563EB]/10 text-[#2563EB]">
+                          <FolderKanban className="h-7 w-7" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">No Student Batches Found in Database</p>
+                          <p className="text-xs text-[#6B7280] mt-1 max-w-md mx-auto">
+                            No batches have been created or assigned yet. Create a batch to start tracking and exporting batch-wise performance metrics.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          onClick={() => setIsCreateBatchOpen(true)}
+                          className="h-[38px] px-5 text-xs font-bold bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl shadow-md shadow-[#2563EB]/20"
+                        >
+                          <Plus className="h-4 w-4 mr-1.5" /> Create New Batch
+                        </Button>
                       </div>
-                    </div>
-                  </td>
+                    </td>
+                  </tr>
+                ) : (
+                  reportBatches.map((batch) => (
+                    <tr key={batch.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors">
+                      {/* Batch Name & Details */}
+                      <td className="p-3.5 pl-6 align-middle">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2.5 rounded-xl bg-[#2563EB]/10 text-[#2563EB] shrink-0">
+                            <FolderKanban className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0 truncate">
+                            <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs truncate">
+                              {batch.batchName}
+                            </p>
+                            <p className="text-[11px] text-[#6B7280] truncate">
+                              {[batch.collegeName, batch.courseName].filter(Boolean).join(" • ") || "General Training Cohort"}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
 
-                  <td className="p-4">
-                    {std.violationCount === 0 ? (
-                      <Badge className="bg-[#16A34A] text-white text-[10px] font-bold gap-1">
-                        <ShieldCheck className="h-3 w-3" /> Clean Record (0 Logs)
-                      </Badge>
-                    ) : std.violationCount < 3 ? (
-                      <Badge className="bg-[#F59E0B] text-white text-[10px] font-bold gap-1">
-                        <AlertTriangle className="h-3 w-3" /> {std.violationCount} Warnings Logged
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-[#DC2626] text-white text-[10px] font-bold gap-1">
-                        <ShieldAlert className="h-3 w-3" /> Flagged ({std.violationCount} Violations)
+                      {/* Lead Trainer */}
+                      <td className="p-3.5 align-middle">
+                        <div className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">
+                          {batch.trainerName || "Unassigned"}
+                        </div>
+                        <span className="text-[10px] text-[#6B7280]">Trainer / Faculty</span>
+                      </td>
+
+                      {/* Enrolled Learners */}
+                      <td className="p-3.5 align-middle">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs font-bold border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
+                            {batch.studentCount} Students
+                          </Badge>
+                          {batch.activeStudents > 0 && (
+                            <span className="text-[10px] text-[#16A34A] font-semibold">
+                              ({batch.activeStudents} active)
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Batch Avg Score */}
+                      <td className="p-3.5 align-middle">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-[#111827] dark:text-[#FAFAFA]">
+                              {batch.avgScore}%
+                            </span>
+                            <span className="text-[10px] text-[#6B7280]">Average</span>
+                          </div>
+                          <div className="w-24 h-1.5 bg-[#E5E7EB] dark:bg-[#27272A] rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all",
+                                batch.avgScore >= 75 ? "bg-[#16A34A]" : batch.avgScore >= 50 ? "bg-[#2563EB]" : "bg-[#F59E0B]"
+                              )}
+                              style={{ width: `${Math.min(100, Math.max(0, batch.avgScore))}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Proctoring Integrity */}
+                      <td className="p-3.5 align-middle">
+                        <div className="space-y-0.5">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] font-bold",
+                              batch.avgProctoringCompliance >= 90
+                                ? "text-[#16A34A] border-[#16A34A]/30 bg-[#16A34A]/10"
+                                : "text-[#DC2626] border-[#DC2626]/30 bg-[#DC2626]/10"
+                            )}
+                          >
+                            <ShieldCheck className="h-3 w-3 mr-1 inline" />
+                            {batch.avgProctoringCompliance}% Integrity
+                          </Badge>
+                          {batch.totalViolations > 0 && (
+                            <p className="text-[10px] text-[#DC2626] font-medium pl-0.5">
+                              {batch.totalViolations} Security Alert(s)
+                            </p>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Learning Time */}
+                      <td className="p-3.5 align-middle">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">
+                          <Clock className="h-3.5 w-3.5 text-[#6366F1]" />
+                          <span>{batch.totalActiveTimeFormatted || "0m"}</span>
+                        </div>
+                        <span className="text-[10px] text-[#6B7280]">Cumulative</span>
+                      </td>
+
+                      {/* Download & Actions */}
+                      <td className="p-3.5 pr-6 text-right align-middle">
+                        <div className="flex items-center justify-end gap-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              disabled={isExporting || batch.studentCount === 0}
+                              className="h-8 px-2.5 text-xs font-bold text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB]/20 disabled:opacity-40 rounded-lg inline-flex items-center gap-1.5 cursor-pointer outline-none transition-colors"
+                            >
+                              <Download className="h-3.5 w-3.5" /> Download
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-52 p-1.5 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl shadow-xl">
+                              <DropdownMenuItem
+                                onClick={() => handleExportBatch(batch, "excel")}
+                                className="text-xs font-semibold py-2 px-3 cursor-pointer rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
+                              >
+                                Excel (.xlsx)
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleExportBatch(batch, "csv")}
+                                className="text-xs font-semibold py-2 px-3 cursor-pointer rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
+                              >
+                                CSV Document (.csv)
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleExportBatch(batch, "pdf")}
+                                className="text-xs font-semibold py-2 px-3 cursor-pointer rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
+                              >
+                                Printable PDF (.pdf)
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedReportBatch(batch.batchName);
+                            }}
+                            className="h-8 px-3 text-xs font-bold text-[#111827] dark:text-[#FAFAFA] rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] gap-1"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> View
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      ) : (
+        /* CANDIDATE PERFORMANCE ROSTER (Overall Report OR Single Batch Drill-Down) */
+        <div className="space-y-4">
+          {/* Batch Drill-Down Banner */}
+          {reportScope === "batch" && selectedReportBatch !== "all" && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-[#2563EB]/5 border border-[#2563EB]/20 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedReportBatch("all")}
+                  className="h-8 text-xs font-bold gap-1 text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10 rounded-xl"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> All Batches
+                </Button>
+                <div>
+                  <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                    <span>Batch: {selectedReportBatch}</span>
+                    {currentBatchItem && (
+                      <Badge variant="outline" className="text-[10px] font-semibold text-[#2563EB] border-[#2563EB]/20 bg-[#2563EB]/10">
+                        {currentBatchItem.studentCount} Candidates
                       </Badge>
                     )}
-                  </td>
+                  </h3>
+                  {currentBatchItem && (
+                    <p className="text-[11px] text-[#6B7280] mt-0.5">
+                      {[currentBatchItem.collegeName, currentBatchItem.courseName, `Trainer: ${currentBatchItem.trainerName}`].filter(Boolean).join(" • ")}
+                    </p>
+                  )}
+                </div>
+              </div>
 
-                  <td className="p-4">
-                    <Badge
-                      className={`text-[10px] font-bold capitalize ${
-                        std.status === "active"
-                          ? "bg-[#16A34A] text-white"
-                          : std.status === "flagged"
-                          ? "bg-[#DC2626] text-white"
-                          : "bg-[#6B7280] text-white"
-                      }`}
+              {currentBatchItem && (
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      disabled={isExporting || currentBatchItem.studentCount === 0}
+                      className="h-8 px-3 text-xs font-bold text-white bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-40 rounded-xl inline-flex items-center gap-1.5 cursor-pointer outline-none transition-colors shadow-xs"
                     >
-                      {std.status}
-                    </Badge>
-                  </td>
+                      <Download className="h-3.5 w-3.5" /> Download Batch Report
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52 p-1.5 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl shadow-xl">
+                      <DropdownMenuItem
+                        onClick={() => handleExportBatch(currentBatchItem, "excel")}
+                        className="text-xs font-semibold py-2 px-3 cursor-pointer rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
+                      >
+                        Excel (.xlsx)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleExportBatch(currentBatchItem, "csv")}
+                        className="text-xs font-semibold py-2 px-3 cursor-pointer rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
+                      >
+                        CSV Document (.csv)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleExportBatch(currentBatchItem, "pdf")}
+                        className="text-xs font-semibold py-2 px-3 cursor-pointer rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#27272A] text-[#111827] dark:text-[#FAFAFA]"
+                      >
+                        Printable PDF (.pdf)
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+            </div>
+          )}
 
-                  <td className="p-4 pr-6">
-                    <div className="flex items-center justify-end gap-2">
-                    <Button
-                      onClick={() => {
-                        setSelectedStudent(std);
-                        setViewState("analytics");
-                      }}
-                      size="sm"
-                      className="h-8 text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold gap-1 px-3 shadow-sm"
-                    >
-                      <Eye className="h-3.5 w-3.5 shrink-0" /> View Performance
-                    </Button>
-                    <Button
-                      onClick={() => handleToggleStatus(std.id)}
-                      variant="outline"
-                      size="icon"
-                      className={`h-8 w-8 shrink-0 shadow-sm ${
-                        std.status === "active" ? "text-[#DC2626] border-[#DC2626]/30 hover:border-[#DC2626] hover:bg-[#DC2626]/10" : "text-[#16A34A] border-[#16A34A]/30 hover:border-[#16A34A] hover:bg-[#16A34A]/10"
-                      }`}
-                    >
-                      {std.status === "active" ? <ShieldAlert className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
-                    </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+          {/* Student Performance Table */}
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-xs overflow-hidden">
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
+                  <tr>
+                    <th className="p-3.5 pl-6 min-w-[220px]">Candidate Details</th>
+                    <th className="p-3.5 min-w-[130px]">Assigned Batch</th>
+                    <th className="p-3.5 min-w-[100px]">Courses</th>
+                    <th className="p-3.5 min-w-[120px]">Average Score</th>
+                    <th className="p-3.5 min-w-[100px]">Practice</th>
+                    <th className="p-3.5 min-w-[110px]">Coding</th>
+                    <th className="p-3.5 min-w-[110px]">Assessments</th>
+                    <th className="p-3.5 min-w-[100px]">Assignments</th>
+                    <th className="p-3.5 min-w-[130px]">Proctoring</th>
+                    <th className="p-3.5 min-w-[110px]">Active Time</th>
+                    <th className="p-3.5 min-w-[100px]">Status</th>
+                    <th className="p-3.5 pr-6 text-right min-w-[130px]">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                  {isLoadingReport ? (
+                    <tr>
+                      <td colSpan={12} className="py-12 text-center text-[#6B7280]">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Loader2 className="h-6 w-6 animate-spin text-[#2563EB]" />
+                          <p className="text-xs font-semibold">Loading enterprise performance records...</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : reportStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={12} className="py-12 text-center text-[#6B7280]">
+                        <p className="text-sm font-semibold">No candidate performance records found</p>
+                        <p className="text-xs text-[#9CA3AF] mt-1">Try adjusting the reporting scope, batch, or date filters above.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    reportStudents.map((std) => (
+                      <tr key={std.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors">
+                        <td className="p-3.5 pl-6 align-middle">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Avatar className="h-9 w-9 shrink-0 border border-[#E5E7EB] dark:border-[#27272A]">
+                              <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs">
+                                {std.name.charAt(0) || "S"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 truncate">
+                              <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs flex items-center gap-2 truncate">
+                                <span className="truncate">{std.name}</span>
+                                <span className="font-mono text-[10px] text-[#2563EB] font-normal shrink-0">({std.employeeId})</span>
+                              </p>
+                              <p className="text-[11px] text-[#6B7280] truncate">{std.email}</p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="p-3.5">
+                          <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
+                            {std.batch || "Unassigned"}
+                          </Badge>
+                        </td>
+
+                        <td className="p-3.5 text-xs text-[#111827] dark:text-[#FAFAFA] font-medium">
+                          <span>{std.enrolledCoursesCount} Enrolled</span>
+                          {std.completedCoursesCount > 0 && (
+                            <p className="text-[10px] text-[#16A34A] font-semibold">{std.completedCoursesCount} completed</p>
+                          )}
+                        </td>
+
+                        <td className="p-3.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-[#111827] dark:text-[#FAFAFA]">{std.avgScore ?? 0}%</span>
+                            <div className="w-16 bg-[#E5E7EB] dark:bg-[#27272A] h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-[#16A34A] h-full rounded-full" style={{ width: `${std.avgScore ?? 0}%` }} />
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="p-3.5 text-xs">
+                          {std.practiceScore !== null && std.practiceScore > 0 ? (
+                            <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{std.practiceScore}%</span>
+                          ) : (
+                            <span className="text-[#9CA3AF] text-xs">No practice</span>
+                          )}
+                        </td>
+
+                        <td className="p-3.5 text-xs">
+                          {std.codingAccuracy !== null && (std.codingSolvedCount > 0 || std.codingAccuracy > 0) ? (
+                            <div>
+                              <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{std.codingAccuracy}%</span>
+                              <p className="text-[10px] text-[#6B7280]">{std.codingSolvedCount} Solved</p>
+                            </div>
+                          ) : (
+                            <span className="text-[#9CA3AF] text-xs">No coding activity</span>
+                          )}
+                        </td>
+
+                        <td className="p-3.5 text-xs">
+                          {std.assessmentScore !== null && std.assessmentScore > 0 ? (
+                            <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{std.assessmentScore}%</span>
+                          ) : (
+                            <span className="text-[#9CA3AF] text-xs">No evaluations</span>
+                          )}
+                        </td>
+
+                        <td className="p-3.5 text-xs">
+                          {std.assignmentCount > 0 ? (
+                            <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{std.assignmentCount} submitted</span>
+                          ) : (
+                            <span className="text-[#9CA3AF] text-xs">0 submitted</span>
+                          )}
+                        </td>
+
+                        <td className="p-3.5">
+                          {std.violationCount === 0 ? (
+                            <Badge className="bg-[#16A34A] text-white text-[10px] font-bold">
+                              {std.proctoringCompliance}% Clean (0 Logs)
+                            </Badge>
+                          ) : std.violationCount < 3 ? (
+                            <Badge className="bg-[#F59E0B] text-white text-[10px] font-bold">
+                              {std.proctoringCompliance}% ({std.violationCount} Warnings)
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-[#DC2626] text-white text-[10px] font-bold">
+                              {std.proctoringCompliance}% ({std.violationCount} Violations)
+                            </Badge>
+                          )}
+                        </td>
+
+                        <td className="p-3.5 text-xs font-medium text-[#111827] dark:text-[#FAFAFA]">
+                          {std.activeTimeFormatted || "0h 0m"}
+                        </td>
+
+                        <td className="p-3.5">
+                          <Badge
+                            className={`text-[10px] font-bold capitalize ${
+                              std.overallStatus.toLowerCase() === "active"
+                                ? "bg-[#16A34A] text-white"
+                                : std.overallStatus.toLowerCase() === "flagged"
+                                ? "bg-[#DC2626] text-white"
+                                : "bg-[#6B7280] text-white"
+                            }`}
+                          >
+                            {std.overallStatus}
+                          </Badge>
+                        </td>
+
+                        <td className="p-3.5 pr-6">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              onClick={() => {
+                                const matchingRecord: StudentRecord = students.find((s) => s.id === std.id) || {
+                                  id: std.id,
+                                  employeeId: std.employeeId,
+                                  name: std.name,
+                                  email: std.email,
+                                  batch: std.batch,
+                                  department: "General",
+                                  designation: "Student",
+                                  techTrack: "General",
+                                  role: "student",
+                                  status: (std.overallStatus.toLowerCase().includes("flagged") ? "flagged" : std.overallStatus.toLowerCase().includes("suspended") ? "suspended" : "active"),
+                                  avgScore: std.avgScore ?? 0,
+                                  mcqAccuracy: std.assessmentScore ?? 0,
+                                  codingAccuracy: std.codingAccuracy ?? 0,
+                                  proctoringCompliance: std.proctoringCompliance,
+                                  violationCount: std.violationCount,
+                                  joinedDate: std.joinedDate || "",
+                                  skills: [],
+                                  certificationsEarned: [],
+                                  testsTaken: [],
+                                  practicesSubmitted: [],
+                                  dailyProgress: [],
+                                  proctoringLogs: [],
+                                  systemInfo: { os: "Unknown", browser: "Unknown", ipAddress: "0.0.0.0", lastActive: std.lastActivity || "Unknown", status: "Offline", currentPage: "Unknown" },
+                                  activityLogs: []
+                                };
+                                setSelectedStudent(matchingRecord);
+                                setViewState("analytics");
+                              }}
+                              size="sm"
+                              className="h-8 text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-3 shadow-xs"
+                            >
+                              View Performance
+                            </Button>
+                            <Button
+                              onClick={() => handleToggleStatus(std.id)}
+                              variant="outline"
+                              size="icon"
+                              className={`h-8 w-8 shrink-0 shadow-xs ${
+                                std.overallStatus.toLowerCase() === "active"
+                                  ? "text-[#DC2626] border-[#DC2626]/30 hover:border-[#DC2626] hover:bg-[#DC2626]/10"
+                                  : "text-[#16A34A] border-[#16A34A]/30 hover:border-[#16A34A] hover:bg-[#16A34A]/10"
+                              }`}
+                            >
+                              {std.overallStatus.toLowerCase() === "active" ? <ShieldAlert className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* CUSTOM DATE RANGE MODAL */}
+      <Dialog open={isCustomDateModalOpen} onOpenChange={setIsCustomDateModalOpen}>
+        <DialogContent className="max-w-md bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Custom Date Range</DialogTitle>
+            <DialogDescription className="text-xs text-[#6B7280]">Specify the reporting period for student activity and performance metrics.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#374151] dark:text-[#D1D5DB]">From Date</Label>
+              <Input
+                type="date"
+                value={reportCustomFrom}
+                onChange={(e) => setReportCustomFrom(e.target.value)}
+                className="h-10 text-xs bg-[#F9FAFB] dark:bg-[#09090B]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-[#374151] dark:text-[#D1D5DB]">To Date</Label>
+              <Input
+                type="date"
+                value={reportCustomTo}
+                onChange={(e) => setReportCustomTo(e.target.value)}
+                className="h-10 text-xs bg-[#F9FAFB] dark:bg-[#09090B]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCustomDateModalOpen(false);
+                if (!reportCustomFrom && !reportCustomTo) {
+                  setReportDateRange("all");
+                }
+              }}
+              className="h-10 px-5 text-xs font-semibold rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!reportCustomFrom || !reportCustomTo) {
+                  toast({
+                    title: "Incomplete Date Range",
+                    description: "Please specify both from and to dates.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                setIsCustomDateModalOpen(false);
+                fetchAuthoritativeReport();
+              }}
+              className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl shadow-md shadow-[#2563EB]/20"
+            >
+              Apply Date Range
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* USER CONTROL DIALOG */}
       <Dialog open={!!editingStudent} onOpenChange={(open) => !open && setEditingStudent(null)}>

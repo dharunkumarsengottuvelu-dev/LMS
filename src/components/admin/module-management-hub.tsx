@@ -296,7 +296,6 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
       <div className="space-y-8 w-full">
         <PageHeader
           title="Author New Module / Lesson"
-          description="Add video URL, lesson notes, or practice exercises"
           backAction={{ label: "Back to Modules Directory", onClick: () => { resetForm(); setViewState("list"); } }}
         />
 
@@ -579,11 +578,6 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
       <div className="space-y-8 w-full">
         <PageHeader
           title="Assign Module as Practice Track"
-          description={
-            <>
-              Assigning <span className="font-semibold text-[#2563EB]">&quot;{selectedModule.title}&quot;</span> to students
-            </>
-          }
           backAction={{ label: "Back", onClick: () => setViewState("list") }}
           actions={
             <Button onClick={handleSaveAssignment}
@@ -736,7 +730,6 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
     <div className="space-y-8">
       <PageHeader
         title={role === "admin" ? "Enterprise Course Modules Directory" : "Curriculum Modules Directory"}
-        description="Author and assign course modules to student batches"
         actions={
           <Button onClick={() => { resetForm(); setViewState("create"); }}
             className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm">

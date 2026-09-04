@@ -481,7 +481,6 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
       {/* 1. Page Header (Exact match to Practice Track Management) */}
       <PageHeader
         title={role === "admin" ? "Live Classes Management" : "Assigned Live Classes"}
-        description="Schedule live interactive WebRTC sessions, assign cohorts, and inspect student attendance."
         actions={
           <div className="flex items-center gap-2.5">
             <Button

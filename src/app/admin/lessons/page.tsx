@@ -9,7 +9,6 @@ export default function AdminLessonsPage() {
     <div className="space-y-8">
       <PageHeader 
         title="Interactive Lessons"
-        description="Video lectures, code walkthroughs, and downloadable attachments"
       />
       <Card><CardContent className="p-6 text-sm text-[#6B7280]">All lesson contents and media assets.</CardContent></Card>
     </div>

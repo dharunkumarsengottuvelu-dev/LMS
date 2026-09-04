@@ -259,7 +259,6 @@ export default function TrainerNewLiveClassPage() {
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       <PageHeader
         title="Schedule Live Class"
-        description="Create an internal WebRTC live interactive classroom session and assign student cohorts."
         backAction={{
           label: "Back to Live Classes",
           href: "/trainer/live-classes",

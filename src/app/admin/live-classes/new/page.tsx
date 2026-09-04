@@ -286,7 +286,6 @@ export default function AdminNewLiveClassPage() {
       {/* 0. Top Header */}
       <PageHeader
         title="Schedule Live Class"
-        description="Create an internal WebRTC live interactive classroom session and assign student cohorts."
         backAction={{
           label: "Back to Live Classes",
           href: "/admin/live-classes",

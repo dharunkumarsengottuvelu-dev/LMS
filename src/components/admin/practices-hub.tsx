@@ -1013,7 +1013,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       <div className="space-y-8 w-full">
         <PageHeader 
           title={isEdit ? "Edit Practice Track" : "Create New Practice Track"}
-          description="Configure practice track parameters for student deployment"
           backAction={{ label: "Back to Practices", onClick: () => setViewState("list") }}
           actions={!isEdit ? <AutoSaveBadge isSaved={isSavedTrackDraft} lastSaved={lastSavedTrackDraft} /> : undefined}
         />
@@ -1200,7 +1199,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       <div className="space-y-8 w-full">
         <PageHeader 
           title={selectedTrack.title}
-          description={`${selectedTrack.category} • Instructor: ${selectedTrack.assignedByName}`}
           backAction={{ label: "Back", onClick: () => setViewState("list") }}
           actions={
             <div className="flex items-center gap-2">
@@ -1332,7 +1330,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       <div className="space-y-8 w-full">
         <PageHeader 
           title={editingSubModuleId ? "Edit Sub-Module" : "Add Practice Sub-Module"}
-          description={selectedTrack.title}
           backAction={{ label: "Back to Track Detail", onClick: () => setViewState("detail") }}
           actions={!editingSubModuleId ? <AutoSaveBadge isSaved={isSavedSmDraft} lastSaved={lastSavedSmDraft} /> : undefined}
         />
@@ -2102,11 +2099,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       <div className="space-y-8 w-full">
         <PageHeader 
           title="Assign Practice Track"
-          description={
-            <>
-              Target Track: <span className="font-semibold text-[#2563EB]">"{selectedTrack.title}"</span>
-            </>
-          }
           backAction={{ label: "Back", onClick: () => setViewState("list") }}
           actions={
             <Button onClick={handleSaveAssign} disabled={isSubmitting}
@@ -2216,7 +2208,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     <div className="space-y-8">
       <PageHeader
         title={role === "admin" ? "Practice Track Management" : "Practice Track Assignments"}
-        description="Author practice tracks with MCQ, Coding, and Mixed assessments for student batches"
         actions={
           <div className="flex items-center gap-2.5">
             <Button

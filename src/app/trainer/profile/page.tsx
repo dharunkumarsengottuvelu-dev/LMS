@@ -97,7 +97,6 @@ export default function TrainerProfilePage() {
       {/* 1. Page Header */}
       <PageHeader 
         title="Trainer Profile"
-        description="Manage your instructor credentials, assigned batches, technical specializations, and account security"
       />
 
       {/* 2. Top Profile Hero Card */}

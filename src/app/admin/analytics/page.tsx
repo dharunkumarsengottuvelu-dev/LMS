@@ -8,7 +8,6 @@ export default function AdminAnalyticsPage() {
     <div className="space-y-8">
       <PageHeader 
         title="Analytics & Batch Metrics"
-        description="Deep analytics on skill acquisition, completion rates, and test scores"
       />
       <Card><CardContent className="p-6 text-sm text-[#6B7280]">Interactive analytics graphs and metrics overview.</CardContent></Card>
     </div>

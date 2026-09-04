@@ -150,7 +150,6 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
       {/* Unified Enterprise Page Header matching PracticesHub */}
       <PageHeader
         title={role === "admin" ? "Coding Problems Repository" : "Coding Practice Problems"}
-        description="Configure, author, and manage algorithmic problems and SQL challenges"
         actions={
           <div className="flex items-center gap-2.5">
             <Button

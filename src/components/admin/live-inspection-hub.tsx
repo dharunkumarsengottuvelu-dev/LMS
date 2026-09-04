@@ -169,7 +169,6 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
             </Badge>
           </div>
         }
-        description={`Exam ID: ${examId} • Enterprise AI Facial Tracking & Integrity Engine`}
         backAction={{ href: "/admin/tests", label: "Back to Tests" }}
         actions={
           <div className="flex items-center gap-3">

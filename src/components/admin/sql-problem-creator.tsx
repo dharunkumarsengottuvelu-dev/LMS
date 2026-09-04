@@ -390,7 +390,6 @@ export function SqlProblemCreator({
       {!hideHeader && (
         <PageHeader
           title="SQL Question Builder"
-          description="Create enterprise-grade relational database questions with isolated sandboxing, visual table schema, and automated semantic grading."
           breadcrumbs={[
             { label: "Admin", href: "/admin/dashboard" },
             { label: "Question Bank", href: "/admin/coding" },

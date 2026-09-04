@@ -10,7 +10,6 @@ export default function AdminProfilePage() {
     <div className="space-y-8">
       <PageHeader 
         title="Admin Profile"
-        description="Manage administrator account credentials and contact details"
       />
       <Card className="max-w-xl">
         <CardHeader className="p-6 pb-4"><CardTitle className="text-[18px]">Profile Details</CardTitle></CardHeader>

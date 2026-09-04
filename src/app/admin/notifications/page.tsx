@@ -9,7 +9,6 @@ export default function AdminNotificationsPage() {
     <div className="space-y-8">
       <PageHeader 
         title="System Announcements"
-        description="Broadcast notifications to student batches, trainers, or organization-wide"
         actions={<Button className="h-[44px] bg-[#2563EB] text-white gap-2"><Plus className="h-4 w-4" /> Broadcast Notification</Button>}
       />
       <Card><CardContent className="p-6 text-sm text-[#6B7280]">Sent broadcast history and delivery logs.</CardContent></Card>

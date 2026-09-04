@@ -213,7 +213,6 @@ export default function AdminUsersPage() {
       {/* Top Banner */}
       <PageHeader
         title="Enterprise Access & Directory"
-        description="Manage system roles, secure access, and view complete directory profiles"
         actions={
           <>
             <Button 

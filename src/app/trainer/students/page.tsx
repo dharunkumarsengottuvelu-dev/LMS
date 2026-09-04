@@ -146,7 +146,6 @@ export default function TrainerStudentsPage() {
             Student Batch Management
           </span>
         }
-        description="Manage your students, track their assigned batches, and provision access"
         actions={
           <>
             <Button 

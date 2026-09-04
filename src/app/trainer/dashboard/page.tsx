@@ -116,7 +116,6 @@ export default function TrainerDashboardPage() {
             </Badge>
           </span>
         }
-        description="Monitor active batch assessments, review proctoring violation logs, and grade assignments"
         actions={
           <Link href="/trainer/assessments">
             <Button className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs px-4 gap-2 rounded-xl shadow-md shadow-[#2563EB]/20">

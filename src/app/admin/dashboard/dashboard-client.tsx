@@ -100,7 +100,6 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
       {/* 1. Page Title & Description */}
       <PageHeader
         title="System Dashboard"
-        description="Real-time organizational learning metrics and enterprise activity overview"
         actions={
           <>
             <Button variant="outline" className="h-[44px] px-5" asChild>

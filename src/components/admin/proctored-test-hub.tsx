@@ -2551,7 +2551,6 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       <div className="space-y-6 w-full">
         <PageHeader
           title={selectedTest.title}
-          description={`Exam Dashboard • ${selectedTest.totalQuestions} Questions • ${selectedTest.maxMarks} Marks Total`}
           backAction={{ label: "Back", onClick: () => setViewState("list") }}
           actions={
             <div className="flex items-center gap-2">
@@ -2984,11 +2983,6 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       <div className="space-y-6 w-full animate-in fade-in duration-300">
         <PageHeader
           title={editingQuestionId ? `Edit Question #${currentQIndex + 1}` : `Create Question #${existingQuestions.length + 1}`}
-          description={
-            <>
-              {editingQuestionId ? "Modify problem statement, options, or test cases" : "Adding question to"}: <strong className="text-[#111827] dark:text-[#FAFAFA]">{selectedTest.title}</strong> {manualQuestionSection && <span className="font-bold text-[#2563EB] ml-2">• Section: {manualQuestionSection}</span>}
-            </>
-          }
           backAction={{ label: "Back to Dashboard", onClick: () => {
             setEditingQuestionId(null);
             setViewState("exam-dashboard");
@@ -3324,7 +3318,6 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       {/* Header Banner */}
       <PageHeader
         title={role === "admin" ? "Proctored Examination Manager" : "Assessment & Test Creator"}
-        description="Build proctored tests, assign them to batches, and monitor live submissions."
         actions={
           <div className="flex items-center gap-2.5">
             <Button

@@ -255,7 +255,6 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
       <div className="space-y-8 w-full animate-fade-up">
         <PageHeader
           title="Create & Publish Assignment"
-          description="Author practical project work and configure Common or specific batch visibility"
           backAction={{ label: "Back to Submissions", onClick: () => setViewState("list") }}
           actions={<AutoSaveBadge isSaved={isSavedAssignDraft} lastSaved={lastSavedAssignDraft} />}
         />
@@ -349,7 +348,6 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
       <div className="space-y-8 w-full animate-fade-up">
         <PageHeader
           title={`Grade Submission: ${selectedSub.studentName}`}
-          description={`${selectedSub.assignmentTitle} • ${selectedSub.batch}`}
           backAction={{ label: "Back to Submissions", onClick: () => setViewState("list") }}
         />
 
@@ -398,7 +396,6 @@ export function AssignmentGradingHub({ role = "admin" }: { role?: "admin" | "tra
       {/* Top Banner */}
       <PageHeader
         title={role === "admin" ? "Enterprise Assignment & Evaluation Manager" : "Assignment Submissions & Grading"}
-        description="Author assignments with Common or batch-based access control, evaluate submissions, and track progress."
         actions={
           <Button
             onClick={() => {

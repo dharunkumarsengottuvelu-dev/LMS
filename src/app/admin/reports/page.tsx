@@ -141,7 +141,6 @@ export default function AdminReportsPage() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <PageHeader
         title="Assessment & System Reports"
-        description="Download candidate attendance records, test scores, passing rates, and anti-cheating logs."
         actions={
           <Button
             onClick={downloadAllAssessmentsSummaryCsv}
