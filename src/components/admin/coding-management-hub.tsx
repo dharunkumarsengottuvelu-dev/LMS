@@ -60,9 +60,9 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
     return () => window.removeEventListener("focus", refreshProblems);
   }, []);
 
-  // Filtered list
+  // Filtered list (Chronological order: 1st added problem is #1, followed by #2, #3, ...)
   const filteredProblems = useMemo(() => {
-    return problems.filter((problem) => {
+    const list = problems.filter((problem) => {
       // Search filter
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
@@ -86,6 +86,12 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
         (selectedCategory === "algorithms" && !isSql);
 
       return matchesSearch && matchesDifficulty && matchesCategory;
+    });
+
+    return list.sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return timeA - timeB;
     });
   }, [problems, searchQuery, selectedDifficulty, selectedCategory]);
 

@@ -40,16 +40,13 @@ export default function CodingDashboardPage() {
 
   useEffect(() => {
     const refreshData = async () => {
+      let problemList: ExtendedCodingProblem[] = [];
       try {
-        const all = (await CodingProblemsService.fetchProblems()) as ExtendedCodingProblem[];
-        setProblems(all);
-        setInProgressItems(CodingProgressService.getInProgressProblems(all));
-        setSolvedItems(CodingProgressService.getSolvedProblems(all));
+        problemList = (await CodingProblemsService.fetchProblems()) as ExtendedCodingProblem[];
+        setProblems(problemList);
       } catch {
-        const all = CodingProblemsService.getAllProblems() as ExtendedCodingProblem[];
-        setProblems(all);
-        setInProgressItems(CodingProgressService.getInProgressProblems(all));
-        setSolvedItems(CodingProgressService.getSolvedProblems(all));
+        problemList = CodingProblemsService.getAllProblems() as ExtendedCodingProblem[];
+        setProblems(problemList);
       }
 
       try {
@@ -63,8 +60,17 @@ export default function CodingDashboardPage() {
         setAssignments(asgs);
         setDiscussPosts(posts);
         setSubmissions(subs);
+
+        // Sync authoritative database submissions with CodingProgressService
+        CodingProgressService.syncWithSubmissions(subs, problemList);
+        setInProgressItems(CodingProgressService.getInProgressProblems(problemList));
+        setSolvedItems(CodingProgressService.getSolvedProblems(problemList));
       } catch (e) {
         console.error("Error refreshing coding data:", e);
+        const cachedSubs = SubmissionService.getStudentSubmissions();
+        CodingProgressService.syncWithSubmissions(cachedSubs, problemList);
+        setInProgressItems(CodingProgressService.getInProgressProblems(problemList));
+        setSolvedItems(CodingProgressService.getSolvedProblems(problemList));
       }
     };
 

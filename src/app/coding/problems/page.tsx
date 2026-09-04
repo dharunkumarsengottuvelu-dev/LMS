@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CodingProblemsService } from "@/services/coding-problems.service";
 import { CodingProgressService, type ProblemSolveStatus } from "@/services/coding-progress.service";
 import { CodingAssignmentsService } from "@/services/coding-assignments.service";
+import { SubmissionService } from "@/services/submission.service";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 
 const TOPIC_OPTIONS = [
@@ -60,11 +61,18 @@ export default function ProblemsListPage() {
   useEffect(() => {
     const refreshData = async () => {
       try {
-        const all = await CodingProblemsService.fetchProblems();
-        setProblems(all as ExtendedCodingProblem[]);
+        const [all, subs] = await Promise.all([
+          CodingProblemsService.fetchProblems(),
+          SubmissionService.fetchStudentSubmissions(),
+        ]);
+        const problemsList = all as ExtendedCodingProblem[];
+        setProblems(problemsList);
+        CodingProgressService.syncWithSubmissions(subs, problemsList);
       } catch {
         const all = CodingProblemsService.getAllProblems() as ExtendedCodingProblem[];
         setProblems(all);
+        const cachedSubs = SubmissionService.getStudentSubmissions();
+        CodingProgressService.syncWithSubmissions(cachedSubs, all);
       }
       const assigns = CodingAssignmentsService.getAssignments();
       const ids = new Set<string>();
@@ -126,7 +134,15 @@ export default function ProblemsListPage() {
     return [...filteredProblems].sort((a, b) => {
       let comparison = 0;
       if (sortColumn === "id") {
-        comparison = parseInt(a.id, 10) - parseInt(b.id, 10);
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (timeA && timeB) {
+          comparison = timeA - timeB;
+        } else if (!isNaN(Number(a.id)) && !isNaN(Number(b.id))) {
+          comparison = Number(a.id) - Number(b.id);
+        } else {
+          comparison = timeA - timeB;
+        }
       } else if (sortColumn === "title") {
         comparison = a.title.localeCompare(b.title);
       } else if (sortColumn === "difficulty") {

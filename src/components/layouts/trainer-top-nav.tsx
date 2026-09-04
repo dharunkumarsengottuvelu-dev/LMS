@@ -16,17 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const trainerNavItems = [
-  { href: "/trainer/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/trainer/students", label: "Manage Students", icon: Users },
-  { href: "/trainer/analytics", label: "Student Performance", icon: Activity },
-  { href: "/trainer/courses", label: "Assigned Courses", icon: BookOpen },
-  { href: "/trainer/practices", label: "Practices", icon: Dumbbell },
-  { href: "/trainer/coding", label: "Coding Problems", icon: Code2 },
-  { href: "/trainer/assessments", label: "Assessments", icon: ClipboardList },
-  { href: "/trainer/live-classes", label: "Live Classes", icon: Video },
-];
+import { trainerNavigation } from "@/config/navigation";
 
 export function TrainerTopNav() {
   const pathname = usePathname();
@@ -58,8 +48,11 @@ export function TrainerTopNav() {
         {/* Centered Desktop Nav Links */}
         <div className="hidden lg:flex flex-1 items-center justify-center min-w-0 px-2">
           <nav className="flex items-center gap-0.5 xl:gap-1.5 overflow-x-auto no-scrollbar py-1">
-            {trainerNavItems.map((item) => {
-              const isActive = pathname === item.href || (item.href !== "/trainer/dashboard" && pathname.startsWith(item.href));
+            {trainerNavigation.map((item) => {
+              const isExact = pathname === item.href;
+              const isSubpath = !item.href.endsWith("/dashboard") && pathname.startsWith(item.href);
+              const isAlias = (item.aliases || []).some((alias) => pathname === alias || (!alias.endsWith("/dashboard") && pathname.startsWith(alias)));
+              const isActive = isExact || isSubpath || isAlias;
 
               return (
                 <Link
@@ -104,8 +97,11 @@ export function TrainerTopNav() {
               </SheetHeader>
 
               <nav className="flex flex-col gap-1.5 pt-6">
-                {trainerNavItems.map((item) => {
-                  const isActive = pathname === item.href || (item.href !== "/trainer/dashboard" && pathname.startsWith(item.href));
+                {trainerNavigation.map((item) => {
+                  const isExact = pathname === item.href;
+                  const isSubpath = !item.href.endsWith("/dashboard") && pathname.startsWith(item.href);
+                  const isAlias = (item.aliases || []).some((alias) => pathname === alias || (!alias.endsWith("/dashboard") && pathname.startsWith(alias)));
+                  const isActive = isExact || isSubpath || isAlias;
                   return (
                     <Link
                       key={item.href}

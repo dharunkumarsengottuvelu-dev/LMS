@@ -39,6 +39,7 @@ import {
   Copy,
   ChevronUp,
   ChevronDown,
+  X,
 } from "lucide-react";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
@@ -185,7 +186,38 @@ export function CodingProblemCreator({
     (existing as ExtendedCodingProblem).topic_tags || []
   );
   const [points, setPoints] = useState<number>(existing.points || 100);
-  const [customTags, setCustomTags] = useState<string>("");
+  const [customTagInput, setCustomTagInput] = useState<string>("");
+
+  const handleAddCustomTag = () => {
+    const trimmed = customTagInput.trim();
+    if (!trimmed) return;
+
+    const tagsToAdd = trimmed
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+
+    const updated = [...selectedTopics];
+    let addedCount = 0;
+    tagsToAdd.forEach((tag) => {
+      if (!updated.some((t) => t.toLowerCase() === tag.toLowerCase())) {
+        updated.push(tag);
+        addedCount++;
+      }
+    });
+
+    setSelectedTopics(updated);
+    setCustomTagInput("");
+    if (addedCount > 0) {
+      toast.success(`Added ${addedCount} tag${addedCount > 1 ? "s" : ""}`);
+    } else {
+      toast.info("Tag already exists in selection");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setSelectedTopics(selectedTopics.filter((t) => t !== tagToRemove));
+  };
 
   // 2. PROBLEM DESCRIPTION
   const [description, setDescription] = useState<string>(
@@ -1011,9 +1043,43 @@ export function CodingProblemCreator({
           </div>
         </div>
 
-        {/* Topics & Tags Picker */}
-        <div className="space-y-2 pt-2 border-t border-slate-100">
-          <label className="text-xs font-semibold text-slate-700 block">Topics & Tags</label>
+        {/* Topics & Tags Picker with Manual Addition */}
+        <div className="space-y-3 pt-2 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block">Topics & Tags</label>
+              <p className="text-[11px] text-slate-400">Click predefined tags or manually type custom tags below.</p>
+            </div>
+
+            {/* Manual Tag Input Bar */}
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <Input
+                value={customTagInput}
+                onChange={(e) => setCustomTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddCustomTag();
+                  }
+                }}
+                placeholder="Type custom tag (e.g. Trie, Heap)..."
+                className="h-8 text-xs bg-slate-50/70 border-slate-200 rounded-lg w-full sm:w-56"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleAddCustomTag}
+                disabled={!customTagInput.trim()}
+                className="h-8 px-2.5 text-xs rounded-lg border-slate-200 text-slate-700 hover:bg-slate-100 shrink-0 gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Predefined Pills + Custom Added Pills */}
           <div className="flex flex-wrap gap-1.5">
             {AVAILABLE_TOPICS.map((topic) => {
               const isSelected = selectedTopics.includes(topic);
@@ -1023,7 +1089,7 @@ export function CodingProblemCreator({
                   type="button"
                   onClick={() => {
                     if (isSelected) {
-                      setSelectedTopics(selectedTopics.filter((t) => t !== topic));
+                      handleRemoveTag(topic);
                     } else {
                       setSelectedTopics([...selectedTopics, topic]);
                     }
@@ -1038,7 +1104,35 @@ export function CodingProblemCreator({
                 </button>
               );
             })}
+
+            {/* Custom tags added manually that are not in predefined list */}
+            {selectedTopics
+              .filter((t) => !AVAILABLE_TOPICS.includes(t))
+              .map((customTag) => (
+                <span
+                  key={customTag}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow-xs"
+                >
+                  <span>{customTag}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTag(customTag)}
+                    className="hover:text-blue-200 rounded-full transition-colors"
+                    title="Remove tag"
+                  >
+                    <X className="w-3 h-3 stroke-[2.5]" />
+                  </button>
+                </span>
+              ))}
           </div>
+
+          {/* Selection Summary */}
+          {selectedTopics.length > 0 && (
+            <div className="text-[11px] text-slate-500 pt-0.5 flex items-center gap-1.5 flex-wrap">
+              <span className="font-semibold text-slate-700">Selected ({selectedTopics.length}):</span>
+              <span className="text-slate-600 font-mono">{selectedTopics.join(", ")}</span>
+            </div>
+          )}
         </div>
       </div>
 

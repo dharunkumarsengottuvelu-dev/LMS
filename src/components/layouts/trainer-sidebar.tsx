@@ -14,20 +14,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getInitials } from "@/lib/utils";
-
-import { Video } from "lucide-react";
-
-const trainerNavItems = [
-  { label: "Dashboard", href: "/trainer/dashboard", icon: LayoutDashboard },
-  { label: "My Courses", href: "/trainer/my-courses", icon: BookOpen },
-  { label: "Students", href: "/trainer/students", icon: Users },
-  { label: "Assessments", href: "/trainer/assessments", icon: ClipboardList },
-  { label: "Coding Problems", href: "/trainer/coding", icon: Code2 },
-  { label: "Live Classes", href: "/trainer/live-classes", icon: Video },
-  { label: "Tests", href: "/trainer/tests", icon: Calendar },
-  { label: "Reports", href: "/trainer/reports", icon: BarChart3 },
-  { label: "Notifications", href: "/trainer/notifications", icon: Bell },
-];
+import { trainerNavigation } from "@/config/navigation";
 
 export function TrainerSidebar() {
   const pathname = usePathname();
@@ -45,7 +32,7 @@ export function TrainerSidebar() {
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        {trainerNavItems.map((item) => {
+        {trainerNavigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
           return (

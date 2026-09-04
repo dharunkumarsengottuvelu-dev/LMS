@@ -18,12 +18,38 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NotificationBellDropdown } from "@/components/notifications/notification-bell-dropdown";
-import { studentNavigation } from "@/config/navigation";
+import { studentNavigation, adminNavigation, trainerNavigation } from "@/config/navigation";
 
 export function StudentTopNav() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const { profile, user, signOut } = useAuth();
+
+  const userRole = (
+    profile?.role ||
+    (user?.email?.toLowerCase().includes("admin")
+      ? "admin"
+      : user?.email?.toLowerCase().includes("trainer")
+      ? "trainer"
+      : "student")
+  ).toLowerCase();
+
+  const isAdmin = userRole === "admin" || userRole === "super_admin";
+  const isTrainer = userRole === "trainer";
+
+  const navItems = isAdmin
+    ? adminNavigation
+    : isTrainer
+    ? trainerNavigation
+    : studentNavigation.slice(0, 6);
+
+  const mobileNavItems = isAdmin
+    ? adminNavigation
+    : isTrainer
+    ? trainerNavigation
+    : studentNavigation;
+
+  const homeHref = isAdmin ? "/admin/dashboard" : isTrainer ? "/trainer/dashboard" : "/student/dashboard";
 
   const emailStr = user?.email || "";
   const emailParts = (emailStr.split("@")[0] || "").split(/[\.\-_]/);
@@ -38,20 +64,30 @@ export function StudentTopNav() {
       <div className="lms-page-container h-full flex items-center justify-between gap-4">
         {/* Brand Logo */}
         <div className="flex items-center shrink-0">
-          <Link href="/student/dashboard" suppressHydrationWarning className="flex items-center gap-2 shrink-0 group">
+          <Link href={homeHref} suppressHydrationWarning className="flex items-center gap-2 shrink-0 group">
             <span className="font-extrabold text-xl tracking-tight text-foreground">
               FALCON<span className="text-primary font-black">.</span>
             </span>
+            {isAdmin && (
+              <Badge variant="outline" className="hidden sm:inline-flex bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0.5">
+                ADMIN
+              </Badge>
+            )}
+            {isTrainer && (
+              <Badge variant="outline" className="hidden sm:inline-flex bg-[#2563EB]/5 text-[#2563EB] border-[#2563EB]/20 text-[10px] font-bold px-2 py-0.5">
+                TRAINER
+              </Badge>
+            )}
           </Link>
         </div>
 
         {/* Centered Desktop Nav Links */}
         <div className="hidden lg:flex flex-1 items-center justify-center min-w-0 px-2">
           <nav className="flex items-center gap-0.5 xl:gap-1.5 overflow-x-auto no-scrollbar py-1">
-            {studentNavigation.slice(0, 6).map((item) => {
+            {navItems.map((item) => {
               const isExact = pathname === item.href;
-              const isSubpath = item.href !== "/student/dashboard" && pathname.startsWith(item.href);
-              const isAlias = (item.aliases || []).some((alias) => pathname === alias || pathname.startsWith(alias));
+              const isSubpath = !item.href.endsWith("/dashboard") && pathname.startsWith(item.href);
+              const isAlias = (item.aliases || []).some((alias) => pathname === alias || (!alias.endsWith("/dashboard") && pathname.startsWith(alias)));
               const isActive = isExact || isSubpath || isAlias;
 
               return (
@@ -90,14 +126,20 @@ export function StudentTopNav() {
                 <span className="font-extrabold text-xl text-foreground">
                   FALCON<span className="text-primary font-black">.</span>
                 </span>
+                {isAdmin && (
+                  <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20">ADMIN</Badge>
+                )}
+                {isTrainer && (
+                  <Badge variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] text-[9px] font-bold border-[#2563EB]/30">TRAINER</Badge>
+                )}
               </SheetTitle>
             </SheetHeader>
 
             <nav className="flex flex-col gap-1.5 pt-6">
-              {studentNavigation.map((item) => {
+              {mobileNavItems.map((item) => {
                 const isExact = pathname === item.href;
-                const isSubpath = item.href !== "/student/dashboard" && pathname.startsWith(item.href);
-                const isAlias = (item.aliases || []).some((alias) => pathname === alias || pathname.startsWith(alias));
+                const isSubpath = !item.href.endsWith("/dashboard") && pathname.startsWith(item.href);
+                const isAlias = (item.aliases || []).some((alias) => pathname === alias || (!alias.endsWith("/dashboard") && pathname.startsWith(alias)));
                 const isActive = isExact || isSubpath || isAlias;
                 const Icon = item.icon;
                 return (

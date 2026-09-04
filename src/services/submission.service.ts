@@ -71,6 +71,30 @@ export class SubmissionService {
   }
 
   /**
+   * Checks whether a submission matches a problem by ID, slug, or deterministic UUID
+   */
+  public static matchesProblem(
+    submission: { problem_id: string; problem_slug?: string },
+    problem: { id: string; slug?: string }
+  ): boolean {
+    if (!submission || !problem) return false;
+    const subPid = String(submission.problem_id || "");
+    const subSlug = String(submission.problem_slug || "");
+    const probId = String(problem.id || "");
+    const probSlug = String(problem.slug || "");
+
+    if (subPid === probId || (probSlug && subPid === probSlug)) return true;
+    if (subSlug && (subSlug === probSlug || subSlug === probId)) return true;
+
+    // Check deterministic UUID matches
+    const probUUID = this.toDeterministicUUID(probId);
+    if (subPid === probUUID) return true;
+    if (probSlug && subPid === this.toDeterministicUUID(probSlug)) return true;
+
+    return false;
+  }
+
+  /**
    * Saves a submission to Supabase DB, in-memory store and localStorage.
    */
   public static async saveSubmission(submission: CodingSubmission): Promise<void> {
@@ -138,6 +162,7 @@ export class SubmissionService {
     if (typeof window !== "undefined") {
       try {
         this.submissionsMemoryStore = [submission, ...this.submissionsMemoryStore.filter((s) => s.id !== submission.id)];
+        localStorage.setItem(LOCAL_STORAGE_SUBMISSIONS_KEY, JSON.stringify(this.submissionsMemoryStore));
         window.dispatchEvent(new CustomEvent("student-activity-updated"));
       } catch (err) {
         console.error("Failed to update submission store:", err);
@@ -161,19 +186,32 @@ export class SubmissionService {
         const data = await res.json();
         if (data && Array.isArray(data.submissions)) {
           this.submissionsMemoryStore = data.submissions;
+          if (typeof window !== "undefined") {
+            try {
+              localStorage.setItem(LOCAL_STORAGE_SUBMISSIONS_KEY, JSON.stringify(data.submissions));
+            } catch {}
+          }
           return data.submissions;
         }
       }
     } catch (err) {
       console.error("Failed to fetch submissions from database API:", err);
     }
-    return this.submissionsMemoryStore;
+    return this.getStudentSubmissions(studentId);
   }
 
   /**
-   * Retrieves current in-memory cached submissions.
+   * Retrieves current in-memory or localStorage cached submissions.
    */
   public static getStudentSubmissions(studentId?: string): CodingSubmission[] {
+    if (this.submissionsMemoryStore.length === 0 && typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem(LOCAL_STORAGE_SUBMISSIONS_KEY);
+        if (raw) {
+          this.submissionsMemoryStore = JSON.parse(raw);
+        }
+      } catch {}
+    }
     if (studentId) {
       return this.submissionsMemoryStore.filter((s) => s.student_id === studentId);
     }

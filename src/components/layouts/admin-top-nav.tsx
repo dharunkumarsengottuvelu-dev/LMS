@@ -43,8 +43,8 @@ export function AdminTopNav() {
           <nav className="flex items-center gap-0.5 xl:gap-1.5 overflow-x-auto no-scrollbar py-1">
             {adminNavigation.map((item) => {
               const isExact = pathname === item.href;
-              const isSubpath = item.href !== "/admin/dashboard" && pathname.startsWith(item.href);
-              const isAlias = (item.aliases || []).some((alias) => pathname === alias || pathname.startsWith(alias));
+              const isSubpath = !item.href.endsWith("/dashboard") && pathname.startsWith(item.href);
+              const isAlias = (item.aliases || []).some((alias) => pathname === alias || (!alias.endsWith("/dashboard") && pathname.startsWith(alias)));
               const isActive = isExact || isSubpath || isAlias;
 
               return (
@@ -89,8 +89,8 @@ export function AdminTopNav() {
               <nav className="flex flex-col gap-1.5 pt-6">
                 {adminNavigation.map((item) => {
                   const isExact = pathname === item.href;
-                  const isSubpath = item.href !== "/admin/dashboard" && pathname.startsWith(item.href);
-                  const isAlias = (item.aliases || []).some((alias) => pathname === alias || pathname.startsWith(alias));
+                  const isSubpath = !item.href.endsWith("/dashboard") && pathname.startsWith(item.href);
+                  const isAlias = (item.aliases || []).some((alias) => pathname === alias || (!alias.endsWith("/dashboard") && pathname.startsWith(alias)));
                   const isActive = isExact || isSubpath || isAlias;
                   return (
                     <Link

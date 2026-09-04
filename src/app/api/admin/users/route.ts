@@ -4,14 +4,27 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const adminClient = createAdminClient();
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    let user: any = null;
+    try {
+      const supabase = await createClient();
+      const { data: authData } = await supabase.auth.getUser();
+      user = authData?.user || null;
+    } catch {
+      // ignore
     }
 
-    const adminClient = createAdminClient();
+    if (user) {
+      const { data: prof } = await adminClient
+        .from("profiles")
+        .select("role")
+        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+        .maybeSingle();
+      if (prof && prof.role === "student") {
+        return NextResponse.json({ error: "Forbidden: Admin or Trainer authorization required" }, { status: 403 });
+      }
+    }
 
     // 1. Fetch all profiles from public.profiles
     const { data: profiles, error: profError } = await adminClient

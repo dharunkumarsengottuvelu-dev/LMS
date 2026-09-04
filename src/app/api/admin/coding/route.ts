@@ -7,11 +7,11 @@ export async function GET() {
   try {
     const supabase = createAdminClient();
 
-    // 1. Fetch problems from coding_problems table
+    // 1. Fetch problems from coding_problems table in chronological order (1st added is #1, followed by #2, #3, ...)
     const { data: dbProblems, error: pError } = await supabase
       .from("coding_problems")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: true });
 
     if (pError) {
       console.error("Error fetching coding_problems from Supabase:", pError);

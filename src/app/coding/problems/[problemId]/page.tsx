@@ -84,20 +84,67 @@ export default function ProblemSolvingWorkspace() {
   useEffect(() => {
     const loadFromDb = async () => {
       try {
-        const list = await CodingProblemsService.fetchProblems();
-        setAllProblems(list as ExtendedCodingProblem[]);
+        const [list, subs] = await Promise.all([
+          CodingProblemsService.fetchProblems(),
+          SubmissionService.fetchStudentSubmissions(),
+        ]);
+        const problemsList = list as ExtendedCodingProblem[];
+        setAllProblems(problemsList);
+
+        // Sync submissions with CodingProgressService
+        CodingProgressService.syncWithSubmissions(subs, problemsList);
+
+        // Find current problem
+        const curProblem = problemsList.find((p) => p.id === problemId || p.slug === problemId);
+        const curId = curProblem?.id || problemId;
+
+        // Filter submissions for this problem
+        const matchedSubs = subs.filter((s) =>
+          SubmissionService.matchesProblem(s, { id: curId, slug: curProblem?.slug })
+        );
+        setProblemSubmissions(matchedSubs);
+
+        // Restore code:
+        // If saved code is available, restore it; otherwise restore from accepted or latest submission
+        const savedState = CodingProgressService.getProblemState(curId);
+        const acceptedSub = matchedSubs.find((s) => s.status === "accepted");
+        const bestSub = acceptedSub || matchedSubs[0];
+
+        if (savedState?.code) {
+          setCode(savedState.code);
+          if (savedState.language) {
+            setSelectedLanguage(savedState.language);
+          }
+        } else if (bestSub?.code) {
+          setCode(bestSub.code);
+          if (bestSub.language) {
+            setSelectedLanguage(bestSub.language as CodingLanguage);
+          }
+          CodingProgressService.saveDraft(
+            curId,
+            (bestSub.language || "python") as CodingLanguage,
+            bestSub.code
+          );
+        }
       } catch (err) {
-        console.error("Failed to load problems from database:", err);
+        console.error("Failed to load problems or submissions from database:", err);
       } finally {
         setIsLoading(false);
       }
     };
     loadFromDb();
-  }, []);
+  }, [problemId]);
 
   const problem = useMemo(() => {
     return allProblems.find((p) => p.id === problemId || p.slug === problemId) || null;
   }, [allProblems, problemId]);
+
+  const questionNumber = useMemo(() => {
+    if (!problem) return null;
+    if (/^\d+$/.test(problemId)) return Number(problemId);
+    const idx = allProblems.findIndex((p) => p.id === problem.id || p.slug === problem.slug);
+    return idx >= 0 ? idx + 1 : 1;
+  }, [allProblems, problem, problemId]);
 
   const [leftTab, setLeftTab] = useState<"description" | "solutions" | "submissions" | "discuss">("description");
 
@@ -313,11 +360,25 @@ export default function ProblemSolvingWorkspace() {
     }
   };
 
+  // Memoized permanent solved flag
+  const isProblemSolved = useMemo(() => {
+    if (!problem) return false;
+    return (
+      CodingProgressService.getProblemStatus(problem.id) === "solved" ||
+      problemSubmissions.some((s) => s.status === "accepted")
+    );
+  }, [problem, problemSubmissions]);
+
   // 7. SUBMIT CODE (Real Execution against Public + Hidden Online Judge Test Cases)
   const handleSubmitCode = async () => {
     if (!problem) return;
     setIsSubmitting(true);
     setConsoleLogs(`[SUBMIT] Sending solution to Online Judge for official grading...\n`);
+
+    // Check if problem was already marked solved prior to this submission
+    const wasAlreadySolved =
+      CodingProgressService.getProblemStatus(problem.id) === "solved" ||
+      problemSubmissions.some((s) => s.status === "accepted");
 
     try {
       const res = await fetch("/api/code/submit", {
@@ -343,8 +404,14 @@ export default function ProblemSolvingWorkspace() {
       // Reload submissions for this problem
       setProblemSubmissions((prev) => [submission, ...prev]);
 
-      // Record in progress service
-      CodingProgressService.markAttempted(problem.id, selectedLanguage, code, submission);
+      // Record in progress service - PERMANENT SOLVED STATUS GUARANTEE
+      CodingProgressService.markAttempted(
+        problem.id,
+        selectedLanguage,
+        code,
+        submission,
+        wasAlreadySolved
+      );
 
       // Notify Activity Heatmap & listeners that a verified submission was completed
       if (typeof window !== "undefined") {
@@ -356,13 +423,20 @@ export default function ProblemSolvingWorkspace() {
       }
 
       if (submission.status === "accepted") {
-        toast.success("ACCEPTED! You solved this problem!", {
+        toast.success(wasAlreadySolved ? "ACCEPTED! Your solution is verified again." : "ACCEPTED! You solved this problem!", {
           description: `Passed all ${submission.total_test_cases} test cases.`,
         });
       } else {
-        toast.error(`Verdict: ${submission.status.replace("_", " ").toUpperCase()}`, {
-          description: `${submission.passed_test_cases}/${submission.total_test_cases} test cases passed.`,
-        });
+        if (wasAlreadySolved) {
+          toast.warning(`Verdict: ${submission.status.replace("_", " ").toUpperCase()}`, {
+            description: `Passed ${submission.passed_test_cases}/${submission.total_test_cases} test cases. Note: Problem remains permanently marked as SOLVED from your previous passing submission.`,
+            duration: 6000,
+          });
+        } else {
+          toast.error(`Verdict: ${submission.status.replace("_", " ").toUpperCase()}`, {
+            description: `${submission.passed_test_cases}/${submission.total_test_cases} test cases passed.`,
+          });
+        }
       }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Failed to submit code";
@@ -438,7 +512,12 @@ export default function ProblemSolvingWorkspace() {
           <span className="text-slate-300">|</span>
 
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-900 text-xs sm:text-sm truncate max-w-[220px] sm:max-w-md">
+            {questionNumber && (
+              <span className="font-mono text-xs font-semibold text-slate-400">
+                #{questionNumber}.
+              </span>
+            )}
+            <span className="font-semibold text-slate-900 text-xs sm:text-sm truncate max-w-[200px] sm:max-w-md">
               {problem.title}
             </span>
             <span
@@ -452,6 +531,11 @@ export default function ProblemSolvingWorkspace() {
             >
               {problem.difficulty}
             </span>
+            {isProblemSolved && (
+              <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300 shadow-2xs">
+                <Check className="w-3 h-3 stroke-[3]" /> Solved
+              </span>
+            )}
           </div>
         </div>
 
@@ -621,7 +705,9 @@ export default function ProblemSolvingWorkspace() {
             {leftTab === "description" && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">{problem.title}</h2>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {questionNumber ? `${questionNumber}. ` : ""}{problem.title}
+                  </h2>
                   <div className="flex items-center gap-2 mt-1.5">
                     <span
                       className={`px-2 py-0.5 text-xs font-semibold rounded-full capitalize ${
@@ -1198,7 +1284,7 @@ export default function ProblemSolvingWorkspace() {
               )}
             </div>
             <DialogTitle className="text-center text-xl font-bold">
-              {latestSubmission?.status === "accepted" ? "Accepted!" : "Submission Verdict"}
+              {latestSubmission?.status === "accepted" ? (isProblemSolved ? "Accepted Again!" : "Accepted!") : "Submission Verdict"}
             </DialogTitle>
             <DialogDescription className="text-center text-xs text-slate-500">
               {latestSubmission?.status === "accepted"
@@ -1235,6 +1321,15 @@ export default function ProblemSolvingWorkspace() {
                   </div>
                 </div>
               </div>
+
+              {isProblemSolved && latestSubmission.status !== "accepted" && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-start gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5 stroke-[3]" />
+                  <div>
+                    <span className="font-bold">Solved Record Preserved:</span> This problem remains officially marked as <strong>Solved</strong> from your previous passing submission.
+                  </div>
+                </div>
+              )}
 
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
                 <div className="flex justify-between">
@@ -1299,13 +1394,35 @@ export default function ProblemSolvingWorkspace() {
                 {selectedSubmissionForView.code}
               </pre>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
                   onClick={() => setSelectedSubmissionForView(null)}
                   className="rounded-xl text-xs border-slate-200"
                 >
                   Close
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (selectedSubmissionForView) {
+                      setCode(selectedSubmissionForView.code);
+                      if (selectedSubmissionForView.language) {
+                        setSelectedLanguage(selectedSubmissionForView.language as CodingLanguage);
+                      }
+                      if (problem) {
+                        CodingProgressService.saveDraft(
+                          problem.id,
+                          (selectedSubmissionForView.language || selectedLanguage) as CodingLanguage,
+                          selectedSubmissionForView.code
+                        );
+                      }
+                      setSelectedSubmissionForView(null);
+                      toast.success("Submitted solution code loaded into editor!");
+                    }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold"
+                >
+                  Load into Editor
                 </Button>
               </div>
             </div>

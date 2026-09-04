@@ -17,6 +17,13 @@ export class CodingProblemsService {
       const res = await axios.get("/api/admin/coding");
       const dbProblems: CodingProblem[] = res.data?.problems || [];
 
+      // Ensure chronological ordering: oldest first (1st added is #1)
+      dbProblems.sort((a, b) => {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeA - timeB;
+      });
+
       this.cachedProblems = dbProblems;
       this.isInitialized = true;
       return dbProblems;
@@ -46,7 +53,8 @@ export class CodingProblemsService {
       if (idx >= 0) {
         this.cachedProblems[idx] = { ...problem, id: saved.id || problem.id };
       } else {
-        this.cachedProblems.unshift({ ...problem, id: saved.id || problem.id });
+        // Append newly created problem at the end so it gets the next sequential question number
+        this.cachedProblems.push({ ...problem, id: saved.id || problem.id });
       }
 
       return saved;
