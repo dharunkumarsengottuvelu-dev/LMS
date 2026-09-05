@@ -8,7 +8,7 @@ import {
   Award, Eye, Trash2, Play, ArrowLeft, Sparkles, Lock, FileText, CheckSquare, Settings,
   CheckCircle2, AlertCircle, Send, Check, Code2, Edit, Download, Calendar, CalendarDays,
   CalendarRange, X, RotateCcw, Zap, Globe, Timer, Info, Copy, RefreshCw,
-  FileSpreadsheet
+  FileSpreadsheet, UploadCloud
 } from "lucide-react";
 import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
@@ -3323,10 +3323,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             <Button
               variant="outline"
               onClick={() => setShowBulkUploadAssessments((prev) => !prev)}
-              className="h-[44px] border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 font-bold text-xs gap-2 px-4 rounded-xl shadow-xs"
+              className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-sm"
               title="Bulk create assessments via Excel / CSV"
             >
-              <FileSpreadsheet className="h-4 w-4" /> Bulk Upload Assessments
+              <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload Assessments
             </Button>
             <Button
               onClick={exportAllTestsCsv}

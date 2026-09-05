@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, LogOut, LayoutDashboard, BookOpen, Dumbbell, ClipboardList, FileText, Menu, User, Settings, Code2, BarChart3 } from "lucide-react";
@@ -9,6 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { formatStudentId } from "@/services/student-id.service";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +43,7 @@ export function StudentTopNav() {
     ? adminNavigation
     : isTrainer
     ? trainerNavigation
-    : studentNavigation.slice(0, 6);
+    : studentNavigation;
 
   const mobileNavItems = isAdmin
     ? adminNavigation
@@ -58,6 +60,28 @@ export function StudentTopNav() {
   const displayName = profile?.full_name && profile.full_name !== "User" && profile.full_name !== "Student User" 
     ? profile.full_name 
     : `${defaultFirstName} ${defaultLastName}`.trim();
+
+  const displayAvatar =
+    profile?.avatar_url ||
+    (user?.user_metadata as any)?.avatar_url ||
+    (user?.user_metadata as any)?.picture ||
+    (emailStr ? `https://unavatar.io/${encodeURIComponent(emailStr)}?fallback=false` : undefined);
+
+  const studentId = useMemo(() => {
+    const metaId = (user?.user_metadata as any)?.student_id;
+    if (metaId && typeof metaId === "string" && metaId.startsWith("STID-")) {
+      return metaId;
+    }
+    const profileId = (profile as any)?.student_id;
+    if (profileId && typeof profileId === "string" && profileId.startsWith("STID-")) {
+      return profileId;
+    }
+    if (isAdmin) return "ADMINISTRATOR";
+    if (isTrainer) return "TRAINER";
+    const joiningDate = user?.created_at || (profile as any)?.created_at || "2026-08-05T00:00:00.000Z";
+    const seq = (user?.user_metadata as any)?.student_seq || 1;
+    return formatStudentId(seq, joiningDate);
+  }, [profile, user, isAdmin, isTrainer]);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-background/80 backdrop-blur-md border-b border-border transition-colors duration-200">
@@ -166,7 +190,7 @@ export function StudentTopNav() {
         <DropdownMenu>
           <DropdownMenuTrigger className="h-9 w-9 rounded-full cursor-pointer overflow-hidden border border-input focus:outline-none focus:ring-2 focus:ring-ring transition-transform hover:scale-105 duration-200">
             <Avatar className="h-9 w-9">
-              <AvatarImage src={profile?.avatar_url ?? undefined} />
+              <AvatarImage src={displayAvatar ?? undefined} />
               <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
                 {getInitials(displayName)}
               </AvatarFallback>
@@ -178,8 +202,8 @@ export function StudentTopNav() {
                 <p className="text-sm font-semibold text-foreground break-all">
                   {displayName}
                 </p>
-                <p className="text-[11px] text-muted-foreground break-all uppercase font-medium tracking-wider">
-                  {user?.email ? `@${user.email.split('@')[0]}` : "@student"}
+                <p className="text-[11px] text-muted-foreground">
+                  {studentId}
                 </p>
               </div>
             </DropdownMenuLabel>

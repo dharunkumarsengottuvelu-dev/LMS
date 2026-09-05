@@ -15,6 +15,7 @@ import { SubmissionService } from "@/services/submission.service";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import type { CodingSubmission } from "@/types/coding";
 import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
 
 export default function CodingDashboardPage() {
   const router = useRouter();
@@ -105,8 +106,8 @@ export default function CodingDashboardPage() {
       {/* Top Banner & Quick Stats */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 lg:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
+          <div className="space-y-2">
+            <div>
               <button
                 type="button"
                 onClick={() => {
@@ -116,10 +117,13 @@ export default function CodingDashboardPage() {
                     router.push("/student/dashboard");
                   }
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-md transition-colors cursor-pointer mr-1"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5 cursor-pointer"
               >
-                ← Back
+                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
+                <span>Back</span>
               </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <span className="px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 rounded">
                 Practice Workspace
               </span>
@@ -130,21 +134,6 @@ export default function CodingDashboardPage() {
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
               FALCON Coding Workspace
             </h1>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== "undefined" && window.history.length > 1) {
-                  router.back();
-                } else {
-                  router.push("/student/dashboard");
-                }
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-slate-700 hover:text-slate-950 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
-            >
-              ← Back to Dashboard
-            </button>
           </div>
         </div>
 
@@ -269,17 +258,12 @@ export default function CodingDashboardPage() {
                     {diff}
                   </button>
                 ))}
-                <Link href="/coding/problems">
-                  <Button variant="outline" size="sm" className="rounded-md text-xs font-medium text-slate-700 h-7 px-2.5 border-slate-200">
-                    Table View
-                  </Button>
-                </Link>
               </div>
             </div>
 
             {/* Problem Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {filteredProblems.slice(0, 9).map((prob, idx) => {
+              {filteredProblems.map((prob, idx) => {
                 const status = CodingProgressService.getProblemStatus(prob.id);
                 return (
                   <div
@@ -353,14 +337,6 @@ export default function CodingDashboardPage() {
                   </div>
                 );
               })}
-            </div>
-
-            <div className="mt-5 text-center">
-              <Link href="/coding/problems">
-                <Button variant="outline" className="rounded-lg border-slate-200 text-slate-700 text-xs font-medium h-8 px-4">
-                  View All {problems.length} Problems
-                </Button>
-              </Link>
             </div>
           </div>
         </TabsContent>

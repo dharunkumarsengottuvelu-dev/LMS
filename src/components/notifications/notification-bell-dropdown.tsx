@@ -3,34 +3,33 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { 
-  Bell, 
-  Check, 
-  CheckCheck, 
-  BookOpen, 
-  ClipboardCheck, 
-  Award, 
-  Clock, 
-  Megaphone, 
+import {
+  Bell,
+  Check,
+  CheckCheck,
+  BookOpen,
+  ClipboardCheck,
+  Award,
+  Clock,
+  Megaphone,
   ChevronRight,
-  Sparkles,
-  ExternalLink
+  X,
+  User,
+  MessageSquare,
 } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  useStudentNotifications, 
-  formatNotificationTime, 
-  NotificationItem, 
-  NotificationType 
+import {
+  useStudentNotifications,
+  formatNotificationTime,
+  NotificationItem,
 } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/providers/auth-provider";
 
 function getNotificationIcon(type: string) {
   switch (type) {
@@ -75,15 +74,26 @@ function getIconBg(type: string) {
 export function NotificationBellDropdown() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } = useStudentNotifications();
+  const { profile, user } = useAuth();
+  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead, deleteNotification } =
+    useStudentNotifications();
+
+  // Resolve portal prefix based on role
+  const role = (profile?.role || "").toLowerCase();
+  const isAdmin = role === "admin" || role === "super_admin";
+  const isTrainer = role === "trainer";
+  const portalPrefix = isAdmin ? "/admin" : isTrainer ? "/trainer" : "/student";
+  const notificationsHref = isAdmin ? "/admin/notifications" : isTrainer ? "/trainer/notifications" : "/student/notifications";
+  const messagesHref = `${portalPrefix}/messages`;
 
   const handleNotificationClick = (n: NotificationItem) => {
     if (!n.is_read) {
       markAsRead(n.id);
     }
     setOpen(false);
-    if (n.link) {
-      router.push(n.link);
+    const href = n.link_url || n.link;
+    if (href) {
+      router.push(href);
     }
   };
 
@@ -140,24 +150,35 @@ export function NotificationBellDropdown() {
               <p className="text-xs text-slate-400">Loading notifications...</p>
             </div>
           ) : notifications.length === 0 ? (
-            <div className="py-12 px-6 text-center space-y-2.5">
+            <div className="py-10 px-6 text-center space-y-2.5">
               <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-400 mx-auto">
                 <Bell className="h-5 w-5" />
               </div>
               <p className="text-xs font-bold text-slate-800 dark:text-zinc-200">No notifications yet</p>
               <p className="text-[11px] text-slate-400 dark:text-zinc-500 max-w-[220px] mx-auto leading-relaxed">
-                You're all caught up with your courses, practice modules, and assessments.
+                You're all caught up. Notifications from your admin and trainers will appear here.
               </p>
+              <div className="pt-1">
+                <Link
+                  href={messagesHref}
+                  onClick={() => setOpen(false)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:hover:bg-blue-900/50 rounded-lg transition-colors border border-blue-200 dark:border-blue-800/60 shadow-xs"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  <span>Start Direct Chat</span>
+                </Link>
+              </div>
             </div>
           ) : (
-            notifications.map((n) => {
+            notifications.slice(0, 10).map((n) => {
               const isUnread = !n.is_read;
+              const href = n.link_url || n.link;
               return (
                 <div
                   key={n.id}
                   onClick={() => handleNotificationClick(n)}
                   className={cn(
-                    "p-3.5 px-4 flex items-start gap-3 transition-colors cursor-pointer group select-none",
+                    "p-3.5 px-4 flex items-start gap-3 transition-colors cursor-pointer group select-none relative",
                     isUnread
                       ? "bg-blue-50/40 hover:bg-blue-50/70 dark:bg-blue-950/20 dark:hover:bg-blue-950/40"
                       : "hover:bg-slate-50 dark:hover:bg-zinc-900/60"
@@ -186,9 +207,23 @@ export function NotificationBellDropdown() {
                       >
                         {n.title}
                       </p>
-                      {isUnread && (
-                        <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0 mt-0.5" />
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isUnread && (
+                          <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+                        )}
+                        {/* Delete button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteNotification(n.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          title="Delete"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
 
                     <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
@@ -196,8 +231,19 @@ export function NotificationBellDropdown() {
                     </p>
 
                     <div className="flex items-center justify-between pt-1 text-[10px] text-slate-400 dark:text-zinc-500">
-                      <span>{formatNotificationTime(n.created_at)}</span>
-                      {n.link && (
+                      <div className="flex items-center gap-1.5">
+                        <span>{formatNotificationTime(n.created_at)}</span>
+                        {n.sender_name && (
+                          <>
+                            <span className="text-slate-300 dark:text-zinc-600">·</span>
+                            <span className="flex items-center gap-0.5 text-slate-400 dark:text-zinc-500">
+                              <User className="h-2.5 w-2.5" />
+                              {n.sender_name}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {href && (
                         <span className="text-blue-600 dark:text-blue-400 font-medium flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                           <span>View</span>
                           <ChevronRight className="h-2.5 w-2.5" />
@@ -212,15 +258,24 @@ export function NotificationBellDropdown() {
         </div>
 
         {/* Dropdown Footer */}
-        <div className="p-2.5 px-4 bg-slate-50/80 dark:bg-zinc-900/80 border-t border-slate-200/80 dark:border-zinc-800 text-center">
+        <div className="p-2.5 px-4 bg-slate-50/90 dark:bg-zinc-900/90 border-t border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-2">
           <Link
-            href="/student/notifications"
+            href={notificationsHref}
             onClick={() => setOpen(false)}
             prefetch={true}
-            className="text-xs font-bold text-[#2563EB] hover:text-[#1D4ED8] dark:text-blue-400 transition-colors inline-flex items-center gap-1"
+            className="text-xs font-bold text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white transition-colors inline-flex items-center gap-1"
           >
-            <span>View all notifications</span>
+            <span>View all</span>
             <ChevronRight className="h-3 w-3" />
+          </Link>
+          <Link
+            href={messagesHref}
+            onClick={() => setOpen(false)}
+            prefetch={true}
+            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50/80 dark:bg-blue-950/50 border border-blue-200/80 dark:border-blue-800/60 hover:bg-blue-100/80 dark:hover:bg-blue-900/50 shadow-xs"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            <span>Messages & Chat</span>
           </Link>
         </div>
       </PopoverContent>

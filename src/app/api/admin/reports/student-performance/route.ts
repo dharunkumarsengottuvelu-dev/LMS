@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ActiveTimeService } from "@/services/active-time.service";
+import { formatStudentId } from "@/services/student-id.service";
 
 export interface StudentReportItem {
   id: string;
@@ -159,55 +160,109 @@ export async function GET(request: NextRequest) {
       minTimestamp = now - 30 * 86400000;
     }
 
-    // 3. Concurrently fetch all datasets in parallel with lean column projections
+    // 3. Concurrently fetch all datasets in parallel with exact verified column projections and error safety
     const [
-      { data: rawStudents },
+      rawStudentsRes,
       authUsersRes,
-      { data: allBatches },
-      { data: allBatchMembers },
-      { data: allCourses },
-      { data: allEnrollments },
-      { data: allCodingSubs },
-      { data: allAttempts },
-      { data: allAssignments },
+      batchesRes,
+      batchMembersRes,
+      coursesRes,
+      enrollmentsRes,
+      codingSubsRes,
+      attemptsRes,
+      assessmentsRes,
+      assignmentsRes,
       rawLiveAttResult,
       allStudentsActiveTime,
     ] = await Promise.all([
       adminClient
         .from("profiles")
-        .select("id, user_id, email, first_name, last_name, role, status, employee_id, department, joined_date, created_at, violation_count, proctoring_compliance, avg_score, batch_id, batch, batch_name")
+        .select("id, user_id, email, first_name, last_name, role, status, batch_id, batch, batch_name, college, branch, created_at, updated_at")
         .in("role", ["student", "Student", "STUDENT"])
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .then((res: any) => res, (e: any) => {
+          console.error("Failed to query profiles:", e);
+          return { data: [] };
+        }),
       adminClient.auth.admin.listUsers({ perPage: 1000 }).catch(() => ({ data: { users: [] } })),
       adminClient
         .from("batches")
-        .select("id, name, batch_name, college_name, course_name, lead_trainer, trainer_name, trainer_email, trainer_id, status"),
+        .select("id, name, batch_name, code, description, trainer_id, course_id, status")
+        .then((res: any) => res, (e: any) => {
+          console.error("Failed to query batches:", e);
+          return { data: [] };
+        }),
       adminClient
         .from("batch_members")
-        .select("batch_id, user_id"),
+        .select("batch_id, user_id")
+        .then((res: any) => res, (e: any) => {
+          console.error("Failed to query batch_members:", e);
+          return { data: [] };
+        }),
       adminClient
         .from("courses")
-        .select("id, title"),
+        .select("id, title")
+        .then((res: any) => res, (e: any) => {
+          console.error("Failed to query courses:", e);
+          return { data: [] };
+        }),
       adminClient
         .from("enrollments")
-        .select("id, student_id, user_id, course_id, status, progress_percentage, completed_at"),
+        .select("id, student_id, course_id, status, progress_percentage, completed_at, enrolled_at")
+        .then((res: any) => res, (e: any) => {
+          console.error("Failed to query enrollments:", e);
+          return { data: [] };
+        }),
       adminClient
         .from("coding_submissions")
-        .select("id, student_id, user_id, problem_id, status, score, language, submitted_at, created_at")
-        .order("created_at", { ascending: false }),
+        .select("id, problem_id, student_id, language, source_code, status, passed_test_cases, total_test_cases, created_at")
+        .order("created_at", { ascending: false })
+        .then((res: any) => res, (e: any) => {
+          console.error("Failed to query coding_submissions:", e);
+          return { data: [] };
+        }),
       adminClient
         .from("assessment_attempts")
-        .select("id, student_id, user_id, assessment_id, score, is_practice, passed, submitted_at, created_at")
-        .order("submitted_at", { ascending: false }),
+        .select("id, assessment_id, student_id, status, score, total_marks, percentage, submitted_at, tab_switch_count, proctoring_flags, created_at")
+        .order("submitted_at", { ascending: false })
+        .then((res: any) => res, (e: any) => {
+          console.error("Failed to query assessment_attempts:", e);
+          return { data: [] };
+        }),
+      adminClient
+        .from("assessments")
+        .select("id, title, type, pass_percentage, total_marks")
+        .then((res: any) => res, (e: any) => {
+          console.error("Failed to query assessments:", e);
+          return { data: [] };
+        }),
       adminClient
         .from("assignment_submissions")
-        .select("id, student_id, user_id, assignment_id, status, grade, submitted_at, created_at")
-        .order("submitted_at", { ascending: false }),
+        .select("id, assignment_id, student_id, file_url, submission_text, status, score, submitted_at, created_at")
+        .order("submitted_at", { ascending: false })
+        .then((res: any) => res, (e: any) => {
+          console.error("Failed to query assignment_submissions:", e);
+          return { data: [] };
+        }),
       adminClient
         .from("live_class_attendance")
-        .select("id, student_id, user_id, live_class_id, attendance_status, duration_seconds, joined_at, created_at"),
+        .select("id, student_id, live_class_id, attendance_status, duration_seconds, joined_at, created_at")
+        .then((res: any) => res, (e: any) => {
+          console.error("Failed to query live_class_attendance:", e);
+          return { data: [] };
+        }),
       ActiveTimeService.getAllStudentsActiveTime().catch(() => ({})),
     ]);
+
+    const rawStudents = rawStudentsRes?.data || [];
+    const allBatches = batchesRes?.data || [];
+    const allBatchMembers = batchMembersRes?.data || [];
+    const allCourses = coursesRes?.data || [];
+    const allEnrollments = enrollmentsRes?.data || [];
+    const allCodingSubs = codingSubsRes?.data || [];
+    const allAttempts = attemptsRes?.data || [];
+    const allAssessments = assessmentsRes?.data || [];
+    const allAssignments = assignmentsRes?.data || [];
 
     // Merge auth users to ensure every registered student profile exists
     const profileUserIdSet = new Set((rawStudents || []).map((p: any) => p.user_id || p.id));
@@ -238,16 +293,12 @@ export async function GET(request: NextRequest) {
             last_name: lastName,
             role: "student",
             status: "active",
-            employee_id: `STU-${au.id.slice(0, 5).toUpperCase()}`,
-            department: "Engineering",
-            joined_date: au.created_at?.split("T")[0] || "",
-            created_at: au.created_at || new Date().toISOString(),
-            violation_count: 0,
-            proctoring_compliance: 100,
-            avg_score: 0,
             batch_id: null,
             batch: "Unassigned",
-            batch_name: "Unassigned"
+            batch_name: "Unassigned",
+            college: "",
+            branch: "",
+            created_at: au.created_at || new Date().toISOString(),
           });
         }
       }
@@ -258,18 +309,11 @@ export async function GET(request: NextRequest) {
     let trainerAuthorizedBatchIds: string[] | null = null;
 
     if (role === "trainer") {
-      const trainerName = `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim().toLowerCase();
-      const trainerEmail = (profile?.email || user?.email || "").toLowerCase();
-
       const assignedBatches = (allBatches || []).filter((b: any) => {
-        const bLead = (b.lead_trainer || b.trainer_name || "").toLowerCase();
-        const bEmail = (b.trainer_email || "").toLowerCase();
         const bId = b.trainer_id || "";
         return (
           (user && bId === user.id) ||
-          (profile && bId === profile?.id) ||
-          (trainerEmail && bEmail === trainerEmail) ||
-          (trainerName.length > 0 && bLead.includes(trainerName))
+          (profile && bId === profile?.id)
         );
       });
 
@@ -309,10 +353,14 @@ export async function GET(request: NextRequest) {
       userEnrollmentsMap.set(uId, list);
     });
 
+    // Map Assessment Definitions for types
+    const assessmentMetaMap = new Map<string, any>();
+    (allAssessments || []).forEach((a: any) => assessmentMetaMap.set(a.id, a));
+
     // Map Coding Submissions (filtered by date range)
     const userCodingMap = new Map<string, any[]>();
     (allCodingSubs || []).forEach((sub: any) => {
-      const cStr = sub.submitted_at || sub.created_at;
+      const cStr = sub.created_at;
       if (!cStr) return;
       const ts = new Date(cStr).getTime();
       if (ts < minTimestamp || ts > maxTimestamp) return;
@@ -373,7 +421,22 @@ export async function GET(request: NextRequest) {
     // Process & Aggregate Each Student (GUARANTEE: Exactly 1 record per student, NO duplicates)
     const reportRows: StudentReportItem[] = [];
 
-    (mergedStudents || []).forEach((p: any) => {
+    // Helper for dual mapping lookup
+    const getMergedItems = (map: Map<string, any[]>, id1: string, id2?: string) => {
+      const list1 = map.get(id1) || [];
+      const list2 = id2 && id2 !== id1 ? (map.get(id2) || []) : [];
+      const seen = new Set<string>();
+      const combined: any[] = [];
+      for (const item of [...list1, ...list2]) {
+        if (!item.id || !seen.has(item.id)) {
+          if (item.id) seen.add(item.id);
+          combined.push(item);
+        }
+      }
+      return combined;
+    };
+
+    (mergedStudents || []).forEach((p: any, studentIndex: number) => {
       const studentId = p.id;
       const studentUserId = p.user_id || p.id;
       const studentEmail = p.email || "";
@@ -387,7 +450,7 @@ export async function GET(request: NextRequest) {
       ];
       let assignedBatch = p.batch || p.batch_name || "Unassigned";
       if (membershipBatches.length > 0) {
-        assignedBatch = membershipBatches.join(", ");
+        assignedBatch = Array.from(new Set(membershipBatches)).join(", ");
       } else if (p.batch_id && batchNameMap.has(p.batch_id)) {
         assignedBatch = batchNameMap.get(p.batch_id)!;
       }
@@ -416,11 +479,8 @@ export async function GET(request: NextRequest) {
         return;
       }
 
-      // Course Enrollments
-      const enrollments = [
-        ...(userEnrollmentsMap.get(studentId) || []),
-        ...(userEnrollmentsMap.get(studentUserId) || []),
-      ];
+      // Course Enrollments (dual lookup)
+      const enrollments = getMergedItems(userEnrollmentsMap, studentId, studentUserId);
       const enrolledCoursesCount = enrollments.length;
       const completedCoursesCount = enrollments.filter(
         (e) => e.status === "completed" || e.progress_percentage === 100 || e.completed_at
@@ -435,14 +495,14 @@ export async function GET(request: NextRequest) {
         if (!isEnrolledInCourse) return;
       }
 
-      // Coding Submissions
-      const codingSubs = [
-        ...(userCodingMap.get(studentId) || []),
-        ...(userCodingMap.get(studentUserId) || []),
-      ];
+      // Coding Submissions (dual lookup)
+      const codingSubs = getMergedItems(userCodingMap, studentId, studentUserId);
       const codingSubmissionsCount = codingSubs.length;
       const acceptedCodingSubs = codingSubs.filter(
-        (s) => s.status === "accepted" || s.status === "passed"
+        (s) =>
+          s.status === "accepted" ||
+          s.status === "passed" ||
+          (s.total_test_cases > 0 && s.passed_test_cases === s.total_test_cases)
       );
       const codingSolvedCount = acceptedCodingSubs.length;
       const codingAccuracy =
@@ -450,53 +510,65 @@ export async function GET(request: NextRequest) {
           ? Math.round((codingSolvedCount / codingSubmissionsCount) * 100)
           : null;
 
-      // Assessments & Practice Attempts
-      const attempts = [
-        ...(userAttemptsMap.get(studentId) || []),
-        ...(userAttemptsMap.get(studentUserId) || []),
-      ];
+      // Assessments & Practice Attempts (dual lookup)
+      const attempts = getMergedItems(userAttemptsMap, studentId, studentUserId);
 
-      const practiceAttempts = attempts.filter((a) => a.is_practice === true || a.type === "practice");
-      const examAttempts = attempts.filter((a) => a.is_practice !== true && a.type !== "practice");
+      const practiceAttempts = attempts.filter((a) => {
+        const meta = a.assessment_id ? assessmentMetaMap.get(a.assessment_id) : null;
+        return a.is_practice === true || a.status === "practice" || meta?.type === "practice";
+      });
+      const examAttempts = attempts.filter((a) => {
+        const meta = a.assessment_id ? assessmentMetaMap.get(a.assessment_id) : null;
+        return a.is_practice !== true && a.status !== "practice" && meta?.type !== "practice";
+      });
+
+      const getAttemptPct = (a: any): number => {
+        if (a.percentage !== null && a.percentage !== undefined) return Number(a.percentage);
+        if (a.total_marks && Number(a.total_marks) > 0) return Math.round((Number(a.score || 0) / Number(a.total_marks)) * 100);
+        return Number(a.score) || 0;
+      };
 
       let practiceScore: number | null = null;
       if (practiceAttempts.length > 0) {
-        const sumPractice = practiceAttempts.reduce((acc, a) => acc + (Number(a.score) || 0), 0);
+        const sumPractice = practiceAttempts.reduce((acc, a) => acc + getAttemptPct(a), 0);
         practiceScore = Math.round(sumPractice / practiceAttempts.length);
       }
 
       let assessmentScore: number | null = null;
       if (examAttempts.length > 0) {
-        const sumExam = examAttempts.reduce((acc, a) => acc + (Number(a.score) || 0), 0);
+        const sumExam = examAttempts.reduce((acc, a) => acc + getAttemptPct(a), 0);
         assessmentScore = Math.round(sumExam / examAttempts.length);
       }
 
-      // Average score overall across all evaluations
+      // Average score overall across all evaluations (blending assessments and coding accuracy if present)
       let avgScore: number | null = null;
-      if (attempts.length > 0) {
-        const sumAll = attempts.reduce((acc, a) => acc + (Number(a.score) || 0), 0);
+      const evalScores: number[] = [];
+      if (assessmentScore !== null) evalScores.push(assessmentScore);
+      if (practiceScore !== null) evalScores.push(practiceScore);
+      if (codingAccuracy !== null) evalScores.push(codingAccuracy);
+
+      if (evalScores.length > 0) {
+        avgScore = Math.round(evalScores.reduce((a, b) => a + b, 0) / evalScores.length);
+      } else if (attempts.length > 0) {
+        const sumAll = attempts.reduce((acc, a) => acc + getAttemptPct(a), 0);
         avgScore = Math.round(sumAll / attempts.length);
-      } else if (p.avg_score !== undefined && p.avg_score !== null && p.avg_score > 0) {
-        avgScore = Math.round(p.avg_score);
       }
 
-      // Assignment Submissions
-      const assignments = [
-        ...(userAssignmentsMap.get(studentId) || []),
-        ...(userAssignmentsMap.get(studentUserId) || []),
-      ];
+      // Assignment Submissions (dual lookup)
+      const assignments = getMergedItems(userAssignmentsMap, studentId, studentUserId);
       const assignmentCount = assignments.length;
 
-      // Proctoring Compliance & Violations
-      let proctoringCompliance = p.proctoring_compliance ?? 100;
-      let violationCount = p.violation_count ?? 0;
+      // Proctoring Compliance & Violations calculated from attempt telemetry
+      let violationCount = 0;
       attempts.forEach((a) => {
-        if (a.violations) violationCount += Number(a.violations);
-        if (a.tab_switches) violationCount += Number(a.tab_switches);
+        if (a.tab_switch_count) violationCount += Number(a.tab_switch_count);
+        if (Array.isArray(a.proctoring_flags)) {
+          violationCount += a.proctoring_flags.length;
+        } else if (a.proctoring_flags && typeof a.proctoring_flags === "object") {
+          violationCount += Object.keys(a.proctoring_flags).length;
+        }
       });
-      if (violationCount > 0) {
-        proctoringCompliance = Math.max(0, 100 - violationCount * 5);
-      }
+      const proctoringCompliance = violationCount > 0 ? Math.max(0, 100 - violationCount * 5) : 100;
 
       // Real Active Learning Time (from ActiveTimeService)
       const activeTimeMap = (allStudentsActiveTime || {}) as Record<string, any>;
@@ -521,12 +593,10 @@ export async function GET(request: NextRequest) {
               day: "numeric",
               year: "numeric",
             })
-          : p.last_sign_in_at
-          ? new Date(p.last_sign_in_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
           : "No recent activity";
 
       // Overall Performance Percentage (Weighted composite score: 40% assessments, 35% practice/coding, 25% course completion)
-      let scoreComponents: { value: number; weight: number }[] = [];
+      const scoreComponents: { value: number; weight: number }[] = [];
       if (assessmentScore !== null) scoreComponents.push({ value: assessmentScore, weight: 0.4 });
       if (codingAccuracy !== null) scoreComponents.push({ value: codingAccuracy, weight: 0.35 });
       else if (practiceScore !== null) scoreComponents.push({ value: practiceScore, weight: 0.35 });
@@ -558,11 +628,16 @@ export async function GET(request: NextRequest) {
         overallStatus = "Good";
       }
 
+      // Formatted Student ID e.g. STID-001-05AUG2026
+      const employeeId =
+        (p as any).student_id ||
+        formatStudentId(studentIndex + 1, p.created_at || new Date().toISOString());
+
       // Search Query Filter
       if (searchQuery) {
         const matchName = studentName.toLowerCase().includes(searchQuery);
         const matchEmail = studentEmail.toLowerCase().includes(searchQuery);
-        const matchEmpId = (p.employee_id || "").toLowerCase().includes(searchQuery);
+        const matchEmpId = employeeId.toLowerCase().includes(searchQuery);
         const matchBatch = assignedBatch.toLowerCase().includes(searchQuery);
         if (!matchName && !matchEmail && !matchEmpId && !matchBatch) {
           return;
@@ -572,11 +647,11 @@ export async function GET(request: NextRequest) {
       reportRows.push({
         id: studentId,
         studentUserId,
-        employeeId: p.employee_id || `STU-${studentId.slice(0, 5).toUpperCase()}`,
+        employeeId,
         name: studentName,
         email: studentEmail,
         batch: assignedBatch,
-        department: p.department || "Engineering",
+        department: p.branch || p.college || "Engineering",
         status: studentStatus,
         joinedDate: p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : "2026-01-01",
         enrolledCoursesCount,
@@ -736,9 +811,9 @@ export async function GET(request: NextRequest) {
       return {
         id: String(b.id),
         batchName: bTitle,
-        collegeName: b.college_name || "",
-        courseName: b.course_name || "",
-        trainerName: b.lead_trainer || b.trainer_name || "Unassigned",
+        collegeName: "",
+        courseName: "",
+        trainerName: "Assigned Trainer",
         ...metrics,
         students: batchStudents,
       };
@@ -755,7 +830,7 @@ export async function GET(request: NextRequest) {
           batchName: bTitle,
           collegeName: "",
           courseName: "",
-          trainerName: "Unassigned",
+          trainerName: "Assigned Trainer",
           ...metrics,
           students: batchStudents,
         });

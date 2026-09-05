@@ -64,13 +64,25 @@ export async function GET() {
     const mappedBatches = (batchesData || []).map((b: any) => {
       const studentIds = batchStudentsMap.get(b.id) || [];
       const trainerName = b.trainer_id ? trainerMap.get(b.trainer_id) || "" : "";
+
+      let meta: any = {};
+      try {
+        if (b.description && b.description.startsWith("{")) {
+          meta = JSON.parse(b.description);
+        }
+      } catch {}
+
+      const collegeName = meta.collegeName || meta.college_name || "";
+      const courseName = meta.courseName || meta.course || meta.courseTrack || "";
+
       return {
         id: b.id,
         name: b.name || b.batch_name || "Untitled Batch",
         batchName: b.name || b.batch_name || "Untitled Batch",
-        collegeName: b.college_name || "",
-        course: b.course_name || "",
-        courseName: b.course_name || "",
+        code: b.code || `BAT-${b.id.slice(0, 6).toUpperCase()}`,
+        collegeName,
+        course: courseName,
+        courseName,
         trainer: trainerName,
         trainerName: trainerName,
         startDate: b.start_date || "",
@@ -124,17 +136,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const collegeInput = body.collegeName || body.college_name || "";
+    const courseInput = body.course || body.courseTrack || body.course_name || "";
+    const joiningTimeInput = body.joiningTime || body.session || "";
+
+    const descMeta = {
+      college_name: collegeInput,
+      collegeName: collegeInput,
+      course_name: courseInput,
+      courseName: courseInput,
+      joining_time: joiningTimeInput,
+    };
+
     const payload: Record<string, any> = {
       name: batchName,
       batch_name: batchName,
-      college_name: body.collegeName || body.college_name || null,
-      course_name: body.course || body.courseTrack || body.course_name || null,
+      code: body.code || `BAT-${Date.now().toString().slice(-4)}`,
+      description: JSON.stringify(descMeta),
       start_date: body.startDate || body.start_date || null,
       status: "active",
     };
 
     if (trainerId) {
       payload.trainer_id = trainerId;
+    }
+
+    if (body.courseId) {
+      payload.course_id = body.courseId;
     }
 
     const { data, error } = await adminClient
@@ -148,7 +176,7 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    // If initial students provided, add them to batch_members
+    // If initial students provided, add them to batch_members and sync profiles.batch_id
     const studentIds: string[] = body.studentIds || [];
     if (studentIds.length > 0 && data?.id) {
       const memberInserts = studentIds.map((userId) => ({
@@ -156,6 +184,17 @@ export async function POST(request: NextRequest) {
         user_id: userId,
       }));
       await adminClient.from("batch_members").upsert(memberInserts, { onConflict: "batch_id,user_id" });
+
+      for (const sId of studentIds) {
+        await adminClient
+          .from("profiles")
+          .update({
+            batch_id: data.id,
+            batch_name: batchName,
+            batch: batchName,
+          })
+          .or(`id.eq.${sId},user_id.eq.${sId}`);
+      }
     }
 
     return NextResponse.json(
@@ -165,8 +204,10 @@ export async function POST(request: NextRequest) {
           id: data.id,
           name: data.name || data.batch_name,
           batchName: data.name || data.batch_name,
-          collegeName: data.college_name || "",
-          course: data.course_name || "",
+          code: data.code,
+          collegeName: collegeInput,
+          course: courseInput,
+          courseName: courseInput,
           trainer: trainerInput || "",
           startDate: data.start_date || "",
           status: data.status || "active",

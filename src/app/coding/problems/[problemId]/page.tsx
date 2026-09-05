@@ -234,7 +234,7 @@ export default function ProblemSolvingWorkspace() {
   useEffect(() => {
     if (!isLoading && !problem) {
       toast.error("Problem not found");
-      router.push("/coding/problems");
+      router.push("/coding");
     }
   }, [isLoading, problem, router]);
 
@@ -502,11 +502,11 @@ export default function ProblemSolvingWorkspace() {
         {/* Left: Problem Info & Breadcrumb */}
         <div className="flex items-center gap-2.5">
           <Link
-            href="/coding/problems"
+            href="/coding"
             className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
-            <span>Problem List</span>
+            <span>Problems</span>
           </Link>
 
           <span className="text-slate-300">|</span>

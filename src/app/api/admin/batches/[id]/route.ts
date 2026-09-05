@@ -28,13 +28,26 @@ export async function GET(
 
     const studentIds = (members || []).map((m: any) => m.user_id);
 
+    // Extract metadata from description
+    let meta: any = {};
+    try {
+      if (batch.description && batch.description.startsWith("{")) {
+        meta = JSON.parse(batch.description);
+      }
+    } catch {}
+
+    const collegeName = meta.collegeName || meta.college_name || "";
+    const courseName = meta.courseName || meta.course || meta.courseTrack || "";
+
     return NextResponse.json({
       batch: {
         id: batch.id,
         name: batch.name || batch.batch_name,
         batchName: batch.name || batch.batch_name,
-        collegeName: batch.college_name || "",
-        course: batch.course_name || "",
+        code: batch.code || "",
+        collegeName,
+        course: courseName,
+        courseName,
         trainer: batch.trainer_id || "",
         startDate: batch.start_date || "",
         status: batch.status || "active",
@@ -57,18 +70,42 @@ export async function PUT(
     const adminClient = createAdminClient();
     const body = await request.json();
 
-    const payload: Record<string, any> = {};
+    // Fetch existing batch to preserve existing description metadata
+    const { data: existingBatch } = await adminClient
+      .from("batches")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    let existingMeta: any = {};
+    try {
+      if (existingBatch?.description && existingBatch.description.startsWith("{")) {
+        existingMeta = JSON.parse(existingBatch.description);
+      }
+    } catch {}
+
+    const collegeInput = body.collegeName !== undefined ? body.collegeName : (body.college_name !== undefined ? body.college_name : existingMeta.collegeName || "");
+    const courseInput = body.courseTrack !== undefined ? body.courseTrack : (body.course !== undefined ? body.course : (body.course_name !== undefined ? body.course_name : existingMeta.courseName || ""));
+
+    const newMeta = {
+      ...existingMeta,
+      college_name: collegeInput,
+      collegeName: collegeInput,
+      course_name: courseInput,
+      courseName: courseInput,
+    };
+
+    const payload: Record<string, any> = {
+      description: JSON.stringify(newMeta),
+    };
 
     if (body.batchName || body.name) {
       const name = (body.batchName || body.name).trim();
       payload.name = name;
       payload.batch_name = name;
     }
-    if (body.collegeName !== undefined || body.college_name !== undefined) {
-      payload.college_name = body.collegeName || body.college_name || null;
-    }
-    if (body.courseTrack !== undefined || body.course !== undefined || body.course_name !== undefined) {
-      payload.course_name = body.courseTrack || body.course || body.course_name || null;
+    if (body.code) {
+      payload.code = body.code;
     }
     if (body.startDate !== undefined || body.start_date !== undefined) {
       payload.start_date = body.startDate || body.start_date || null;
@@ -92,8 +129,10 @@ export async function PUT(
         id: updatedBatch.id,
         name: updatedBatch.name || updatedBatch.batch_name,
         batchName: updatedBatch.name || updatedBatch.batch_name,
-        collegeName: updatedBatch.college_name || "",
-        course: updatedBatch.course_name || "",
+        code: updatedBatch.code,
+        collegeName: collegeInput,
+        course: courseInput,
+        courseName: courseInput,
         startDate: updatedBatch.start_date || "",
         status: updatedBatch.status || "active",
       },

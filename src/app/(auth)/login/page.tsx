@@ -77,6 +77,15 @@ export default function LoginPage() {
       }
 
       if (authData.user) {
+        // Lock in the student's initial first-login timestamp
+        if (typeof window !== "undefined") {
+          const firstLoginKey = `first_login_${authData.user.id}`;
+          if (!localStorage.getItem(firstLoginKey)) {
+            const initialDate = authData.user.created_at || new Date().toISOString();
+            localStorage.setItem(firstLoginKey, initialDate);
+          }
+        }
+
         const { data: profileData } = await supabase
           .from("profiles")
           .select("role")
@@ -99,6 +108,10 @@ export default function LoginPage() {
           profileRole === "admin" ||
           emailLower.includes("admin");
 
+        const isInstitution =
+          profileRole === "institution" ||
+          emailLower.includes("institution");
+
         const isTrainer =
           profileRole === "trainer" ||
           emailLower.includes("trainer");
@@ -107,6 +120,8 @@ export default function LoginPage() {
 
         const defaultDestination = isSuperAdminOrAdmin
           ? "/admin/dashboard"
+          : isInstitution
+          ? "/institution/overview"
           : isTrainer
           ? "/trainer/dashboard"
           : isRecruiter
@@ -171,6 +186,10 @@ export default function LoginPage() {
           profileRole === "admin" ||
           emailLower.includes("admin");
 
+        const isInstitution =
+          profileRole === "institution" ||
+          emailLower.includes("institution");
+
         const isTrainer =
           profileRole === "trainer" ||
           emailLower.includes("trainer");
@@ -179,6 +198,8 @@ export default function LoginPage() {
 
         const defaultDestination = isSuperAdminOrAdmin
           ? "/admin/dashboard"
+          : isInstitution
+          ? "/institution/overview"
           : isTrainer
           ? "/trainer/dashboard"
           : isRecruiter

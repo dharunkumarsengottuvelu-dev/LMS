@@ -7,6 +7,7 @@ const ROUTE_ROLE_MAP: Record<string, string[]> = {
   "/admin": ["super_admin", "admin"],
   "/trainer": ["super_admin", "admin", "trainer"],
   "/recruiter": ["super_admin", "admin", "recruiter"],
+  "/institution": ["super_admin", "admin", "institution"],
   "/student": ["super_admin", "admin", "trainer", "student"],
   "/ide": ["super_admin", "admin", "trainer", "student"],
 };
@@ -54,6 +55,8 @@ function getRoleDefaultPath(role: string): string {
       return "/admin/students";
     case "student":
       return "/student/dashboard";
+    case "institution":
+      return "/institution/overview";
     default:
       return "/login";
   }
@@ -310,7 +313,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // 5. Cross-role boundary enforcement for authenticated users
-  if (user && (pathname.startsWith("/admin") || pathname.startsWith("/student") || pathname.startsWith("/trainer"))) {
+  if (user && (pathname.startsWith("/admin") || pathname.startsWith("/student") || pathname.startsWith("/trainer") || pathname.startsWith("/institution"))) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -330,6 +333,8 @@ export async function proxy(request: NextRequest) {
       role = "admin";
     } else if (dbRole === "trainer" || userEmail.includes("trainer")) {
       role = "trainer";
+    } else if (dbRole === "institution" || userEmail.includes("institution")) {
+      role = "institution";
     } else if (dbRole === "recruiter") {
       role = "recruiter";
     } else if (dbRole) {
@@ -341,13 +346,18 @@ export async function proxy(request: NextRequest) {
       return createRedirectWithCookies(new URL("/admin/dashboard", request.url), request, supabaseResponse);
     }
 
-    // If Student visits Admin or Trainer portal, redirect to Student Dashboard
-    if (role === "student" && (pathname.startsWith("/admin") || pathname.startsWith("/trainer"))) {
+    // If Institution visits Student, Admin, or Trainer portals, redirect to Institution Overview
+    if (role === "institution" && (pathname.startsWith("/admin") || pathname.startsWith("/student") || pathname.startsWith("/trainer"))) {
+      return createRedirectWithCookies(new URL("/institution/overview", request.url), request, supabaseResponse);
+    }
+
+    // If Student visits Admin, Trainer, or Institution portals, redirect to Student Dashboard
+    if (role === "student" && (pathname.startsWith("/admin") || pathname.startsWith("/trainer") || pathname.startsWith("/institution"))) {
       return createRedirectWithCookies(new URL("/student/dashboard", request.url), request, supabaseResponse);
     }
 
-    // If Trainer visits Student portal, redirect to Trainer Dashboard
-    if (role === "trainer" && pathname.startsWith("/student")) {
+    // If Trainer visits Student or Institution portals, redirect to Trainer Dashboard
+    if (role === "trainer" && (pathname.startsWith("/student") || pathname.startsWith("/institution"))) {
       return createRedirectWithCookies(new URL("/trainer/dashboard", request.url), request, supabaseResponse);
     }
   }

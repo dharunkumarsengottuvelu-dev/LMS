@@ -69,11 +69,12 @@ async function getStudentData() {
   };
 
   // 2. Fetch live data from database with batch authorization
-  const [coursesRes, tracksRes, testsRes, notificationsRes] = await Promise.all([
+  const [coursesRes, tracksRes, testsRes, notificationsRes, codingRes] = await Promise.all([
     adminClient.from("courses").select("*").order("created_at", { ascending: false }),
     adminClient.from("practice_tracks").select("*").order("created_at", { ascending: false }),
     adminClient.from("assessments").select("*").order("created_at", { ascending: false }),
     adminClient.from("notifications").select("*").order("created_at", { ascending: false }).limit(8),
+    adminClient.from("coding_problems").select("id, title, slug, difficulty, category, topic_tags, points, created_at").order("created_at", { ascending: false }).limit(6),
   ]);
 
   const rawCourses = ((coursesRes.data as any[]) || [])
@@ -137,6 +138,7 @@ async function getStudentData() {
     profile: resolvedProfile as any,
     initialCourses: rawCourses,
     initialTracks: rawTracks,
+    initialCodingProblems: (codingRes?.data as any[]) || [],
     enrollments: rawCourses as any,
     assessments: ((testsRes.data as any[]) || []) as any,
     tests: ((testsRes.data as any[]) || []) as any,

@@ -31,7 +31,15 @@ const DIFFICULTY_RANK: Record<string, number> = {
   hard: 3,
 };
 
+import { useRouter } from "next/navigation";
+
 export default function ProblemsListPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/coding");
+  }, [router]);
+
   const [problems, setProblems] = useState<ExtendedCodingProblem[]>(() => {
     return CodingProblemsService.getAllProblems() as ExtendedCodingProblem[];
   });

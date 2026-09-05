@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   BookOpen, ClipboardList, Award, Calendar, Bell,
   ChevronRight, Play, Clock, CheckCircle2, AlertCircle,
-  Trophy, ArrowRight, Code2, ShieldCheck, MonitorCheck, FileText, Check, Video
+  Trophy, ArrowRight, Code2, ShieldCheck, MonitorCheck, FileText, Check, Video, Terminal
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,9 @@ import type { UserProfile } from "@/types";
 
 interface StudentDashboardData {
   profile: UserProfile | null;
+  initialCourses?: any[];
+  initialTracks?: any[];
+  initialCodingProblems?: any[];
   enrollments: any[];
   assessments: any[];
   tests: any[];
@@ -68,6 +71,8 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const [storeCourses, setStoreCourses] = useState<any[]>((data as any).initialCourses || (data as any).enrollments || []);
   const [storeTracks, setStoreTracks] = useState<any[]>((data as any).initialTracks || []);
   const [storeAssessments, setStoreAssessments] = useState<any[]>((data as any).initialAssessments || (data as any).assessments || data.tests || []);
+  const [codingProblems, setCodingProblems] = useState<any[]>((data as any).initialCodingProblems || []);
+  const [solvedProblemIds, setSolvedProblemIds] = useState<Set<string>>(new Set());
   const [liveNowClasses, setLiveNowClasses] = useState<any[]>([]);
   const [liveStats, setLiveStats] = useState({ total: 0, live: 0, upcoming: 0 });
   const [isMounted, setIsMounted] = useState(false);
@@ -98,11 +103,13 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
     setIsMounted(true);
     async function loadData() {
       try {
-        const [cRes, pRes, aRes, lRes] = await Promise.all([
+        const [cRes, pRes, aRes, lRes, cdRes, sRes] = await Promise.all([
           fetch("/api/student/courses"),
           fetch("/api/student/practices"),
           fetch("/api/student/tests"),
-          fetch("/api/student/live-classes")
+          fetch("/api/student/live-classes"),
+          fetch("/api/admin/coding").catch(() => null),
+          fetch("/api/code/submissions").catch(() => null),
         ]);
         if (cRes.ok) {
           const cData = await cRes.json();
@@ -120,6 +127,30 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
           const lData = await lRes.json();
           if (Array.isArray(lData.liveNow)) setLiveNowClasses(lData.liveNow);
           if (lData.stats) setLiveStats(lData.stats);
+        }
+        if (cdRes && cdRes.ok) {
+          const cdData = await cdRes.json();
+          if (Array.isArray(cdData.problems)) {
+            const sorted = [...cdData.problems].sort((a: any, b: any) => {
+              const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+              const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
+              return tB - tA;
+            });
+            setCodingProblems(sorted);
+          }
+        }
+        if (sRes && sRes.ok) {
+          const sData = await sRes.json();
+          if (Array.isArray(sData.submissions)) {
+            const solved = new Set<string>();
+            sData.submissions.forEach((s: any) => {
+              if (s.status === "accepted") {
+                if (s.problem_id) solved.add(s.problem_id);
+                if (s.problem_slug) solved.add(s.problem_slug);
+              }
+            });
+            setSolvedProblemIds(solved);
+          }
         }
       } catch (err) {
         console.error("Dashboard data load error", err);
@@ -175,6 +206,17 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   const displayCompletedCount = enrichedPracticeTracks.reduce((acc, t) => acc + t.completedCount, 0);
   const displayAssessmentsCount = enrichedPracticeTracks.length;
   const displayUnreadNotifications = liveUnreadCount;
+
+  // Newest Code Lab Challenges sorted by created_at descending
+  const latestCodingProblems = useMemo(() => {
+    return [...codingProblems]
+      .sort((a: any, b: any) => {
+        const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return tB - tA;
+      })
+      .slice(0, 4);
+  }, [codingProblems]);
 
   return (
     <div className="space-y-6 w-full pb-12">
@@ -426,40 +468,101 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
             </CardContent>
           </Card>
 
-          {/* Quick Hub Navigation Card */}
-          <Card className="bg-card border-border shadow-card">
-            <CardHeader className="p-4 border-b border-border">
-              <CardTitle className="text-xs font-bold text-foreground">
-                Student Quick Portals
-              </CardTitle>
+          {/* Code Lab - Latest Challenges Card (MNC - Strictly Zero Icons) */}
+          <Card className="bg-card border-border shadow-card overflow-hidden">
+            <CardHeader className="p-4 pb-3 border-b border-border flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xs font-bold text-foreground flex items-center gap-2 tracking-tight">
+                  Code Lab
+                  <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 bg-blue-50/70 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 border-blue-200/70 dark:border-blue-800/40">
+                    New
+                  </Badge>
+                </CardTitle>
+              </div>
+              <Link
+                href="/coding"
+                className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+              >
+                All Problems
+              </Link>
             </CardHeader>
-            <CardContent className="p-4 space-y-2 text-xs">
-              <Link href="/student/practices" className="flex items-center justify-between p-3 rounded-[var(--radius-lg)] bg-background hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all font-semibold text-foreground">
-                <span className="flex items-center gap-2">
-                  <Code2 className="h-4 w-4 text-primary" /> Practice Tracks Hub
-                </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
+            <CardContent className="p-3 space-y-2.5">
+              {latestCodingProblems.length === 0 ? (
+                <div className="text-center py-6 px-3">
+                  <p className="text-xs font-semibold text-foreground">No Challenges Available</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Coding problems will appear here once published.</p>
+                  <Button className="mt-3 h-7 text-xs rounded-lg font-semibold" variant="outline" asChild>
+                    <Link href="/coding">Explore Code Lab</Link>
+                  </Button>
+                </div>
+              ) : (
+                latestCodingProblems.map((prob: any) => {
+                  const isSolved = solvedProblemIds.has(prob.id) || (prob.slug && solvedProblemIds.has(prob.slug));
+                  const diffColor =
+                    prob.difficulty === "easy"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/40"
+                      : prob.difficulty === "hard"
+                      ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800/40"
+                      : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40";
 
-              <Link href="/student/assessments" className="flex items-center justify-between p-3 rounded-[var(--radius-lg)] bg-background hover:bg-primary/10 border border-transparent hover:border-primary/20 transition-all font-semibold text-foreground">
-                <span className="flex items-center gap-2">
-                  <ClipboardList className="h-4 w-4 text-[#2563EB]" /> Scheduled Assessments
-                </span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
+                  return (
+                    <Link
+                      key={prob.id}
+                      href={`/coding/problems/${prob.slug || prob.id}`}
+                      className="group flex items-center justify-between p-2.5 rounded-xl bg-background hover:bg-blue-50/50 dark:hover:bg-blue-950/20 border border-border hover:border-blue-300 dark:hover:border-blue-800/60 transition-all shadow-2xs"
+                    >
+                      <div className="flex-1 min-w-0 pr-2.5">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Badge
+                            variant="outline"
+                            className={cn("text-[9px] font-bold uppercase px-1.5 py-0", diffColor)}
+                          >
+                            {prob.difficulty || "medium"}
+                          </Badge>
+                          {prob.category && (
+                            <span className="text-[10px] text-muted-foreground truncate max-w-[110px]">
+                              {prob.category}
+                            </span>
+                          )}
+                          {isSolved && (
+                            <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0">
+                              Solved
+                            </Badge>
+                          )}
+                        </div>
+                        <h4 className="text-xs font-bold text-foreground truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {prob.title}
+                        </h4>
+                      </div>
 
-              <Link href="/student/live-classes" className="flex items-center justify-between p-3 rounded-[var(--radius-lg)] bg-background hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20 transition-all font-semibold text-foreground">
-                <span className="flex items-center gap-2">
-                  <Video className={cn("h-4 w-4", liveStats.live > 0 ? "text-emerald-500" : "text-[#2563EB]")} />
-                  <span>Live Classes Hub</span>
-                </span>
-                {liveStats.live > 0 ? (
-                  <Badge className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0">LIVE NOW</Badge>
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Link>
+                      <div className="shrink-0 flex items-center">
+                        <span className={cn(
+                          "text-[11px] font-semibold px-2.5 py-1 rounded-md transition-all",
+                          isSolved
+                            ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50"
+                            : "text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white"
+                        )}>
+                          {isSolved ? "Review" : "Solve"}
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })
+              )}
             </CardContent>
+            {latestCodingProblems.length > 0 && (
+              <div className="p-2.5 bg-muted/20 border-t border-border flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground font-medium">
+                  Latest in Code Lab
+                </span>
+                <Link
+                  href="/coding"
+                  className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Open Code Lab
+                </Link>
+              </div>
+            )}
           </Card>
         </div>
 

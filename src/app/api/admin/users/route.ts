@@ -99,8 +99,9 @@ export async function GET(request: NextRequest) {
       const first = p.first_name || "";
       const last = p.last_name || "";
       const fullName = (first || last) ? `${first} ${last}`.trim() : (p.email?.split("@")[0] || "User");
-      const role = p.role || (p.email?.includes("admin") ? "admin" : p.email?.includes("trainer") ? "trainer" : "student");
+      const role = p.role || (p.email?.includes("admin") ? "admin" : p.email?.includes("trainer") ? "trainer" : p.email?.includes("institution") ? "institution" : "student");
       const isStudent = role === "student";
+      const isInstitution = role === "institution";
 
       return {
         id: p.id || p.user_id,
@@ -110,9 +111,12 @@ export async function GET(request: NextRequest) {
         role: role,
         status: p.status || "active",
         joined: p.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
-        type: isStudent ? "student" : "employee",
+        type: isStudent ? "student" : isInstitution ? "institution" : "employee",
         department: p.department || (role === "trainer" ? "Training & Instruction" : role === "admin" ? "Administration" : undefined),
         batch: p.batch_name || p.batch || p.batch_id || undefined,
+        college: p.college || undefined,
+        branch: p.branch || undefined,
+        phone: p.phone || undefined,
       };
     });
 
@@ -133,7 +137,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, email, password, role, batch_id, department } = body;
+    const { name, email, password, role, batch_id, department, college, branch, phone } = body;
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
@@ -155,6 +159,7 @@ export async function POST(request: NextRequest) {
         first_name: firstName,
         last_name: lastName,
         role: userRole,
+        college: college || (userRole === "institution" ? (name || "Partner Institution") : undefined),
       },
     });
 
@@ -177,6 +182,9 @@ export async function POST(request: NextRequest) {
         batch_id: userRole === "student" ? batch_id || null : null,
         batch_name: userRole === "student" ? batch_id || null : null,
         batch: userRole === "student" ? batch_id || null : null,
+        college: college || (userRole === "institution" ? (name || "Partner Institution") : null),
+        branch: branch || null,
+        phone: phone || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }, { onConflict: "user_id" })
@@ -196,9 +204,12 @@ export async function POST(request: NextRequest) {
         role: userRole,
         status: "active",
         joined: new Date().toISOString().split("T")[0],
-        type: userRole === "student" ? "student" : "employee",
+        type: userRole === "student" ? "student" : userRole === "institution" ? "institution" : "employee",
         batch: batch_id,
         department,
+        college: college || (userRole === "institution" ? (name || "Partner Institution") : undefined),
+        branch,
+        phone,
       },
     });
   } catch (error: any) {

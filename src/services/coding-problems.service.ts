@@ -64,6 +64,21 @@ export class CodingProblemsService {
     }
   }
 
+  /**
+   * Save multiple problems directly in the database in bulk
+   */
+  public static async saveProblems(problems: CodingProblem[]): Promise<CodingProblem[]> {
+    try {
+      const res = await axios.post("/api/admin/coding", { problems });
+      const saved = res.data?.problems || [];
+      await this.fetchProblems();
+      return saved;
+    } catch (err) {
+      console.error("Failed to batch save problems via /api/admin/coding:", err);
+      throw err;
+    }
+  }
+
   public static getProblemById(id: string): (ExtendedCodingProblem | CodingProblem) | undefined {
     return this.getAllProblems().find((p) => p.id === id);
   }

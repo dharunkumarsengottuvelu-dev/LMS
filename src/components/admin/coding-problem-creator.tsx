@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -187,6 +188,15 @@ export function CodingProblemCreator({
   );
   const [points, setPoints] = useState<number>(existing.points || 100);
   const [customTagInput, setCustomTagInput] = useState<string>("");
+
+  // Acceptance Rate (Auto from submissions vs Manual override)
+  const initialRate = (existing as any).acceptance_rate
+    ? String((existing as any).acceptance_rate).replace("%", "").trim()
+    : "";
+  const [isManualAcceptance, setIsManualAcceptance] = useState<boolean>(
+    Boolean((existing as any).is_manual_acceptance || (existing as any).acceptance_rate)
+  );
+  const [manualAcceptanceRate, setManualAcceptanceRate] = useState<string>(initialRate);
 
   const handleAddCustomTag = () => {
     const trimmed = customTagInput.trim();
@@ -485,6 +495,9 @@ export function CodingProblemCreator({
       allow_run: allowRun,
       allow_submit: allowSubmit,
       is_mandatory: isMandatory,
+      acceptance_rate: isManualAcceptance && manualAcceptanceRate.trim()
+        ? `${manualAcceptanceRate.trim().replace("%", "")}%`
+        : (existing as any).acceptance_rate || undefined,
       created_at: existing.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -568,7 +581,7 @@ export function CodingProblemCreator({
                 {difficulty}
               </span>
               <span className="text-xs text-slate-400 font-normal">
-                Acceptance: <strong>{(existing as any).acceptance_rate ? `${(existing as any).acceptance_rate}%` : "—"}</strong>
+                Acceptance: <strong>{isManualAcceptance && manualAcceptanceRate ? `${manualAcceptanceRate.trim().replace("%", "")}%` : (existing as any).acceptance_rate ? `${(existing as any).acceptance_rate}%` : "—"}</strong>
               </span>
               <span className="text-slate-300">|</span>
               <span className="text-xs text-slate-600 font-medium">
@@ -941,23 +954,68 @@ export function CodingProblemCreator({
           SECTION 1: BASIC PROBLEM INFORMATION
       ════════════════════════════════════════════════════════════ */}
       <div className="bg-white border border-slate-200 shadow-xs rounded-2xl p-6 space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">
             1. Basic Problem Information
           </h2>
-          {existing.id ? (
-            <span className="text-xs text-slate-500 font-medium">
-              Acceptance Rate:{" "}
-              <strong className="text-emerald-700 font-mono">
-                {(existing as any).acceptance_rate !== undefined ? `${(existing as any).acceptance_rate}%` : "0.0%"}
-              </strong>{" "}
-              (Calculated from real submissions)
-            </span>
-          ) : (
-            <span className="text-xs text-slate-400 font-medium">
-              Acceptance Rate: <span className="font-mono">—</span> (No submissions yet)
-            </span>
-          )}
+
+          {/* Acceptance Rate Controller (Auto / Manual) */}
+          <div className="flex items-center gap-2">
+            {isManualAcceptance ? (
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-blue-200 rounded-xl px-2.5 py-1 shadow-2xs">
+                <label className="text-xs font-semibold text-slate-700">Acceptance Rate:</label>
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={manualAcceptanceRate}
+                    onChange={(e) => setManualAcceptanceRate(e.target.value)}
+                    placeholder="e.g. 65"
+                    className="h-7 w-20 text-xs font-mono font-bold text-center bg-white border-slate-300 rounded-lg px-1.5"
+                  />
+                  <span className="text-xs font-bold text-slate-600 font-mono">%</span>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-200">
+                  Manual
+                </Badge>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsManualAcceptance(false);
+                    setManualAcceptanceRate("");
+                  }}
+                  className="text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:underline ml-1 cursor-pointer"
+                  title="Switch to automatic calculation from student submissions"
+                >
+                  Reset to Auto
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-medium">
+                  Acceptance Rate:{" "}
+                  {existing.id && (existing as any).acceptance_rate !== undefined ? (
+                    <strong className="text-emerald-700 font-mono">
+                      {(existing as any).acceptance_rate}%
+                    </strong>
+                  ) : (
+                    <span className="font-mono text-slate-400">—</span>
+                  )}{" "}
+                  <span className="text-slate-400 text-[11px]">(Auto from submissions)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsManualAcceptance(true)}
+                  className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 bg-blue-50/70 hover:bg-blue-100/70 px-2 py-0.5 rounded-md border border-blue-200 transition-colors cursor-pointer"
+                  title="Set a manual benchmark acceptance rate"
+                >
+                  ✏️ Set Manually
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">

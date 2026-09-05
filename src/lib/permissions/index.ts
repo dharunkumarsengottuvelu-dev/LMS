@@ -82,6 +82,7 @@ export function getRoleLabel(role: UserRole): string {
     trainer: "Trainer",
     student: "Student",
     recruiter: "Recruiter",
+    institution: "Partner Institution",
   };
   return labels[role] || "User";
 }
@@ -93,6 +94,7 @@ export function getRoleColor(role: UserRole): string {
     trainer: "bg-blue-100 text-blue-700 border-blue-200",
     student: "bg-green-100 text-green-700 border-green-200",
     recruiter: "bg-amber-100 text-amber-700 border-amber-200",
+    institution: "bg-indigo-100 text-indigo-700 border-indigo-200",
   };
   return colors[role] || "bg-gray-100 text-gray-700 border-gray-200";
 }

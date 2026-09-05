@@ -123,7 +123,18 @@ export async function GET(request: NextRequest) {
     let startDateStr: string;
     let endDateStr: string;
 
-    if (targetYearParam) {
+    const customStartParam = searchParams.get("startDate");
+    const customEndParam = searchParams.get("endDate");
+
+    if (customStartParam && customEndParam) {
+      if (customStartParam <= customEndParam) {
+        startDateStr = customStartParam;
+        endDateStr = customEndParam;
+      } else {
+        startDateStr = customEndParam;
+        endDateStr = customStartParam;
+      }
+    } else if (targetYearParam) {
       const yr = parseInt(targetYearParam, 10);
       startDateStr = `${yr}-01-01`;
       endDateStr = yr === nowY ? todayLocalStr : `${yr}-12-31`;
@@ -178,24 +189,24 @@ export async function GET(request: NextRequest) {
       adminClient
         .from("coding_submissions")
         .select("id, problem_id, status, language, score, submitted_at, created_at")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
         .order("created_at", { ascending: false }),
       adminClient.from("courses").select("id, title"),
       adminClient
         .from("enrollments")
         .select("id, course_id, completed_at, updated_at, status, progress_percentage")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`),
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`),
       adminClient.from("assessments").select("id, title, type"),
       adminClient
         .from("assessment_attempts")
         .select("id, assessment_id, is_practice, passed, score, submitted_at, created_at")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
         .order("submitted_at", { ascending: false }),
       adminClient.from("assignments").select("id, title"),
       adminClient
         .from("assignment_submissions")
         .select("id, assignment_id, status, grade, content, file_url, submitted_at, created_at")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
         .order("submitted_at", { ascending: false }),
       adminClient
         .from("live_class_attendance")

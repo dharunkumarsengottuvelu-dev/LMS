@@ -1197,9 +1197,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               <Button
                 variant="outline"
                 onClick={() => setShowPracticeBulkUpload(true)}
-                className="h-[44px] text-xs font-semibold gap-1.5 px-4 rounded-xl border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 shadow-xs"
+                className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-sm"
               >
-                <FileSpreadsheet className="h-4 w-4" /> Bulk Upload
+                <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload
               </Button>
               <Button onClick={() => { 
                 setEditingSubModuleId(null);
@@ -1268,9 +1268,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   onClick={() => setShowPracticeBulkUpload(true)}
                   variant="outline"
                   size="sm"
-                  className="text-xs font-semibold gap-1.5 border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 rounded-xl"
+                  className="text-xs font-semibold gap-1.5 border-[#E5E7EB] dark:border-[#27272A] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#27272A] rounded-xl shadow-xs"
                 >
-                  <FileSpreadsheet className="h-3.5 w-3.5" /> Bulk Upload
+                  <UploadCloud className="h-3.5 w-3.5 text-[#2563EB]" /> Bulk Upload
                 </Button>
               </div>
             </div>
@@ -2205,10 +2205,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             <Button
               variant="outline"
               onClick={() => setShowBulkUploadTracks((prev) => !prev)}
-              className="h-[44px] text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 rounded-xl shrink-0 shadow-xs"
+              className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-sm shrink-0"
               title="Bulk create practice tracks via Excel / CSV"
             >
-              <FileSpreadsheet className="h-4 w-4" /> Bulk Upload Tracks
+              <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload Tracks
             </Button>
             <Button onClick={openCreate}
               className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs">

@@ -6,7 +6,7 @@ import {
   Users, Search, Plus, UserCheck, Shield, Trash2, Edit, Eye, Filter,
   Award, AlertTriangle, CheckCircle2, FileText, Code2, Clock, ShieldAlert,
   GraduationCap, ArrowUpRight, BarChart3, Lock, ShieldCheck, ArrowLeft, Sparkles, FolderKanban,
-  Upload, Download, FileSpreadsheet, FileUp, X, Calendar, CalendarDays, Check,
+  Upload, Download, FileSpreadsheet, UploadCloud, FileUp, X, Calendar, CalendarDays, Check,
   BookOpen, Dumbbell, ClipboardList, Inbox, Loader2, Layers, TrendingUp, Laptop, Copy, ExternalLink, FileCheck, Video
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,6 +28,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/layouts/page-header";
 import { cn } from "@/lib/utils";
+import { formatStudentId } from "@/services/student-id.service";
 import { exportReportToExcel, exportReportToCSV, exportReportToPDF } from "@/lib/reports/export-utils";
 import type { ReportSummary, StudentReportItem, BatchReportItem } from "@/app/api/admin/reports/student-performance/route";
 
@@ -133,95 +134,104 @@ export interface StudentRecord {
 
 export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "admin" | "trainer" }) {
   const { toast } = useToast();
-  const { students: storeStudents, updateStudents, batches: storeBatches, addBatch, courses: storeCourses } = useLMSStore();
+  const { students: storeStudents, updateStudents, batches: storeBatches, addBatch, courses: storeCourses, refreshData } = useLMSStore();
   const [students, setStudents] = useState<StudentRecord[]>([]);
-  
-  useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        const res = await fetch("/api/admin/users");
-        if (res.ok) {
-          const json = await res.json();
-          const usersList = Array.isArray(json) ? json : json.users || [];
-          const studentUsers = usersList.filter((u: any) => u.role === "student" || u.type === "student");
-          if (studentUsers.length > 0) {
-            const mapped: StudentRecord[] = studentUsers.map((p: any) => ({
-              id: p.id,
-              employeeId: p.employeeId || p.employee_id || `STU-${Math.floor(1000 + Math.random() * 9000)}`,
-              name: p.name || `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.email?.split("@")[0] || "Unknown",
-              email: p.email || "",
-              batch: p.batch || "Unassigned",
-              department: p.department || "General",
-              designation: p.designation || "Student",
-              techTrack: p.techTrack || p.tech_track || "General",
-              role: "student",
-              status: p.status || "active",
-              avgScore: p.avg_score || p.avgScore || 0,
-              mcqAccuracy: p.mcq_accuracy || p.mcqAccuracy || 0,
-              codingAccuracy: p.coding_accuracy || p.codingAccuracy || 0,
-              proctoringCompliance: p.proctoring_compliance || p.proctoringCompliance || 100,
-              violationCount: p.violation_count || p.violationCount || 0,
-              joinedDate: p.joined || p.created_at?.split("T")[0] || "",
-              skills: [],
-              certificationsEarned: [],
-              testsTaken: [],
-              practicesSubmitted: [],
-              dailyProgress: [],
-              proctoringLogs: [],
-              systemInfo: { os: "Unknown", browser: "Unknown", ipAddress: "0.0.0.0", lastActive: "Unknown", status: "Offline", currentPage: "Unknown" },
-              activityLogs: []
-            }));
-            setStudents(mapped);
-            return;
-          }
-        }
-      } catch (e) {
-        console.warn("Notice: /api/admin/users fetch error, falling back to client client:", e);
-      }
 
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("role", "student")
-        .order("created_at", { ascending: false });
-        
-      if (data && !error) {
-        const mappedStudents: StudentRecord[] = data.map((p: any) => ({
-          id: p.id,
-          employeeId: p.employee_id || `STU-${Math.floor(1000 + Math.random() * 9000)}`,
-          name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.email?.split("@")[0] || "Unknown",
-          email: p.email || "",
-          batch: p.batch || "Unassigned",
-          department: p.department || "General",
-          designation: p.designation || "Student",
-          techTrack: p.tech_track || "General",
-          role: "student",
-          status: p.status || "active",
-          avgScore: p.avg_score || 0,
-          mcqAccuracy: p.mcq_accuracy || 0,
-          codingAccuracy: p.coding_accuracy || 0,
-          proctoringCompliance: p.proctoring_compliance || 100,
-          violationCount: p.violation_count || 0,
-          joinedDate: p.created_at?.split("T")[0] || "",
-          skills: [],
-          certificationsEarned: [],
-          testsTaken: [],
-          practicesSubmitted: [],
-          dailyProgress: [],
-          proctoringLogs: [],
-          systemInfo: { os: "Unknown", browser: "Unknown", ipAddress: "0.0.0.0", lastActive: "Unknown", status: "Offline", currentPage: "Unknown" },
-          activityLogs: []
-        }));
-        setStudents(mappedStudents);
+  // Authoritative Backend Report Data
+  const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
+  const [reportStudents, setReportStudents] = useState<StudentReportItem[]>([]);
+  const [reportBatches, setReportBatches] = useState<BatchReportItem[]>([]);
+  const [availableBatchesList, setAvailableBatchesList] = useState<string[]>([]);
+  const [availableCoursesList, setAvailableCoursesList] = useState<{ id: string; title: string }[]>([]);
+  const [isLoadingReport, setIsLoadingReport] = useState<boolean>(true);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  const fetchStudents = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/users");
+      if (res.ok) {
+        const json = await res.json();
+        const usersList = Array.isArray(json) ? json : json.users || [];
+        const studentUsers = usersList.filter((u: any) => u.role === "student" || u.type === "student");
+        if (studentUsers.length > 0) {
+          const mapped: StudentRecord[] = studentUsers.map((p: any, sIdx: number) => ({
+            id: p.id,
+            employeeId: p.student_id || p.studentId || p.employeeId || p.employee_id || formatStudentId(sIdx + 1, p.created_at || new Date().toISOString()),
+            name: p.name || `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.email?.split("@")[0] || "Unknown",
+            email: p.email || "",
+            batch: p.batch || p.batch_name || "Unassigned",
+            department: p.department || "General",
+            designation: p.designation || "Student",
+            techTrack: p.techTrack || p.tech_track || "General",
+            role: "student",
+            status: p.status || "active",
+            avgScore: p.avg_score || p.avgScore || 0,
+            mcqAccuracy: p.mcq_accuracy || p.mcqAccuracy || 0,
+            codingAccuracy: p.coding_accuracy || p.codingAccuracy || 0,
+            proctoringCompliance: p.proctoring_compliance || p.proctoringCompliance || 100,
+            violationCount: p.violation_count || p.violationCount || 0,
+            joinedDate: p.joined || p.created_at?.split("T")[0] || "",
+            skills: [],
+            certificationsEarned: [],
+            testsTaken: [],
+            practicesSubmitted: [],
+            dailyProgress: [],
+            proctoringLogs: [],
+            systemInfo: { os: "Unknown", browser: "Unknown", ipAddress: "0.0.0.0", lastActive: "Unknown", status: "Offline", currentPage: "Unknown" },
+            activityLogs: []
+          }));
+          setStudents(mapped);
+          return;
+        }
       }
-    };
-    fetchStudents();
+    } catch (e) {
+      console.warn("Notice: /api/admin/users fetch error, falling back to client client:", e);
+    }
+
+    const { createClient } = await import("@/lib/supabase/client");
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "student")
+      .order("created_at", { ascending: false });
+      
+    if (data && !error) {
+      const mappedStudents: StudentRecord[] = data.map((p: any, sIdx: number) => ({
+        id: p.id,
+        employeeId: p.student_id || p.employee_id || formatStudentId(sIdx + 1, p.created_at || new Date().toISOString()),
+        name: `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.email?.split("@")[0] || "Unknown",
+        email: p.email || "",
+        batch: p.batch || p.batch_name || "Unassigned",
+        department: p.department || "General",
+        designation: p.designation || "Student",
+        techTrack: p.tech_track || "General",
+        role: "student",
+        status: p.status || "active",
+        avgScore: p.avg_score || 0,
+        mcqAccuracy: p.mcq_accuracy || 0,
+        codingAccuracy: p.coding_accuracy || 0,
+        proctoringCompliance: p.proctoring_compliance || 100,
+        violationCount: p.violation_count || 0,
+        joinedDate: p.created_at?.split("T")[0] || "",
+        skills: [],
+        certificationsEarned: [],
+        testsTaken: [],
+        practicesSubmitted: [],
+        dailyProgress: [],
+        proctoringLogs: [],
+        systemInfo: { os: "Unknown", browser: "Unknown", ipAddress: "0.0.0.0", lastActive: "Unknown", status: "Offline", currentPage: "Unknown" },
+        activityLogs: []
+      }));
+      setStudents(mappedStudents);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchStudents();
+  }, [fetchStudents]);
+
   const syncStudentsToStore = (newStds: StudentRecord[]) => {
-    // Only local state mutation for now, since we fetch from DB on load
     setStudents(newStds);
   };
 
@@ -229,14 +239,20 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
   const [batchFilter, setBatchFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // Dynamic Batch Options from Store
+  // Dynamic Batch Options from Store & Database
   const availableBatches = useMemo(() => {
     const names = new Set<string>();
     if (storeBatches) {
-      storeBatches.forEach((b) => names.add(b.batchName));
+      storeBatches.forEach((b) => b.batchName && names.add(b.batchName));
+    }
+    if (availableBatchesList) {
+      availableBatchesList.forEach((b) => b && names.add(b));
+    }
+    if (reportBatches) {
+      reportBatches.forEach((b) => b.batchName && names.add(b.batchName));
     }
     return Array.from(names);
-  }, [storeBatches]);
+  }, [storeBatches, availableBatchesList, reportBatches]);
 
   // Filtered Students List
   const filteredStudents = useMemo(() => {
@@ -295,14 +311,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     };
   }, []);
 
-  // Authoritative Backend Report Data
-  const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
-  const [reportStudents, setReportStudents] = useState<StudentReportItem[]>([]);
-  const [reportBatches, setReportBatches] = useState<BatchReportItem[]>([]);
-  const [availableBatchesList, setAvailableBatchesList] = useState<string[]>([]);
-  const [availableCoursesList, setAvailableCoursesList] = useState<{ id: string; title: string }[]>([]);
-  const [isLoadingReport, setIsLoadingReport] = useState<boolean>(true);
-  const [isExporting, setIsExporting] = useState<boolean>(false);
+  // End of state declarations
 
   const currentBatchItem = useMemo(() => {
     if (selectedReportBatch === "all") return null;
@@ -847,7 +856,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     document.body.removeChild(link);
   };
 
-  const handleCreateBatchSubmit = (e: React.FormEvent) => {
+  const handleCreateBatchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (createBatchMode === "csv") {
@@ -884,7 +893,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     const trimmed = newBatchTitle.trim();
     
     try {
-      fetch("/api/admin/batches", {
+      const res = await fetch("/api/admin/batches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -894,159 +903,162 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
           courseTrack: newBatchTrack || "",
           startDate: newBatchStartDate || "",
         }),
-      }).catch(err => console.warn("Notice: Batch API call:", err));
-    } catch (e) {
-      console.warn(e);
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to create batch in database.");
+      }
+
+      await refreshData();
+      await fetchStudents();
+      fetchAuthoritativeReport();
+
+      toast({
+        title: "Batch Created Successfully",
+        description: `"${trimmed}" is now active and ready for student assignments.`,
+      });
+      setIsCreateBatchOpen(false);
+      setNewBatchTitle("");
+      setNewBatchCollege("");
+      setNewBatchTrainer("");
+      setNewBatchTrack("");
+      setNewBatchStartDate("");
+      setCsvFileName("");
+    } catch (e: any) {
+      console.error("Batch creation error:", e);
+      toast({
+        title: "Batch Creation Failed",
+        description: e.message || "Failed to create batch.",
+        variant: "destructive",
+      });
     }
-
-    addBatch({
-      batchName: trimmed,
-      collegeName: newBatchCollege || "",
-      course: newBatchTrack || "",
-      startDate: newBatchStartDate || "",
-      endDate: "",
-      joiningTime: "",
-      trainer: newBatchTrainer || "",
-      status: "active",
-    });
-
-    toast({
-      title: "Batch Created Successfully",
-      description: `"${trimmed}" is now active and ready for student assignments.`,
-    });
-    setIsCreateBatchOpen(false);
-    setNewBatchTitle("");
-    setNewBatchCollege("");
-    setNewBatchTrainer("");
-    setNewBatchTrack("");
-    setNewBatchStartDate("");
-    setCsvFileName("");
   };
 
-  const handleAssignStudentSubmit = (e: React.FormEvent) => {
+  const handleAssignStudentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!assignTargetBatch) {
+      toast({ title: "Target Batch Required", description: "Please select a target batch first.", variant: "destructive" });
+      return;
+    }
 
     if (assignStudentMode === "csv") {
       if (csvParsedStudents.length === 0) {
         toast({ title: "No CSV Data", description: "Please upload a CSV file with student records first.", variant: "destructive" });
         return;
       }
-    }
 
-    if (assignStudentMode === "single" && !assignStudentId && (!assignStudentNameManual.trim() || !assignStudentEmailManual.trim())) {
-      toast({ title: "Student Info Required", description: "Please select a student or enter their name & email.", variant: "destructive" });
-      return;
-    }
+      try {
+        const res = await fetch("/api/admin/batches/assign-student", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bulkAssignments: csvParsedStudents.map((std) => ({
+              batchName: std.batch?.trim() || assignTargetBatch,
+              studentEmail: std.email?.trim(),
+              studentName: std.name?.trim(),
+              collegeName: std.college,
+              course: std.course,
+            })),
+          }),
+        });
 
-    if (assignStudentMode === "csv" && csvParsedStudents.length > 0) {
-      csvParsedStudents.forEach((std) => {
-        if (std.batch && std.batch !== "Not Assigned" && !storeBatches.some((b) => b.batchName.toLowerCase() === std.batch?.toLowerCase())) {
-          addBatch({
-            batchName: std.batch,
-            collegeName: std.college || "Enterprise Academy",
-            course: std.course || "Fullstack Enterprise React/Next.js",
-            startDate: new Date().toISOString().slice(0, 10),
-            endDate: new Date(Date.now() + 120 * 86400000).toISOString().slice(0, 10),
-            joiningTime: "Morning Session (09:00 AM)",
-            trainer: "Dr. Aris Thorne",
-            status: "active",
-          });
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.error || "Failed to bulk assign students from CSV.");
         }
-      });
 
-      const newRecords: StudentRecord[] = csvParsedStudents.map((std, idx) => ({
-        id: `std_csv_${Date.now()}_${idx}`,
-        employeeId: `EMP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        name: std.name,
-        email: std.email,
-        batch: std.batch?.trim() || assignTargetBatch || "Not Assigned",
-        department: std.course || "Computer Science",
-        designation: "Student Learner",
-        techTrack: std.course || "Fullstack Enterprise React/Next.js",
-        role: "student",
-        status: "active",
-        avgScore: 0,
-        mcqAccuracy: 0,
-        codingAccuracy: 0,
-        proctoringCompliance: 100,
-        violationCount: 0,
-        joinedDate: new Date().toISOString().slice(0, 10),
-        skills: ["React", "Next.js", "TypeScript"],
-        certificationsEarned: [],
-        testsTaken: [],
-        practicesSubmitted: [],
-        dailyProgress: [],
-        proctoringLogs: [],
-        systemInfo: { os: "Windows 11", browser: "Chrome", ipAddress: "192.168.1.1", lastActive: "Just now", status: "Online", currentPage: "/student/dashboard" },
-        activityLogs: [],
-      }));
+        await refreshData();
+        await fetchStudents();
+        fetchAuthoritativeReport();
 
-      syncStudentsToStore([...newRecords, ...students]);
-      toast({
-        title: `âœ… ${newRecords.length} Students Enrolled!`,
-        description: `Enrolled ${newRecords.length} students from CSV to their assigned batches.`,
-      });
+        toast({
+          title: `Students Enrolled!`,
+          description: `Enrolled and assigned ${json.assignedCount || csvParsedStudents.length} students to batch "${assignTargetBatch}".`,
+        });
 
-      setIsAssignBatchOpen(false);
-      setCsvParsedStudents([]);
-      setCsvFileName("");
+        setIsAssignBatchOpen(false);
+        setCsvParsedStudents([]);
+        setCsvFileName("");
+      } catch (err: any) {
+        toast({ title: "Enrollment Failed", description: err.message, variant: "destructive" });
+      }
       return;
     }
 
+    // Single student assignment
     if (assignStudentId) {
-      const updated = students.map(s => s.id === assignStudentId ? { ...s, batch: assignTargetBatch } : s);
-      syncStudentsToStore(updated);
-      const matched = students.find(s => s.id === assignStudentId);
-      toast({
-        title: "âœ… Student Assigned!",
-        description: `${matched?.name || "Student"} has been moved to ${assignTargetBatch}.`,
-      });
+      try {
+        const res = await fetch("/api/admin/batches/assign-student", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            batchName: assignTargetBatch,
+            studentId: assignStudentId,
+          }),
+        });
+
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.error || "Failed to assign student to batch.");
+        }
+
+        const matched = students.find((s) => s.id === assignStudentId);
+        const updated = students.map((s) => (s.id === assignStudentId ? { ...s, batch: assignTargetBatch } : s));
+        syncStudentsToStore(updated);
+
+        await refreshData();
+        await fetchStudents();
+        fetchAuthoritativeReport();
+
+        toast({
+          title: "Student Assigned!",
+          description: `${matched?.name || "Student"} has been moved to ${assignTargetBatch}.`,
+        });
+
+        setIsAssignBatchOpen(false);
+        setAssignStudentId("");
+        setAssignTargetBatch("");
+      } catch (err: any) {
+        toast({ title: "Assignment Failed", description: err.message, variant: "destructive" });
+      }
     } else if (assignStudentNameManual && assignStudentEmailManual) {
-      const newRecord: StudentRecord = {
-        id: `std_${Date.now()}`,
-        employeeId: `EMP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        name: assignStudentNameManual.trim(),
-        email: assignStudentEmailManual.trim(),
-        batch: assignTargetBatch,
-        department: "Computer Science & Engineering",
-        designation: "Software Engineering Trainee",
-        techTrack: "Fullstack Enterprise React/Next.js",
-        role: "student",
-        status: "active",
-        avgScore: 0,
-        mcqAccuracy: 0,
-        codingAccuracy: 0,
-        proctoringCompliance: 100,
-        violationCount: 0,
-        joinedDate: new Date().toISOString().slice(0, 10),
-        skills: ["React", "Next.js", "TypeScript"],
-        certificationsEarned: [],
-        testsTaken: [],
-        practicesSubmitted: [],
-        dailyProgress: [],
-        proctoringLogs: [],
-        systemInfo: {
-          os: "Windows 11",
-          browser: "Chrome",
-          ipAddress: "192.168.1.1",
-          lastActive: "Just now",
-          status: "Online",
-          currentPage: "/student/dashboard",
-        },
-        activityLogs: [],
-      };
-      syncStudentsToStore([newRecord, ...students]);
-      toast({
-        title: "âœ… Student Added!",
-        description: `${assignStudentNameManual} added to ${assignTargetBatch}.`,
-      });
+      try {
+        const res = await fetch("/api/admin/batches/assign-student", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            batchName: assignTargetBatch,
+            studentEmail: assignStudentEmailManual.trim(),
+            studentName: assignStudentNameManual.trim(),
+          }),
+        });
+
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json.error || "Failed to assign student to batch.");
+        }
+
+        await refreshData();
+        await fetchStudents();
+        fetchAuthoritativeReport();
+
+        toast({
+          title: "Student Assigned!",
+          description: `${assignStudentNameManual} added to ${assignTargetBatch}.`,
+        });
+
+        setIsAssignBatchOpen(false);
+        setAssignStudentNameManual("");
+        setAssignStudentEmailManual("");
+        setAssignTargetBatch("");
+      } catch (err: any) {
+        toast({ title: "Assignment Failed", description: err.message, variant: "destructive" });
+      }
+    } else {
+      toast({ title: "Student Info Required", description: "Please select an existing student or enter name & email.", variant: "destructive" });
     }
-    setIsAssignBatchOpen(false);
-    setAssignStudentId("");
-    setAssignStudentNameManual("");
-    setAssignStudentEmailManual("");
-    setCsvParsedStudents([]);
-    setCsvFileName("");
   };
 
   const [expandedTests, setExpandedTests] = useState<string[]>([]);
@@ -2509,29 +2521,6 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
       {/* Top Banner */}
       <PageHeader
         title={portalRole === "admin" ? "Enterprise Student Performance & Proctoring Hub" : "Batch Performance & Proctoring Analytics"}
-        actions={
-          <div className="flex items-center gap-3 shrink-0 flex-wrap">
-            <Button
-              onClick={() => {
-                setIsCreateBatchOpen(!isCreateBatchOpen);
-                setIsAssignBatchOpen(false);
-              }}
-              variant="outline"
-              className="h-[44px] border-[#2563EB] text-[#2563EB] dark:border-[#3B82F6] dark:text-[#3B82F6] hover:bg-[#2563EB]/10 font-bold px-5 rounded-xl shadow-xs"
-            >
-              Create New Batch
-            </Button>
-            <Button
-              onClick={() => {
-                setIsAssignBatchOpen(!isAssignBatchOpen);
-                setIsCreateBatchOpen(false);
-              }}
-              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold px-5 rounded-xl shadow-md shadow-[#2563EB]/20"
-            >
-              Add Student to Batch
-            </Button>
-          </div>
-        }
       />
 
       {/* ── CREATE NEW BATCH ── Inline Panel (renders right below header) ── */}
@@ -2562,7 +2551,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               </button>
               <button type="button" onClick={() => setCreateBatchMode("csv")}
                 className={`px-5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${createBatchMode === "csv" ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm" : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"}`}>
-                <FileSpreadsheet className="h-3.5 w-3.5 text-[#16A34A]" /> Bulk CSV Import
+                <UploadCloud className="h-3.5 w-3.5 text-[#2563EB]" /> Bulk CSV Import
               </button>
             </div>
             {/* Form */}
@@ -2706,19 +2695,31 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               </button>
               <button type="button" onClick={() => setAssignStudentMode("csv")}
                 className={`px-5 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${assignStudentMode === "csv" ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm" : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"}`}>
-                <FileSpreadsheet className="h-3.5 w-3.5 text-[#16A34A]" /> Bulk CSV Import
+                <UploadCloud className="h-3.5 w-3.5 text-[#2563EB]" /> Bulk CSV Import
               </button>
             </div>
             {/* Form */}
             <form onSubmit={handleAssignStudentSubmit}>
               {assignStudentMode === "single" ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Student Batch</label>
                     <Select value={assignTargetBatch} onValueChange={(val: string | null) => val && setAssignTargetBatch(val)}>
-                      <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue placeholder="Select target batch..." /></SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-[#18181B]">
-                        {availableBatches.map((b) => (<SelectItem key={b} value={b}>{b}</SelectItem>))}
+                      <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                        <SelectValue placeholder="Select target batch...">
+                          {assignTargetBatch || undefined}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-[#18181B] max-h-60">
+                        {availableBatches.length > 0 ? (
+                          availableBatches.map((b) => (
+                            <SelectItem key={b} value={b}>
+                              <span className="font-semibold text-xs text-[#111827] dark:text-[#FAFAFA]">{b}</span>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-3 text-xs text-[#6B7280] text-center">No batches created yet</div>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -2726,9 +2727,25 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Select Existing Student</label>
                       <Select value={assignStudentId} onValueChange={(val: string | null) => val && setAssignStudentId(val)}>
-                        <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue placeholder="Choose from directory..." /></SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-[#18181B]">
-                          {students.map((s) => (<SelectItem key={s.id} value={s.id}>{s.name} – {s.batch || "Not Assigned"}</SelectItem>))}
+                        <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                          <SelectValue placeholder="Choose from directory...">
+                            {(() => {
+                              const found = students.find((s) => s.id === assignStudentId);
+                              return found ? `${found.name} (${found.email})` : undefined;
+                            })()}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-[#18181B] max-h-60">
+                          {students.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              <div className="flex flex-col text-left py-0.5">
+                                <span className="font-semibold text-xs text-[#111827] dark:text-[#FAFAFA]">{s.name}</span>
+                                <span className="text-[10px] text-[#6B7280] dark:text-[#9CA3AF]">
+                                  {s.email} &bull; Current: {s.batch || "Not Assigned"}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -2736,7 +2753,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                   {(!assignStudentId || students.length === 0) && (
                     <>
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Student Full Name</label>
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Or Enter Student Full Name</label>
                         <Input placeholder="e.g. Dharunkumar S" value={assignStudentNameManual} onChange={(e) => setAssignStudentNameManual(e.target.value)} className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]" />
                       </div>
                       <div className="space-y-1.5">
@@ -2752,9 +2769,21 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Target Student Batch</label>
                       <Select value={assignTargetBatch} onValueChange={(val: string | null) => val && setAssignTargetBatch(val)}>
-                        <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]"><SelectValue placeholder="Select target batch..." /></SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-[#18181B]">
-                          {availableBatches.map((b) => (<SelectItem key={b} value={b}>{b}</SelectItem>))}
+                        <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                          <SelectValue placeholder="Select target batch...">
+                            {assignTargetBatch || undefined}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-[#18181B] max-h-60">
+                          {availableBatches.length > 0 ? (
+                            availableBatches.map((b) => (
+                              <SelectItem key={b} value={b}>
+                                <span className="font-semibold text-xs text-[#111827] dark:text-[#FAFAFA]">{b}</span>
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-3 text-xs text-[#6B7280] text-center">No batches created yet</div>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -3131,24 +3160,24 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                   </tr>
                 ) : reportBatches.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-[#6B7280]">
-                      <div className="flex flex-col items-center justify-center gap-3">
-                        <div className="p-3.5 rounded-2xl bg-[#2563EB]/10 text-[#2563EB]">
-                          <FolderKanban className="h-7 w-7" />
+                    <td colSpan={7} className="py-14 text-center">
+                      <div className="max-w-md mx-auto flex flex-col items-center justify-center px-4">
+                        <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA] tracking-tight">
+                          No Batches Configured
+                        </p>
+                        <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-1.5 max-w-sm mx-auto leading-relaxed">
+                          No student cohorts or training batches have been provisioned yet. Create a batch to begin tracking cohort performance and proctoring metrics.
+                        </p>
+                        <div className="mt-4 flex items-center gap-2">
+                          <Button
+                            type="button"
+                            onClick={() => setIsCreateBatchOpen(true)}
+                            className="h-8 px-4 text-xs font-medium bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-lg shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Create New Batch
+                          </Button>
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">No Student Batches Found in Database</p>
-                          <p className="text-xs text-[#6B7280] mt-1 max-w-md mx-auto">
-                            No batches have been created or assigned yet. Create a batch to start tracking and exporting batch-wise performance metrics.
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          onClick={() => setIsCreateBatchOpen(true)}
-                          className="h-[38px] px-5 text-xs font-bold bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl shadow-md shadow-[#2563EB]/20"
-                        >
-                          <Plus className="h-4 w-4 mr-1.5" /> Create New Batch
-                        </Button>
                       </div>
                     </td>
                   </tr>

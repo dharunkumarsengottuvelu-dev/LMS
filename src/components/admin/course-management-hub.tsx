@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { CourseService } from "@/services/course.service";
 import {
   BookOpen, Plus, Search, Edit, Trash2, Eye,
@@ -11,7 +12,7 @@ import {
   UploadCloud, PenSquare, HardDrive, EyeOff,
   Maximize2, Minimize2, ShieldAlert, Lock,
   ChevronDown, ChevronUp, FolderPlus, Folder, ArrowUp, ArrowDown,
-  FileSpreadsheet
+  FileSpreadsheet, Boxes
 } from "lucide-react";
 import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
@@ -302,6 +303,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
   // Bulk Upload State
   const [showBulkUploadCourses, setShowBulkUploadCourses] = useState(false);
+  const [bulkUploadScope, setBulkUploadScope] = useState<"course_batch" | "course" | "main_module">("course_batch");
+  const [bulkTargetCourseId, setBulkTargetCourseId] = useState<string>("");
+  const [bulkTargetModuleId, setBulkTargetModuleId] = useState<string>("");
   const [isBulkUploadingMainModules, setIsBulkUploadingMainModules] = useState(false);
   const [bulkUploadMainModuleId, setBulkUploadMainModuleId] = useState<string | null>(null);
 
@@ -1156,10 +1160,10 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                       type="button"
                       variant="outline"
                       onClick={openBulkUploadMainModules}
-                      className="h-10 px-3.5 border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 font-semibold text-xs rounded-xl shadow-xs gap-1.5"
+                      className="h-10 px-3.5 border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl shadow-sm gap-2"
                       title="Upload multiple Main Modules from Excel / CSV"
                     >
-                      <FileSpreadsheet className="h-4 w-4" /> Bulk Upload Main Modules
+                      <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload Main Modules
                     </Button>
                     <Button
                       type="button"
@@ -1204,9 +1208,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                       type="button"
                       variant="outline"
                       onClick={openBulkUploadMainModules}
-                      className="h-9 px-4 text-[#2563EB] border-[#2563EB]/40 hover:bg-[#2563EB]/10 font-semibold text-xs rounded-xl gap-1.5"
+                      className="h-9 px-4 text-slate-700 dark:text-slate-200 border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] font-semibold text-xs rounded-xl gap-2 shadow-sm"
                     >
-                      <FileSpreadsheet className="h-3.5 w-3.5" /> Bulk Upload Main Modules
+                      <UploadCloud className="h-3.5 w-3.5 text-[#2563EB]" /> Bulk Upload Main Modules
                     </Button>
                   </div>
                 </div>
@@ -1296,10 +1300,10 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                             size="sm"
                             variant="outline"
                             onClick={() => openBulkUpload(mainMod.id)}
-                            className="h-8 px-3 text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg gap-1.5 shadow-xs"
+                            className="h-8 px-3 text-xs font-semibold border-[#E5E7EB] dark:border-[#27272A] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#27272A] rounded-xl gap-1.5 shadow-xs"
                             title="Bulk Upload Lessons from Excel / CSV"
                           >
-                            <FileSpreadsheet className="h-3.5 w-3.5" /> Bulk Upload
+                            <UploadCloud className="h-3.5 w-3.5 text-[#2563EB]" /> Bulk Upload
                           </Button>
 
                           <Button
@@ -1373,9 +1377,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                                   size="sm"
                                   variant="outline"
                                   onClick={() => openBulkUpload(mainMod.id)}
-                                  className="h-8 px-3 text-xs font-semibold text-[#16A34A] border-[#16A34A]/40 hover:bg-[#16A34A]/10 rounded-lg gap-1.5"
+                                  className="h-8 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] rounded-xl gap-1.5 shadow-xs"
                                 >
-                                  <FileSpreadsheet className="h-3.5 w-3.5" /> Bulk Upload Lessons
+                                  <UploadCloud className="h-3.5 w-3.5 text-[#2563EB]" /> Bulk Upload Lessons
                                 </Button>
                               </div>
                             </div>
@@ -2087,8 +2091,22 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   );
 
   // ════════════════════════════════════════════════════════════
-  // VIEW: LIST COURSES
+  // VIEW: LIST COURSES & GLOBAL BULK IMPORT
   // ════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!bulkTargetCourseId && courses.length > 0 && courses[0]) {
+      setBulkTargetCourseId(courses[0].id);
+    }
+  }, [courses, bulkTargetCourseId]);
+
+  const selectedTargetCourse = useMemo(() => {
+    return courses.find((c) => c.id === bulkTargetCourseId) || courses[0];
+  }, [courses, bulkTargetCourseId]);
+
+  const selectedTargetCourseModules = useMemo(() => {
+    return selectedTargetCourse?.modules || [];
+  }, [selectedTargetCourse]);
+
   const handleBulkImportCourses = async (importedCourses: ManagedCourse[]) => {
     const updated = [...courses, ...importedCourses];
     setCourses(updated);
@@ -2110,6 +2128,109 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     });
   };
 
+  const handleBulkImportSubModules = async (importedLessons: any[]) => {
+    const courseToUpdate = selectedTargetCourse;
+    if (!courseToUpdate) {
+      toast({
+        title: "No Course Selected",
+        description: "Please select a course to import sub-modules into.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    let updatedModules = [...(courseToUpdate.modules || [])];
+    if (updatedModules.length === 0 || bulkTargetModuleId === "auto_module") {
+      updatedModules.push({
+        id: `mod_${Date.now()}`,
+        title: "Module 1: Core Curriculum",
+        description: "Auto-created module for imported lessons",
+        subModules: importedLessons,
+      });
+    } else {
+      const targetModId = bulkTargetModuleId || updatedModules[0]?.id;
+      let matched = false;
+      updatedModules = updatedModules.map((m) => {
+        if (m.id === targetModId || (!matched && !bulkTargetModuleId)) {
+          matched = true;
+          return {
+            ...m,
+            subModules: [...(m.subModules || []), ...importedLessons],
+          };
+        }
+        return m;
+      });
+      if (!matched && updatedModules.length > 0 && updatedModules[0]) {
+        updatedModules[0] = {
+          ...updatedModules[0],
+          subModules: [...(updatedModules[0].subModules || []), ...importedLessons],
+        };
+      }
+    }
+
+    const updatedCourse: ManagedCourse = {
+      ...courseToUpdate,
+      modules: updatedModules,
+    };
+
+    setCourses((prev) =>
+      prev.map((c) => (c.id === courseToUpdate.id ? updatedCourse : c))
+    );
+    setShowBulkUploadCourses(false);
+
+    try {
+      await fetch("/api/admin/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ course: updatedCourse }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist submodules to server", e);
+    }
+
+    toast({
+      title: "Sub-Modules Imported",
+      description: `Successfully imported ${importedLessons.length} sub-module lessons into "${courseToUpdate.title}".`,
+    });
+  };
+
+  const handleBulkImportMainModulesGlobal = async (importedModules: CourseSyllabusModule[]) => {
+    const courseToUpdate = selectedTargetCourse;
+    if (!courseToUpdate) {
+      toast({
+        title: "No Course Selected",
+        description: "Please select a course to import main modules into.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updatedCourse: ManagedCourse = {
+      ...courseToUpdate,
+      modules: [...(courseToUpdate.modules || []), ...importedModules],
+    };
+
+    setCourses((prev) =>
+      prev.map((c) => (c.id === courseToUpdate.id ? updatedCourse : c))
+    );
+    setShowBulkUploadCourses(false);
+
+    try {
+      await fetch("/api/admin/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ course: updatedCourse }),
+      });
+    } catch (e) {
+      console.warn("Failed to persist main modules to server", e);
+    }
+
+    toast({
+      title: "Main Modules Imported",
+      description: `Successfully imported ${importedModules.length} main modules into "${courseToUpdate.title}".`,
+    });
+  };
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -2119,10 +2240,10 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             <Button
               variant="outline"
               onClick={() => setShowBulkUploadCourses((prev) => !prev)}
-              className="h-[44px] text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 rounded-xl shrink-0 shadow-xs"
-              title="Bulk create courses via Excel / CSV"
+              className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-sm shrink-0"
+              title="Bulk import courses, sub-module lessons, or chapters via Excel / CSV"
             >
-              <FileSpreadsheet className="h-4 w-4" /> Bulk Upload Courses
+              <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload
             </Button>
             <Button onClick={openCreateWizard}
               className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm">
@@ -2132,16 +2253,134 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         }
       />
 
-      {/* BULK UPLOAD COURSES INLINE CARD */}
+      {/* BULK UPLOAD COURSES / SUB-MODULES / MAIN MODULES INLINE CARD */}
       {showBulkUploadCourses && (
-        <BulkUploadCard
-          isOpen={true}
-          inline={true}
-          onClose={() => setShowBulkUploadCourses(false)}
-          moduleType="course_batch"
-          moduleTitle="Courses Catalog"
-          onImport={handleBulkImportCourses}
-        />
+        <div className="space-y-4">
+          {/* Scope Selector Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-xs">
+            <div>
+              <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Select Bulk Upload Content Type:
+              </p>
+              <p className="text-[11px] text-[#6B7280] dark:text-[#9CA3AF]">
+                Switch between importing entire courses, sub-module lessons (videos/readings/coding/quizzes), or main chapters.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-[#F9FAFB] dark:bg-[#09090B] p-1 border border-[#E5E7EB] dark:border-[#27272A] rounded-xl shrink-0">
+              <button
+                type="button"
+                onClick={() => setBulkUploadScope("course_batch")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  bulkUploadScope === "course_batch"
+                    ? "bg-[#2563EB] text-white shadow-xs"
+                    : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+                }`}
+              >
+                1. Entire Courses
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkUploadScope("course")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  bulkUploadScope === "course"
+                    ? "bg-[#2563EB] text-white shadow-xs"
+                    : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+                }`}
+              >
+                2. Sub-Modules / Lessons
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkUploadScope("main_module")}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  bulkUploadScope === "main_module"
+                    ? "bg-[#2563EB] text-white shadow-xs"
+                    : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+                }`}
+              >
+                3. Main Chapters / Units
+              </button>
+            </div>
+          </div>
+
+          {/* If Sub-Modules or Main Modules is selected: Select Target Course & Chapter */}
+          {bulkUploadScope !== "course_batch" && (
+            <div className="p-4 rounded-2xl bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 border border-[#BFDBFE] dark:border-[#1E3A8A]/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="min-w-[200px]">
+                <label className="text-xs font-bold text-[#1E40AF] dark:text-[#93C5FD] block">
+                  Target Course Destination:
+                </label>
+                <p className="text-[11px] text-[#3B82F6]">
+                  {bulkUploadScope === "course"
+                    ? "Select which course and chapter will receive these imported sub-modules."
+                    : "Select which course will receive these imported main chapters."}
+                </p>
+              </div>
+
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-semibold text-[#1E40AF] dark:text-[#93C5FD] uppercase tracking-wider mb-1 block">Target Course</label>
+                  <Select value={bulkTargetCourseId} onValueChange={(val) => { if (val) { setBulkTargetCourseId(val); setBulkTargetModuleId(""); } }}>
+                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-[#18181B] border-[#BFDBFE]">
+                      <SelectValue placeholder="Select Course..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-[#18181B]">
+                      {courses.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {bulkUploadScope === "course" && (
+                  <div>
+                    <label className="text-[10px] font-semibold text-[#1E40AF] dark:text-[#93C5FD] uppercase tracking-wider mb-1 block">Main Chapter / Unit</label>
+                    <Select value={bulkTargetModuleId} onValueChange={(val) => val && setBulkTargetModuleId(val)}>
+                      <SelectTrigger className="h-9 text-xs bg-white dark:bg-[#18181B] border-[#BFDBFE]">
+                        <SelectValue placeholder="Select Chapter..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-[#18181B]">
+                        {selectedTargetCourseModules.length === 0 ? (
+                          <SelectItem value="auto_module">Auto-create "Module 1"</SelectItem>
+                        ) : (
+                          selectedTargetCourseModules.map((m: CourseSyllabusModule) => (
+                            <SelectItem key={m.id} value={m.id}>{m.title}</SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* BulkUploadCard Component for Chosen Scope */}
+          <BulkUploadCard
+            key={bulkUploadScope + "-" + bulkTargetCourseId + "-" + bulkTargetModuleId}
+            isOpen={true}
+            inline={true}
+            onClose={() => setShowBulkUploadCourses(false)}
+            moduleType={bulkUploadScope}
+            moduleTitle={
+              bulkUploadScope === "course_batch"
+                ? "Courses Catalog"
+                : bulkUploadScope === "course"
+                ? `${selectedTargetCourse?.title || "Course"} • Sub-Modules`
+                : `${selectedTargetCourse?.title || "Course"} • Main Chapters`
+            }
+            onImport={(items) => {
+              if (bulkUploadScope === "course_batch") {
+                handleBulkImportCourses(items);
+              } else if (bulkUploadScope === "course") {
+                handleBulkImportSubModules(items);
+              } else {
+                handleBulkImportMainModulesGlobal(items);
+              }
+            }}
+          />
+        </div>
       )}
 
       {/* Filter Bar */}

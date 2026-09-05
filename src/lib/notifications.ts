@@ -22,38 +22,13 @@ export interface NotificationItem {
   message: string;
   is_read: boolean;
   link: string | null;
+  link_url?: string | null;
+  sender_name?: string | null;
+  sender_role?: string | null;
   created_at: string;
 }
 
 export const NOTIFICATIONS_UPDATED_EVENT = "lms_notifications_updated";
-const LOCAL_READ_KEY = "lms_read_notification_ids";
-
-/**
- * Helper to get local read notification IDs for instant optimism & offline fallback.
- */
-function getLocalReadIds(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = localStorage.getItem(LOCAL_READ_KEY);
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? new Set(arr) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-/**
- * Helper to record local read notification IDs.
- */
-function saveLocalReadId(id: string) {
-  if (typeof window === "undefined" || !id) return;
-  try {
-    const set = getLocalReadIds();
-    set.add(id);
-    localStorage.setItem(LOCAL_READ_KEY, JSON.stringify(Array.from(set)));
-  } catch {}
-}
 
 /**
  * Format timestamp into user-friendly relative time (e.g. "Just now", "5m ago", "2h ago").
@@ -89,7 +64,8 @@ export function formatNotificationTime(dateStr: string): string {
 }
 
 /**
- * Comprehensive React hook for student notifications with dynamic polling and instant read sync.
+ * Comprehensive React hook for student notifications with polling and optimistic updates.
+ * Read state is 100% database-backed — no localStorage overrides.
  */
 export function useStudentNotifications() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -104,16 +80,15 @@ export function useStudentNotifications() {
       if (res.ok) {
         const data = await res.json();
         const rawList: NotificationItem[] = Array.isArray(data.notifications) ? data.notifications : [];
-        const localRead = getLocalReadIds();
 
-        // Merge backend read status with locally cached read overrides
-        const merged = rawList.map((n) => ({
+        // Normalize: always use link_url over link if both exist
+        const normalized = rawList.map((n) => ({
           ...n,
-          is_read: n.is_read || localRead.has(n.id),
+          link: n.link_url || n.link || null,
         }));
 
         startTransition(() => {
-          setNotifications(merged);
+          setNotifications(normalized);
           setIsLoading(false);
         });
       } else {
@@ -140,7 +115,7 @@ export function useStudentNotifications() {
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleFocus);
 
-    // 3. Listen for internal broadcast events
+    // 3. Listen for internal broadcast events (e.g., after sending a message)
     const handleCustomUpdate = () => {
       fetchNotifications();
     };
@@ -154,23 +129,17 @@ export function useStudentNotifications() {
     };
   }, [fetchNotifications]);
 
-  // Calculate dynamic unread count
+  // Calculate dynamic unread count from database state only
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  // Mark single notification as read
+  // Mark single notification as read — optimistic update then persist to DB
   const markAsRead = useCallback(async (id: string) => {
     if (!id) return;
-    saveLocalReadId(id);
 
-    // Optimistically update UI
+    // Optimistically update UI immediately
     setNotifications((prev) =>
       prev.map((item) => (item.id === id ? { ...item, is_read: true } : item))
     );
-
-    // Broadcast across windows/tabs
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent(NOTIFICATIONS_UPDATED_EVENT));
-    }
 
     try {
       await fetch("/api/student/notifications", {
@@ -186,14 +155,7 @@ export function useStudentNotifications() {
   // Mark all notifications as read
   const markAllAsRead = useCallback(async () => {
     // Optimistically update all
-    setNotifications((prev) => {
-      prev.forEach((n) => saveLocalReadId(n.id));
-      return prev.map((item) => ({ ...item, is_read: true }));
-    });
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent(NOTIFICATIONS_UPDATED_EVENT));
-    }
+    setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
 
     try {
       await fetch("/api/student/notifications", {
@@ -206,12 +168,26 @@ export function useStudentNotifications() {
     }
   }, []);
 
+  // Delete a notification
+  const deleteNotification = useCallback(async (id: string) => {
+    if (!id) return;
+    setNotifications((prev) => prev.filter((item) => item.id !== id));
+    try {
+      await fetch(`/api/student/notifications?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.warn("Failed to delete notification:", err);
+    }
+  }, []);
+
   return {
     notifications,
     unreadCount,
     isLoading,
     markAsRead,
     markAllAsRead,
+    deleteNotification,
     refresh: fetchNotifications,
   };
 }

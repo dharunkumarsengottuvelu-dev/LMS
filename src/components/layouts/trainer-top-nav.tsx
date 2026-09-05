@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NotificationBellDropdown } from "@/components/notifications/notification-bell-dropdown";
 import { trainerNavigation } from "@/config/navigation";
 
 export function TrainerTopNav() {
@@ -74,12 +75,8 @@ export function TrainerTopNav() {
 
         {/* Right Controls (Notification, Mobile Menu Drawer, User Profile) */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <Link
-            href="/trainer/notifications"
-            className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 border border-input shadow-sm"
-          >
-            <Bell className="h-4 w-4" />
-          </Link>
+          {/* Real-time Notifications Bell */}
+          <NotificationBellDropdown />
 
           {/* Mobile Hamburger Menu Trigger */}
           <Sheet>

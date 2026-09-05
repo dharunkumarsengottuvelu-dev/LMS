@@ -14,6 +14,31 @@ export class AuthService {
 
   static async signUp(input: CreateUserInput) {
     const supabase = await createClient();
+
+    let generatedStudentId: string | undefined = undefined;
+    let assignedSeq: number | undefined = undefined;
+    if (input.role === "student") {
+      try {
+        const { createAdminClient } = await import("@/lib/supabase/admin");
+        const adminClient = createAdminClient();
+        const { data: allUsers } = await adminClient.auth.admin.listUsers();
+        let maxSeq = 0;
+        (allUsers?.users || []).forEach((u) => {
+          const s = u.user_metadata?.student_seq;
+          if (typeof s === "number" && s > maxSeq) maxSeq = s;
+          else if (typeof s === "string") {
+            const p = parseInt(s, 10);
+            if (!isNaN(p) && p > maxSeq) maxSeq = p;
+          }
+        });
+        assignedSeq = maxSeq + 1;
+        const { formatStudentId } = await import("@/services/student-id.service");
+        generatedStudentId = formatStudentId(assignedSeq, new Date());
+      } catch (err) {
+        console.error("Student ID pre-generation notice:", err);
+      }
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email: input.email,
       password: input.password,
@@ -22,6 +47,7 @@ export class AuthService {
           first_name: input.first_name,
           last_name: input.last_name,
           role: input.role,
+          ...(generatedStudentId ? { student_id: generatedStudentId, student_seq: assignedSeq } : {}),
         },
       },
     });

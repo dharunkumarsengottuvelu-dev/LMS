@@ -11,6 +11,8 @@ import {
   GraduationCap,
   Video,
   Code2,
+  MessageSquare,
+  Boxes,
 } from "lucide-react";
 
 export interface NavItem {
@@ -22,7 +24,7 @@ export interface NavItem {
 
 /**
  * Enterprise Admin Portal Navigation
- * Exactly: Overview | Learners | Programs | Skill Lab | Code Lab | Assess | Live | Management
+ * Exactly: Overview | Learners | Batches | Programs | Skill Lab | Code Lab | Assess | Live | Management
  */
 export const adminNavigation: NavItem[] = [
   {
@@ -37,9 +39,15 @@ export const adminNavigation: NavItem[] = [
     icon: Users,
   },
   {
+    label: "Batches",
+    href: "/admin/batches",
+    aliases: ["/admin/batches"],
+    icon: Boxes,
+  },
+  {
     label: "Programs",
     href: "/admin/assigned-courses",
-    aliases: ["/admin/courses", "/admin/batches", "/admin/assigned-courses", "/admin/modules"],
+    aliases: ["/admin/courses", "/admin/assigned-courses", "/admin/modules"],
     icon: BookOpen,
   },
   {

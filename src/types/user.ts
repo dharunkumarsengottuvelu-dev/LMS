@@ -1,4 +1,4 @@
-export type UserRole = "super_admin" | "admin" | "trainer" | "student" | "recruiter";
+export type UserRole = "super_admin" | "admin" | "trainer" | "student" | "recruiter" | "institution";
 export type UserStatus = "active" | "suspended" | "pending";
 
 export interface User {
@@ -29,6 +29,7 @@ export interface UserProfile {
   skills: string[];
   role: UserRole;
   status: UserStatus;
+  student_id?: string;
   created_at: string;
   updated_at: string;
 }

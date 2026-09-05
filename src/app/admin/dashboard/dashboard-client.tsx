@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import {
   Users, GraduationCap, BookOpen, ClipboardList,
-  Calendar, Code2, TrendingUp, Activity, ArrowUpRight, ArrowDownRight
+  Calendar, Code2, TrendingUp, Activity, ArrowUpRight, ArrowDownRight, Boxes
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -102,6 +102,12 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
         title="System Dashboard"
         actions={
           <>
+            <Button variant="outline" className="h-[44px] px-5" asChild>
+              <Link href="/admin/batches">
+                <Boxes className="h-4 w-4 mr-2 text-primary" />
+                Batches
+              </Link>
+            </Button>
             <Button variant="outline" className="h-[44px] px-5" asChild>
               <Link href="/admin/students">Student Hub</Link>
             </Button>

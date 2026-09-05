@@ -1,71 +1,76 @@
-import { createClient } from "@/lib/supabase/client";
 import type { LMSBatch } from "@/types/batch";
 
 export class BatchService {
   static async getBatches(): Promise<LMSBatch[]> {
     try {
-      const supabase = createClient();
-      const { data, error } = await (supabase as any)
-        .from("batches")
-        .select(`*, profiles(first_name, last_name)`)
-        .order("created_at", { ascending: false });
-
-      if (!error && data && data.length > 0) {
-        return data.map((b: any) => ({
-          id: b.id,
-          batchName: b.name,
-          collegeName: b.college_name || "Unknown College",
-          course: b.course_name || "Unknown Course",
-          startDate: b.start_date,
-          endDate: b.end_date || "",
-          joiningTime: b.joining_time || "",
-          trainer: b.trainer_name || (b.profiles ? `${b.profiles.first_name} ${b.profiles.last_name}` : "Unknown Trainer"),
-          status: b.status as "active" | "inactive",
-          studentIds: [], // We fetch batch_members separately if needed, or handle it via UI local state for now
-          createdAt: b.created_at,
-        }));
+      const res = await fetch("/api/admin/batches", { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.batches && Array.isArray(json.batches)) {
+          return json.batches.map((b: any) => ({
+            id: b.id,
+            batchName: b.name || b.batchName || "Batch",
+            collegeName: b.collegeName || "Enterprise Academy",
+            course: b.course || b.courseName || "Fullstack Enterprise",
+            startDate: b.startDate || "",
+            endDate: b.endDate || "",
+            joiningTime: b.joiningTime || "",
+            trainer: b.trainer || b.trainerName || "Trainer",
+            status: (b.status || "active") as "active" | "inactive",
+            studentIds: b.studentIds || [],
+            createdAt: b.createdAt || new Date().toISOString(),
+          }));
+        }
       }
-    } catch {
-      // Supabase connection unconfigured or failed
+    } catch (e) {
+      console.warn("Notice: Fetching batches from API:", e);
     }
     return [];
   }
 
-  static async createBatch(batchData: Omit<LMSBatch, "id" | "createdAt" | "studentIds">, trainerId?: string): Promise<LMSBatch | null> {
+  static async createBatch(
+    batchData: Omit<LMSBatch, "id" | "createdAt" | "studentIds">,
+    trainerId?: string
+  ): Promise<LMSBatch | null> {
     try {
-      const supabase = createClient();
-      const { data, error } = await (supabase as any)
-        .from("batches")
-        .insert([{
+      const res = await fetch("/api/admin/batches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           name: batchData.batchName,
-          college_name: batchData.collegeName,
-          course_name: batchData.course,
-          start_date: batchData.startDate,
-          end_date: batchData.endDate,
-          joining_time: batchData.joiningTime,
-          trainer_name: batchData.trainer,
-          status: batchData.status,
-          created_by: trainerId || null,
-        }])
-        .select()
-        .single();
+          collegeName: batchData.collegeName,
+          course: batchData.course,
+          courseTrack: batchData.course,
+          startDate: batchData.startDate,
+          endDate: batchData.endDate,
+          joiningTime: batchData.joiningTime,
+          trainer: batchData.trainer,
+          trainerId: trainerId || null,
+          status: batchData.status || "active",
+        }),
+      });
 
-      if (!error && data) {
-        return {
-          id: data.id,
-          batchName: data.name,
-          collegeName: data.college_name,
-          course: data.course_name,
-          startDate: data.start_date,
-          endDate: data.end_date,
-          joiningTime: data.joining_time,
-          trainer: data.trainer_name,
-          status: data.status as "active" | "inactive",
-          studentIds: [],
-          createdAt: data.created_at,
-        };
+      if (res.ok) {
+        const json = await res.json();
+        if (json.batch) {
+          const b = json.batch;
+          return {
+            id: b.id,
+            batchName: b.name || b.batchName,
+            collegeName: b.collegeName || batchData.collegeName || "Enterprise Academy",
+            course: b.course || b.courseName || batchData.course || "Fullstack Enterprise",
+            startDate: b.startDate || batchData.startDate,
+            endDate: batchData.endDate || "",
+            joiningTime: batchData.joiningTime || "",
+            trainer: b.trainer || batchData.trainer || "Trainer",
+            status: (b.status || "active") as "active" | "inactive",
+            studentIds: b.studentIds || [],
+            createdAt: b.createdAt || new Date().toISOString(),
+          };
+        }
       } else {
-        console.error("Error creating batch:", error);
+        const errJson = await res.json().catch(() => ({}));
+        console.error("Batch creation failed:", errJson.error || res.statusText);
       }
     } catch (e) {
       console.error("Exception creating batch:", e);
@@ -87,13 +92,12 @@ export class BatchService {
 
   static async assignStudent(batchId: string, studentId: string): Promise<boolean> {
     try {
-      const supabase = createClient();
-      await (supabase as any).from("batch_members").upsert([
-        { batch_id: batchId, user_id: studentId },
-      ], { onConflict: "batch_id,user_id" });
-
-      await (supabase as any).from("profiles").update({ batch_id: batchId }).eq("id", studentId);
-      return true;
+      const res = await fetch("/api/admin/batches/assign-student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batchId, studentId, action: "assign" }),
+      });
+      return res.ok;
     } catch (e) {
       console.error("Error assigning student to batch:", e);
       return false;
@@ -102,10 +106,12 @@ export class BatchService {
 
   static async removeStudent(batchId: string, studentId: string): Promise<boolean> {
     try {
-      const supabase = createClient();
-      await (supabase as any).from("batch_members").delete().eq("batch_id", batchId).eq("user_id", studentId);
-      await (supabase as any).from("profiles").update({ batch_id: null }).eq("id", studentId);
-      return true;
+      const res = await fetch("/api/admin/batches/assign-student", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batchId, studentId, action: "remove" }),
+      });
+      return res.ok;
     } catch (e) {
       console.error("Error removing student from batch:", e);
       return false;

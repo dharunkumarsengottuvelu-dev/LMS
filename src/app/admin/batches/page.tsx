@@ -90,6 +90,7 @@ export default function AdminBatchesPage() {
   // Drawer / View Students Modal State
   const [viewingBatch, setViewingBatch] = useState<LMSBatch | null>(null);
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [globalAssignBatchId, setGlobalAssignBatchId] = useState<string>("");
   const [studentSearchQuery, setStudentSearchQuery] = useState("");
   const [selectedStudentIdsToAdd, setSelectedStudentIdsToAdd] = useState<string[]>([]);
   const [isAssigningStudents, setIsAssigningStudents] = useState(false);
@@ -359,14 +360,21 @@ export default function AdminBatchesPage() {
     );
   }, [viewingBatch, batches, students]);
 
+  const effectiveBatchForAssignment = useMemo(() => {
+    if (viewingBatch) return batches.find((b) => b.id === viewingBatch.id) || viewingBatch;
+    if (globalAssignBatchId) return batches.find((b) => b.id === globalAssignBatchId) || null;
+    return batches[0] || null;
+  }, [viewingBatch, globalAssignBatchId, batches]);
+
   // Available students to add (supports multiple batch membership)
   const availableStudentsToAdd = useMemo(() => {
-    if (!viewingBatch) return [];
-    const currentBatchState = batches.find((b) => b.id === viewingBatch.id) || viewingBatch;
+    if (!effectiveBatchForAssignment) return [];
+    const currentBatchState = batches.find((b) => b.id === effectiveBatchForAssignment.id) || effectiveBatchForAssignment;
+    const assignedIds = currentBatchState.studentIds || [];
     return students.filter((s) => {
       const isAlreadyInThisBatch =
-        currentBatchState.studentIds.includes(s.id) ||
-        currentBatchState.studentIds.includes(s.user_id);
+        assignedIds.includes(s.id) ||
+        assignedIds.includes(s.user_id);
       if (isAlreadyInThisBatch) return false;
 
       const name = `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.name || "";
@@ -382,7 +390,7 @@ export default function AdminBatchesPage() {
 
       return matchesSearch;
     });
-  }, [viewingBatch, batches, students, studentSearchQuery]);
+  }, [effectiveBatchForAssignment, batches, students, studentSearchQuery]);
 
   return (
     <div className="space-y-8 animate-fade-up">
@@ -390,12 +398,29 @@ export default function AdminBatchesPage() {
       <PageHeader
         title="Batch Management"
         actions={
-          <Button
-            onClick={handleOpenCreateModal}
-            className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm px-5 gap-2 rounded-xl shadow-md shadow-[#2563EB]/20 shrink-0"
-          >
-            <Plus className="h-4 w-4" /> Create New Batch
-          </Button>
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <Button
+              onClick={handleOpenCreateModal}
+              variant="outline"
+              className="h-[44px] border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 dark:border-[#3B82F6] dark:text-[#3B82F6] font-semibold text-sm px-6 rounded-full shadow-xs transition-all"
+            >
+              Create New Batch
+            </Button>
+            <Button
+              onClick={() => {
+                setViewingBatch(null);
+                if (batches.length > 0 && batches[0]?.id) {
+                  setGlobalAssignBatchId(batches[0].id);
+                }
+                setSelectedStudentIdsToAdd([]);
+                setStudentSearchQuery("");
+                setIsAddStudentModalOpen(true);
+              }}
+              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm px-6 rounded-full shadow-md shadow-[#2563EB]/25 transition-all"
+            >
+              Add Student to Batch
+            </Button>
+          </div>
         }
       />
 
@@ -864,12 +889,49 @@ export default function AdminBatchesPage() {
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-[#2563EB]" />
-              Add Students to {viewingBatch?.batchName}
+              {viewingBatch
+                ? `Add Students to ${viewingBatch.batchName}`
+                : "Add Student to Batch"}
             </DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
-              Select registered learners to assign to this batch. Multiple batch membership is supported.
+              {viewingBatch
+                ? "Select registered learners to assign to this batch. Multiple batch membership is supported."
+                : "Select target batch and registered learners to assign."}
             </DialogDescription>
           </DialogHeader>
+
+          {!viewingBatch && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                Target Batch <span className="text-red-500">*</span>
+              </label>
+              <Select
+                value={effectiveBatchForAssignment?.id || ""}
+                onValueChange={(val: string | null) => {
+                  if (val) {
+                    setGlobalAssignBatchId(val);
+                    setSelectedStudentIdsToAdd([]);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+                  <SelectValue placeholder="Select target batch..." />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-[#18181B] max-h-60">
+                  {batches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      <span className="font-semibold text-xs">{b.batchName}</span>
+                      {b.collegeName && (
+                        <span className="text-[11px] text-[#6B7280] ml-2">
+                          ({b.collegeName})
+                        </span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
@@ -929,8 +991,8 @@ export default function AdminBatchesPage() {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (viewingBatch) {
-                          handleAssignStudentsToBatch(viewingBatch.id, [stdIdentifier]);
+                        if (effectiveBatchForAssignment) {
+                          handleAssignStudentsToBatch(effectiveBatchForAssignment.id, [stdIdentifier]);
                         }
                       }}
                       className="h-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs px-3 rounded-lg gap-1"
@@ -951,9 +1013,9 @@ export default function AdminBatchesPage() {
             >
               Close
             </Button>
-            {selectedStudentIdsToAdd.length > 0 && viewingBatch && (
+            {selectedStudentIdsToAdd.length > 0 && effectiveBatchForAssignment && (
               <Button
-                onClick={() => handleAssignStudentsToBatch(viewingBatch.id, selectedStudentIdsToAdd)}
+                onClick={() => handleAssignStudentsToBatch(effectiveBatchForAssignment.id, selectedStudentIdsToAdd)}
                 disabled={isAssigningStudents}
                 className="h-9 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl"
               >

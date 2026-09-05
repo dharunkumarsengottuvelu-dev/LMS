@@ -28,6 +28,94 @@ export function isValidEmail(email: string | null | undefined): boolean {
 }
 
 /**
+ * Generates branded FALCON Learning Technologies HTML email for notifications.
+ * Format: FALCON header → title → Hello [name], → message → Regards, Falcon Learning Technologies
+ */
+export function generateNotificationEmailHtml(
+  studentName: string,
+  title: string,
+  message: string,
+  linkUrl?: string,
+  linkLabel?: string
+): string {
+  const safeStudentName = studentName || "Student";
+  const safeLinkSection = linkUrl
+    ? `<div style="margin:28px 0 0;">
+        <a href="${linkUrl}" style="display:inline-block;background:#2563EB;color:#fff;font-family:'Segoe UI',Arial,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:8px;letter-spacing:0.3px;">
+          ${linkLabel || "View Details"}
+        </a>
+      </div>`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F1F5F9;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #E2E8F0;">
+          <!-- Header -->
+          <tr>
+            <td style="background:#0F172A;padding:28px 36px;">
+              <p style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">
+                FALCON<span style="color:#2563EB;">.</span>
+              </p>
+              <p style="margin:4px 0 0;font-size:11px;font-weight:600;color:#94A3B8;letter-spacing:1.5px;text-transform:uppercase;">
+                Learning Technologies
+              </p>
+            </td>
+          </tr>
+          <!-- Blue accent bar -->
+          <tr>
+            <td style="background:#2563EB;height:4px;"></td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 36px 28px;">
+              <h1 style="margin:0 0 20px;font-size:20px;font-weight:700;color:#0F172A;line-height:1.3;">
+                ${title}
+              </h1>
+              <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6;">
+                Hello <strong>${safeStudentName}</strong>,
+              </p>
+              <p style="margin:0 0 24px;font-size:15px;color:#334155;line-height:1.7;">
+                ${message.replace(/\n/g, "<br/>")}
+              </p>
+              ${safeLinkSection}
+            </td>
+          </tr>
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 36px;">
+              <hr style="border:none;border-top:1px solid #E2E8F0;margin:0;" />
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 36px 32px;">
+              <p style="margin:0 0 4px;font-size:13px;color:#64748B;line-height:1.6;">
+                Regards,<br/>
+                <strong style="color:#0F172A;">Falcon Learning Technologies</strong>
+              </p>
+              <p style="margin:16px 0 0;font-size:11px;color:#94A3B8;line-height:1.5;">
+                This is an automated notification from the FALCON LMS platform. Please do not reply to this email.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+/**
  * Universal Server-Side Email Service.
  * Transports emails through SMTP, Resend, Brevo, or simulated Dev Logger.
  */
@@ -113,7 +201,6 @@ export async function sendEmail(payload: SendEmailPayload): Promise<EmailDeliver
   }
 
   // Option 3: Development Simulation / Console Transport
-  // If no live credentials configured, safely simulate delivery and log email payload
   console.log(`\n================== [FALCON LMS EMAIL DISPATCH] ==================`);
   console.log(`To: ${to}`);
   console.log(`Subject: ${subject}`);

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Download, UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle,
   XCircle, ArrowRight, ArrowLeft, RefreshCw, Layers, FileText, Check,
@@ -67,6 +68,21 @@ export function BulkUploadComponent({
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewFilter, setPreviewFilter] = useState<"all" | "valid" | "invalid">("all");
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen || inline) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen, inline]);
+
   const resetState = () => {
     setCurrentStep("upload");
     setUploadedFile(null);
@@ -83,6 +99,7 @@ export function BulkUploadComponent({
   };
 
   if (!isOpen) return null;
+  if (!inline && !mounted) return null;
 
   // Active columns to be exported in template
   const activeColumns = config.columns.filter(
@@ -156,7 +173,9 @@ export function BulkUploadComponent({
       XLSX.utils.book_append_sheet(wb, guideWs, "Column Definitions");
 
       // 5. Trigger download
-      const fileName = `${config.moduleType}_sub_modules_template.${format}`;
+      const fileName = config.templateFileName
+        ? (format === "csv" ? config.templateFileName.replace(/\.xlsx$/i, ".csv") : config.templateFileName)
+        : `${config.moduleType}_template.${format}`;
       if (format === "csv") {
         XLSX.writeFile(wb, fileName, { bookType: "csv" });
       } else {
@@ -428,8 +447,8 @@ export function BulkUploadComponent({
     onImport(payload);
 
     toast({
-      title: "Bulk Import Successful!",
-      description: `Successfully imported ${payload.length} ${config.displayName} sub-modules into ${moduleTitle || "curriculum"}.`,
+      title: "Bulk Import Initiated",
+      description: `Processing ${payload.length} items for ${moduleTitle || config.displayName}.`,
     });
 
     handleModalClose();
@@ -461,7 +480,9 @@ export function BulkUploadComponent({
                 Auto-configured for {config.displayName}
               </p>
               <p className="text-[#6B7280] dark:text-[#9CA3AF] leading-relaxed">
-                Download the customized template below. Choose the columns you need, fill in your lessons, and upload the completed file.
+                {config.moduleType === "coding_problem"
+                  ? "Download the customized template below. Fill in your coding problem statements, test cases, and constraints, then upload the completed file."
+                  : "Download the customized template below. Choose the columns you need, fill in your lessons, and upload the completed file."}
               </p>
             </div>
           </div>
@@ -827,10 +848,14 @@ export function BulkUploadComponent({
           <div className="min-w-0">
             <div className="flex items-center gap-2.5 flex-wrap">
               <div className="w-9 h-9 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center font-bold shrink-0">
-                <FileSpreadsheet className="h-5 w-5" />
+                <UploadCloud className="h-5 w-5 text-[#2563EB]" />
               </div>
               <h3 className="text-base sm:text-lg font-bold text-[#111827] dark:text-[#FAFAFA] tracking-tight truncate">
-                Bulk Upload Sub-Modules & Content
+                {config.moduleType === "coding_problem"
+                  ? "Bulk Upload Coding Problems"
+                  : moduleTitle
+                  ? `Bulk Upload — ${moduleTitle}`
+                  : "Bulk Upload Content"}
               </h3>
               <Badge className="bg-[#2563EB] text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5">
                 {config.moduleType}
@@ -900,37 +925,41 @@ export function BulkUploadComponent({
     );
   }
 
-  // ─── 2. MODAL DIALOG MODE ──
-  return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in-50 duration-200">
-      <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl w-full max-w-4xl max-h-[88vh] flex flex-col shadow-2xl overflow-hidden my-auto">
+  // ─── 2. MODAL DIALOG MODE (PORTALED TO DOCUMENT.BODY) ──
+  const modalContent = (
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-hidden animate-in fade-in-50 duration-150">
+      <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl w-full max-w-4xl h-[88vh] max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
         
         {/* MODAL HEADER */}
-        <div className="p-5 sm:p-6 pb-4 border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0 bg-[#F9FAFB]/80 dark:bg-[#111827]/60 flex items-start justify-between gap-4">
+        <div className="px-5 py-4 border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0 bg-[#F9FAFB]/90 dark:bg-[#111827]/80 flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <div className="w-9 h-9 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center font-bold shrink-0">
-                <FileSpreadsheet className="h-5 w-5" />
+              <div className="w-8 h-8 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center font-bold shrink-0">
+                <UploadCloud className="h-4 w-4 text-[#2563EB]" />
               </div>
-              <h3 className="text-base sm:text-lg font-bold text-[#111827] dark:text-[#FAFAFA] tracking-tight truncate">
-                Bulk Upload Sub-Modules & Content
+              <h3 className="text-sm sm:text-base font-bold text-[#111827] dark:text-[#FAFAFA] tracking-tight truncate">
+                {config.moduleType === "coding_problem"
+                  ? "Bulk Upload Coding Problems"
+                  : moduleTitle
+                  ? `Bulk Upload — ${moduleTitle}`
+                  : "Bulk Upload Content"}
               </h3>
               <Badge className="bg-[#2563EB] text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
                 {config.moduleType}
               </Badge>
             </div>
-            <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-1 truncate">
-              Target Module: <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{config.displayName}</span>
+            <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5 truncate">
+              Target: <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{config.displayName}</span>
               {moduleTitle && ` • "${moduleTitle}"`}
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="flex items-center gap-1.5 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] p-1 rounded-xl shadow-xs">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex items-center gap-1 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] p-1 rounded-xl shadow-xs">
               <button
                 type="button"
                 onClick={() => setCurrentStep("upload")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   currentStep === "upload" ? "bg-[#2563EB] text-white shadow-xs" : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
                 }`}
               >
@@ -949,7 +978,7 @@ export function BulkUploadComponent({
                     });
                   }
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   currentStep === "preview"
                     ? "bg-[#2563EB] text-white shadow-xs"
                     : parsedRows.length > 0
@@ -973,15 +1002,17 @@ export function BulkUploadComponent({
         </div>
 
         {/* MODAL BODY (SCROLLABLE) */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6">
           {contentBody}
         </div>
 
         {/* MODAL FOOTER */}
-        <div className="p-4 sm:p-5 border-t border-[#E5E7EB] dark:border-[#27272A] shrink-0 bg-[#F9FAFB]/80 dark:bg-[#111827]/60">
+        <div className="px-5 py-3.5 border-t border-[#E5E7EB] dark:border-[#27272A] shrink-0 bg-[#F9FAFB]/90 dark:bg-[#111827]/80">
           {footerActions}
         </div>
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : null;
 }

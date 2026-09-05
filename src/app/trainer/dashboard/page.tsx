@@ -36,10 +36,10 @@ export default function TrainerDashboardPage() {
           { data: aData },
           { data: asData }
         ] = await Promise.all([
-          supabase.from("batches").select("id, name, batch_name, college_name, course_name, course_id, joining_time, status"),
+          supabase.from("batches").select("id, name, batch_name, course_id, status"),
           supabase.from("batch_members").select("batch_id, user_id"),
-          supabase.from("assessment_attempts").select("student_id, score"),
-          supabase.from("profiles").select("id, user_id, first_name, last_name, email, batch_id, batch, batch_name, status, violation_count").eq("role", "student"),
+          supabase.from("assessment_attempts").select("student_id, score, tab_switch_count, proctoring_flags"),
+          supabase.from("profiles").select("id, user_id, first_name, last_name, email, batch_id, batch, batch_name, status").eq("role", "student"),
           supabase.from("assessments").select("id, title, status, duration_minutes, total_marks"),
           supabase.from("assignments").select("id, title, status, due_date"),
         ]);
@@ -57,23 +57,27 @@ export default function TrainerDashboardPage() {
             bData.map((b: any) => ({
               id: b.id,
               batchName: b.name || b.batch_name || "Batch",
-              collegeName: b.college_name || "General Campus",
-              course: b.course_name || b.course_id || "Enterprise Track",
-              joiningTime: b.joining_time || "Scheduled Session",
+              collegeName: "General Campus",
+              course: b.course_id || "Enterprise Track",
+              joiningTime: "Scheduled Session",
               status: b.status || "active",
               studentIds: batchStudentMap.get(b.id) || [],
             }))
           );
         }
 
-        // 2. Real assessment attempts for calculating real student scores
-        const studentScoreMap = new Map<string, { total: number; count: number }>();
+        // 2. Real assessment attempts for calculating real student scores and violations
+        const studentScoreMap = new Map<string, { total: number; count: number; violations: number }>();
         (attemptsData || []).forEach((att: any) => {
           if (!att.student_id) return;
-          const prev = studentScoreMap.get(att.student_id) || { total: 0, count: 0 };
+          const prev = studentScoreMap.get(att.student_id) || { total: 0, count: 0, violations: 0 };
+          let vCount = 0;
+          if (att.tab_switch_count) vCount += Number(att.tab_switch_count);
+          if (Array.isArray(att.proctoring_flags)) vCount += att.proctoring_flags.length;
           studentScoreMap.set(att.student_id, {
             total: prev.total + (Number(att.score) || 0),
             count: prev.count + 1,
+            violations: prev.violations + vCount,
           });
         });
 
@@ -90,7 +94,7 @@ export default function TrainerDashboardPage() {
                 batch: s.batch || s.batch_name,
                 avgScore: realAvgScore,
                 status: s.status || "active",
-                violationCount: s.violation_count || 0,
+                violationCount: scoreData?.violations || 0,
               };
             })
           );

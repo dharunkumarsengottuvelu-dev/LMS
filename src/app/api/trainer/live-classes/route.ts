@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // 3b. Fetch batches from batches table + batch_members for accurate counts
     const { data: batchesData } = await adminClient
       .from("batches")
-      .select("id, name, batch_name, college_name")
+      .select("id, name, batch_name, code, description")
       .order("created_at", { ascending: false });
 
     const { data: batchMembersData } = await adminClient
@@ -75,10 +75,16 @@ export async function GET(request: NextRequest) {
       const bName = b.name || b.batch_name;
       if (bName && b.id) {
         batchNamesSet.add(b.id);
+        let meta: any = {};
+        try {
+          if (b.description && b.description.startsWith("{")) {
+            meta = JSON.parse(b.description);
+          }
+        } catch {}
         mappedBatches.push({
           id: b.id,
           name: bName,
-          collegeName: b.college_name || "",
+          collegeName: meta.collegeName || meta.college_name || "",
           studentCount: batchStudentMap[b.id] || 0,
         });
       }

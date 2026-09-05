@@ -54,6 +54,9 @@ export async function GET(request: NextRequest) {
       { data: rawAssessments },
       { data: rawSubmissions },
       { data: rawCodingSubmissions },
+      { data: rawCodingProblems },
+      { data: rawLiveClasses },
+      { data: rawLiveAttendance },
       realActiveTime,
     ] = await Promise.all([
       adminClient
@@ -63,7 +66,7 @@ export async function GET(request: NextRequest) {
       adminClient
         .from("enrollments")
         .select("id, course_id, completed_lessons, progress_percentage, created_at, updated_at")
-        .or(`user_id.eq.${studentId},user_id.eq.${studentUserId}`),
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`),
       adminClient
         .from("practice_tracks")
         .select("id, title, description, tags, assigned_batches, is_common, sub_modules")
@@ -71,7 +74,7 @@ export async function GET(request: NextRequest) {
       adminClient
         .from("assessment_attempts")
         .select("id, assessment_id, is_practice, passed, score, time_taken_seconds, submitted_at, created_at")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
         .order("submitted_at", { ascending: false }),
       adminClient
         .from("assessments")
@@ -80,13 +83,25 @@ export async function GET(request: NextRequest) {
       adminClient
         .from("assignment_submissions")
         .select("id, assignment_id, status, grade, submitted_at, created_at")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId},user_id.eq.${studentId},user_id.eq.${studentUserId}`)
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
         .order("submitted_at", { ascending: false }),
       adminClient
         .from("coding_submissions")
         .select("id, problem_id, status, language, score, execution_time_ms, submitted_at, created_at")
         .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
         .order("created_at", { ascending: false }),
+      adminClient
+        .from("coding_problems")
+        .select("id, title, difficulty, description, created_at")
+        .order("created_at", { ascending: true }),
+      adminClient
+        .from("live_classes")
+        .select("id, title, description, scheduled_date, start_time, end_time, status, meeting_link, assigned_batches, is_common")
+        .order("scheduled_date", { ascending: false }),
+      adminClient
+        .from("live_class_attendance")
+        .select("id, live_class_id, joined_at, duration_minutes, status")
+        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`),
       ActiveTimeService.getStudentActiveTime(studentId).catch(() => null),
     ]);
 
@@ -178,7 +193,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 3. Process Practice Tracks (Practices)
+    // 3. Process Practice Tracks (Skill Lab)
     const attemptsMap = new Map<string, any[]>();
     (rawAttempts || []).forEach((att: any) => {
       const list = attemptsMap.get(att.assessment_id) || [];
@@ -236,7 +251,7 @@ export async function GET(request: NextRequest) {
 
           return {
             id: sm.id || `sm_${smIdx + 1}`,
-            title: sm.title || `Coding Challenge ${smIdx + 1}`,
+            title: sm.title || `Challenge ${smIdx + 1}`,
             description: sm.description || "Interactive problem",
             difficulty: sm.difficulty || "Medium",
             completed: isDone,
@@ -255,7 +270,7 @@ export async function GET(request: NextRequest) {
         practicesList.push({
           id: t.id,
           title: t.title,
-          description: t.description || "Practice Track",
+          description: t.description || "Skill Lab Track",
           totalChallenges: subModules.length,
           completedChallenges: completedSubs,
           progress: trackProgress,
@@ -264,6 +279,66 @@ export async function GET(request: NextRequest) {
         });
       }
     });
+
+    const skillLabList = [...practicesList];
+
+    // Process Code Lab Problem Solving Challenges
+    const codeLabList: any[] = [];
+    let completedCodingCount = 0;
+
+    if (rawCodingProblems && rawCodingProblems.length > 0) {
+      const codingSubMap = new Map<string, any[]>();
+      (rawCodingSubmissions || []).forEach((cs: any) => {
+        const list = codingSubMap.get(cs.problem_id) || [];
+        list.push(cs);
+        codingSubMap.set(cs.problem_id, list);
+      });
+
+      rawCodingProblems.forEach((cp: any, idx: number) => {
+        const subs = codingSubMap.get(cp.id) || [];
+        const bestSub = subs.find((s: any) => s.status === "accepted") || subs[0];
+        const isDone = subs.some((s: any) => s.status === "accepted");
+        if (isDone) completedCodingCount++;
+
+        const startedAtStr = subs.length > 0
+          ? new Date(subs[subs.length - 1].created_at || subs[subs.length - 1].submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          : "Not Started";
+        const completedAtStr = isDone && bestSub?.created_at
+          ? new Date(bestSub.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          : isDone
+          ? "Completed"
+          : null;
+
+        codeLabList.push({
+          id: cp.id,
+          title: cp.title || `Coding Problem ${idx + 1}`,
+          description: cp.description || "Interactive coding challenge",
+          difficulty: cp.difficulty ? cp.difficulty.charAt(0).toUpperCase() + cp.difficulty.slice(1) : "Medium",
+          completed: isDone,
+          attemptsCount: subs.length,
+          startedAt: startedAtStr,
+          completedAt: completedAtStr,
+          score: isDone ? 100 : subs.length > 0 ? 50 : undefined,
+          status: isDone ? "Solved" : subs.length > 0 ? "In Progress" : "Not Started",
+          language: bestSub?.language || "Python",
+          submittedTimestamp: bestSub?.created_at ? new Date(bestSub.created_at).getTime() : 0,
+        });
+      });
+
+      const prog = Math.round((completedCodingCount / Math.max(1, rawCodingProblems.length)) * 100);
+      if (prog === 100) completedPracticesCount++;
+
+      practicesList.push({
+        id: "code-lab-track",
+        title: "Code Lab Practice Track",
+        description: "Core algorithms, data structures & coding challenges",
+        totalChallenges: rawCodingProblems.length,
+        completedChallenges: completedCodingCount,
+        progress: prog,
+        status: prog === 100 ? "Completed" : prog > 0 ? "In Progress" : "Not Started",
+        challenges: codeLabList,
+      });
+    }
 
     // 4. Process Assessments
     const assessmentsList: any[] = [];
@@ -333,7 +408,67 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 5. Calculate total active time spent and day-by-day distribution with detailed activity breakdown
+    // 5. Process Live Classes
+    const liveAttendanceMap = new Map<string, any>();
+    (rawLiveAttendance || []).forEach((la: any) => {
+      liveAttendanceMap.set(la.live_class_id, la);
+    });
+
+    const liveClassesList: any[] = [];
+    let attendedLiveClassesCount = 0;
+
+    (rawLiveClasses || []).forEach((lc: any) => {
+      let meta: any = {};
+      if (lc.tags && lc.tags[0]) {
+        try {
+          meta = JSON.parse(lc.tags[0]);
+        } catch {}
+      }
+
+      const assignedBatches = lc.assigned_batches || meta.assignedBatches || meta.assigned_batches || [];
+      const isCommon =
+        lc.is_common !== undefined
+          ? lc.is_common
+          : meta.isCommon !== undefined
+          ? meta.isCommon
+          : assignedBatches.length === 0;
+
+      const isVisible = isContentVisibleToStudent(
+        {
+          is_common: isCommon,
+          assigned_batches: assignedBatches,
+          assigned_students: meta.assignedStudents || [],
+        },
+        batchContext
+      );
+
+      if (isVisible) {
+        const att = liveAttendanceMap.get(lc.id);
+        const hasAttended = !!att;
+        if (hasAttended) attendedLiveClassesCount++;
+
+        const startStr = lc.start_time || "10:00 AM";
+        const endStr = lc.end_time || "11:30 AM";
+        const dateStr = lc.scheduled_date
+          ? new Date(lc.scheduled_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+          : "Scheduled";
+
+        liveClassesList.push({
+          id: lc.id,
+          title: lc.title || "Live Lecture Session",
+          description: lc.description || "Interactive virtual classroom session",
+          scheduledDate: dateStr,
+          timeWindow: `${startStr} - ${endStr}`,
+          status: lc.status || (hasAttended ? "Completed" : "Scheduled"),
+          attended: hasAttended,
+          attendanceStatus: hasAttended ? "Attended" : "Absent",
+          durationMinutes: att?.duration_minutes || 60,
+          meetingLink: lc.meeting_link || "",
+        });
+      }
+    });
+
+    // 6. Calculate total active time spent and day-by-day distribution with detailed activity breakdown
     let totalTimeSpentSeconds = 0;
     const dayMap = new Map<string, number>();
     const dayActivitiesMap = new Map<
@@ -562,16 +697,28 @@ export async function GET(request: NextRequest) {
         summary: {
           enrolledCoursesCount: coursesList.length,
           completedCoursesCount,
-          practicesCount: practicesList.length,
-          completedPracticesCount,
+          learningCount: coursesList.length,
+          completedLearningCount: completedCoursesCount,
+          skillLabCount: skillLabList.length,
+          completedSkillLabCount: skillLabList.reduce((acc: number, p: any) => acc + (p.completedChallenges || 0), 0),
+          codeLabCount: codeLabList.length,
+          completedCodeLabCount: completedCodingCount,
+          practicesCount: skillLabList.length + (codeLabList.length > 0 ? 1 : 0),
+          completedPracticesCount: completedCodingCount + completedPracticesCount,
           assessmentsCount: assessmentsList.length,
           completedAssessmentsCount,
+          liveClassesCount: liveClassesList.length,
+          attendedLiveClassesCount,
           totalSubmissionsCount,
           totalTimeSpentSeconds,
         },
+        learningList: coursesList,
         coursesList,
+        skillLabList,
+        codeLabList,
         practicesList,
         assessmentsList,
+        liveClassesList,
         dailyTimeSpent,
         loginActivities,
       },

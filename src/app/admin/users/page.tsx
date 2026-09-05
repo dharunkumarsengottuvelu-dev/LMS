@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Search, Plus, UserCheck, Shield, Trash2, Edit, GraduationCap, Building2, Briefcase, Mail, Key, Upload, FileSpreadsheet, X } from "lucide-react";
+import Link from "next/link";
+import { Users, Search, Plus, UserCheck, Shield, Trash2, Edit, GraduationCap, Building2, Briefcase, Mail, Key, Upload, FileSpreadsheet, UploadCloud, X, ExternalLink, Phone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +16,9 @@ import { useLMSStore } from "@/lib/store/lms-store";
 import { PageHeader } from "@/components/layouts/page-header";
 import { createClient } from "@/lib/supabase/client";
 
-type UserRole = "admin" | "manager" | "trainer" | "student";
+type UserRole = "admin" | "manager" | "trainer" | "student" | "institution";
 type UserStatus = "active" | "pending" | "suspended";
-type UserType = "employee" | "student";
+type UserType = "employee" | "student" | "institution";
 
 interface SystemUser {
   id: string;
@@ -29,6 +30,9 @@ interface SystemUser {
   type: UserType;
   department?: string; // For employees
   batch?: string; // For students
+  college?: string; // For institutions / students
+  branch?: string; // Code for institutions
+  phone?: string;
 }
 
 const initialUsers: SystemUser[] = [];
@@ -89,12 +93,17 @@ export default function AdminUsersPage() {
   const [newUserDept, setNewUserDept] = useState("");
   const [newUserBatch, setNewUserBatch] = useState("");
   const [customBatch, setCustomBatch] = useState("");
+  const [newUserCollege, setNewUserCollege] = useState("");
+  const [newUserCode, setNewUserCode] = useState("");
+  const [newUserPhone, setNewUserPhone] = useState("");
 
   const filtered = users.filter(
     (u) => 
       u.type === activeTab && 
       (u.name.toLowerCase().includes(search.toLowerCase()) || 
-       u.email.toLowerCase().includes(search.toLowerCase()))
+       u.email.toLowerCase().includes(search.toLowerCase()) ||
+       (u.college && u.college.toLowerCase().includes(search.toLowerCase())) ||
+       (u.department && u.department.toLowerCase().includes(search.toLowerCase())))
   );
 
   const handleAddUser = async () => {
@@ -108,10 +117,13 @@ export default function AdminUsersPage() {
         body: JSON.stringify({
           name: newUserName,
           email: newUserEmail,
-          password: newUserPassword || "Falcon@2026",
+          password: newUserPassword || (newUserType === "institution" ? "Institution@2026" : "Falcon@2026"),
           role: newUserRole,
           batch_id: selectedBatch,
           department: newUserType === "employee" ? newUserDept || "General" : undefined,
+          college: newUserType === "institution" ? (newUserCollege || newUserName) : undefined,
+          branch: newUserType === "institution" ? newUserCode : undefined,
+          phone: newUserPhone || undefined,
         }),
       });
 
@@ -132,6 +144,9 @@ export default function AdminUsersPage() {
       setNewUserEmail("");
       setNewUserPassword("");
       setCustomBatch("");
+      setNewUserCollege("");
+      setNewUserCode("");
+      setNewUserPhone("");
       
       toast({
         title: "User Successfully Created",
@@ -150,6 +165,9 @@ export default function AdminUsersPage() {
       setNewUserEmail(userToEdit.email);
       setNewUserRole(userToEdit.role);
       setNewUserDept(userToEdit.department || "");
+      setNewUserCollege(userToEdit.college || "");
+      setNewUserCode(userToEdit.branch || "");
+      setNewUserPhone(userToEdit.phone || "");
       
       if (userToEdit.batch) {
         setNewUserBatch(userToEdit.batch);
@@ -173,7 +191,10 @@ export default function AdminUsersPage() {
       department: newUserType === "employee" ? newUserDept || "General" : null,
       batch_id: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null,
       batch_name: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null,
-      batch: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null
+      batch: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null,
+      college: newUserType === "institution" ? (newUserCollege || newUserName) : null,
+      branch: newUserType === "institution" ? (newUserCode || null) : null,
+      phone: newUserPhone || null
     }).eq("id", editingUserId as string);
 
     if (error) {
@@ -218,9 +239,9 @@ export default function AdminUsersPage() {
             <Button 
               onClick={() => setIsBulkUploadOpen(true)}
               variant="outline"
-              className="h-[44px] text-[#4B5563] dark:text-[#D4D4D8] font-bold gap-2 px-5 rounded-xl border-[#E5E7EB] dark:border-[#27272A] shadow-sm transition-all"
+              className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-sm transition-all"
             >
-              <FileSpreadsheet className="h-4 w-4" /> Bulk Import (CSV)
+              <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload
             </Button>
             <Button 
               onClick={() => setIsAddOpen(true)}
@@ -260,119 +281,212 @@ export default function AdminUsersPage() {
               {!isEditOpen && (
                 <div className="space-y-1.5 md:col-span-2 xl:col-span-3">
                   <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">User Classification</label>
-                  <div className="flex items-center gap-3 p-1 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl w-fit">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-1 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl w-fit">
                     <button
                       type="button"
                       onClick={() => { setNewUserType("student"); setNewUserRole("student"); }}
-                      className={`px-8 py-2 text-xs font-bold rounded-lg transition-all ${
+                      className={`px-6 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
                         newUserType === "student"
                           ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm border border-[#E5E7EB] dark:border-[#27272A]"
                           : "text-[#6B7280] hover:text-[#111827]"
                       }`}
                     >
-                      Student
+                      <GraduationCap className="h-3.5 w-3.5" /> Student
                     </button>
                     <button
                       type="button"
                       onClick={() => { setNewUserType("employee"); setNewUserRole("trainer"); }}
-                      className={`px-8 py-2 text-xs font-bold rounded-lg transition-all ${
+                      className={`px-6 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
                         newUserType === "employee"
                           ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm border border-[#E5E7EB] dark:border-[#27272A]"
                           : "text-[#6B7280] hover:text-[#111827]"
                       }`}
                     >
-                      Employee
+                      <Briefcase className="h-3.5 w-3.5" /> Employee & Trainer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setNewUserType("institution"); setNewUserRole("institution"); }}
+                      className={`px-6 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                        newUserType === "institution"
+                          ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-sm border border-[#E5E7EB] dark:border-[#27272A]"
+                          : "text-[#6B7280] hover:text-[#111827]"
+                      }`}
+                    >
+                      <Building2 className="h-3.5 w-3.5 text-[#2563EB]" /> Partner Institution
                     </button>
                   </div>
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Full Name</label>
-                <Input
-                  value={newUserName}
-                  onChange={(e) => setNewUserName(e.target.value)}
-                  className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
-                  placeholder="e.g. John Doe"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Email Address</label>
-                <Input
-                  value={newUserEmail}
-                  onChange={(e) => setNewUserEmail(e.target.value)}
-                  className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
-                  placeholder="e.g. john@enterprise.com"
-                />
-              </div>
-
-              {!isEditOpen && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-                    <Key className="h-3 w-3 text-[#2563EB]" /> Initial Account Password
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="Set initial password"
-                    value={newUserPassword}
-                    onChange={(e) => setNewUserPassword(e.target.value)}
-                    className="h-[42px] text-xs font-mono rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
-                  />
-                </div>
-              )}
-
-              {newUserType === "employee" ? (
+              {newUserType === "institution" ? (
                 <>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">System Role</label>
-                    <Select value={newUserRole} onValueChange={(val) => setNewUserRole(val as UserRole)}>
-                      <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="trainer">Trainer / Assessor</SelectItem>
-                        <SelectItem value="manager">Manager</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Department</label>
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                      <Building2 className="h-3.5 w-3.5 text-[#2563EB]" /> Institution / College Name <span className="text-red-500">*</span>
+                    </label>
                     <Input
-                      value={newUserDept}
-                      onChange={(e) => setNewUserDept(e.target.value)}
+                      value={newUserCollege}
+                      onChange={(e) => {
+                        setNewUserCollege(e.target.value);
+                        if (!newUserName) setNewUserName(e.target.value);
+                      }}
                       className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
-                      placeholder="e.g. AI Engineering"
+                      placeholder="e.g. Sri Krishna College of Engineering & Technology"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      Principal / SPOC Name
+                    </label>
+                    <Input
+                      value={newUserName}
+                      onChange={(e) => setNewUserName(e.target.value)}
+                      className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
+                      placeholder="e.g. Dr. K. Ramesh (Placement Director)"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      Institution Login Email <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
+                      placeholder="e.g. institution@skcet.ac.in"
+                    />
+                  </div>
+
+                  {!isEditOpen && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                        <Key className="h-3 w-3 text-[#2563EB]" /> Initial Account Password
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="Set password (Default: Institution@2026)"
+                        value={newUserPassword}
+                        onChange={(e) => setNewUserPassword(e.target.value)}
+                        className="h-[42px] text-xs font-mono rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Institution Code (Optional)</label>
+                    <Input
+                      value={newUserCode}
+                      onChange={(e) => setNewUserCode(e.target.value)}
+                      className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
+                      placeholder="e.g. SKCET-2026"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                      <Phone className="h-3 w-3 text-[#2563EB]" /> Contact Phone
+                    </label>
+                    <Input
+                      value={newUserPhone}
+                      onChange={(e) => setNewUserPhone(e.target.value)}
+                      className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
+                      placeholder="e.g. +91 98765 43210"
                     />
                   </div>
                 </>
               ) : (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Student Batch</label>
-                  <Select value={newUserBatch} onValueChange={(val) => val && setNewUserBatch(val)}>
-                    <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl">
-                      <SelectValue placeholder="Select Batch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {storeBatches.length > 0 ? (
-                        storeBatches.map(b => (
-                          <SelectItem key={b.id} value={b.batchName}>{b.batchName}</SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no_batches" disabled>No batches available</SelectItem>
-                      )}
-                      <SelectItem value="custom" className="text-[#2563EB] font-bold">+ Custom Batch...</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {newUserBatch === "custom" && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Full Name</label>
                     <Input
-                      value={customBatch}
-                      onChange={(e) => setCustomBatch(e.target.value)}
-                      placeholder="Enter custom batch name"
-                      className="h-[42px] text-xs bg-[#F9FAFB] mt-2 border-[#2563EB]/40 focus:border-[#2563EB]"
+                      value={newUserName}
+                      onChange={(e) => setNewUserName(e.target.value)}
+                      className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
+                      placeholder="e.g. John Doe"
                     />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Email Address</label>
+                    <Input
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
+                      placeholder="e.g. john@enterprise.com"
+                    />
+                  </div>
+
+                  {!isEditOpen && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
+                        <Key className="h-3 w-3 text-[#2563EB]" /> Initial Account Password
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="Set initial password"
+                        value={newUserPassword}
+                        onChange={(e) => setNewUserPassword(e.target.value)}
+                        className="h-[42px] text-xs font-mono rounded-xl bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"
+                      />
+                    </div>
                   )}
-                </div>
+
+                  {newUserType === "employee" ? (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">System Role</label>
+                        <Select value={newUserRole} onValueChange={(val) => setNewUserRole(val as UserRole)}>
+                          <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="trainer">Trainer / Assessor</SelectItem>
+                            <SelectItem value="manager">Manager</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Department</label>
+                        <Input
+                          value={newUserDept}
+                          onChange={(e) => setNewUserDept(e.target.value)}
+                          className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] rounded-xl focus:border-[#2563EB]"
+                          placeholder="e.g. AI Engineering"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Student Batch</label>
+                      <Select value={newUserBatch} onValueChange={(val) => val && setNewUserBatch(val)}>
+                        <SelectTrigger className="h-[42px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl">
+                          <SelectValue placeholder="Select Batch" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {storeBatches.length > 0 ? (
+                            storeBatches.map(b => (
+                              <SelectItem key={b.id} value={b.batchName}>{b.batchName}</SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="no_batches" disabled>No batches available</SelectItem>
+                          )}
+                          <SelectItem value="custom" className="text-[#2563EB] font-bold">+ Custom Batch...</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {newUserBatch === "custom" && (
+                        <Input
+                          value={customBatch}
+                          onChange={(e) => setCustomBatch(e.target.value)}
+                          placeholder="Enter custom batch name"
+                          className="h-[42px] text-xs bg-[#F9FAFB] mt-2 border-[#2563EB]/40 focus:border-[#2563EB]"
+                        />
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -454,12 +568,18 @@ export default function AdminUsersPage() {
             >
               <Briefcase className="h-4 w-4" /> Employees & Trainers
             </TabsTrigger>
+            <TabsTrigger 
+              value="institution" 
+              className="data-[state=active]:bg-white data-[state=active]:text-[#2563EB] data-[state=active]:shadow-sm rounded-lg py-2.5 px-6 font-bold text-xs gap-2 transition-all"
+            >
+              <Building2 className="h-4 w-4" /> Partner Institutions
+            </TabsTrigger>
           </TabsList>
 
           <div className="relative w-full md:w-[320px]">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
             <Input 
-              placeholder={`Search ${activeTab === 'student' ? 'students' : 'employees'}...`}
+              placeholder={`Search ${activeTab === 'student' ? 'students' : activeTab === 'institution' ? 'institutions' : 'employees'}...`}
               value={search} 
               onChange={(e) => setSearch(e.target.value)} 
               className="pl-10 h-11 text-xs bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl focus-visible:ring-1 focus-visible:ring-[#2563EB] shadow-sm transition-all" 
@@ -604,6 +724,101 @@ export default function AdminUsersPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="institution" className="mt-0 outline-none">
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm overflow-hidden rounded-2xl">
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
+                  <tr>
+                    <th className="p-4 pl-6">Institution & SPOC</th>
+                    <th className="p-4">College / Organization</th>
+                    <th className="p-4">Institution Code</th>
+                    <th className="p-4">Contact Phone</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Onboarded</th>
+                    <th className="p-4 pr-6 text-right">Portal & Access</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-10 text-center text-[#6B7280]">
+                        <Building2 className="h-8 w-8 mx-auto mb-2 text-[#9CA3AF]" />
+                        <p className="font-semibold text-sm text-[#111827] dark:text-[#FAFAFA]">No institution accounts found.</p>
+                        <p className="text-xs text-[#6B7280] mt-1">Click "Add New User" and choose "Partner Institution" to create an institutional login.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((user) => (
+                      <tr key={user.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors">
+                        <td className="p-4 pl-6">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-[#2563EB]/10 border border-[#2563EB]/20 flex items-center justify-center shrink-0">
+                              <Building2 className="h-5 w-5 text-[#2563EB]" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">
+                                {user.name}
+                              </p>
+                              <p className="text-[11px] text-[#6B7280] font-medium flex items-center gap-1 mt-0.5">
+                                <Mail className="h-3 w-3" /> {user.email}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <span className="text-xs font-semibold text-[#111827] dark:text-[#FAFAFA]">
+                            {user.college || user.name}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          {user.branch ? (
+                            <Badge variant="outline" className="font-mono text-[10px] font-bold border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
+                              {user.branch}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-[#9CA3AF]">—</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-xs text-[#6B7280]">
+                          {user.phone ? (
+                            <span className="flex items-center gap-1 font-mono">
+                              <Phone className="h-3 w-3 text-[#9CA3AF]" /> {user.phone}
+                            </span>
+                          ) : (
+                            <span className="text-[#9CA3AF]">—</span>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <Badge className={`text-[10px] font-bold capitalize ${
+                            user.status === "active" ? "bg-[#16A34A] text-white" : "bg-[#F59E0B] text-white"
+                          }`}>
+                            {user.status}
+                          </Badge>
+                        </td>
+                        <td className="p-4 text-xs font-mono text-[#6B7280]">{user.joined}</td>
+                        <td className="p-4 pr-6 text-right space-x-2">
+                          <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold gap-1 text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10">
+                            <Link href="/institution/overview" target="_blank" title="Open Institution Portal">
+                              <ExternalLink className="h-3.5 w-3.5" /> Portal
+                            </Link>
+                          </Button>
+                          <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-sm">
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-sm">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
 
@@ -628,7 +843,7 @@ export default function AdminUsersPage() {
             </div>
             <div className="bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 border border-[#BFDBFE] dark:border-[#1E3A8A]/50 p-3 rounded-xl flex items-start gap-3">
               <div className="bg-white dark:bg-[#0F172A] p-1.5 rounded-md mt-0.5">
-                <FileSpreadsheet className="h-4 w-4 text-[#2563EB]" />
+                <UploadCloud className="h-4 w-4 text-[#2563EB]" />
               </div>
               <div>
                 <p className="text-xs font-bold text-[#1E3A8A] dark:text-[#93C5FD]">Need a template?</p>

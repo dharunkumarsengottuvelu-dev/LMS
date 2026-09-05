@@ -953,6 +953,368 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
       status: "published",
       sections: [],
     })
+  },
+
+  // ─── 5. CODING PROBLEMS REPOSITORY TEMPLATE ───────────────────────────────
+  coding_problem: {
+    moduleType: "coding_problem",
+    displayName: "Coding Problems Repository Template",
+    description: "Template for creating LeetCode-style algorithm & database coding challenges in bulk with test cases.",
+    templateFileName: "coding_problems_template.xlsx",
+    columns: [
+      {
+        key: "title",
+        label: "Problem Title",
+        type: "string",
+        required: true,
+        description: "Title of the coding challenge (e.g. 'Two Sum', 'Reverse Linked List')",
+        sampleValue: "Two Sum",
+      },
+      {
+        key: "difficulty",
+        label: "Difficulty",
+        type: "enum",
+        required: true,
+        options: ["Easy", "Medium", "Hard"],
+        description: "Challenge difficulty level: Easy, Medium, or Hard",
+        sampleValue: "Easy",
+      },
+      {
+        key: "category",
+        label: "Category / Domain",
+        type: "string",
+        required: false,
+        defaultValue: "Algorithms",
+        description: "Topic domain (e.g. 'Algorithms', 'Data Structures', 'Databases', 'Dynamic Programming', 'Strings')",
+        sampleValue: "Algorithms",
+      },
+      {
+        key: "topic_tags",
+        label: "Topic Tags (Comma-separated)",
+        type: "string",
+        required: false,
+        description: "Comma-separated search tags (e.g. 'Array, Hash Table, Two Pointers')",
+        sampleValue: "Array, Hash Table",
+      },
+      {
+        key: "points",
+        label: "Points",
+        type: "number",
+        required: false,
+        defaultValue: 100,
+        description: "Score points awarded upon full pass (e.g. 10, 50, 100)",
+        sampleValue: 10,
+      },
+      {
+        key: "acceptance_rate",
+        label: "Acceptance Rate",
+        type: "string",
+        required: false,
+        defaultValue: "65%",
+        description: "Benchmark acceptance percentage (e.g. '49.8%')",
+        sampleValue: "49.8%",
+      },
+      {
+        key: "description",
+        label: "Problem Statement (Markdown)",
+        type: "string",
+        required: true,
+        description: "Detailed problem description, task instructions, and rules.",
+        sampleValue: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+      },
+      {
+        key: "constraints",
+        label: "Constraints",
+        type: "string",
+        required: false,
+        description: "Execution and boundary constraints (e.g. '2 <= nums.length <= 10^4')",
+        sampleValue: "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9",
+      },
+      {
+        key: "input_format",
+        label: "Input Format",
+        type: "string",
+        required: false,
+        description: "Explanation of input structure received via standard input",
+        sampleValue: "Line 1: Space-separated integers for nums.\nLine 2: target integer.",
+      },
+      {
+        key: "output_format",
+        label: "Output Format",
+        type: "string",
+        required: false,
+        description: "Explanation of expected output printed to standard output",
+        sampleValue: "Print the two 0-indexed positions separated by a space.",
+      },
+      {
+        key: "sample_input",
+        label: "Sample Input (Example 1)",
+        type: "string",
+        required: false,
+        description: "Example input shown in problem overview",
+        sampleValue: "2 7 11 15\n9",
+      },
+      {
+        key: "sample_output",
+        label: "Sample Output (Example 1)",
+        type: "string",
+        required: false,
+        description: "Expected output for Example 1",
+        sampleValue: "0 1",
+      },
+      {
+        key: "sample_explanation",
+        label: "Sample Explanation",
+        type: "string",
+        required: false,
+        description: "Reasoning for Example 1",
+        sampleValue: "Because nums[0] + nums[1] == 9, we return 0 1.",
+      },
+      {
+        key: "testcase_1_input",
+        label: "Test Case 1 Input",
+        type: "string",
+        required: false,
+        description: "First public test case input for automated grader",
+        sampleValue: "2 7 11 15\n9",
+      },
+      {
+        key: "testcase_1_output",
+        label: "Test Case 1 Expected Output",
+        type: "string",
+        required: false,
+        description: "First public test case expected output",
+        sampleValue: "0 1",
+      },
+      {
+        key: "testcase_2_input",
+        label: "Test Case 2 Input",
+        type: "string",
+        required: false,
+        description: "Second public testcase input",
+        sampleValue: "3 2 4\n6",
+      },
+      {
+        key: "testcase_2_output",
+        label: "Test Case 2 Expected Output",
+        type: "string",
+        required: false,
+        description: "Second public testcase expected output",
+        sampleValue: "1 2",
+      },
+      {
+        key: "hidden_testcase_input",
+        label: "Hidden Test Case Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden test case to prevent hardcoding",
+        sampleValue: "3 3\n6",
+      },
+      {
+        key: "hidden_testcase_output",
+        label: "Hidden Test Case Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden test case",
+        sampleValue: "0 1",
+      },
+      {
+        key: "time_limit_ms",
+        label: "Time Limit (ms)",
+        type: "number",
+        required: false,
+        defaultValue: 2000,
+        description: "Execution timeout in milliseconds (default: 2000)",
+        sampleValue: 2000,
+      },
+      {
+        key: "memory_limit_mb",
+        label: "Memory Limit (MB)",
+        type: "number",
+        required: false,
+        defaultValue: 256,
+        description: "Memory threshold in megabytes (default: 256)",
+        sampleValue: 256,
+      }
+    ],
+    sampleRows: [
+      {
+        title: "Two Sum",
+        difficulty: "Easy",
+        category: "Algorithms",
+        topic_tags: "Array, Hash Table",
+        points: 10,
+        acceptance_rate: "49.8%",
+        description: "Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.",
+        constraints: "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9",
+        input_format: "Line 1: Space-separated integers for nums.\nLine 2: target integer.",
+        output_format: "Print the two 0-indexed positions separated by a space.",
+        sample_input: "2 7 11 15\n9",
+        sample_output: "0 1",
+        sample_explanation: "nums[0] + nums[1] == 2 + 7 == 9, so output is 0 1.",
+        testcase_1_input: "2 7 11 15\n9",
+        testcase_1_output: "0 1",
+        testcase_2_input: "3 2 4\n6",
+        testcase_2_output: "1 2",
+        hidden_testcase_input: "3 3\n6",
+        hidden_testcase_output: "0 1",
+        time_limit_ms: 2000,
+        memory_limit_mb: 256
+      },
+      {
+        title: "Valid Palindrome",
+        difficulty: "Easy",
+        category: "Strings",
+        topic_tags: "Two Pointers, String",
+        points: 20,
+        acceptance_rate: "45.2%",
+        description: "A phrase is a palindrome if, after converting all uppercase letters into lowercase letters and removing all non-alphanumeric characters, it reads the same forward and backward.\n\nGiven a string `s`, return `true` if it is a palindrome, or `false` otherwise.",
+        constraints: "1 <= s.length <= 2 * 10^5\ns consists only of printable ASCII characters.",
+        input_format: "A single line containing the string s.",
+        output_format: "Print 'true' or 'false'.",
+        sample_input: "A man, a plan, a canal: Panama",
+        sample_output: "true",
+        sample_explanation: "'amanaplanacanalpanama' is a palindrome.",
+        testcase_1_input: "A man, a plan, a canal: Panama",
+        testcase_1_output: "true",
+        testcase_2_input: "race a car",
+        testcase_2_output: "false",
+        hidden_testcase_input: " ",
+        hidden_testcase_output: "true",
+        time_limit_ms: 2000,
+        memory_limit_mb: 256
+      },
+      {
+        title: "Maximum Subarray Sum",
+        difficulty: "Medium",
+        category: "Algorithms",
+        topic_tags: "Array, Dynamic Programming",
+        points: 50,
+        acceptance_rate: "50.4%",
+        description: "Given an integer array `nums`, find the subarray with the largest sum, and return its sum.",
+        constraints: "1 <= nums.length <= 10^5\n-10^4 <= nums[i] <= 10^4",
+        input_format: "A single line containing space-separated integers of the array.",
+        output_format: "Print the maximum subarray sum.",
+        sample_input: "-2 1 -3 4 -1 2 1 -5 4",
+        sample_output: "6",
+        sample_explanation: "The subarray [4, -1, 2, 1] has the largest sum 6.",
+        testcase_1_input: "-2 1 -3 4 -1 2 1 -5 4",
+        testcase_1_output: "6",
+        testcase_2_input: "1",
+        testcase_2_output: "1",
+        hidden_testcase_input: "5 4 -1 7 8",
+        hidden_testcase_output: "23",
+        time_limit_ms: 2000,
+        memory_limit_mb: 256
+      }
+    ],
+    mapToPayload: (row, idx) => {
+      const rawTitle = String(row.title || `Coding Challenge ${idx + 1}`).trim();
+      const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const diffRaw = String(row.difficulty || "Easy").toLowerCase().trim();
+      const difficulty = (diffRaw === "hard" ? "hard" : diffRaw === "medium" ? "medium" : "easy") as "easy" | "medium" | "hard";
+      
+      const tags = row.topic_tags 
+        ? String(row.topic_tags).split(",").map((s) => s.trim()).filter(Boolean)
+        : ["Algorithms"];
+
+      const testCases: any[] = [];
+
+      // Test Case 1
+      if (row.testcase_1_input !== undefined && row.testcase_1_input !== "" || row.testcase_1_output !== undefined && row.testcase_1_output !== "") {
+        testCases.push({
+          id: `tc-${Date.now()}-1-${idx}`,
+          name: "Test Case 1",
+          input: String(row.testcase_1_input ?? ""),
+          expected_output: String(row.testcase_1_output ?? ""),
+          is_hidden: false,
+          is_enabled: true,
+          weight: 10,
+          order_index: 0,
+        });
+      } else if (row.sample_input !== undefined && row.sample_input !== "" || row.sample_output !== undefined && row.sample_output !== "") {
+        testCases.push({
+          id: `tc-${Date.now()}-1-${idx}`,
+          name: "Test Case 1",
+          input: String(row.sample_input ?? ""),
+          expected_output: String(row.sample_output ?? ""),
+          is_hidden: false,
+          is_enabled: true,
+          weight: 10,
+          order_index: 0,
+        });
+      }
+
+      // Test Case 2
+      if (row.testcase_2_input !== undefined && row.testcase_2_input !== "" || row.testcase_2_output !== undefined && row.testcase_2_output !== "") {
+        testCases.push({
+          id: `tc-${Date.now()}-2-${idx}`,
+          name: "Test Case 2",
+          input: String(row.testcase_2_input ?? ""),
+          expected_output: String(row.testcase_2_output ?? ""),
+          is_hidden: false,
+          is_enabled: true,
+          weight: 10,
+          order_index: 1,
+        });
+      }
+
+      // Hidden Test Case
+      if (row.hidden_testcase_input !== undefined && row.hidden_testcase_input !== "" || row.hidden_testcase_output !== undefined && row.hidden_testcase_output !== "") {
+        testCases.push({
+          id: `tc-${Date.now()}-h-${idx}`,
+          name: "Hidden Case 1",
+          input: String(row.hidden_testcase_input ?? ""),
+          expected_output: String(row.hidden_testcase_output ?? ""),
+          is_hidden: true,
+          is_enabled: true,
+          weight: 20,
+          order_index: 2,
+        });
+      }
+
+      const exampleCases: any[] = [];
+      if (row.sample_input || row.sample_output) {
+        exampleCases.push({
+          id: `example-${idx + 1}`,
+          input: String(row.sample_input || ""),
+          output: String(row.sample_output || ""),
+          explanation: String(row.sample_explanation || ""),
+        });
+      }
+
+      const templates = {
+        python: `# Write your solution below\nimport sys\n\ndef solve():\n    lines = sys.stdin.read().splitlines()\n    if not lines:\n        return\n    # TODO: Implement solution\n\nif __name__ == '__main__':\n    solve()\n`,
+        javascript: `// Write your solution below\nconst fs = require('fs');\n\nfunction solve() {\n  const input = fs.readFileSync(0, 'utf-8').trim();\n  if (!input) return;\n  // TODO: Implement solution\n}\n\nsolve();\n`,
+        java: `import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // TODO: Implement solution\n    }\n}\n`,
+        cpp: `#include <iostream>\n#include <vector>\n#include <string>\n\nusing namespace std;\n\nint main() {\n    ios_base::sync_with_stdio(false);\n    cin.tie(NULL);\n    // TODO: Implement solution\n    return 0;\n}\n`
+      };
+
+      return {
+        id: `problem-${slug}-${Date.now()}-${idx}`,
+        title: rawTitle,
+        slug,
+        description: String(row.description || "").trim(),
+        difficulty,
+        category: String(row.category || "Algorithms").trim(),
+        topic_tags: tags,
+        points: Number(row.points) || 100,
+        acceptance_rate: row.acceptance_rate ? String(row.acceptance_rate).trim() : undefined,
+        constraints: String(row.constraints || "").trim(),
+        input_format: String(row.input_format || "").trim(),
+        output_format: String(row.output_format || "").trim(),
+        sample_input: String(row.sample_input || ""),
+        sample_output: String(row.sample_output || ""),
+        example_cases: exampleCases,
+        templates,
+        test_cases: testCases,
+        time_limit_ms: Number(row.time_limit_ms) || 2000,
+        memory_limit_mb: Number(row.memory_limit_mb) || 256,
+        status: "published",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
   }
 };
 
@@ -977,6 +1339,9 @@ export function getTemplateConfig(moduleType: string): ModuleTemplateConfig {
   if (normalized === "practices" || normalized === "practice_track" || normalized === "tracks") return (TEMPLATE_CONFIGS.practice_track || TEMPLATE_CONFIGS.practice) as ModuleTemplateConfig;
   if (normalized === "assessments" || normalized === "assessment_track" || normalized === "tests") return (TEMPLATE_CONFIGS.assessment_track || TEMPLATE_CONFIGS.assessment) as ModuleTemplateConfig;
   if (normalized === "main_modules" || normalized === "units") return (TEMPLATE_CONFIGS.main_module || TEMPLATE_CONFIGS.course) as ModuleTemplateConfig;
+  if (normalized === "coding" || normalized === "coding_problem" || normalized === "coding_problems" || normalized === "code_lab" || normalized === "codelab") {
+    return (TEMPLATE_CONFIGS.coding_problem || Object.values(TEMPLATE_CONFIGS)[0]) as ModuleTemplateConfig;
+  }
   
   return (TEMPLATE_CONFIGS.course || Object.values(TEMPLATE_CONFIGS)[0]) as ModuleTemplateConfig;
 }

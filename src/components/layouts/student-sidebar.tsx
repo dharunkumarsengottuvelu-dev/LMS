@@ -18,9 +18,16 @@ import { studentNavigation } from "@/config/navigation";
 
 export function StudentSidebar() {
   const pathname = usePathname();
-  const { profile, signOut } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const { unreadCount } = useStudentNotifications();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const userEmail = (profile as any)?.email || user?.email || "";
+  const displayAvatar =
+    profile?.avatar_url ||
+    (user?.user_metadata as any)?.avatar_url ||
+    (user?.user_metadata as any)?.picture ||
+    (userEmail ? `https://unavatar.io/${encodeURIComponent(userEmail)}?fallback=false` : undefined);
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white dark:bg-[#18181B] border-r border-[#E5E7EB] dark:border-[#27272A]">
@@ -70,7 +77,7 @@ export function StudentSidebar() {
       <div className="p-4 border-t border-[#E5E7EB] dark:border-[#27272A] shrink-0">
         <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#F5F5F5] dark:hover:bg-[#27272A] transition-colors">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={profile?.avatar_url ?? undefined} />
+            <AvatarImage src={displayAvatar ?? undefined} />
             <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] text-xs font-semibold">
               {getInitials(`${profile?.first_name ?? "S"} ${profile?.last_name ?? ""}`)}
             </AvatarFallback>

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layouts/page-header";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, UploadCloud } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
 import { CodingProblemsService } from "@/services/coding-problems.service";
+import { BulkUploadModal } from "@/components/admin/bulk-upload";
 import type { CodingProblem } from "@/types/coding";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import { toast } from "sonner";
@@ -42,6 +43,23 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
   // Delete modal state
   const [problemToDelete, setProblemToDelete] = useState<CodingProblem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Bulk Upload Modal state
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+
+  const handleBulkImport = async (importedProblems: any[]) => {
+    if (!importedProblems || importedProblems.length === 0) return;
+    const toastId = toast.loading(`Importing ${importedProblems.length} coding problems...`);
+    try {
+      await CodingProblemsService.saveProblems(importedProblems as CodingProblem[]);
+      toast.success(`Successfully imported ${importedProblems.length} coding problems!`, { id: toastId });
+      setIsBulkUploadOpen(false);
+      await refreshProblems();
+    } catch (err: any) {
+      console.error("Bulk upload error:", err);
+      toast.error(err?.message || "Failed to bulk import coding problems.", { id: toastId });
+    }
+  };
 
   const refreshProblems = async () => {
     try {
@@ -158,6 +176,13 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
         title={role === "admin" ? "Coding Problems Repository" : "Coding Practice Problems"}
         actions={
           <div className="flex items-center gap-2.5">
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkUploadOpen(true)}
+              className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-sm"
+            >
+              <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload
+            </Button>
             <Button
               onClick={() => {
                 setEditingProblem(null);
@@ -381,6 +406,15 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Upload Modal for Coding Problems */}
+      <BulkUploadModal
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+        moduleType="coding_problem"
+        moduleTitle={role === "admin" ? "Coding Problems Repository" : "Coding Practice Problems"}
+        onImport={handleBulkImport}
+      />
     </div>
   );
 }

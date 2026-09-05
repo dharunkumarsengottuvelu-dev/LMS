@@ -2,25 +2,23 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
-  Calendar,
-  Info,
-  ChevronDown,
-  Flame,
-  Award,
-  CheckCircle2,
-  XCircle,
-  Code2,
-  BookOpen,
-  Dumbbell,
-  Clock,
-  RotateCw,
-} from "lucide-react";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 export interface ActivityDetailItem {
@@ -100,6 +98,16 @@ export function StudentActivityHeatmap({
 }: StudentActivityHeatmapProps) {
   const [selectedRange, setSelectedRange] = useState<string>("Current");
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [customRange, setCustomRange] = useState<{ start: string; end: string } | null>(null);
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState<boolean>(false);
+  const [customStartDate, setCustomStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
+    return d.toISOString().slice(0, 10);
+  });
+  const [customEndDate, setCustomEndDate] = useState<string>(() => {
+    return new Date().toISOString().slice(0, 10);
+  });
   const [data, setData] = useState<HeatmapResponseData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -108,6 +116,20 @@ export function StudentActivityHeatmap({
   const [hoveredDay, setHoveredDay] = useState<DayActivityData | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number; arrowLeft: number } | null>(null);
   const gridContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleApplyCustomDate = () => {
+    if (!customStartDate || !customEndDate) return;
+    const start = customStartDate <= customEndDate ? customStartDate : customEndDate;
+    const end = customStartDate <= customEndDate ? customEndDate : customStartDate;
+
+    const f = new Date(start + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const t = new Date(end + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+    setSelectedRange(`${f} - ${t}`);
+    setSelectedYear(null);
+    setCustomRange({ start, end });
+    setIsCustomModalOpen(false);
+  };
 
   // Fetch real activity data from our dedicated API
   const fetchHeatmapData = useCallback(
@@ -122,7 +144,9 @@ export function StudentActivityHeatmap({
             : "Asia/Kolkata";
 
         let url = `/api/student/activity-heatmap?range=12m&tz=${encodeURIComponent(userTz)}`;
-        if (selectedYear) {
+        if (customRange) {
+          url = `/api/student/activity-heatmap?startDate=${customRange.start}&endDate=${customRange.end}&tz=${encodeURIComponent(userTz)}`;
+        } else if (selectedYear) {
           url = `/api/student/activity-heatmap?year=${selectedYear}&tz=${encodeURIComponent(userTz)}`;
         }
 
@@ -139,7 +163,7 @@ export function StudentActivityHeatmap({
         setIsRefreshing(false);
       }
     },
-    [selectedYear]
+    [selectedYear, customRange]
   );
 
   useEffect(() => {
@@ -303,14 +327,10 @@ export function StudentActivityHeatmap({
               ? "activities in the past one year"
               : `activities in ${selectedRange}`}
           </span>
-          <div className="group relative cursor-pointer inline-flex items-center">
-            <Info className="w-3.5 h-3.5 text-[#9CA3AF] dark:text-zinc-500 hover:text-[#4B5563] dark:hover:text-zinc-300 transition-colors ml-0.5" />
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col w-56 p-2 bg-slate-900 text-white text-[11px] rounded-lg shadow-xl z-50 pointer-events-none leading-relaxed">
-              <span>Calculated dynamically from real verified student actions across coding, courses, practices, assessments, and learning sessions.</span>
-            </div>
-          </div>
           {isRefreshing && (
-            <RotateCw className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-spin ml-2" />
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium ml-2">
+              Syncing...
+            </span>
           )}
         </div>
 
@@ -332,7 +352,6 @@ export function StudentActivityHeatmap({
 
           {data && data.currentStreak > 0 && (
             <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
-              <Flame className="w-3.5 h-3.5 fill-emerald-500 text-emerald-500 animate-pulse" />
               <span>Streak:</span>
               <span className="font-bold font-mono text-xs sm:text-sm">
                 {data.currentStreak}d
@@ -344,16 +363,16 @@ export function StudentActivityHeatmap({
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-[#27272A] hover:bg-[#F9FAFB] dark:hover:bg-[#3F3F46] text-[#374151] dark:text-zinc-200 text-xs font-semibold border border-[#E5E7EB] dark:border-zinc-700/60 shadow-2xs transition-all focus:outline-hidden">
               <span>{selectedRange}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF] dark:text-zinc-400" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] text-[#374151] dark:text-zinc-200 shadow-xl rounded-xl text-xs min-w-[130px] p-1"
+              className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] text-[#374151] dark:text-zinc-200 shadow-xl rounded-xl text-xs min-w-[140px] p-1"
             >
               <DropdownMenuItem
                 onClick={() => {
                   setSelectedRange("Current");
                   setSelectedYear(null);
+                  setCustomRange(null);
                 }}
                 className={cn(
                   "rounded-lg px-2.5 py-1.5 cursor-pointer font-medium hover:bg-[#F3F4F6] dark:hover:bg-zinc-800 text-[#374151] dark:text-zinc-300",
@@ -366,6 +385,7 @@ export function StudentActivityHeatmap({
                 onClick={() => {
                   setSelectedRange("2026");
                   setSelectedYear(2026);
+                  setCustomRange(null);
                 }}
                 className={cn(
                   "rounded-lg px-2.5 py-1.5 cursor-pointer font-medium hover:bg-[#F3F4F6] dark:hover:bg-zinc-800 text-[#374151] dark:text-zinc-300",
@@ -378,6 +398,7 @@ export function StudentActivityHeatmap({
                 onClick={() => {
                   setSelectedRange("2025");
                   setSelectedYear(2025);
+                  setCustomRange(null);
                 }}
                 className={cn(
                   "rounded-lg px-2.5 py-1.5 cursor-pointer font-medium hover:bg-[#F3F4F6] dark:hover:bg-zinc-800 text-[#374151] dark:text-zinc-300",
@@ -385,6 +406,18 @@ export function StudentActivityHeatmap({
                 )}
               >
                 2025
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="my-1 bg-[#E5E7EB] dark:bg-zinc-800" />
+              <DropdownMenuItem
+                onClick={() => {
+                  setIsCustomModalOpen(true);
+                }}
+                className={cn(
+                  "rounded-lg px-2.5 py-1.5 cursor-pointer font-medium hover:bg-[#F3F4F6] dark:hover:bg-zinc-800 text-[#374151] dark:text-zinc-300",
+                  customRange !== null && "bg-[#F3F4F6] dark:bg-zinc-800 font-bold text-[#111827] dark:text-white"
+                )}
+              >
+                Custom Date...
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -398,24 +431,24 @@ export function StudentActivityHeatmap({
         {isLoading ? (
           /* Sleek Light/Dark Skeleton */
           <div className="h-32 flex items-center justify-center">
-            <div className="flex items-center gap-2 text-zinc-500 text-xs">
-              <RotateCw className="w-4 h-4 animate-spin text-emerald-500" />
+            <div className="flex items-center gap-2 text-zinc-500 text-xs font-medium">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
               <span>Loading student activity graph...</span>
             </div>
           </div>
         ) : (
           <div className="overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-            <div className="inline-block min-w-full">
+            <div className="w-full min-w-[700px]">
               {/* Day cells grid (53 columns x 7 rows) */}
-              <div className="flex gap-[4px]">
+              <div className="w-full flex justify-between gap-[2px] sm:gap-[3px]">
                 {weekColumns.map((week, wIdx) => (
-                  <div key={`w-${wIdx}`} className="flex flex-col gap-[4px]">
+                  <div key={`w-${wIdx}`} className="flex-1 flex flex-col gap-[2px] sm:gap-[3px] min-w-[8px]">
                     {week.map((day, dIdx) => {
                       if (!day) {
                         return (
                           <div
                             key={`empty-${wIdx}-${dIdx}`}
-                            className="w-[12px] h-[12px] sm:w-[13px] sm:h-[13px] rounded-[2.5px] opacity-0 pointer-events-none"
+                            className="w-full aspect-square rounded-[2.5px] opacity-0 pointer-events-none"
                           />
                         );
                       }
@@ -426,7 +459,7 @@ export function StudentActivityHeatmap({
                           onMouseEnter={(e) => handleCellMouseEnter(e, day)}
                           onMouseLeave={handleCellMouseLeave}
                           className={cn(
-                            "w-[12px] h-[12px] sm:w-[13px] sm:h-[13px] rounded-[2.5px] transition-transform duration-100 cursor-pointer",
+                            "w-full aspect-square rounded-[2.5px] transition-transform duration-100 cursor-pointer",
                             getCellColor(day.intensity),
                             hoveredDay?.date === day.date && "scale-125 z-10 ring-2 ring-emerald-500"
                           )}
@@ -438,13 +471,13 @@ export function StudentActivityHeatmap({
               </div>
 
               {/* Month Labels underneath columns */}
-              <div className="relative h-6 mt-2 text-[10px] text-[#6B7280] dark:text-zinc-400 font-medium">
+              <div className="relative w-full h-6 mt-2 text-[10px] text-[#6B7280] dark:text-zinc-400 font-medium">
                 {monthLabels.map((m, idx) => (
                   <span
                     key={`${m.label}-${idx}`}
                     className="absolute"
                     style={{
-                      left: `${m.weekIndex * 17}px`,
+                      left: `${(m.weekIndex / 53) * 100}%`,
                     }}
                   >
                     {m.label}
@@ -619,6 +652,62 @@ export function StudentActivityHeatmap({
           <span>More</span>
         </div>
       </div>
+
+      {/* Custom Activity Date Range Modal Dialog */}
+      <Dialog open={isCustomModalOpen} onOpenChange={setIsCustomModalOpen}>
+        <DialogContent className="max-w-md bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xl">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">
+              Custom Activity Date Range
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 dark:text-zinc-400">
+              Select a start date and end date to filter your activity heatmap and streak history.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-400">From Date</Label>
+              <Input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-400">To Date</Label>
+              <Input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCustomModalOpen(false)}
+              className="text-xs font-semibold cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleApplyCustomDate}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
+            >
+              Apply Filter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

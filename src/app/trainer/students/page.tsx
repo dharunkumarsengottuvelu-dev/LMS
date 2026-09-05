@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Search, Plus, UserCheck, Trash2, Edit, GraduationCap, Mail, Key, Upload, FileSpreadsheet } from "lucide-react";
+import { Users, Search, Plus, UserCheck, Trash2, Edit, GraduationCap, Mail, Key, Upload, FileSpreadsheet, UploadCloud } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,9 +151,9 @@ export default function TrainerStudentsPage() {
             <Button 
               onClick={() => setIsBulkUploadOpen(true)}
               variant="outline"
-              className="h-[44px] text-[#4B5563] dark:text-[#D4D4D8] font-bold gap-2 px-5 rounded-xl border-[#E5E7EB] dark:border-[#27272A] shadow-sm transition-all"
+              className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-sm transition-all"
             >
-              <FileSpreadsheet className="h-4 w-4" /> Bulk Import
+              <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload
             </Button>
             <Button 
               onClick={() => setIsAddOpen(true)}
@@ -406,7 +406,7 @@ export default function TrainerStudentsPage() {
             </div>
             <div className="bg-[#EFF6FF] dark:bg-[#2563EB]/10 border border-[#DBEAFE] dark:border-[#2563EB]/30 p-3 rounded-xl flex items-start gap-3">
               <div className="bg-white dark:bg-[#18181B] p-1.5 rounded-md mt-0.5">
-                <FileSpreadsheet className="h-4 w-4 text-[#2563EB]" />
+                <UploadCloud className="h-4 w-4 text-[#2563EB]" />
               </div>
               <div>
                 <p className="text-xs font-bold text-[#1E40AF] dark:text-[#93C5FD]">Need a template?</p>

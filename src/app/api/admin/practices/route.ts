@@ -184,7 +184,7 @@ export async function GET() {
     // 3. Fetch Batches
     const { data: batchesData } = await adminClient
       .from("batches")
-      .select("id, name, batch_name, college_name");
+      .select("id, name, batch_name, code, description");
 
     const batchNamesSet = new Set<string>();
     const mappedBatches: any[] = [];
@@ -193,10 +193,16 @@ export async function GET() {
       const bName = b.name || b.batch_name;
       if (bName) {
         batchNamesSet.add(bName);
+        let meta: any = {};
+        try {
+          if (b.description && b.description.startsWith("{")) {
+            meta = JSON.parse(b.description);
+          }
+        } catch {}
         mappedBatches.push({
           id: b.id,
           name: bName,
-          collegeName: b.college_name || "",
+          collegeName: meta.collegeName || meta.college_name || "",
         });
       }
     });
