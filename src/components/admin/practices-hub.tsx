@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Dumbbell, Search, Users, CheckCircle2, Clock, Plus,
   BookOpen, Code2, FileText, Video, UserCheck,
   ShieldCheck, PlayCircle, StickyNote, ListChecks,
-  ArrowLeft, FolderKanban, Sparkles, Trash2, Edit, Save,
+  ArrowLeft, FolderKanban, Sparkles, Trash2, Edit, Save, Check,
   HelpCircle, Layers, Eye, EyeOff, UploadCloud, User,
   Maximize2, Minimize2, ShieldAlert, Lock, Copy, RotateCcw,
   Edit2, ChevronUp, FileSpreadsheet
@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
@@ -571,6 +572,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [selectedBatches, setSelectedBatches]       = useState<string[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [batchFilter, setBatchFilter]               = useState("all");
+  const [assignStudentSearch, setAssignStudentSearch] = useState("");
 
   const filtered = tracks.filter((t) =>
     t.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -943,20 +945,41 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const openAssign = (t: PracticeTrack) => {
     setSelectedTrack(t);
-    const assigned = t.assignedBatches || [];
+    // Filter assigned batches against real valid batches in database
+    const assigned = (t.assignedBatches || []).filter((batchIdentifier: string) => {
+      if (!allBatches || allBatches.length === 0) return false;
+      const bLower = String(batchIdentifier).trim().toLowerCase();
+      return allBatches.some((ab: any) => {
+        const abId = String(typeof ab === "string" ? ab : ab.id || "").trim().toLowerCase();
+        const abName = String(typeof ab === "string" ? ab : ab.name || ab.batch_name || "").trim().toLowerCase();
+        return bLower === abId || bLower === abName;
+      });
+    });
+
     const common =
-      t.isCommon === true ||
-      (t as any).is_common === true ||
-      assigned.length === 0;
+      t.isCommon !== undefined
+        ? (t.isCommon === true || String(t.isCommon) === "true")
+        : (t as any).is_common !== undefined
+        ? ((t as any).is_common === true || String((t as any).is_common) === "true")
+        : assigned.length === 0 && (t.assignedStudents || []).length === 0;
+
     setIsCommon(common);
     setSelectedBatches(common ? [] : assigned);
-    setSelectedStudentIds(common ? [] : [...(t.assignedStudents || [])]);
+    setSelectedStudentIds([...(t.assignedStudents || [])]);
     setBatchFilter("all");
+    setAssignStudentSearch("");
     setViewState("assign");
   };
 
-  const toggleStudent = (id: string) =>
-    setSelectedStudentIds((p) => p.includes(id) ? p.filter((s) => s !== id) : [...p, id]);
+  const toggleStudent = (id: string) => {
+    setSelectedStudentIds((p) => {
+      const next = p.includes(id) ? p.filter((s) => s !== id) : [...p, id];
+      if (next.length > 0 && isCommon) {
+        setIsCommon(false);
+      }
+      return next;
+    });
+  };
 
   const handleSaveAssign = async () => {
     if (!selectedTrack || isSubmitting) return;
@@ -975,9 +998,22 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           : t
       );
       await syncTracksToStore(updatedTracks);
+      setSelectedTrack((prev) =>
+        prev && prev.id === selectedTrack.id
+          ? {
+              ...prev,
+              isCommon,
+              is_common: isCommon,
+              assignedBatches: isCommon ? [] : selectedBatches,
+              assignedStudents: isCommon ? [] : selectedStudentIds,
+            }
+          : prev
+      );
       toast({
-        title: "Practice Track Visibility Updated",
-        description: `Track configured as ${isCommon ? "Common (All Students)" : `${selectedBatches.length} batch(es)`}.`,
+        title: "Assignment Saved Successfully",
+        description: isCommon
+          ? "Practice track set to Global Access (All Students)."
+          : `Allocated to ${selectedBatches.length} batch(es) and ${selectedStudentIds.length} student(s).`,
       });
       setViewState("list");
     } finally {
@@ -985,7 +1021,40 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     }
   };
 
-  const displayStudents = batchFilter === "all" ? allStudents : allStudents.filter((s) => s.batch === batchFilter);
+  const displayStudents = useMemo(() => {
+    return allStudents.filter((s) => {
+      const matchesBatch =
+        batchFilter === "all"
+          ? true
+          : batchFilter === "Unassigned"
+          ? !s.batch || s.batch === "Unassigned"
+          : s.batch === batchFilter;
+
+      const q = assignStudentSearch.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        (s.name || "").toLowerCase().includes(q) ||
+        (s.email || "").toLowerCase().includes(q);
+
+      return matchesBatch && matchesSearch;
+    });
+  }, [allStudents, batchFilter, assignStudentSearch]);
+
+  const handleSelectAllFilteredStudents = () => {
+    const ids = displayStudents.map((s) => s.id);
+    const allSelected = ids.length > 0 && ids.every((id) => selectedStudentIds.includes(id));
+    if (allSelected) {
+      setSelectedStudentIds((prev) => prev.filter((id) => !ids.includes(id)));
+    } else {
+      setSelectedStudentIds((prev) => {
+        const next = Array.from(new Set([...prev, ...ids]));
+        if (next.length > 0 && isCommon) {
+          setIsCommon(false);
+        }
+        return next;
+      });
+    }
+  };
 
   const typeBadgeColor = (type: string) =>
     type === "mcq" ? "bg-[#2563EB] text-white font-medium"
@@ -2088,94 +2157,204 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   // ════════════════════════════════════════════════════════════
   if (viewState === "assign" && selectedTrack) {
     return (
-      <div className="space-y-8 w-full">
-        <PageHeader 
-          title="Assign Practice Track"
-          backAction={{ label: "Back", onClick: () => setViewState("list") }}
-          actions={
-            <Button onClick={handleSaveAssign} disabled={isSubmitting}
-              className="h-[44px] px-6 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs rounded-xl gap-2 shadow-sm shrink-0">
-              {isSubmitting ? (
-                <>
-                  <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4" /> Save Assignment ({selectedStudentIds.length})
-                </>
-              )}
-            </Button>
-          }
-        />
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="space-y-4">
-            <div className="space-y-4">
-              <VisibilitySelector
-                isCommon={isCommon}
-                selectedBatches={selectedBatches}
-                batches={allBatches.map(b => typeof b === "string" ? { id: b, name: b } : b)}
-                onChange={({ isCommon: c, selectedBatches: b }) => {
-                  setIsCommon(c);
-                  setSelectedBatches(b);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2 uppercase tracking-wider">
-                <UserCheck className="h-4 w-4 text-[#2563EB]" /> Individual Student Selection
-              </h2>
-              <Select value={batchFilter} onValueChange={(v) => setBatchFilter(v || "all")}>
-                <SelectTrigger className="h-9 text-xs w-[160px] bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl"><SelectValue placeholder="All" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Batches</SelectItem>
-                  {allBatches.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-hidden">
-              <div className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-                {displayStudents.map((s) => {
-                  const isSel = selectedStudentIds.includes(s.id);
-                  return (
-                    <button key={s.id} type="button" onClick={() => toggleStudent(s.id)}
-                      className={`w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 transition-all ${
-                        isSel ? "bg-[#2563EB]/5" : "hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60"
-                      }`}>
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                          isSel ? "bg-[#2563EB] text-white" : "bg-[#2563EB]/10 text-[#2563EB]"
-                        }`}>{s.name.charAt(0)}</div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-xs text-[#111827] dark:text-[#FAFAFA] truncate">{s.name}</p>
-                          <p className="text-[11px] text-[#6B7280] truncate">{s.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="outline" className="text-[10px] border-[#2563EB]/30 text-[#2563EB]">{s.batch}</Badge>
-                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${
-                          isSel ? "border-[#2563EB] bg-[#2563EB]" : "border-[#D1D5DB]"
-                        }`}>
-                          {isSel && <CheckCircle2 className="h-3 w-3 text-white" />}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+      <div className="space-y-8 w-full animate-fade-up">
+        {/* Icon-free Corporate Header */}
+        <div className="w-full bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+            <div className="min-w-0 flex-1 space-y-2">
+              <button
+                type="button"
+                onClick={() => setViewState("list")}
+                className="text-xs font-semibold text-slate-500 hover:text-[#2563EB] dark:text-zinc-400 dark:hover:text-[#2563EB] transition-colors"
+              >
+                Back to Practices
+              </button>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  Assign Practice Track
+                </h1>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/50">
+                  {selectedTrack.title}
+                </span>
+                {selectedTrack.category &&
+                  selectedTrack.category.trim().toLowerCase() !== selectedTrack.title.trim().toLowerCase() && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                      {selectedTrack.category}
+                    </span>
+                  )}
               </div>
-            </Card>
-            <div className="flex items-center justify-between p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
-              <p className="text-xs text-[#6B7280]">
-                <span className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">{selectedStudentIds.length}</span> of {allStudents.length} selected
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                Configure cohort access rules or allocate individual learners to this practice track.
               </p>
-              <Button onClick={handleSaveAssign} className="h-9 px-5 bg-[#16A34A] hover:bg-[#15803D] text-white font-semibold text-xs rounded-xl gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" /> Confirm Assignment
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <Button
+                variant="outline"
+                onClick={() => setViewState("list")}
+                className="h-10 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveAssign}
+                disabled={isSubmitting}
+                className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-xs transition-all"
+              >
+                {isSubmitting ? "Saving..." : `Save Assignment (${selectedStudentIds.length})`}
               </Button>
             </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Left Column: Visibility & Access Control */}
+          <div className="lg:col-span-5 space-y-4">
+            <VisibilitySelector
+              isCommon={isCommon}
+              selectedBatches={selectedBatches}
+              batches={allBatches.map((b: any) => typeof b === "string" ? { id: b, name: b } : b)}
+              onChange={({ isCommon: c, selectedBatches: b }) => {
+                setIsCommon(c);
+                setSelectedBatches(b);
+              }}
+            />
+          </div>
+
+          {/* Right Column: Individual Student Selection */}
+          <div className="lg:col-span-7 space-y-4">
+            <Card className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-[#27272A] rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+              {/* Card Header & Controls */}
+              <div className="space-y-4 pb-4 border-b border-slate-100 dark:border-zinc-800">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Individual Student Allocation
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Allocate specific learners regardless of their batch cohort assignment.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-semibold bg-blue-50/70 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/50">
+                    {selectedStudentIds.length} Enrolled
+                  </Badge>
+                </div>
+
+                {/* Filter and Search Bar */}
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <div className="relative flex-1 min-w-[180px]">
+                    <Input
+                      placeholder="Search students by name or email..."
+                      value={assignStudentSearch}
+                      onChange={(e) => setAssignStudentSearch(e.target.value)}
+                      className="h-9 px-3.5 text-xs bg-slate-50/70 dark:bg-[#09090B] border-slate-200 dark:border-[#27272A] rounded-xl focus-visible:ring-1 focus-visible:ring-[#2563EB]"
+                    />
+                  </div>
+
+                  <Select value={batchFilter} onValueChange={(v) => setBatchFilter(v || "all")}>
+                    <SelectTrigger className="h-9 text-xs min-w-[140px] bg-slate-50/70 dark:bg-[#09090B] border-slate-200 dark:border-[#27272A] rounded-xl">
+                      <SelectValue placeholder="All Batches" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-[#18181B]">
+                      <SelectItem value="all">All Batches</SelectItem>
+                      <SelectItem value="Unassigned">Unassigned Only</SelectItem>
+                      {allBatches.map((b: any) => {
+                        const bName = typeof b === "string" ? b : (b.name || b.batch_name || b.id || "Batch");
+                        const bKey = typeof b === "string" ? b : (b.id || b.name || Math.random().toString());
+                        return <SelectItem key={bKey} value={bName}>{bName}</SelectItem>;
+                      })}
+                    </SelectContent>
+                  </Select>
+
+                  {displayStudents.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSelectAllFilteredStudents}
+                      className="h-9 px-3 text-xs font-semibold text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl"
+                    >
+                      {displayStudents.every((s) => selectedStudentIds.includes(s.id))
+                        ? "Deselect Filtered"
+                        : "Select All"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Student Items List */}
+              <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100 dark:divide-zinc-800/80 pr-1 my-2">
+                {displayStudents.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-500">
+                    No students match the current filter criteria.
+                  </div>
+                ) : (
+                  displayStudents.map((s) => {
+                    const isSel = selectedStudentIds.includes(s.id);
+                    const isUnassigned = !s.batch || s.batch === "Unassigned";
+
+                    return (
+                      <div
+                        key={s.id}
+                        onClick={() => toggleStudent(s.id)}
+                        className={`py-3 px-3 flex items-center justify-between gap-3 rounded-xl transition-all cursor-pointer ${
+                          isSel
+                            ? "bg-blue-50/70 dark:bg-blue-950/25"
+                            : "hover:bg-slate-50/80 dark:hover:bg-zinc-800/40"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div onClick={(e) => e.stopPropagation()} className="flex items-center">
+                            <Checkbox
+                              checked={isSel}
+                              onCheckedChange={() => toggleStudent(s.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="data-[state=checked]:bg-[#2563EB] data-[state=checked]:border-[#2563EB]"
+                            />
+                          </div>
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                            {s.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-xs text-slate-900 dark:text-white truncate leading-tight">
+                              {s.name}
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-mono truncate leading-tight mt-0.5">
+                              {s.email}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0">
+                          <span
+                            className={`inline-block text-[10px] font-medium px-2.5 py-0.5 rounded-full ${
+                              !isUnassigned
+                                ? "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/50"
+                                : "bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700"
+                            }`}
+                          >
+                            {!isUnassigned ? s.batch : "Unassigned"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Card Footer Summary */}
+              <div className="pt-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-3">
+                <p className="text-xs text-slate-500 font-medium">
+                  <span className="font-bold text-slate-900 dark:text-white">{selectedStudentIds.length}</span> of {allStudents.length} students selected
+                </p>
+                <Button
+                  onClick={handleSaveAssign}
+                  disabled={isSubmitting}
+                  className="h-9 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-xs transition-all"
+                >
+                  {isSubmitting ? "Saving..." : "Confirm Assignment"}
+                </Button>
+              </div>
+            </Card>
           </div>
         </div>
       </div>

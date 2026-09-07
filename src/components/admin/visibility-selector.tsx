@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Globe, Users, Check, Boxes, Search, CheckCircle2, ShieldCheck, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -49,6 +48,22 @@ export function VisibilitySelector({
       };
     });
   }, [batches]);
+
+  // Valid batch keys that exist in current database batches
+  const validBatchKeys = useMemo(() => {
+    const set = new Set<string>();
+    normalizedBatches.forEach((b) => {
+      if (b.id) set.add(b.id.toLowerCase());
+      if (b.name) set.add(b.name.toLowerCase());
+    });
+    return set;
+  }, [normalizedBatches]);
+
+  // Active selected batches (excluding dangling deleted batches)
+  const activeSelectedBatches = useMemo(() => {
+    if (normalizedBatches.length === 0) return [];
+    return (selectedBatches || []).filter((b) => validBatchKeys.has(b.toLowerCase()));
+  }, [selectedBatches, validBatchKeys, normalizedBatches]);
 
   // Filter batches by search query
   const filteredBatches = useMemo(() => {
@@ -127,8 +142,7 @@ export function VisibilitySelector({
       {/* Header & Status Indicator */}
       <div>
         <div className="flex items-center justify-between">
-          <Label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-            <ShieldCheck className="h-4 w-4 text-[#2563EB]" />
+          <Label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
             {label}
           </Label>
           <Badge
@@ -136,16 +150,16 @@ export function VisibilitySelector({
             className={`text-[10px] font-bold ${
               isCommon
                 ? "bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/30"
-                : selectedBatches.length > 0
+                : activeSelectedBatches.length > 0
                 ? "bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30"
-                : "bg-[#DC2626]/10 text-[#DC2626] border-[#DC2626]/30"
+                : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
             }`}
           >
             {isCommon
               ? "Global Access (All Students)"
-              : selectedBatches.length > 0
-              ? `${selectedBatches.length} Batch(es) Assigned`
-              : "No Batches Selected (Hidden)"}
+              : activeSelectedBatches.length > 0
+              ? `${activeSelectedBatches.length} Batch(es) Assigned`
+              : "Specific / Restricted Access"}
           </Badge>
         </div>
         {description && (
@@ -167,36 +181,23 @@ export function VisibilitySelector({
           }`}
         >
           <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                  isCommon
-                    ? "bg-[#2563EB] text-white shadow-xs"
-                    : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]"
-                }`}
-              >
-                <Globe className="h-4 w-4" />
+            <div>
+              <div className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                Common (All Students)
               </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                    Common (All Students)
-                  </span>
-                </div>
-                <Badge className="bg-[#16A34A]/15 text-[#16A34A] border border-[#16A34A]/20 text-[9px] font-bold px-1.5 py-0 mt-0.5">
-                  Global Access
-                </Badge>
-              </div>
+              <Badge className="bg-[#16A34A]/15 text-[#16A34A] border border-[#16A34A]/20 text-[9px] font-bold px-1.5 py-0 mt-1">
+                Global Access
+              </Badge>
             </div>
 
             <div
-              className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
                 isCommon
-                  ? "bg-[#2563EB] border-[#2563EB] text-white"
-                  : "border-[#D1D5DB] dark:border-[#52525B]"
+                  ? "border-[#2563EB] bg-[#2563EB]"
+                  : "border-[#D1D5DB] dark:border-[#52525B] bg-transparent"
               }`}
             >
-              {isCommon && <Check className="h-3 w-3 stroke-[3]" />}
+              {isCommon && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
             </div>
           </div>
 
@@ -215,42 +216,31 @@ export function VisibilitySelector({
           }`}
         >
           <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                  !isCommon
-                    ? "bg-[#2563EB] text-white shadow-xs"
-                    : "bg-[#F3F4F6] dark:bg-[#27272A] text-[#6B7280]"
+            <div>
+              <div className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                Specific Batches
+              </div>
+              <Badge
+                className={`text-[9px] font-bold px-1.5 py-0 mt-1 ${
+                  !isCommon && activeSelectedBatches.length > 0
+                    ? "bg-[#2563EB]/15 text-[#2563EB] border border-[#2563EB]/30"
+                    : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700"
                 }`}
               >
-                <Boxes className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                    Specific Batches
-                  </span>
-                </div>
-                <Badge
-                  className={`text-[9px] font-bold px-1.5 py-0 mt-0.5 ${
-                    !isCommon && selectedBatches.length > 0
-                      ? "bg-[#2563EB]/15 text-[#2563EB] border border-[#2563EB]/30"
-                      : "bg-[#6B7280]/15 text-[#6B7280] border border-[#6B7280]/20"
-                  }`}
-                >
-                  {!isCommon ? `${selectedBatches.length} Selected` : "Batch Restricted"}
-                </Badge>
-              </div>
+                {!isCommon && activeSelectedBatches.length > 0
+                  ? `${activeSelectedBatches.length} Selected`
+                  : "Cohort Restricted"}
+              </Badge>
             </div>
 
             <div
-              className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
                 !isCommon
-                  ? "bg-[#2563EB] border-[#2563EB] text-white"
-                  : "border-[#D1D5DB] dark:border-[#52525B]"
+                  ? "border-[#2563EB] bg-[#2563EB]"
+                  : "border-[#D1D5DB] dark:border-[#52525B] bg-transparent"
               }`}
             >
-              {!isCommon && <Check className="h-3 w-3 stroke-[3]" />}
+              {!isCommon && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
             </div>
           </div>
 
@@ -269,7 +259,7 @@ export function VisibilitySelector({
                 Select Target Cohort Batches:
               </span>
               <span className="text-[11px] text-[#6B7280] dark:text-[#A1A1AA]">
-                ({selectedBatches.length} of {normalizedBatches.length} selected)
+                ({activeSelectedBatches.length} of {normalizedBatches.length} selected)
               </span>
             </div>
 
@@ -280,7 +270,7 @@ export function VisibilitySelector({
                   onClick={handleToggleAllBatches}
                   className="text-xs font-semibold text-[#2563EB] hover:underline"
                 >
-                  {selectedBatches.length === normalizedBatches.length
+                  {activeSelectedBatches.length === normalizedBatches.length
                     ? "Deselect All"
                     : "Select All Batches"}
                 </button>
@@ -291,12 +281,11 @@ export function VisibilitySelector({
           {/* Search Batches */}
           {normalizedBatches.length > 4 && (
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#6B7280]" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search batches by name or college..."
-                className="h-8 pl-8 text-xs bg-white dark:bg-[#18181B]"
+                className="h-8 px-3 text-xs bg-white dark:bg-[#18181B]"
               />
             </div>
           )}
@@ -341,22 +330,24 @@ export function VisibilitySelector({
                       )}
                     </div>
 
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => handleToggleBatch(batchKey, batch.id)}
-                      className="data-[state=checked]:bg-[#2563EB] data-[state=checked]:border-[#2563EB]"
-                    />
+                    <div onClick={(e) => e.stopPropagation()} className="flex items-center">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => handleToggleBatch(batchKey, batch.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="data-[state=checked]:bg-[#2563EB] data-[state=checked]:border-[#2563EB]"
+                      />
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* Validation Notice when 0 batches are selected in specific mode */}
-          {selectedBatches.length === 0 && (
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#FEF2F2] dark:bg-[#450A0A]/40 border border-[#FCA5A5] text-[#DC2626] dark:text-[#F87171] text-xs">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>Please check at least one batch above, or click <strong>Common (All Students)</strong>.</span>
+          {/* Validation Notice when 0 batches are selected in specific mode AND batches exist */}
+          {activeSelectedBatches.length === 0 && normalizedBatches.length > 0 && (
+            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-amber-800 dark:text-amber-300 text-xs">
+              <span>Please select at least one batch above, or choose <strong>Common (All Students)</strong>.</span>
             </div>
           )}
         </div>

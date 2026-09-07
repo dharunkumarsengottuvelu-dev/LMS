@@ -177,52 +177,39 @@ export async function GET() {
         userId: s.user_id || s.id,
         name: fullName,
         email: s.email || "",
-        batch: s.batch || s.batch_name || s.batch_id || "General Cohort",
+        batch: s.batch_name || s.batch || s.batch_id || "Unassigned",
       };
     });
 
-    // 3. Fetch Batches
+    // 3. Fetch Batches & Members Dynamically
+    const { data: batchMembersData } = await adminClient
+      .from("batch_members")
+      .select("batch_id, user_id");
+
+    const batchMemberCounts: Record<string, number> = {};
+    (batchMembersData || []).forEach((bm: any) => {
+      batchMemberCounts[bm.batch_id] = (batchMemberCounts[bm.batch_id] || 0) + 1;
+    });
+
     const { data: batchesData } = await adminClient
       .from("batches")
-      .select("id, name, batch_name, code, description");
+      .select("id, name, batch_name, code, description, status")
+      .order("created_at", { ascending: false });
 
-    const batchNamesSet = new Set<string>();
-    const mappedBatches: any[] = [];
-
-    (batchesData || []).forEach((b: any) => {
-      const bName = b.name || b.batch_name;
-      if (bName) {
-        batchNamesSet.add(bName);
-        let meta: any = {};
-        try {
-          if (b.description && b.description.startsWith("{")) {
-            meta = JSON.parse(b.description);
-          }
-        } catch {}
-        mappedBatches.push({
-          id: b.id,
-          name: bName,
-          collegeName: meta.collegeName || meta.college_name || "",
-        });
-      }
+    const mappedBatches: any[] = (batchesData || []).map((b: any) => {
+      let meta: any = {};
+      try {
+        if (b.description && b.description.startsWith("{")) {
+          meta = JSON.parse(b.description);
+        }
+      } catch {}
+      return {
+        id: b.id,
+        name: b.name || b.batch_name || "Untitled Batch",
+        collegeName: meta.collegeName || meta.college_name || "",
+        studentCount: batchMemberCounts[b.id] || 0,
+      };
     });
-
-    // Also include any distinct batches assigned to students
-    studentProfiles.forEach((s: any) => {
-      const sb = s.batch || s.batch_name || s.batch_id;
-      if (sb && !batchNamesSet.has(sb)) {
-        batchNamesSet.add(sb);
-        mappedBatches.push({
-          id: sb,
-          name: sb,
-          collegeName: "Student Cohort",
-        });
-      }
-    });
-
-    if (mappedBatches.length === 0) {
-      mappedBatches.push({ id: "General Cohort", name: "General Cohort", collegeName: "All Students" });
-    }
 
     return NextResponse.json({
       tracks: mappedTracks,
@@ -255,15 +242,23 @@ export async function POST(request: NextRequest) {
     }
 
     for (const t of deduplicatedTracksToSave) {
-      const isCommon: boolean =
-        t.isCommon === true ||
-        String(t.isCommon) === "true" ||
-        t.is_common === true ||
-        String(t.is_common) === "true" ||
-        (t.assignedBatches || t.assigned_batches || []).length === 0;
+      const explicitCommon =
+        t.isCommon !== undefined
+          ? (t.isCommon === true || String(t.isCommon) === "true")
+          : t.is_common !== undefined
+          ? (t.is_common === true || String(t.is_common) === "true")
+          : null;
 
-      const assignedBatches: string[] = isCommon ? [] : (t.assignedBatches || t.assigned_batches || []);
-      const assignedStudentsArray: string[] = isCommon ? [] : (t.assignedStudents || t.assigned_students || []);
+      const rawAssignedBatches = t.assignedBatches || t.assigned_batches || [];
+      const rawAssignedStudents = t.assignedStudents || t.assigned_students || [];
+
+      const isCommon: boolean =
+        explicitCommon !== null
+          ? explicitCommon
+          : rawAssignedBatches.length === 0 && rawAssignedStudents.length === 0;
+
+      const assignedBatches: string[] = isCommon ? [] : rawAssignedBatches;
+      const assignedStudentsArray: string[] = isCommon ? [] : rawAssignedStudents;
       const subModulesArray = t.subModules || t.sub_modules || [];
 
       const meta = {

@@ -2,15 +2,44 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import {
+  Search,
+  Users,
+  Award,
+  TrendingUp,
+  AlertTriangle,
+  RotateCw,
+  Layers,
+  ChevronRight,
+  UserCheck,
+  Clock,
+  BookOpen,
+  Code2,
+  FileCheck2,
+  CheckCircle2,
+  XCircle,
+  BarChart2
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { PageHeader } from "@/components/layouts/page-header";
+import { getInitials } from "@/lib/utils";
 
 interface BatchMeta {
   id: string;
@@ -98,25 +127,24 @@ export default function InstitutionPerformancePage() {
   const [isLoadingBatches, setIsLoadingBatches] = useState(true);
   const [isLoadingPerformance, setIsLoadingPerformance] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Student Detail Drawer State
+  // Student details slide-over sheet
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [detailedStudent, setDetailedStudent] = useState<StudentDetailedView | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  // 1. Fetch assigned batches on mount
+  // 1. Fetch available batches
   useEffect(() => {
     async function loadBatches() {
       setIsLoadingBatches(true);
       setErrorMsg(null);
       try {
         const res = await fetch("/api/institution/batches");
-        if (!res.ok) throw new Error("Unable to fetch batches");
-        const data = await res.json();
-        const batchList: BatchMeta[] = (data.batches || []).map((b: any) => ({
+        if (!res.ok) throw new Error("Unable to load assigned batches");
+        const d = await res.json();
+        const batchList = (d.batches || []).map((b: any) => ({
           id: b.id,
           name: b.name,
           code: b.code,
@@ -125,7 +153,7 @@ export default function InstitutionPerformancePage() {
         setBatches(batchList);
 
         if (batchList.length > 0) {
-          if (initialBatchId && batchList.some((b) => b.id === initialBatchId)) {
+          if (initialBatchId && batchList.some((b: any) => b.id === initialBatchId)) {
             setSelectedBatchId(initialBatchId);
           } else {
             setSelectedBatchId(batchList[0]?.id || "");
@@ -140,7 +168,7 @@ export default function InstitutionPerformancePage() {
     loadBatches();
   }, [initialBatchId]);
 
-  // 2. Fetch batch performance whenever selectedBatchId or searchQuery changes
+  // 2. Fetch batch performance
   const fetchPerformance = useCallback(async (batchId: string, search: string) => {
     if (!batchId) return;
     setIsLoadingPerformance(true);
@@ -150,13 +178,13 @@ export default function InstitutionPerformancePage() {
       const res = await fetch(url);
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Unable to load performance data");
+        throw new Error(errData.error || "Unable to load performance telemetry");
       }
       const data = await res.json();
       setStudents(data.students || []);
       setCurrentBatch(data.batch || null);
     } catch (err: any) {
-      setErrorMsg(err.message || "Unable to load performance data. Please try again.");
+      setErrorMsg(err.message || "Unable to load performance telemetry. Please try again.");
     } finally {
       setIsLoadingPerformance(false);
     }
@@ -178,7 +206,7 @@ export default function InstitutionPerformancePage() {
       const res = await fetch(`/api/institution/students/${studentId}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Unable to load student details");
+        throw new Error(err.error || "Unable to load student dossier");
       }
       const data = await res.json();
       setDetailedStudent(data.student || null);
@@ -211,117 +239,239 @@ export default function InstitutionPerformancePage() {
 
   const renderMetric = (val: number | null) => {
     if (val === null || val === undefined) {
-      return <span className="text-muted-foreground font-medium">Data not available</span>;
+      return <span className="text-muted-foreground/60 italic font-mono text-[11px]">—</span>;
     }
     return <span className="font-mono font-bold">{val}%</span>;
   };
 
+  // Aggregates for selected batch
+  const batchAvg = useMemo(() => {
+    const scores = students.map((s) => s.overall).filter((s): s is number => s !== null && s !== undefined);
+    if (scores.length === 0) return null;
+    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  }, [students]);
+
+  const topScore = useMemo(() => {
+    const scores = students.map((s) => s.overall).filter((s): s is number => s !== null && s !== undefined);
+    if (scores.length === 0) return null;
+    return Math.max(...scores);
+  }, [students]);
+
+  const needsAttentionCount = useMemo(() => {
+    return students.filter((s) => s.status === "Needs Attention").length;
+  }, [students]);
+
   if (isLoadingBatches) {
     return (
-      <div className="space-y-6 pt-4">
-        <div className="h-8 w-64 bg-accent/60 rounded animate-pulse" />
-        <div className="h-10 w-80 bg-accent/40 rounded animate-pulse" />
-        <div className="h-64 bg-accent/30 rounded-lg border border-border animate-pulse" />
+      <div className="space-y-6 pt-2 animate-pulse">
+        <div className="h-24 bg-card rounded-2xl border border-border" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-28 bg-card rounded-2xl border border-border" />
+          ))}
+        </div>
+        <div className="h-72 bg-card rounded-2xl border border-border" />
       </div>
     );
   }
 
   if (batches.length === 0) {
     return (
-      <div className="py-20 text-center space-y-3">
-        <p className="text-base font-bold text-foreground">No batches assigned</p>
-        <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-          There are no batches allocated to your institution in the database. Please request LMS administrators to assign cohort batches.
-        </p>
+      <div className="space-y-8 animate-fade-up">
+        <PageHeader
+          title="Batch Performance Telemetry"
+          description="Authoritative academic scores across learning tracks, skill labs, coding assessments, and overall competencies."
+        />
+        <Card className="bg-card border-border rounded-2xl p-16 text-center shadow-xs">
+          <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4 text-muted-foreground">
+            <Layers className="h-6 w-6 opacity-60" />
+          </div>
+          <h3 className="text-base font-bold text-foreground">No Batches Assigned</h3>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1.5 leading-relaxed">
+            There are no cohorts allocated to your institution in the database yet. Once platform administrators assign batches to your institution, cohort analytics and individual student dossiers will populate here automatically.
+          </p>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 pt-2">
+    <div className="space-y-8 animate-fade-up">
       {/* Page Header */}
-      <div className="border-b border-border pb-6">
-        <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
-          Batch Performance Telemetry
-        </h1>
-        <p className="text-xs text-muted-foreground mt-1">
-          Authoritative academic scores across learning tracks, skill labs, coding assessments, and overall competencies.
-        </p>
+      <PageHeader
+        title="Batch Performance Telemetry"
+        description="Authoritative academic scores across learning tracks, skill labs, coding assessments, and overall competencies."
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchPerformance(selectedBatchId, searchQuery)}
+            disabled={isLoadingPerformance}
+            className="h-9 px-3.5 gap-2 text-xs font-semibold rounded-xl border-border hover:bg-accent"
+          >
+            <RotateCw className={`h-3.5 w-3.5 ${isLoadingPerformance ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        }
+      />
+
+      {/* Cohort KPI Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <Card className="bg-card border-border rounded-2xl shadow-xs">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cohort Learners</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">{students.length}</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Enrolled students</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+              <Users className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border rounded-2xl shadow-xs">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cohort Average</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
+                {batchAvg !== null ? `${batchAvg}%` : "—"}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Composite benchmark</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border rounded-2xl shadow-xs">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Top Score</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-primary mt-1 font-mono">
+                {topScore !== null ? `${topScore}%` : "—"}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Cohort high performer</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+              <Award className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border rounded-2xl shadow-xs">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Needs Attention</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-rose-600 dark:text-rose-400 mt-1 font-mono">
+                {needsAttentionCount}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Below passing threshold</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Controls Strip: Batch Selector & Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Batch Selector */}
-        <div className="flex items-center gap-2">
-          <label htmlFor="batch-select" className="text-xs font-bold text-muted-foreground uppercase tracking-wider shrink-0">
-            Batch:
-          </label>
-          <select
-            id="batch-select"
-            value={selectedBatchId}
-            onChange={(e) => handleBatchChange(e.target.value)}
-            className="h-9 px-3 rounded-md bg-background border border-input text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {batches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.code} — {b.name} ({b.studentCount} students)
-              </option>
-            ))}
-          </select>
-        </div>
+      <Card className="bg-card border-border rounded-2xl shadow-xs">
+        <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Batch Selector */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider shrink-0">
+              Active Cohort:
+            </span>
+            <div className="w-72">
+              <Select value={selectedBatchId} onValueChange={(val) => val && handleBatchChange(val)}>
+                <SelectTrigger className="h-10 text-xs font-semibold rounded-xl border-border bg-background">
+                  <SelectValue placeholder="Select Batch" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border rounded-xl">
+                  {batches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.code} — {b.name} ({b.studentCount} students)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-        {/* Real Backend Search */}
-        <div className="w-full sm:w-72">
-          <Input
-            placeholder="Search by Student ID or Name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="text-xs h-9"
-          />
-        </div>
-      </div>
+          {/* Search Input */}
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by ID or student name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 text-xs h-10 rounded-xl bg-background border-border"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Performance Content */}
       {isLoadingPerformance ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-12 bg-accent/40 rounded-lg border border-border animate-pulse" />
-          ))}
-        </div>
+        <Card className="bg-card border-border rounded-2xl p-6 shadow-xs">
+          <div className="space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-12 bg-accent/40 rounded-xl border border-border animate-pulse" />
+            ))}
+          </div>
+        </Card>
       ) : errorMsg ? (
-        <div className="py-16 text-center space-y-4">
-          <p className="text-sm font-semibold text-destructive">{errorMsg}</p>
-          <Button variant="outline" size="sm" onClick={() => fetchPerformance(selectedBatchId, searchQuery)}>
+        <Card className="bg-card border-border rounded-2xl p-12 text-center shadow-xs">
+          <h3 className="text-sm font-bold text-foreground">Error Loading Performance Data</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">{errorMsg}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchPerformance(selectedBatchId, searchQuery)}
+            className="mt-4 rounded-xl text-xs"
+          >
             Retry
           </Button>
-        </div>
+        </Card>
       ) : students.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-16 text-center space-y-2">
-          <p className="text-sm font-bold text-foreground">
-            {searchQuery ? "No matching students found" : "No students found"}
-          </p>
-          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+        <Card className="bg-card border-border rounded-2xl p-16 text-center shadow-xs">
+          <h3 className="text-sm font-bold text-foreground">
+            {searchQuery ? "No Matching Students Found" : "No Registered Students"}
+          </h3>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
             {searchQuery
-              ? "No students match your query in this batch."
-              : "There are currently no students registered in this batch in the database."}
+              ? "No students in this cohort matched your search query."
+              : "There are currently no students registered in this batch."}
           </p>
-        </div>
+          {searchQuery && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSearchQuery("")}
+              className="mt-4 rounded-xl text-xs font-semibold"
+            >
+              Clear Search
+            </Button>
+          )}
+        </Card>
       ) : (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-muted/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Student ID</th>
-                  <th className="py-3 px-4">Student Name</th>
-                  <th className="py-3 px-4 text-center">Learning</th>
-                  <th className="py-3 px-4 text-center">Skill Lab</th>
-                  <th className="py-3 px-4 text-center">Code Lab</th>
-                  <th className="py-3 px-4 text-center">Assess</th>
-                  <th className="py-3 px-4 text-center">Overall</th>
-                  <th className="py-3 px-4 text-center">Progress</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                  <th className="py-3 px-4 text-right">Details</th>
+                  <th className="py-3.5 px-5">Student ID</th>
+                  <th className="py-3.5 px-4">Student</th>
+                  <th className="py-3.5 px-4 text-center">Learning</th>
+                  <th className="py-3.5 px-4 text-center">Skill Lab</th>
+                  <th className="py-3.5 px-4 text-center">Code Lab</th>
+                  <th className="py-3.5 px-4 text-center">Assess</th>
+                  <th className="py-3.5 px-4 text-center">Overall</th>
+                  <th className="py-3.5 px-4 text-center">Progress</th>
+                  <th className="py-3.5 px-4 text-center">Status</th>
+                  <th className="py-3.5 px-5 text-right">Dossier</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -331,45 +481,44 @@ export default function InstitutionPerformancePage() {
                     className="hover:bg-accent/40 transition-colors cursor-pointer"
                     onClick={() => fetchStudentDetails(s.studentId)}
                   >
-                    {/* Student ID */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-foreground">
+                    <td className="py-3.5 px-5 font-mono font-bold text-foreground">
                       {s.employeeId}
                     </td>
 
-                    {/* Student Name */}
-                    <td className="py-3.5 px-4 font-semibold text-foreground">
-                      <div className="space-y-0.5">
-                        <p>{s.studentName}</p>
-                        <p className="text-[10px] text-muted-foreground font-normal">{s.email}</p>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-2.5">
+                        <Avatar className="h-7 w-7 rounded-full border border-border">
+                          <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
+                            {getInitials(s.studentName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-semibold text-foreground">{s.studentName}</p>
+                          <p className="text-[10px] text-muted-foreground">{s.email}</p>
+                        </div>
                       </div>
                     </td>
 
-                    {/* Learning */}
                     <td className="py-3.5 px-4 text-center">
                       {renderMetric(s.learning)}
                     </td>
 
-                    {/* Skill Lab */}
                     <td className="py-3.5 px-4 text-center">
                       {renderMetric(s.skillLab)}
                     </td>
 
-                    {/* Code Lab */}
                     <td className="py-3.5 px-4 text-center">
                       {renderMetric(s.codeLab)}
                     </td>
 
-                    {/* Assess */}
                     <td className="py-3.5 px-4 text-center">
                       {renderMetric(s.assess)}
                     </td>
 
-                    {/* Overall */}
                     <td className="py-3.5 px-4 text-center font-bold">
                       {renderMetric(s.overall)}
                     </td>
 
-                    {/* Progress */}
                     <td className="py-3.5 px-4 text-center">
                       {s.progress !== null ? (
                         <div className="w-20 mx-auto space-y-1">
@@ -382,14 +531,13 @@ export default function InstitutionPerformancePage() {
                           </div>
                         </div>
                       ) : (
-                        <span className="text-muted-foreground">Data not available</span>
+                        <span className="text-muted-foreground/60 text-[11px]">—</span>
                       )}
                     </td>
 
-                    {/* Status */}
                     <td className="py-3.5 px-4 text-center">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${getStatusBadgeClass(
+                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusBadgeClass(
                           s.status
                         )}`}
                       >
@@ -397,33 +545,34 @@ export default function InstitutionPerformancePage() {
                       </span>
                     </td>
 
-                    {/* Details Action */}
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        type="button"
+                    <td className="py-3.5 px-5 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           fetchStudentDetails(s.studentId);
                         }}
-                        className="px-2.5 py-1 rounded text-xs font-semibold text-primary hover:bg-primary/10 transition-colors border border-primary/20"
+                        className="h-8 px-2.5 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 border border-primary/20 gap-1"
                       >
                         Inspect
-                      </button>
+                        <ChevronRight className="h-3 w-3" />
+                      </Button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* Individual Student Performance Detail Drawer */}
+      {/* Individual Student Dossier Slide-Over Sheet */}
       <Sheet open={!!selectedStudentId} onOpenChange={(open) => !open && setSelectedStudentId(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-xl bg-background border-l border-border p-6 overflow-y-auto">
+        <SheetContent side="right" className="w-full sm:max-w-xl bg-card border-l border-border p-6 overflow-y-auto">
           <SheetHeader className="text-left pb-4 border-b border-border space-y-1">
             <SheetTitle className="text-base font-bold text-foreground tracking-tight">
-              Individual Performance Dossier
+              Learner Performance Dossier
             </SheetTitle>
             <p className="text-xs text-muted-foreground">
               Official evaluation metrics, attendance records, and assessment telemetry.
@@ -433,143 +582,120 @@ export default function InstitutionPerformancePage() {
           {isLoadingDetails ? (
             <div className="py-16 text-center space-y-3">
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-xs text-muted-foreground">Loading performance data from database...</p>
+              <p className="text-xs text-muted-foreground">Loading learner telemetry...</p>
             </div>
           ) : detailError ? (
             <div className="py-16 text-center space-y-4">
               <p className="text-sm font-semibold text-destructive">{detailError}</p>
-              <Button variant="outline" size="sm" onClick={() => selectedStudentId && fetchStudentDetails(selectedStudentId)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectedStudentId && fetchStudentDetails(selectedStudentId)}
+                className="rounded-xl text-xs"
+              >
                 Retry
               </Button>
             </div>
           ) : detailedStudent ? (
             <div className="space-y-6 pt-5 text-xs">
-              {/* Identity Header */}
-              <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+              {/* Profile Card */}
+              <Card className="bg-background border-border rounded-xl p-4 shadow-xs">
                 <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-sm font-extrabold text-foreground">{detailedStudent.studentName}</h3>
-                    <p className="text-muted-foreground">{detailedStudent.email}</p>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10 border border-border">
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                        {getInitials(detailedStudent.studentName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h4 className="font-bold text-sm text-foreground">{detailedStudent.studentName}</h4>
+                      <p className="text-muted-foreground text-[11px]">{detailedStudent.email}</p>
+                      <p className="text-muted-foreground text-[10px] mt-0.5 font-mono">
+                        ID: {detailedStudent.employeeId} • Batch: {detailedStudent.batchName}
+                      </p>
+                    </div>
                   </div>
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${getStatusBadgeClass(
-                      detailedStudent.overallStatus
-                    )}`}
+                  <Badge
+                    variant="outline"
+                    className={`font-semibold text-[10px] ${getStatusBadgeClass(detailedStudent.overallStatus)}`}
                   >
                     {detailedStudent.overallStatus}
-                  </span>
+                  </Badge>
                 </div>
+              </Card>
 
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border text-[11px]">
-                  <div>
-                    <span className="text-muted-foreground">Student ID: </span>
-                    <span className="font-mono font-bold text-foreground">{detailedStudent.employeeId}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Batch: </span>
-                    <span className="font-semibold text-foreground">{detailedStudent.batchName}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Joining Date: </span>
-                    <span className="font-mono text-foreground">{detailedStudent.joinedDate}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Account: </span>
-                    <span className="font-bold text-foreground uppercase">{detailedStudent.accountStatus}</span>
-                  </div>
+              {/* 4 Core Competency Scores */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-background border border-border rounded-xl p-3 text-center">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Learning</span>
+                  <p className="text-lg font-bold text-foreground mt-1 font-mono">
+                    {renderMetric(detailedStudent.learning)}
+                  </p>
                 </div>
-              </div>
-
-              {/* Core Competencies Matrix */}
-              <div className="space-y-2">
-                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Authoritative Performance Scores
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {/* Overall */}
-                  <div className="bg-card border border-border rounded-md p-3 space-y-1">
-                    <span className="text-[10px] text-muted-foreground font-bold uppercase">Overall</span>
-                    <p className="text-lg font-black tracking-tight text-foreground font-mono">
-                      {detailedStudent.overall !== null ? `${detailedStudent.overall}%` : "Data not available"}
-                    </p>
-                  </div>
-
-                  {/* Learning */}
-                  <div className="bg-card border border-border rounded-md p-3 space-y-1">
-                    <span className="text-[10px] text-muted-foreground font-bold uppercase">Learning</span>
-                    <p className="text-lg font-black tracking-tight text-foreground font-mono">
-                      {detailedStudent.learning !== null ? `${detailedStudent.learning}%` : "Data not available"}
-                    </p>
-                  </div>
-
-                  {/* Skill Lab */}
-                  <div className="bg-card border border-border rounded-md p-3 space-y-1">
-                    <span className="text-[10px] text-muted-foreground font-bold uppercase">Skill Lab</span>
-                    <p className="text-lg font-black tracking-tight text-foreground font-mono">
-                      {detailedStudent.skillLab !== null ? `${detailedStudent.skillLab}%` : "Data not available"}
-                    </p>
-                  </div>
-
-                  {/* Code Lab */}
-                  <div className="bg-card border border-border rounded-md p-3 space-y-1">
-                    <span className="text-[10px] text-muted-foreground font-bold uppercase">Code Lab</span>
-                    <p className="text-lg font-black tracking-tight text-foreground font-mono">
-                      {detailedStudent.codeLab !== null ? `${detailedStudent.codeLab}%` : "Data not available"}
-                    </p>
-                  </div>
-
-                  {/* Assess */}
-                  <div className="bg-card border border-border rounded-md p-3 space-y-1">
-                    <span className="text-[10px] text-muted-foreground font-bold uppercase">Assess</span>
-                    <p className="text-lg font-black tracking-tight text-foreground font-mono">
-                      {detailedStudent.assess !== null ? `${detailedStudent.assess}%` : "Data not available"}
-                    </p>
-                  </div>
-
-                  {/* Attendance */}
-                  <div className="bg-card border border-border rounded-md p-3 space-y-1">
-                    <span className="text-[10px] text-muted-foreground font-bold uppercase">Attendance</span>
-                    <p className="text-lg font-black tracking-tight text-foreground font-mono">
-                      {detailedStudent.attendance.rate !== null ? `${detailedStudent.attendance.rate}%` : "Data not available"}
-                    </p>
-                  </div>
+                <div className="bg-background border border-border rounded-xl p-3 text-center">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Skill Lab</span>
+                  <p className="text-lg font-bold text-foreground mt-1 font-mono">
+                    {renderMetric(detailedStudent.skillLab)}
+                  </p>
+                </div>
+                <div className="bg-background border border-border rounded-xl p-3 text-center">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Code Lab</span>
+                  <p className="text-lg font-bold text-foreground mt-1 font-mono">
+                    {renderMetric(detailedStudent.codeLab)}
+                  </p>
+                </div>
+                <div className="bg-background border border-border rounded-xl p-3 text-center">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Assess</span>
+                  <p className="text-lg font-bold text-foreground mt-1 font-mono">
+                    {renderMetric(detailedStudent.assess)}
+                  </p>
                 </div>
               </div>
 
-              {/* Engagement & Activity Telemetry */}
-              <div className="space-y-2">
-                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Activity Telemetry
-                </h4>
-                <div className="bg-card border border-border rounded-lg p-3 grid grid-cols-2 gap-3 text-[11px]">
+              {/* Attendance & Engagement */}
+              <Card className="bg-background border-border rounded-xl p-4 shadow-xs space-y-2">
+                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-primary" /> Attendance & Activity Telemetry
+                </span>
+                <div className="grid grid-cols-2 gap-4 pt-1">
                   <div>
-                    <span className="text-muted-foreground">Active Learning Time: </span>
-                    <span className="font-bold text-foreground font-mono">
-                      {detailedStudent.activity.activeTimeFormatted || "0m"}
-                    </span>
+                    <p className="text-muted-foreground text-[11px]">Live Class Attendance</p>
+                    <p className="font-mono font-bold text-foreground mt-0.5">
+                      {detailedStudent.attendance.rate !== null ? `${detailedStudent.attendance.rate}%` : "—"}{" "}
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        ({detailedStudent.attendance.attendedCount}/{detailedStudent.attendance.totalClasses} sessions)
+                      </span>
+                    </p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Last Telemetry Event: </span>
-                    <span className="font-mono text-foreground">{detailedStudent.activity.lastActivity}</span>
+                    <p className="text-muted-foreground text-[11px]">Active Portal Time</p>
+                    <p className="font-mono font-bold text-foreground mt-0.5">
+                      {detailedStudent.activity.activeTimeFormatted || "—"}
+                    </p>
                   </div>
                 </div>
-              </div>
+              </Card>
 
-              {/* Course Enrollments */}
+              {/* Enrolled Courses */}
               <div className="space-y-2">
-                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Enrolled Learning Tracks ({detailedStudent.courses.length})
-                </h4>
+                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5 text-primary" /> Course Curricula Progress
+                </span>
                 {detailedStudent.courses.length === 0 ? (
-                  <p className="text-muted-foreground italic py-2">Data not available</p>
+                  <p className="text-muted-foreground italic text-[11px]">No enrolled courses found.</p>
                 ) : (
-                  <div className="bg-card border border-border rounded-lg divide-y divide-border overflow-hidden">
+                  <div className="space-y-2">
                     {detailedStudent.courses.map((c) => (
-                      <div key={c.id} className="p-3 flex items-center justify-between gap-3">
-                        <span className="font-semibold text-foreground">{c.title}</span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="font-mono font-bold">{c.progress}%</span>
-                          <span className="text-[10px] font-bold uppercase text-muted-foreground">({c.status})</span>
+                      <div key={c.id} className="bg-background border border-border rounded-xl p-3 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-foreground text-xs">{c.title}</p>
+                          <span className="font-mono font-bold text-[11px] text-primary">{c.progress}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min(100, Math.max(0, c.progress))}%` }}
+                          />
                         </div>
                       </div>
                     ))}
@@ -579,62 +705,22 @@ export default function InstitutionPerformancePage() {
 
               {/* Recent Assessments */}
               <div className="space-y-2">
-                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Assessment Submissions ({detailedStudent.recentAssessments.length})
-                </h4>
+                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                  <FileCheck2 className="h-3.5 w-3.5 text-primary" /> Recent Formal Assessments
+                </span>
                 {detailedStudent.recentAssessments.length === 0 ? (
-                  <p className="text-muted-foreground italic py-2">Data not available</p>
+                  <p className="text-muted-foreground italic text-[11px]">No assessment submissions found.</p>
                 ) : (
-                  <div className="bg-card border border-border rounded-lg divide-y divide-border overflow-hidden">
+                  <div className="space-y-2">
                     {detailedStudent.recentAssessments.map((a) => (
-                      <div key={a.id} className="p-3 flex items-center justify-between gap-3">
+                      <div key={a.id} className="bg-background border border-border rounded-xl p-3 flex items-center justify-between">
                         <div>
-                          <p className="font-semibold text-foreground">{a.title}</p>
+                          <p className="font-semibold text-foreground text-xs">{a.title}</p>
                           <p className="text-[10px] text-muted-foreground">{a.submittedAt}</p>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-mono font-bold">{a.percentage}%</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {a.score} / {a.totalMarks} marks
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Recent Coding */}
-              <div className="space-y-2">
-                <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Code Lab Submissions ({detailedStudent.recentCoding.length})
-                </h4>
-                {detailedStudent.recentCoding.length === 0 ? (
-                  <p className="text-muted-foreground italic py-2">Data not available</p>
-                ) : (
-                  <div className="bg-card border border-border rounded-lg divide-y divide-border overflow-hidden">
-                    {detailedStudent.recentCoding.map((cs) => (
-                      <div key={cs.id} className="p-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-foreground font-mono">{cs.problemId}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {cs.language} · {cs.submittedAt}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span
-                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              cs.status === "accepted" || cs.status === "passed"
-                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                            }`}
-                          >
-                            {cs.status}
-                          </span>
-                          <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                            {cs.passedTestCases}/{cs.totalTestCases} cases
-                          </p>
-                        </div>
+                        <Badge variant="secondary" className="font-mono font-bold text-xs">
+                          {a.score}/{a.totalMarks} ({a.percentage}%)
+                        </Badge>
                       </div>
                     ))}
                   </div>

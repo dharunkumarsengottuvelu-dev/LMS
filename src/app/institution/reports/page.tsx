@@ -1,8 +1,27 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import {
+  Download,
+  FileSpreadsheet,
+  Users,
+  TrendingUp,
+  Award,
+  Layers,
+  RotateCw,
+  AlertCircle
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { PageHeader } from "@/components/layouts/page-header";
 
 interface BatchItem {
   id: string;
@@ -86,132 +105,229 @@ export default function InstitutionReportsPage() {
   };
 
   const renderMetric = (val: number | null) => {
-    if (val === null || val === undefined) return "N/A";
+    if (val === null || val === undefined) return "—";
     return `${val}%`;
   };
 
+  // Metrics
+  const avgOverall = useMemo(() => {
+    const scores = records.map((r) => r.overall).filter((s): s is number => s !== null && s !== undefined);
+    if (scores.length === 0) return null;
+    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  }, [records]);
+
+  const passCount = useMemo(() => {
+    return records.filter((r) => (r.overall || 0) >= 60).length;
+  }, [records]);
+
   return (
-    <div className="space-y-6 pt-2">
+    <div className="space-y-8 animate-fade-up">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
-            Academic Performance Reports
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Authoritative institutional audits, competency compliance summaries, and exportable grade books.
-          </p>
-        </div>
+      <PageHeader
+        title="Academic Performance Reports"
+        description="Institutional audits, competency compliance summaries, and exportable academic grade sheets."
+        actions={
+          <Button
+            onClick={handleExportCsv}
+            disabled={isLoading || isExporting || records.length === 0}
+            size="sm"
+            className="h-9 px-4 text-xs font-semibold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shadow-xs"
+          >
+            <Download className="h-4 w-4" />
+            {isExporting ? "Generating..." : "Export as CSV"}
+          </Button>
+        }
+      />
 
-        <Button
-          onClick={handleExportCsv}
-          disabled={isLoading || isExporting || records.length === 0}
-          size="sm"
-          className="text-xs font-semibold shrink-0"
-        >
-          {isExporting ? "Generating CSV..." : "Export as CSV"}
-        </Button>
+      {/* 4 Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <Card className="bg-card border-border rounded-2xl shadow-xs">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Records</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">{records.length}</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Audited students</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+              <Users className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border rounded-2xl shadow-xs">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cohort Benchmark</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
+                {avgOverall !== null ? `${avgOverall}%` : "—"}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Overall average</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border rounded-2xl shadow-xs">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Passing Rate</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 font-mono">
+                {records.length > 0 ? `${Math.round((passCount / records.length) * 100)}%` : "—"}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{passCount} students above 60%</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+              <Award className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border rounded-2xl shadow-xs">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Cohorts</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
+                {selectedBatchId === "all" ? batches.length : 1}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Selected scope</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0">
+              <Layers className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Filter Strip */}
-      <div className="flex items-center gap-3">
-        <label htmlFor="batch-filter" className="text-xs font-bold text-muted-foreground uppercase tracking-wider shrink-0">
-          Cohort Filter:
-        </label>
-        <select
-          id="batch-filter"
-          value={selectedBatchId}
-          onChange={(e) => setSelectedBatchId(e.target.value)}
-          className="h-9 px-3 rounded-md bg-background border border-input text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="all">All Assigned Batches</option>
-          {batches.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.code} — {b.name}
-            </option>
-          ))}
-        </select>
-        <span className="text-xs text-muted-foreground font-mono ml-auto">
-          {records.length} {records.length === 1 ? "Record" : "Records"}
-        </span>
-      </div>
+      {/* Cohort Selector Card */}
+      <Card className="bg-card border-border rounded-2xl shadow-xs">
+        <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider shrink-0">
+              Filter By Cohort:
+            </span>
+            <div className="w-72">
+              <Select value={selectedBatchId} onValueChange={(val) => setSelectedBatchId(val || "all")}>
+                <SelectTrigger className="h-10 text-xs font-semibold rounded-xl border-border bg-background">
+                  <SelectValue placeholder="All Batches" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border rounded-xl">
+                  <SelectItem value="all">All Assigned Batches</SelectItem>
+                  {batches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.code} — {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Badge variant="outline" className="self-start sm:self-auto font-mono text-xs text-muted-foreground px-3 py-1">
+            {records.length} {records.length === 1 ? "Record" : "Records"}
+          </Badge>
+        </CardContent>
+      </Card>
 
       {/* Report Data Preview Table */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-12 bg-accent/40 rounded-lg border border-border animate-pulse" />
-          ))}
-        </div>
+        <Card className="bg-card border-border rounded-2xl p-6 shadow-xs">
+          <div className="space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-12 bg-accent/40 rounded-xl border border-border animate-pulse" />
+            ))}
+          </div>
+        </Card>
       ) : errorMsg ? (
-        <div className="py-16 text-center space-y-4">
-          <p className="text-sm font-semibold text-destructive">{errorMsg}</p>
-          <Button variant="outline" size="sm" onClick={() => fetchReport(selectedBatchId)}>
+        <Card className="bg-card border-border rounded-2xl p-12 text-center shadow-xs">
+          <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3 opacity-80" />
+          <h3 className="text-sm font-bold text-foreground">Failed to Generate Report</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">{errorMsg}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchReport(selectedBatchId)}
+            className="mt-4 rounded-xl text-xs"
+          >
             Retry
           </Button>
-        </div>
+        </Card>
       ) : records.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-16 text-center space-y-2">
-          <p className="text-sm font-bold text-foreground">No performance data available</p>
-          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            There are no student evaluation records available for the selected cohort filter in the database.
+        <Card className="bg-card border-border rounded-2xl p-16 text-center shadow-xs">
+          <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4 text-muted-foreground">
+            <FileSpreadsheet className="h-6 w-6 opacity-60" />
+          </div>
+          <h3 className="text-base font-bold text-foreground">No Performance Records Available</h3>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1.5">
+            There are no student evaluation records available for the selected cohort filter.
           </p>
-        </div>
+        </Card>
       ) : (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-muted/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Student ID</th>
-                  <th className="py-3 px-4">Learner Name</th>
-                  <th className="py-3 px-4">Batch</th>
-                  <th className="py-3 px-4 text-center">Learning</th>
-                  <th className="py-3 px-4 text-center">Skill Lab</th>
-                  <th className="py-3 px-4 text-center">Code Lab</th>
-                  <th className="py-3 px-4 text-center">Assess</th>
-                  <th className="py-3 px-4 text-center">Overall</th>
-                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3.5 px-5">Student ID</th>
+                  <th className="py-3.5 px-4">Student Name</th>
+                  <th className="py-3.5 px-4">Cohort</th>
+                  <th className="py-3.5 px-4 text-center">Learning</th>
+                  <th className="py-3.5 px-4 text-center">Skill Lab</th>
+                  <th className="py-3.5 px-4 text-center">Code Lab</th>
+                  <th className="py-3.5 px-4 text-center">Assess</th>
+                  <th className="py-3.5 px-4 text-center">Overall</th>
+                  <th className="py-3.5 px-4 text-center">Progress</th>
+                  <th className="py-3.5 px-5 text-right">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {records.map((r) => (
                   <tr key={r.studentId} className="hover:bg-accent/40 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-foreground">
+                    <td className="py-3.5 px-5 font-mono font-bold text-foreground">
                       {r.employeeId}
                     </td>
-                    <td className="py-3 px-4 font-semibold text-foreground">
-                      {r.studentName}
+                    <td className="py-3.5 px-4">
+                      <div>
+                        <p className="font-semibold text-foreground">{r.studentName}</p>
+                        <p className="text-[10px] text-muted-foreground">{r.email}</p>
+                      </div>
                     </td>
-                    <td className="py-3 px-4 text-muted-foreground font-mono">
-                      {r.batchCode}
+                    <td className="py-3.5 px-4">
+                      <Badge variant="outline" className="font-mono text-[10px] bg-muted/50 text-muted-foreground">
+                        {r.batchCode}
+                      </Badge>
                     </td>
-                    <td className="py-3 px-4 text-center font-mono">
-                      {renderMetric(r.learning)}
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono">
-                      {renderMetric(r.skillLab)}
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono">
-                      {renderMetric(r.codeLab)}
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono">
-                      {renderMetric(r.assess)}
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono font-bold">
+                    <td className="py-3.5 px-4 text-center font-mono">{renderMetric(r.learning)}</td>
+                    <td className="py-3.5 px-4 text-center font-mono">{renderMetric(r.skillLab)}</td>
+                    <td className="py-3.5 px-4 text-center font-mono">{renderMetric(r.codeLab)}</td>
+                    <td className="py-3.5 px-4 text-center font-mono">{renderMetric(r.assess)}</td>
+                    <td className="py-3.5 px-4 text-center font-mono font-bold text-foreground">
                       {renderMetric(r.overall)}
                     </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-border bg-muted text-muted-foreground">
+                    <td className="py-3.5 px-4 text-center font-mono">{renderMetric(r.progress)}</td>
+                    <td className="py-3.5 px-5 text-right">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] font-semibold ${
+                          r.status === "Excellent"
+                            ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                            : r.status === "Good"
+                            ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                            : r.status === "Average"
+                            ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                            : "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                        }`}
+                      >
                         {r.status}
-                      </span>
+                      </Badge>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

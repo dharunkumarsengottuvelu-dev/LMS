@@ -90,29 +90,6 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Fallback: legacy string batches from profiles.batch
-    const legacyBatchCounts: Record<string, number> = {};
-    (profilesData || []).forEach((p: any) => {
-      const pb = p.batch || p.batch_name;
-      if (pb && !p.batch_id) {
-        legacyBatchCounts[pb] = (legacyBatchCounts[pb] || 0) + 1;
-      }
-    });
-    Object.entries(legacyBatchCounts).forEach(([bName, count]) => {
-      if (!batchNamesSet.has(bName)) {
-        batchNamesSet.add(bName);
-        mappedBatches.push({ id: bName, name: bName, collegeName: "Student Learning Cohort", studentCount: count });
-      }
-    });
-
-    if (mappedBatches.length === 0) {
-      mappedBatches.push(
-        { id: "Batch A", name: "Batch A", collegeName: "Campus Engineering", studentCount: 0 },
-        { id: "Batch B", name: "Batch B", collegeName: "Technology Division", studentCount: 0 },
-        { id: "General Cohort", name: "General Cohort", collegeName: "All Enrolled Students", studentCount: 0 }
-      );
-    }
-
 
     // 4. Calculate real-time stats
     const now = new Date();

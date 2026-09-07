@@ -59,7 +59,7 @@ export default async function InstitutionLayout({
   return (
     <div className="min-h-screen min-h-[100dvh] bg-background text-foreground flex flex-col">
       <InstitutionTopNav />
-      <main className="pt-[76px] md:pt-[84px] lms-page-container pb-16 flex-1 animate-fade-up">
+      <main className="pt-[88px] lms-page-container pb-12 flex-1 animate-fade-up">
         {children}
       </main>
     </div>

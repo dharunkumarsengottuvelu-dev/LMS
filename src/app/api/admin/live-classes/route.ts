@@ -93,26 +93,6 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Fallback: batches from profiles.batch field (legacy string-based batches)
-    const legacyBatchCounts: Record<string, number> = {};
-    (profilesData || []).forEach((p: any) => {
-      const pb = p.batch || p.batch_name;
-      if (pb && !p.batch_id) {
-        legacyBatchCounts[pb] = (legacyBatchCounts[pb] || 0) + 1;
-      }
-    });
-    Object.entries(legacyBatchCounts).forEach(([bName, count]) => {
-      if (!batchNamesSet.has(bName)) {
-        batchNamesSet.add(bName);
-        mappedBatches.push({
-          id: bName,
-          name: bName,
-          collegeName: "Student Learning Cohort",
-          studentCount: count,
-        });
-      }
-    });
-
     // 5. Fetch all attendance counts grouped by live_class_id
     let attendanceCounts: Record<string, number> = {};
     try {

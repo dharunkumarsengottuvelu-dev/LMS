@@ -2570,6 +2570,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Batches</SelectItem>
+                    <SelectItem value="Unassigned">Unassigned Only</SelectItem>
                     {allBatches.map((b: any) => {
                       const bName = typeof b === "string" ? b : (b.name || b.batch_name || b.id || "Batch");
                       const bKey = typeof b === "string" ? b : (b.id || b.name || Math.random().toString());
@@ -2583,9 +2584,16 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
 
               <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                 {allStudents
-                  .filter((s) => assignBatchFilter === "all" || s.batch === assignBatchFilter)
+                  .filter((s) =>
+                    assignBatchFilter === "all"
+                      ? true
+                      : assignBatchFilter === "Unassigned"
+                      ? !s.batch || s.batch === "Unassigned"
+                      : s.batch === assignBatchFilter
+                  )
                   .map((s) => {
                     const isChecked = selectedStudentIds.includes(s.id);
+                    const isUnassigned = !s.batch || s.batch === "Unassigned";
                     return (
                       <label key={s.id} className={`flex items-center justify-between p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${isChecked ? "bg-[#2563EB]/10 border-[#2563EB]/40" : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A]"}`}>
                         <div className="flex items-center gap-3">
@@ -2606,7 +2614,16 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                             <p className="text-[10px] text-[#6B7280] leading-tight">{s.email}</p>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-[9px] shrink-0">{s.batch}</Badge>
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] shrink-0 font-medium px-2 py-0.5 rounded-md ${
+                            !isUnassigned
+                              ? "border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5"
+                              : "border-slate-200 dark:border-zinc-700 text-slate-500 bg-slate-100/60 dark:bg-zinc-800/60"
+                          }`}
+                        >
+                          {!isUnassigned ? s.batch : "Unassigned"}
+                        </Badge>
                       </label>
                     );
                   })}

@@ -2,8 +2,24 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import {
+  Layers,
+  Users,
+  TrendingUp,
+  Activity,
+  ArrowRight,
+  RotateCw,
+  FileText,
+  BarChart2,
+  Calendar,
+  AlertCircle
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PageHeader } from "@/components/layouts/page-header";
+import { getInitials } from "@/lib/utils";
 
 interface OverviewData {
   totalBatches: number;
@@ -48,7 +64,7 @@ export default function InstitutionOverviewPage() {
       ]);
 
       if (!overviewRes.ok || !meRes.ok) {
-        throw new Error("Unable to load performance data. Please try again.");
+        throw new Error("Unable to load performance telemetry. Please try again.");
       }
 
       const ov = await overviewRes.json();
@@ -69,207 +85,231 @@ export default function InstitutionOverviewPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 pt-4">
-        <div className="h-8 w-64 bg-accent/60 rounded animate-pulse" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="space-y-6 pt-2 animate-pulse">
+        <div className="h-24 bg-card rounded-2xl border border-border" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 bg-accent/40 rounded-lg border border-border animate-pulse p-4" />
+            <div key={i} className="h-28 bg-card rounded-2xl border border-border p-5" />
           ))}
         </div>
-        <div className="h-72 bg-accent/30 rounded-lg border border-border animate-pulse" />
+        <div className="h-72 bg-card rounded-2xl border border-border" />
       </div>
     );
   }
 
   if (errorMsg) {
     return (
-      <div className="py-16 text-center space-y-4">
-        <p className="text-sm font-semibold text-destructive">{errorMsg}</p>
-        <Button variant="outline" size="sm" onClick={fetchOverview}>
+      <Card className="bg-card border-border rounded-2xl p-12 text-center shadow-xs">
+        <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3 opacity-80" />
+        <h3 className="text-sm font-bold text-foreground">Error Loading Overview</h3>
+        <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">{errorMsg}</p>
+        <Button variant="outline" size="sm" onClick={fetchOverview} className="mt-4 rounded-xl text-xs">
           Retry
         </Button>
-      </div>
+      </Card>
     );
   }
 
   const batches = data?.batches || [];
 
   return (
-    <div className="space-y-8 pt-2">
+    <div className="space-y-8 animate-fade-up">
       {/* Executive Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
-              {institution?.name || "Institution Performance Portal"}
-            </h1>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2.5">
+            <span>{institution?.name || "Institution Performance Portal"}</span>
             <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px] font-mono font-bold">
               {institution?.code || "CODE"}
             </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Real-time academic telemetry, batch progress, and individual learner evaluations.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <Link href="/institution/reports">
-            <Button variant="outline" size="sm" className="text-xs font-semibold">
-              Generate Reports
-            </Button>
-          </Link>
-          <Link href="/institution/performance">
-            <Button size="sm" className="text-xs font-semibold">
-              Batch Performance
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* KPI Metric Summary Strip (Zero Decorative Icons) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Batches */}
-        <div className="bg-card border border-border rounded-lg p-5 space-y-1">
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            Assigned Batches
           </span>
-          <div className="flex items-baseline justify-between pt-1">
-            <span className="text-2xl sm:text-3xl font-black tracking-tight text-foreground font-mono">
-              {data?.totalBatches ?? 0}
-            </span>
-            <span className="text-[11px] text-muted-foreground">Active Units</span>
+        }
+        description="Executive academic telemetry, batch progress, and learner competency evaluations."
+        actions={
+          <div className="flex items-center gap-2.5">
+            <Link href="/institution/reports">
+              <Button variant="outline" size="sm" className="h-9 px-3.5 text-xs font-semibold rounded-xl gap-2">
+                <FileText className="h-3.5 w-3.5" />
+                Reports
+              </Button>
+            </Link>
+            <Link href="/institution/performance">
+              <Button size="sm" className="h-9 px-3.5 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl gap-2 shadow-xs">
+                <BarChart2 className="h-3.5 w-3.5" />
+                Batch Analytics
+              </Button>
+            </Link>
           </div>
-        </div>
+        }
+      />
+
+      {/* KPI Metric Summary Strip */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* Total Batches */}
+        <Card className="bg-card border-border rounded-2xl shadow-xs hover:border-primary/30 transition-colors">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Assigned Batches</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
+                {data?.totalBatches ?? 0}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Active academic units</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+              <Layers className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Total Students */}
-        <div className="bg-card border border-border rounded-lg p-5 space-y-1">
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            Enrolled Learners
-          </span>
-          <div className="flex items-baseline justify-between pt-1">
-            <span className="text-2xl sm:text-3xl font-black tracking-tight text-foreground font-mono">
-              {data?.totalStudents ?? 0}
-            </span>
-            <span className="text-[11px] text-muted-foreground">Registered</span>
-          </div>
-        </div>
+        <Card className="bg-card border-border rounded-2xl shadow-xs hover:border-primary/30 transition-colors">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enrolled Learners</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
+                {data?.totalStudents ?? 0}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Total registered</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0">
+              <Users className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Average Performance */}
-        <div className="bg-card border border-border rounded-lg p-5 space-y-1">
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            Overall Average
-          </span>
-          <div className="flex items-baseline justify-between pt-1">
-            {data?.averagePerformance !== null && data?.averagePerformance !== undefined ? (
-              <span className="text-2xl sm:text-3xl font-black tracking-tight text-foreground font-mono">
-                {data.averagePerformance}%
-              </span>
-            ) : (
-              <span className="text-xs font-medium text-muted-foreground italic">
-                No performance data available
-              </span>
-            )}
-            <span className="text-[11px] text-muted-foreground">Composite</span>
-          </div>
-        </div>
+        <Card className="bg-card border-border rounded-2xl shadow-xs hover:border-primary/30 transition-colors">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Overall Average</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
+                {data?.averagePerformance !== null && data?.averagePerformance !== undefined
+                  ? `${data.averagePerformance}%`
+                  : "N/A"}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Composite evaluation</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Active Learner Rate */}
-        <div className="bg-card border border-border rounded-lg p-5 space-y-1">
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-            Active Rate
-          </span>
-          <div className="flex items-baseline justify-between pt-1">
-            {data?.activeLearnerRate !== null && data?.activeLearnerRate !== undefined ? (
-              <span className="text-2xl sm:text-3xl font-black tracking-tight text-foreground font-mono">
-                {data.activeLearnerRate}%
-              </span>
-            ) : (
-              <span className="text-xs font-medium text-muted-foreground italic">
-                No performance data available
-              </span>
-            )}
-            <span className="text-[11px] text-muted-foreground">Engagement</span>
-          </div>
-        </div>
+        <Card className="bg-card border-border rounded-2xl shadow-xs hover:border-primary/30 transition-colors">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Engagement Rate</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
+                {data?.activeLearnerRate !== null && data?.activeLearnerRate !== undefined
+                  ? `${data.activeLearnerRate}%`
+                  : "100%"}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">30-day active threshold</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+              <Activity className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Assigned Batches Table Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold tracking-tight text-foreground uppercase tracking-wider">
-            Assigned Batches
-          </h2>
-          <Link
-            href="/institution/batches"
-            className="text-xs font-semibold text-primary hover:underline"
-          >
-            View All Batches
+      {/* Cohort Directory Overview Table */}
+      <Card className="bg-card border-border rounded-2xl shadow-xs overflow-hidden">
+        <CardHeader className="p-5 sm:p-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base font-bold text-foreground">Active Cohorts Summary</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground mt-0.5">
+              Current progress and student density per assigned batch
+            </CardDescription>
+          </div>
+          <Link href="/institution/batches">
+            <Button variant="outline" size="sm" className="h-8 text-xs font-semibold rounded-lg">
+              Manage Batches
+            </Button>
           </Link>
-        </div>
+        </CardHeader>
 
         {batches.length === 0 ? (
-          <div className="bg-card border border-border rounded-lg p-12 text-center space-y-2">
-            <p className="text-sm font-bold text-foreground">No batches assigned</p>
-            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              Your institution currently does not have any assigned batches in the database. When batches are assigned by LMS administration, they will appear here automatically.
+          <div className="p-12 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3 text-muted-foreground">
+              <Layers className="h-6 w-6 opacity-60" />
+            </div>
+            <h4 className="text-sm font-bold text-foreground">No Batches Assigned</h4>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
+              Your institution does not have any active batches assigned yet. When batches are created by LMS administrators, they will appear here automatically.
             </p>
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-muted/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">Batch Code</th>
-                    <th className="py-3 px-4">Batch Name</th>
-                    <th className="py-3 px-4">Lead Trainer</th>
-                    <th className="py-3 px-4 text-center">Enrolled</th>
-                    <th className="py-3 px-4 text-center">Status</th>
-                    <th className="py-3 px-4 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {batches.map((b) => (
-                    <tr key={b.id} className="hover:bg-accent/40 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-foreground">
-                        {b.code}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-foreground">
-                        {b.name}
-                      </td>
-                      <td className="py-3.5 px-4 text-muted-foreground">
-                        {b.trainerName}
-                      </td>
-                      <td className="py-3.5 px-4 text-center font-mono font-bold">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                <tr>
+                  <th className="py-3 px-5">Batch Code</th>
+                  <th className="py-3 px-4">Cohort Name</th>
+                  <th className="py-3 px-4">Trainer</th>
+                  <th className="py-3 px-4">Start Date</th>
+                  <th className="py-3 px-4 text-center">Students</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {batches.map((b) => (
+                  <tr key={b.id} className="hover:bg-accent/40 transition-colors">
+                    <td className="py-3.5 px-5 font-mono text-[11px] font-bold text-primary">
+                      {b.code}
+                    </td>
+                    <td className="py-3.5 px-4 font-semibold text-foreground">
+                      {b.name}
+                    </td>
+                    <td className="py-3.5 px-4 text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6 rounded-full border border-border">
+                          <AvatarFallback className="bg-primary/10 text-primary text-[9px] font-bold">
+                            {getInitials(b.trainerName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{b.trainerName}</span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-3 w-3 opacity-60" />
+                        <span>{b.startDate}</span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 text-center font-mono font-bold text-foreground">
+                      <Badge variant="secondary" className="text-[11px] px-2 py-0.5">
                         {b.studentCount}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            b.status === "active"
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                              : "bg-muted text-muted-foreground border border-border"
-                          }`}
+                      </Badge>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <Badge
+                        variant="outline"
+                        className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-semibold"
+                      >
+                        {b.status}
+                      </Badge>
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <Link href={`/institution/performance?batchId=${b.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs font-semibold text-primary hover:bg-primary/10 rounded-md gap-1"
                         >
-                          {b.status}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <Link
-                          href={`/institution/performance?batchId=${b.id}`}
-                          className="inline-flex items-center px-2.5 py-1 rounded text-xs font-semibold text-primary hover:bg-primary/10 transition-colors border border-primary/20"
-                        >
-                          View Performance
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          View <ArrowRight className="h-3 w-3" />
+                        </Button>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

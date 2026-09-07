@@ -87,50 +87,39 @@ export async function GET() {
         id: s.id || s.user_id,
         name: fullName,
         email: s.email || "",
-        batch: s.batch || s.batch_name || s.batch_id || "General Cohort",
+        batch: s.batch_name || s.batch || s.batch_id || "Unassigned",
       };
+    });
+
+    // Fetch batch_members for student counts
+    const { data: batchMembersData } = await adminClient
+      .from("batch_members")
+      .select("batch_id, user_id");
+
+    const batchMemberCounts: Record<string, number> = {};
+    (batchMembersData || []).forEach((bm: any) => {
+      batchMemberCounts[bm.batch_id] = (batchMemberCounts[bm.batch_id] || 0) + 1;
     });
 
     const { data: batchesData } = await adminClient
       .from("batches")
-      .select("id, name, batch_name, code, description");
+      .select("id, name, batch_name, code, description, status")
+      .order("created_at", { ascending: false });
 
-    const batchNamesSet = new Set<string>();
-    const mappedBatches: any[] = [];
-
-    (batchesData || []).forEach((b: any) => {
-      const bName = b.name || b.batch_name;
-      if (bName) {
-        batchNamesSet.add(bName);
-        let meta: any = {};
-        try {
-          if (b.description && b.description.startsWith("{")) {
-            meta = JSON.parse(b.description);
-          }
-        } catch {}
-        mappedBatches.push({
-          id: b.id,
-          name: bName,
-          collegeName: meta.collegeName || meta.college_name || "",
-        });
-      }
+    const mappedBatches: any[] = (batchesData || []).map((b: any) => {
+      let meta: any = {};
+      try {
+        if (b.description && b.description.startsWith("{")) {
+          meta = JSON.parse(b.description);
+        }
+      } catch {}
+      return {
+        id: b.id,
+        name: b.name || b.batch_name || "Untitled Batch",
+        collegeName: meta.collegeName || meta.college_name || "",
+        studentCount: batchMemberCounts[b.id] || 0,
+      };
     });
-
-    studentProfiles.forEach((s: any) => {
-      const sb = s.batch || s.batch_name || s.batch_id;
-      if (sb && !batchNamesSet.has(sb)) {
-        batchNamesSet.add(sb);
-        mappedBatches.push({
-          id: sb,
-          name: sb,
-          collegeName: "Student Cohort",
-        });
-      }
-    });
-
-    if (mappedBatches.length === 0) {
-      mappedBatches.push({ id: "General Cohort", name: "General Cohort", collegeName: "All Students" });
-    }
 
     const mappedCourses = (coursesData || []).map((c: any) => {
       let meta: any = {};

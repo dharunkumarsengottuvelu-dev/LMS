@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import {
   Users, GraduationCap, BookOpen, ClipboardList,
-  Calendar, Code2, TrendingUp, Activity, ArrowUpRight, ArrowDownRight, Boxes
+  Calendar, Code2, TrendingUp, Activity, ArrowUpRight, ArrowDownRight
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -100,25 +100,7 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
       {/* 1. Page Title & Description */}
       <PageHeader
         title="System Dashboard"
-        actions={
-          <>
-            <Button variant="outline" className="h-[44px] px-5" asChild>
-              <Link href="/admin/batches">
-                <Boxes className="h-4 w-4 mr-2 text-primary" />
-                Batches
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-[44px] px-5" asChild>
-              <Link href="/admin/students">Student Hub</Link>
-            </Button>
-            <Button className="h-[44px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-2" asChild>
-              <Link href="/admin/users">
-                <Users className="h-5 w-5" />
-                User Directory
-              </Link>
-            </Button>
-          </>
-        }
+        description="Real-time institutional metrics, active cohort performance, and administrative command center."
       />
 
       {/* 3. Statistics Grid (Strict 4-Column Responsive Grid) */}

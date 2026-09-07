@@ -14,51 +14,35 @@ export async function GET() {
 
     if (assignError) throw assignError;
 
-    // 2. Fetch batches & student cohorts
+    // 2. Fetch batches & members dynamically
+    const { data: batchMembersData } = await adminClient
+      .from("batch_members")
+      .select("batch_id, user_id");
+
+    const batchMemberCounts: Record<string, number> = {};
+    (batchMembersData || []).forEach((bm: any) => {
+      batchMemberCounts[bm.batch_id] = (batchMemberCounts[bm.batch_id] || 0) + 1;
+    });
+
     const { data: batchesData } = await adminClient
       .from("batches")
-      .select("id, name, batch_name, code, description");
+      .select("id, name, batch_name, code, description, status")
+      .order("created_at", { ascending: false });
 
-    const { data: profilesData } = await adminClient
-      .from("profiles")
-      .select("batch, batch_name, batch_id");
-
-    const batchNamesSet = new Set<string>();
-    const mappedBatches: any[] = [];
-
-    (batchesData || []).forEach((b: any) => {
-      const bName = b.name || b.batch_name;
-      if (bName) {
-        batchNamesSet.add(bName);
-        let meta: any = {};
-        try {
-          if (b.description && b.description.startsWith("{")) {
-            meta = JSON.parse(b.description);
-          }
-        } catch {}
-        mappedBatches.push({
-          id: b.id,
-          name: bName,
-          collegeName: meta.collegeName || meta.college_name || "",
-        });
-      }
+    const mappedBatches: any[] = (batchesData || []).map((b: any) => {
+      let meta: any = {};
+      try {
+        if (b.description && b.description.startsWith("{")) {
+          meta = JSON.parse(b.description);
+        }
+      } catch {}
+      return {
+        id: b.id,
+        name: b.name || b.batch_name || "Untitled Batch",
+        collegeName: meta.collegeName || meta.college_name || "",
+        studentCount: batchMemberCounts[b.id] || 0,
+      };
     });
-
-    (profilesData || []).forEach((p: any) => {
-      const pb = p.batch || p.batch_name || p.batch_id;
-      if (pb && !batchNamesSet.has(pb)) {
-        batchNamesSet.add(pb);
-        mappedBatches.push({
-          id: pb,
-          name: pb,
-          collegeName: "Student Cohort",
-        });
-      }
-    });
-
-    if (mappedBatches.length === 0) {
-      mappedBatches.push({ id: "General Cohort", name: "General Cohort", collegeName: "All Students" });
-    }
 
     // 3. Fetch submissions for count
     const { data: submissionsData } = await adminClient

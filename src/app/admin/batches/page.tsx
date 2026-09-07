@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import * as XLSX from "xlsx";
 import { 
   Building2, Plus, Search, MoreVertical, Edit2, 
   Trash2, Users, FileSpreadsheet, Lock, Unlock, 
   MapPin, Clock, CalendarDays, RefreshCw, X, ArrowRight,
-  Boxes, CheckCircle2, GraduationCap, Calendar, Edit, XCircle, UserPlus, ArrowRightLeft, UserMinus, BookOpen, User, Check
+  Boxes, CheckCircle2, GraduationCap, Calendar, Edit, XCircle, UserPlus, ArrowRightLeft, UserMinus, BookOpen, User, Check,
+  UploadCloud, Download, AlertTriangle, LayoutGrid, List, Filter, Layers, Eye, Sparkles
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,7 @@ interface LMSBatch {
   id: string;
   batchName: string;
   collegeName: string;
+  code?: string;
   course?: string;
   startDate?: string;
   trainer?: string;
@@ -33,12 +36,36 @@ interface LMSBatch {
   studentIds: string[];
 }
 
+interface InstitutionItem {
+  id: string;
+  userId?: string;
+  name: string;
+  college: string;
+  code: string;
+  email?: string;
+  batchCount?: number;
+}
+
 export default function AdminBatchesPage() {
   const { toast } = useToast();
   const [batches, setBatches] = useState<LMSBatch[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
+  const [institutions, setInstitutions] = useState<InstitutionItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Institution Assignment Modal State
+  const [isAssignInstitutionModalOpen, setIsAssignInstitutionModalOpen] = useState(false);
+  const [assigningBatch, setAssigningBatch] = useState<LMSBatch | null>(null);
+  const [selectedInstitutionCollege, setSelectedInstitutionCollege] = useState<string>("none");
+  const [customCollegeInput, setCustomCollegeInput] = useState<string>("");
+  const [isSavingInstitutionAssignment, setIsSavingInstitutionAssignment] = useState(false);
+
+  // Bulk Upload Modal State
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkParsedRows, setBulkParsedRows] = useState<any[]>([]);
+  const [isUploadingBulk, setIsUploadingBulk] = useState(false);
+  const [bulkFileError, setBulkFileError] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -60,6 +87,17 @@ export default function AdminBatchesPage() {
 
       const { data: cData } = await supabase.from("courses").select("*");
       if (cData) setCourses(cData);
+
+      // 3. Fetch partner institutions
+      try {
+        const instRes = await fetch("/api/admin/institutions");
+        if (instRes.ok) {
+          const instData = await instRes.json();
+          if (instData.institutions) setInstitutions(instData.institutions);
+        }
+      } catch (instErr) {
+        console.warn("Could not fetch institutions:", instErr);
+      }
     } catch (err) {
       console.error("Error loading batches page data:", err);
     } finally {
@@ -119,8 +157,11 @@ export default function AdminBatchesPage() {
     batches.forEach((b) => {
       if (b.collegeName) set.add(b.collegeName);
     });
+    institutions.forEach((inst) => {
+      if (inst.college) set.add(inst.college);
+    });
     return Array.from(set);
-  }, [batches]);
+  }, [batches, institutions]);
 
   // Filtered Batches
   const filteredBatches = batches.filter((b) => {
@@ -254,6 +295,234 @@ export default function AdminBatchesPage() {
       } catch (err) {
         console.error("Error deleting batch:", err);
       }
+    }
+  };
+
+  // Open Assign to Institution Dialog
+  const handleOpenAssignInstitution = (batch: LMSBatch) => {
+    setAssigningBatch(batch);
+    const existingCollege = batch.collegeName?.trim() || "";
+    if (!existingCollege) {
+      setSelectedInstitutionCollege("none");
+      setCustomCollegeInput("");
+    } else {
+      const match = institutions.find((i) => i.college.toLowerCase() === existingCollege.toLowerCase());
+      if (match) {
+        setSelectedInstitutionCollege(match.college);
+        setCustomCollegeInput("");
+      } else {
+        setSelectedInstitutionCollege("custom");
+        setCustomCollegeInput(existingCollege);
+      }
+    }
+    setIsAssignInstitutionModalOpen(true);
+  };
+
+  // Save Batch Assignment to Institution
+  const handleSaveInstitutionAssignment = async () => {
+    if (!assigningBatch) return;
+
+    let targetCollege = "";
+    if (selectedInstitutionCollege === "custom") {
+      targetCollege = customCollegeInput.trim();
+    } else if (selectedInstitutionCollege !== "none") {
+      targetCollege = selectedInstitutionCollege.trim();
+    }
+
+    setIsSavingInstitutionAssignment(true);
+    try {
+      const res = await fetch(`/api/admin/batches/${assigningBatch.id}/assign-institution`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collegeName: targetCollege }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to assign institution");
+      }
+
+      setBatches((prev) =>
+        prev.map((b) =>
+          b.id === assigningBatch.id ? { ...b, collegeName: targetCollege } : b
+        )
+      );
+
+      toast({
+        title: targetCollege ? "Batch Assigned to Institution" : "Institution Assignment Removed",
+        description: targetCollege
+          ? `Batch "${assigningBatch.batchName}" is now linked to ${targetCollege}. It will immediately sync to their institution performance portal.`
+          : `Batch "${assigningBatch.batchName}" is now unlinked from institutions.`,
+      });
+
+      setIsAssignInstitutionModalOpen(false);
+      setAssigningBatch(null);
+    } catch (err: any) {
+      toast({
+        title: "Assignment Failed",
+        description: err.message || "Failed to update institution assignment",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingInstitutionAssignment(false);
+    }
+  };
+
+  // Download Sample Template for Bulk Batches
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      ["Batch Name", "College / Institution", "Lead Trainer", "Course Track", "Start Date", "Batch Code"],
+      ["Full Stack Java 2026", "SSCET", "Dr. Aris Thorne", "Full Stack Web Development", "2026-09-15", "FS-2026"],
+      ["AI & Data Science Batch A", "SSCET", "Sarah Jenkins", "Applied Machine Learning", "2026-10-01", "AI-2026"],
+      ["Cloud & DevOps Cohort", "", "Michael Scott", "Cloud Architecture", "2026-10-15", "DEV-2026"],
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    ws["!cols"] = [{ wch: 25 }, { wch: 22 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 15 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Batches Template");
+    XLSX.writeFile(wb, "falcon_batches_bulk_template.xlsx");
+  };
+
+  // Handle File Upload (Excel or CSV)
+  const handleBulkFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBulkFileError(null);
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) throw new Error("File contains no sheets.");
+
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet) throw new Error("Worksheet could not be read.");
+      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      if (rows.length < 2) {
+        throw new Error("File must contain at least a header row and one batch record.");
+      }
+
+      const headers = (rows[0] || []).map((h: any) => String(h || "").trim().toLowerCase());
+
+      const findColIdx = (keywords: string[]) => {
+        return headers.findIndex((h: string) => keywords.some((k) => h.includes(k)));
+      };
+
+      const nameIdx = findColIdx(["batch name", "cohort", "batch"]);
+      const collegeIdx = findColIdx(["college", "institution", "campus"]);
+      const trainerIdx = findColIdx(["trainer", "lead trainer", "instructor", "faculty"]);
+      const courseIdx = findColIdx(["course", "track", "program"]);
+      const dateIdx = findColIdx(["start date", "date", "start"]);
+      const codeIdx = findColIdx(["code", "batch code"]);
+
+      const parsed: any[] = [];
+
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0 || row.every((c: any) => !c || String(c).trim() === "")) {
+          continue;
+        }
+
+        const batchName = nameIdx !== -1 && row[nameIdx] ? String(row[nameIdx]).trim() : "";
+        const collegeName = collegeIdx !== -1 && row[collegeIdx] ? String(row[collegeIdx]).trim() : "";
+        const leadTrainer = trainerIdx !== -1 && row[trainerIdx] ? String(row[trainerIdx]).trim() : "";
+        const courseTrack = courseIdx !== -1 && row[courseIdx] ? String(row[courseIdx]).trim() : "";
+        let startDate = dateIdx !== -1 && row[dateIdx] ? String(row[dateIdx]).trim() : "";
+        const code = codeIdx !== -1 && row[codeIdx] ? String(row[codeIdx]).trim() : "";
+
+        if (typeof row[dateIdx] === "number") {
+          const jsDate = new Date(Math.round((row[dateIdx] - 25569) * 86400 * 1000));
+          if (!isNaN(jsDate.getTime())) {
+            startDate = jsDate.toISOString().split("T")[0] || "";
+          }
+        }
+
+        const isValid = !!batchName;
+        const validationMsg = !batchName ? "Batch Name is required" : undefined;
+
+        parsed.push({
+          id: `row-${i}`,
+          batchName,
+          collegeName,
+          leadTrainer,
+          courseTrack,
+          startDate,
+          code,
+          isValid,
+          validationMsg,
+        });
+      }
+
+      if (parsed.length === 0) {
+        throw new Error("No data rows found in uploaded file.");
+      }
+
+      setBulkParsedRows(parsed);
+    } catch (err: any) {
+      setBulkFileError(err.message || "Failed to parse file. Please verify format.");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveBulkRow = (rowId: string) => {
+    setBulkParsedRows((prev) => prev.filter((r) => r.id !== rowId));
+  };
+
+  const handleExecuteBulkImport = async () => {
+    const validRows = bulkParsedRows.filter((r) => r.isValid);
+    if (validRows.length === 0) {
+      toast({
+        title: "No Valid Batches",
+        description: "Please provide at least one batch with a valid Batch Name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploadingBulk(true);
+    try {
+      const res = await fetch("/api/admin/batches/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          batches: validRows.map((r) => ({
+            batchName: r.batchName,
+            collegeName: r.collegeName,
+            leadTrainer: r.leadTrainer,
+            courseTrack: r.courseTrack,
+            startDate: r.startDate,
+            code: r.code,
+          })),
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to bulk create batches");
+      }
+
+      const data = await res.json();
+      if (data.batches && data.batches.length > 0) {
+        setBatches((prev) => [...data.batches, ...prev]);
+        toast({
+          title: "Batches Created Successfully",
+          description: `Imported ${data.insertedCount} batches into the system. All institution mappings and cohorts are now active.`,
+        });
+      }
+
+      setIsBulkModalOpen(false);
+      setBulkParsedRows([]);
+    } catch (err: any) {
+      toast({
+        title: "Bulk Import Failed",
+        description: err.message || "An error occurred during bulk creation.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingBulk(false);
     }
   };
 
@@ -394,18 +663,34 @@ export default function AdminBatchesPage() {
 
   return (
     <div className="space-y-8 animate-fade-up">
-      {/* 1. Header & Primary Action */}
+      {/* 1. Header & Primary Actions (Falcon / Courses / Practices Style) */}
       <PageHeader
         title="Batch Management"
+        description="Configure student cohorts, link academic partner institutions, assign training tracks, and track learner enrollments."
         actions={
-          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            <Button
+              onClick={() => {
+                setBulkParsedRows([]);
+                setBulkFileError(null);
+                setIsBulkModalOpen(true);
+              }}
+              variant="outline"
+              className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-xs transition-all shrink-0"
+              title="Bulk create cohorts via spreadsheet"
+            >
+              <UploadCloud className="h-4 w-4 text-[#2563EB]" />
+              <span>Bulk Upload Batches</span>
+            </Button>
+
             <Button
               onClick={handleOpenCreateModal}
-              variant="outline"
-              className="h-[44px] border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 dark:border-[#3B82F6] dark:text-[#3B82F6] font-semibold text-sm px-6 rounded-full shadow-xs transition-all"
+              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs"
             >
-              Create New Batch
+              <Plus className="h-4 w-4" />
+              <span>Create New Batch</span>
             </Button>
+
             <Button
               onClick={() => {
                 setViewingBatch(null);
@@ -416,271 +701,341 @@ export default function AdminBatchesPage() {
                 setStudentSearchQuery("");
                 setIsAddStudentModalOpen(true);
               }}
-              className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm px-6 rounded-full shadow-md shadow-[#2563EB]/25 transition-all"
+              className="h-[44px] bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs"
             >
-              Add Student to Batch
+              <UserPlus className="h-4 w-4" />
+              <span>Add Students to Batch</span>
             </Button>
           </div>
         }
       />
 
-      {/* 2. Key Metrics Overview Cards */}
+      {/* 2. Key Metrics Overview Cards (Clean Typographic Standard - No Icons) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA]">Total Batches</span>
-            <div className="w-9 h-9 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
-              <Boxes className="h-5 w-5" />
-            </div>
+            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA] uppercase tracking-wider text-[11px]">Total Batches</span>
+            <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md border border-slate-200/60 dark:border-zinc-700">
+              SYSTEM
+            </span>
           </div>
           <div className="mt-3">
-            <span className="text-3xl font-bold text-[#111827] dark:text-[#FAFAFA]">{totalBatches}</span>
-            <span className="text-xs text-[#6B7280] ml-2 font-medium">Configured</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold text-[#111827] dark:text-[#FAFAFA] font-mono">{totalBatches}</span>
+              <span className="text-xs text-[#6B7280] font-medium">Configured</span>
+            </div>
+            <div className="w-full h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden mt-3">
+              <div className="h-full bg-slate-900 dark:bg-zinc-400 rounded-full w-full" />
+            </div>
           </div>
         </Card>
 
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA]">Active Batches</span>
-            <div className="w-9 h-9 rounded-xl bg-[#16A34A]/10 text-[#16A34A] flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
+            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA] uppercase tracking-wider text-[11px]">Active Cohorts</span>
+            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+              LIVE
+            </span>
           </div>
           <div className="mt-3">
-            <span className="text-3xl font-bold text-[#16A34A]">{activeBatches}</span>
-            <span className="text-xs text-[#6B7280] ml-2 font-medium">In Session</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold text-[#16A34A] font-mono">{activeBatches}</span>
+              <span className="text-xs text-[#6B7280] font-medium">In Session</span>
+            </div>
+            <div className="w-full h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden mt-3">
+              <div
+                className="h-full bg-emerald-500 rounded-full"
+                style={{ width: totalBatches > 0 ? `${Math.round((activeBatches / totalBatches) * 100)}%` : "0%" }}
+              />
+            </div>
           </div>
         </Card>
 
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA]">Assigned Students</span>
-            <div className="w-9 h-9 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
-              <Users className="h-5 w-5" />
-            </div>
+            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA] uppercase tracking-wider text-[11px]">Assigned Learners</span>
+            <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20">
+              ALLOCATED
+            </span>
           </div>
           <div className="mt-3">
-            <span className="text-3xl font-bold text-[#111827] dark:text-[#FAFAFA]">{totalAssignedStudents}</span>
-            <span className="text-xs text-[#6B7280] ml-2 font-medium">In Batches</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold text-[#111827] dark:text-[#FAFAFA] font-mono">{totalAssignedStudents}</span>
+              <span className="text-xs text-[#6B7280] font-medium">In Batches</span>
+            </div>
+            <div className="w-full h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden mt-3">
+              <div
+                className="h-full bg-blue-500 rounded-full"
+                style={{
+                  width: (totalAssignedStudents + totalUnassignedStudents) > 0
+                    ? `${Math.round((totalAssignedStudents / (totalAssignedStudents + totalUnassignedStudents)) * 100)}%`
+                    : "0%"
+                }}
+              />
+            </div>
           </div>
         </Card>
 
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA]">Unassigned Students</span>
-            <div className="w-9 h-9 rounded-xl bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center">
-              <GraduationCap className="h-5 w-5" />
-            </div>
+            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA] uppercase tracking-wider text-[11px]">Unassigned Students</span>
+            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+              QUEUE
+            </span>
           </div>
           <div className="mt-3">
-            <span className="text-3xl font-bold text-[#F59E0B]">{totalUnassignedStudents}</span>
-            <span className="text-xs text-[#6B7280] ml-2 font-medium">Awaiting Batch</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold text-[#F59E0B] font-mono">{totalUnassignedStudents}</span>
+              <span className="text-xs text-[#6B7280] font-medium">Awaiting Batch</span>
+            </div>
+            <div className="w-full h-1 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden mt-3">
+              <div
+                className="h-full bg-amber-500 rounded-full"
+                style={{
+                  width: (totalAssignedStudents + totalUnassignedStudents) > 0
+                    ? `${Math.round((totalUnassignedStudents / (totalAssignedStudents + totalUnassignedStudents)) * 100)}%`
+                    : "0%"
+                }}
+              />
+            </div>
           </div>
         </Card>
       </div>
 
-      {/* 3. Search & Filters Bar */}
-      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-2xl shadow-xs">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
-            <Input
-              placeholder="Search by batch name, college, course, trainer..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-[44px] text-sm bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            {/* Status Filter */}
-            <Select value={statusFilter} onValueChange={(val: string | null) => setStatusFilter((val as any) || "all")}>
-              <SelectTrigger className="h-[44px] text-xs font-medium w-[140px] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                <SelectValue placeholder="Status: All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="active">Active Only</SelectItem>
-                <SelectItem value="inactive">Inactive Only</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* College Filter */}
-            <Select value={collegeFilter} onValueChange={(val: string | null) => setCollegeFilter(val ?? "all")}>
-              <SelectTrigger className="h-[44px] text-xs font-medium w-[180px] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                <SelectValue placeholder="College: All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Colleges</SelectItem>
-                {distinctColleges.map((col) => (
-                  <SelectItem key={col} value={col}>
-                    {col}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {(searchQuery || statusFilter !== "all" || collegeFilter !== "all") && (
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSearchQuery("");
-                  setStatusFilter("all");
-                  setCollegeFilter("all");
-                }}
-                className="h-[44px] text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 px-3 rounded-xl"
-              >
-                Reset Filters
-              </Button>
-            )}
-          </div>
+      {/* 3. Search & Filter Bar (Matching Courses & Practices) */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-3 rounded-xl shadow-sm">
+        <div className="relative w-full md:w-[450px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
+          <Input
+            placeholder="Search batches by name, college, course, trainer..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 h-10 text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-none shadow-none focus-visible:ring-0"
+          />
         </div>
-      </Card>
 
-      {/* 4. Batch Cards Grid */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={(val: string | null) => setStatusFilter((val as any) || "all")}>
+            <SelectTrigger className="h-10 text-xs font-semibold px-3.5 min-w-[140px] rounded-xl border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]">
+              <SelectValue placeholder="Status: All">
+                {statusFilter === "all" ? "Status: All" : statusFilter === "active" ? "Status: Active" : "Status: Inactive"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" label="All Statuses">All Statuses</SelectItem>
+              <SelectItem value="active" label="Active Only">Active Only</SelectItem>
+              <SelectItem value="inactive" label="Inactive Only">Inactive Only</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* College Filter */}
+          <Select value={collegeFilter} onValueChange={(val: string | null) => setCollegeFilter(val ?? "all")}>
+            <SelectTrigger className="h-10 text-xs font-semibold px-3.5 min-w-[160px] rounded-xl border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]">
+              <SelectValue placeholder="Institution: All">
+                {collegeFilter === "all" ? "Institution: All" : `Institution: ${collegeFilter}`}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" label="All Institutions">All Institutions</SelectItem>
+              {distinctColleges.map((col) => (
+                <SelectItem key={col} value={col} label={col}>
+                  {col}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(searchQuery || statusFilter !== "all" || collegeFilter !== "all") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                setStatusFilter("all");
+                setCollegeFilter("all");
+              }}
+              className="h-10 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20 px-3 rounded-xl gap-1.5"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>Clear</span>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* 4. Batch Catalog Content: Empty State OR Linear Table OR Grid Cards */}
       {filteredBatches.length === 0 ? (
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-12 text-center rounded-2xl">
-          <Boxes className="h-12 w-12 text-[#6B7280] mx-auto opacity-40 mb-3" />
-          <h3 className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">No Batches Found</h3>
-          <p className="text-xs text-[#6B7280] mt-1 max-w-md mx-auto">
-            No batches match your active search filters. Try adjusting your query or create a new batch.
+        <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl bg-white dark:bg-[#18181B] shadow-sm">
+          <h3 className="font-semibold text-lg text-[#111827] dark:text-[#FAFAFA]">No batches found</h3>
+          <p className="text-sm text-[#6B7280] mt-1 max-w-sm font-normal">
+            {searchQuery ? "No cohorts match your search criteria. Try a different term or clear filters." : "You haven't created any student batches yet. Click the button above to get started."}
           </p>
-          <Button onClick={handleOpenCreateModal} className="mt-4 bg-[#2563EB] text-white font-semibold text-xs h-9 px-4 rounded-xl">
-            <Plus className="h-4 w-4 mr-1" /> Create Batch
-          </Button>
-        </Card>
+          {!searchQuery && (
+            <Button onClick={handleOpenCreateModal} className="mt-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs rounded-xl shadow-sm gap-2">
+              <Plus className="h-4 w-4" /> Create First Batch
+            </Button>
+          )}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredBatches.map((batch) => {
-            const currentStudentCount = batch.studentIds.length;
-            return (
-              <Card
-                key={batch.id}
-                className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
-              >
-                <div>
-                  {/* Top Bar with Status Badge */}
-                  <div className="p-5 pb-3 flex items-start justify-between gap-3 border-b border-[#E5E7EB]/60 dark:border-[#27272A]/60 bg-[#F9FAFB]/50 dark:bg-[#09090B]/50">
-                    <div className="space-y-1">
-                      {batch.collegeName && (
+        /* ========================================================================= */
+        /* LINEAR ENTERPRISE TABLE (EXACT COURSES & PRACTICES HUB FORMAT) */
+        /* ========================================================================= */
+        <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-[#27272A] shadow-xs rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-[#27272A] bg-slate-50/70 dark:bg-[#09090B] text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="py-2.5 px-3 w-10 text-center">#</th>
+                  <th className="py-2.5 px-3">Batch Cohort</th>
+                  <th className="py-2.5 px-3 w-36">Institution / College</th>
+                  <th className="py-2.5 px-3 w-36">Course Track</th>
+                  <th className="py-2.5 px-3 w-28">Lead Trainer</th>
+                  <th className="py-2.5 px-3 w-24">Learners</th>
+                  <th className="py-2.5 px-3 w-28">Commencement</th>
+                  <th className="py-2.5 px-3 w-20">Status</th>
+                  <th className="py-2.5 px-3 text-right w-44">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-[#27272A]">
+                {filteredBatches.map((batch, idx) => {
+                  const currentStudentCount = batch.studentIds.length;
+                  return (
+                    <tr key={batch.id} className="hover:bg-slate-50/70 dark:hover:bg-[#27272A]/40 transition-colors">
+                      <td className="py-2.5 px-3 font-mono text-xs font-semibold text-slate-400 text-center align-middle">
+                        #{idx + 1}
+                      </td>
+
+                      <td className="py-2.5 px-3 align-middle">
                         <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-[#2563EB] shrink-0" />
-                          <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA] truncate">
-                            {batch.collegeName}
+                          <span className="font-semibold text-slate-900 dark:text-white text-xs">
+                            {batch.batchName}
+                          </span>
+                          <span className="text-[10px] font-mono bg-slate-100 dark:bg-[#27272A] text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded font-semibold shrink-0">
+                            {batch.code || "BAT-ID"}
                           </span>
                         </div>
-                      )}
-                      <h3 className="text-base font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug line-clamp-2">
-                        {batch.batchName}
-                      </h3>
-                    </div>
+                      </td>
 
-                    <Badge
-                      className={`text-[10px] font-bold uppercase tracking-wider shrink-0 px-2.5 py-0.5 ${
-                        batch.status === "active"
-                          ? "bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30"
-                          : "bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/30"
-                      }`}
-                    >
-                      {batch.status}
-                    </Badge>
-                  </div>
+                      <td className="py-2.5 px-3 align-middle">
+                        {batch.collegeName ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/50 max-w-[140px] truncate" title={batch.collegeName}>
+                            <Building2 className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{batch.collegeName}</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAssignInstitution(batch)}
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 underline decoration-dashed whitespace-nowrap"
+                          >
+                            <Plus className="h-3 w-3" />
+                            <span>Link</span>
+                          </button>
+                        )}
+                      </td>
 
-                  {/* Body Content */}
-                  <div className="p-5 space-y-3 text-xs text-[#4B5563] dark:text-[#D1D5DB]">
-                    {batch.course && (
-                      <div className="flex items-center gap-2.5">
-                        <BookOpen className="h-4 w-4 text-[#6B7280] shrink-0" />
-                        <span className="font-semibold text-[#111827] dark:text-[#FAFAFA]">{batch.course}</span>
-                      </div>
-                    )}
+                      <td className="py-2.5 px-3 align-middle">
+                        {batch.course ? (
+                          <span className="inline-block px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 max-w-[140px] truncate" title={batch.course}>
+                            {batch.course}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-normal italic">None</span>
+                        )}
+                      </td>
 
-                    {batch.trainer && (
-                      <div className="flex items-center gap-2.5">
-                        <User className="h-4 w-4 text-[#6B7280] shrink-0" />
-                        <span>Trainer: <strong className="text-[#111827] dark:text-[#FAFAFA]">{batch.trainer}</strong></span>
-                      </div>
-                    )}
-
-                    {batch.startDate && (
-                      <div className="flex items-center gap-2.5">
-                        <Calendar className="h-4 w-4 text-[#6B7280] shrink-0" />
-                        <span>Start Date: <strong>{batch.startDate}</strong></span>
-                      </div>
-                    )}
-
-                    <div className="pt-2 flex items-center justify-between border-t border-[#E5E7EB] dark:border-[#27272A]">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-[#2563EB]" />
-                        <span className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">
-                          {currentStudentCount} <span className="text-xs font-normal text-[#6B7280]">Learners</span>
+                      <td className="py-2.5 px-3 text-xs text-slate-600 dark:text-slate-300 font-medium align-middle">
+                        <span className="max-w-[120px] truncate block" title={batch.trainer || "Unassigned"}>
+                          {batch.trainer || "-"}
                         </span>
-                      </div>
-                      <span className="text-[11px] text-[#6B7280]">Cohort Group</span>
-                    </div>
-                  </div>
-                </div>
+                      </td>
 
-                {/* Card Action Buttons */}
-                <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setViewingBatch(batch)}
-                    className="flex-1 h-9 text-xs font-bold gap-1.5 border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 rounded-xl"
-                  >
-                    <Users className="h-3.5 w-3.5" /> Enrolled Students ({currentStudentCount})
-                  </Button>
+                      <td className="py-2.5 px-3 align-middle whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setViewingBatch(batch)}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
+                        >
+                          <Users className="h-3.5 w-3.5 shrink-0" />
+                          <span>{currentStudentCount} Learners</span>
+                        </button>
+                      </td>
 
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Edit Batch Details"
-                      onClick={() => handleOpenEditModal(batch)}
-                      className="h-9 w-9 text-[#6B7280] hover:text-[#111827] dark:hover:text-white rounded-lg"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                      <td className="py-2.5 px-3 text-xs text-slate-600 dark:text-slate-400 font-mono align-middle whitespace-nowrap">
+                        {batch.startDate || "-"}
+                      </td>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title={batch.status === "active" ? "Deactivate Batch" : "Activate Batch"}
-                      onClick={() => toggleBatchStatus(batch.id, batch.status)}
-                      className={`h-9 w-9 rounded-lg ${batch.status === "active" ? "text-[#16A34A] hover:bg-[#16A34A]/10" : "text-[#DC2626] hover:bg-[#DC2626]/10"}`}
-                    >
-                      {batch.status === "active" ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                    </Button>
+                      <td className="py-2.5 px-3 align-middle whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold capitalize whitespace-nowrap shrink-0 ${
+                            batch.status === "active"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40"
+                              : "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700"
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${batch.status === "active" ? "bg-emerald-500" : "bg-slate-400"}`} />
+                          <span>{batch.status}</span>
+                        </span>
+                      </td>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Delete Batch Safely"
-                      onClick={() => handleDeleteBatch(batch.id, batch.batchName)}
-                      className="h-9 w-9 text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+                      <td className="py-2.5 px-3 text-right align-middle whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1.5 text-xs whitespace-nowrap">
+                          <button
+                            onClick={() => setViewingBatch(batch)}
+                            className="font-medium text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white hover:underline whitespace-nowrap"
+                          >
+                            Students
+                          </button>
+                          <span className="text-slate-300 dark:text-zinc-700">|</span>
+                          <button
+                            onClick={() => handleOpenAssignInstitution(batch)}
+                            className="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline whitespace-nowrap"
+                          >
+                            Assign
+                          </button>
+                          <span className="text-slate-300 dark:text-zinc-700">|</span>
+                          <button
+                            onClick={() => toggleBatchStatus(batch.id, batch.status)}
+                            className="font-medium text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white hover:underline whitespace-nowrap"
+                          >
+                            {batch.status === "active" ? "Pause" : "Resume"}
+                          </button>
+                          <span className="text-slate-300 dark:text-zinc-700">|</span>
+                          <button
+                            onClick={() => handleOpenEditModal(batch)}
+                            className="font-medium text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 hover:underline whitespace-nowrap"
+                          >
+                            Edit
+                          </button>
+                          <span className="text-slate-300 dark:text-zinc-700">|</span>
+                          <button
+                            onClick={() => handleDeleteBatch(batch.id, batch.batchName)}
+                            className="font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300 hover:underline whitespace-nowrap"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 1: CREATE / EDIT BATCH DIALOG (Strictly 5 Fields - Section 2 & 3) */}
+      {/* MODAL 1: CREATE / EDIT BATCH DIALOG */}
       {/* ========================================================================= */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="max-w-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-3xl p-6 shadow-2xl">
+        <DialogContent className="max-w-xl bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-              <Boxes className="h-5 w-5 text-[#2563EB]" />
+            <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
               {editingBatch ? "Edit Batch Details" : "Create New Batch"}
             </DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
+            <DialogDescription className="text-xs text-slate-500">
               Define a new student cohort batch. Only Batch Name is required.
             </DialogDescription>
           </DialogHeader>
@@ -688,57 +1043,103 @@ export default function AdminBatchesPage() {
           <form onSubmit={handleSaveBatchSubmit} className="space-y-4 py-2">
             {/* Field 1: Batch Name (Required) */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Batch Name <span className="text-red-500">*</span>
+              <label className="text-xs font-bold text-slate-900 dark:text-white">
+                Batch Name <span className="text-rose-500">*</span>
               </label>
               <Input
                 placeholder="e.g. Java Batch 01"
                 value={formBatchName}
                 onChange={(e) => setFormBatchName(e.target.value)}
                 required
-                className="h-[44px] text-xs font-medium bg-[#F9FAFB] dark:bg-[#09090B]"
+                className="h-10 text-xs font-medium bg-slate-50/70 dark:bg-zinc-900/70 border-slate-200 dark:border-zinc-800 rounded-xl"
               />
             </div>
 
             {/* Field 2: College / Institution (Optional) */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                College / Institution <span className="text-[10px] text-[#6B7280] font-normal">(Optional)</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-900 dark:text-white">
+                  Partner Institution / College <span className="text-[10px] text-slate-400 font-normal">(Optional)</span>
+                </label>
+                {institutions.length > 0 && (
+                  <span className="text-[10px] text-blue-600 font-semibold">
+                    {institutions.length} partner {institutions.length === 1 ? "institution" : "institutions"} registered
+                  </span>
+                )}
+              </div>
+
+              {institutions.length > 0 && (
+                <Select
+                  value={
+                    institutions.some((i) => i.college.toLowerCase() === formCollegeName.toLowerCase())
+                      ? institutions.find((i) => i.college.toLowerCase() === formCollegeName.toLowerCase())?.college || ""
+                      : formCollegeName ? "custom" : "none"
+                  }
+                  onValueChange={(val: string | null) => {
+                    if (!val || val === "none") {
+                      setFormCollegeName("");
+                    } else if (val === "custom") {
+                      // Keep current input
+                    } else {
+                      setFormCollegeName(val);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-10 text-xs bg-slate-50/70 dark:bg-zinc-900/70 border-slate-200 dark:border-zinc-800 rounded-xl">
+                    <SelectValue placeholder="Quick-select partner institution...">
+                      {institutions.find((i) => i.college.toLowerCase() === formCollegeName.toLowerCase())?.college 
+                        || (formCollegeName ? `Custom: ${formCollegeName}` : "No Institution (Unassigned)")}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" label="No Institution (Unassigned)">No Institution (Unassigned)</SelectItem>
+                    {institutions.map((inst) => (
+                      <SelectItem key={inst.id} value={inst.college} label={`${inst.college} (${inst.name})`}>
+                        <span className="font-semibold">{inst.college}</span>
+                        <span className="text-[11px] text-slate-500 ml-2">({inst.name})</span>
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom" label="Other / Custom College Name...">Other / Custom College Name...</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
               <Input
-                placeholder="Select or enter College (e.g. PSG Tech)"
+                placeholder="Enter or confirm College Name (e.g. SSCET, PSG Tech)"
                 value={formCollegeName}
                 onChange={(e) => setFormCollegeName(e.target.value)}
-                className="h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]"
+                className="h-10 text-xs bg-slate-50/70 dark:bg-zinc-900/70 border-slate-200 dark:border-zinc-800 rounded-xl"
               />
             </div>
 
             {/* Field 3: Lead Trainer (Optional) */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Lead Trainer <span className="text-[10px] text-[#6B7280] font-normal">(Optional)</span>
+              <label className="text-xs font-bold text-slate-900 dark:text-white">
+                Lead Trainer <span className="text-[10px] text-slate-400 font-normal">(Optional)</span>
               </label>
               <Input
                 placeholder="Select or enter Trainer (e.g. Dr. Aris Thorne)"
                 value={formTrainer}
                 onChange={(e) => setFormTrainer(e.target.value)}
-                className="h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]"
+                className="h-10 text-xs bg-slate-50/70 dark:bg-zinc-900/70 border-slate-200 dark:border-zinc-800 rounded-xl"
               />
             </div>
 
             {/* Field 4: Course Track (Optional) */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Course Track <span className="text-[10px] text-[#6B7280] font-normal">(Optional)</span>
+              <label className="text-xs font-bold text-slate-900 dark:text-white">
+                Course Track <span className="text-[10px] text-slate-400 font-normal">(Optional)</span>
               </label>
               <Select value={formCourse} onValueChange={(val: string | null) => setFormCourse(val || "")}>
-                <SelectTrigger className="h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]">
-                  <SelectValue placeholder="Select Course Track" />
+                <SelectTrigger className="h-10 text-xs bg-slate-50/70 dark:bg-zinc-900/70 border-slate-200 dark:border-zinc-800 rounded-xl">
+                  <SelectValue placeholder="Select Course Track">
+                    {formCourse || undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {courses && courses.length > 0 ? (
                     courses.map((c) => (
-                      <SelectItem key={c.id} value={c.title}>
+                      <SelectItem key={c.id} value={c.title} label={c.title}>
                         {c.title}
                       </SelectItem>
                     ))
@@ -753,31 +1154,31 @@ export default function AdminBatchesPage() {
 
             {/* Field 5: Start Date (Optional) */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Start Date <span className="text-[10px] text-[#6B7280] font-normal">(Optional)</span>
+              <label className="text-xs font-bold text-slate-900 dark:text-white">
+                Start Date <span className="text-[10px] text-slate-400 font-normal">(Optional)</span>
               </label>
               <Input
                 type="date"
                 value={formStartDate}
                 onChange={(e) => setFormStartDate(e.target.value)}
-                className="h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B]"
+                className="h-10 text-xs bg-slate-50/70 dark:bg-zinc-900/70 border-slate-200 dark:border-zinc-800 rounded-xl"
               />
             </div>
 
-            <DialogFooter className="pt-4 border-t border-[#E5E7EB] dark:border-[#27272A] gap-2">
+            <DialogFooter className="pt-4 border-t border-slate-100 dark:border-zinc-800 gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="h-[44px] px-5 text-xs font-bold rounded-xl"
+                className="h-10 px-5 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="h-[44px] px-7 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl shadow-md shadow-[#2563EB]/20"
+                className="h-10 px-6 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold text-xs rounded-xl shadow-xs"
               >
-                {editingBatch ? "Save Batch Changes" : "Create Batch"}
+                {editingBatch ? "Save Changes" : "Create Batch"}
               </Button>
             </DialogFooter>
           </form>
@@ -788,24 +1189,24 @@ export default function AdminBatchesPage() {
       {/* MODAL 2: BATCH DETAIL & ENROLLED STUDENTS MANAGEMENT */}
       {/* ========================================================================= */}
       <Dialog open={!!viewingBatch} onOpenChange={(open) => !open && setViewingBatch(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-3xl p-6 shadow-2xl space-y-6">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-5">
           {viewingBatch && (
             <>
-              <DialogHeader className="pb-4 border-b border-[#E5E7EB] dark:border-[#27272A]">
-                <div className="flex items-center justify-between">
+              <DialogHeader className="pb-4 border-b border-slate-100 dark:border-zinc-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     {viewingBatch.collegeName && (
-                      <Badge className="bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/30 text-[10px] font-bold uppercase mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200/60 dark:border-blue-900/40 inline-block mb-1">
                         {viewingBatch.collegeName}
-                      </Badge>
+                      </span>
                     )}
-                    <DialogTitle className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA]">
+                    <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
                       {viewingBatch.batchName}
                     </DialogTitle>
-                    <DialogDescription className="text-xs text-[#6B7280] mt-1">
-                      {viewingBatch.course && <>Course: <strong>{viewingBatch.course}</strong> • </>}
-                      {viewingBatch.trainer && <>Trainer: <strong>{viewingBatch.trainer}</strong> • </>}
-                      {viewingBatch.startDate && <>Starts: <strong>{viewingBatch.startDate}</strong></>}
+                    <DialogDescription className="text-xs text-slate-500 mt-1">
+                      {viewingBatch.course && <>Track: <strong className="text-slate-700 dark:text-zinc-300">{viewingBatch.course}</strong> • </>}
+                      {viewingBatch.trainer && <>Lead: <strong className="text-slate-700 dark:text-zinc-300">{viewingBatch.trainer}</strong> • </>}
+                      {viewingBatch.startDate && <>Commences: <strong className="text-slate-700 dark:text-zinc-300">{viewingBatch.startDate}</strong></>}
                     </DialogDescription>
                   </div>
 
@@ -814,49 +1215,48 @@ export default function AdminBatchesPage() {
                       setSelectedStudentIdsToAdd([]);
                       setIsAddStudentModalOpen(true);
                     }}
-                    className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs px-5 gap-2 rounded-xl shadow-md shadow-[#2563EB]/20 shrink-0"
+                    className="h-9.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold text-xs px-4 rounded-xl shadow-xs shrink-0"
                   >
-                    <UserPlus className="h-4 w-4" /> Add Students to Batch
+                    Add Students
                   </Button>
                 </div>
               </DialogHeader>
 
               {/* List of Enrolled Students */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                     Enrolled Learners ({enrolledStudentsInViewingBatch.length})
                   </h4>
-                  <span className="text-xs text-[#6B7280]">
-                    Students can belong to multiple batches
+                  <span className="text-xs text-slate-400">
+                    Active cohort membership
                   </span>
                 </div>
 
                 {enrolledStudentsInViewingBatch.length === 0 ? (
-                  <div className="p-8 text-center bg-[#F9FAFB] dark:bg-[#09090B] border border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl space-y-2">
-                    <Users className="h-8 w-8 text-[#6B7280] mx-auto opacity-40" />
-                    <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">No Students Enrolled Yet</p>
-                    <p className="text-xs text-[#6B7280]">Click &quot;Add Students to Batch&quot; to assign learners to this cohort.</p>
+                  <div className="p-8 text-center bg-slate-50/50 dark:bg-zinc-900/50 border border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl space-y-1.5">
+                    <p className="text-sm font-semibold text-slate-800 dark:text-zinc-200">No Students Enrolled</p>
+                    <p className="text-xs text-slate-500">Click &quot;Add Students&quot; to assign learners to this cohort.</p>
                   </div>
                 ) : (
-                  <div className="border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                  <div className="border border-slate-200/80 dark:border-zinc-800 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
                     {enrolledStudentsInViewingBatch.map((std) => {
                       const stdName = `${std.first_name || ""} ${std.last_name || ""}`.trim() || std.name || "Student";
                       const stdIdentifier = std.id || std.user_id;
                       return (
                         <div
                           key={std.id}
-                          className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#F9FAFB] dark:hover:bg-[#09090B] transition-colors"
+                          className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-zinc-900/50 transition-colors"
                         >
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border border-[#2563EB]/30">
-                              <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs">
+                            <Avatar className="h-9 w-9 border border-slate-200 dark:border-zinc-700">
+                              <AvatarFallback className="bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 font-bold text-xs">
                                 {stdName.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">{stdName}</p>
-                              <p className="text-xs text-[#6B7280]">
+                              <p className="text-xs font-bold text-slate-900 dark:text-white">{stdName}</p>
+                              <p className="text-[11px] text-slate-500 font-mono">
                                 {std.email}
                               </p>
                             </div>
@@ -866,9 +1266,9 @@ export default function AdminBatchesPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRemoveStudentFromBatch(viewingBatch.id, stdIdentifier, stdName)}
-                            className="h-9 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-xl gap-1"
+                            className="h-8 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg px-3"
                           >
-                            <UserMinus className="h-3.5 w-3.5" /> Remove from Batch
+                            Remove
                           </Button>
                         </div>
                       );
@@ -885,15 +1285,14 @@ export default function AdminBatchesPage() {
       {/* MODAL 3: ADD STUDENTS TO BATCH (Multi-Select Supported) */}
       {/* ========================================================================= */}
       <Dialog open={isAddStudentModalOpen} onOpenChange={setIsAddStudentModalOpen}>
-        <DialogContent className="max-w-2xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-3xl p-6 shadow-2xl space-y-4">
+        <DialogContent className="max-w-2xl bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-[#2563EB]" />
+            <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
               {viewingBatch
                 ? `Add Students to ${viewingBatch.batchName}`
-                : "Add Student to Batch"}
+                : "Add Students to Batch"}
             </DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
+            <DialogDescription className="text-xs text-slate-500">
               {viewingBatch
                 ? "Select registered learners to assign to this batch. Multiple batch membership is supported."
                 : "Select target batch and registered learners to assign."}
@@ -902,8 +1301,8 @@ export default function AdminBatchesPage() {
 
           {!viewingBatch && (
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                Target Batch <span className="text-red-500">*</span>
+              <label className="text-xs font-bold text-slate-900 dark:text-white">
+                Target Batch <span className="text-rose-500">*</span>
               </label>
               <Select
                 value={effectiveBatchForAssignment?.id || ""}
@@ -914,15 +1313,23 @@ export default function AdminBatchesPage() {
                   }
                 }}
               >
-                <SelectTrigger className="h-[42px] text-xs rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
-                  <SelectValue placeholder="Select target batch..." />
+                <SelectTrigger className="h-10 text-xs rounded-xl bg-slate-50/70 dark:bg-zinc-900/70 border-slate-200 dark:border-zinc-800">
+                  <SelectValue placeholder="Select target batch...">
+                    {effectiveBatchForAssignment 
+                      ? `${effectiveBatchForAssignment.batchName}${effectiveBatchForAssignment.collegeName ? ` (${effectiveBatchForAssignment.collegeName})` : ""}` 
+                      : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-[#18181B] max-h-60">
                   {batches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
+                    <SelectItem 
+                      key={b.id} 
+                      value={b.id}
+                      label={`${b.batchName}${b.collegeName ? ` (${b.collegeName})` : ""}`}
+                    >
                       <span className="font-semibold text-xs">{b.batchName}</span>
                       {b.collegeName && (
-                        <span className="text-[11px] text-[#6B7280] ml-2">
+                        <span className="text-[11px] text-slate-500 ml-2">
                           ({b.collegeName})
                         </span>
                       )}
@@ -933,19 +1340,18 @@ export default function AdminBatchesPage() {
             </div>
           )}
 
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
+          <div>
             <Input
               placeholder="Search by student name or email..."
               value={studentSearchQuery}
               onChange={(e) => setStudentSearchQuery(e.target.value)}
-              className="pl-10 h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl"
+              className="h-10 text-xs bg-slate-50/70 dark:bg-zinc-900/70 border-slate-200 dark:border-zinc-800 rounded-xl px-4"
             />
           </div>
 
-          <div className="max-h-[350px] overflow-y-auto border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+          <div className="max-h-[350px] overflow-y-auto border border-slate-200/80 dark:border-zinc-800 rounded-2xl divide-y divide-slate-100 dark:divide-zinc-800">
             {availableStudentsToAdd.length === 0 ? (
-              <div className="p-8 text-center text-xs text-[#6B7280]">
+              <div className="p-8 text-center text-xs text-slate-500">
                 No available unassigned students matching search.
               </div>
             ) : (
@@ -964,8 +1370,8 @@ export default function AdminBatchesPage() {
                         setSelectedStudentIdsToAdd(prev => [...prev, stdIdentifier]);
                       }
                     }}
-                    className={`p-3.5 flex items-center justify-between gap-3 hover:bg-[#F9FAFB] dark:hover:bg-[#09090B] cursor-pointer transition-colors ${
-                      isSelected ? "bg-[#2563EB]/5" : ""
+                    className={`p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-zinc-900/50 cursor-pointer transition-colors ${
+                      isSelected ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -980,8 +1386,13 @@ export default function AdminBatchesPage() {
                         }}
                       />
                       <div>
-                        <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">{stdName}</p>
-                        <p className="text-[11px] text-[#6B7280]">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">{stdName}</p>
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-500 border border-slate-200 dark:border-zinc-700">
+                            Unassigned
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-mono">
                           {std.email}
                         </p>
                       </div>
@@ -995,9 +1406,9 @@ export default function AdminBatchesPage() {
                           handleAssignStudentsToBatch(effectiveBatchForAssignment.id, [stdIdentifier]);
                         }
                       }}
-                      className="h-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs px-3 rounded-lg gap-1"
+                      className="h-7.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold text-xs px-3 rounded-lg"
                     >
-                      <Plus className="h-3.5 w-3.5" /> Assign
+                      Assign
                     </Button>
                   </div>
                 );
@@ -1009,7 +1420,7 @@ export default function AdminBatchesPage() {
             <Button
               variant="outline"
               onClick={() => setIsAddStudentModalOpen(false)}
-              className="h-9 px-4 text-xs font-bold rounded-xl"
+              className="h-10 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800"
             >
               Close
             </Button>
@@ -1017,9 +1428,367 @@ export default function AdminBatchesPage() {
               <Button
                 onClick={() => handleAssignStudentsToBatch(effectiveBatchForAssignment.id, selectedStudentIdsToAdd)}
                 disabled={isAssigningStudents}
-                className="h-9 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl"
+                className="h-10 px-5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold text-xs rounded-xl shadow-xs"
               >
                 Assign {selectedStudentIdsToAdd.length} Selected Students
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================       {/* ========================================================================= */}
+      {/* MODAL 4: ASSIGN BATCH TO PARTNER INSTITUTION */}
+      {/* ========================================================================= */}
+      <Dialog open={isAssignInstitutionModalOpen} onOpenChange={setIsAssignInstitutionModalOpen}>
+        <DialogContent className="max-w-lg bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
+              Assign Batch to Partner Institution
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Link this cohort to a registered partner institution. All enrolled students, performance telemetry, and assessment scores will automatically synchronize to that institution&apos;s portal.
+            </DialogDescription>
+          </DialogHeader>
+
+          {assigningBatch && (
+            <div className="space-y-4 py-2">
+              {/* Batch Info Banner */}
+              <div className="bg-slate-50/70 dark:bg-zinc-900/70 border border-slate-200/80 dark:border-zinc-800 p-4 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Target Cohort</span>
+                  <span className="font-mono text-[10px] text-slate-500 bg-slate-200/60 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                    {assigningBatch.code || `ID: ${assigningBatch.id.slice(0, 6)}`}
+                  </span>
+                </div>
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                  {assigningBatch.batchName}
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Currently Assigned:{" "}
+                  <strong className="text-slate-800 dark:text-zinc-200">
+                    {assigningBatch.collegeName || "None (Unassigned)"}
+                  </strong>
+                </p>
+              </div>
+
+              {/* Selector for Batches if opened globally */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-900 dark:text-white">
+                  Select Target Batch
+                </label>
+                <Select
+                  value={assigningBatch.id}
+                  onValueChange={(val: string | null) => {
+                    if (val) {
+                      const b = batches.find((item) => item.id === val);
+                      if (b) {
+                        setAssigningBatch(b);
+                        const existingCollege = b.collegeName?.trim() || "";
+                        if (!existingCollege) {
+                          setSelectedInstitutionCollege("none");
+                          setCustomCollegeInput("");
+                        } else {
+                          const match = institutions.find((i) => i.college.toLowerCase() === existingCollege.toLowerCase());
+                          if (match) {
+                            setSelectedInstitutionCollege(match.college);
+                            setCustomCollegeInput("");
+                          } else {
+                            setSelectedInstitutionCollege("custom");
+                            setCustomCollegeInput(existingCollege);
+                          }
+                        }
+                      }
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-10 text-xs rounded-xl bg-slate-50/70 dark:bg-zinc-900/70 border-slate-200 dark:border-zinc-800">
+                    <SelectValue placeholder="Select batch...">
+                      {assigningBatch ? `${assigningBatch.batchName}${assigningBatch.collegeName ? ` (${assigningBatch.collegeName})` : ""}` : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {batches.map((b) => (
+                      <SelectItem 
+                        key={b.id} 
+                        value={b.id}
+                        label={`${b.batchName}${b.collegeName ? ` (${b.collegeName})` : ""}`}
+                      >
+                        <span className="font-semibold">{b.batchName}</span>
+                        {b.collegeName && <span className="text-[11px] text-slate-500 ml-2">({b.collegeName})</span>}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Institution Selection */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-900 dark:text-white">
+                  Select Partner Institution <span className="text-rose-500">*</span>
+                </label>
+                <Select
+                  value={selectedInstitutionCollege}
+                  onValueChange={(val: string | null) => setSelectedInstitutionCollege(val || "none")}
+                >
+                  <SelectTrigger className="h-10 text-xs rounded-xl bg-slate-50/70 dark:bg-zinc-900/70 border-slate-200 dark:border-zinc-800">
+                    <SelectValue placeholder="Choose an institution...">
+                      {selectedInstitutionCollege === "none"
+                        ? "None (Unassign from Institution)"
+                        : selectedInstitutionCollege === "custom"
+                        ? "Other / Custom College Name..."
+                        : selectedInstitutionCollege}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    <SelectItem value="none" label="None (Unassign from Institution)">
+                      None (Unassign from Institution)
+                    </SelectItem>
+                    {institutions.map((inst) => (
+                      <SelectItem 
+                        key={inst.id} 
+                        value={inst.college}
+                        label={`${inst.college} (${inst.name} • ${inst.email})`}
+                      >
+                        <span className="font-semibold">{inst.college}</span>
+                        <span className="text-[11px] text-slate-500 ml-2">
+                          ({inst.name} • {inst.email})
+                        </span>
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom" label="Other / Custom College Name...">
+                      Other / Custom College Name...
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Custom Input if selected */}
+              {selectedInstitutionCollege === "custom" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-900 dark:text-white">
+                    Custom College / Institution Name <span className="text-rose-500">*</span>
+                  </label>
+                  <Input
+                    placeholder="e.g. SSCET or PSG Tech"
+                    value={customCollegeInput}
+                    onChange={(e) => setCustomCollegeInput(e.target.value)}
+                    className="h-10 text-xs bg-slate-50/70 dark:bg-zinc-900/70 border-slate-200 dark:border-zinc-800 rounded-xl"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="pt-2 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsAssignInstitutionModalOpen(false)}
+              disabled={isSavingInstitutionAssignment}
+              className="h-10 text-xs rounded-xl border-slate-200 dark:border-zinc-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveInstitutionAssignment}
+              disabled={
+                isSavingInstitutionAssignment ||
+                (selectedInstitutionCollege === "custom" && !customCollegeInput.trim())
+              }
+              className="h-10 text-xs bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold rounded-xl shadow-xs"
+            >
+              {isSavingInstitutionAssignment ? "Saving..." : "Confirm & Assign Batch"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: BULK UPLOAD BATCHES (Excel & CSV) */}
+      {/* ========================================================================= */}
+      <Dialog open={isBulkModalOpen} onOpenChange={setIsBulkModalOpen}>
+        <DialogContent className="max-w-3xl bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4">
+          <DialogHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
+                  Bulk Create Batches
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                  Upload an Excel (.xlsx, .xls) or CSV spreadsheet to create multiple batches at once.
+                </DialogDescription>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadTemplate}
+                className="h-9 px-3.5 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 shrink-0"
+              >
+                Download Template (.xlsx)
+              </Button>
+            </div>
+          </DialogHeader>
+
+          {/* Upload Area / Dropzone */}
+          {bulkParsedRows.length === 0 ? (
+            <div className="space-y-4 py-3">
+              <div className="border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-slate-400 dark:hover:border-zinc-600 rounded-2xl p-8 text-center transition-colors bg-slate-50/50 dark:bg-zinc-900/50">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 bg-slate-200/60 dark:bg-zinc-800 px-2.5 py-1 rounded-md inline-block mb-3">
+                  SPREADSHEET IMPORTER
+                </span>
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                  Drop Batch Spreadsheet Here
+                </h4>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-5">
+                  Supports .xlsx, .xls, and .csv files. Columns: Batch Name, College / Institution, Lead Trainer, Course Track, Start Date, Batch Code.
+                </p>
+
+                <div className="flex justify-center">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".xlsx, .xls, .csv"
+                      onChange={handleBulkFileUpload}
+                      className="hidden"
+                    />
+                    <span className="inline-flex items-center justify-center h-10 px-5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold text-xs shadow-xs transition-all">
+                      Browse File
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {bulkFileError && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 rounded-xl text-xs">
+                  <span>{bulkFileError}</span>
+                </div>
+              )}
+
+              {/* Tips & Institution info */}
+              <div className="bg-slate-50/70 dark:bg-zinc-900/70 border border-slate-200/80 dark:border-zinc-800 p-4 rounded-xl text-xs space-y-1.5 text-slate-500">
+                <p className="font-semibold text-slate-900 dark:text-white">Bulk Creation Guidelines:</p>
+                <ul className="list-disc pl-4 space-y-1 text-[11px]">
+                  <li><strong>Batch Name</strong> is the only mandatory column. Empty batch name rows are automatically skipped.</li>
+                  <li>In <strong>College / Institution</strong> column, specifying a registered partner name (e.g. <code>SSCET</code>) will automatically link the batch to that institution&apos;s portal.</li>
+                  <li>In <strong>Lead Trainer</strong> column, entering a trainer&apos;s name or email will automatically link them.</li>
+                  <li>If <strong>Batch Code</strong> is blank, a unique code is automatically assigned.</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            /* Parsed Batch Table Preview */
+            <div className="space-y-4 py-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40 font-bold text-xs px-2.5 py-1 rounded-md">
+                    {bulkParsedRows.filter((r) => r.isValid).length} Valid Batches
+                  </span>
+                  {bulkParsedRows.some((r) => !r.isValid) && (
+                    <span className="bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40 font-bold text-xs px-2.5 py-1 rounded-md">
+                      {bulkParsedRows.filter((r) => !r.isValid).length} Invalid Rows
+                    </span>
+                  )}
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setBulkParsedRows([])}
+                  className="h-8 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg"
+                >
+                  Upload Different File
+                </Button>
+              </div>
+
+              <div className="max-h-[350px] overflow-y-auto border border-slate-200/80 dark:border-zinc-800 rounded-2xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/70 dark:bg-zinc-900/70 border-b border-slate-200 dark:border-zinc-800 sticky top-0 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Batch Name</th>
+                      <th className="py-3 px-4">Institution / College</th>
+                      <th className="py-3 px-4">Lead Trainer</th>
+                      <th className="py-3 px-4">Course Track</th>
+                      <th className="py-3 px-4">Start Date</th>
+                      <th className="py-3 px-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                    {bulkParsedRows.map((row) => (
+                      <tr key={row.id} className={row.isValid ? "hover:bg-slate-50/50 dark:hover:bg-zinc-900/50" : "bg-rose-50/20 dark:bg-rose-950/10"}>
+                        <td className="py-3 px-4">
+                          {row.isValid ? (
+                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded">
+                              Valid
+                            </span>
+                          ) : (
+                            <span className="bg-rose-50 text-rose-700 border border-rose-200/60 dark:bg-rose-950/40 dark:text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded">
+                              Missing Name
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
+                          {row.batchName || <span className="text-rose-500 italic">Empty Name</span>}
+                        </td>
+
+                        <td className="py-3 px-4">
+                          {row.collegeName ? (
+                            <span className="text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200/60 dark:bg-blue-950/40 dark:text-blue-400 px-2 py-0.5 rounded">
+                              {row.collegeName}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 text-slate-600 dark:text-zinc-400">
+                          {row.leadTrainer || "—"}
+                        </td>
+
+                        <td className="py-3 px-4 text-slate-600 dark:text-zinc-400">
+                          {row.courseTrack || "—"}
+                        </td>
+
+                        <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">
+                          {row.startDate || "—"}
+                        </td>
+
+                        <td className="py-3 px-3 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveBulkRow(row.id)}
+                            className="h-7 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-md px-2"
+                          >
+                            Remove
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="pt-2 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsBulkModalOpen(false)}
+              disabled={isUploadingBulk}
+              className="h-10 text-xs rounded-xl border-slate-200 dark:border-zinc-800"
+            >
+              Cancel
+            </Button>
+            {bulkParsedRows.length > 0 && (
+              <Button
+                onClick={handleExecuteBulkImport}
+                disabled={isUploadingBulk || bulkParsedRows.filter((r) => r.isValid).length === 0}
+                className="h-10 text-xs bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold rounded-xl shadow-xs"
+              >
+                {isUploadingBulk ? "Processing Import..." : `Confirm & Create ${bulkParsedRows.filter((r) => r.isValid).length} Batches`}
               </Button>
             )}
           </DialogFooter>

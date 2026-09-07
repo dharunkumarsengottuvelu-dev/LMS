@@ -222,18 +222,38 @@ export class InstitutionPerformanceService {
       // A. Direct link via institution_batches table
       if (mappedBatchIdsFromTable.has(b.id)) return true;
 
+      const collegeLower = (institutionInfo.college || "").trim().toLowerCase();
+      const codeUpper = (institutionInfo.code || "").trim().toUpperCase();
+
       // B. Batch code matches institution code prefix
-      if (institutionInfo.code && b.code && b.code.toUpperCase().includes(institutionInfo.code.toUpperCase())) {
+      if (codeUpper && b.code && b.code.toUpperCase().includes(codeUpper)) {
         return true;
       }
 
-      // C. Batch description matches institution name or code
-      const desc = (b.description || "").toLowerCase();
-      if (institutionInfo.college && desc.includes(institutionInfo.college.toLowerCase())) {
+      // C. Direct batch name or column matching
+      const batchNameLower = (b.name || b.batch_name || "").toLowerCase();
+      if (collegeLower && batchNameLower.includes(collegeLower)) {
         return true;
       }
 
-      // D. Batch contains students belonging to this institution's college
+      // D. Batch description matches institution name, code, or parsed JSON metadata
+      if (b.description) {
+        const descStr = String(b.description).toLowerCase();
+        if (collegeLower && descStr.includes(collegeLower)) return true;
+        if (codeUpper && descStr.includes(codeUpper.toLowerCase())) return true;
+
+        try {
+          const parsed = typeof b.description === "string" ? JSON.parse(b.description) : b.description;
+          const descCollege = (parsed.college_name || parsed.collegeName || parsed.college || "").trim().toLowerCase();
+          if (collegeLower && descCollege && (descCollege.includes(collegeLower) || collegeLower.includes(descCollege))) {
+            return true;
+          }
+        } catch {
+          // Not JSON, string check above handles it
+        }
+      }
+
+      // E. Batch contains students belonging to this institution's college
       if (collegeStudentIds.size > 0) {
         const studentsInBatch = batchStudentSet.get(b.id);
         if (studentsInBatch) {
