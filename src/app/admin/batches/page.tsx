@@ -702,7 +702,7 @@ export default function AdminBatchesPage() {
                 setStudentSearchQuery("");
                 setIsAddStudentModalOpen(true);
               }}
-              className="h-[44px] bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs"
+              className="h-[44px] bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs"
             >
               <UserPlus className="h-4 w-4" />
               <span>Add Students to Batch</span>
@@ -1322,20 +1322,27 @@ export default function AdminBatchesPage() {
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-[#18181B] max-h-60">
-                  {batches.map((b) => (
-                    <SelectItem 
-                      key={b.id} 
-                      value={b.id}
-                      label={`${b.batchName}${b.collegeName ? ` (${b.collegeName})` : ""}`}
-                    >
-                      <span className="font-semibold text-xs">{b.batchName}</span>
-                      {b.collegeName && (
-                        <span className="text-[11px] text-slate-500 ml-2">
-                          ({b.collegeName})
-                        </span>
-                      )}
-                    </SelectItem>
-                  ))}
+                  {batches.length === 0 ? (
+                    <div className="px-4 py-6 text-center">
+                      <p className="text-xs font-semibold text-slate-400 dark:text-zinc-500">No batches available</p>
+                      <p className="text-[11px] text-slate-400 dark:text-zinc-600 mt-0.5">Create a batch first to assign students</p>
+                    </div>
+                  ) : (
+                    batches.map((b) => (
+                      <SelectItem 
+                        key={b.id} 
+                        value={b.id}
+                        label={`${b.batchName}${b.collegeName ? ` (${b.collegeName})` : ""}`}
+                      >
+                        <span className="font-semibold text-xs">{b.batchName}</span>
+                        {b.collegeName && (
+                          <span className="text-[11px] text-slate-500 ml-2">
+                            ({b.collegeName})
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -1351,9 +1358,23 @@ export default function AdminBatchesPage() {
           </div>
 
           <div className="max-h-[350px] overflow-y-auto border border-slate-200/80 dark:border-zinc-800 rounded-2xl divide-y divide-slate-100 dark:divide-zinc-800">
-            {availableStudentsToAdd.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-500">
-                No available unassigned students matching search.
+            {loading ? (
+              <div className="p-8 text-center">
+                <p className="text-xs text-slate-400 dark:text-zinc-500">Loading students...</p>
+              </div>
+            ) : students.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">No students registered</p>
+                <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">No student accounts exist in the system yet</p>
+              </div>
+            ) : availableStudentsToAdd.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                  {studentSearchQuery ? `No students matching "${studentSearchQuery}"` : "No available students"}
+                </p>
+                <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">
+                  {studentSearchQuery ? "Try a different name or email" : "All registered students are already in this batch"}
+                </p>
               </div>
             ) : (
               availableStudentsToAdd.map((std) => {
@@ -1509,16 +1530,23 @@ export default function AdminBatchesPage() {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
-                    {batches.map((b) => (
-                      <SelectItem 
-                        key={b.id} 
-                        value={b.id}
-                        label={`${b.batchName}${b.collegeName ? ` (${b.collegeName})` : ""}`}
-                      >
-                        <span className="font-semibold">{b.batchName}</span>
-                        {b.collegeName && <span className="text-[11px] text-slate-500 ml-2">({b.collegeName})</span>}
-                      </SelectItem>
-                    ))}
+                    {batches.length === 0 ? (
+                      <div className="px-4 py-4 text-center">
+                        <p className="text-xs font-semibold text-slate-400 dark:text-zinc-500">No batches available</p>
+                        <p className="text-[11px] text-slate-400 dark:text-zinc-600 mt-0.5">Create a batch first</p>
+                      </div>
+                    ) : (
+                      batches.map((b) => (
+                        <SelectItem 
+                          key={b.id} 
+                          value={b.id}
+                          label={`${b.batchName}${b.collegeName ? ` (${b.collegeName})` : ""}`}
+                        >
+                          <span className="font-semibold">{b.batchName}</span>
+                          {b.collegeName && <span className="text-[11px] text-slate-500 ml-2">({b.collegeName})</span>}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1545,18 +1573,24 @@ export default function AdminBatchesPage() {
                     <SelectItem value="none" label="None (Unassign from Institution)">
                       None (Unassign from Institution)
                     </SelectItem>
-                    {institutions.map((inst) => (
-                      <SelectItem 
-                        key={inst.id} 
-                        value={inst.college}
-                        label={`${inst.college} (${inst.name} • ${inst.email})`}
-                      >
-                        <span className="font-semibold">{inst.college}</span>
-                        <span className="text-[11px] text-slate-500 ml-2">
-                          ({inst.name} • {inst.email})
-                        </span>
-                      </SelectItem>
-                    ))}
+                    {institutions.length === 0 ? (
+                      <div className="px-4 py-3 text-center">
+                        <p className="text-xs text-slate-400 dark:text-zinc-500">No partner institutions added yet</p>
+                      </div>
+                    ) : (
+                      institutions.map((inst) => (
+                        <SelectItem 
+                          key={inst.id} 
+                          value={inst.college}
+                          label={`${inst.college} (${inst.name} • ${inst.email})`}
+                        >
+                          <span className="font-semibold">{inst.college}</span>
+                          <span className="text-[11px] text-slate-500 ml-2">
+                            ({inst.name} • {inst.email})
+                          </span>
+                        </SelectItem>
+                      ))
+                    )}
                     <SelectItem value="custom" label="Other / Custom College Name...">
                       Other / Custom College Name...
                     </SelectItem>

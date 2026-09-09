@@ -352,9 +352,13 @@ export default function AdminNewLiveClassPage() {
                   className="w-full h-10 rounded-xl border border-input bg-background px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">— No specific course —</option>
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id}>{c.title}</option>
-                  ))}
+                  {courses.length === 0 ? (
+                    <option disabled>No courses available yet</option>
+                  ) : (
+                    courses.map((c) => (
+                      <option key={c.id} value={c.id}>{c.title}</option>
+                    ))
+                  )}
                 </select>
                 {selectedCourseLabel && (
                   <p className="text-[11px] text-slate-500 pl-1">Selected: <span className="font-semibold text-slate-700 dark:text-zinc-300">{selectedCourseLabel}</span></p>
@@ -371,11 +375,15 @@ export default function AdminNewLiveClassPage() {
                   className="w-full h-10 rounded-xl border border-input bg-background px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">— Select trainer —</option>
-                  {trainers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {`${t.first_name || ""} ${t.last_name || ""}`.trim() || t.email} ({t.role})
-                    </option>
-                  ))}
+                  {trainers.length === 0 ? (
+                    <option disabled>No trainers registered yet</option>
+                  ) : (
+                    trainers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {`${t.first_name || ""} ${t.last_name || ""}`.trim() || t.email} ({t.role})
+                      </option>
+                    ))
+                  )}
                 </select>
                 {selectedTrainerLabel && (
                   <p className="text-[11px] text-slate-500 pl-1">Selected: <span className="font-semibold text-slate-700 dark:text-zinc-300">{selectedTrainerLabel}</span></p>
