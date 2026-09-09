@@ -134,7 +134,9 @@ export default function InstitutionProfilePage() {
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 Institutional Identifier
               </span>
-              <p className="font-mono text-xs text-muted-foreground truncate">{profile.id}</p>
+              <p className="font-mono text-sm font-bold text-foreground">
+                {profile.code || profile.college || "SSCET"}
+              </p>
             </div>
 
             <div className="bg-background border border-border rounded-xl p-4 space-y-1 sm:col-span-2 lg:col-span-4">

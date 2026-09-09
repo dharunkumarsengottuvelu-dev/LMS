@@ -118,7 +118,7 @@ export class InstitutionPerformanceService {
 
     const collegeName = profile?.college?.trim() || "";
     const name = collegeName || (profile?.first_name ? `${profile.first_name} ${profile.last_name || ""}`.trim() : "Institution Partner");
-    const code = profile?.branch?.trim() || (profile?.id ? `INST-${profile.id.slice(0, 6).toUpperCase()}` : "INST-001");
+    const code = profile?.branch?.trim() || (collegeName ? collegeName.toUpperCase() : (profile?.id ? `INST-${profile.id.slice(0, 6).toUpperCase()}` : "INST-001"));
     const email = profile?.email || "";
     const phone = profile?.phone || "";
     const address = profile?.bio || "";
