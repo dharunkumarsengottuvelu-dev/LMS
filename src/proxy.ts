@@ -68,6 +68,49 @@ function getRoleDefaultPath(role: string): string {
   }
 }
 
+function getValidDestinationForRole(role: string, nextParam: string | null): string {
+  const isSuperAdminOrAdmin = role === "super_admin" || role === "admin";
+  const isInstitution = role === "institution";
+  const isTrainer = role === "trainer";
+  const isRecruiter = role === "recruiter";
+
+  if (!nextParam || !nextParam.startsWith("/") || nextParam.startsWith("/login") || nextParam.startsWith("/register")) {
+    return getRoleDefaultPath(role);
+  }
+
+  // Cross-role protection: Ensure authenticated users are never routed to an unauthorized portal
+  if (isSuperAdminOrAdmin) {
+    if (nextParam.startsWith("/admin") || nextParam.startsWith("/coding") || nextParam.startsWith("/courses") || nextParam.startsWith("/ide")) {
+      return nextParam;
+    }
+    return "/admin/dashboard";
+  }
+
+  if (isInstitution) {
+    if (nextParam.startsWith("/institution")) {
+      return nextParam;
+    }
+    return "/institution/overview";
+  }
+
+  if (isTrainer) {
+    if (nextParam.startsWith("/trainer") || nextParam.startsWith("/coding") || nextParam.startsWith("/ide")) {
+      return nextParam;
+    }
+    return "/trainer/dashboard";
+  }
+
+  if (isRecruiter) {
+    return "/admin/students";
+  }
+
+  if (nextParam.startsWith("/admin") || nextParam.startsWith("/trainer") || nextParam.startsWith("/institution")) {
+    return "/student/dashboard";
+  }
+
+  return nextParam;
+}
+
 /**
  * Applies OWASP Top 10 Security Headers to the response
  */
@@ -272,15 +315,10 @@ export async function proxy(request: NextRequest) {
 
   // 3. Authenticated User Redirection ONLY when visiting auth/login/register pages directly
   if (user && (pathname.startsWith("/auth/") || pathname === "/login" || pathname === "/register")) {
-    const nextParam = request.nextUrl.searchParams.get("next");
-    if (nextParam && nextParam.startsWith("/") && !nextParam.startsWith("/login") && !nextParam.startsWith("/register")) {
-      return createRedirectWithCookies(new URL(nextParam, request.url), request, supabaseResponse);
-    }
-
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
-      .eq("user_id", user.id)
+      .or(`user_id.eq.${user.id},id.eq.${user.id}`)
       .maybeSingle();
 
     const userEmail = user.email?.toLowerCase() || "";
@@ -292,18 +330,23 @@ export async function proxy(request: NextRequest) {
     ).toLowerCase();
 
     let role = "student";
-    if (dbRole === "super_admin" || dbRole === "admin" || userEmail.includes("admin")) {
+    if (dbRole === "super_admin" || dbRole === "admin" || dbRole === "founder" || dbRole === "ceo" || userEmail.includes("admin")) {
       role = "admin";
     } else if (dbRole === "trainer" || userEmail.includes("trainer")) {
       role = "trainer";
+    } else if (dbRole === "institution" || userEmail.includes("institution")) {
+      role = "institution";
     } else if (dbRole === "recruiter") {
       role = "recruiter";
     } else if (dbRole) {
       role = dbRole;
     }
 
+    const nextParam = request.nextUrl.searchParams.get("next");
+    const destination = getValidDestinationForRole(role, nextParam);
+
     return createRedirectWithCookies(
-      new URL(getRoleDefaultPath(role), request.url),
+      new URL(destination, request.url),
       request,
       supabaseResponse
     );

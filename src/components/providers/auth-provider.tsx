@@ -41,7 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ? "admin" 
         : userEmail.includes("trainer") 
           ? "trainer" 
-          : "student";
+          : userEmail.includes("institution")
+            ? "institution"
+            : "student";
 
       const currentAuthUser = user || (await supabase.auth.getUser()).data.user;
       const meta = currentAuthUser?.user_metadata || {};

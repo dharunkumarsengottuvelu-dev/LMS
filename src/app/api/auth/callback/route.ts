@@ -80,7 +80,18 @@ export async function GET(request: Request) {
         !next.startsWith("/register") &&
         !next.startsWith("/api/auth");
 
-      const redirectPath = isSafeNext ? next : defaultPath;
+      let redirectPath = defaultPath;
+      if (isSafeNext) {
+        if (isSuperAdminOrAdmin && (next.startsWith("/admin") || next.startsWith("/coding") || next.startsWith("/courses") || next.startsWith("/ide"))) {
+          redirectPath = next;
+        } else if (isInstitution && next.startsWith("/institution")) {
+          redirectPath = next;
+        } else if (isTrainer && (next.startsWith("/trainer") || next.startsWith("/coding") || next.startsWith("/ide"))) {
+          redirectPath = next;
+        } else if (!isSuperAdminOrAdmin && !isInstitution && !isTrainer && !next.startsWith("/admin") && !next.startsWith("/trainer") && !next.startsWith("/institution")) {
+          redirectPath = next;
+        }
+      }
 
       return NextResponse.redirect(new URL(redirectPath, origin));
     }

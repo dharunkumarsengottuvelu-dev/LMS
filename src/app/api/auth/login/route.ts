@@ -27,21 +27,24 @@ export async function POST(request: Request) {
       const { data: profile } = await admin
         .from("profiles")
         .select("id, role")
-        .eq("user_id", existingUser.id)
+        .or(`user_id.eq.${existingUser.id},id.eq.${existingUser.id}`)
         .maybeSingle();
 
       const userMetadataRole = (existingUser.user_metadata?.role as string) || (existingUser.app_metadata?.role as string) || "";
       const isEmailAdmin = lowerEmail.includes("admin");
       const isEmailTrainer = lowerEmail.includes("trainer");
+      const isEmailInstitution = lowerEmail.includes("institution");
 
       let effectiveRole = profile?.role || userMetadataRole;
 
       if (!effectiveRole) {
-        effectiveRole = isEmailAdmin ? "admin" : isEmailTrainer ? "trainer" : "student";
+        effectiveRole = isEmailAdmin ? "admin" : isEmailTrainer ? "trainer" : isEmailInstitution ? "institution" : "student";
       } else if (effectiveRole === "student" && isEmailAdmin) {
         effectiveRole = "admin";
       } else if (effectiveRole === "student" && isEmailTrainer) {
         effectiveRole = "trainer";
+      } else if (effectiveRole === "student" && isEmailInstitution) {
+        effectiveRole = "institution";
       }
 
       if (!profile) {
@@ -53,7 +56,7 @@ export async function POST(request: Request) {
           role: effectiveRole,
           status: "active",
         });
-      } else if (profile.role === "student" && (isEmailAdmin || isEmailTrainer)) {
+      } else if (profile.role === "student" && (isEmailAdmin || isEmailTrainer || isEmailInstitution)) {
         await admin.from("profiles").update({ role: effectiveRole }).eq("user_id", existingUser.id);
       }
 

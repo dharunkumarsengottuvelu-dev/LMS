@@ -22,6 +22,45 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+function resolveRoleDestination(role: string, nextUrl: string | null): string {
+  const isSuperAdminOrAdmin = role === "super_admin" || role === "admin";
+  const isInstitution = role === "institution";
+  const isTrainer = role === "trainer";
+  const isRecruiter = role === "recruiter";
+
+  // Strict role boundaries: users must only land in their dedicated portal
+  if (isSuperAdminOrAdmin) {
+    if (nextUrl && nextUrl.startsWith("/admin") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+      return nextUrl;
+    }
+    return "/admin/dashboard";
+  }
+
+  if (isInstitution) {
+    if (nextUrl && nextUrl.startsWith("/institution") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+      return nextUrl;
+    }
+    return "/institution/overview";
+  }
+
+  if (isTrainer) {
+    if (nextUrl && nextUrl.startsWith("/trainer") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+      return nextUrl;
+    }
+    return "/trainer/dashboard";
+  }
+
+  if (isRecruiter) {
+    return "/admin/students";
+  }
+
+  // Student / Learner
+  if (nextUrl && (nextUrl.startsWith("/student") || nextUrl.startsWith("/coding") || nextUrl.startsWith("/courses") || nextUrl.startsWith("/ide")) && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+    return nextUrl;
+  }
+  return "/student/dashboard";
+}
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +98,8 @@ export default function LoginPage() {
         throw new Error(errorData.error || "Authentication failed");
       }
 
+      const serverAuthData = await res.json().catch(() => null);
+
       // 2. Sign in with password via Supabase
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.email,
@@ -89,7 +130,7 @@ export default function LoginPage() {
         const { data: profileData } = await supabase
           .from("profiles")
           .select("role")
-          .eq("user_id", authData.user.id)
+          .or(`user_id.eq.${authData.user.id},id.eq.${authData.user.id}`)
           .maybeSingle();
 
         const profile = profileData as { role?: string } | null;
@@ -97,41 +138,26 @@ export default function LoginPage() {
 
         const emailLower = authData.user.email?.toLowerCase() || "";
         const profileRole = (
+          serverAuthData?.role ||
           profile?.role ||
           (authData.user.user_metadata?.role as string) ||
           (authData.user.app_metadata?.role as string) ||
           ""
         ).toLowerCase();
 
-        const isSuperAdminOrAdmin =
-          profileRole === "super_admin" ||
-          profileRole === "admin" ||
-          emailLower.includes("admin");
-
-        const isInstitution =
-          profileRole === "institution" ||
-          emailLower.includes("institution");
-
-        const isTrainer =
-          profileRole === "trainer" ||
-          emailLower.includes("trainer");
-
-        const isRecruiter = profileRole === "recruiter";
-
-        const defaultDestination = isSuperAdminOrAdmin
-          ? "/admin/dashboard"
-          : isInstitution
-          ? "/institution/overview"
-          : isTrainer
-          ? "/trainer/dashboard"
-          : isRecruiter
-          ? "/admin/students"
-          : "/student/dashboard";
+        let effectiveRole = "student";
+        if (profileRole === "super_admin" || profileRole === "admin" || emailLower.includes("admin")) {
+          effectiveRole = "admin";
+        } else if (profileRole === "institution" || emailLower.includes("institution")) {
+          effectiveRole = "institution";
+        } else if (profileRole === "trainer" || emailLower.includes("trainer")) {
+          effectiveRole = "trainer";
+        } else if (profileRole === "recruiter") {
+          effectiveRole = "recruiter";
+        }
 
         const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-        const target = nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")
-          ? nextUrl
-          : defaultDestination;
+        const target = resolveRoleDestination(effectiveRole, nextUrl);
 
         router.push(target);
         router.refresh();
@@ -167,7 +193,7 @@ export default function LoginPage() {
         const { data: profileData } = await supabase
           .from("profiles")
           .select("role")
-          .eq("user_id", authData.user.id)
+          .or(`user_id.eq.${authData.user.id},id.eq.${authData.user.id}`)
           .maybeSingle();
 
         const profile = profileData as { role?: string } | null;
@@ -181,35 +207,19 @@ export default function LoginPage() {
           ""
         ).toLowerCase();
 
-        const isSuperAdminOrAdmin =
-          profileRole === "super_admin" ||
-          profileRole === "admin" ||
-          emailLower.includes("admin");
-
-        const isInstitution =
-          profileRole === "institution" ||
-          emailLower.includes("institution");
-
-        const isTrainer =
-          profileRole === "trainer" ||
-          emailLower.includes("trainer");
-
-        const isRecruiter = profileRole === "recruiter";
-
-        const defaultDestination = isSuperAdminOrAdmin
-          ? "/admin/dashboard"
-          : isInstitution
-          ? "/institution/overview"
-          : isTrainer
-          ? "/trainer/dashboard"
-          : isRecruiter
-          ? "/admin/students"
-          : "/student/dashboard";
+        let effectiveRole = "student";
+        if (profileRole === "super_admin" || profileRole === "admin" || emailLower.includes("admin")) {
+          effectiveRole = "admin";
+        } else if (profileRole === "institution" || emailLower.includes("institution")) {
+          effectiveRole = "institution";
+        } else if (profileRole === "trainer" || emailLower.includes("trainer")) {
+          effectiveRole = "trainer";
+        } else if (profileRole === "recruiter") {
+          effectiveRole = "recruiter";
+        }
 
         const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-        const target = nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")
-          ? nextUrl
-          : defaultDestination;
+        const target = resolveRoleDestination(effectiveRole, nextUrl);
 
         router.push(target);
         router.refresh();
