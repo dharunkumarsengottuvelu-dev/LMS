@@ -71,7 +71,6 @@ export default function InstitutionProfilePage() {
       {/* Page Header */}
       <PageHeader
         title="Institution Profile"
-        description="Registered institutional credentials, allocated cohorts, and administrative contact records."
         actions={
           <Button
             variant="outline"
@@ -146,7 +145,7 @@ export default function InstitutionProfilePage() {
                 Campus Address & Notes
               </span>
               <p className="text-foreground leading-relaxed text-xs">
-                {profile.address || "Registered academic institution partner under Falcon Learning Technologies enterprise framework."}
+                {profile.address || "Not specified"}
               </p>
             </div>
           </div>

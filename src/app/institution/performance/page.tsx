@@ -153,8 +153,8 @@ export default function InstitutionPerformancePage() {
     setIsLoadingPerformance(true);
     setErrorMsg(null);
     try {
-      const q = search ? `&search=${encodeURIComponent(search)}` : "";
-      const res = await fetch(`/api/institution/performance?batchId=${batchId}${q}`);
+      const q = search ? `?search=${encodeURIComponent(search)}` : "";
+      const res = await fetch(`/api/institution/batches/${batchId}/performance${q}`);
       if (!res.ok) {
         throw new Error("Unable to load student performance data");
       }
@@ -179,7 +179,7 @@ export default function InstitutionPerformancePage() {
     setIsLoadingDetails(true);
     setDetailError(null);
     try {
-      const res = await fetch(`/api/institution/performance/student?studentId=${studentId}`);
+      const res = await fetch(`/api/institution/students/${studentId}`);
       if (!res.ok) {
         throw new Error("Unable to load learner details");
       }
@@ -255,7 +255,6 @@ export default function InstitutionPerformancePage() {
       <div className="space-y-8 animate-fade-up">
         <PageHeader
           title="Batch Performance Telemetry"
-          description="Authoritative academic scores across learning tracks, skill labs, coding assessments, and overall competencies."
         />
         <Card className="bg-card border-border rounded-2xl p-16 text-center shadow-xs">
           <h3 className="text-base font-bold text-foreground">No Batches Assigned</h3>
@@ -271,7 +270,6 @@ export default function InstitutionPerformancePage() {
     <div className="space-y-8 animate-fade-up">
       <PageHeader
         title="Batch Performance Telemetry"
-        description="Authoritative academic scores across learning tracks, skill labs, coding assessments, and overall competencies."
         actions={
           <Button
             variant="outline"
@@ -525,9 +523,6 @@ export default function InstitutionPerformancePage() {
             <SheetTitle className="text-base font-bold text-foreground tracking-tight">
               Learner Performance Dossier
             </SheetTitle>
-            <p className="text-xs text-muted-foreground">
-              Official evaluation metrics, attendance records, and assessment telemetry.
-            </p>
           </SheetHeader>
 
           {isLoadingDetails ? (

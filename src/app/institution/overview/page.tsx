@@ -111,7 +111,6 @@ export default function InstitutionOverviewPage() {
             </Badge>
           </span>
         }
-        description="Executive academic telemetry, batch progress, and learner competency evaluations."
         actions={
           <div className="flex items-center gap-2.5">
             <Link href="/institution/reports">
@@ -176,7 +175,7 @@ export default function InstitutionOverviewPage() {
             <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 font-mono tracking-tight">
               {data?.activeLearnerRate !== null && data?.activeLearnerRate !== undefined
                 ? `${data.activeLearnerRate}%`
-                : "100%"}
+                : "—"}
             </span>
             <span className="text-xs text-muted-foreground font-medium">30-day active</span>
           </div>
@@ -188,9 +187,6 @@ export default function InstitutionOverviewPage() {
         <CardHeader className="p-5 sm:p-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <CardTitle className="text-base font-bold text-foreground">Active Cohorts Summary</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground mt-0.5">
-              Current progress and student density per assigned batch
-            </CardDescription>
           </div>
           <Link href="/institution/batches">
             <Button variant="outline" size="sm" className="h-8 text-xs font-semibold rounded-lg">

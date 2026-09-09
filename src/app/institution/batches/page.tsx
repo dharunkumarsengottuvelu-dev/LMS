@@ -88,23 +88,20 @@ interface StudentDetailedView {
   courses: {
     id: string;
     title: string;
-    progressPercentage: number;
-    completedAt: string | null;
+    progress: number;
     status: string;
   }[];
-  assessments: {
+  recentAssessments: {
     id: string;
     title: string;
-    type: string;
-    status: string;
-    score: number | null;
-    totalMarks: number | null;
-    percentage: number | null;
+    score: number;
+    totalMarks: number;
+    percentage: number;
     submittedAt: string;
   }[];
-  codingSubmissions: {
+  recentCoding: {
     id: string;
-    problemTitle: string;
+    problemId: string;
     language: string;
     status: string;
     passedTestCases: number;
@@ -256,7 +253,6 @@ export default function InstitutionBatchesPage() {
       {/* 1. Page Header */}
       <PageHeader
         title="Assigned Batches"
-        description="Directory of academic cohorts assigned to your institution with enrollment counts, schedules, and trainer assignments."
         actions={
           <div className="flex items-center gap-3 shrink-0">
             {/* Clean MNC View Mode Switcher */}
@@ -619,11 +615,6 @@ export default function InstitutionBatchesPage() {
             <DialogTitle className="text-xl font-bold text-foreground">
               {viewingBatch ? `Enrolled Students — ${viewingBatch.name}` : "Enrolled Students"}
             </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              {viewingBatch
-                ? `Directory of registered learners assigned to cohort ${viewingBatch.code}. Trainer: ${viewingBatch.trainerName}.`
-                : "Cohort learner roster."}
-            </DialogDescription>
           </DialogHeader>
 
           {/* Search Box */}
@@ -720,9 +711,6 @@ export default function InstitutionBatchesPage() {
             <SheetTitle className="text-base font-bold text-foreground tracking-tight">
               Learner Performance Dossier
             </SheetTitle>
-            <p className="text-xs text-muted-foreground">
-              Official evaluation metrics, attendance records, and assessment telemetry.
-            </p>
           </SheetHeader>
 
           {isLoadingDetails ? (
@@ -823,12 +811,12 @@ export default function InstitutionBatchesPage() {
                       <div key={c.id} className="bg-background border border-border rounded-xl p-3 space-y-1.5">
                         <div className="flex items-center justify-between">
                           <p className="font-semibold text-foreground text-xs">{c.title}</p>
-                          <span className="font-mono font-bold text-[11px] text-primary">{c.progressPercentage}%</span>
+                          <span className="font-mono font-bold text-[11px] text-primary">{c.progress}%</span>
                         </div>
                         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                           <div
                             className="h-full bg-primary rounded-full transition-all duration-300"
-                            style={{ width: `${Math.min(100, Math.max(0, c.progressPercentage))}%` }}
+                            style={{ width: `${Math.min(100, Math.max(0, c.progress))}%` }}
                           />
                         </div>
                       </div>
@@ -842,11 +830,11 @@ export default function InstitutionBatchesPage() {
                 <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">
                   Recent Formal Assessments
                 </span>
-                {!detailedStudent.assessments || detailedStudent.assessments.length === 0 ? (
+                {!detailedStudent.recentAssessments || detailedStudent.recentAssessments.length === 0 ? (
                   <p className="text-muted-foreground italic text-[11px]">No assessment submissions found.</p>
                 ) : (
                   <div className="space-y-2">
-                    {detailedStudent.assessments.map((a) => (
+                    {detailedStudent.recentAssessments.map((a) => (
                       <div key={a.id} className="bg-background border border-border rounded-xl p-3 flex items-center justify-between">
                         <div>
                           <p className="font-semibold text-foreground text-xs">{a.title}</p>

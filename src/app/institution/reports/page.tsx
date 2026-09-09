@@ -115,7 +115,6 @@ export default function InstitutionReportsPage() {
       {/* Page Header */}
       <PageHeader
         title="Academic Performance Reports"
-        description="Institutional audits, competency compliance summaries, and exportable academic grade sheets."
         actions={
           <Button
             onClick={handleExportCsv}
