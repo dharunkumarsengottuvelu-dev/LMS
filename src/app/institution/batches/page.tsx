@@ -2,29 +2,6 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import {
-  Search,
-  RotateCw,
-  Layers,
-  Users,
-  GraduationCap,
-  Activity,
-  ArrowRight,
-  Filter,
-  Calendar,
-  AlertCircle,
-  LayoutGrid,
-  List,
-  Building2,
-  BookOpen,
-  User,
-  CheckCircle2,
-  XCircle,
-  BarChart2,
-  ChevronRight,
-  FileCheck2,
-  Clock
-} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -70,13 +47,15 @@ interface StudentPerformanceRow {
   employeeId: string;
   studentName: string;
   email: string;
+  status: string;
+  overall: number | null;
   learning: number | null;
   skillLab: number | null;
   codeLab: number | null;
   assess: number | null;
-  overall: number | null;
   progress: number | null;
-  status: "Excellent" | "Good" | "Average" | "Needs Attention" | "Inactive";
+  attendanceRate: number | null;
+  activeTimeFormatted: string;
   accountStatus: string;
   lastActivity: string;
 }
@@ -109,15 +88,27 @@ interface StudentDetailedView {
   courses: {
     id: string;
     title: string;
-    progress: number;
+    progressPercentage: number;
+    completedAt: string | null;
     status: string;
   }[];
-  recentAssessments: {
+  assessments: {
     id: string;
     title: string;
-    score: number;
-    totalMarks: number;
-    percentage: number;
+    type: string;
+    status: string;
+    score: number | null;
+    totalMarks: number | null;
+    percentage: number | null;
+    submittedAt: string;
+  }[];
+  codingSubmissions: {
+    id: string;
+    problemTitle: string;
+    language: string;
+    status: string;
+    passedTestCases: number;
+    totalTestCases: number;
     submittedAt: string;
   }[];
 }
@@ -126,33 +117,37 @@ export default function InstitutionBatchesPage() {
   const [batches, setBatches] = useState<BatchItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Search & Filter state
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
-  // Enrolled Students Dialog State
+  // Modal State: View Batch Students
   const [viewingBatch, setViewingBatch] = useState<BatchItem | null>(null);
   const [batchStudents, setBatchStudents] = useState<StudentPerformanceRow[]>([]);
   const [isLoadingBatchStudents, setIsLoadingBatchStudents] = useState(false);
   const [studentSearch, setStudentSearch] = useState("");
 
-  // Student Detail Dossier Sheet State
+  // Slide-over Sheet: Individual Student Deep-Dive
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [detailedStudent, setDetailedStudent] = useState<StudentDetailedView | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
+  // 1. Fetch assigned batches
   const fetchBatches = useCallback(async () => {
     setIsLoading(true);
     setErrorMsg(null);
     try {
       const res = await fetch("/api/institution/batches");
       if (!res.ok) {
-        throw new Error("Unable to load batches. Please try again.");
+        throw new Error("Unable to load assigned batches");
       }
-      const d = await res.json();
-      setBatches(d.batches || []);
+      const data = await res.json();
+      setBatches(data.batches || []);
     } catch (err: any) {
-      setErrorMsg(err.message || "Unable to load batches. Please try again.");
+      console.error("Institution Batches API Error:", err);
+      setErrorMsg(err.message || "Failed to load assigned batches");
     } finally {
       setIsLoading(false);
     }
@@ -162,7 +157,7 @@ export default function InstitutionBatchesPage() {
     fetchBatches();
   }, [fetchBatches]);
 
-  // Load students for a selected batch
+  // 2. Fetch students inside batch for the modal roster
   const handleOpenViewingBatch = async (batch: BatchItem) => {
     setViewingBatch(batch);
     setStudentSearch("");
@@ -175,52 +170,62 @@ export default function InstitutionBatchesPage() {
       } else {
         setBatchStudents([]);
       }
-    } catch (err) {
-      console.error("Failed to load students for batch:", err);
+    } catch {
       setBatchStudents([]);
     } finally {
       setIsLoadingBatchStudents(false);
     }
   };
 
-  // Inspect student detailed dossier
+  // 3. Inspect individual student details
   const handleInspectStudent = async (studentId: string) => {
     setSelectedStudentId(studentId);
     setIsLoadingDetails(true);
-    setDetailedStudent(null);
     try {
       const res = await fetch(`/api/institution/students/${studentId}`);
       if (res.ok) {
         const data = await res.json();
         setDetailedStudent(data.student || null);
+      } else {
+        setDetailedStudent(null);
       }
-    } catch (err) {
-      console.error("Failed to load student details:", err);
+    } catch {
+      setDetailedStudent(null);
     } finally {
       setIsLoadingDetails(false);
     }
   };
 
-  // Filter batches
+  // 4. Computed stats & filters
+  const totalBatches = batches.length;
+  const activeBatches = batches.filter((b) => (b.status || "active").toLowerCase() === "active").length;
+  const totalStudents = batches.reduce((acc, b) => acc + (b.studentCount || 0), 0);
+  const uniqueTrainers = useMemo(() => {
+    const set = new Set<string>();
+    batches.forEach((b) => {
+      if (b.trainerName && b.trainerName !== "Unassigned") set.add(b.trainerName);
+    });
+    return set.size;
+  }, [batches]);
+
   const filteredBatches = useMemo(() => {
     return batches.filter((b) => {
-      const matchesSearch =
-        !search.trim() ||
+      const matchSearch =
+        !search ||
         b.name.toLowerCase().includes(search.toLowerCase()) ||
         b.code.toLowerCase().includes(search.toLowerCase()) ||
         b.trainerName.toLowerCase().includes(search.toLowerCase());
 
-      const matchesStatus =
+      const matchStatus =
         statusFilter === "all" ||
         (b.status || "active").toLowerCase() === statusFilter.toLowerCase();
 
-      return matchesSearch && matchesStatus;
+      return matchSearch && matchStatus;
     });
   }, [batches, search, statusFilter]);
 
-  // Filter students within viewing batch modal
   const filteredBatchStudents = useMemo(() => {
-    if (!studentSearch.trim()) return batchStudents;
+    if (!studentSearch) return batchStudents;
     const q = studentSearch.toLowerCase();
     return batchStudents.filter(
       (s) =>
@@ -230,22 +235,17 @@ export default function InstitutionBatchesPage() {
     );
   }, [batchStudents, studentSearch]);
 
-  // Aggregate stats
-  const totalBatches = batches.length;
-  const activeBatches = batches.filter((b) => (b.status || "active").toLowerCase() === "active").length;
-  const totalStudents = batches.reduce((acc, b) => acc + (b.studentCount || 0), 0);
-  const uniqueTrainers = new Set(batches.map((b) => b.trainerName).filter((t) => t && t !== "Unassigned")).size;
-
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case "Excellent":
-        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+        return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
       case "Good":
-        return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
+        return "bg-blue-500/10 text-blue-600 border-blue-500/20";
       case "Average":
-        return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20";
+        return "bg-amber-500/10 text-amber-600 border-amber-500/20";
       case "Needs Attention":
-        return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20";
+      case "Inactive":
+        return "bg-rose-500/10 text-rose-600 border-rose-500/20";
       default:
         return "bg-muted text-muted-foreground border-border";
     }
@@ -259,33 +259,29 @@ export default function InstitutionBatchesPage() {
         description="Directory of academic cohorts assigned to your institution with enrollment counts, schedules, and trainer assignments."
         actions={
           <div className="flex items-center gap-3 shrink-0">
-            {/* View Mode Switcher (Grid vs Table) */}
+            {/* Clean MNC View Mode Switcher */}
             <div className="hidden sm:flex items-center bg-muted/60 p-1 rounded-xl border border-border">
               <button
                 type="button"
                 onClick={() => setViewMode("grid")}
-                className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   viewMode === "grid"
-                    ? "bg-background text-foreground shadow-xs"
+                    ? "bg-background text-foreground shadow-xs font-bold"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
-                title="Grid View"
               >
-                <LayoutGrid className="h-4 w-4" />
-                <span>Grid</span>
+                Grid
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("table")}
-                className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   viewMode === "table"
-                    ? "bg-background text-foreground shadow-xs"
+                    ? "bg-background text-foreground shadow-xs font-bold"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
-                title="Table View"
               >
-                <List className="h-4 w-4" />
-                <span>Table</span>
+                Table
               </button>
             </div>
 
@@ -294,87 +290,73 @@ export default function InstitutionBatchesPage() {
               size="sm"
               onClick={fetchBatches}
               disabled={isLoading}
-              className="h-[40px] px-4 gap-2 text-xs font-semibold rounded-xl border-border hover:bg-accent"
+              className="h-[40px] px-4 text-xs font-semibold rounded-xl border-border hover:bg-accent"
             >
-              <RotateCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-              Refresh
+              {isLoading ? "Refreshing..." : "Refresh"}
             </Button>
           </div>
         }
       />
 
-      {/* 2. Key Metrics Overview Cards (Exact Admin & Trainer Architecture) */}
+      {/* 2. Key Metrics Overview Cards (Clean MNC Corporate Architecture) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA]">Total Batches</span>
-            <div className="w-9 h-9 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
-              <Layers className="h-5 w-5" />
-            </div>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Batches</span>
           </div>
-          <div className="mt-3">
-            <span className="text-3xl font-bold text-[#111827] dark:text-[#FAFAFA] font-mono">{totalBatches}</span>
-            <span className="text-xs text-[#6B7280] ml-2 font-medium">Assigned</span>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground font-mono tracking-tight">{totalBatches}</span>
+            <span className="text-xs text-muted-foreground font-medium">Assigned</span>
           </div>
         </Card>
 
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA]">Active Cohorts</span>
-            <div className="w-9 h-9 rounded-xl bg-[#16A34A]/10 text-[#16A34A] flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Cohorts</span>
           </div>
-          <div className="mt-3">
-            <span className="text-3xl font-bold text-[#16A34A] font-mono">{activeBatches}</span>
-            <span className="text-xs text-[#6B7280] ml-2 font-medium">In Session</span>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 font-mono tracking-tight">{activeBatches}</span>
+            <span className="text-xs text-muted-foreground font-medium">In Session</span>
           </div>
         </Card>
 
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA]">Enrolled Learners</span>
-            <div className="w-9 h-9 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center">
-              <Users className="h-5 w-5" />
-            </div>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enrolled Learners</span>
           </div>
-          <div className="mt-3">
-            <span className="text-3xl font-bold text-[#111827] dark:text-[#FAFAFA] font-mono">{totalStudents}</span>
-            <span className="text-xs text-[#6B7280] ml-2 font-medium">Students</span>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground font-mono tracking-tight">{totalStudents}</span>
+            <span className="text-xs text-muted-foreground font-medium">Students</span>
           </div>
         </Card>
 
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA]">Assigned Trainers</span>
-            <div className="w-9 h-9 rounded-xl bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center">
-              <GraduationCap className="h-5 w-5" />
-            </div>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Assigned Trainers</span>
           </div>
-          <div className="mt-3">
-            <span className="text-3xl font-bold text-[#F59E0B] font-mono">{uniqueTrainers}</span>
-            <span className="text-xs text-[#6B7280] ml-2 font-medium">Educators</span>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-amber-600 dark:text-amber-400 font-mono tracking-tight">{uniqueTrainers}</span>
+            <span className="text-xs text-muted-foreground font-medium">Educators</span>
           </div>
         </Card>
       </div>
 
       {/* 3. Search & Filters Bar */}
-      <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-2xl shadow-xs">
+      <Card className="bg-card border border-border p-4 rounded-2xl shadow-xs">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
+          <div className="w-full md:w-96">
             <Input
               placeholder="Search by cohort name, code, trainer..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 h-[44px] text-sm bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] rounded-xl"
+              className="h-[44px] text-sm bg-background border-border rounded-xl"
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
             {/* Status Filter */}
             <Select value={statusFilter} onValueChange={(val: string | null) => setStatusFilter(val || "all")}>
-              <SelectTrigger className="h-[44px] text-xs font-medium w-[140px] rounded-xl bg-[#F9FAFB] dark:bg-[#09090B]">
+              <SelectTrigger className="h-[44px] text-xs font-medium w-[140px] rounded-xl bg-background">
                 <SelectValue placeholder="Status: All" />
               </SelectTrigger>
               <SelectContent>
@@ -392,12 +374,11 @@ export default function InstitutionBatchesPage() {
                   setSearch("");
                   setStatusFilter("all");
                 }}
-                className="h-[44px] text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 px-3 rounded-xl"
+                className="h-[44px] text-xs font-semibold text-destructive hover:bg-destructive/10 px-3 rounded-xl"
               >
                 Reset Filters
               </Button>
             )}
-
             <Badge variant="outline" className="hidden sm:inline-flex bg-muted/50 text-muted-foreground font-mono text-[11px] px-2.5 py-1">
               {filteredBatches.length} {filteredBatches.length === 1 ? "Cohort" : "Cohorts"}
             </Badge>
@@ -413,8 +394,7 @@ export default function InstitutionBatchesPage() {
           ))}
         </div>
       ) : errorMsg ? (
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-12 text-center rounded-2xl shadow-xs">
-          <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3 opacity-80" />
+        <Card className="bg-card border border-border p-12 text-center rounded-2xl shadow-xs">
           <h3 className="text-sm font-bold text-foreground">Failed to Load Batches</h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">{errorMsg}</p>
           <Button variant="outline" size="sm" onClick={fetchBatches} className="mt-4 rounded-xl text-xs font-semibold">
@@ -422,14 +402,11 @@ export default function InstitutionBatchesPage() {
           </Button>
         </Card>
       ) : filteredBatches.length === 0 ? (
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-12 text-center rounded-2xl shadow-xs">
-          <div className="w-12 h-12 rounded-2xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center mx-auto mb-4">
-            <Layers className="h-6 w-6 opacity-80" />
-          </div>
-          <h3 className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">
+        <Card className="bg-card border border-border p-12 text-center rounded-2xl shadow-xs">
+          <h3 className="text-base font-bold text-foreground">
             {batches.length === 0 ? "No Batches Assigned Yet" : "No Matching Cohorts Found"}
           </h3>
-          <p className="text-xs text-[#6B7280] max-w-md mx-auto mt-1.5 leading-relaxed">
+          <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1.5 leading-relaxed">
             {batches.length === 0
               ? "Your institution does not have any assigned cohorts in the system yet. Batches created by LMS administrators tagged to your institution will automatically appear here."
               : "No cohorts matched your current search filters. Try adjusting your query or resetting status filters."}
@@ -440,9 +417,8 @@ export default function InstitutionBatchesPage() {
                 variant="outline"
                 size="sm"
                 onClick={fetchBatches}
-                className="rounded-xl text-xs gap-2 font-semibold h-10 px-4"
+                className="rounded-xl text-xs font-semibold h-10 px-4"
               >
-                <RotateCw className="h-3.5 w-3.5" />
                 Check For Updates
               </Button>
             </div>
@@ -468,18 +444,18 @@ export default function InstitutionBatchesPage() {
             return (
               <Card
                 key={batch.id}
-                className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
+                className="bg-card border border-border rounded-2xl shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
               >
                 <div>
                   {/* Top Bar with Status Badge */}
-                  <div className="p-5 pb-3 flex items-start justify-between gap-3 border-b border-[#E5E7EB]/60 dark:border-[#27272A]/60 bg-[#F9FAFB]/50 dark:bg-[#09090B]/50">
+                  <div className="p-5 pb-3 flex items-start justify-between gap-3 border-b border-border bg-muted/20">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="font-mono text-[10px] bg-primary/5 text-primary border-primary/20 px-1.5 py-0.5">
                           {batch.code}
                         </Badge>
                       </div>
-                      <h3 className="text-base font-bold text-[#111827] dark:text-[#FAFAFA] leading-snug line-clamp-2">
+                      <h3 className="text-base font-bold text-foreground leading-snug line-clamp-2">
                         {batch.name}
                       </h3>
                     </div>
@@ -487,8 +463,8 @@ export default function InstitutionBatchesPage() {
                     <Badge
                       className={`text-[10px] font-bold uppercase tracking-wider shrink-0 px-2.5 py-0.5 ${
                         isActive
-                          ? "bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30"
-                          : "bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/30"
+                          ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30"
+                          : "bg-destructive/10 text-destructive border border-destructive/30"
                       }`}
                     >
                       {isActive ? "Active" : batch.status}
@@ -496,51 +472,43 @@ export default function InstitutionBatchesPage() {
                   </div>
 
                   {/* Body Content */}
-                  <div className="p-5 space-y-3 text-xs text-[#4B5563] dark:text-[#D1D5DB]">
-                    <div className="flex items-center gap-2.5">
-                      <User className="h-4 w-4 text-[#6B7280] shrink-0" />
-                      <span>
-                        Trainer: <strong className="text-[#111827] dark:text-[#FAFAFA]">{batch.trainerName}</strong>
-                      </span>
+                  <div className="p-5 space-y-2.5 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Trainer</span>
+                      <strong className="text-foreground font-semibold">{batch.trainerName}</strong>
                     </div>
 
-                    <div className="flex items-center gap-2.5">
-                      <Calendar className="h-4 w-4 text-[#6B7280] shrink-0" />
-                      <span>
-                        Start Date: <strong>{batch.startDate}</strong>
-                      </span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Start Date</span>
+                      <strong className="text-foreground font-mono font-medium">{batch.startDate}</strong>
                     </div>
 
-                    <div className="pt-2 flex items-center justify-between border-t border-[#E5E7EB] dark:border-[#27272A]">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-[#2563EB]" />
-                        <span className="font-bold text-[#111827] dark:text-[#FAFAFA] text-sm">
-                          {batch.studentCount} <span className="text-xs font-normal text-[#6B7280]">Enrolled</span>
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-[#6B7280]">Academic Cohort</span>
+                    <div className="pt-2.5 flex items-center justify-between border-t border-border">
+                      <span className="font-medium">Enrolled Learners</span>
+                      <Badge variant="secondary" className="font-mono font-bold text-xs px-2.5 py-0.5">
+                        {batch.studentCount}
+                      </Badge>
                     </div>
                   </div>
                 </div>
 
-                {/* Card Action Buttons (Exact Admin/Trainer Actions) */}
-                <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-2">
+                {/* Card Action Buttons */}
+                <div className="p-4 bg-muted/30 border-t border-border flex items-center justify-between gap-2.5">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleOpenViewingBatch(batch)}
-                    className="flex-1 h-9 text-xs font-bold gap-1.5 border-[#2563EB] text-[#2563EB] hover:bg-[#2563EB]/10 rounded-xl"
+                    className="flex-1 h-9 text-xs font-semibold border-border hover:bg-accent rounded-xl text-foreground"
                   >
-                    <Users className="h-3.5 w-3.5" /> Enrolled Students ({batch.studentCount})
+                    Enrolled Students ({batch.studentCount})
                   </Button>
 
                   <Link href={`/institution/performance?batchId=${batch.id}`}>
                     <Button
                       size="sm"
-                      className="h-9 px-3.5 text-xs font-bold gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl shadow-xs"
+                      className="h-9 px-4 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-xs"
                     >
-                      <BarChart2 className="h-3.5 w-3.5" />
-                      <span>Analytics</span>
+                      Analytics
                     </Button>
                   </Link>
                 </div>
@@ -550,10 +518,10 @@ export default function InstitutionBatchesPage() {
         </div>
       ) : (
         /* ================= COMPACT TABLE VIEW ================= */
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden shadow-xs">
+        <Card className="bg-card border border-border rounded-2xl overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
+              <thead className="bg-muted/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                 <tr>
                   <th className="py-3.5 px-5">Cohort / Code</th>
                   <th className="py-3.5 px-4">Status</th>
@@ -563,14 +531,14 @@ export default function InstitutionBatchesPage() {
                   <th className="py-3.5 px-5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+              <tbody className="divide-y divide-border">
                 {filteredBatches.map((b) => {
                   const isActive = (b.status || "active").toLowerCase() === "active";
                   return (
                     <tr key={b.id} className="hover:bg-accent/40 transition-colors">
                       <td className="py-4 px-5">
                         <div className="space-y-0.5">
-                          <p className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA] hover:text-[#2563EB] transition-colors">
+                          <p className="font-bold text-sm text-foreground hover:text-primary transition-colors">
                             {b.name}
                           </p>
                           <Badge variant="outline" className="font-mono text-[10px] bg-muted/60 text-muted-foreground px-1.5 py-0.5">
@@ -603,11 +571,8 @@ export default function InstitutionBatchesPage() {
                         </div>
                       </td>
 
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <Calendar className="h-3.5 w-3.5 opacity-70" />
-                          <span>{b.startDate}</span>
-                        </div>
+                      <td className="py-4 px-4 font-mono text-muted-foreground">
+                        {b.startDate}
                       </td>
 
                       <td className="py-4 px-4 text-center">
@@ -629,10 +594,9 @@ export default function InstitutionBatchesPage() {
                           <Link href={`/institution/performance?batchId=${b.id}`}>
                             <Button
                               size="sm"
-                              className="h-8 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-lg gap-1"
+                              className="h-8 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg"
                             >
-                              <span>Analytics</span>
-                              <ArrowRight className="h-3 w-3" />
+                              Analytics
                             </Button>
                           </Link>
                         </div>
@@ -650,13 +614,12 @@ export default function InstitutionBatchesPage() {
       {/* MODAL: VIEW ENROLLED STUDENTS IN COHORT (Exact Admin/Trainer Feature) */}
       {/* ========================================================================= */}
       <Dialog open={!!viewingBatch} onOpenChange={(open) => !open && setViewingBatch(null)}>
-        <DialogContent className="max-w-2xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-3xl p-6 shadow-2xl space-y-4">
+        <DialogContent className="max-w-2xl bg-card border border-border rounded-3xl p-6 shadow-2xl space-y-4">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-              <Users className="h-5 w-5 text-[#2563EB]" />
+            <DialogTitle className="text-xl font-bold text-foreground">
               {viewingBatch ? `Enrolled Students — ${viewingBatch.name}` : "Enrolled Students"}
             </DialogTitle>
-            <DialogDescription className="text-xs text-[#6B7280]">
+            <DialogDescription className="text-xs text-muted-foreground">
               {viewingBatch
                 ? `Directory of registered learners assigned to cohort ${viewingBatch.code}. Trainer: ${viewingBatch.trainerName}.`
                 : "Cohort learner roster."}
@@ -664,13 +627,12 @@ export default function InstitutionBatchesPage() {
           </DialogHeader>
 
           {/* Search Box */}
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]" />
+          <div>
             <Input
               placeholder="Search by student name, email, or ID..."
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
-              className="pl-10 h-[44px] text-xs bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl"
+              className="h-[44px] text-xs bg-background rounded-xl border-border"
             />
           </div>
 
@@ -682,40 +644,39 @@ export default function InstitutionBatchesPage() {
               ))}
             </div>
           ) : filteredBatchStudents.length === 0 ? (
-            <div className="p-10 text-center bg-[#F9FAFB] dark:bg-[#09090B] border border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl space-y-2">
-              <Users className="h-8 w-8 text-[#6B7280] mx-auto opacity-40" />
-              <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA]">
+            <div className="p-10 text-center bg-background border border-dashed border-border rounded-2xl space-y-2">
+              <p className="text-sm font-semibold text-foreground">
                 {studentSearch ? "No matching students found" : "No Students Enrolled in this Cohort"}
               </p>
-              <p className="text-xs text-[#6B7280]">
+              <p className="text-xs text-muted-foreground">
                 {studentSearch ? "Try adjusting your search query." : "Learners allocated to this batch will automatically appear here."}
               </p>
             </div>
           ) : (
-            <div className="max-h-[380px] overflow-y-auto border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+            <div className="max-h-[380px] overflow-y-auto border border-border rounded-2xl divide-y divide-border">
               {filteredBatchStudents.map((std) => (
                 <div
                   key={std.studentId}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F9FAFB] dark:hover:bg-[#09090B] transition-colors"
+                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-accent/40 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 border border-[#2563EB]/30">
-                      <AvatarFallback className="bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs">
+                    <Avatar className="h-10 w-10 border border-border">
+                      <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
                         {getInitials(std.studentName)}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">{std.studentName}</p>
+                        <p className="text-sm font-bold text-foreground">{std.studentName}</p>
                         <span
-                          className={`inline-flex items-center px-2 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider border ${getStatusBadgeClass(
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${getStatusBadgeClass(
                             std.status
                           )}`}
                         >
                           {std.status}
                         </span>
                       </div>
-                      <p className="text-xs text-[#6B7280]">{std.email}</p>
+                      <p className="text-xs text-muted-foreground">{std.email}</p>
                       <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
                         ID: {std.employeeId} • Overall: {std.overall !== null ? `${std.overall}%` : "—"}
                       </p>
@@ -726,10 +687,9 @@ export default function InstitutionBatchesPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleInspectStudent(std.studentId)}
-                    className="h-8 text-xs font-semibold text-primary hover:bg-primary/10 rounded-xl gap-1 border-primary/20 self-start sm:self-auto"
+                    className="h-8 text-xs font-semibold text-primary hover:bg-primary/10 rounded-xl border-primary/20 self-start sm:self-auto"
                   >
                     Inspect Dossier
-                    <ChevronRight className="h-3 w-3" />
                   </Button>
                 </div>
               ))}
@@ -828,8 +788,8 @@ export default function InstitutionBatchesPage() {
 
               {/* Attendance & Engagement */}
               <Card className="bg-background border-border rounded-xl p-4 shadow-xs space-y-2">
-                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-primary" /> Attendance & Activity Telemetry
+                <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                  Attendance & Activity Telemetry
                 </span>
                 <div className="grid grid-cols-2 gap-4 pt-1">
                   <div>
@@ -852,8 +812,8 @@ export default function InstitutionBatchesPage() {
 
               {/* Enrolled Courses */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                  <BookOpen className="h-3.5 w-3.5 text-primary" /> Course Curricula Progress
+                <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                  Course Curricula Progress
                 </span>
                 {detailedStudent.courses.length === 0 ? (
                   <p className="text-muted-foreground italic text-[11px]">No enrolled courses found.</p>
@@ -863,12 +823,12 @@ export default function InstitutionBatchesPage() {
                       <div key={c.id} className="bg-background border border-border rounded-xl p-3 space-y-1.5">
                         <div className="flex items-center justify-between">
                           <p className="font-semibold text-foreground text-xs">{c.title}</p>
-                          <span className="font-mono font-bold text-[11px] text-primary">{c.progress}%</span>
+                          <span className="font-mono font-bold text-[11px] text-primary">{c.progressPercentage}%</span>
                         </div>
                         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                           <div
                             className="h-full bg-primary rounded-full transition-all duration-300"
-                            style={{ width: `${Math.min(100, Math.max(0, c.progress))}%` }}
+                            style={{ width: `${Math.min(100, Math.max(0, c.progressPercentage))}%` }}
                           />
                         </div>
                       </div>
@@ -879,21 +839,21 @@ export default function InstitutionBatchesPage() {
 
               {/* Recent Assessments */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                  <FileCheck2 className="h-3.5 w-3.5 text-primary" /> Recent Formal Assessments
+                <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                  Recent Formal Assessments
                 </span>
-                {detailedStudent.recentAssessments.length === 0 ? (
+                {!detailedStudent.assessments || detailedStudent.assessments.length === 0 ? (
                   <p className="text-muted-foreground italic text-[11px]">No assessment submissions found.</p>
                 ) : (
                   <div className="space-y-2">
-                    {detailedStudent.recentAssessments.map((a) => (
+                    {detailedStudent.assessments.map((a) => (
                       <div key={a.id} className="bg-background border border-border rounded-xl p-3 flex items-center justify-between">
                         <div>
                           <p className="font-semibold text-foreground text-xs">{a.title}</p>
-                          <p className="text-[10px] text-muted-foreground">{a.submittedAt}</p>
+                          <p className="text-[10px] text-muted-foreground">{a.submittedAt || "Submitted"}</p>
                         </div>
                         <Badge variant="secondary" className="font-mono font-bold text-xs">
-                          {a.score}/{a.totalMarks} ({a.percentage}%)
+                          {a.score ?? 0}/{a.totalMarks ?? 100} ({a.percentage ?? 0}%)
                         </Badge>
                       </div>
                     ))}

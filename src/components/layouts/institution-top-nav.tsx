@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, User, FileText, BarChart2 } from "lucide-react";
+import { LogOut, Menu, User } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,7 +24,6 @@ const institutionNavigation = [
   { label: "Batches", href: "/institution/batches" },
   { label: "Performance", href: "/institution/performance" },
   { label: "Reports", href: "/institution/reports" },
-  { label: "Profile", href: "/institution/profile" },
 ];
 
 export function InstitutionTopNav() {
@@ -56,12 +55,10 @@ export function InstitutionTopNav() {
         <div className="hidden lg:flex flex-1 items-center justify-center min-w-0 px-2">
           <nav className="flex items-center gap-1 xl:gap-2 overflow-x-auto no-scrollbar py-1">
             {institutionNavigation.map((item) => {
-              const isExact = pathname === item.href;
-              const isSubpath = !item.href.endsWith("/overview") && pathname.startsWith(item.href);
-              const isAlias = (item.aliases || []).some(
-                (alias) => pathname === alias || (!alias.endsWith("/overview") && pathname.startsWith(alias))
-              );
-              const isActive = isExact || isSubpath || isAlias;
+              const isActive =
+                item.href === "/institution/overview"
+                  ? pathname === "/institution/overview" || pathname === "/institution"
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
               return (
                 <Link
@@ -114,12 +111,10 @@ export function InstitutionTopNav() {
 
               <nav className="flex flex-col gap-1.5 pt-6">
                 {institutionNavigation.map((item) => {
-                  const isExact = pathname === item.href;
-                  const isSubpath = !item.href.endsWith("/overview") && pathname.startsWith(item.href);
-                  const isAlias = (item.aliases || []).some(
-                    (alias) => pathname === alias || (!alias.endsWith("/overview") && pathname.startsWith(alias))
-                  );
-                  const isActive = isExact || isSubpath || isAlias;
+                  const isActive =
+                    item.href === "/institution/overview"
+                      ? pathname === "/institution/overview" || pathname === "/institution"
+                      : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
                   return (
                     <Link
@@ -168,16 +163,6 @@ export function InstitutionTopNav() {
               <DropdownMenuItem className="cursor-pointer font-medium text-xs">
                 <Link href="/institution/profile" className="flex items-center w-full text-foreground hover:text-primary transition-colors">
                   <User className="h-4 w-4 mr-2 text-primary" /> Institution Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer font-medium text-xs">
-                <Link href="/institution/reports" className="flex items-center w-full text-foreground hover:text-primary transition-colors">
-                  <FileText className="h-4 w-4 mr-2 text-primary" /> Performance Reports
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer font-medium text-xs">
-                <Link href="/institution/performance" className="flex items-center w-full text-foreground hover:text-primary transition-colors">
-                  <BarChart2 className="h-4 w-4 mr-2 text-primary" /> Batch Analytics
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-border" />

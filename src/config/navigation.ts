@@ -128,12 +128,6 @@ export const studentNavigation: NavItem[] = [
     aliases: ["/student/live", "/student/live-classes", "/live"],
     icon: Video,
   },
-  {
-    label: "Profile",
-    href: "/student/profile",
-    aliases: ["/student/profile", "/profile"],
-    icon: User,
-  },
 ];
 
 /**

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStudentBatchAccess } from "@/lib/auth/batch-access";
+import { ActiveTimeService } from "@/services/active-time.service";
 
 export interface ActivityDetailItem {
   id: string;
@@ -90,6 +91,24 @@ function getLocalDateStr(dateOrTs: Date | number | string, timeZone: string): st
   }
 }
 
+/**
+ * Safe query runner that prevents partial table schema differences or empty tables
+ * from failing the entire activity aggregation.
+ */
+async function safeQuery<T = any>(queryPromise: PromiseLike<{ data: T | null; error?: any }> | any): Promise<T[]> {
+  try {
+    const res = await queryPromise;
+    if (res?.error) {
+      console.warn("Heatmap query notice:", res.error.message);
+      return [];
+    }
+    return (res?.data as T[]) || [];
+  } catch (err: any) {
+    console.warn("Heatmap query exception:", err?.message || err);
+    return [];
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -105,13 +124,48 @@ export async function GET(request: NextRequest) {
     const range = searchParams.get("range") || "12m"; // "12m" or "year"
     const targetYearParam = searchParams.get("year");
     const clientTz = searchParams.get("tz") || "Asia/Kolkata";
+    const requestedStudentId = searchParams.get("studentId") || searchParams.get("student_id");
 
     const adminClient = createAdminClient();
 
     // 1. Resolve student profile context
     const batchContext = await getStudentBatchAccess(adminClient, user);
-    const studentId = batchContext.profileId || user.id;
-    const studentUserId = batchContext.studentUserId || user.id;
+    let targetProfileId = batchContext.profileId || user.id;
+    let targetUserId = batchContext.studentUserId || user.id;
+
+    if (requestedStudentId && requestedStudentId !== targetProfileId && requestedStudentId !== targetUserId) {
+      const userRole = (batchContext.profile?.role || "").toLowerCase();
+      const isStaff = userRole === "admin" || userRole === "super_admin" || userRole === "trainer";
+      if (isStaff) {
+        const { data: requestedProf } = await adminClient
+          .from("profiles")
+          .select("id, user_id")
+          .or(`id.eq.${requestedStudentId},user_id.eq.${requestedStudentId}`)
+          .maybeSingle();
+
+        if (requestedProf) {
+          targetProfileId = requestedProf.id;
+          targetUserId = requestedProf.user_id || requestedProf.id;
+        } else {
+          targetProfileId = requestedStudentId;
+          targetUserId = requestedStudentId;
+        }
+      }
+    }
+
+    const studentCandidateIds = Array.from(
+      new Set(
+        [
+          targetProfileId,
+          targetUserId,
+          user.id,
+          batchContext.profile?.id,
+          batchContext.profile?.user_id,
+        ].filter((id): id is string => Boolean(id) && typeof id === "string" && id.length > 5)
+      )
+    );
+
+    const studentIdFilter = studentCandidateIds.map((id) => `student_id.eq.${id}`).join(",");
 
     // 2. Define Date Range Window strictly in student's local timezone
     const todayLocalStr = getLocalDateStr(new Date(), clientTz);
@@ -172,47 +226,67 @@ export async function GET(request: NextRequest) {
       return entry;
     };
 
-    // 3. Concurrently fetch all activity datasets in parallel with lean column projections
+    // 3. Concurrently fetch all activity datasets in parallel with verified schema columns
     const [
-      { data: rawProblems },
-      { data: rawCodingSubs },
-      { data: rawCourses },
-      { data: rawEnrollments },
-      { data: rawAssessments },
-      { data: rawAttempts },
-      { data: rawAssignments },
-      { data: rawAssignSubs },
-      { data: rawLiveAttendance },
-      { data: rawLiveClasses },
+      rawProblems,
+      rawCodingSubs,
+      rawCourses,
+      rawEnrollments,
+      rawAssessments,
+      rawAttempts,
+      rawTests,
+      rawTestAttempts,
+      rawAssignments,
+      rawAssignSubs,
+      rawLiveAttendance,
+      rawLiveClasses,
     ] = await Promise.all([
-      adminClient.from("coding_problems").select("id, title, slug"),
-      adminClient
-        .from("coding_submissions")
-        .select("id, problem_id, status, language, score, submitted_at, created_at")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
-        .order("created_at", { ascending: false }),
-      adminClient.from("courses").select("id, title"),
-      adminClient
-        .from("enrollments")
-        .select("id, course_id, completed_at, updated_at, status, progress_percentage")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`),
-      adminClient.from("assessments").select("id, title, type"),
-      adminClient
-        .from("assessment_attempts")
-        .select("id, assessment_id, is_practice, passed, score, submitted_at, created_at")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
-        .order("submitted_at", { ascending: false }),
-      adminClient.from("assignments").select("id, title"),
-      adminClient
-        .from("assignment_submissions")
-        .select("id, assignment_id, status, grade, content, file_url, submitted_at, created_at")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`)
-        .order("submitted_at", { ascending: false }),
-      adminClient
-        .from("live_class_attendance")
-        .select("id, live_class_id, attendance_status, duration_seconds, joined_at, created_at")
-        .or(`student_id.eq.${studentId},student_id.eq.${studentUserId}`),
-      adminClient.from("live_classes").select("id, title"),
+      safeQuery(adminClient.from("coding_problems").select("id, title, slug")),
+      safeQuery(
+        adminClient
+          .from("coding_submissions")
+          .select("id, problem_id, student_id, language, source_code, status, passed_test_cases, total_test_cases, created_at")
+          .or(studentIdFilter)
+          .order("created_at", { ascending: false })
+      ),
+      safeQuery(adminClient.from("courses").select("id, title")),
+      safeQuery(
+        adminClient
+          .from("enrollments")
+          .select("id, student_id, course_id, status, progress_percentage, enrolled_at, completed_at, last_accessed_at")
+          .or(studentIdFilter)
+      ),
+      safeQuery(adminClient.from("assessments").select("id, title, type")),
+      safeQuery(
+        adminClient
+          .from("assessment_attempts")
+          .select("id, assessment_id, student_id, status, score, total_marks, percentage, started_at, submitted_at, created_at")
+          .or(studentIdFilter)
+          .order("created_at", { ascending: false })
+      ),
+      safeQuery(adminClient.from("tests").select("id, title, type")),
+      safeQuery(
+        adminClient
+          .from("test_attempts")
+          .select("id, test_id, student_id, started_at, submitted_at, expires_at, score, passed, created_at")
+          .or(studentIdFilter)
+          .order("created_at", { ascending: false })
+      ),
+      safeQuery(adminClient.from("assignments").select("id, title")),
+      safeQuery(
+        adminClient
+          .from("assignment_submissions")
+          .select("id, assignment_id, student_id, file_url, submission_text, status, score, submitted_at, created_at")
+          .or(studentIdFilter)
+          .order("created_at", { ascending: false })
+      ),
+      safeQuery(
+        adminClient
+          .from("live_class_attendance")
+          .select("id, live_class_id, student_id, attendance_status, duration_seconds, joined_at, created_at")
+          .or(studentIdFilter)
+      ),
+      safeQuery(adminClient.from("live_classes").select("id, title")),
     ]);
 
     // Map Coding Problems
@@ -224,7 +298,7 @@ export async function GET(request: NextRequest) {
 
     // Process Coding Submissions
     (rawCodingSubs || []).forEach((sub: any) => {
-      const createdStr = sub.submitted_at || sub.created_at;
+      const createdStr = sub.created_at;
       if (!createdStr) return;
       const ts = new Date(createdStr).getTime();
       if (isNaN(ts)) return;
@@ -265,16 +339,16 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // Map Course Titles and process Course Completions
+    // Map Course Titles and process Course Completions / Learning Progress
     const courseTitleMap = new Map<string, string>();
     (rawCourses || []).forEach((c: any) => courseTitleMap.set(c.id, c.title));
 
     (rawEnrollments || []).forEach((enr: any) => {
       const cTitle = courseTitleMap.get(enr.course_id) || "Course";
+      const isCompleted = enr.completed_at || enr.status === "completed" || Number(enr.progress_percentage) === 100;
 
-      // Track ONLY actual Course / Module Completion
-      if (enr.completed_at || enr.status === "completed" || enr.progress_percentage === 100) {
-        const compDateStr = enr.completed_at || enr.updated_at;
+      if (isCompleted) {
+        const compDateStr = enr.completed_at || enr.last_accessed_at || enr.enrolled_at;
         if (compDateStr) {
           const compTs = new Date(compDateStr).getTime();
           if (!isNaN(compTs)) {
@@ -297,17 +371,38 @@ export async function GET(request: NextRequest) {
             }
           }
         }
+      } else if (enr.last_accessed_at && Number(enr.progress_percentage) > 0) {
+        const accessTs = new Date(enr.last_accessed_at).getTime();
+        if (!isNaN(accessTs)) {
+          const dateStr = getLocalDateStr(accessTs, clientTz);
+          if (dateStr >= startDateStr && dateStr <= endDateStr) {
+            const day = getOrCreateDay(dateStr);
+            day.count += 1;
+            day.successfulCount += 1;
+            day.categories.learning += 1;
+            day.details.push({
+              id: `study-${enr.id || accessTs}`,
+              category: "learning",
+              title: `Course Study: ${cTitle}`,
+              subtitle: `Progress: ${enr.progress_percentage}%`,
+              status: "In Progress",
+              passed: true,
+              timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(accessTs)),
+              timestamp: accessTs,
+            });
+          }
+        }
       }
     });
 
-    // Map Assessments and process Attempts
+    // Map Assessments and process Assessment Attempts
     const assessmentTitleMap = new Map<string, { title: string; type: string }>();
     (rawAssessments || []).forEach((a: any) =>
       assessmentTitleMap.set(a.id, { title: a.title, type: a.type || "assessment" })
     );
 
     (rawAttempts || []).forEach((att: any) => {
-      const attDateStr = att.submitted_at || att.created_at;
+      const attDateStr = att.submitted_at || att.created_at || att.started_at;
       if (!attDateStr) return;
       const ts = new Date(attDateStr).getTime();
       if (isNaN(ts)) return;
@@ -318,9 +413,10 @@ export async function GET(request: NextRequest) {
       const day = getOrCreateDay(dateStr);
 
       const assMeta = assessmentTitleMap.get(att.assessment_id);
-      const isPractice = assMeta?.type === "practice" || att.is_practice;
+      const isPractice = assMeta?.type === "practice";
       const title = assMeta?.title || (isPractice ? "Practice Challenge" : "Assessment Exam");
-      const passed = att.passed === true || (att.score !== undefined && att.score >= 50);
+      const scoreVal = att.score ?? att.percentage;
+      const passed = (att.percentage !== null && att.percentage !== undefined ? Number(att.percentage) >= 50 : (scoreVal !== null && scoreVal !== undefined ? Number(scoreVal) >= 50 : false)) || att.status === "completed" || att.status === "passed";
 
       day.count += 1;
       if (passed) {
@@ -333,10 +429,10 @@ export async function GET(request: NextRequest) {
           id: att.id || `practice-${ts}`,
           category: "practice",
           title: `Practice: ${title}`,
-          subtitle: `Score: ${att.score ?? 0}% • ${passed ? "Passed" : "Attempted"}`,
+          subtitle: `Score: ${scoreVal ?? 0}% • ${passed ? "Passed" : "Attempted"}`,
           status: passed ? "Passed" : "Attempted",
           passed,
-          score: att.score,
+          score: scoreVal,
           timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
           timestamp: ts,
         });
@@ -346,14 +442,47 @@ export async function GET(request: NextRequest) {
           id: att.id || `assessment-${ts}`,
           category: "assessment",
           title: `Assessment: ${title}`,
-          subtitle: `Score: ${att.score ?? 0} pts • ${passed ? "Passed" : "Submitted"}`,
+          subtitle: `Score: ${scoreVal ?? 0} pts • ${passed ? "Passed" : "Submitted"}`,
           status: passed ? "Passed" : "Submitted",
           passed,
-          score: att.score,
+          score: scoreVal,
           timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
           timestamp: ts,
         });
       }
+    });
+
+    // Map Tests and process Test Attempts
+    const testTitleMap = new Map<string, string>();
+    (rawTests || []).forEach((t: any) => testTitleMap.set(t.id, t.title));
+
+    (rawTestAttempts || []).forEach((tAtt: any) => {
+      const attDateStr = tAtt.submitted_at || tAtt.created_at || tAtt.started_at;
+      if (!attDateStr) return;
+      const ts = new Date(attDateStr).getTime();
+      if (isNaN(ts)) return;
+
+      const dateStr = getLocalDateStr(ts, clientTz);
+      if (dateStr < startDateStr || dateStr > endDateStr) return;
+
+      const day = getOrCreateDay(dateStr);
+      const testTitle = testTitleMap.get(tAtt.test_id) || "Assessment Exam";
+      const passed = tAtt.passed === true || (tAtt.score !== null && tAtt.score !== undefined && Number(tAtt.score) >= 50);
+
+      day.count += 1;
+      if (passed) day.successfulCount += 1;
+      day.categories.assessment += 1;
+      day.details.push({
+        id: tAtt.id || `test-${ts}`,
+        category: "assessment",
+        title: `Exam: ${testTitle}`,
+        subtitle: `Score: ${tAtt.score ?? 0} pts • ${passed ? "Passed" : "Submitted"}`,
+        status: passed ? "Passed" : "Submitted",
+        passed,
+        score: tAtt.score,
+        timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
+        timestamp: ts,
+      });
     });
 
     // Map Assignments and process Assignment Submissions
@@ -371,8 +500,8 @@ export async function GET(request: NextRequest) {
 
       const day = getOrCreateDay(dateStr);
       const assignTitle = assignmentTitleMap.get(asub.assignment_id) || "Assignment";
-      const isGradedOrSubmitted = asub.status === "submitted" || asub.status === "graded" || asub.content || asub.file_url;
-      const passed = asub.grade !== undefined ? asub.grade >= 50 : true;
+      const isGradedOrSubmitted = asub.status === "submitted" || asub.status === "graded" || asub.submission_text || asub.file_url;
+      const passed = asub.score !== null && asub.score !== undefined ? Number(asub.score) >= 50 : true;
 
       day.count += 1;
       if (passed && isGradedOrSubmitted) {
@@ -383,7 +512,7 @@ export async function GET(request: NextRequest) {
         id: asub.id || `assign-${ts}`,
         category: "learning",
         title: `Submitted Assignment: ${assignTitle}`,
-        subtitle: `Status: ${asub.status || "Submitted"}`,
+        subtitle: `Status: ${asub.status || "Submitted"}${asub.score !== null && asub.score !== undefined ? ` • Score: ${asub.score}` : ""}`,
         status: asub.status || "Submitted",
         passed,
         timeStr: new Intl.DateTimeFormat("en-US", { timeZone: clientTz, hour: "numeric", minute: "2-digit" }).format(new Date(ts)),
@@ -425,6 +554,36 @@ export async function GET(request: NextRequest) {
         timestamp: ts,
       });
     });
+
+    // Incorporate Active Learning Time (Heartbeat Study Sessions)
+    try {
+      const activeTimeRes = await ActiveTimeService.getStudentActiveTime(targetProfileId);
+      if (activeTimeRes?.dailyBreakdown) {
+        Object.entries(activeTimeRes.dailyBreakdown).forEach(([dateStr, durationSeconds]) => {
+          if (durationSeconds >= 30 && dateStr >= startDateStr && dateStr <= endDateStr) {
+            const day = getOrCreateDay(dateStr);
+            const durationMin = Math.max(1, Math.round(durationSeconds / 60));
+            const ts = new Date(`${dateStr}T12:00:00Z`).getTime();
+
+            day.count += 1;
+            day.successfulCount += 1;
+            day.categories.session += 1;
+            day.details.push({
+              id: `study-session-${dateStr}`,
+              category: "session",
+              title: "Active Learning Session",
+              subtitle: `${durationMin} min${durationMin > 1 ? "s" : ""} platform study time`,
+              status: "Active Study",
+              passed: true,
+              timeStr: `${durationMin}m`,
+              timestamp: ts,
+            });
+          }
+        });
+      }
+    } catch (e: any) {
+      console.warn("ActiveTimeService query notice in activity heatmap:", e?.message || e);
+    }
 
     // 9. Calculate Intensity and Performance for each day
     for (const [, day] of dayMap.entries()) {

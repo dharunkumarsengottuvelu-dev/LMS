@@ -150,6 +150,10 @@ export function StudentActivityHeatmap({
           url = `/api/student/activity-heatmap?year=${selectedYear}&tz=${encodeURIComponent(userTz)}`;
         }
 
+        if (studentId) {
+          url += `&studentId=${encodeURIComponent(studentId)}`;
+        }
+
         const res = await fetch(url);
         const json = await res.json();
 
@@ -163,7 +167,7 @@ export function StudentActivityHeatmap({
         setIsRefreshing(false);
       }
     },
-    [selectedYear, customRange]
+    [selectedYear, customRange, studentId]
   );
 
   useEffect(() => {

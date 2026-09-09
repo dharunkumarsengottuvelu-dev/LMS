@@ -2,24 +2,6 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import {
-  Search,
-  Users,
-  Award,
-  TrendingUp,
-  AlertTriangle,
-  RotateCw,
-  Layers,
-  ChevronRight,
-  UserCheck,
-  Clock,
-  BookOpen,
-  Code2,
-  FileCheck2,
-  CheckCircle2,
-  XCircle,
-  BarChart2
-} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -129,13 +111,11 @@ export default function InstitutionPerformancePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Student details slide-over sheet
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [detailedStudent, setDetailedStudent] = useState<StudentDetailedView | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  // 1. Fetch available batches
   useEffect(() => {
     async function loadBatches() {
       setIsLoadingBatches(true);
@@ -168,23 +148,21 @@ export default function InstitutionPerformancePage() {
     loadBatches();
   }, [initialBatchId]);
 
-  // 2. Fetch batch performance
-  const fetchPerformance = useCallback(async (batchId: string, search: string) => {
+  const fetchPerformance = useCallback(async (batchId: string, search = "") => {
     if (!batchId) return;
     setIsLoadingPerformance(true);
     setErrorMsg(null);
     try {
-      const url = `/api/institution/batches/${batchId}/performance?search=${encodeURIComponent(search)}`;
-      const res = await fetch(url);
+      const q = search ? `&search=${encodeURIComponent(search)}` : "";
+      const res = await fetch(`/api/institution/performance?batchId=${batchId}${q}`);
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Unable to load performance telemetry");
+        throw new Error("Unable to load student performance data");
       }
       const data = await res.json();
       setStudents(data.students || []);
       setCurrentBatch(data.batch || null);
     } catch (err: any) {
-      setErrorMsg(err.message || "Unable to load performance telemetry. Please try again.");
+      setErrorMsg(err.message || "Failed to load performance metrics");
     } finally {
       setIsLoadingPerformance(false);
     }
@@ -196,42 +174,40 @@ export default function InstitutionPerformancePage() {
     }
   }, [selectedBatchId, searchQuery, fetchPerformance]);
 
-  // 3. Fetch detailed student record
-  const fetchStudentDetails = async (studentId: string) => {
+  const fetchStudentDetails = useCallback(async (studentId: string) => {
     setSelectedStudentId(studentId);
     setIsLoadingDetails(true);
     setDetailError(null);
-    setDetailedStudent(null);
     try {
-      const res = await fetch(`/api/institution/students/${studentId}`);
+      const res = await fetch(`/api/institution/performance/student?studentId=${studentId}`);
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Unable to load student dossier");
+        throw new Error("Unable to load learner details");
       }
       const data = await res.json();
-      setDetailedStudent(data.student || null);
+      setDetailedStudent(data.student);
     } catch (err: any) {
-      setDetailError(err.message || "Unable to load student details");
+      setDetailError(err.message || "Failed to retrieve student dossier");
     } finally {
       setIsLoadingDetails(false);
     }
-  };
+  }, []);
 
-  const handleBatchChange = (newBatchId: string) => {
-    setSelectedBatchId(newBatchId);
-    router.replace(`/institution/performance?batchId=${newBatchId}`, { scroll: false });
+  const handleBatchChange = (val: string) => {
+    setSelectedBatchId(val);
+    router.replace(`/institution/performance?batchId=${val}`);
   };
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case "Excellent":
-        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+        return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
       case "Good":
-        return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
+        return "bg-blue-500/10 text-blue-600 border-blue-500/20";
       case "Average":
-        return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20";
+        return "bg-amber-500/10 text-amber-600 border-amber-500/20";
       case "Needs Attention":
-        return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20";
+      case "Inactive":
+        return "bg-rose-500/10 text-rose-600 border-rose-500/20";
       default:
         return "bg-muted text-muted-foreground border-border";
     }
@@ -244,7 +220,6 @@ export default function InstitutionPerformancePage() {
     return <span className="font-mono font-bold">{val}%</span>;
   };
 
-  // Aggregates for selected batch
   const batchAvg = useMemo(() => {
     const scores = students.map((s) => s.overall).filter((s): s is number => s !== null && s !== undefined);
     if (scores.length === 0) return null;
@@ -283,9 +258,6 @@ export default function InstitutionPerformancePage() {
           description="Authoritative academic scores across learning tracks, skill labs, coding assessments, and overall competencies."
         />
         <Card className="bg-card border-border rounded-2xl p-16 text-center shadow-xs">
-          <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4 text-muted-foreground">
-            <Layers className="h-6 w-6 opacity-60" />
-          </div>
           <h3 className="text-base font-bold text-foreground">No Batches Assigned</h3>
           <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1.5 leading-relaxed">
             There are no cohorts allocated to your institution in the database yet. Once platform administrators assign batches to your institution, cohort analytics and individual student dossiers will populate here automatically.
@@ -297,7 +269,6 @@ export default function InstitutionPerformancePage() {
 
   return (
     <div className="space-y-8 animate-fade-up">
-      {/* Page Header */}
       <PageHeader
         title="Batch Performance Telemetry"
         description="Authoritative academic scores across learning tracks, skill labs, coding assessments, and overall competencies."
@@ -307,79 +278,63 @@ export default function InstitutionPerformancePage() {
             size="sm"
             onClick={() => fetchPerformance(selectedBatchId, searchQuery)}
             disabled={isLoadingPerformance}
-            className="h-9 px-3.5 gap-2 text-xs font-semibold rounded-xl border-border hover:bg-accent"
+            className="h-10 px-4 text-xs font-semibold rounded-xl border-border hover:bg-accent"
           >
-            <RotateCw className={`h-3.5 w-3.5 ${isLoadingPerformance ? "animate-spin" : ""}`} />
-            Refresh
+            {isLoadingPerformance ? "Refreshing..." : "Refresh"}
           </Button>
         }
       />
 
-      {/* Cohort KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Card className="bg-card border-border rounded-2xl shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cohort Learners</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">{students.length}</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Enrolled students</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
-              <Users className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cohort Learners</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground font-mono tracking-tight">{students.length}</span>
+            <span className="text-xs text-muted-foreground font-medium">Enrolled students</span>
+          </div>
         </Card>
 
-        <Card className="bg-card border-border rounded-2xl shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cohort Average</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
-                {batchAvg !== null ? `${batchAvg}%` : "—"}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Composite benchmark</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cohort Average</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground font-mono tracking-tight">
+              {batchAvg !== null ? `${batchAvg}%` : "—"}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">Composite benchmark</span>
+          </div>
         </Card>
 
-        <Card className="bg-card border-border rounded-2xl shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Top Score</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-primary mt-1 font-mono">
-                {topScore !== null ? `${topScore}%` : "—"}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Cohort high performer</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-              <Award className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Top Score</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-primary font-mono tracking-tight">
+              {topScore !== null ? `${topScore}%` : "—"}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">Cohort high performer</span>
+          </div>
         </Card>
 
-        <Card className="bg-card border-border rounded-2xl shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Needs Attention</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-rose-600 dark:text-rose-400 mt-1 font-mono">
-                {needsAttentionCount}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Below passing threshold</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Needs Attention</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-rose-600 dark:text-rose-400 font-mono tracking-tight">
+              {needsAttentionCount}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">Below threshold</span>
+          </div>
         </Card>
       </div>
 
-      {/* Controls Strip: Batch Selector & Search Bar */}
       <Card className="bg-card border-border rounded-2xl shadow-xs">
         <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          {/* Batch Selector */}
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider shrink-0">
               Active Cohort:
@@ -400,20 +355,17 @@ export default function InstitutionPerformancePage() {
             </div>
           </div>
 
-          {/* Search Input */}
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="w-full sm:w-80">
             <Input
               placeholder="Search by ID or student name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 text-xs h-10 rounded-xl bg-background border-border"
+              className="text-xs h-10 rounded-xl bg-background border-border"
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Performance Content */}
       {isLoadingPerformance ? (
         <Card className="bg-card border-border rounded-2xl p-6 shadow-xs">
           <div className="space-y-4">
@@ -553,10 +505,9 @@ export default function InstitutionPerformancePage() {
                           e.stopPropagation();
                           fetchStudentDetails(s.studentId);
                         }}
-                        className="h-8 px-2.5 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 border border-primary/20 gap-1"
+                        className="h-8 px-3 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 border border-primary/20"
                       >
                         Inspect
-                        <ChevronRight className="h-3 w-3" />
                       </Button>
                     </td>
                   </tr>
@@ -591,7 +542,7 @@ export default function InstitutionPerformancePage() {
                 variant="outline"
                 size="sm"
                 onClick={() => selectedStudentId && fetchStudentDetails(selectedStudentId)}
-                className="rounded-xl text-xs"
+                className="rounded-xl text-xs font-semibold"
               >
                 Retry
               </Button>
@@ -654,8 +605,8 @@ export default function InstitutionPerformancePage() {
 
               {/* Attendance & Engagement */}
               <Card className="bg-background border-border rounded-xl p-4 shadow-xs space-y-2">
-                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-primary" /> Attendance & Activity Telemetry
+                <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                  Attendance & Activity Telemetry
                 </span>
                 <div className="grid grid-cols-2 gap-4 pt-1">
                   <div>
@@ -678,8 +629,8 @@ export default function InstitutionPerformancePage() {
 
               {/* Enrolled Courses */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                  <BookOpen className="h-3.5 w-3.5 text-primary" /> Course Curricula Progress
+                <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                  Course Curricula Progress
                 </span>
                 {detailedStudent.courses.length === 0 ? (
                   <p className="text-muted-foreground italic text-[11px]">No enrolled courses found.</p>
@@ -705,8 +656,8 @@ export default function InstitutionPerformancePage() {
 
               {/* Recent Assessments */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                  <FileCheck2 className="h-3.5 w-3.5 text-primary" /> Recent Formal Assessments
+                <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">
+                  Recent Formal Assessments
                 </span>
                 {detailedStudent.recentAssessments.length === 0 ? (
                   <p className="text-muted-foreground italic text-[11px]">No assessment submissions found.</p>

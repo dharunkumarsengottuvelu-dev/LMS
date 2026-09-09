@@ -1,16 +1,6 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import {
-  Download,
-  FileSpreadsheet,
-  Users,
-  TrendingUp,
-  Award,
-  Layers,
-  RotateCw,
-  AlertCircle
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -131,77 +121,64 @@ export default function InstitutionReportsPage() {
             onClick={handleExportCsv}
             disabled={isLoading || isExporting || records.length === 0}
             size="sm"
-            className="h-9 px-4 text-xs font-semibold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shadow-xs"
+            className="h-10 px-5 text-xs font-semibold rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs transition-all"
           >
-            <Download className="h-4 w-4" />
             {isExporting ? "Generating..." : "Export as CSV"}
           </Button>
         }
       />
 
-      {/* 4 Summary Cards */}
+      {/* 4 Summary Cards (Clean MNC Enterprise Architecture) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Card className="bg-card border-border rounded-2xl shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Records</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">{records.length}</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Audited students</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
-              <Users className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Records</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground font-mono tracking-tight">{records.length}</span>
+            <span className="text-xs text-muted-foreground font-medium">Audited students</span>
+          </div>
         </Card>
 
-        <Card className="bg-card border-border rounded-2xl shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cohort Benchmark</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
-                {avgOverall !== null ? `${avgOverall}%` : "—"}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Overall average</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cohort Benchmark</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground font-mono tracking-tight">
+              {avgOverall !== null ? `${avgOverall}%` : "—"}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">Overall average</span>
+          </div>
         </Card>
 
-        <Card className="bg-card border-border rounded-2xl shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Passing Rate</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 font-mono">
-                {records.length > 0 ? `${Math.round((passCount / records.length) * 100)}%` : "—"}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{passCount} students above 60%</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-              <Award className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Passing Rate</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 font-mono tracking-tight">
+              {records.length > 0 ? `${Math.round((passCount / records.length) * 100)}%` : "—"}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">{passCount} students above 60%</span>
+          </div>
         </Card>
 
-        <Card className="bg-card border-border rounded-2xl shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Cohorts</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
-                {selectedBatchId === "all" ? batches.length : 1}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Selected scope</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0">
-              <Layers className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Cohorts</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground font-mono tracking-tight">
+              {selectedBatchId === "all" ? batches.length : 1}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">Selected scope</span>
+          </div>
         </Card>
       </div>
 
       {/* Cohort Selector Card */}
-      <Card className="bg-card border-border rounded-2xl shadow-xs">
+      <Card className="bg-card border border-border rounded-2xl shadow-xs">
         <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider shrink-0">
@@ -232,7 +209,7 @@ export default function InstitutionReportsPage() {
 
       {/* Report Data Preview Table */}
       {isLoading ? (
-        <Card className="bg-card border-border rounded-2xl p-6 shadow-xs">
+        <Card className="bg-card border border-border rounded-2xl p-6 shadow-xs">
           <div className="space-y-4">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="h-12 bg-accent/40 rounded-xl border border-border animate-pulse" />
@@ -240,31 +217,27 @@ export default function InstitutionReportsPage() {
           </div>
         </Card>
       ) : errorMsg ? (
-        <Card className="bg-card border-border rounded-2xl p-12 text-center shadow-xs">
-          <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3 opacity-80" />
+        <Card className="bg-card border border-border rounded-2xl p-12 text-center shadow-xs">
           <h3 className="text-sm font-bold text-foreground">Failed to Generate Report</h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">{errorMsg}</p>
           <Button
             variant="outline"
             size="sm"
             onClick={() => fetchReport(selectedBatchId)}
-            className="mt-4 rounded-xl text-xs"
+            className="mt-4 rounded-xl text-xs font-semibold"
           >
             Retry
           </Button>
         </Card>
       ) : records.length === 0 ? (
-        <Card className="bg-card border-border rounded-2xl p-16 text-center shadow-xs">
-          <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4 text-muted-foreground">
-            <FileSpreadsheet className="h-6 w-6 opacity-60" />
-          </div>
+        <Card className="bg-card border border-border rounded-2xl p-16 text-center shadow-xs">
           <h3 className="text-base font-bold text-foreground">No Performance Records Available</h3>
           <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1.5">
             There are no student evaluation records available for the selected cohort filter.
           </p>
         </Card>
       ) : (
-        <Card className="bg-card border-border rounded-2xl overflow-hidden shadow-xs">
+        <Card className="bg-card border border-border rounded-2xl overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-muted/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">

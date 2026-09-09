@@ -2,18 +2,6 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import {
-  Layers,
-  Users,
-  TrendingUp,
-  Activity,
-  ArrowRight,
-  RotateCw,
-  FileText,
-  BarChart2,
-  Calendar,
-  AlertCircle
-} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -100,10 +88,9 @@ export default function InstitutionOverviewPage() {
   if (errorMsg) {
     return (
       <Card className="bg-card border-border rounded-2xl p-12 text-center shadow-xs">
-        <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3 opacity-80" />
         <h3 className="text-sm font-bold text-foreground">Error Loading Overview</h3>
         <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">{errorMsg}</p>
-        <Button variant="outline" size="sm" onClick={fetchOverview} className="mt-4 rounded-xl text-xs">
+        <Button variant="outline" size="sm" onClick={fetchOverview} className="mt-4 rounded-xl text-xs font-semibold">
           Retry
         </Button>
       </Card>
@@ -128,14 +115,12 @@ export default function InstitutionOverviewPage() {
         actions={
           <div className="flex items-center gap-2.5">
             <Link href="/institution/reports">
-              <Button variant="outline" size="sm" className="h-9 px-3.5 text-xs font-semibold rounded-xl gap-2">
-                <FileText className="h-3.5 w-3.5" />
+              <Button variant="outline" size="sm" className="h-9 px-4 text-xs font-semibold rounded-xl">
                 Reports
               </Button>
             </Link>
             <Link href="/institution/performance">
-              <Button size="sm" className="h-9 px-3.5 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl gap-2 shadow-xs">
-                <BarChart2 className="h-3.5 w-3.5" />
+              <Button size="sm" className="h-9 px-4 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-xs">
                 Batch Analytics
               </Button>
             </Link>
@@ -143,74 +128,58 @@ export default function InstitutionOverviewPage() {
         }
       />
 
-      {/* KPI Metric Summary Strip */}
+      {/* KPI Metric Summary Strip (Clean MNC Enterprise Architecture) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Total Batches */}
-        <Card className="bg-card border-border rounded-2xl shadow-xs hover:border-primary/30 transition-colors">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Assigned Batches</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
-                {data?.totalBatches ?? 0}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Active academic units</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
-              <Layers className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Assigned Batches</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground font-mono tracking-tight">{data?.totalBatches ?? 0}</span>
+            <span className="text-xs text-muted-foreground font-medium">Active academic units</span>
+          </div>
         </Card>
 
         {/* Total Students */}
-        <Card className="bg-card border-border rounded-2xl shadow-xs hover:border-primary/30 transition-colors">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enrolled Learners</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
-                {data?.totalStudents ?? 0}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Total registered</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0">
-              <Users className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Enrolled Learners</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground font-mono tracking-tight">{data?.totalStudents ?? 0}</span>
+            <span className="text-xs text-muted-foreground font-medium">Total registered</span>
+          </div>
         </Card>
 
         {/* Average Performance */}
-        <Card className="bg-card border-border rounded-2xl shadow-xs hover:border-primary/30 transition-colors">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Overall Average</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
-                {data?.averagePerformance !== null && data?.averagePerformance !== undefined
-                  ? `${data.averagePerformance}%`
-                  : "N/A"}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Composite evaluation</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Overall Average</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-foreground font-mono tracking-tight">
+              {data?.averagePerformance !== null && data?.averagePerformance !== undefined
+                ? `${data.averagePerformance}%`
+                : "N/A"}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">Composite benchmark</span>
+          </div>
         </Card>
 
         {/* Active Learner Rate */}
-        <Card className="bg-card border-border rounded-2xl shadow-xs hover:border-primary/30 transition-colors">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Engagement Rate</p>
-              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
-                {data?.activeLearnerRate !== null && data?.activeLearnerRate !== undefined
-                  ? `${data.activeLearnerRate}%`
-                  : "100%"}
-              </h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">30-day active threshold</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-              <Activity className="h-5 w-5" />
-            </div>
-          </CardContent>
+        <Card className="bg-card border border-border p-5 rounded-2xl shadow-xs">
+          <div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Engagement Rate</span>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 font-mono tracking-tight">
+              {data?.activeLearnerRate !== null && data?.activeLearnerRate !== undefined
+                ? `${data.activeLearnerRate}%`
+                : "100%"}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">30-day active</span>
+          </div>
         </Card>
       </div>
 
@@ -232,9 +201,6 @@ export default function InstitutionOverviewPage() {
 
         {batches.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3 text-muted-foreground">
-              <Layers className="h-6 w-6 opacity-60" />
-            </div>
             <h4 className="text-sm font-bold text-foreground">No Batches Assigned</h4>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
               Your institution does not have any active batches assigned yet. When batches are created by LMS administrators, they will appear here automatically.
@@ -273,14 +239,11 @@ export default function InstitutionOverviewPage() {
                         <span>{b.trainerName}</span>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="h-3 w-3 opacity-60" />
-                        <span>{b.startDate}</span>
-                      </div>
+                    <td className="py-3.5 px-4 text-muted-foreground font-mono">
+                      <span>{b.startDate}</span>
                     </td>
                     <td className="py-3.5 px-4 text-center font-mono font-bold text-foreground">
-                      <Badge variant="secondary" className="text-[11px] px-2 py-0.5">
+                      <Badge variant="secondary" className="text-[11px] px-2 py-0.5 font-mono">
                         {b.studentCount}
                       </Badge>
                     </td>
@@ -297,9 +260,9 @@ export default function InstitutionOverviewPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs font-semibold text-primary hover:bg-primary/10 rounded-md gap-1"
+                          className="h-7 text-xs font-semibold text-primary hover:bg-primary/10 rounded-md"
                         >
-                          View <ArrowRight className="h-3 w-3" />
+                          View
                         </Button>
                       </Link>
                     </td>
