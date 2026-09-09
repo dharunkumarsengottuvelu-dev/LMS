@@ -2257,11 +2257,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     <SelectContent className="bg-white dark:bg-[#18181B]">
                       <SelectItem value="all">All Batches</SelectItem>
                       <SelectItem value="Unassigned">Unassigned Only</SelectItem>
-                      {allBatches.map((b: any) => {
-                        const bName = typeof b === "string" ? b : (b.name || b.batch_name || b.id || "Batch");
-                        const bKey = typeof b === "string" ? b : (b.id || b.name || Math.random().toString());
-                        return <SelectItem key={bKey} value={bName}>{bName}</SelectItem>;
-                      })}
+                      {allBatches.length === 0 ? (
+                        <SelectItem value="__none__" disabled>No batches created yet</SelectItem>
+                      ) : (
+                        allBatches.map((b: any) => {
+                          const bName = typeof b === "string" ? b : (b.name || b.batch_name || b.id || "Batch");
+                          const bKey = typeof b === "string" ? b : (b.id || b.name || Math.random().toString());
+                          return <SelectItem key={bKey} value={bName}>{bName}</SelectItem>;
+                        })
+                      )}
                     </SelectContent>
                   </Select>
 
@@ -2365,14 +2369,49 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   // VIEW: LIST PRACTICES (MNC CORPORATE STYLING)
   // ════════════════════════════════════════════════════════════
   const handleBulkImportTracks = async (importedTracks: PracticeTrack[]) => {
-    const updated = [...tracks, ...importedTracks];
-    setTracks(updated);
-    await syncTracksToStore(updated);
     setShowBulkUploadTracks(false);
-    toast({
-      title: "Practice Tracks Created",
-      description: `Successfully imported ${importedTracks.length} practice tracks.`,
+    // Save each new track to DB individually (not through full tracks array sync)
+    // so we don't accidentally overwrite existing ones
+    const toastId = toast({
+      title: "Importing Tracks...",
+      description: `Saving ${importedTracks.length} practice tracks to database.`,
     });
+    try {
+      for (const track of importedTracks) {
+        await fetch("/api/admin/practices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ track }),
+        });
+      }
+      // Reload fresh from DB so we get real UUIDs and proper data
+      const res = await fetch("/api/admin/practices");
+      const data = await res.json();
+      if (data.tracks) {
+        const seen = new Map<string, PracticeTrack>();
+        data.tracks.forEach((t: PracticeTrack) => {
+          const norm = (t.title || "").trim().toLowerCase();
+          if (!norm) return;
+          if (!seen.has(norm)) seen.set(norm, t);
+          else {
+            const existing = seen.get(norm)!;
+            if ((t.subModules?.length || 0) > (existing.subModules?.length || 0)) seen.set(norm, t);
+          }
+        });
+        setTracks(Array.from(seen.values()));
+      }
+      toast({
+        title: "Practice Tracks Created",
+        description: `Successfully imported ${importedTracks.length} practice tracks.`,
+      });
+    } catch (err) {
+      console.error("Bulk track import error:", err);
+      toast({
+        title: "Import Failed",
+        description: "Could not save practice tracks. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

@@ -28,27 +28,40 @@ export default function TrainerStudentsPage() {
   const [users, setUsers] = useState<StudentUser[]>([]);
   const [storeBatches, setStoreBatches] = useState<any[]>([]);
 
-  useEffect(() => {
-    async function loadData() {
+  const [bulkPreviewRows, setBulkPreviewRows] = useState<any[]>([]);
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
+
+  const loadStudents = async () => {
+    try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       
-      const { data: sData } = await supabase.from("profiles").select("*").eq("role", "student");
+      const { data: sData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("role", "student")
+        .order("created_at", { ascending: false });
+
       if (sData) {
         setUsers(sData.map((s: any) => ({
           id: s.id,
-          name: s.first_name + " " + s.last_name,
+          name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email,
           email: s.email,
-          status: s.status as UserStatus || "active",
+          status: (s.status as UserStatus) || "active",
           joined: String(s.created_at || new Date().toISOString()).split("T")[0] || "",
-          batch: s.batch_id || "Unassigned Batch",
+          batch: s.batch_id || s.batch_name || s.batch || "Unassigned Batch",
         })));
       }
 
       const { data: bData } = await supabase.from("batches").select("*");
       if (bData) setStoreBatches(bData);
+    } catch (err) {
+      console.error("Failed to load students:", err);
     }
-    loadData();
+  };
+
+  useEffect(() => {
+    loadStudents();
   }, []);
   const [search, setSearch] = useState("");
   
@@ -70,29 +83,41 @@ export default function TrainerStudentsPage() {
       u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!newUserName || !newUserEmail) return;
+    const selectedBatch = newUserBatch === "custom" ? customBatch : newUserBatch;
 
-    const newUser: StudentUser = {
-      id: `u_${Date.now()}`,
-      name: newUserName,
-      email: newUserEmail,
-      status: "active",
-      joined: new Date().toISOString().split("T")[0] ?? "",
-      batch: newUserBatch === "custom" ? customBatch : newUserBatch,
-    };
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newUserName,
+          email: newUserEmail,
+          password: newUserPassword || "Falcon@2026",
+          role: "student",
+          batch_id: selectedBatch || undefined,
+        }),
+      });
 
-    setUsers([newUser, ...users]);
-    setIsAddOpen(false);
-    setNewUserName("");
-    setNewUserEmail("");
-    setNewUserPassword("");
-    setCustomBatch("");
-    
-    toast({
-      title: "Student Successfully Added",
-      description: `${newUserName} has been added to the batch.`,
-    });
+      if (res.ok) {
+        await loadStudents();
+        setIsAddOpen(false);
+        setNewUserName("");
+        setNewUserEmail("");
+        setNewUserPassword("");
+        setCustomBatch("");
+        toast({
+          title: "Student Successfully Added",
+          description: `${newUserName} has been added to the database.`,
+        });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: "Failed to Add Student", description: err.error || "Server error", variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    }
   };
 
   const handleEditUser = (id: string) => {
@@ -111,29 +136,61 @@ export default function TrainerStudentsPage() {
     }
   };
 
-  const saveEditUser = () => {
-    setUsers(users.map(u => {
-      if (u.id === editingUserId) {
-        return {
-          ...u,
-          name: newUserName,
-          email: newUserEmail,
-          batch: newUserBatch === "custom" ? customBatch : newUserBatch,
-        };
+  const saveEditUser = async () => {
+    if (!editingUserId) return;
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const [firstName, ...lastNameArr] = newUserName.trim().split(" ");
+      const lastName = lastNameArr.join(" ");
+      const selectedBatch = newUserBatch === "custom" ? customBatch : newUserBatch;
+
+      const { error } = await (supabase as any)
+        .from("profiles")
+        .update({
+          first_name: firstName || "Student",
+          last_name: lastName || "",
+          email: newUserEmail.trim().toLowerCase(),
+          batch_id: selectedBatch || null,
+          batch_name: selectedBatch || null,
+          batch: selectedBatch || null,
+        })
+        .eq("id", editingUserId);
+
+      if (error) {
+        toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+        return;
       }
-      return u;
-    }));
-    setIsEditOpen(false);
-    toast({ title: "Profile Updated", description: "Student details saved successfully." });
+
+      await loadStudents();
+      setIsEditOpen(false);
+      toast({ title: "Profile Updated", description: "Student details saved successfully to database." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
   };
 
-  const handleDeleteUser = (id: string, name: string) => {
-    setUsers(users.filter(u => u.id !== id));
-    toast({
-      title: "Student Removed",
-      description: `${name} has been removed from the batch.`,
-      variant: "destructive"
-    });
+  const handleDeleteUser = async (id: string, name: string) => {
+    try {
+      const res = await fetch(`/api/admin/users?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: "Delete Failed", description: err.error || "Failed to remove student", variant: "destructive" });
+        return;
+      }
+
+      await loadStudents();
+      toast({
+        title: "Student Removed",
+        description: `${name} has been removed from database and batch.`,
+        variant: "destructive",
+      });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
   };
 
   return (
@@ -385,57 +442,144 @@ export default function TrainerStudentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Upload Modal */}
-      <Dialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen}>
-        <DialogContent className="max-w-md bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-xl">
+      {/* Bulk Upload Modal — Fully Functional */}
+      <Dialog open={isBulkUploadOpen} onOpenChange={(open) => { setIsBulkUploadOpen(open); if (!open) setBulkPreviewRows([]); }}>
+        <DialogContent className="max-w-2xl bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">Bulk Import Students</DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
-              Upload a CSV or Excel spreadsheet to provision multiple students at once.
+              Upload a CSV or Excel file to provision multiple students and assign them to batches. Required columns: <strong>Name</strong>, <strong>Email</strong>.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 pt-4">
-            <div className="border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-[#F9FAFB] dark:hover:bg-[#09090B] transition-colors">
-              <Upload className="h-10 w-10 text-[#6B7280] mb-3" />
-              <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Drag and drop your file here</p>
-              <p className="text-[11px] text-[#6B7280] mt-1">Supports .csv, .xlsx, .xls</p>
-              <Button variant="outline" className="mt-4 h-9 rounded-lg text-xs font-semibold px-4 bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A]">
-                Browse Files
+          <div className="space-y-4 pt-2">
+            {/* Template Download */}
+            <div className="bg-[#EFF6FF] dark:bg-[#2563EB]/10 border border-[#DBEAFE] dark:border-[#2563EB]/30 p-3 rounded-xl flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-[#1E40AF] dark:text-[#93C5FD]">Need a student template?</p>
+                <p className="text-[10px] text-[#6B7280] mt-0.5">Columns: Name, Email, Batch, Phone</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs font-semibold rounded-lg px-3 border-[#BFDBFE] text-[#2563EB]"
+                onClick={() => {
+                  const csv = "data:text/csv;charset=utf-8,Name,Email,Batch,Phone\nJohn Doe,john.doe@example.com,Batch 2026-A,9876543210\nJane Smith,jane.smith@example.com,Batch 2026-B,9123456789";
+                  const link = document.createElement("a");
+                  link.href = encodeURI(csv);
+                  link.download = "students_bulk_import_template.csv";
+                  link.click();
+                }}
+              >
+                Download Template
               </Button>
             </div>
-            <div className="bg-[#EFF6FF] dark:bg-[#2563EB]/10 border border-[#DBEAFE] dark:border-[#2563EB]/30 p-3 rounded-xl flex items-start gap-3">
-              <div className="bg-white dark:bg-[#18181B] p-1.5 rounded-md mt-0.5">
-                <UploadCloud className="h-4 w-4 text-[#2563EB]" />
+
+            {/* File Upload Area */}
+            <label className="block border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl p-6 text-center cursor-pointer hover:bg-[#F9FAFB] dark:hover:bg-[#09090B] transition-colors">
+              <UploadCloud className="h-8 w-8 text-[#2563EB] mx-auto mb-2" />
+              <p className="text-sm font-semibold text-[#111827] dark:text-white">Click to select file</p>
+              <p className="text-[11px] text-[#6B7280] mt-1">Supports .csv, .xlsx, .xls</p>
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const XLSX = await import("xlsx");
+                    const buf = await file.arrayBuffer();
+                    const wb = XLSX.read(buf, { type: "array" });
+                    const ws = wb.Sheets[wb.SheetNames[0]!];
+                    if (!ws) { toast({ title: "Empty File", variant: "destructive" }); return; }
+                    const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+                    const parsed = rows.map((r: any, i) => {
+                      const name = String(r["Name"] || r["name"] || r["Full Name"] || r["Student Name"] || "").trim();
+                      const email = String(r["Email"] || r["email"] || r["Email Address"] || "").trim().toLowerCase();
+                      const batch = String(r["Batch"] || r["batch"] || r["Batch Name"] || "").trim();
+                      const phone = String(r["Phone"] || r["phone"] || "").trim();
+                      const isValid = !!email && email.includes("@") && !!name;
+                      return {
+                        id: `row-${i}`,
+                        name,
+                        email,
+                        batch,
+                        phone,
+                        isValid,
+                        error: !isValid ? (!name ? "Name required" : "Invalid email format") : undefined,
+                      };
+                    }).filter((r: any) => r.name || r.email);
+
+                    setBulkPreviewRows(parsed);
+                  } catch (err: any) {
+                    toast({ title: "Parse Error", description: err.message, variant: "destructive" });
+                  }
+                  e.target.value = "";
+                }}
+              />
+            </label>
+
+            {/* Preview Table */}
+            {bulkPreviewRows.length > 0 && (
+              <div className="border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-hidden">
+                <div className="bg-slate-50 dark:bg-zinc-900 px-4 py-2 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 dark:text-zinc-200">
+                    {bulkPreviewRows.filter((r: any) => r.isValid).length} valid / {bulkPreviewRows.filter((r: any) => !r.isValid).length} invalid rows
+                  </span>
+                  <button onClick={() => setBulkPreviewRows([])} className="text-xs text-slate-400 hover:text-slate-700">Clear</button>
+                </div>
+                <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-zinc-800">
+                  {bulkPreviewRows.map((row: any) => (
+                    <div key={row.id} className={`px-4 py-2 flex items-center gap-3 text-xs ${row.isValid ? "" : "bg-rose-50/40 dark:bg-rose-950/20"}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${row.isValid ? "bg-emerald-500" : "bg-rose-500"}`} />
+                      <span className="font-medium text-slate-800 dark:text-zinc-100 w-36 truncate">{row.name || "—"}</span>
+                      <span className="text-slate-500 dark:text-zinc-400 flex-1 truncate">{row.email}</span>
+                      <span className="text-slate-400 text-[11px] w-28 truncate">{row.batch || "No Batch"}</span>
+                      {row.error && <span className="text-rose-500 text-[10px]">{row.error}</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-bold text-[#1E40AF] dark:text-[#93C5FD]">Need a template?</p>
-                <p 
-                  onClick={() => {
-                    const csvContent = "data:text/csv;charset=utf-8,Name,Email,Batch\nJane Smith,jane@example.com,Batch 2026-A\nAlice Doe,alice@example.com,Enterprise FastTrack";
-                    const encodedUri = encodeURI(csvContent);
-                    const link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", "student_import_template.csv");
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }}
-                  className="text-[10px] text-[#2563EB] dark:text-[#93C5FD] mt-0.5 cursor-pointer hover:underline font-semibold"
-                >
-                  Download CSV Template
-                </p>
-              </div>
-            </div>
+            )}
           </div>
 
-          <DialogFooter className="pt-6 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
-            <Button variant="outline" onClick={() => setIsBulkUploadOpen(false)} className="h-11 px-6 rounded-xl font-bold text-xs border-[#E5E7EB] dark:border-[#27272A]">Cancel</Button>
-            <Button onClick={() => {
-              setIsBulkUploadOpen(false);
-              toast({ title: "Import Started", description: "Your file is being processed. Students will appear shortly." });
-            }} className="h-11 px-8 text-white rounded-xl font-bold text-xs shadow-md bg-[#2563EB] hover:bg-[#1D4ED8]">
-              Upload & Import
+          <DialogFooter className="pt-4 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => { setIsBulkUploadOpen(false); setBulkPreviewRows([]); }} className="h-11 px-6 rounded-xl font-bold text-xs">Cancel</Button>
+            <Button
+              disabled={isBulkImporting || bulkPreviewRows.filter((r: any) => r.isValid).length === 0}
+              onClick={async () => {
+                const validRows = bulkPreviewRows.filter((r: any) => r.isValid);
+                setIsBulkImporting(true);
+                let success = 0, failed = 0;
+                for (const row of validRows) {
+                  try {
+                    const res = await fetch("/api/admin/users", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        name: row.name,
+                        email: row.email,
+                        role: "student",
+                        batch_id: row.batch || undefined,
+                        phone: row.phone || undefined,
+                      }),
+                    });
+                    if (res.ok) success++; else failed++;
+                  } catch { failed++; }
+                }
+                setIsBulkImporting(false);
+                setIsBulkUploadOpen(false);
+                setBulkPreviewRows([]);
+                await loadStudents();
+                toast({
+                  title: "Import Complete",
+                  description: `${success} students created & enrolled${failed > 0 ? `, ${failed} failed` : ""}.`,
+                });
+              }}
+              className="h-11 px-8 text-white rounded-xl font-bold text-xs shadow-md bg-[#2563EB] hover:bg-[#1D4ED8]"
+            >
+              {isBulkImporting ? "Importing..." : `Import ${bulkPreviewRows.filter((r: any) => r.isValid).length} Students`}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -93,6 +93,51 @@ export async function POST(request: NextRequest) {
             studentProfile = data;
           }
 
+          if (!studentProfile && targetEmail && resolvedBatchId) {
+            // Auto-provision new student profile so bulk CSV imports immediately succeed
+            const nameParts = (targetName || "").trim().split(" ");
+            const firstName = nameParts[0] || targetEmail.split("@")[0] || "Student";
+            const lastName = nameParts.slice(1).join(" ") || "";
+            let newUserId: string | undefined = undefined;
+
+            try {
+              const { data: authUser } = await adminClient.auth.admin.createUser({
+                email: targetEmail,
+                password: "Falcon@2026",
+                email_confirm: true,
+                user_metadata: {
+                  full_name: targetName || `${firstName} ${lastName}`.trim(),
+                  first_name: firstName,
+                  last_name: lastName,
+                  role: "student",
+                  college: item.collegeName || item.college || undefined,
+                },
+              });
+              newUserId = authUser?.user?.id;
+            } catch {
+              // Ignore if already created
+            }
+
+            const { data: createdProfile } = await adminClient
+              .from("profiles")
+              .upsert({
+                user_id: newUserId,
+                first_name: firstName,
+                last_name: lastName,
+                email: targetEmail,
+                role: "student",
+                status: "active",
+                batch_id: resolvedBatchId,
+                batch_name: resolvedBatchName,
+                batch: resolvedBatchName,
+                college: item.collegeName || item.college || null,
+              }, { onConflict: "email" })
+              .select("id, user_id, email, first_name, last_name, role")
+              .maybeSingle();
+
+            studentProfile = createdProfile;
+          }
+
           if (studentProfile && resolvedBatchId) {
             const studentUserId = studentProfile.user_id || studentProfile.id;
 
@@ -158,6 +203,45 @@ export async function POST(request: NextRequest) {
         .eq("email", studentEmail.trim().toLowerCase())
         .maybeSingle();
       studentProfile = data;
+    }
+
+    if (!studentProfile && studentEmail) {
+      // Auto-provision if email provided
+      const nameParts = (studentName || "").trim().split(" ");
+      const firstName = nameParts[0] || studentEmail.split("@")[0] || "Student";
+      const lastName = nameParts.slice(1).join(" ") || "";
+      let newUserId: string | undefined = undefined;
+      try {
+        const { data: authUser } = await adminClient.auth.admin.createUser({
+          email: studentEmail.trim().toLowerCase(),
+          password: "Falcon@2026",
+          email_confirm: true,
+          user_metadata: {
+            full_name: studentName || `${firstName} ${lastName}`.trim(),
+            first_name: firstName,
+            last_name: lastName,
+            role: "student",
+          },
+        });
+        newUserId = authUser?.user?.id;
+      } catch {
+        // Ignore if already exists
+      }
+
+      const { data: createdProfile } = await adminClient
+        .from("profiles")
+        .upsert({
+          user_id: newUserId,
+          first_name: firstName,
+          last_name: lastName,
+          email: studentEmail.trim().toLowerCase(),
+          role: "student",
+          status: "active",
+        }, { onConflict: "email" })
+        .select("id, user_id, email, first_name, last_name, role")
+        .maybeSingle();
+
+      studentProfile = createdProfile;
     }
 
     if (!studentProfile) {

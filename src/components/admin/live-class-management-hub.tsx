@@ -841,11 +841,15 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
                   className="w-full h-10 px-3 text-xs bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[#111827] dark:text-[#FAFAFA] focus:outline-hidden"
                 >
                   <option value="">General Cohort (No specific course)</option>
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title}
-                    </option>
-                  ))}
+                  {courses.length === 0 ? (
+                    <option disabled>No courses available yet</option>
+                  ) : (
+                    courses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -856,11 +860,16 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
                   onChange={(e) => setEditForm((prev) => ({ ...prev, trainerId: e.target.value }))}
                   className="w-full h-10 px-3 text-xs bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl text-[#111827] dark:text-[#FAFAFA] focus:outline-hidden"
                 >
-                  {trainers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.first_name ? `${t.first_name} ${t.last_name || ""}` : t.email} ({t.role})
-                    </option>
-                  ))}
+                  <option value="">— Select trainer —</option>
+                  {trainers.length === 0 ? (
+                    <option disabled>No trainers registered yet</option>
+                  ) : (
+                    trainers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.first_name ? `${t.first_name} ${t.last_name || ""}` : t.email} ({t.role})
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
             </div>
@@ -969,7 +978,10 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
 
               {!editForm.isCommon && (
                 <div className="pt-1.5 flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
-                  {batches.map((b) => {
+                {batches.length === 0 ? (
+                    <p className="text-xs text-slate-400 dark:text-zinc-500 p-2 text-center">No batches created yet</p>
+                  ) : (
+                    batches.map((b) => {
                     const isSelected = editForm.assignedBatches.includes(b.name || b.id);
                     return (
                       <button
@@ -994,7 +1006,8 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
                         {b.name} ({b.studentCount || 0})
                       </button>
                     );
-                  })}
+                  })
+                )}
                 </div>
               )}
             </div>

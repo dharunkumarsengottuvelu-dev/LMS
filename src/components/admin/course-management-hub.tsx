@@ -323,6 +323,15 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     return selectedTargetCourse?.modules || [];
   }, [selectedTargetCourse]);
 
+  // Derive unique categories dynamically from loaded courses
+  const uniqueCategories = useMemo(() => {
+    const set = new Set<string>();
+    courses.forEach((c) => {
+      if (c.category && c.category.trim()) set.add(c.category.trim());
+    });
+    return Array.from(set).sort();
+  }, [courses]);
+
   // Collapsible Main Modules State (Minimized by default, expand to view/edit sub-modules)
   const [expandedModuleIds, setExpandedModuleIds] = useState<string[]>([]);
 
@@ -2108,8 +2117,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   // VIEW: LIST COURSES & GLOBAL BULK IMPORT
   // ════════════════════════════════════════════════════════════
   const handleBulkImportCourses = async (importedCourses: ManagedCourse[]) => {
-    const updated = [...courses, ...importedCourses];
-    setCourses(updated);
     setShowBulkUploadCourses(false);
     try {
       for (const c of importedCourses) {
@@ -2119,13 +2126,28 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           body: JSON.stringify({ course: c }),
         });
       }
+      // Reload fresh from DB so real UUIDs are reflected
+      const res = await fetch("/api/admin/courses");
+      const data = await res.json();
+      if (data.courses) {
+        const normalized = data.courses.map((c: any) => ({
+          ...c,
+          modules: normalizeCourseModules(c.modules),
+        }));
+        setCourses(normalized);
+      }
+      toast({
+        title: "Courses Created",
+        description: `Successfully imported ${importedCourses.length} courses into the catalog.`,
+      });
     } catch (e) {
-      console.warn("Failed to persist bulk courses to api", e);
+      console.error("Bulk course import failed:", e);
+      toast({
+        title: "Import Failed",
+        description: "Could not save courses. Please try again.",
+        variant: "destructive",
+      });
     }
-    toast({
-      title: "Courses Created",
-      description: `Successfully imported ${importedCourses.length} courses into the catalog.`,
-    });
   };
 
   const handleBulkImportSubModules = async (importedLessons: any[]) => {
@@ -2397,10 +2419,13 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="Web Development">Web Development</SelectItem>
-              <SelectItem value="AI & Machine Learning">AI & Machine Learning</SelectItem>
-              <SelectItem value="Cloud Computing">Cloud Computing</SelectItem>
-              <SelectItem value="Cybersecurity">Cybersecurity</SelectItem>
+              {uniqueCategories.length === 0 ? (
+                <SelectItem value="__none__" disabled>No categories yet</SelectItem>
+              ) : (
+                uniqueCategories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>

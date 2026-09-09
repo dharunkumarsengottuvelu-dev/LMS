@@ -514,6 +514,7 @@ export default function AdminBatchesPage() {
         });
       }
 
+      await loadData();
       setIsBulkModalOpen(false);
       setBulkParsedRows([]);
     } catch (err: any) {

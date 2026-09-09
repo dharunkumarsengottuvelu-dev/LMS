@@ -113,8 +113,14 @@ export async function POST(request: NextRequest) {
     for (const problem of problemsList) {
       if (!problem || !problem.title) continue;
 
-      const problemId = problem.id && problem.id.includes("-") ? problem.id : undefined;
-      const slug = problem.slug || problem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      // Only treat as existing record if it's a real UUID (36-char standard format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+      // Bulk-generated IDs like "problem-two-sum-1234-0" are NOT real UUIDs and must be inserted as new
+      const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isRealUUID = problem.id && UUID_REGEX.test(problem.id);
+      const problemId = isRealUUID ? problem.id : undefined;
+      // Generate a clean, unique slug (append short timestamp suffix to avoid UNIQUE constraint violations on bulk)
+      const baseSlug = problem.slug || problem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const slug = problemId ? baseSlug : `${baseSlug}-${Date.now().toString(36)}`;
 
       const starterCodePayload = {
         templates: problem.templates || {},

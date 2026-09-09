@@ -864,25 +864,48 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
         toast({ title: "No CSV Data", description: "Please upload a CSV file with batch records first.", variant: "destructive" });
         return;
       }
-      csvParsedBatches.forEach((b) => {
-        addBatch({
-          batchName: b.batchName,
-          collegeName: b.collegeName,
-          course: b.course,
-          startDate: b.startDate,
-          endDate: b.endDate,
-          joiningTime: b.joiningTime,
-          trainer: b.trainer,
-          status: "active",
+
+      try {
+        const res = await fetch("/api/admin/batches/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            batches: csvParsedBatches.map((b) => ({
+              batchName: b.batchName,
+              collegeName: b.collegeName,
+              leadTrainer: b.trainer,
+              courseTrack: b.course,
+              startDate: b.startDate,
+            })),
+          }),
         });
-      });
-      toast({
-        title: `${csvParsedBatches.length} Batches Created!`,
-        description: `Successfully imported & activated ${csvParsedBatches.length} cohort batches from CSV.`,
-      });
-      setIsCreateBatchOpen(false);
-      setCsvParsedBatches([]);
-      setCsvFileName("");
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to bulk create batches in database.");
+        }
+
+        const data = await res.json();
+        await refreshData();
+        await fetchStudents();
+        fetchAuthoritativeReport();
+
+        toast({
+          title: `${data.insertedCount || csvParsedBatches.length} Batches Created!`,
+          description: `Successfully imported & activated ${data.insertedCount || csvParsedBatches.length} cohort batches in the database.`,
+        });
+
+        setIsCreateBatchOpen(false);
+        setCsvParsedBatches([]);
+        setCsvFileName("");
+      } catch (err: any) {
+        console.error("Bulk batch import error:", err);
+        toast({
+          title: "Batch Creation Failed",
+          description: err.message || "Failed to bulk import batches.",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
@@ -3064,9 +3087,13 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                 <SelectItem value="all">
                   {reportScope === "batch" ? "All Batches (Unfiltered)" : "Batch: All Batches"}
                 </SelectItem>
-                {Array.from(new Set([...availableBatchesList, ...availableBatches])).filter(Boolean).map((batch) => (
-                  <SelectItem key={batch} value={batch}>Batch: {batch}</SelectItem>
-                ))}
+                {Array.from(new Set([...availableBatchesList, ...availableBatches])).filter(Boolean).length === 0 ? (
+                  <SelectItem value="__none__" disabled>No batches available yet</SelectItem>
+                ) : (
+                  Array.from(new Set([...availableBatchesList, ...availableBatches])).filter(Boolean).map((batch) => (
+                    <SelectItem key={batch} value={batch}>Batch: {batch}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

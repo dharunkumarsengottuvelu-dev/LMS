@@ -83,6 +83,8 @@ export default function AdminUsersPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [bulkPreviewRows, setBulkPreviewRows] = useState<any[]>([]);
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
   const [newUserType, setNewUserType] = useState<UserType>("student");
@@ -822,57 +824,129 @@ export default function AdminUsersPage() {
       </Tabs>
 
 
-      {/* Bulk Upload Modal */}
-      <Dialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen}>
-        <DialogContent className="max-w-md bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-xl">
+      {/* Bulk Upload Modal — Fully Functional */}
+      <Dialog open={isBulkUploadOpen} onOpenChange={(open) => { setIsBulkUploadOpen(open); if (!open) setBulkPreviewRows([]); }}>
+        <DialogContent className="max-w-2xl bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A] p-6 rounded-2xl shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-[#111827] dark:text-[#FAFAFA]">Bulk Import Users</DialogTitle>
             <DialogDescription className="text-xs text-[#6B7280]">
-              Upload a CSV or Excel spreadsheet to provision multiple users at once.
+              Upload a CSV or Excel file to provision multiple users at once. Required columns: <strong>Name</strong>, <strong>Email</strong>, <strong>Role</strong> (student/trainer/admin).
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 pt-4">
-            <div className="border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-[#F9FAFB] dark:hover:bg-[#09090B] transition-colors">
-              <Upload className="h-10 w-10 text-[#6B7280] mb-3" />
-              <p className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Drag and drop your file here</p>
-              <p className="text-[11px] text-[#6B7280] mt-1">Supports .csv, .xlsx, .xls</p>
-              <Button variant="outline" className="mt-4 h-9 rounded-lg text-xs font-semibold px-4 bg-white dark:bg-[#18181B]">
-                Browse Files
+          <div className="space-y-4 pt-2">
+            {/* Template Download */}
+            <div className="bg-[#EFF6FF] dark:bg-[#2563EB]/10 border border-[#DBEAFE] dark:border-[#2563EB]/30 p-3 rounded-xl flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-[#1E40AF] dark:text-[#93C5FD]">Need a template?</p>
+                <p className="text-[10px] text-[#6B7280] mt-0.5">Name, Email, Role, Batch/Department, College, Phone</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs font-semibold rounded-lg px-3 border-[#BFDBFE] text-[#2563EB]"
+                onClick={() => {
+                  const csv = "data:text/csv;charset=utf-8,Name,Email,Role,Batch,Department,College,Phone\nJohn Doe,john@example.com,student,Batch 2026-A,,State University,9876543210\nJane Smith,jane@example.com,trainer,,Engineering,,,9123456789";
+                  const link = document.createElement("a");
+                  link.href = encodeURI(csv);
+                  link.download = "user_bulk_import_template.csv";
+                  link.click();
+                }}
+              >
+                Download Template
               </Button>
             </div>
-            <div className="bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 border border-[#BFDBFE] dark:border-[#1E3A8A]/50 p-3 rounded-xl flex items-start gap-3">
-              <div className="bg-white dark:bg-[#0F172A] p-1.5 rounded-md mt-0.5">
-                <UploadCloud className="h-4 w-4 text-[#2563EB]" />
+
+            {/* File Upload Area */}
+            <label className="block border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl p-6 text-center cursor-pointer hover:bg-[#F9FAFB] dark:hover:bg-[#09090B] transition-colors">
+              <UploadCloud className="h-8 w-8 text-[#2563EB] mx-auto mb-2" />
+              <p className="text-sm font-semibold text-[#111827] dark:text-white">Click to select file</p>
+              <p className="text-[11px] text-[#6B7280] mt-1">Supports .csv, .xlsx, .xls</p>
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const XLSX = await import("xlsx");
+                    const buf = await file.arrayBuffer();
+                    const wb = XLSX.read(buf, { type: "array" });
+                    const ws = wb.Sheets[wb.SheetNames[0]!];
+                    if (!ws) { toast({ title: "Empty File", variant: "destructive" }); return; }
+                    const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+                    const parsed = rows.map((r: any, i) => {
+                      const name = String(r["Name"] || r["name"] || r["Full Name"] || "").trim();
+                      const email = String(r["Email"] || r["email"] || r["Email Address"] || "").trim().toLowerCase();
+                      const role = String(r["Role"] || r["role"] || "student").trim().toLowerCase();
+                      const batch = String(r["Batch"] || r["batch"] || "").trim();
+                      const department = String(r["Department"] || r["department"] || "").trim();
+                      const college = String(r["College"] || r["college"] || "").trim();
+                      const phone = String(r["Phone"] || r["phone"] || "").trim();
+                      const isValid = !!email && email.includes("@") && !!name;
+                      return { id: `row-${i}`, name, email, role: ["student","trainer","admin","manager"].includes(role) ? role : "student", batch, department, college, phone, isValid, error: !isValid ? (!name ? "Name required" : "Invalid email") : undefined };
+                    }).filter((r: any) => r.name || r.email);
+                    setBulkPreviewRows(parsed);
+                  } catch (err: any) {
+                    toast({ title: "Parse Error", description: err.message, variant: "destructive" });
+                  }
+                  e.target.value = "";
+                }}
+              />
+            </label>
+
+            {/* Preview Table */}
+            {bulkPreviewRows.length > 0 && (
+              <div className="border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-hidden">
+                <div className="bg-slate-50 dark:bg-zinc-900 px-4 py-2 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 dark:text-zinc-200">
+                    {bulkPreviewRows.filter((r: any) => r.isValid).length} valid / {bulkPreviewRows.filter((r: any) => !r.isValid).length} invalid rows
+                  </span>
+                  <button onClick={() => setBulkPreviewRows([])} className="text-xs text-slate-400 hover:text-slate-700">Clear</button>
+                </div>
+                <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-zinc-800">
+                  {bulkPreviewRows.map((row: any) => (
+                    <div key={row.id} className={`px-4 py-2 flex items-center gap-3 text-xs ${row.isValid ? "" : "bg-rose-50/40 dark:bg-rose-950/20"}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${row.isValid ? "bg-emerald-500" : "bg-rose-500"}`} />
+                      <span className="font-medium text-slate-800 dark:text-zinc-100 w-32 truncate">{row.name || "—"}</span>
+                      <span className="text-slate-500 dark:text-zinc-400 flex-1 truncate">{row.email}</span>
+                      <span className="uppercase text-[10px] font-bold text-slate-400 w-16">{row.role}</span>
+                      {row.error && <span className="text-rose-500 text-[10px]">{row.error}</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-bold text-[#1E3A8A] dark:text-[#93C5FD]">Need a template?</p>
-                <p 
-                  onClick={() => {
-                    const csvContent = "data:text/csv;charset=utf-8,Name,Email,Type,Role,Department,Batch\nJohn Doe,john@example.com,student,student,,Batch 2026-A\nJane Smith,jane@example.com,employee,trainer,Engineering,";
-                    const encodedUri = encodeURI(csvContent);
-                    const link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", "user_import_template.csv");
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }}
-                  className="text-[10px] text-[#3B82F6] dark:text-[#BFDBFE] mt-0.5 cursor-pointer hover:underline"
-                >
-                  Download CSV Template
-                </p>
-              </div>
-            </div>
+            )}
           </div>
 
-          <DialogFooter className="pt-6 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A]">
-            <Button variant="outline" onClick={() => setIsBulkUploadOpen(false)} className="h-11 px-6 rounded-xl font-bold text-xs">Cancel</Button>
-            <Button onClick={() => {
-              setIsBulkUploadOpen(false);
-              toast({ title: "Import Started", description: "Your file is being processed. Users will appear shortly." });
-            }} className="h-11 px-8 text-white rounded-xl font-bold text-xs shadow-md bg-[#2563EB] hover:bg-[#1D4ED8]">
-              Upload & Import
+          <DialogFooter className="pt-4 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => { setIsBulkUploadOpen(false); setBulkPreviewRows([]); }} className="h-11 px-6 rounded-xl font-bold text-xs">Cancel</Button>
+            <Button
+              disabled={isBulkImporting || bulkPreviewRows.filter((r: any) => r.isValid).length === 0}
+              onClick={async () => {
+                const validRows = bulkPreviewRows.filter((r: any) => r.isValid);
+                setIsBulkImporting(true);
+                let success = 0, failed = 0;
+                for (const row of validRows) {
+                  try {
+                    const res = await fetch("/api/admin/users", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ name: row.name, email: row.email, role: row.role, batch_id: row.batch || undefined, department: row.department || undefined, college: row.college || undefined, phone: row.phone || undefined }),
+                    });
+                    if (res.ok) success++; else failed++;
+                  } catch { failed++; }
+                }
+                setIsBulkImporting(false);
+                setIsBulkUploadOpen(false);
+                setBulkPreviewRows([]);
+                await fetchUsers();
+                toast({ title: `Import Complete`, description: `${success} users created${failed > 0 ? `, ${failed} failed` : ""}.` });
+              }}
+              className="h-11 px-8 text-white rounded-xl font-bold text-xs shadow-md bg-[#2563EB] hover:bg-[#1D4ED8]"
+            >
+              {isBulkImporting ? "Importing..." : `Import ${bulkPreviewRows.filter((r: any) => r.isValid).length} Users`}
             </Button>
           </DialogFooter>
         </DialogContent>

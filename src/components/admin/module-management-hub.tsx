@@ -125,7 +125,7 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [selectedModule, setSelectedModule] = useState<CourseModuleItem | null>(null);
 
   const [newTitle, setNewTitle]     = useState("");
-  const [newCourse, setNewCourse]   = useState("Full Stack Next.js 16 & React 19 Enterprise Architecture");
+  const [newCourse, setNewCourse]   = useState("");
   const [newDurEnabled, setNewDurEnabled] = useState(true);
   const [newStartTime, setNewStartTime]   = useState("09:00");
   const [newEndTime, setNewEndTime]     = useState("09:45");
@@ -324,9 +324,15 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Full Stack Next.js 16 & React 19 Enterprise Architecture">Next.js 16 Enterprise</SelectItem>
-                  <SelectItem value="Python AI & Deep Learning LLM Agentic Engineering">Python AI LLM</SelectItem>
-                  <SelectItem value="PostgreSQL & Supabase High-Availability Systems">PostgreSQL & Supabase</SelectItem>
+                  {modules.length === 0 ? (
+                    <SelectItem value="__none__" disabled>No courses available yet</SelectItem>
+                  ) : (
+                    Array.from(new Set(modules.map((m) => m.courseTitle)))
+                      .sort()
+                      .map((title) => (
+                        <SelectItem key={title} value={title}>{title}</SelectItem>
+                      ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -666,8 +672,13 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Batches</SelectItem>
-                  <SelectItem value="Batch 2026-A">Batch 2026-A</SelectItem>
-                  <SelectItem value="Batch 2026-B">Batch 2026-B</SelectItem>
+                  {allBatches.length === 0 ? (
+                    <SelectItem value="__none__" disabled>No batches created yet</SelectItem>
+                  ) : (
+                    allBatches.map((b) => (
+                      <SelectItem key={b} value={b}>{b}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -753,9 +764,15 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Courses</SelectItem>
-                <SelectItem value="Full Stack Next.js 16 & React 19 Enterprise Architecture">Next.js 16 Enterprise</SelectItem>
-                <SelectItem value="Python AI & Deep Learning LLM Agentic Engineering">Python AI LLM</SelectItem>
-                <SelectItem value="PostgreSQL & Supabase High-Availability Systems">PostgreSQL & Supabase</SelectItem>
+                {modules.length === 0 ? (
+                  <SelectItem value="__none__" disabled>No courses available yet</SelectItem>
+                ) : (
+                  Array.from(new Set(modules.map((m) => m.courseTitle)))
+                    .sort()
+                    .map((title) => (
+                      <SelectItem key={title} value={title}>{title}</SelectItem>
+                    ))
+                )}
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v || "all")}>
