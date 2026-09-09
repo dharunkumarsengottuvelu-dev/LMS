@@ -72,23 +72,23 @@ const AVAILABLE_TOPICS = [
 ];
 
 export const AVAILABLE_CODING_LANGUAGES = [
-  { id: "python", name: "Python", icon: "🐍", category: "Popular" },
-  { id: "java", name: "Java", icon: "☕", category: "Popular" },
-  { id: "cpp", name: "C++", icon: "⚡", category: "Popular" },
-  { id: "c", name: "C", icon: "⚙️", category: "Popular" },
-  { id: "csharp", name: "C#", icon: "🟣", category: "Popular" },
-  { id: "javascript", name: "JavaScript", icon: "🟨", category: "Popular" },
-  { id: "typescript", name: "TypeScript", icon: "🔷", category: "Popular" },
-  { id: "go", name: "Go", icon: "🐹", category: "Systems" },
-  { id: "rust", name: "Rust", icon: "🦀", category: "Systems" },
-  { id: "kotlin", name: "Kotlin", icon: "💜", category: "Modern" },
-  { id: "php", name: "PHP", icon: "🐘", category: "Backend" },
-  { id: "ruby", name: "Ruby", icon: "💎", category: "Scripting" },
-  { id: "swift", name: "Swift", icon: "🐦", category: "Mobile" },
-  { id: "scala", name: "Scala", icon: "🔴", category: "Modern" },
-  { id: "dart", name: "Dart", icon: "🎯", category: "Mobile" },
-  { id: "sql", name: "SQL", icon: "🗄️", category: "Database" },
-  { id: "bash", name: "Bash", icon: "🐚", category: "Shell" },
+  { id: "python", name: "Python", category: "Popular" },
+  { id: "java", name: "Java", category: "Popular" },
+  { id: "cpp", name: "C++", category: "Popular" },
+  { id: "c", name: "C", category: "Popular" },
+  { id: "csharp", name: "C#", category: "Popular" },
+  { id: "javascript", name: "JavaScript", category: "Popular" },
+  { id: "typescript", name: "TypeScript", category: "Popular" },
+  { id: "go", name: "Go", category: "Systems" },
+  { id: "rust", name: "Rust", category: "Systems" },
+  { id: "kotlin", name: "Kotlin", category: "Modern" },
+  { id: "php", name: "PHP", category: "Backend" },
+  { id: "ruby", name: "Ruby", category: "Scripting" },
+  { id: "swift", name: "Swift", category: "Mobile" },
+  { id: "scala", name: "Scala", category: "Modern" },
+  { id: "dart", name: "Dart", category: "Mobile" },
+  { id: "sql", name: "SQL", category: "Database" },
+  { id: "bash", name: "Bash", category: "Shell" },
 ];
 
 export const getMonacoLanguage = (lang: string) => {
@@ -993,9 +993,8 @@ export function CodingProblemCreator({
                       <SelectContent>
                         {AVAILABLE_CODING_LANGUAGES.map((item) => (
                           <SelectItem key={item.id} value={item.id}>
-                            <span className="flex items-center gap-1.5">
-                              <span>{item.icon}</span>
-                              <span>{item.name}</span>
+                            <span className="font-medium text-xs">
+                              {item.name}
                             </span>
                           </SelectItem>
                         ))}
@@ -1632,50 +1631,68 @@ export function CodingProblemCreator({
 
         {/* Mode Detail: Multi-Language Switcher vs Single Language Selector */}
         {languageMode === "all" ? (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 text-xs">
-            <div className="flex items-center gap-2 text-slate-600">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-              <span>
-                <strong>Multi-Language Mode:</strong> Students can choose any language. Switch tabs to configure starter code:
+          <div className="p-3.5 bg-slate-50/80 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200">
+                  Multi-Language Mode Active
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-zinc-400 hidden sm:inline">
+                  — Select language tab to configure starter template
+                </span>
+              </div>
+              <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 self-start sm:self-auto">
+                17 Compilers Enabled
               </span>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {AVAILABLE_CODING_LANGUAGES.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setActiveCodeLang(item.id)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
-                    activeCodeLang === item.id
-                      ? "bg-[#2563EB] text-white shadow-xs"
-                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  <span className="text-xs">{item.icon}</span>
-                  <span>{item.name}</span>
-                </button>
-              ))}
+
+            {/* MNC Corporate Clean Tab Strip (No Emojis / Playful Icons) */}
+            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-white dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 rounded-lg">
+              {AVAILABLE_CODING_LANGUAGES.map((item) => {
+                const isActive = activeCodeLang === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveCodeLang(item.id)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-[#2563EB] text-white font-semibold shadow-xs"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    {item.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ) : (
-          <div className="p-4 bg-blue-50/60 rounded-xl border border-blue-200/80 space-y-3">
+          <div className="p-4 bg-slate-50/80 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <Badge className="bg-[#2563EB] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                     Single Language Restriction
                   </Badge>
-                  <span className="text-xs font-bold text-slate-800">
-                    Select One Language for this Question:
+                  <span className="text-xs font-bold text-slate-800 dark:text-zinc-100">
+                    Select Required Language:
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  Students will be forced to solve this problem in the chosen language. All 17 platform compiler languages are available.
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Students will be restricted to submitting solutions using this compiler only.
                 </p>
+              </div>
+              <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                <span className="text-xs text-slate-500">Selected:</span>
+                <span className="text-xs font-mono font-semibold text-[#2563EB] bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-900">
+                  {AVAILABLE_CODING_LANGUAGES.find((l) => l.id === selectedSingleLanguage)?.name || selectedSingleLanguage}
+                </span>
               </div>
             </div>
 
-            {/* Language Pills (All 17 Compiler Languages) */}
+            {/* Language Selection Grid (MNC Corporate, No Emojis) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 pt-1 max-h-[220px] overflow-y-auto pr-1">
               {AVAILABLE_CODING_LANGUAGES.map((item) => {
                 const isSelected = selectedSingleLanguage === item.id;
@@ -1684,15 +1701,18 @@ export function CodingProblemCreator({
                     key={item.id}
                     type="button"
                     onClick={() => handleSelectSingleLanguage(item.id)}
-                    className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs transition-all cursor-pointer ${
                       isSelected
-                        ? "bg-[#2563EB] text-white border-[#2563EB] shadow-xs ring-2 ring-blue-400/30"
-                        : "bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-slate-50"
+                        ? "bg-[#2563EB] text-white border-[#2563EB] font-semibold shadow-xs"
+                        : "bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-600 hover:bg-slate-50 dark:hover:bg-zinc-700/50 font-medium"
                     }`}
                   >
-                    <span className="text-sm">{item.icon}</span>
-                    <span className="uppercase tracking-wider truncate">{item.name}</span>
-                    {isSelected && <Check className="h-3.5 w-3.5 stroke-[3] shrink-0" />}
+                    <span className="truncate">{item.name}</span>
+                    {isSelected ? (
+                      <Check className="h-3.5 w-3.5 stroke-[2.5] shrink-0" />
+                    ) : (
+                      <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-normal">{item.category}</span>
+                    )}
                   </button>
                 );
               })}
