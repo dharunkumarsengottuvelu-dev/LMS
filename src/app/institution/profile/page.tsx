@@ -96,9 +96,6 @@ export default function InstitutionProfilePage() {
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="text-lg font-bold text-foreground tracking-tight">{profile.name}</h2>
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] font-mono font-bold">
-                  {profile.code}
-                </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Verified Institutional Partner

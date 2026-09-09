@@ -103,14 +103,7 @@ export default function InstitutionOverviewPage() {
     <div className="space-y-8 animate-fade-up">
       {/* Executive Page Header */}
       <PageHeader
-        title={
-          <span className="flex items-center gap-2.5">
-            <span>{institution?.name || "Institution Performance Portal"}</span>
-            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px] font-mono font-bold">
-              {institution?.code || "CODE"}
-            </Badge>
-          </span>
-        }
+        title={institution?.name || "Institution Performance Portal"}
         actions={
           <div className="flex items-center gap-2.5">
             <Link href="/institution/reports">

@@ -118,7 +118,6 @@ export default function InstitutionBatchesPage() {
   // Search & Filter state
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   // Modal State: View Batch Students
   const [viewingBatch, setViewingBatch] = useState<BatchItem | null>(null);
@@ -255,32 +254,6 @@ export default function InstitutionBatchesPage() {
         title="Assigned Batches"
         actions={
           <div className="flex items-center gap-3 shrink-0">
-            {/* Clean MNC View Mode Switcher */}
-            <div className="hidden sm:flex items-center bg-muted/60 p-1 rounded-xl border border-border">
-              <button
-                type="button"
-                onClick={() => setViewMode("grid")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  viewMode === "grid"
-                    ? "bg-background text-foreground shadow-xs font-bold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Grid
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("table")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  viewMode === "table"
-                    ? "bg-background text-foreground shadow-xs font-bold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Table
-              </button>
-            </div>
-
             <Button
               variant="outline"
               size="sm"
@@ -432,86 +405,6 @@ export default function InstitutionBatchesPage() {
             </Button>
           )}
         </Card>
-      ) : viewMode === "grid" ? (
-        /* ================= BATCH CARDS GRID (EXACT ADMIN ARCHITECTURE) ================= */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredBatches.map((batch) => {
-            const isActive = (batch.status || "active").toLowerCase() === "active";
-            return (
-              <Card
-                key={batch.id}
-                className="bg-card border border-border rounded-2xl shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
-              >
-                <div>
-                  {/* Top Bar with Status Badge */}
-                  <div className="p-5 pb-3 flex items-start justify-between gap-3 border-b border-border bg-muted/20">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="font-mono text-[10px] bg-primary/5 text-primary border-primary/20 px-1.5 py-0.5">
-                          {batch.code}
-                        </Badge>
-                      </div>
-                      <h3 className="text-base font-bold text-foreground leading-snug line-clamp-2">
-                        {batch.name}
-                      </h3>
-                    </div>
-
-                    <Badge
-                      className={`text-[10px] font-bold uppercase tracking-wider shrink-0 px-2.5 py-0.5 ${
-                        isActive
-                          ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30"
-                          : "bg-destructive/10 text-destructive border border-destructive/30"
-                      }`}
-                    >
-                      {isActive ? "Active" : batch.status}
-                    </Badge>
-                  </div>
-
-                  {/* Body Content */}
-                  <div className="p-5 space-y-2.5 text-xs text-muted-foreground">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">Trainer</span>
-                      <strong className="text-foreground font-semibold">{batch.trainerName}</strong>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">Start Date</span>
-                      <strong className="text-foreground font-mono font-medium">{batch.startDate}</strong>
-                    </div>
-
-                    <div className="pt-2.5 flex items-center justify-between border-t border-border">
-                      <span className="font-medium">Enrolled Learners</span>
-                      <Badge variant="secondary" className="font-mono font-bold text-xs px-2.5 py-0.5">
-                        {batch.studentCount}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card Action Buttons */}
-                <div className="p-4 bg-muted/30 border-t border-border flex items-center justify-between gap-2.5">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenViewingBatch(batch)}
-                    className="flex-1 h-9 text-xs font-semibold border-border hover:bg-accent rounded-xl text-foreground"
-                  >
-                    Enrolled Students ({batch.studentCount})
-                  </Button>
-
-                  <Link href={`/institution/performance?batchId=${batch.id}`}>
-                    <Button
-                      size="sm"
-                      className="h-9 px-4 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-xs"
-                    >
-                      Analytics
-                    </Button>
-                  </Link>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
       ) : (
         /* ================= COMPACT TABLE VIEW ================= */
         <Card className="bg-card border border-border rounded-2xl overflow-hidden shadow-xs">
