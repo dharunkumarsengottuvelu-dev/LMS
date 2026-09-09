@@ -71,6 +71,66 @@ const AVAILABLE_TOPICS = [
   "SQL",
 ];
 
+export const AVAILABLE_CODING_LANGUAGES = [
+  { id: "python", name: "Python", icon: "🐍", category: "Popular" },
+  { id: "java", name: "Java", icon: "☕", category: "Popular" },
+  { id: "cpp", name: "C++", icon: "⚡", category: "Popular" },
+  { id: "c", name: "C", icon: "⚙️", category: "Popular" },
+  { id: "csharp", name: "C#", icon: "🟣", category: "Popular" },
+  { id: "javascript", name: "JavaScript", icon: "🟨", category: "Popular" },
+  { id: "typescript", name: "TypeScript", icon: "🔷", category: "Popular" },
+  { id: "go", name: "Go", icon: "🐹", category: "Systems" },
+  { id: "rust", name: "Rust", icon: "🦀", category: "Systems" },
+  { id: "kotlin", name: "Kotlin", icon: "💜", category: "Modern" },
+  { id: "php", name: "PHP", icon: "🐘", category: "Backend" },
+  { id: "ruby", name: "Ruby", icon: "💎", category: "Scripting" },
+  { id: "swift", name: "Swift", icon: "🐦", category: "Mobile" },
+  { id: "scala", name: "Scala", icon: "🔴", category: "Modern" },
+  { id: "dart", name: "Dart", icon: "🎯", category: "Mobile" },
+  { id: "sql", name: "SQL", icon: "🗄️", category: "Database" },
+  { id: "bash", name: "Bash", icon: "🐚", category: "Shell" },
+];
+
+export const getMonacoLanguage = (lang: string) => {
+  switch (lang) {
+    case "c":
+    case "cpp":
+      return "cpp";
+    case "csharp":
+      return "csharp";
+    case "python":
+      return "python";
+    case "java":
+      return "java";
+    case "javascript":
+      return "javascript";
+    case "typescript":
+      return "typescript";
+    case "go":
+      return "go";
+    case "rust":
+      return "rust";
+    case "kotlin":
+      return "kotlin";
+    case "php":
+      return "php";
+    case "ruby":
+      return "ruby";
+    case "swift":
+      return "swift";
+    case "scala":
+      return "scala";
+    case "dart":
+      return "dart";
+    case "sql":
+      return "sql";
+    case "bash":
+      return "shell";
+    default:
+      return "plaintext";
+  }
+};
+
 const DEFAULT_STARTER_CODES: Record<string, string> = {
   python: `class Solution:
     def solve(self):
@@ -100,6 +160,14 @@ void solve() {
     // Write your code here
 }
 `,
+  csharp: `using System;
+
+public class Solution {
+    public void Solve() {
+        // Write your code here
+    }
+}
+`,
   javascript: `/**
  * @return {void}
  */
@@ -110,6 +178,55 @@ var solve = function() {
   typescript: `function solve(): void {
     // Write your code here
 }
+`,
+  go: `package main
+
+import "fmt"
+
+func solve() {
+    // Write your code here
+}
+`,
+  rust: `fn solve() {
+    // Write your code here
+}
+`,
+  kotlin: `class Solution {
+    fun solve() {
+        // Write your code here
+    }
+}
+`,
+  php: `<?php
+function solve() {
+    // Write your code here
+}
+`,
+  ruby: `def solve()
+    # Write your code here
+end
+`,
+  swift: `class Solution {
+    func solve() {
+        // Write your code here
+    }
+}
+`,
+  scala: `object Solution {
+    def solve(): Unit = {
+        // Write your code here
+    }
+}
+`,
+  dart: `void solve() {
+    // Write your code here
+}
+`,
+  sql: `-- Write your SQL query here
+SELECT * FROM table_name;
+`,
+  bash: `#!/bin/bash
+# Write your code here
 `,
 };
 
@@ -870,16 +987,18 @@ export function CodingProblemCreator({
                     </div>
                   ) : (
                     <Select value={activeCodeLang} onValueChange={(val) => setActiveCodeLang(val || "python")}>
-                      <SelectTrigger className="h-7.5 text-xs w-[130px] font-semibold bg-white border border-slate-200">
+                      <SelectTrigger className="h-7.5 text-xs w-[140px] font-semibold bg-white border border-slate-200">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="python">Python</SelectItem>
-                        <SelectItem value="java">Java</SelectItem>
-                        <SelectItem value="cpp">C++</SelectItem>
-                        <SelectItem value="c">C</SelectItem>
-                        <SelectItem value="javascript">JavaScript</SelectItem>
-                        <SelectItem value="typescript">TypeScript</SelectItem>
+                        {AVAILABLE_CODING_LANGUAGES.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            <span className="flex items-center gap-1.5">
+                              <span>{item.icon}</span>
+                              <span>{item.name}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   )}
@@ -1521,18 +1640,19 @@ export function CodingProblemCreator({
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {Object.keys(DEFAULT_STARTER_CODES).map((lang) => (
+              {AVAILABLE_CODING_LANGUAGES.map((item) => (
                 <button
-                  key={lang}
+                  key={item.id}
                   type="button"
-                  onClick={() => setActiveCodeLang(lang)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
-                    activeCodeLang === lang
+                  onClick={() => setActiveCodeLang(item.id)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
+                    activeCodeLang === item.id
                       ? "bg-[#2563EB] text-white shadow-xs"
                       : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
                   }`}
                 >
-                  {lang}
+                  <span className="text-xs">{item.icon}</span>
+                  <span>{item.name}</span>
                 </button>
               ))}
             </div>
@@ -1550,36 +1670,29 @@ export function CodingProblemCreator({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Students will be forced to solve this problem in the chosen language. Language selector in the student code editor will be locked.
+                  Students will be forced to solve this problem in the chosen language. All 17 platform compiler languages are available.
                 </p>
               </div>
             </div>
 
-            {/* Language Pills */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
-              {[
-                { id: "python", name: "Python", icon: "🐍" },
-                { id: "java", name: "Java", icon: "☕" },
-                { id: "cpp", name: "C++", icon: "⚡" },
-                { id: "c", name: "C", icon: "⚙️" },
-                { id: "javascript", name: "JavaScript", icon: "🟨" },
-                { id: "typescript", name: "TypeScript", icon: "🔷" },
-              ].map((item) => {
+            {/* Language Pills (All 17 Compiler Languages) */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 pt-1 max-h-[220px] overflow-y-auto pr-1">
+              {AVAILABLE_CODING_LANGUAGES.map((item) => {
                 const isSelected = selectedSingleLanguage === item.id;
                 return (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => handleSelectSingleLanguage(item.id)}
-                    className={`flex items-center justify-center gap-1.5 p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                       isSelected
                         ? "bg-[#2563EB] text-white border-[#2563EB] shadow-xs ring-2 ring-blue-400/30"
                         : "bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-slate-50"
                     }`}
                   >
                     <span className="text-sm">{item.icon}</span>
-                    <span className="uppercase tracking-wider">{item.name}</span>
-                    {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                    <span className="uppercase tracking-wider truncate">{item.name}</span>
+                    {isSelected && <Check className="h-3.5 w-3.5 stroke-[3] shrink-0" />}
                   </button>
                 );
               })}
@@ -1642,7 +1755,7 @@ export function CodingProblemCreator({
           </div>
           <Editor
             height="220px"
-            language={activeCodeLang === "c" || activeCodeLang === "cpp" ? "cpp" : activeCodeLang}
+            language={getMonacoLanguage(activeCodeLang)}
             theme="vs"
             value={templates[activeCodeLang] || ""}
             onChange={(val) => setTemplates({ ...templates, [activeCodeLang]: val || "" })}
