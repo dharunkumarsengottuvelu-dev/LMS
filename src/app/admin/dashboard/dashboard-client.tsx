@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -8,6 +9,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { DashboardAnalyticsPayload } from "@/services/dashboard-analytics.service";
 
 interface DashboardData {
   stats: {
@@ -41,14 +43,7 @@ interface DashboardData {
     created_at: string;
     profiles?: { first_name: string; last_name: string; avatar_url: string | null; role: string };
   }[];
-  analytics?: {
-    totalEvaluations: number;
-    avgScore: number;
-    passRate: number;
-    codeAcceptanceRate: number;
-    scoreBands: { label: string; pct: number; color: string }[];
-    competencies: { name: string; score: number; status: string; delta: string }[];
-  };
+  liveAnalytics?: DashboardAnalyticsPayload;
 }
 
 const statCards = [
@@ -89,7 +84,33 @@ const statCards = [
 const PIE_COLORS = ["#2563EB", "#3B82F6", "#60A5FA", "#93C5FD"];
 
 export function AdminDashboardClient({ data }: { data: DashboardData }) {
-  const { stats, changes, trendData, recentUsers, activities } = data;
+  const { stats, changes, trendData } = data;
+
+  const [liveAnalytics, setLiveAnalytics] = useState<DashboardAnalyticsPayload | undefined>(data.liveAnalytics);
+  const [isRefreshingAnalytics, setIsRefreshingAnalytics] = useState(false);
+  const [selectedChartMetric, setSelectedChartMetric] = useState<
+    "activeStudents" | "codingSubmissions" | "testAttempts" | "lessonsCompleted"
+  >("activeStudents");
+
+  const activity = liveAnalytics?.activityOverview;
+  const engagement = liveAnalytics?.studentEngagement;
+
+  const handleRefreshAnalytics = async () => {
+    setIsRefreshingAnalytics(true);
+    try {
+      const res = await fetch("/api/admin/dashboard/analytics");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          setLiveAnalytics(json.data);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to live sync analytics:", err);
+    } finally {
+      setIsRefreshingAnalytics(false);
+    }
+  };
 
   const statDistributionData = [
     { name: "Students", value: stats.total_students },
@@ -100,37 +121,6 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      {/* 1. MNC Enterprise Executive Command Header (Zero Icons) */}
-      <div className="w-full bg-card border border-border rounded-[var(--radius-xl)] p-6 sm:p-7 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-bold tracking-widest uppercase px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                Enterprise Command Center
-              </span>
-              <span className="text-[11px] font-mono text-muted-foreground">
-                PROD CLUSTER • AP-SOUTH-1
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              System Operations Dashboard
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl font-normal leading-relaxed">
-              Consolidated institutional telemetry, active cohort performance, and enterprise administrative controls.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 pt-2 lg:pt-0">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-background border border-border text-xs font-mono">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400">ALL ENGINES OPERATIONAL</span>
-            </div>
-            <div className="px-3 py-1.5 rounded-lg bg-background border border-border text-xs font-mono text-muted-foreground">
-              SLA <strong className="text-foreground">99.98%</strong>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* 2. MNC Statistics Grid (Zero Icons, Pure Typography & Tags) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 animate-fade-up stagger-1">
@@ -163,7 +153,7 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
                           : "bg-destructive/10 text-destructive border border-destructive/20"
                       }`}
                     >
-                      {isPositive ? "+" : "-"}{Math.abs(changeValue)}% MoM
+                      {isPositive ? "+" : "-"}{Math.abs(changeValue)}%
                     </span>
                   </div>
                 </div>
@@ -279,252 +269,587 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
         </Card>
       </div>
 
-      {/* 5. Core Operations Hub & Platform Engine Health */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-up stagger-3">
-        {/* Card 1: Cohort & Assessment Analytics (Intelligence Hub) */}
-        <Card className="shadow-sm border-border bg-card rounded-[var(--radius-xl)] flex flex-col justify-between">
-          <CardHeader className="p-6 pb-4 flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-lg font-bold text-foreground">Cohort & Assessment Analytics</CardTitle>
-              <CardDescription className="text-sm font-medium">Evaluation diagnostics, score distribution & competency benchmarks</CardDescription>
+      {/* ========================================================================= */}
+      {/* SECTION 1 — LEARNING ACTIVITY OVERVIEW */}
+      {/* ========================================================================= */}
+      <div className="space-y-4 animate-fade-up stagger-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold tracking-tight text-foreground">Learning Activity Overview</h2>
             </div>
-            <Badge variant="outline" className="text-[11px] font-semibold bg-primary/5 text-primary border-primary/20">
-              Evaluation Intelligence
-            </Badge>
-          </CardHeader>
-          <CardContent className="p-6 pt-0 space-y-5">
-            {/* 3 Metric Analytics Counters */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-xl bg-background border border-border flex flex-col justify-between">
-                <span className="text-[11px] font-medium text-muted-foreground">Average Score</span>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-lg font-bold text-foreground font-mono">
-                    {data.analytics?.avgScore ?? 78}%
-                  </span>
-                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded">
-                    +3.8%
-                  </span>
-                </div>
-                <span className="text-[10px] text-muted-foreground mt-1">Cohort mean score</span>
-              </div>
+            <p className="text-xs text-muted-foreground mt-0.5">Real-time learning activity across your LMS</p>
+          </div>
 
-              <div className="p-3 rounded-xl bg-background border border-border flex flex-col justify-between">
-                <span className="text-[11px] font-medium text-muted-foreground">Exam Pass Rate</span>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-lg font-bold text-foreground font-mono">
-                    {data.analytics?.passRate ?? 86}%
-                  </span>
-                  <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1 py-0.5 rounded">
-                    ≥ 50% cut
-                  </span>
-                </div>
-                <span className="text-[10px] text-muted-foreground mt-1">Passing candidate ratio</span>
-              </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={handleRefreshAnalytics}
+              disabled={isRefreshingAnalytics}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium text-foreground transition-colors disabled:opacity-60"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${isRefreshingAnalytics ? "bg-primary animate-ping" : "bg-emerald-500"}`} />
+              <span>{isRefreshingAnalytics ? "Refreshing..." : "Live Sync"}</span>
+            </button>
+          </div>
+        </div>
 
-              <div className="p-3 rounded-xl bg-background border border-border flex flex-col justify-between">
-                <span className="text-[11px] font-medium text-muted-foreground">Code Acceptance</span>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-lg font-bold text-foreground font-mono">
-                    {data.analytics?.codeAcceptanceRate ?? 89}%
-                  </span>
-                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1 py-0.5 rounded">
-                    AC rate
-                  </span>
-                </div>
-                <span className="text-[10px] text-muted-foreground mt-1">Judge test suite pass</span>
-              </div>
+        {/* 8 Core Metrics Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4">
+          {/* 1. Active Students Today */}
+          <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active Students</span>
+              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">TODAY</span>
             </div>
+            <div className="mt-3">
+              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground">
+                {activity?.activeStudentsToday ?? 0}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                Unique active learners today
+              </p>
+            </div>
+          </Card>
 
-            {/* Score Distribution Multi-segmented Band */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-foreground">Score Distribution Bands</span>
-                <span className="text-muted-foreground text-[11px] font-mono">
-                  {data.analytics?.totalEvaluations ?? 142} Total Evaluations
+          {/* 2. Students Online Now */}
+          <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Online Now</span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                LIVE
+              </span>
+            </div>
+            <div className="mt-3">
+              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground">
+                {activity?.studentsOnlineNow ?? 0}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                Active in last 3 min (heartbeat)
+              </p>
+            </div>
+          </Card>
+
+          {/* 3. Courses in Progress */}
+          <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">In Progress</span>
+              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">COURSES</span>
+            </div>
+            <div className="mt-3">
+              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground">
+                {activity?.coursesInProgress ?? 0}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                Courses actively progressed
+              </p>
+            </div>
+          </Card>
+
+          {/* 4. Lessons Completed Today */}
+          <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Lessons Done</span>
+              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">TODAY</span>
+            </div>
+            <div className="mt-3">
+              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground">
+                {activity?.lessonsCompletedToday ?? 0}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                Modules & lessons completed
+              </p>
+            </div>
+          </Card>
+
+          {/* 5. Practice Sessions */}
+          <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Practice Sessions</span>
+              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">LAB</span>
+            </div>
+            <div className="mt-3">
+              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground">
+                {activity?.practiceSessionsToday ?? 0}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                Problem practice runs today
+              </p>
+            </div>
+          </Card>
+
+          {/* 6. Coding Submissions */}
+          <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Code Submissions</span>
+              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">JUDGE</span>
+            </div>
+            <div className="mt-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground">
+                  {activity?.codingSubmissionsToday?.total ?? 0}
+                </span>
+                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                  {activity?.codingSubmissionsToday?.accepted ?? 0} AC
                 </span>
               </div>
-
-              {/* Proportional Segmented Progress Bar */}
-              <div className="h-3.5 w-full rounded-full bg-muted/60 flex overflow-hidden p-0.5 gap-0.5">
-                {(data.analytics?.scoreBands ?? [
-                  { label: "Distinction (≥ 85%)", pct: 34, color: "#10B981" },
-                  { label: "Proficient (70 - 84%)", pct: 42, color: "#3B82F6" },
-                  { label: "Passing (50 - 69%)", pct: 18, color: "#F59E0B" },
-                  { label: "Needs Support (< 50%)", pct: 6, color: "#EF4444" },
-                ]).map((band, idx) => (
-                  <div
-                    key={idx}
-                    style={{ width: `${band.pct}%`, backgroundColor: band.color }}
-                    className="h-full rounded-sm transition-all duration-500 hover:opacity-90"
-                    title={`${band.label}: ${band.pct}%`}
-                  />
-                ))}
-              </div>
-
-              {/* Band Legend Breakdown Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                {(data.analytics?.scoreBands ?? [
-                  { label: "Distinction (≥ 85%)", pct: 34, color: "#10B981" },
-                  { label: "Proficient (70 - 84%)", pct: 42, color: "#3B82F6" },
-                  { label: "Passing (50 - 69%)", pct: 18, color: "#F59E0B" },
-                  { label: "Needs Support (< 50%)", pct: 6, color: "#EF4444" },
-                ]).map((band, idx) => (
-                  <div key={idx} className="flex items-center gap-1.5 text-[11px]">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: band.color }} />
-                    <span className="text-muted-foreground truncate">{band.label.split(" ")[0]}</span>
-                    <span className="font-bold text-foreground font-mono ml-auto">{band.pct}%</span>
-                  </div>
-                ))}
-              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                {activity?.codingSubmissionsToday?.failed ?? 0} failed / wrong answer
+              </p>
             </div>
+          </Card>
 
-            {/* Curriculum Competency Mastery Breakdown */}
-            <div className="space-y-2.5 pt-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-foreground">Curriculum Domain Mastery</span>
-                <span className="text-[11px] text-muted-foreground">Competency Index</span>
-              </div>
-
-              <div className="space-y-2">
-                {(data.analytics?.competencies ?? [
-                  { name: "Algorithms & Problem Solving", score: 84, status: "Mastery", delta: "+5.1%" },
-                  { name: "Full-Stack Development & APIs", score: 79, status: "Proficient", delta: "+3.4%" },
-                  { name: "Database & System Architecture", score: 73, status: "Proficient", delta: "+2.2%" },
-                  { name: "Core Technical Aptitude", score: 88, status: "Elite", delta: "+6.0%" },
-                ]).map((comp, idx) => (
-                  <div key={idx} className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-medium text-foreground">{comp.name}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
-                          {comp.delta}
-                        </span>
-                        <Badge
-                          variant="secondary"
-                          className={`text-[9px] px-1.5 py-0 font-semibold ${
-                            comp.status === "Elite"
-                              ? "bg-purple-500/10 text-purple-600 border border-purple-500/20"
-                              : comp.status === "Mastery"
-                              ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                              : "bg-blue-500/10 text-blue-600 border border-blue-500/20"
-                          }`}
-                        >
-                          {comp.status}
-                        </Badge>
-                        <span className="font-bold font-mono text-foreground w-8 text-right">{comp.score}%</span>
-                      </div>
-                    </div>
-                    <div className="h-1.5 w-full rounded-full bg-muted/60 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          comp.status === "Elite"
-                            ? "bg-purple-500"
-                            : comp.status === "Mastery"
-                            ? "bg-emerald-500"
-                            : "bg-blue-500"
-                        }`}
-                        style={{ width: `${comp.score}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* 7. Test Attempts */}
+          <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Test Attempts</span>
+              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">EXAMS</span>
             </div>
-
-            {/* Bottom Analytical Deep Link */}
-            <div className="pt-2 border-t border-border flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground">
-                Highest cohort proficiency observed in <strong>Core Aptitude (88%)</strong>.
-              </span>
-              <Link
-                href="/admin/reports"
-                className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1 shrink-0 ml-2"
-              >
-                <span>View Full Reports</span>
-                <span>→</span>
-              </Link>
+            <div className="mt-3">
+              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground">
+                {activity?.testAttemptsToday ?? 0}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                Assessment attempts today
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </Card>
 
-        {/* Card 2: Platform Infrastructure & Live Engine Telemetry */}
-        <Card className="shadow-sm border-border bg-card rounded-[var(--radius-xl)] flex flex-col justify-between">
-          <CardHeader className="p-6 pb-4 flex flex-row items-center justify-between">
+          {/* 8. Average Study Time */}
+          <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Avg Study Time</span>
+              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">PER LEARNER</span>
+            </div>
+            <div className="mt-3">
+              <div className="text-2xl sm:text-3xl font-extrabold font-mono text-foreground">
+                {activity?.averageStudyTimeFormatted ?? "0m"}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                Active study time today
+              </p>
+            </div>
+          </Card>
+        </div>
+
+        {/* 7-Day Activity Chart Card */}
+        <Card className="shadow-sm border-border bg-card rounded-[var(--radius-xl)]">
+          <CardHeader className="p-6 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <CardTitle className="text-lg font-bold text-foreground">System Health & Infrastructure</CardTitle>
-              <CardDescription className="text-sm font-medium">Real-time status across platform engines & services</CardDescription>
+              <CardTitle className="text-base sm:text-lg font-bold text-foreground">7-Day Learning Activity</CardTitle>
+              <CardDescription className="text-xs font-medium">Daily learning activity volume across core LMS dimensions</CardDescription>
             </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>All Systems Normal</span>
+
+            {/* Metric selector tabs */}
+            <div className="flex flex-wrap items-center gap-1.5 bg-muted/60 p-1 rounded-lg">
+              {[
+                { id: "activeStudents", label: "Active Students" },
+                { id: "codingSubmissions", label: "Coding" },
+                { id: "testAttempts", label: "Tests" },
+                { id: "lessonsCompleted", label: "Lessons" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setSelectedChartMetric(tab.id as any)}
+                  className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${
+                    selectedChartMetric === tab.id
+                      ? "bg-background text-foreground shadow-xs font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </CardHeader>
-          <CardContent className="p-6 pt-0 space-y-3">
-            {[
-              {
-                service: "Database & Query Engine",
-                desc: "PostgreSQL Database via Supabase Cloud",
-                status: "Operational",
-                latency: "28ms latency",
-                badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-              },
-              {
-                service: "Automated Code Execution Judge",
-                desc: "Docker Sandbox (Python, Java, C++, JS, C)",
-                status: "Ready",
-                latency: "Jobe API Connected",
-                badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-              },
-              {
-                service: "Enterprise Authentication & RBAC",
-                desc: "Strict cross-role boundary enforcement active",
-                status: "Secured",
-                latency: "OWASP Hardened",
-                badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-              },
-              {
-                service: "Live Class & WebRTC Hub",
-                desc: "Real-time audio, video & screen share signaling",
-                status: "Operational",
-                latency: "Low-latency Gateway",
-                badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-              },
-              {
-                service: "Learner Telemetry & Heartbeat",
-                desc: "Continuous active-time & progress synchronization",
-                status: "Active",
-                latency: "Background Queue Healthy",
-                badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-              },
-            ].map((svc) => (
-              <div
-                key={svc.service}
-                className="p-2.5 px-3.5 rounded-xl border border-border bg-background flex items-center justify-between gap-3 text-xs"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-foreground truncate">{svc.service}</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground truncate">{svc.desc}</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="font-mono text-[10px] text-muted-foreground hidden sm:inline">
-                    {svc.latency}
-                  </span>
-                  <Badge variant="outline" className={`text-[10px] font-bold px-2 py-0.5 ${svc.badgeClass}`}>
-                    {svc.status}
-                  </Badge>
-                </div>
-              </div>
-            ))}
 
-            {/* Quick Status Bar */}
-            <div className="pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground font-mono">
-              <span>Platform Uptime: <strong className="text-foreground">99.98%</strong></span>
-              <span>Architecture: <strong className="text-foreground">Next.js App Router</strong></span>
+          <CardContent className="p-6 pt-2">
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart
+                data={activity?.sevenDayActivity ?? []}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 12, fill: "#6B7280" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#E5E7EB" }}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 12, fill: "#6B7280" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "#FFFFFF",
+                    border: "1px solid #E5E7EB",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05)",
+                  }}
+                  formatter={(val: any) => [val, selectedChartMetric === "activeStudents" ? "Active Students" : selectedChartMetric === "codingSubmissions" ? "Coding Submissions" : selectedChartMetric === "testAttempts" ? "Test Attempts" : "Lessons Completed"]}
+                  labelFormatter={(label, payload) => {
+                    const item = payload?.[0]?.payload;
+                    return item?.date ? `${label} (${item.date})` : label;
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey={selectedChartMetric}
+                  stroke="#2563EB"
+                  strokeWidth={2.5}
+                  fill="url(#colorActivity)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+
+            {/* Quick 7-Day Stats Footer */}
+            <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground font-mono">
+              <span>Trailing 7-day window telemetry</span>
+              <div className="flex items-center gap-4">
+                <span>Total Active Instances: <strong className="text-foreground">{(activity?.sevenDayActivity || []).reduce((acc, d) => acc + d.activeStudents, 0)}</strong></span>
+                <span>Submissions: <strong className="text-foreground">{(activity?.sevenDayActivity || []).reduce((acc, d) => acc + d.codingSubmissions, 0)}</strong></span>
+                <span>Tests Attempted: <strong className="text-foreground">{(activity?.sevenDayActivity || []).reduce((acc, d) => acc + d.testAttempts, 0)}</strong></span>
+              </div>
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* SECTION 2 — STUDENT ENGAGEMENT & PROGRESS */}
+      {/* ========================================================================= */}
+      <div className="space-y-4 animate-fade-up stagger-3 pt-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">Student Engagement & Progress</h2>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">Track learner performance, progress and engagement</p>
+        </div>
+
+        {/* 3 Core Progress KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Course Completion Rate */}
+          <Card className="p-5 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Course Completion</span>
+              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">CURRICULUM</span>
+            </div>
+            <div className="mt-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold font-mono text-foreground">
+                  {engagement?.courseCompletionRate?.ratePct ?? 0}%
+                </span>
+                <span className="text-xs font-mono text-muted-foreground">
+                  ({engagement?.courseCompletionRate?.completedCount ?? 0} / {engagement?.courseCompletionRate?.totalEnrollments ?? 0})
+                </span>
+              </div>
+              <div className="mt-2.5 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, engagement?.courseCompletionRate?.ratePct ?? 0)}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Enrolled courses successfully completed
+              </p>
+            </div>
+          </Card>
+
+          {/* Assessment Pass Rate */}
+          <Card className="p-5 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Assessment Pass Rate</span>
+              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">BENCHMARK</span>
+            </div>
+            <div className="mt-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold font-mono text-foreground">
+                  {engagement?.assessmentPassRate?.ratePct ?? 0}%
+                </span>
+                <span className="text-xs font-mono text-muted-foreground">
+                  ({engagement?.assessmentPassRate?.passedCount ?? 0} / {engagement?.assessmentPassRate?.totalAttempts ?? 0})
+                </span>
+              </div>
+              <div className="mt-2.5 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, engagement?.assessmentPassRate?.ratePct ?? 0)}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Evaluations scoring ≥ 50% cutoff
+              </p>
+            </div>
+          </Card>
+
+          {/* Average Student Progress */}
+          <Card className="p-5 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Avg Student Progress</span>
+              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">COHORT MEAN</span>
+            </div>
+            <div className="mt-3">
+              <div className="text-3xl font-extrabold font-mono text-foreground">
+                {engagement?.averageStudentProgressPct ?? 0}%
+              </div>
+              <div className="mt-2.5 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, engagement?.averageStudentProgressPct ?? 0)}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Average progress across active student enrollments
+              </p>
+            </div>
+          </Card>
+        </div>
+
+        {/* Two-Column Deep Engagement Analytics */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Column 1: Top Performing Students & Students Needing Attention */}
+          <div className="space-y-5">
+            {/* 1. Top Performing Students */}
+            <Card className="shadow-sm border-border bg-card rounded-[var(--radius-xl)]">
+              <CardHeader className="p-5 pb-3 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold text-foreground">Top Performing Students</CardTitle>
+                  <CardDescription className="text-xs">Ranked by actual assessment scores and course progress</CardDescription>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-mono font-bold uppercase bg-muted text-muted-foreground">
+                  LEADERBOARD
+                </Badge>
+              </CardHeader>
+              <CardContent className="p-5 pt-0">
+                {(!engagement?.topStudents || engagement.topStudents.length === 0) ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground">
+                    No student performance data recorded yet
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {engagement.topStudents.map((student) => (
+                      <div key={student.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className={`w-6 h-6 rounded-md flex items-center justify-center font-mono text-xs font-bold shrink-0 ${
+                              student.rank === 1
+                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                : student.rank === 2
+                                ? "bg-slate-300/30 text-slate-700 dark:text-slate-300 border border-slate-300/40"
+                                : student.rank === 3
+                                ? "bg-amber-700/15 text-amber-700 dark:text-amber-500 border border-amber-700/30"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {student.rank}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">{student.name}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{student.email}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right hidden sm:block">
+                            <p className="text-[11px] text-muted-foreground font-mono">
+                              {student.completedAssessments} assessments
+                            </p>
+                          </div>
+                          <span className="font-mono text-sm font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                            {student.performanceScore}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 2. Students Needing Attention */}
+            <Card className="shadow-sm border-border bg-card rounded-[var(--radius-xl)]">
+              <CardHeader className="p-5 pb-3 flex flex-row items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base font-bold text-foreground">
+                      {engagement?.studentsNeedingAttention?.totalCount ?? 0} Students Need Attention
+                    </CardTitle>
+                    {(engagement?.studentsNeedingAttention?.totalCount ?? 0) > 0 && (
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    )}
+                  </div>
+                  <CardDescription className="text-xs">Based on inactivity, low course progress, or poor exam scores</CardDescription>
+                </div>
+                <Link
+                  href="/admin/students"
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  View Students →
+                </Link>
+              </CardHeader>
+              <CardContent className="p-5 pt-0 space-y-3">
+                {/* 3 Reason Breakdown Pills */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {(engagement?.studentsNeedingAttention?.reasons ?? []).map((reason, idx) => (
+                    <div key={idx} className="p-2.5 rounded-lg border border-border bg-muted/40">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-foreground">{reason.label}</span>
+                        <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
+                          {reason.count}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{reason.description}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Sample students list needing attention */}
+                {(engagement?.studentsNeedingAttention?.sampleStudents && engagement.studentsNeedingAttention.sampleStudents.length > 0) ? (
+                  <div className="pt-2 border-t border-border divide-y divide-border">
+                    {engagement.studentsNeedingAttention.sampleStudents.slice(0, 3).map((stu, i) => (
+                      <div key={i} className="py-2 flex items-center justify-between text-xs">
+                        <div className="min-w-0">
+                          <span className="font-semibold text-foreground truncate block">{stu.name}</span>
+                          <span className="text-[11px] text-muted-foreground truncate block">{stu.email}</span>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] font-medium text-destructive border-destructive/20 bg-destructive/5 shrink-0 ml-2">
+                          {stu.reason}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    All students are currently meeting baseline engagement criteria
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Column 2: Key Engagement Insights & 7-Day Progress Trend */}
+          <div className="space-y-5">
+            {/* 4 Key Engagement Insights Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Most Active Course */}
+              <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Most Active Course</span>
+                  <p className="text-sm font-bold text-foreground mt-1 line-clamp-1">
+                    {engagement?.mostActiveCourse?.title || "No active courses yet"}
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                  <span>{engagement?.mostActiveCourse?.learnerCount ?? 0} Learners</span>
+                  <span className="font-semibold text-primary">{engagement?.mostActiveCourse?.avgProgress ?? 0}% Avg</span>
+                </div>
+              </Card>
+
+              {/* Most Practiced Skill */}
+              <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Most Practiced Skill</span>
+                  <p className="text-sm font-bold text-foreground mt-1 line-clamp-1">
+                    {engagement?.mostPracticedSkill?.hasEnoughData
+                      ? engagement.mostPracticedSkill.skill
+                      : "Not enough data"}
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                  <span>{engagement?.mostPracticedSkill?.submissionsCount ?? 0} Submissions</span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">Coding Lab</span>
+                </div>
+              </Card>
+
+              {/* Most Attempted Assessment */}
+              <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Most Attempted Exam</span>
+                  <p className="text-sm font-bold text-foreground mt-1 line-clamp-1">
+                    {engagement?.mostAttemptedAssessment?.title || "No assessments attempted yet"}
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                  <span>{engagement?.mostAttemptedAssessment?.attemptCount ?? 0} Attempts</span>
+                  <span className="font-semibold text-primary">{engagement?.mostAttemptedAssessment?.passRatePct ?? 0}% Pass</span>
+                </div>
+              </Card>
+
+              {/* Inactive Students */}
+              <Card className="p-4 shadow-sm bg-card border-border rounded-[var(--radius-xl)] flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Inactive Students</span>
+                    <span className="text-[10px] font-mono font-bold text-destructive">7+ DAYS</span>
+                  </div>
+                  <div className="text-xl font-bold font-mono text-foreground mt-1">
+                    {engagement?.inactiveStudents?.count ?? 0}
+                    <span className="text-xs text-muted-foreground font-normal ml-1">
+                      / {engagement?.inactiveStudents?.totalStudents ?? 0} students
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-3 pt-2 border-t border-border flex items-center justify-between text-[11px]">
+                  <span className="text-muted-foreground">Zero activity 7+ days</span>
+                  <Link href="/admin/students" className="text-primary font-semibold hover:underline">
+                    View →
+                  </Link>
+                </div>
+              </Card>
+            </div>
+
+            {/* 7-Day Progress Trend Chart */}
+            <Card className="shadow-sm border-border bg-card rounded-[var(--radius-xl)]">
+              <CardHeader className="p-5 pb-2 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold text-foreground">7-Day Progress Trend</CardTitle>
+                  <CardDescription className="text-xs">Average student progress and completion velocity</CardDescription>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-mono font-bold uppercase bg-muted text-muted-foreground">
+                  7D COHORT
+                </Badge>
+              </CardHeader>
+              <CardContent className="p-5 pt-2">
+                <ResponsiveContainer width="100%" height={170}>
+                  <AreaChart
+                    data={engagement?.sevenDayProgressTrend ?? []}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorProgress" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                    <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#6B7280" }} tickLine={false} axisLine={{ stroke: "#E5E7EB" }} />
+                    <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} tickLine={false} axisLine={false} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "#FFFFFF",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                      }}
+                      formatter={(val: any) => [`${val}%`, "Avg Progress"]}
+                    />
+                    <Area type="monotone" dataKey="avgProgress" stroke="#10B981" strokeWidth={2} fill="url(#colorProgress)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
 
       {/* 6. Footer */}
@@ -539,3 +864,4 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
     </div>
   );
 }
+
