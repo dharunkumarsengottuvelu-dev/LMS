@@ -65,7 +65,7 @@ export default function PublicContactPage() {
             Get in Touch with Our Team
           </h1>
           <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA]">
-            Have questions about enterprise deployment, proctoring features, or custom pricing? We're here to help.
+            Have questions about enterprise deployment, proctoring features, or custom pricing? We&apos;re here to help.
           </p>
         </div>
 

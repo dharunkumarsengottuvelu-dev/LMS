@@ -30,6 +30,7 @@ export default function PracticeCodingRunnerPage() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<"problem" | "editor">("editor");
 
   const fetchProblem = async () => {
     if (!problemId) return;
@@ -149,8 +150,6 @@ export default function PracticeCodingRunnerPage() {
   }
 
   const sampleTestCases = problem.sampleTestCases || [];
-
-  const [mobileTab, setMobileTab] = useState<"problem" | "editor">("editor");
 
   return (
     <div className="flex flex-col h-screen h-[100dvh] bg-[#F9FAFB] dark:bg-[#09090B] overflow-hidden">

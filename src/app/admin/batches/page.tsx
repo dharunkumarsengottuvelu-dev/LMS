@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import * as XLSX from "xlsx";
 import { 
   Building2, Plus, Search, MoreVertical, Edit2, 
   Trash2, Users, FileSpreadsheet, Lock, Unlock, 
@@ -369,7 +368,8 @@ export default function AdminBatchesPage() {
   };
 
   // Download Sample Template for Bulk Batches
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
+    const XLSX = await import("xlsx");
     const templateData = [
       ["Batch Name", "College / Institution", "Lead Trainer", "Course Track", "Start Date", "Batch Code"],
       ["Full Stack Java 2026", "SSCET", "Dr. Aris Thorne", "Full Stack Web Development", "2026-09-15", "FS-2026"],
@@ -391,6 +391,7 @@ export default function AdminBatchesPage() {
     setBulkFileError(null);
 
     try {
+      const XLSX = await import("xlsx");
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: "array" });
       const sheetName = workbook.SheetNames[0];

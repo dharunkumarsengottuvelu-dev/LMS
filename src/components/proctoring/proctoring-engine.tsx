@@ -159,8 +159,10 @@ export function ProctoringEngine({
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const trackerRef = useRef<AIFaceTracker | null>(null);
 
-  const warningCountRef = useRef<number>(0);
-  warningCountRef.current = warningCount;
+  const warningCountRef = useRef<number>(warningCount);
+  useEffect(() => {
+    warningCountRef.current = warningCount;
+  }, [warningCount]);
 
   // Timers for Grace Periods & Continuous Heuristics
   const noFaceDurationRef = useRef<number>(0);

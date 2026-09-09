@@ -1,30 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
-
-    let user: any = null;
-    try {
-      const supabase = await createClient();
-      const { data: authData } = await supabase.auth.getUser();
-      user = authData?.user || null;
-    } catch {
-      // ignore
-    }
-
-    if (user) {
-      const { data: prof } = await adminClient
-        .from("profiles")
-        .select("role")
-        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-        .maybeSingle();
-      if (prof && prof.role === "student") {
-        return NextResponse.json({ error: "Forbidden: Admin or Trainer authorization required" }, { status: 403 });
-      }
-    }
+    const auth = await authenticateAdminSession(["super_admin", "admin", "trainer"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient!;
 
     // 1. Fetch all profiles from public.profiles
     const { data: profiles, error: profError } = await adminClient
@@ -129,12 +110,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await authenticateAdminSession(["super_admin", "admin"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient!;
 
     const body = await request.json();
     const { name, email, password, role, batch_id, department, college, branch, phone } = body;
@@ -142,8 +120,6 @@ export async function POST(request: NextRequest) {
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
-
-    const adminClient = createAdminClient();
     const nameParts = (name || "").trim().split(" ");
     const firstName = nameParts[0] || email.split("@")[0] || "User";
     const lastName = nameParts.slice(1).join(" ") || "";
@@ -220,12 +196,9 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await authenticateAdminSession(["super_admin", "admin"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient!;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
@@ -233,8 +206,6 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
-
-    const adminClient = createAdminClient();
 
     // Get user_id from profile
     const { data: prof } = await adminClient

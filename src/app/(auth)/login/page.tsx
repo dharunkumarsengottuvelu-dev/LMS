@@ -244,10 +244,21 @@ export default function LoginPage() {
   }, [isGsiLoaded, handleGoogleCredentialResponse]);
 
   async function performOAuthRedirect() {
+    const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
+    const origin = typeof window !== "undefined" ? window.location.origin : (process.env["NEXT_PUBLIC_APP_URL"] || "http://localhost:3000");
+    const callbackUrl = new URL("/api/auth/callback", origin);
+    if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+      callbackUrl.searchParams.set("next", nextUrl);
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback`,
+        redirectTo: callbackUrl.toString(),
+        queryParams: {
+          access_type: "offline",
+          prompt: "select_account",
+        },
       },
     });
     if (error) throw error;
@@ -256,28 +267,10 @@ export default function LoginPage() {
   async function handleGoogleLogin() {
     setIsGoogleLoading(true);
     try {
-      const clientId = process.env["NEXT_PUBLIC_GOOGLE_CLIENT_ID"];
-      const googleObj = typeof window !== "undefined"
-        ? (window as unknown as { google?: { accounts?: { id?: { prompt: (cb?: (notification: { isNotDisplayed: () => boolean; isSkippedMoment: () => boolean }) => void) => void } } } }).google
-        : null;
-
-      if (googleObj?.accounts?.id && clientId) {
-        googleObj.accounts.id.prompt((notification) => {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            // If Google Identity prompt is suppressed or closed, fall back to standard redirect
-            performOAuthRedirect().catch((err) => {
-              const msg = err instanceof Error ? err.message : "Google login failed";
-              toast({ title: "Error", description: msg, variant: "destructive" });
-              setIsGoogleLoading(false);
-            });
-          }
-        });
-      } else {
-        await performOAuthRedirect();
-      }
+      await performOAuthRedirect();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Google login failed";
-      toast({ title: "Error", description: message, variant: "destructive" });
+      const message = error instanceof Error ? error.message : "Google sign-in failed";
+      toast({ title: "Google Sign-In Error", description: message, variant: "destructive" });
       setIsGoogleLoading(false);
     }
   }

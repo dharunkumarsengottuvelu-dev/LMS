@@ -119,8 +119,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let isMounted = true;
+
+    // 1. Get initial session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!isMounted) return;
+      if (error) {
+        console.warn("Session retrieval error:", error.message);
+      }
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -131,26 +137,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             localStorage.setItem(firstLoginKey, initialDate);
           }
         }
-        fetchProfile(session.user.id, session.user.email).finally(() => setLoading(false));
+        fetchProfile(session.user.id, session.user.email).finally(() => {
+          if (isMounted) setLoading(false);
+        });
       } else {
         setLoading(false);
       }
     });
 
-    // Listen for auth changes
+    // 2. Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isMounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
         await fetchProfile(session.user.id, session.user.email);
+        if (isMounted) setLoading(false);
       } else {
         setProfile(null);
+        if (isMounted) setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

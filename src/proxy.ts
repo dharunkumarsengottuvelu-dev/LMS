@@ -5,10 +5,14 @@ import { checkRateLimit } from "@/lib/security/rate-limiter";
 // Define protected route patterns and their required roles (RBAC)
 const ROUTE_ROLE_MAP: Record<string, string[]> = {
   "/admin": ["super_admin", "admin"],
+  "/api/admin": ["super_admin", "admin", "trainer"],
   "/trainer": ["super_admin", "admin", "trainer"],
+  "/api/trainer": ["super_admin", "admin", "trainer"],
   "/recruiter": ["super_admin", "admin", "recruiter"],
   "/institution": ["super_admin", "admin", "institution"],
+  "/api/institution": ["super_admin", "admin", "institution"],
   "/student": ["super_admin", "admin", "trainer", "student"],
+  "/api/student": ["super_admin", "admin", "trainer", "student"],
   "/ide": ["super_admin", "admin", "trainer", "student"],
 };
 
@@ -306,6 +310,14 @@ export async function proxy(request: NextRequest) {
   // 4. Protect private route spaces if user is unauthenticated
   const requiredRoles = getRequiredRoles(pathname);
   if (requiredRoles && !user) {
+    if (pathname.startsWith("/api/")) {
+      return applySecurityHeaders(
+        NextResponse.json(
+          { error: "Unauthorized: Active authentication session required" },
+          { status: 401 }
+        )
+      );
+    }
     const loginUrl = new URL("/login", request.url);
     const fullOriginalPath = `${pathname}${search}`;
     loginUrl.searchParams.set("next", fullOriginalPath);
@@ -339,6 +351,18 @@ export async function proxy(request: NextRequest) {
       role = "recruiter";
     } else if (dbRole) {
       role = dbRole;
+    }
+
+    // Role-based boundary check for API routes
+    if (requiredRoles && !requiredRoles.includes(role)) {
+      if (pathname.startsWith("/api/")) {
+        return applySecurityHeaders(
+          NextResponse.json(
+            { error: "Forbidden: Insufficient privileges for this resource" },
+            { status: 403 }
+          )
+        );
+      }
     }
 
     // If Admin/Management visits Student portal, redirect to Admin Dashboard

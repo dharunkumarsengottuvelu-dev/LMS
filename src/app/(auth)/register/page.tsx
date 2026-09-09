@@ -54,10 +54,21 @@ export default function RegisterPage() {
   async function handleGoogleLogin() {
     setIsGoogleLoading(true);
     try {
+      const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
+      const origin = typeof window !== "undefined" ? window.location.origin : (process.env["NEXT_PUBLIC_APP_URL"] || "http://localhost:3000");
+      const callbackUrl = new URL("/api/auth/callback", origin);
+      if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+        callbackUrl.searchParams.set("next", nextUrl);
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/api/auth/callback`,
+          redirectTo: callbackUrl.toString(),
+          queryParams: {
+            access_type: "offline",
+            prompt: "select_account",
+          },
         },
       });
       if (error) throw error;
@@ -491,7 +502,7 @@ export default function RegisterPage() {
                     <UserCheck className="h-5 w-5 text-amber-500" />
                     <div>
                       <h4 className="text-sm font-bold text-foreground">Continue Without Batch</h4>
-                      <p className="text-xs text-muted-foreground font-medium">Register as self-paced learner (Batch: "Not Assigned")</p>
+                      <p className="text-xs text-muted-foreground font-medium">Register as self-paced learner (Batch: &quot;Not Assigned&quot;)</p>
                     </div>
                   </div>
                   <input

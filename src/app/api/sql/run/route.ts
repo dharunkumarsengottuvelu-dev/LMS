@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { SQLExecutionService } from "@/services/sql-execution.service";
 import type { SQLQueryInput } from "@/types/coding";
 import { getErrorMessage } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized: Active session required to execute queries" },
+        { status: 401 }
+      );
+    }
+
     const body = (await request.json()) as SQLQueryInput;
     const { query, datasetName, engine, schemaSql, seedSql, timeoutMs } = body;
 

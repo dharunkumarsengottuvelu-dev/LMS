@@ -746,7 +746,7 @@ export default function AdminUsersPage() {
                       <td colSpan={7} className="p-10 text-center text-[#6B7280]">
                         <Building2 className="h-8 w-8 mx-auto mb-2 text-[#9CA3AF]" />
                         <p className="font-semibold text-sm text-[#111827] dark:text-[#FAFAFA]">No institution accounts found.</p>
-                        <p className="text-xs text-[#6B7280] mt-1">Click "Add New User" and choose "Partner Institution" to create an institutional login.</p>
+                        <p className="text-xs text-[#6B7280] mt-1">Click &quot;Add New User&quot; and choose &quot;Partner Institution&quot; to create an institutional login.</p>
                       </td>
                     </tr>
                   ) : (

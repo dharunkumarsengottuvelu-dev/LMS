@@ -90,7 +90,7 @@ export function SQLEditor({
           {/* Columns Tree for Selected Table */}
           {activeTableObj && (
             <div className="pt-2 border-t border-[#27272A] space-y-1">
-              <span className="text-[11px] font-semibold text-white/50 px-1">Columns in '{activeTableObj.name}'</span>
+              <span className="text-[11px] font-semibold text-white/50 px-1">Columns in &apos;{activeTableObj.name}&apos;</span>
               <div className="max-h-44 overflow-auto space-y-1 pr-1">
                 {activeTableObj.columns.map((col) => (
                   <div key={col.name} className="flex items-center justify-between text-[11px] font-mono px-2 py-1 bg-[#18181B] border border-[#27272A] rounded">

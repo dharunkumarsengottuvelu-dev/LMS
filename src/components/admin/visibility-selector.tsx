@@ -297,7 +297,7 @@ export function VisibilitySelector({
             </div>
           ) : filteredBatches.length === 0 ? (
             <div className="p-3 text-center text-xs text-[#6B7280]">
-              No batches matching "{searchQuery}".
+              No batches matching &quot;{searchQuery}&quot;.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">

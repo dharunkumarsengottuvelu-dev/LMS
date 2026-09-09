@@ -55,15 +55,31 @@ export class AuthService {
     return data;
   }
 
-  static async signInWithGoogle() {
-    const supabase = await createClient();
+  static async signInWithGoogle(nextUrl?: string) {
+    let supabase;
+    let origin = "";
+
+    if (typeof window !== "undefined") {
+      const { createClient: createBrowserClient } = await import("@/lib/supabase/client");
+      supabase = createBrowserClient();
+      origin = window.location.origin;
+    } else {
+      supabase = await createClient();
+      origin = process.env["NEXT_PUBLIC_APP_URL"] || "http://localhost:3000";
+    }
+
+    const callbackUrl = new URL("/api/auth/callback", origin);
+    if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+      callbackUrl.searchParams.set("next", nextUrl);
+    }
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${process.env["NEXT_PUBLIC_APP_URL"]}/api/auth/callback`,
+        redirectTo: callbackUrl.toString(),
         queryParams: {
           access_type: "offline",
-          prompt: "consent",
+          prompt: "select_account",
         },
       },
     });

@@ -309,6 +309,20 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [isBulkUploadingMainModules, setIsBulkUploadingMainModules] = useState(false);
   const [bulkUploadMainModuleId, setBulkUploadMainModuleId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!bulkTargetCourseId && courses.length > 0 && courses[0]) {
+      setBulkTargetCourseId(courses[0].id);
+    }
+  }, [courses, bulkTargetCourseId]);
+
+  const selectedTargetCourse = useMemo(() => {
+    return courses.find((c) => c.id === bulkTargetCourseId) || courses[0];
+  }, [courses, bulkTargetCourseId]);
+
+  const selectedTargetCourseModules = useMemo(() => {
+    return selectedTargetCourse?.modules || [];
+  }, [selectedTargetCourse]);
+
   // Collapsible Main Modules State (Minimized by default, expand to view/edit sub-modules)
   const [expandedModuleIds, setExpandedModuleIds] = useState<string[]>([]);
 
@@ -2093,20 +2107,6 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   // ════════════════════════════════════════════════════════════
   // VIEW: LIST COURSES & GLOBAL BULK IMPORT
   // ════════════════════════════════════════════════════════════
-  useEffect(() => {
-    if (!bulkTargetCourseId && courses.length > 0 && courses[0]) {
-      setBulkTargetCourseId(courses[0].id);
-    }
-  }, [courses, bulkTargetCourseId]);
-
-  const selectedTargetCourse = useMemo(() => {
-    return courses.find((c) => c.id === bulkTargetCourseId) || courses[0];
-  }, [courses, bulkTargetCourseId]);
-
-  const selectedTargetCourseModules = useMemo(() => {
-    return selectedTargetCourse?.modules || [];
-  }, [selectedTargetCourse]);
-
   const handleBulkImportCourses = async (importedCourses: ManagedCourse[]) => {
     const updated = [...courses, ...importedCourses];
     setCourses(updated);
@@ -2342,7 +2342,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                       </SelectTrigger>
                       <SelectContent className="bg-white dark:bg-[#18181B]">
                         {selectedTargetCourseModules.length === 0 ? (
-                          <SelectItem value="auto_module">Auto-create "Module 1"</SelectItem>
+                          <SelectItem value="auto_module">Auto-create &quot;Module 1&quot;</SelectItem>
                         ) : (
                           selectedTargetCourseModules.map((m: CourseSyllabusModule) => (
                             <SelectItem key={m.id} value={m.id}>{m.title}</SelectItem>

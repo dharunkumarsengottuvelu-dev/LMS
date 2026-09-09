@@ -156,7 +156,7 @@ export function NotificationBellDropdown() {
               </div>
               <p className="text-xs font-bold text-slate-800 dark:text-zinc-200">No notifications yet</p>
               <p className="text-[11px] text-slate-400 dark:text-zinc-500 max-w-[220px] mx-auto leading-relaxed">
-                You're all caught up. Notifications from your admin and trainers will appear here.
+                You&apos;re all caught up. Notifications from your admin and trainers will appear here.
               </p>
               <div className="pt-1">
                 <Link

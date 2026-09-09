@@ -257,7 +257,9 @@ export function PracticeRunnerEngine({
   const [isSubmitted, setIsSubmitted] = useState<boolean>(() => isAlreadySubmitted);
   const timerRef = React.useRef<NodeJS.Timeout | null>(null);
   const timeLeftRef = React.useRef<number>(timeLeft);
-  timeLeftRef.current = timeLeft;
+  useEffect(() => {
+    timeLeftRef.current = timeLeft;
+  }, [timeLeft]);
 
   const handleInitiateSubmit = () => {
     // Stop/pause timer immediately when user opens review/submit
@@ -2180,7 +2182,7 @@ export function PracticeRunnerEngine({
                               </div>
                             ) : (
                               <div className="p-4 rounded-2xl border border-dashed border-slate-200 dark:border-zinc-800 text-center text-xs text-slate-400 bg-slate-50 dark:bg-zinc-900/20">
-                                No code written yet. Click "Edit in IDE" to write your solution.
+                                No code written yet. Click &quot;Edit in IDE&quot; to write your solution.
                               </div>
                             )}
                           </div>

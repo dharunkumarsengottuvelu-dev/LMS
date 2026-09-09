@@ -884,7 +884,7 @@ export function SqlProblemCreator({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                    Sample Records in '{activeTable?.name}' ({activeTable?.rows.length || 0} rows)
+                    Sample Records in &apos;{activeTable?.name}&apos; ({activeTable?.rows.length || 0} rows)
                   </span>
 
                   <div className="flex items-center gap-2">

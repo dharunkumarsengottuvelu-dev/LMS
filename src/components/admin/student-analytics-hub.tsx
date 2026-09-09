@@ -1920,7 +1920,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                                 <div className="bg-[#F9FAFB] dark:bg-[#09090B] p-2 rounded-md">
-                                  <span className="block text-[10px] font-bold text-[#6B7280] mb-1">Student's Response</span>
+                                  <span className="block text-[10px] font-bold text-[#6B7280] mb-1">Student&apos;s Response</span>
                                   <p className="text-[#111827] dark:text-[#FAFAFA] font-mono text-[11px]">{ans.studentAnswer}</p>
                                 </div>
                                 <div className="bg-[#16A34A]/5 p-2 rounded-md border border-[#16A34A]/10">
