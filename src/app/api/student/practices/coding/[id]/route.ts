@@ -31,7 +31,7 @@ export async function GET(
     // Fetch problem details (NEVER select hidden_test_cases or hidden test answers)
     const { data: problem, error: problemError } = await adminClient
       .from("coding_problems")
-      .select("id, title, slug, description, difficulty, tags, time_limit_ms, memory_limit_kb, templates, sample_test_cases, test_cases, created_at")
+      .select("id, title, slug, description, difficulty, tags, time_limit_ms, memory_limit_mb, starter_code, sample_test_cases, created_at")
       .eq("id", problemId)
       .single() as any;
 
@@ -39,10 +39,23 @@ export async function GET(
       return NextResponse.json({ error: "Coding problem not found" }, { status: 404 });
     }
 
+    const starter = typeof problem.starter_code === "object" && problem.starter_code !== null ? problem.starter_code : {};
+
     // Filter public test cases only
-    let publicTestCases = problem.sample_test_cases || [];
-    if (publicTestCases.length === 0 && Array.isArray(problem.test_cases)) {
-      publicTestCases = problem.test_cases.filter((tc: any) => !tc.is_hidden);
+    let publicTestCases = Array.isArray(problem.sample_test_cases) ? problem.sample_test_cases : [];
+    if (publicTestCases.length === 0 && Array.isArray(starter.test_cases)) {
+      publicTestCases = starter.test_cases.filter((tc: any) => !tc.is_hidden);
+    }
+    if (publicTestCases.length === 0) {
+      const { data: dbTc } = await adminClient
+        .from("test_cases")
+        .select("id, input, expected_output")
+        .eq("problem_id", problemId)
+        .eq("is_hidden", false)
+        .order("order_index", { ascending: true });
+      if (dbTc && dbTc.length > 0) {
+        publicTestCases = dbTc;
+      }
     }
 
     // Fetch student's latest submission for this problem
@@ -64,8 +77,8 @@ export async function GET(
         difficulty: problem.difficulty || "medium",
         tags: problem.tags || [],
         timeLimitMs: problem.time_limit_ms || 2000,
-        memoryLimitKb: problem.memory_limit_kb || 262144,
-        templates: problem.templates || {},
+        memoryLimitKb: (problem.memory_limit_mb ? problem.memory_limit_mb * 1024 : 262144),
+        templates: starter.templates || problem.templates || {},
         sampleTestCases: publicTestCases,
       },
       latestSubmission: latestSubmission || null,

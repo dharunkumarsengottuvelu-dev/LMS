@@ -69,6 +69,26 @@ function extractVimeoId(url?: string): string | null {
   return match && match[1] ? match[1] : null;
 }
 
+// Extract Google Drive Video Preview URL
+function extractGoogleDriveEmbed(url?: string): string | null {
+  if (!url || typeof url !== "string") return null;
+  const match = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/i);
+  if (match && match[1]) {
+    return `https://drive.google.com/file/d/${match[1]}/preview`;
+  }
+  return null;
+}
+
+// Extract Loom Video Embed URL
+function extractLoomEmbed(url?: string): string | null {
+  if (!url || typeof url !== "string") return null;
+  const match = url.match(/loom\.com\/(?:share|embed)\/([a-zA-Z0-9_-]+)/i);
+  if (match && match[1]) {
+    return `https://www.loom.com/embed/${match[1]}`;
+  }
+  return null;
+}
+
 // Check if direct video file
 function isDirectVideoUrl(url?: string): boolean {
   if (!url || typeof url !== "string") return false;
@@ -126,9 +146,16 @@ export function CustomVideoPlayer({
   const trimmedSrc = src?.trim() || "";
   const ytVideoId = extractYouTubeId(trimmedSrc);
   const vimeoId = extractVimeoId(trimmedSrc);
+  const googleDriveEmbed = extractGoogleDriveEmbed(trimmedSrc);
+  const loomEmbed = extractLoomEmbed(trimmedSrc);
   const isDirect = isDirectVideoUrl(trimmedSrc);
-  const isYouTube = !isDirect && !!ytVideoId;
+  const isYouTube = !isDirect && !googleDriveEmbed && !loomEmbed && !!ytVideoId;
   const isVimeo = !isDirect && !isYouTube && !!vimeoId;
+  const vimeoEmbed = vimeoId ? `https://player.vimeo.com/video/${vimeoId}?autoplay=1&badge=0` : null;
+
+  // Detect external embed services (Google Drive, Loom, Vimeo, or generic iframe embed)
+  const isExternalEmbed = !isDirect && !isYouTube && (Boolean(googleDriveEmbed) || Boolean(loomEmbed) || Boolean(vimeoEmbed) || trimmedSrc.includes("/preview") || trimmedSrc.includes("/embed") || trimmedSrc.includes("player."));
+  const externalEmbedUrl = googleDriveEmbed || loomEmbed || vimeoEmbed || (isExternalEmbed ? trimmedSrc : "");
 
   // Fallback high-res poster
   const computedPoster =
@@ -1030,6 +1057,16 @@ export function CustomVideoPlayer({
             <div className="absolute inset-0 bg-black/25 hover:bg-black/35 transition-colors" />
           </div>
         )
+      ) : isExternalEmbed ? (
+        <div className="relative w-full h-full overflow-hidden bg-black">
+          <iframe
+            src={externalEmbedUrl}
+            title={title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+            allowFullScreen
+            className="w-full h-full border-0"
+          />
+        </div>
       ) : (
         <video
           ref={videoRef}
@@ -1042,7 +1079,7 @@ export function CustomVideoPlayer({
       )}
 
       {/* Transparent Click Surface when video is started */}
-      {hasStarted && (
+      {hasStarted && !isExternalEmbed && (
         <div
           onClick={togglePlay}
           className="absolute inset-0 z-10 cursor-pointer bg-transparent"
@@ -1058,7 +1095,7 @@ export function CustomVideoPlayer({
       )}
 
       {/* Center Big Circular Play Button (YouTube-Style) */}
-      {!isPlaying && !isLoading && !isEnded && (
+      {!isPlaying && !isLoading && !isEnded && !isExternalEmbed && (
         <div
           onClick={handleStartPlay}
           className="absolute inset-0 z-20 flex items-center justify-center cursor-pointer pointer-events-auto"
@@ -1141,6 +1178,7 @@ export function CustomVideoPlayer({
       )}
 
       {/* 6. BOTTOM CONTROL BAR (YouTube-Style Responsive Layout) */}
+      {!isExternalEmbed && (
       <div
         className={cn(
           "absolute bottom-0 inset-x-0 z-30 transition-all duration-300 pointer-events-auto bg-gradient-to-t from-black/95 via-black/60 to-transparent px-2.5 pb-2 pt-4 sm:px-4 sm:pb-2.5 sm:pt-6 flex flex-col gap-1 select-none",
@@ -1468,6 +1506,7 @@ export function CustomVideoPlayer({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

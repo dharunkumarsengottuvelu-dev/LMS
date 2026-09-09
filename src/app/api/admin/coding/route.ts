@@ -50,7 +50,11 @@ export async function GET() {
     const problems: CodingProblem[] = dbProblems.map((p: any, idx: number) => {
       const extra = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
       const sol = typeof p.solution_code === "object" && p.solution_code !== null ? p.solution_code : {};
-      const tcList = testCasesByProblem.get(p.id) || extra.test_cases || [];
+      const dbTc = testCasesByProblem.get(p.id);
+      const sampleTc = Array.isArray(p.sample_test_cases) ? p.sample_test_cases : [];
+      const hiddenTc = Array.isArray(p.hidden_test_cases) ? p.hidden_test_cases : [];
+      const combinedTc = [...sampleTc, ...hiddenTc];
+      const tcList = (dbTc && dbTc.length > 0) ? dbTc : (combinedTc.length > 0 ? combinedTc : (extra.test_cases || []));
 
       return {
         id: p.id,
@@ -144,6 +148,10 @@ export async function POST(request: NextRequest) {
 
       const solutionCodePayload = problem.solution_editorial || null;
 
+      const allTestCases = Array.isArray(problem.test_cases) ? problem.test_cases : [];
+      const sampleTestCases = allTestCases.filter((tc: any) => !tc.is_hidden);
+      const hiddenTestCases = allTestCases.filter((tc: any) => !!tc.is_hidden);
+
       let savedProblem: any = null;
 
       if (problemId) {
@@ -162,6 +170,8 @@ export async function POST(request: NextRequest) {
               memory_limit_mb: problem.memory_limit_mb || 256,
               starter_code: starterCodePayload,
               solution_code: solutionCodePayload,
+              sample_test_cases: sampleTestCases,
+              hidden_test_cases: hiddenTestCases,
               status: problem.status || "published",
               updated_at: new Date().toISOString(),
             },
@@ -189,6 +199,8 @@ export async function POST(request: NextRequest) {
               memory_limit_mb: problem.memory_limit_mb || 256,
               starter_code: starterCodePayload,
               solution_code: solutionCodePayload,
+              sample_test_cases: sampleTestCases,
+              hidden_test_cases: hiddenTestCases,
               status: problem.status || "published",
             },
           ])

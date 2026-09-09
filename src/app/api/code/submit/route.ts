@@ -47,13 +47,37 @@ export async function POST(request: NextRequest) {
       const supabase = createAdminClient();
       const { data: problem } = await supabase
         .from("coding_problems")
-        .select("test_cases")
+        .select("id, starter_code, sample_test_cases, hidden_test_cases")
         .eq("id", problem_id)
         .maybeSingle();
 
-      if (problem && problem.test_cases) {
-        testCasesToRun = problem.test_cases;
-      } else {
+      if (problem) {
+        // 1. Check test_cases table for this problem
+        const { data: dbTc } = await supabase
+          .from("test_cases")
+          .select("id, input, expected_output, is_hidden")
+          .eq("problem_id", problem.id)
+          .order("order_index", { ascending: true });
+
+        if (dbTc && dbTc.length > 0) {
+          testCasesToRun = dbTc;
+        } else {
+          // 2. Check sample_test_cases & hidden_test_cases JSON columns
+          const sampleTc = Array.isArray(problem.sample_test_cases) ? problem.sample_test_cases : [];
+          const hiddenTc = Array.isArray(problem.hidden_test_cases) ? problem.hidden_test_cases : [];
+          if (sampleTc.length > 0 || hiddenTc.length > 0) {
+            testCasesToRun = [...sampleTc, ...hiddenTc];
+          } else {
+            // 3. Check starter_code.test_cases
+            const starter = typeof problem.starter_code === "object" && problem.starter_code !== null ? problem.starter_code : {};
+            if (Array.isArray(starter.test_cases) && starter.test_cases.length > 0) {
+              testCasesToRun = starter.test_cases;
+            }
+          }
+        }
+      }
+
+      if (testCasesToRun.length === 0) {
         // Search in practice_tracks
         const { data: tracks } = await supabase.from("practice_tracks").select("tags");
         (tracks || []).forEach((t: any) => {

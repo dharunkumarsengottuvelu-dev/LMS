@@ -605,18 +605,32 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         points: 1
       }
     ],
-    mapToPayload: (row, idx) => ({
-      id: `quiz_q_${Date.now()}_${idx}`,
-      questionText: String(row.questionText || "").trim(),
-      options: [
-        { id: `opt_a_${idx}`, text: String(row.optionA || "").trim(), isCorrect: String(row.correctOption).toUpperCase() === "A" },
-        { id: `opt_b_${idx}`, text: String(row.optionB || "").trim(), isCorrect: String(row.correctOption).toUpperCase() === "B" },
-        { id: `opt_c_${idx}`, text: String(row.optionC || "").trim(), isCorrect: String(row.correctOption).toUpperCase() === "C" },
-        { id: `opt_d_${idx}`, text: String(row.optionD || "").trim(), isCorrect: String(row.correctOption).toUpperCase() === "D" }
-      ],
-      explanation: String(row.explanation || "").trim(),
-      points: Number(row.points) || 1
-    })
+    mapToPayload: (row, idx) => {
+      const correctOpt = String(row.correctOption || "A").trim().toUpperCase();
+      const correctIdx = correctOpt === "B" ? 1 : correctOpt === "C" ? 2 : correctOpt === "D" ? 3 : 0;
+      const qText = String(row.questionText || "").trim();
+      return {
+        id: `quiz_q_${Date.now()}_${idx}`,
+        questionText: qText,
+        question: qText,
+        title: `Question ${idx + 1}`,
+        text: qText,
+        type: "single",
+        options: [
+          { id: `opt_a_${idx}`, text: String(row.optionA || "").trim(), isCorrect: correctOpt === "A" },
+          { id: `opt_b_${idx}`, text: String(row.optionB || "").trim(), isCorrect: correctOpt === "B" },
+          { id: `opt_c_${idx}`, text: String(row.optionC || "").trim(), isCorrect: correctOpt === "C" },
+          { id: `opt_d_${idx}`, text: String(row.optionD || "").trim(), isCorrect: correctOpt === "D" }
+        ],
+        correctOption: correctOpt,
+        correctIndex: correctIdx,
+        correctIndexes: [correctIdx],
+        answer: correctOpt,
+        explanation: String(row.explanation || "").trim(),
+        points: Number(row.points) || 1,
+        marks: Number(row.points) || 1,
+      };
+    }
   },
 
   // ─── 6. PROJECT MILESTONE TEMPLATE ─────────────────────────────────────────
@@ -1219,25 +1233,35 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         : ["Algorithms"];
 
       const testCases: any[] = [];
+      const testCaseKeysSeen = new Set<string>();
 
-      // Test Case 1
-      if (row.testcase_1_input !== undefined && row.testcase_1_input !== "" || row.testcase_1_output !== undefined && row.testcase_1_output !== "") {
+      // 1. Dynamic scanner for numbered test cases (Test Case 1, 2, 3, 4, 5...)
+      for (let i = 1; i <= 20; i++) {
+        const inpVal = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`] ?? row[`input_${i}`] ?? row[`tc${i}_input`];
+        const outVal = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`] ?? row[`output_${i}`] ?? row[`tc${i}_output`];
+        
+        if ((inpVal !== undefined && String(inpVal).trim() !== "") || (outVal !== undefined && String(outVal).trim() !== "")) {
+          testCaseKeysSeen.add(`tc_${i}`);
+          testCases.push({
+            id: `tc-${Date.now()}-${i}-${idx}`,
+            name: `Test Case ${i}`,
+            input: String(inpVal ?? "").trim(),
+            expected_output: String(outVal ?? "").trim(),
+            is_hidden: false,
+            is_enabled: true,
+            weight: 10,
+            order_index: testCases.length,
+          });
+        }
+      }
+
+      // 2. Sample input/output fallback as Test Case 1 if no public test cases were provided
+      if (testCases.length === 0 && (row.sample_input || row.sample_output)) {
         testCases.push({
           id: `tc-${Date.now()}-1-${idx}`,
-          name: "Test Case 1",
-          input: String(row.testcase_1_input ?? ""),
-          expected_output: String(row.testcase_1_output ?? ""),
-          is_hidden: false,
-          is_enabled: true,
-          weight: 10,
-          order_index: 0,
-        });
-      } else if (row.sample_input !== undefined && row.sample_input !== "" || row.sample_output !== undefined && row.sample_output !== "") {
-        testCases.push({
-          id: `tc-${Date.now()}-1-${idx}`,
-          name: "Test Case 1",
-          input: String(row.sample_input ?? ""),
-          expected_output: String(row.sample_output ?? ""),
+          name: "Test Case 1 (Sample)",
+          input: String(row.sample_input ?? "").trim(),
+          expected_output: String(row.sample_output ?? "").trim(),
           is_hidden: false,
           is_enabled: true,
           weight: 10,
@@ -1245,32 +1269,27 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         });
       }
 
-      // Test Case 2
-      if (row.testcase_2_input !== undefined && row.testcase_2_input !== "" || row.testcase_2_output !== undefined && row.testcase_2_output !== "") {
-        testCases.push({
-          id: `tc-${Date.now()}-2-${idx}`,
-          name: "Test Case 2",
-          input: String(row.testcase_2_input ?? ""),
-          expected_output: String(row.testcase_2_output ?? ""),
-          is_hidden: false,
-          is_enabled: true,
-          weight: 10,
-          order_index: 1,
-        });
-      }
+      // 3. Hidden Test Cases (Hidden 1, Hidden 2, etc.)
+      for (let h = 1; h <= 10; h++) {
+        const hInp = h === 1
+          ? (row.hidden_testcase_input ?? row.hidden_input ?? row.hidden_test_case_1_input)
+          : (row[`hidden_testcase_${h}_input`] ?? row[`hidden_input_${h}`]);
+        const hOut = h === 1
+          ? (row.hidden_testcase_output ?? row.hidden_output ?? row.hidden_test_case_1_output)
+          : (row[`hidden_testcase_${h}_output`] ?? row[`hidden_output_${h}`]);
 
-      // Hidden Test Case
-      if (row.hidden_testcase_input !== undefined && row.hidden_testcase_input !== "" || row.hidden_testcase_output !== undefined && row.hidden_testcase_output !== "") {
-        testCases.push({
-          id: `tc-${Date.now()}-h-${idx}`,
-          name: "Hidden Case 1",
-          input: String(row.hidden_testcase_input ?? ""),
-          expected_output: String(row.hidden_testcase_output ?? ""),
-          is_hidden: true,
-          is_enabled: true,
-          weight: 20,
-          order_index: 2,
-        });
+        if ((hInp !== undefined && String(hInp).trim() !== "") || (hOut !== undefined && String(hOut).trim() !== "")) {
+          testCases.push({
+            id: `tc-${Date.now()}-h${h}-${idx}`,
+            name: `Hidden Case ${h}`,
+            input: String(hInp ?? "").trim(),
+            expected_output: String(hOut ?? "").trim(),
+            is_hidden: true,
+            is_enabled: true,
+            weight: 20,
+            order_index: testCases.length,
+          });
+        }
       }
 
       const exampleCases: any[] = [];

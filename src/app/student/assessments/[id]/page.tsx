@@ -67,6 +67,54 @@ function formatDuration(seconds?: number): string {
   return `${mins}m ${secs}s`;
 }
 
+function normalizeAssessmentOptions(rawOptions: any[], q: any) {
+  const correctIdxSet = new Set<number>();
+
+  if (typeof q.correctIndex === "number") correctIdxSet.add(q.correctIndex);
+  if (Array.isArray(q.correctIndexes)) {
+    q.correctIndexes.forEach((ci: any) => typeof ci === "number" && correctIdxSet.add(ci));
+  }
+  if (typeof q.correctOption === "number") {
+    correctIdxSet.add(q.correctOption);
+  } else if (typeof q.correctOption === "string") {
+    const letterIdx = ["a", "b", "c", "d", "e", "f"].indexOf(q.correctOption.trim().toLowerCase());
+    if (letterIdx >= 0) correctIdxSet.add(letterIdx);
+  }
+  if (typeof q.answer === "string") {
+    const letterIdx = ["a", "b", "c", "d", "e", "f"].indexOf(q.answer.trim().toLowerCase());
+    if (letterIdx >= 0) correctIdxSet.add(letterIdx);
+  }
+
+  const normalized = (rawOptions || []).map((opt: any, oIdx: number) => {
+    if (typeof opt === "string") {
+      const isLetterOrIdx = correctIdxSet.has(oIdx);
+      const isTextMatch = (typeof q.answer === "string" && q.answer.trim().toLowerCase() === opt.trim().toLowerCase()) ||
+                          (typeof q.correctOption === "string" && q.correctOption.trim().toLowerCase() === opt.trim().toLowerCase());
+      return {
+        id: `opt_${oIdx}`,
+        text: opt,
+        isCorrect: isLetterOrIdx || isTextMatch,
+      };
+    }
+    const text = opt.text || opt.optionText || opt.title || opt.option || "";
+    const isLetterOrIdx = correctIdxSet.has(oIdx);
+    const isTextMatch = (typeof q.answer === "string" && q.answer.trim().toLowerCase() === text.trim().toLowerCase()) ||
+                        (typeof q.correctOption === "string" && q.correctOption.trim().toLowerCase() === text.trim().toLowerCase());
+    return {
+      id: opt.id || `opt_${oIdx}`,
+      text: text,
+      isCorrect: Boolean(opt.isCorrect || opt.correct) || isLetterOrIdx || isTextMatch,
+    };
+  });
+
+  // If no option was marked correct, fallback to first option
+  if (normalized.length > 0 && !normalized.some(o => o.isCorrect) && normalized[0]) {
+    normalized[0].isCorrect = true;
+  }
+
+  return normalized;
+}
+
 export default function AssessmentTakePage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -310,18 +358,7 @@ export default function AssessmentTakePage() {
           // MCQs in this section
           const secMcqs = sec.mcqQuestions || [];
           secMcqs.forEach((q: any) => {
-            const rawOptions = q.options || [];
-            const normalizedOptions = rawOptions.map((opt: any, oIdx: number) => {
-              if (typeof opt === "string") {
-                return { id: `opt_${oIdx}`, text: opt, isCorrect: false };
-              }
-              return {
-                id: opt.id || `opt_${oIdx}`,
-                text: opt.text || opt.optionText || opt.title || "",
-                isCorrect: Boolean(opt.isCorrect)
-              };
-            });
-
+            const normalizedOptions = normalizeAssessmentOptions(q.options, q);
             const correctCount = normalizedOptions.filter((o: any) => o.isCorrect).length;
             const isMulti = q.questionType === "multiple" || correctCount > 1;
             formattedQuestions.push({
@@ -413,18 +450,7 @@ export default function AssessmentTakePage() {
         const perQuestionBaseMarks = totalQuestionCount > 0 ? Math.max(5, Math.floor(totalSubModuleMarks / totalQuestionCount)) : 10;
 
         mcqs.forEach((q: any, idx: number) => {
-          const rawOptions = q.options || [];
-          const normalizedOptions = rawOptions.map((opt: any, oIdx: number) => {
-            if (typeof opt === "string") {
-              return { id: `opt_${oIdx}`, text: opt, isCorrect: false };
-            }
-            return {
-              id: opt.id || `opt_${oIdx}`,
-              text: opt.text || opt.optionText || opt.title || "",
-              isCorrect: Boolean(opt.isCorrect)
-            };
-          });
-
+          const normalizedOptions = normalizeAssessmentOptions(q.options, q);
           const correctCount = normalizedOptions.filter((o: any) => o.isCorrect).length;
           const isMulti = q.questionType === "multiple" || correctCount > 1;
           formattedQuestions.push({
@@ -576,12 +602,20 @@ export default function AssessmentTakePage() {
           : typeof rawStudentAns === "string" && rawStudentAns
           ? [rawStudentAns]
           : [];
-        const correctOpts = q.options?.filter(o => o.isCorrect).map(o => o.id) || [];
-        if (
+
+        const correctOpts = q.options?.filter(o => o.isCorrect) || [];
+        const correctIds = correctOpts.map(o => o.id);
+        const correctTexts = correctOpts.map(o => o.text.trim().toLowerCase());
+
+        const isMatch =
           studentAnsArray.length > 0 &&
           studentAnsArray.length === correctOpts.length &&
-          studentAnsArray.every(id => correctOpts.includes(id))
-        ) {
+          studentAnsArray.every(ans => {
+            const ansStr = String(ans).trim().toLowerCase();
+            return correctIds.includes(ans) || correctTexts.includes(ansStr);
+          });
+
+        if (isMatch) {
           obtainedMarks += qMarks;
         }
       }

@@ -259,26 +259,20 @@ function normalizeCourseModules(rawModules: any[] = []): CourseSyllabusModule[] 
   });
 }
 
-function parseQuizQuestions(rawQuiz?: string): QuizQuestionItem[] {
+function parseQuizQuestions(rawQuiz?: any): QuizQuestionItem[] {
   if (!rawQuiz) return [];
-  try {
-    const parsed = JSON.parse(rawQuiz);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed.map((q: any, idx: number) => ({
-        id: q.id || `q_${idx + 1}`,
-        question: q.question || `Question ${idx + 1}`,
-        type: q.type === "multiple" ? "multiple" : "single",
-        options: Array.isArray(q.options) && q.options.length >= 2 ? q.options : ["Option 1", "Option 2", "Option 3", "Option 4"],
-        correctIndex: typeof q.correctIndex === "number" ? q.correctIndex : 0,
-        correctIndexes: Array.isArray(q.correctIndexes) ? q.correctIndexes : [typeof q.correctIndex === "number" ? q.correctIndex : 0],
-        explanation: q.explanation || "Instructor assessment review."
-      }));
-    }
-  } catch (e) {
-    if (rawQuiz && !rawQuiz.startsWith("[")) {
+  let parsed: any = rawQuiz;
+
+  if (typeof rawQuiz === "string") {
+    const trimmed = rawQuiz.trim();
+    if (!trimmed) return [];
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      // If not valid JSON, treat as a single question string
       return [{
         id: "q_1",
-        question: rawQuiz,
+        question: trimmed,
         type: "single",
         options: ["Option A", "Option B", "Option C", "Option D"],
         correctIndex: 0,
@@ -287,6 +281,77 @@ function parseQuizQuestions(rawQuiz?: string): QuizQuestionItem[] {
       }];
     }
   }
+
+  if (Array.isArray(parsed) && parsed.length > 0) {
+    return parsed.map((q: any, idx: number) => {
+      const qText = q.question || q.questionText || q.title || q.text || `Question ${idx + 1}`;
+      const rawOptions = Array.isArray(q.options) ? q.options : [];
+
+      const cleanOptions: string[] = [];
+      const correctIdxs: number[] = [];
+
+      rawOptions.forEach((opt: any, oIdx: number) => {
+        if (typeof opt === "string") {
+          cleanOptions.push(opt);
+        } else if (opt && typeof opt === "object") {
+          const text = opt.text || opt.label || opt.option || opt.optionText || `Option ${oIdx + 1}`;
+          cleanOptions.push(String(text));
+          if (opt.isCorrect || opt.correct) {
+            correctIdxs.push(oIdx);
+          }
+        } else {
+          cleanOptions.push(String(opt));
+        }
+      });
+
+      if (cleanOptions.length < 2) {
+        cleanOptions.push("True", "False");
+      }
+
+      // Check question-level answer keys if options didn't declare isCorrect
+      let fallbackCorrectIdx = 0;
+      if (typeof q.correctIndex === "number") {
+        fallbackCorrectIdx = q.correctIndex;
+      } else if (Array.isArray(q.correctIndexes) && q.correctIndexes.length > 0) {
+        q.correctIndexes.forEach((ci: any) => typeof ci === "number" && correctIdxs.push(ci));
+      } else if (typeof q.correctOption === "number") {
+        fallbackCorrectIdx = q.correctOption;
+      } else if (typeof q.correctOption === "string") {
+        const letterIdx = ["a", "b", "c", "d", "e", "f"].indexOf(q.correctOption.trim().toLowerCase());
+        if (letterIdx >= 0) {
+          fallbackCorrectIdx = letterIdx;
+        } else {
+          const matchIdx = cleanOptions.findIndex(o => o.toLowerCase().trim() === q.correctOption.toLowerCase().trim());
+          if (matchIdx >= 0) fallbackCorrectIdx = matchIdx;
+        }
+      } else if (typeof q.answer === "string") {
+        const letterIdx = ["a", "b", "c", "d", "e", "f"].indexOf(q.answer.trim().toLowerCase());
+        if (letterIdx >= 0) {
+          fallbackCorrectIdx = letterIdx;
+        } else {
+          const matchIdx = cleanOptions.findIndex(o => o.toLowerCase().trim() === q.answer.toLowerCase().trim());
+          if (matchIdx >= 0) fallbackCorrectIdx = matchIdx;
+        }
+      }
+
+      if (correctIdxs.length === 0) {
+        correctIdxs.push(fallbackCorrectIdx);
+      }
+
+      const isMultiple = q.type === "multiple" || correctIdxs.length > 1;
+
+      return {
+        id: q.id || `q_${idx + 1}`,
+        question: qText,
+        type: isMultiple ? "multiple" : "single",
+        options: cleanOptions,
+        correctIndex: correctIdxs[0] ?? 0,
+        correctIndexes: correctIdxs,
+        explanation: q.explanation || "Instructor assessment review."
+      };
+    });
+  }
+
   return [];
 }
 
