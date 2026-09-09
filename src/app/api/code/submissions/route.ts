@@ -10,20 +10,27 @@ export async function GET(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const requestedStudentId = searchParams.get("student_id");
     const problemId = searchParams.get("problem_id");
 
-    let targetStudentId = requestedStudentId;
-    if (!targetStudentId && user) {
-      const { data: profile } = await adminClient
-        .from("profiles")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      targetStudentId = profile?.id || user.id;
-    }
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("id, role")
+      .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+      .maybeSingle();
+
+    const userRole = (profile?.role || "").toLowerCase();
+    const isStaff = userRole === "admin" || userRole === "super_admin" || userRole === "trainer";
+    const myProfileId = profile?.id || user.id;
+
+    // Students can only view their own submissions; staff can query any student
+    const targetStudentId = isStaff && requestedStudentId ? requestedStudentId : myProfileId;
 
     let query = adminClient
       .from("coding_submissions")

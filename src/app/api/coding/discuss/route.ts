@@ -165,6 +165,15 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { id } = body;
 
@@ -185,21 +194,43 @@ export async function PATCH(request: NextRequest) {
     }
 
     const meta = existing.metadata || {};
-    const newUpvotes = Number(meta.upvotes || 0) + 1;
+    const upvotedUsers: string[] = Array.isArray(meta.upvotedUsers) ? meta.upvotedUsers : [];
 
-    await adminClient
-      .from("notifications")
-      .update({
-        metadata: {
-          ...meta,
-          upvotes: newUpvotes,
-        },
-      })
-      .eq("id", id);
+    let newUpvotes = Number(meta.upvotes || 0);
+    const userHasUpvoted = upvotedUsers.includes(user.id);
+
+    if (userHasUpvoted) {
+      newUpvotes = Math.max(0, newUpvotes - 1);
+      const updatedList = upvotedUsers.filter((u) => u !== user.id);
+      await adminClient
+        .from("notifications")
+        .update({
+          metadata: {
+            ...meta,
+            upvotes: newUpvotes,
+            upvotedUsers: updatedList,
+          },
+        })
+        .eq("id", id);
+    } else {
+      newUpvotes += 1;
+      upvotedUsers.push(user.id);
+      await adminClient
+        .from("notifications")
+        .update({
+          metadata: {
+            ...meta,
+            upvotes: newUpvotes,
+            upvotedUsers,
+          },
+        })
+        .eq("id", id);
+    }
 
     return NextResponse.json({
       success: true,
       upvotes: newUpvotes,
+      upvoted: !userHasUpvoted,
     });
   } catch (error: any) {
     console.error("PATCH /api/coding/discuss error:", error);

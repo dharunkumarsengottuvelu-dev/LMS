@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 
 interface BulkBatchRow {
   batchName: string;
@@ -13,7 +14,9 @@ interface BulkBatchRow {
 
 export async function POST(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const auth = await authenticateAdminSession(["super_admin", "admin"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
     const body = await request.json();
     const rawBatches: BulkBatchRow[] = Array.isArray(body.batches) ? body.batches : [];
 

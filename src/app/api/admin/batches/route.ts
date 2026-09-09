@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 
 export async function GET() {
   try {
-    const adminClient = createAdminClient();
+    const auth = await authenticateAdminSession(["super_admin", "admin", "trainer"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
 
     // 1. Fetch batches
     const { data: batchesData, error: batchesError } = await adminClient
@@ -102,7 +105,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const auth = await authenticateAdminSession(["super_admin", "admin"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
     const body = await request.json();
 
     const batchName = (body.name || body.batchName || "").trim();
@@ -226,7 +231,9 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const auth = await authenticateAdminSession(["super_admin", "admin"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 

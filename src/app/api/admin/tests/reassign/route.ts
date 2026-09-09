@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const auth = await authenticateAdminSession(["super_admin", "admin", "trainer"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
     const body = await request.json();
     const { testId, isCommon, assignedBatches, resetAttempts = true, candidateIds } = body;
 

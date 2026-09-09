@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ActiveTimeService } from "@/services/active-time.service";
 import { formatStudentId } from "@/services/student-id.service";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 
 export interface StudentReportItem {
   id: string;
@@ -97,16 +98,14 @@ function formatSeconds(secs: number): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const auth = await authenticateAdminSession(["super_admin", "admin", "trainer"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
+    const user = auth.user;
+    const role = auth.role || "admin";
 
-    let user: any = null;
-    let role = "admin";
     let profile: any = null;
-
     try {
-      const supabase = await createClient();
-      const authRes = await supabase.auth.getUser();
-      user = authRes.data?.user || null;
       if (user) {
         const { data: userProfile } = await adminClient
           .from("profiles")
@@ -114,18 +113,9 @@ export async function GET(request: NextRequest) {
           .or(`user_id.eq.${user.id},id.eq.${user.id}`)
           .maybeSingle();
         profile = userProfile;
-        role = userProfile?.role || "admin";
       }
     } catch (e) {
       console.warn("Notice: getUser exception in report API:", e);
-    }
-
-    // Only reject if an authenticated user is explicitly a student trying to view admin reports
-    if (user && role === "student") {
-      return NextResponse.json(
-        { error: "Forbidden: Admin or Trainer authorization required" },
-        { status: 403 }
-      );
     }
 
     const { searchParams } = new URL(request.url);

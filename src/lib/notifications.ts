@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useTransition } from "react";
+import { useAuth } from "@/components/providers/auth-provider";
 
 export type NotificationType =
   | "assessment_assigned"
@@ -68,15 +69,30 @@ export function formatNotificationTime(dateStr: string): string {
  * Read state is 100% database-backed — no localStorage overrides.
  */
 export function useStudentNotifications() {
+  const { user, session, loading } = useAuth();
+  const isAuthenticated = !loading && !!user && !!session;
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const fetchNotifications = useCallback(async () => {
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      setIsLoading(true);
       const res = await fetch("/api/student/notifications", {
         headers: { "Cache-Control": "no-cache" },
       });
+
+      if (res.status === 401) {
+        setIsLoading(false);
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
         const rawList: NotificationItem[] = Array.isArray(data.notifications) ? data.notifications : [];
@@ -98,13 +114,19 @@ export function useStudentNotifications() {
       console.warn("Failed to fetch student notifications:", err);
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setNotifications([]);
+      setIsLoading(false);
+      return;
+    }
+
     fetchNotifications();
 
-    // 1. Periodic background polling every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
+    // 1. Periodic background polling every 45 seconds
+    const interval = setInterval(fetchNotifications, 45000);
 
     // 2. Revalidate when tab regains focus or becomes visible
     const handleFocus = () => {
@@ -127,7 +149,7 @@ export function useStudentNotifications() {
       document.removeEventListener("visibilitychange", handleFocus);
       window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, handleCustomUpdate);
     };
-  }, [fetchNotifications]);
+  }, [fetchNotifications, isAuthenticated, user?.id]);
 
   // Calculate dynamic unread count from database state only
   const unreadCount = notifications.filter((n) => !n.is_read).length;

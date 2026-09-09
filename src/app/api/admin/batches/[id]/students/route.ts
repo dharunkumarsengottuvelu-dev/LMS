@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateAdminSession(["super_admin", "admin", "trainer"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
+
     const { id: batchId } = await params;
-    const adminClient = createAdminClient();
 
     // 1. Fetch batch members for this batch
     const { data: members, error: membersError } = await adminClient
@@ -70,8 +74,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateAdminSession(["super_admin", "admin", "trainer"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
+
     const { id: batchId } = await params;
-    const adminClient = createAdminClient();
     const body = await request.json();
 
     const studentIds: string[] = body.studentIds || (body.studentId ? [body.studentId] : []);
@@ -109,8 +116,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateAdminSession(["super_admin", "admin", "trainer"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
+
     const { id: batchId } = await params;
-    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get("studentId");
 

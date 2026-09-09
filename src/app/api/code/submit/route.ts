@@ -93,19 +93,21 @@ export async function POST(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    let studentProfileId = user?.id || (body as any).student_id || "student-1";
-    if (user?.id) {
-      const adminClient = createAdminClient();
-      const { data: profile } = await adminClient
-        .from("profiles")
-        .select("id")
-        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-        .maybeSingle();
-
-      if (profile?.id) {
-        studentProfileId = profile.id;
-      }
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized: Active session required to submit solutions" },
+        { status: 401 }
+      );
     }
+
+    const adminClient = createAdminClient();
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("id")
+      .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+      .maybeSingle();
+
+    const studentProfileId = profile?.id || user.id;
 
     // 5. Submit solution for automated evaluation against public & hidden test cases
     const submission = await SubmissionEvaluatorService.evaluateSolution(

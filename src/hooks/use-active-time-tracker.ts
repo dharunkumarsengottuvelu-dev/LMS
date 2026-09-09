@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useAuth } from "@/components/providers/auth-provider";
 
 export interface ActiveTimeTrackerState {
   totalActiveSeconds: number;
@@ -25,12 +26,14 @@ export function formatSecondsToLMS(totalSecs: number): string {
 }
 
 export function useActiveTimeTracker() {
+  const { user, session, loading } = useAuth();
+
   const [totalActiveSeconds, setTotalActiveSeconds] = useState<number>(0);
   const [todayActiveSeconds, setTodayActiveSeconds] = useState<number>(0);
   const [sessionActiveSeconds, setSessionActiveSeconds] = useState<number>(0);
   const [isIdle, setIsIdle] = useState<boolean>(false);
   const [isHidden, setIsHidden] = useState<boolean>(false);
-  const [isTracking, setIsTracking] = useState<boolean>(true);
+  const [isTracking, setIsTracking] = useState<boolean>(false);
 
   const sessionIdRef = useRef<string>("");
   const lastActivityTimeRef = useRef<number>(Date.now());
@@ -41,9 +44,17 @@ export function useActiveTimeTracker() {
   const isPrimaryTabRef = useRef<boolean>(true);
   const pendingIncrementRef = useRef<number>(0);
 
-  // Initialize unique session ID per browser tab session
+  const isAuthenticated = !loading && !!user && !!session;
+
+  // Initialize unique session ID and fetch initial data ONLY for authenticated users
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !isAuthenticated) {
+      setTotalActiveSeconds(0);
+      setTodayActiveSeconds(0);
+      setSessionActiveSeconds(0);
+      setIsTracking(false);
+      return;
+    }
 
     let existingSession = sessionStorage.getItem("edunexus_lms_session_id");
     if (!existingSession) {
@@ -78,13 +89,22 @@ export function useActiveTimeTracker() {
       isPrimaryTabRef.current = true;
     }
 
-    // Fetch initial active time from server
+    // Fetch initial active time from server for authenticated user
     fetch("/api/student/active-time")
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 401) {
+          // Gracefully handle unauthenticated/expired session without throwing
+          setIsTracking(false);
+          return null;
+        }
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((data) => {
         if (data?.activeTime) {
           setTotalActiveSeconds(data.activeTime.totalActiveSeconds || 0);
           setTodayActiveSeconds(data.activeTime.todayActiveSeconds || 0);
+          setIsTracking(true);
         }
       })
       .catch(() => {});
@@ -94,12 +114,12 @@ export function useActiveTimeTracker() {
         tabChannelRef.current.close();
       }
     };
-  }, []);
+  }, [isAuthenticated, user?.id]);
 
   // Send heartbeat function
   const sendHeartbeat = useCallback(
     (isClosing = false) => {
-      if (!sessionIdRef.current || typeof window === "undefined") return;
+      if (!sessionIdRef.current || typeof window === "undefined" || !isAuthenticated) return;
 
       const increment = pendingIncrementRef.current;
       pendingIncrementRef.current = 0;
@@ -129,7 +149,19 @@ export function useActiveTimeTracker() {
         body: JSON.stringify(payload),
         keepalive: true,
       })
-        .then((res) => res.json())
+        .then((res) => {
+          if (res.status === 401) {
+            // Gracefully stop tracking on session expiration without console spam
+            setIsTracking(false);
+            if (heartbeatTimerRef.current) {
+              clearInterval(heartbeatTimerRef.current);
+              heartbeatTimerRef.current = null;
+            }
+            return null;
+          }
+          if (!res.ok) return null;
+          return res.json();
+        })
         .then((data) => {
           if (data?.success && typeof data.totalActiveSeconds === "number") {
             setTotalActiveSeconds(data.totalActiveSeconds);
@@ -139,13 +171,14 @@ export function useActiveTimeTracker() {
         })
         .catch(() => {});
     },
-    [isIdle]
+    [isIdle, isAuthenticated]
   );
 
   const lastThrottleCheckRef = useRef<number>(0);
 
   // User activity listeners: reset idle timer with 2s throttling
   const handleUserActivity = useCallback(() => {
+    if (!isAuthenticated) return;
     const now = Date.now();
     lastActivityTimeRef.current = now;
 
@@ -174,11 +207,11 @@ export function useActiveTimeTracker() {
     idleTimerRef.current = setTimeout(() => {
       setIsIdle(true);
     }, IDLE_TIMEOUT_MS);
-  }, [isIdle]);
+  }, [isIdle, isAuthenticated]);
 
-  // Tab visibility and focus listeners
+  // Tab visibility and focus listeners (only active when authenticated)
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !isAuthenticated) return;
 
     const handleVisibilityChange = () => {
       const hidden = document.hidden;
@@ -238,10 +271,15 @@ export function useActiveTimeTracker() {
       window.removeEventListener("pagehide", handleBeforeUnload);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     };
-  }, [handleUserActivity, sendHeartbeat]);
+  }, [handleUserActivity, sendHeartbeat, isAuthenticated]);
 
   // Local 1-second ticker for ultra-smooth UI display
   useEffect(() => {
+    if (!isAuthenticated) {
+      setIsTracking(false);
+      return;
+    }
+
     const active = !isIdle && !isHidden && isPrimaryTabRef.current;
     setIsTracking(active);
 
@@ -272,10 +310,12 @@ export function useActiveTimeTracker() {
         localTickTimerRef.current = null;
       }
     };
-  }, [isIdle, isHidden]);
+  }, [isIdle, isHidden, isAuthenticated]);
 
   // Periodic heartbeat sync (every 15s)
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     heartbeatTimerRef.current = setInterval(() => {
       sendHeartbeat();
     }, HEARTBEAT_INTERVAL_MS);
@@ -286,7 +326,7 @@ export function useActiveTimeTracker() {
         heartbeatTimerRef.current = null;
       }
     };
-  }, [sendHeartbeat]);
+  }, [sendHeartbeat, isAuthenticated]);
 
   return {
     totalActiveSeconds,

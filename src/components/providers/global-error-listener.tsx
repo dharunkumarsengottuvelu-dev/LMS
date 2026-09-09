@@ -37,9 +37,11 @@ export function GlobalErrorListener() {
         }
 
         const safeErr = normalizeError(errorObj || message || event);
+        const resourceSrc = (event.target as HTMLScriptElement | HTMLImageElement)?.src || (event.target as HTMLLinkElement)?.href || undefined;
         console.warn("Global Window Event caught & normalized:", {
           message: safeErr.message,
           targetTag,
+          resourceSrc,
           eventType: event.type,
         });
       }

@@ -97,6 +97,12 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.id)
       .maybeSingle();
 
+    const userRole = (profile?.role || "").toLowerCase();
+    const isStaff = userRole === "admin" || userRole === "super_admin" || userRole === "trainer";
+    if (!isStaff) {
+      return NextResponse.json({ error: "Forbidden: Only staff can create assignments" }, { status: 403 });
+    }
+
     const createdBy = profile?.id || null;
 
     const { data: inserted, error } = await adminClient

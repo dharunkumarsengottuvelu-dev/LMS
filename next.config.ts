@@ -34,6 +34,28 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  // Route rewrites for backward compatibility and canonical auth routing
+  async rewrites() {
+    return [
+      {
+        source: "/auth/forgot-password",
+        destination: "/forgot-password",
+      },
+      {
+        source: "/auth/reset-password",
+        destination: "/reset-password",
+      },
+      {
+        source: "/auth/login",
+        destination: "/login",
+      },
+      {
+        source: "/auth/register",
+        destination: "/register",
+      },
+    ];
+  },
+
   // Security headers
   async headers() {
     return [

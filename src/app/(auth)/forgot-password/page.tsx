@@ -31,7 +31,7 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
       setSent(true);
@@ -62,7 +62,7 @@ export default function ForgotPasswordPage() {
         </p>
         <div className="space-y-2 pt-2">
           <Button asChild className="w-full">
-            <Link href="/auth/login">Back to login</Link>
+            <Link href="/login">Back to login</Link>
           </Button>
           <Button
             variant="ghost"
@@ -84,7 +84,7 @@ export default function ForgotPasswordPage() {
       className="space-y-6"
     >
       <Link
-        href="/auth/login"
+        href="/login"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />

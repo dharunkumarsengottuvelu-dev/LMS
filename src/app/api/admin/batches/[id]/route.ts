@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateAdminSession(["super_admin", "admin", "trainer"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
+
     const { id } = await params;
-    const adminClient = createAdminClient();
 
     const { data: batch, error } = await adminClient
       .from("batches")
@@ -66,8 +70,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateAdminSession(["super_admin", "admin"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
+
     const { id } = await params;
-    const adminClient = createAdminClient();
     const body = await request.json();
 
     // Fetch existing batch to preserve existing description metadata
@@ -148,8 +155,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authenticateAdminSession(["super_admin", "admin"]);
+    if (auth.errorResponse) return auth.errorResponse;
+    const adminClient = auth.adminClient || createAdminClient();
+
     const { id } = await params;
-    const adminClient = createAdminClient();
 
     // RULE 9 & 20: Safe Batch Deletion
     // 1. Remove student relationships in batch_members
