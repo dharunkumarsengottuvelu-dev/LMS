@@ -14,10 +14,8 @@ import {
   ChevronRight,
   Code2,
   Terminal,
-  BookOpen,
-  MessageSquare,
   Layers,
-  Sparkles,
+  MessageSquare,
   Copy,
   Check,
   Plus,
@@ -660,7 +658,6 @@ export default function ProblemSolvingWorkspace() {
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <BookOpen className="w-3.5 h-3.5 inline mr-1.5 text-slate-400" />
                 Description
               </button>
               <button
@@ -671,7 +668,6 @@ export default function ProblemSolvingWorkspace() {
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5 inline mr-1.5 text-slate-400" />
                 Solutions
               </button>
               <button
@@ -682,7 +678,6 @@ export default function ProblemSolvingWorkspace() {
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <Layers className="w-3.5 h-3.5 inline mr-1.5 text-slate-400" />
                 Submissions ({problemSubmissions.length})
               </button>
               <button
@@ -693,7 +688,6 @@ export default function ProblemSolvingWorkspace() {
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <MessageSquare className="w-3.5 h-3.5 inline mr-1.5 text-slate-400" />
                 Discuss ({discussions.length})
               </button>
             </div>
