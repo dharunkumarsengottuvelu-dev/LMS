@@ -8,7 +8,7 @@ import {
   ArrowLeft, FolderKanban, Sparkles, Trash2, Edit, Save, Check,
   HelpCircle, Layers, Eye, EyeOff, UploadCloud, User,
   Maximize2, Minimize2, ShieldAlert, Lock, Copy, RotateCcw,
-  Edit2, ChevronUp, FileSpreadsheet
+  Edit2, ChevronUp, FileSpreadsheet, Database
 } from "lucide-react";
 import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useLMSStore } from "@/lib/store/lms-store";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+import { SqlProblemCreator } from "@/components/admin/sql-problem-creator";
 import type { PracticeTrackItem } from "@/services/assessment.service";
 import { PageHeader } from "@/components/layouts/page-header";
 import { VisibilitySelector } from "@/components/admin/visibility-selector";
@@ -73,6 +74,8 @@ export interface CodingQuestionItem {
   title: string;
   description: string;
   difficulty?: string;
+  category?: string;
+  questionType?: "programming" | "sql";
   constraints?: string;
   inputFormat?: string;
   outputFormat?: string;
@@ -80,6 +83,10 @@ export interface CodingQuestionItem {
   allowedLanguages?: string[];
   allowed_languages?: string[];
   defaultLanguage?: string;
+  sql_engine?: string;
+  schema_sql?: string;
+  seed_sql?: string;
+  comparison_mode?: string;
   publicTestCases?: any[];
   hiddenTestCases?: any[];
 }
@@ -103,7 +110,7 @@ interface PracticeTrack {
 
 const initialTracks: PracticeTrack[] = [];
 
-type ViewState = "list" | "create" | "edit" | "detail" | "add-module" | "assign" | "create-coding";
+type ViewState = "list" | "create" | "edit" | "detail" | "add-module" | "assign" | "create-coding" | "create-sql";
 
 export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
@@ -444,6 +451,36 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           return { ...s, codingQuestions: nextCoding };
         }
         return { ...s, codingQuestions: [...s.codingQuestions, newCq] };
+      })
+    );
+    setEditingQuestionId(cqId);
+  };
+
+  const addSqlToSection = (sectionId: string, insertAfterIndex?: number) => {
+    const cqId = `sql_${Date.now()}`;
+    const newSql: CodingQuestionItem = {
+      id: cqId,
+      title: "",
+      description: "",
+      questionType: "sql",
+      difficulty: "easy",
+      category: "Databases",
+      allowedLanguages: ["sql"],
+      allowed_languages: ["sql"],
+      defaultLanguage: "sql",
+      templates: {
+        sql: "-- Write your SQL query here\nSELECT * FROM table_name;\n",
+      },
+    };
+    setSections((prev) =>
+      prev.map((s) => {
+        if (s.id !== sectionId) return s;
+        if (typeof insertAfterIndex === "number" && insertAfterIndex >= 0) {
+          const nextCoding = [...s.codingQuestions];
+          nextCoding.splice(insertAfterIndex + 1, 0, newSql);
+          return { ...s, codingQuestions: nextCoding };
+        }
+        return { ...s, codingQuestions: [...s.codingQuestions, newSql] };
       })
     );
     setEditingQuestionId(cqId);
@@ -1066,6 +1103,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   if (viewState === "create-coding") {
     return <CodingProblemCreator onCancel={() => setViewState("list")} />;
+  }
+
+  if (viewState === "create-sql") {
+    return <SqlProblemCreator onCancel={() => setViewState("list")} />;
   }
 
   // ════════════════════════════════════════════════════════════
@@ -1704,6 +1745,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                             >
                               <Code2 className="h-3.5 w-3.5" /> Add Coding Problem
                             </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addSqlToSection(section.id)}
+                              className="h-8 text-xs font-bold border-indigo-500/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 gap-1.5 rounded-xl"
+                            >
+                              <Database className="h-3.5 w-3.5 text-indigo-500" /> Add SQL Question
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -1951,29 +2001,46 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         );
                       })}
 
-                      {/* Coding Problems in this Section */}
+                      {/* Coding & SQL Problems in this Section */}
                       {section.codingQuestions.map((cq, cqIdx) => {
+                        const isSql = cq.questionType === "sql";
                         if (editingQuestionId !== cq.id) {
                           const totalCases = (cq.publicTestCases?.length || 0) + (cq.hiddenTestCases?.length || 0);
                           return (
                             <div
                               key={cq.id}
-                              className="p-4 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between group shadow-xs hover:border-[#2563EB]/40 transition-all gap-3"
+                              className={`p-4 bg-white dark:bg-[#18181B] border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between group shadow-xs transition-all gap-3 ${
+                                isSql
+                                  ? "border-indigo-500/30 hover:border-indigo-500/60"
+                                  : "border-[#E5E7EB] dark:border-[#27272A] hover:border-[#2563EB]/40"
+                              }`}
                             >
                               <div className="flex flex-col gap-1.5 min-w-0 pr-4">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-[#2563EB]/10 text-[#2563EB]">
-                                    Coding #{cqIdx + 1}
-                                  </span>
+                                  {isSql ? (
+                                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center gap-1">
+                                      <Database className="h-3 w-3" /> SQL #{cqIdx + 1}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-[#2563EB]/10 text-[#2563EB]">
+                                      Coding #{cqIdx + 1}
+                                    </span>
+                                  )}
                                   <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                                     {cq.difficulty || "Easy"}
                                   </span>
-                                  <span className="text-[11px] text-[#6B7280]">
-                                    ({totalCases} test cases)
-                                  </span>
+                                  {isSql ? (
+                                    <span className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded">
+                                      {cq.sql_engine || "mysql"}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[11px] text-[#6B7280]">
+                                      ({totalCases} test cases)
+                                    </span>
+                                  )}
                                 </div>
                                 <p className="text-sm font-semibold text-[#111827] dark:text-[#FAFAFA] truncate">
-                                  {cq.title || `Coding Problem ${cqIdx + 1} (Click edit to configure)`}
+                                  {cq.title || (isSql ? `SQL Question ${cqIdx + 1} (Click edit to configure schema & queries)` : `Coding Problem ${cqIdx + 1} (Click edit to configure)`)}
                                 </p>
                               </div>
 
@@ -2007,19 +2074,48 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         return (
                           <div
                             key={cq.id}
-                            className="p-5 bg-white dark:bg-[#18181B] border-2 border-[#2563EB] dark:border-[#2563EB]/80 rounded-2xl space-y-4 shadow-sm"
+                            className={`p-5 bg-white dark:bg-[#18181B] border-2 rounded-2xl space-y-4 shadow-sm ${
+                              isSql
+                                ? "border-indigo-500 dark:border-indigo-500/80"
+                                : "border-[#2563EB] dark:border-[#2563EB]/80"
+                            }`}
                           >
                             <div className="flex items-center justify-between pb-2 border-b border-[#E5E7EB] dark:border-[#27272A]">
-                              <span className="text-xs font-bold px-3 py-1 rounded-lg bg-[#2563EB] text-white">
-                                Coding Problem #{cqIdx + 1}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-bold px-3 py-1 rounded-lg text-white flex items-center gap-1.5 ${
+                                  isSql ? "bg-indigo-600" : "bg-[#2563EB]"
+                                }`}>
+                                  {isSql ? <Database className="h-3.5 w-3.5" /> : null}
+                                  {isSql ? `SQL Question #${cqIdx + 1}` : `Coding Problem #${cqIdx + 1}`}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    updateSectionCodingQuestion(section.id, cq.id, {
+                                      questionType: isSql ? "programming" : "sql",
+                                      allowedLanguages: isSql ? ["python", "java", "cpp"] : ["sql"],
+                                      allowed_languages: isSql ? ["python", "java", "cpp"] : ["sql"],
+                                      defaultLanguage: isSql ? "python" : "sql",
+                                    });
+                                  }}
+                                  className="h-7 text-[11px] text-[#6B7280] hover:text-[#111827] dark:hover:text-white"
+                                >
+                                  Switch to {isSql ? "Code Problem" : "SQL Question"}
+                                </Button>
+                              </div>
                               <div className="flex items-center gap-2">
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="sm"
                                   onClick={() => setEditingQuestionId(null)}
-                                  className="h-8 px-3 text-xs font-semibold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 rounded-lg"
+                                  className={`h-8 px-3 text-xs font-semibold gap-1.5 rounded-lg ${
+                                    isSql
+                                      ? "border-indigo-500/40 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                                      : "border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10"
+                                  }`}
                                 >
                                   <ChevronUp className="h-3.5 w-3.5" />
                                   Collapse
@@ -2035,27 +2131,55 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               </div>
                             </div>
 
-                            <CodingProblemCreator
-                              inline
-                              initialTitle={cq.title || `Coding Problem ${cqIdx + 1}`}
-                              initialDescription={cq.description}
-                              initialDifficulty={cq.difficulty as any}
-                              initialConstraints={cq.constraints}
-                              initialInputFormat={cq.inputFormat}
-                              initialOutputFormat={cq.outputFormat}
-                              initialTemplates={cq.templates}
-                              initialAllowedLanguages={cq.allowedLanguages || (cq as any).allowed_languages}
-                              initialPublicTestCases={cq.publicTestCases}
-                              initialHiddenTestCases={cq.hiddenTestCases}
-                              onChange={(data) => {
-                                updateSectionCodingQuestion(section.id, cq.id, data);
-                                if (cqIdx === 0 && !smTitle && data.title) {
-                                  setSmTitle(data.title);
-                                }
-                              }}
-                            />
+                            {isSql ? (
+                              <SqlProblemCreator
+                                inline
+                                hideHeader
+                                initialProblem={{
+                                  title: cq.title,
+                                  description: cq.description,
+                                  difficulty: (cq.difficulty as any) || "easy",
+                                  sql_engine: (cq.sql_engine as any) || "mysql",
+                                  schema_sql: cq.schema_sql || "",
+                                  seed_sql: cq.seed_sql || "",
+                                  solution_sql: (cq as any).solution_sql || "",
+                                  comparison_mode: (cq.comparison_mode as any) || "exact",
+                                  tables: (cq as any).tables,
+                                  test_cases: (cq as any).test_cases || cq.publicTestCases,
+                                }}
+                                onChange={(data: any) => {
+                                  updateSectionCodingQuestion(section.id, cq.id, {
+                                    ...data,
+                                    questionType: "sql",
+                                  });
+                                  if (cqIdx === 0 && !smTitle && data.title) {
+                                    setSmTitle(data.title);
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <CodingProblemCreator
+                                inline
+                                initialTitle={cq.title || `Coding Problem ${cqIdx + 1}`}
+                                initialDescription={cq.description}
+                                initialDifficulty={cq.difficulty as any}
+                                initialConstraints={cq.constraints}
+                                initialInputFormat={cq.inputFormat}
+                                initialOutputFormat={cq.outputFormat}
+                                initialTemplates={cq.templates}
+                                initialAllowedLanguages={cq.allowedLanguages || (cq as any).allowed_languages}
+                                initialPublicTestCases={cq.publicTestCases}
+                                initialHiddenTestCases={cq.hiddenTestCases}
+                                onChange={(data) => {
+                                  updateSectionCodingQuestion(section.id, cq.id, data);
+                                  if (cqIdx === 0 && !smTitle && data.title) {
+                                    setSmTitle(data.title);
+                                  }
+                                }}
+                              />
+                            )}
 
-                            {/* Quick Add at End of Coding Problem Card */}
+                            {/* Quick Add at End of Problem Card */}
                             <div className="pt-3 mt-2 border-t border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between flex-wrap gap-2">
                               <div className="flex items-center gap-2">
                                 <Button
@@ -2077,13 +2201,25 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                 >
                                   <Code2 className="h-3.5 w-3.5" /> + Coding Problem
                                 </Button>
+
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addSqlToSection(section.id, cqIdx)}
+                                  className="h-8 px-3 text-xs font-bold rounded-lg border-indigo-500/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                                >
+                                  <Database className="h-3.5 w-3.5 text-indigo-500" /> + SQL Question
+                                </Button>
                               </div>
 
                               <Button
                                 type="button"
                                 size="sm"
                                 onClick={() => setEditingQuestionId(null)}
-                                className="h-8 px-4 text-xs font-bold rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs"
+                                className={`h-8 px-4 text-xs font-bold rounded-lg text-white shadow-xs ${
+                                  isSql ? "bg-indigo-600 hover:bg-indigo-700" : "bg-[#2563EB] hover:bg-[#1D4ED8]"
+                                }`}
                               >
                                 Done Editing
                               </Button>
@@ -2117,6 +2253,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               className="h-8 px-3 text-xs font-bold rounded-lg border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
                             >
                               <Code2 className="h-3.5 w-3.5" /> + Coding Problem
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addSqlToSection(section.id)}
+                              className="h-8 px-3 text-xs font-bold rounded-lg border-indigo-500/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 gap-1.5 shadow-xs bg-white dark:bg-[#18181B]"
+                            >
+                              <Database className="h-3.5 w-3.5 text-indigo-500" /> + SQL Question
                             </Button>
                           </div>
                         </div>

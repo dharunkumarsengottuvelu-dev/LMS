@@ -36,8 +36,9 @@ export const SQL_ENGINE_DIALECT_MAP: Record<ExtendedSQLEngine, { name: string; d
 export interface SqlProblemCreatorProps {
   onCancel?: () => void;
   onSave?: (problem: CodingProblem) => void;
+  onChange?: (data: any) => void;
   onChangeQuestionType?: (type: "programming" | "sql") => void;
-  initialProblem?: Partial<CodingProblem>;
+  initialProblem?: Partial<CodingProblem> & Record<string, any>;
   hideHeader?: boolean;
   inline?: boolean;
 }
@@ -45,6 +46,7 @@ export interface SqlProblemCreatorProps {
 export function SqlProblemCreator({
   onCancel,
   onSave,
+  onChange,
   onChangeQuestionType,
   initialProblem,
   hideHeader = false,
@@ -190,6 +192,74 @@ export function SqlProblemCreator({
     setSchemaSql(ddlStatements);
     setSeedSql(dmlStatements);
   };
+
+  // Notify parent on change (e.g. practices track builder)
+  useEffect(() => {
+    if (onChange) {
+      onChange({
+        title,
+        description,
+        difficulty,
+        category: "Databases",
+        questionType: "sql",
+        constraints: [
+          constraints ? `Constraints:\n${constraints}` : "",
+          requirements ? `Requirements:\n${requirements}` : "",
+          expectedBehavior ? `Expected Behavior:\n${expectedBehavior}` : "",
+        ].filter(Boolean).join("\n\n"),
+        inputFormat: `Database Engine: ${SQL_ENGINE_DIALECT_MAP[sqlEngine]?.name} (${SQL_ENGINE_DIALECT_MAP[sqlEngine]?.dialect})\nMode: ${sqlMode}`,
+        outputFormat: `Query Results Table (${comparisonMode.replace(/_/g, " ")})`,
+        points,
+        templates: {
+          sql: `-- Dialect: ${SQL_ENGINE_DIALECT_MAP[sqlEngine]?.dialect}\n-- Engine: ${SQL_ENGINE_DIALECT_MAP[sqlEngine]?.name}\nSELECT * FROM ${tables[0]?.name || "table_name"};\n`,
+        },
+        allowedLanguages: ["sql"],
+        allowed_languages: ["sql"],
+        defaultLanguage: "sql",
+        test_cases: testCases.map((tc) => ({
+          id: tc.id,
+          input: "",
+          expected_output: tc.expected_output,
+          is_hidden: tc.is_hidden,
+          explanation: tc.explanation,
+        })),
+        publicTestCases: testCases.filter((tc) => !tc.is_hidden).map((tc) => ({
+          id: tc.id,
+          input: "",
+          expected_output: tc.expected_output,
+          is_hidden: false,
+        })),
+        hiddenTestCases: testCases.filter((tc) => tc.is_hidden).map((tc) => ({
+          id: tc.id,
+          input: "",
+          expected_output: tc.expected_output,
+          is_hidden: true,
+        })),
+        sql_engine: (sqlEngine === "sqlserver" || sqlEngine === "oracle" ? "sqlite" : sqlEngine) as SQLEngine,
+        sql_question_mode: sqlMode,
+        provide_tables: sqlMode === "QUERY_ONLY",
+        schema_sql: sqlMode === "QUERY_ONLY" ? schemaSql : undefined,
+        seed_sql: sqlMode === "QUERY_ONLY" ? seedSql : undefined,
+        comparison_mode: comparisonMode,
+      });
+    }
+  }, [
+    title,
+    description,
+    difficulty,
+    constraints,
+    requirements,
+    expectedBehavior,
+    sqlEngine,
+    sqlMode,
+    comparisonMode,
+    tables,
+    schemaSql,
+    seedSql,
+    testCases,
+    points,
+    onChange,
+  ]);
 
   useEffect(() => {
     if (databaseSetupMode === "visual") {
