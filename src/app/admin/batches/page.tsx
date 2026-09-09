@@ -642,7 +642,15 @@ export default function AdminBatchesPage() {
     if (!effectiveBatchForAssignment) return [];
     const currentBatchState = batches.find((b) => b.id === effectiveBatchForAssignment.id) || effectiveBatchForAssignment;
     const assignedIds = currentBatchState.studentIds || [];
+    const seen = new Set<string>();
+
     return students.filter((s) => {
+      const sId = s.id || s.user_id;
+      const sEmail = (s.email || "").toLowerCase().trim();
+      if (!sId || !sEmail || seen.has(sEmail) || seen.has(sId)) return false;
+      seen.add(sEmail);
+      seen.add(sId);
+
       const isAlreadyInThisBatch =
         assignedIds.includes(s.id) ||
         assignedIds.includes(s.user_id);
@@ -662,6 +670,18 @@ export default function AdminBatchesPage() {
       return matchesSearch;
     });
   }, [effectiveBatchForAssignment, batches, students, studentSearchQuery]);
+
+  const toggleStudentSelection = (stdIdentifier: string) => {
+    setSelectedStudentIdsToAdd((prev) => {
+      const next = new Set(prev);
+      if (next.has(stdIdentifier)) {
+        next.delete(stdIdentifier);
+      } else {
+        next.add(stdIdentifier);
+      }
+      return Array.from(next);
+    });
+  };
 
   return (
     <div className="space-y-8 animate-fade-up">
@@ -1386,28 +1406,21 @@ export default function AdminBatchesPage() {
                 return (
                   <div
                     key={std.id}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedStudentIdsToAdd(prev => prev.filter(id => id !== stdIdentifier));
-                      } else {
-                        setSelectedStudentIdsToAdd(prev => [...prev, stdIdentifier]);
-                      }
-                    }}
-                    className={`p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-zinc-900/50 cursor-pointer transition-colors ${
+                    onClick={() => toggleStudentSelection(stdIdentifier)}
+                    className={`p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-zinc-900/50 cursor-pointer transition-colors select-none ${
                       isSelected ? "bg-blue-50/50 dark:bg-blue-950/20" : ""
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => {
-                          if (isSelected) {
-                            setSelectedStudentIdsToAdd(prev => prev.filter(id => id !== stdIdentifier));
-                          } else {
-                            setSelectedStudentIdsToAdd(prev => [...prev, stdIdentifier]);
-                          }
-                        }}
-                      />
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center"
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleStudentSelection(stdIdentifier)}
+                        />
+                      </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="text-xs font-bold text-slate-900 dark:text-white">{stdName}</p>
@@ -1442,7 +1455,10 @@ export default function AdminBatchesPage() {
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
-              onClick={() => setIsAddStudentModalOpen(false)}
+              onClick={() => {
+                setSelectedStudentIdsToAdd([]);
+                setIsAddStudentModalOpen(false);
+              }}
               className="h-10 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800"
             >
               Close
@@ -1453,7 +1469,7 @@ export default function AdminBatchesPage() {
                 disabled={isAssigningStudents}
                 className="h-10 px-5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 font-semibold text-xs rounded-xl shadow-xs"
               >
-                Assign {selectedStudentIdsToAdd.length} Selected Students
+                Assign {selectedStudentIdsToAdd.length} Selected Student{selectedStudentIdsToAdd.length > 1 ? "s" : ""}
               </Button>
             )}
           </DialogFooter>

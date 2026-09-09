@@ -168,7 +168,6 @@ export async function GET(request: NextRequest) {
       adminClient
         .from("profiles")
         .select("id, user_id, email, first_name, last_name, role, status, batch_id, batch, batch_name, college, branch, created_at, updated_at")
-        .in("role", ["student", "Student", "STUDENT"])
         .order("created_at", { ascending: false })
         .then((res: any) => res, (e: any) => {
           console.error("Failed to query profiles:", e);
@@ -244,7 +243,24 @@ export async function GET(request: NextRequest) {
       ActiveTimeService.getAllStudentsActiveTime().catch(() => ({})),
     ]);
 
-    const rawStudents = rawStudentsRes?.data || [];
+    const allDbProfiles = rawStudentsRes?.data || [];
+    const nonStudentUserIds = new Set<string>();
+    const nonStudentEmails = new Set<string>();
+    const rawStudents: any[] = [];
+
+    // Strictly separate users by their role: only 'student' is permitted
+    (allDbProfiles || []).forEach((p: any) => {
+      const pRole = (p.role || "").toLowerCase().trim();
+      const pEmail = (p.email || "").toLowerCase().trim();
+      if (pRole === "student") {
+        rawStudents.push(p);
+      } else {
+        if (p.id) nonStudentUserIds.add(p.id);
+        if (p.user_id) nonStudentUserIds.add(p.user_id);
+        if (pEmail) nonStudentEmails.add(pEmail);
+      }
+    });
+
     const allBatches = batchesRes?.data || [];
     const allBatchMembers = batchMembersRes?.data || [];
     const allCourses = coursesRes?.data || [];
@@ -254,43 +270,65 @@ export async function GET(request: NextRequest) {
     const allAssessments = assessmentsRes?.data || [];
     const allAssignments = assignmentsRes?.data || [];
 
-    // Merge auth users to ensure every registered student profile exists
+    // Merge auth users ONLY if they are genuinely students (strictly exclude institution, trainer, admin, etc.)
     const profileUserIdSet = new Set((rawStudents || []).map((p: any) => p.user_id || p.id));
-    const mergedStudents: any[] = [...(rawStudents || [])];
+    const profileEmailSet = new Set((rawStudents || []).map((p: any) => (p.email || "").toLowerCase().trim()));
+    const mergedStudents: any[] = [...rawStudents];
     const authUsers = (authUsersRes as any)?.data?.users || [];
 
     for (const au of authUsers) {
       const uId = au.id;
-      if (!profileUserIdSet.has(uId)) {
-        const meta = au.user_metadata || {};
-        const metaRole = (meta.role || "").toLowerCase();
-        const email = (au.email || "").toLowerCase();
-        const isTrainer = metaRole === "trainer" || email.includes("trainer");
-        const isAdmin = metaRole === "admin" || metaRole === "super_admin" || email.includes("admin");
-        if (!isTrainer && !isAdmin) {
-          const fullName = (meta.full_name || meta.name || "").trim();
-          const nameParts = fullName.split(" ");
-          const emailPrefix = au.email ? au.email.split("@")[0] : "Student";
-          const formattedEmailName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-          const firstName = meta.first_name || nameParts[0] || formattedEmailName;
-          const lastName = meta.last_name || nameParts.slice(1).join(" ") || "";
+      const email = (au.email || "").toLowerCase().trim();
+      const meta = au.user_metadata || {};
+      const appMeta = au.app_metadata || {};
+      const metaRole = (meta.role || appMeta.role || "").toLowerCase().trim();
 
-          mergedStudents.push({
-            id: au.id,
-            user_id: au.id,
-            email: au.email || "",
-            first_name: firstName,
-            last_name: lastName,
-            role: "student",
-            status: "active",
-            batch_id: null,
-            batch: "Unassigned",
-            batch_name: "Unassigned",
-            college: "",
-            branch: "",
-            created_at: au.created_at || new Date().toISOString(),
-          });
-        }
+      // 1. STRICT EXCLUSION: If user is marked as non-student in profiles, or metadata indicates non-student role
+      const isKnownNonStudent =
+        nonStudentUserIds.has(uId) ||
+        nonStudentEmails.has(email) ||
+        metaRole === "institution" ||
+        metaRole === "admin" ||
+        metaRole === "super_admin" ||
+        metaRole === "trainer" ||
+        metaRole === "recruiter" ||
+        email.includes("admin@") ||
+        email.includes("trainer@") ||
+        email.includes("institution@");
+
+      if (isKnownNonStudent) {
+        continue;
+      }
+
+      // 2. STRICT INCLUSION: Only include if explicitly marked with student role or student ID metadata
+      const isExplicitStudent =
+        metaRole === "student" ||
+        Boolean(meta.student_id) ||
+        Boolean(meta.student_seq);
+
+      if (!profileUserIdSet.has(uId) && !profileEmailSet.has(email) && isExplicitStudent) {
+        const fullName = (meta.full_name || meta.name || "").trim();
+        const nameParts = fullName.split(" ");
+        const emailPrefix = au.email ? au.email.split("@")[0] : "Student";
+        const formattedEmailName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+        const firstName = meta.first_name || nameParts[0] || formattedEmailName;
+        const lastName = meta.last_name || nameParts.slice(1).join(" ") || "";
+
+        mergedStudents.push({
+          id: au.id,
+          user_id: au.id,
+          email: au.email || "",
+          first_name: firstName,
+          last_name: lastName,
+          role: "student",
+          status: "active",
+          batch_id: null,
+          batch: "Unassigned",
+          batch_name: "Unassigned",
+          college: meta.college || "",
+          branch: meta.branch || "",
+          created_at: au.created_at || new Date().toISOString(),
+        });
       }
     }
 
@@ -426,10 +464,22 @@ export async function GET(request: NextRequest) {
       return combined;
     };
 
+    const seenEmails = new Set<string>();
     (mergedStudents || []).forEach((p: any, studentIndex: number) => {
+      const pRole = (p.role || "").toLowerCase().trim();
+      if (pRole !== "student") return;
+
       const studentId = p.id;
       const studentUserId = p.user_id || p.id;
-      const studentEmail = p.email || "";
+      const studentEmail = (p.email || "").trim();
+      const emailLower = studentEmail.toLowerCase();
+
+      if (!emailLower || seenEmails.has(emailLower)) return;
+      if (nonStudentEmails.has(emailLower) || nonStudentUserIds.has(studentId) || nonStudentUserIds.has(studentUserId)) {
+        return;
+      }
+      seenEmails.add(emailLower);
+
       const studentName =
         `${p.first_name || ""} ${p.last_name || ""}`.trim() || studentEmail.split("@")[0] || "Student";
 
