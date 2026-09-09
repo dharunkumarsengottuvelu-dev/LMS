@@ -183,6 +183,9 @@ export interface CodingProblem {
   example_cases?: ExampleCase[];
   solution_editorial?: SolutionEditorial;
   templates: Record<string, string>;
+  allowed_languages?: string[];
+  allowedLanguages?: string[];
+  default_language?: string;
   function_signature?: string;
   driver_code?: Record<string, string>;
   test_cases: TestCase[];

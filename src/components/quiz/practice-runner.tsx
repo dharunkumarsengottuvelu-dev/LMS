@@ -693,21 +693,26 @@ export function PracticeRunnerEngine({
       sample_output: sampleTc?.expected_output || "",
       created_at: now,
       updated_at: now,
+      allowed_languages: (currentQuestion as any).allowed_languages || (currentQuestion as any).allowedLanguages || undefined,
+      allowedLanguages: (currentQuestion as any).allowedLanguages || (currentQuestion as any).allowed_languages || undefined,
       templates: (() => {
         const rawTemplates = typeof currentQuestion.starterCode === "string"
           ? { java: currentQuestion.starterCode }
-          : (currentQuestion.starterCode || {
+          : (currentQuestion.starterCode || (currentQuestion as any).templates || {
               java: "// Write your Java solution here\n",
               python: "# Write your Python solution here\n",
               cpp: "// Write your C++ solution here\n",
               javascript: "// Write your JavaScript solution here\n",
               c: "/* Write your C solution here */\n"
             });
+        const allowedList = (currentQuestion as any).allowedLanguages || (currentQuestion as any).allowed_languages;
         const formatted: Record<string, string> = {};
         for (const [lang, tmpl] of Object.entries(rawTemplates)) {
-          formatted[lang] = formatSourceCode(tmpl as string, lang);
+          if (!allowedList || !Array.isArray(allowedList) || allowedList.length === 0 || allowedList.includes(lang)) {
+            formatted[lang] = formatSourceCode(tmpl as string, lang);
+          }
         }
-        return formatted;
+        return Object.keys(formatted).length > 0 ? formatted : { java: "// Write your code here\n" };
       })(),
       test_cases: testCases,
       reveal_hidden_testcases: (currentQuestion as any).reveal_hidden_testcases !== false

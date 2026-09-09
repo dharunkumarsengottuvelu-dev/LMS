@@ -77,6 +77,9 @@ export interface CodingQuestionItem {
   inputFormat?: string;
   outputFormat?: string;
   templates?: Record<string, string>;
+  allowedLanguages?: string[];
+  allowed_languages?: string[];
+  defaultLanguage?: string;
   publicTestCases?: any[];
   hiddenTestCases?: any[];
 }
@@ -2041,6 +2044,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               initialInputFormat={cq.inputFormat}
                               initialOutputFormat={cq.outputFormat}
                               initialTemplates={cq.templates}
+                              initialAllowedLanguages={cq.allowedLanguages || (cq as any).allowed_languages}
                               initialPublicTestCases={cq.publicTestCases}
                               initialHiddenTestCases={cq.hiddenTestCases}
                               onChange={(data) => {

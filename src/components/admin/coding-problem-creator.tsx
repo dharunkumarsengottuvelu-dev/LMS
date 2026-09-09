@@ -41,6 +41,9 @@ import {
   ChevronUp,
   ChevronDown,
   X,
+  Globe,
+  Lock,
+  Check,
 } from "lucide-react";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
@@ -119,6 +122,8 @@ export interface CodingProblemCreatorProps {
   initialInputFormat?: string;
   initialOutputFormat?: string;
   initialTemplates?: Record<string, string>;
+  initialAllowedLanguages?: string[];
+  initialDefaultLanguage?: string;
   initialPublicTestCases?: TestCase[];
   initialHiddenTestCases?: TestCase[];
   initialQuestionType?: "programming" | "sql";
@@ -144,6 +149,8 @@ export function CodingProblemCreator({
   initialInputFormat,
   initialOutputFormat,
   initialTemplates,
+  initialAllowedLanguages,
+  initialDefaultLanguage,
   initialPublicTestCases,
   initialHiddenTestCases,
   onCancel,
@@ -262,7 +269,33 @@ export function CodingProblemCreator({
     existing.output_format || initialOutputFormat || ""
   );
 
-  // 6. CODE CONFIGURATION
+  // 6. CODE CONFIGURATION & LANGUAGE SCOPE
+  const initialSingleLang = useMemo(() => {
+    if (existing.allowed_languages && existing.allowed_languages.length === 1) {
+      return existing.allowed_languages[0];
+    }
+    if ((existing as any).allowedLanguages && (existing as any).allowedLanguages.length === 1) {
+      return (existing as any).allowedLanguages[0];
+    }
+    if (initialAllowedLanguages && initialAllowedLanguages.length === 1) {
+      return initialAllowedLanguages[0];
+    }
+    if (existing.templates && Object.keys(existing.templates).length === 1) {
+      return Object.keys(existing.templates)[0];
+    }
+    if (initialTemplates && Object.keys(initialTemplates).length === 1) {
+      return Object.keys(initialTemplates)[0];
+    }
+    return null;
+  }, [existing, initialAllowedLanguages, initialTemplates]);
+
+  const [languageMode, setLanguageMode] = useState<"all" | "single">(
+    initialSingleLang ? "single" : "all"
+  );
+  const [selectedSingleLanguage, setSelectedSingleLanguage] = useState<string>(
+    initialSingleLang || initialDefaultLanguage || (existing as any).default_language || "java"
+  );
+
   const [templates, setTemplates] = useState<Record<string, string>>(() => {
     if (existing.templates && Object.keys(existing.templates).length > 0) {
       return existing.templates;
@@ -272,7 +305,9 @@ export function CodingProblemCreator({
     }
     return DEFAULT_STARTER_CODES;
   });
-  const [activeCodeLang, setActiveCodeLang] = useState<string>("python");
+  const [activeCodeLang, setActiveCodeLang] = useState<string>(
+    initialSingleLang || "python"
+  );
   const [functionSignature, setFunctionSignature] = useState<string>(
     existing.function_signature || ""
   );
@@ -281,6 +316,18 @@ export function CodingProblemCreator({
   );
   const [timeLimitMs, setTimeLimitMs] = useState<number>(existing.time_limit_ms || 2000);
   const [memoryLimitMb, setMemoryLimitMb] = useState<number>(existing.memory_limit_mb || 256);
+
+  const handleSelectLanguageMode = (mode: "all" | "single") => {
+    setLanguageMode(mode);
+    if (mode === "single") {
+      setActiveCodeLang(selectedSingleLanguage);
+    }
+  };
+
+  const handleSelectSingleLanguage = (lang: string) => {
+    setSelectedSingleLanguage(lang);
+    setActiveCodeLang(lang);
+  };
 
   // 7 & 8. TEST CASES (PUBLIC & HIDDEN)
   const [testCases, setTestCases] = useState<TestCase[]>(() => {
@@ -340,18 +387,44 @@ export function CodingProblemCreator({
   // Notify parent on change
   React.useEffect(() => {
     if (onChange) {
+      const isSingle = languageMode === "single";
+      const finalAllowed = isSingle
+        ? [selectedSingleLanguage]
+        : Object.keys(DEFAULT_STARTER_CODES);
+      const finalTemplates = isSingle
+        ? { [selectedSingleLanguage]: templates[selectedSingleLanguage] || DEFAULT_STARTER_CODES[selectedSingleLanguage] || "" }
+        : templates;
+
       onChange({
         title,
         description,
         difficulty,
         constraints,
+        inputFormat,
         input_format: inputFormat,
+        outputFormat,
         output_format: outputFormat,
-        templates,
+        templates: finalTemplates,
+        allowed_languages: finalAllowed,
+        allowedLanguages: finalAllowed,
+        default_language: isSingle ? selectedSingleLanguage : undefined,
+        defaultLanguage: isSingle ? selectedSingleLanguage : undefined,
         test_cases: testCases,
       });
     }
-  }, [title, description, difficulty, constraints, inputFormat, outputFormat, templates, testCases, onChange]);
+  }, [
+    title,
+    description,
+    difficulty,
+    constraints,
+    inputFormat,
+    outputFormat,
+    templates,
+    testCases,
+    languageMode,
+    selectedSingleLanguage,
+    onChange,
+  ]);
 
   // Handlers for Examples
   const handleAddExample = () => {
@@ -469,6 +542,14 @@ export function CodingProblemCreator({
       approaches,
     };
 
+    const isSingle = languageMode === "single";
+    const finalAllowed = isSingle
+      ? [selectedSingleLanguage]
+      : Object.keys(DEFAULT_STARTER_CODES);
+    const finalTemplates = isSingle
+      ? { [selectedSingleLanguage]: templates[selectedSingleLanguage] || DEFAULT_STARTER_CODES[selectedSingleLanguage] || "" }
+      : templates;
+
     const problemRecord: CodingProblem = {
       id: cleanNumber,
       title: title.trim(),
@@ -483,7 +564,10 @@ export function CodingProblemCreator({
       output_format: outputFormat,
       example_cases: examples,
       solution_editorial: editorial,
-      templates,
+      templates: finalTemplates,
+      allowed_languages: finalAllowed,
+      allowedLanguages: finalAllowed,
+      default_language: isSingle ? selectedSingleLanguage : undefined,
       function_signature: functionSignature,
       test_cases: testCases,
       status: saveStatus,
@@ -778,19 +862,27 @@ export function CodingProblemCreator({
               <div className="h-10 px-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between text-xs shrink-0">
                 <div className="flex items-center gap-2">
                   <Code2 className="w-4 h-4 text-blue-600" />
-                  <Select value={activeCodeLang} onValueChange={(val) => setActiveCodeLang(val || "python")}>
-                    <SelectTrigger className="h-7.5 text-xs w-[130px] font-semibold bg-white border border-slate-200">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="python">Python</SelectItem>
-                      <SelectItem value="java">Java</SelectItem>
-                      <SelectItem value="cpp">C++</SelectItem>
-                      <SelectItem value="c">C</SelectItem>
-                      <SelectItem value="javascript">JavaScript</SelectItem>
-                      <SelectItem value="typescript">TypeScript</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {languageMode === "single" ? (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 shadow-2xs">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="uppercase font-mono">{selectedSingleLanguage}</span>
+                      <span className="text-[10px] text-blue-600 font-semibold bg-blue-50 px-1.5 py-0.5 rounded">Single Language</span>
+                    </div>
+                  ) : (
+                    <Select value={activeCodeLang} onValueChange={(val) => setActiveCodeLang(val || "python")}>
+                      <SelectTrigger className="h-7.5 text-xs w-[130px] font-semibold bg-white border border-slate-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="python">Python</SelectItem>
+                        <SelectItem value="java">Java</SelectItem>
+                        <SelectItem value="cpp">C++</SelectItem>
+                        <SelectItem value="c">C</SelectItem>
+                        <SelectItem value="javascript">JavaScript</SelectItem>
+                        <SelectItem value="typescript">TypeScript</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1386,28 +1478,114 @@ export function CodingProblemCreator({
               6. Code Configuration
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Configure starter code, driver code, and function signatures separately per language.
+              Choose language availability, configure starter code, and set execution limits.
             </p>
           </div>
 
-          {/* Languages Selector */}
-          <div className="flex flex-wrap gap-1.5">
-            {Object.keys(DEFAULT_STARTER_CODES).map((lang) => (
-              <button
-                key={lang}
-                type="button"
-                onClick={() => setActiveCodeLang(lang)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold uppercase transition-all ${
-                  activeCodeLang === lang
-                    ? "bg-[#2563EB] text-white shadow-xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {lang}
-              </button>
-            ))}
+          {/* Language Availability Mode: All Languages vs Single Language */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => handleSelectLanguageMode("all")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                languageMode === "all"
+                  ? "bg-white text-[#2563EB] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              <span>All Languages</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectLanguageMode("single")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                languageMode === "single"
+                  ? "bg-[#2563EB] text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Lock className="h-3.5 w-3.5" />
+              <span>Single Language Only</span>
+            </button>
           </div>
         </div>
+
+        {/* Mode Detail: Multi-Language Switcher vs Single Language Selector */}
+        {languageMode === "all" ? (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 text-xs">
+            <div className="flex items-center gap-2 text-slate-600">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+              <span>
+                <strong>Multi-Language Mode:</strong> Students can choose any language. Switch tabs to configure starter code:
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.keys(DEFAULT_STARTER_CODES).map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => setActiveCodeLang(lang)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold uppercase transition-all cursor-pointer ${
+                    activeCodeLang === lang
+                      ? "bg-[#2563EB] text-white shadow-xs"
+                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-blue-50/60 rounded-xl border border-blue-200/80 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-[#2563EB] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    Single Language Restriction
+                  </Badge>
+                  <span className="text-xs font-bold text-slate-800">
+                    Select One Language for this Question:
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Students will be forced to solve this problem in the chosen language. Language selector in the student code editor will be locked.
+                </p>
+              </div>
+            </div>
+
+            {/* Language Pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
+              {[
+                { id: "python", name: "Python", icon: "🐍" },
+                { id: "java", name: "Java", icon: "☕" },
+                { id: "cpp", name: "C++", icon: "⚡" },
+                { id: "c", name: "C", icon: "⚙️" },
+                { id: "javascript", name: "JavaScript", icon: "🟨" },
+                { id: "typescript", name: "TypeScript", icon: "🔷" },
+              ].map((item) => {
+                const isSelected = selectedSingleLanguage === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleSelectSingleLanguage(item.id)}
+                    className={`flex items-center justify-center gap-1.5 p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-[#2563EB] text-white border-[#2563EB] shadow-xs ring-2 ring-blue-400/30"
+                        : "bg-white border-slate-200 text-slate-700 hover:border-blue-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="text-sm">{item.icon}</span>
+                    <span className="uppercase tracking-wider">{item.name}</span>
+                    {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">

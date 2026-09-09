@@ -71,6 +71,9 @@ export async function GET() {
         example_cases: extra.example_cases || [],
         solution_editorial: sol.overview ? sol : extra.solution_editorial,
         templates: extra.templates || {},
+        allowed_languages: extra.allowed_languages || extra.allowedLanguages || (extra.templates ? Object.keys(extra.templates) : undefined),
+        allowedLanguages: extra.allowedLanguages || extra.allowed_languages || (extra.templates ? Object.keys(extra.templates) : undefined),
+        default_language: extra.default_language || undefined,
         function_signature: extra.function_signature || "",
         test_cases: tcList,
         status: p.status || "published",
@@ -128,6 +131,9 @@ export async function POST(request: NextRequest) {
 
       const starterCodePayload = {
         templates: problem.templates || {},
+        allowed_languages: problem.allowed_languages || (problem as any).allowedLanguages || undefined,
+        allowedLanguages: problem.allowed_languages || (problem as any).allowedLanguages || undefined,
+        default_language: (problem as any).default_language || undefined,
         function_signature: problem.function_signature || "",
         example_cases: problem.example_cases || [],
         constraints: problem.constraints || "",
