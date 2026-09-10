@@ -2136,13 +2136,9 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         }));
         setCourses(normalized);
       }
-      const totalLessonsCount = importedCourses.reduce(
-        (acc, c) => acc + (c.modules || []).reduce((mAcc, m) => mAcc + (m.subModules?.length || 0), 0),
-        0
-      );
       toast({
         title: "Courses Created",
-        description: `Successfully imported ${importedCourses.length} courses with ${totalLessonsCount} sub-module lessons into the catalog.`,
+        description: `Successfully imported ${importedCourses.length} courses into the catalog.`,
       });
     } catch (e) {
       console.error("Bulk course import failed:", e);
@@ -2289,7 +2285,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                 <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Select Bulk Upload Content Type:
               </p>
               <p className="text-[11px] text-[#6B7280] dark:text-[#9CA3AF]">
-                Switch between importing entire courses (with modules &amp; sub-modules), sub-module lessons, or main chapters.
+                Switch between importing entire courses, sub-module lessons (videos/readings/coding/quizzes), or main chapters.
               </p>
             </div>
 
@@ -2303,7 +2299,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
                     : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
                 }`}
               >
-                1. Entire Courses (with Sub-Modules)
+                1. Entire Courses
               </button>
               <button
                 type="button"
@@ -2391,7 +2387,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             moduleType={bulkUploadScope}
             moduleTitle={
               bulkUploadScope === "course_batch"
-                ? "Courses & Sub-Modules Catalog"
+                ? "Courses Catalog"
                 : bulkUploadScope === "course"
                 ? `${selectedTargetCourse?.title || "Course"} • Sub-Modules`
                 : `${selectedTargetCourse?.title || "Course"} • Main Chapters`

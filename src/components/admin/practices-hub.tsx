@@ -2550,10 +2550,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         });
         setTracks(Array.from(seen.values()));
       }
-      const totalSubMods = importedTracks.reduce((acc, t) => acc + (t.subModules?.length || 0), 0);
       toast({
         title: "Practice Tracks Created",
-        description: `Successfully imported ${importedTracks.length} practice tracks with ${totalSubMods} sub-modules.`,
+        description: `Successfully imported ${importedTracks.length} practice tracks.`,
       });
     } catch (err) {
       console.error("Bulk track import error:", err);
@@ -2575,7 +2574,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               variant="outline"
               onClick={() => setShowBulkUploadTracks((prev) => !prev)}
               className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-sm shrink-0"
-              title="Bulk create practice tracks with sub-modules via Excel / CSV"
+              title="Bulk create practice tracks via Excel / CSV"
             >
               <UploadCloud className="h-4 w-4 text-[#2563EB]" /> Bulk Upload Tracks
             </Button>
@@ -2594,7 +2593,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           inline={true}
           onClose={() => setShowBulkUploadTracks(false)}
           moduleType="practice_track"
-          moduleTitle="Practice Tracks & Sub-Modules Catalog"
+          moduleTitle="Practice Tracks Catalog"
           onImport={handleBulkImportTracks}
         />
       )}

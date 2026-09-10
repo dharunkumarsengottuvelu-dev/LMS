@@ -10,7 +10,6 @@ export interface ColumnDefinition {
   sampleValue?: any;
   placeholder?: string;
   description: string;
-  aliases?: string[]; // Alternative header names recognized during import
   validate?: (value: any, row: Record<string, any>) => string | null;
 }
 
@@ -22,7 +21,6 @@ export interface ModuleTemplateConfig {
   columns: ColumnDefinition[];
   sampleRows: Record<string, any>[];
   mapToPayload: (row: Record<string, any>, index: number) => any;
-  mapAllRows?: (rows: Record<string, any>[]) => any[];
 }
 
 export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
@@ -709,9 +707,9 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
   // ─── 8. PRACTICE TRACKS BULK CREATION TEMPLATE ─────────────────────────────
   practice_track: {
     moduleType: "practice_track",
-    displayName: "Practice Track & Sub-Modules Template",
-    description: "Template for creating multiple Practice Tracks with their Sub-Modules in bulk.",
-    templateFileName: "practice_tracks_with_submodules_bulk_template.xlsx",
+    displayName: "Practice Track Template",
+    description: "Template for creating multiple Practice Tracks in bulk.",
+    templateFileName: "practice_tracks_bulk_template.xlsx",
     columns: [
       {
         key: "title",
@@ -720,7 +718,6 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         required: true,
         description: "Title of the Practice Track (e.g. 'Core Java & Data Structures')",
         sampleValue: "Core Java & OOPs Mastery",
-        aliases: ["track title", "track name", "practice track", "practice track title", "title"],
       },
       {
         key: "category",
@@ -729,17 +726,14 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         required: false,
         description: "Technical category (e.g. 'Java', 'Python', 'Web Dev')",
         sampleValue: "Java",
-        aliases: ["category", "track category", "tags", "category / tags", "domain"],
       },
       {
         key: "instructor",
         label: "Assigned Instructor",
         type: "string",
         required: false,
-        defaultValue: "Dharunkumar S",
         description: "Instructor or Admin author name",
         sampleValue: "Dharunkumar S",
-        aliases: ["assigned instructor", "instructor", "instructor name", "trainer", "author"],
       },
       {
         key: "level",
@@ -747,10 +741,8 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "enum",
         required: false,
         options: ["Beginner", "Intermediate", "Advanced"],
-        defaultValue: "Intermediate",
         description: "Target difficulty level: Beginner, Intermediate, or Advanced",
         sampleValue: "Intermediate",
-        aliases: ["difficulty level", "difficulty", "level", "track level"],
       },
       {
         key: "description",
@@ -759,87 +751,6 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         required: false,
         description: "Overview and learning goals of this practice track",
         sampleValue: "Comprehensive hands-on coding and MCQ practice exercises.",
-        aliases: ["track description", "description", "overview"],
-      },
-      {
-        key: "subModuleTitle",
-        label: "Sub-Module Title",
-        type: "string",
-        required: false,
-        description: "Title of the practice challenge or sub-module (e.g. '1. Classes & Objects'). Multiple rows with the same Track Title add multiple sub-modules.",
-        sampleValue: "1. Classes, Objects & Constructors",
-        aliases: ["sub-module title", "sub module title", "submodule title", "submodule", "sub module", "challenge title", "problem title", "module title"],
-      },
-      {
-        key: "problemType",
-        label: "Problem Type",
-        type: "enum",
-        required: false,
-        options: ["coding", "mcq", "mixed"],
-        defaultValue: "coding",
-        description: "Problem category: coding, mcq, or mixed",
-        sampleValue: "coding",
-        aliases: ["problem type", "type", "category type", "submodule type"],
-      },
-      {
-        key: "durationMinutes",
-        label: "Duration (Minutes)",
-        type: "number",
-        required: false,
-        defaultValue: 45,
-        description: "Allotted time in minutes for this practice challenge",
-        sampleValue: 45,
-        aliases: ["duration (minutes)", "duration", "duration minutes", "time", "time limit"],
-      },
-      {
-        key: "totalMarks",
-        label: "Total Marks / Points",
-        type: "number",
-        required: false,
-        defaultValue: 100,
-        description: "Maximum score or points for completion",
-        sampleValue: 100,
-        aliases: ["total marks", "marks", "total marks / points", "points", "score"],
-      },
-      {
-        key: "difficulty",
-        label: "Challenge Difficulty",
-        type: "enum",
-        required: false,
-        options: ["Easy", "Medium", "Hard"],
-        defaultValue: "Medium",
-        description: "Challenge difficulty level",
-        sampleValue: "Medium",
-        aliases: ["challenge difficulty", "difficulty", "problem difficulty"],
-      },
-      {
-        key: "problemDescription",
-        label: "Problem Description",
-        type: "string",
-        required: false,
-        description: "Problem statement, instructions, or quiz overview",
-        sampleValue: "Implement a banking Account class with private balance, parameterized constructor, and deposit/withdraw methods.",
-        aliases: ["problem description", "description", "problem statement", "challenge description", "prompt"],
-      },
-      {
-        key: "restrictCopyPaste",
-        label: "Restrict Copy Paste",
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        description: "Proctoring guard: Disable clipboard paste (Yes/No)",
-        sampleValue: "No",
-        aliases: ["restrict copy paste", "restrict copy/paste", "copy paste restricted"],
-      },
-      {
-        key: "enforceFullScreen",
-        label: "Enforce Fullscreen",
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        description: "Proctoring guard: Require fullscreen mode (Yes/No)",
-        sampleValue: "No",
-        aliases: ["enforce fullscreen", "fullscreen", "enforce full screen"],
       },
     ],
     sampleRows: [
@@ -848,259 +759,43 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         category: "Java",
         instructor: "Dharunkumar S",
         level: "Intermediate",
-        description: "Hands-on coding challenges covering classes, interfaces, collections, and streams.",
-        subModuleTitle: "1. Classes, Objects & Constructors",
-        problemType: "coding",
-        durationMinutes: 45,
-        totalMarks: 50,
-        difficulty: "Easy",
-        problemDescription: "Implement a banking Account class with private balance, parameterized constructor, and deposit/withdraw methods.",
-        restrictCopyPaste: "No",
-        enforceFullScreen: "No",
-      },
-      {
-        title: "Core Java & OOPs Mastery",
-        category: "Java",
-        instructor: "Dharunkumar S",
-        level: "Intermediate",
-        description: "Hands-on coding challenges covering classes, interfaces, collections, and streams.",
-        subModuleTitle: "2. Inheritance & Method Overriding Challenge",
-        problemType: "coding",
-        durationMinutes: 60,
-        totalMarks: 100,
-        difficulty: "Medium",
-        problemDescription: "Create an abstract Vehicle base class and extend it with ElectricCar and Truck subclasses implementing calculateRange().",
-        restrictCopyPaste: "Yes",
-        enforceFullScreen: "Yes",
-      },
-      {
-        title: "Core Java & OOPs Mastery",
-        category: "Java",
-        instructor: "Dharunkumar S",
-        level: "Intermediate",
-        description: "Hands-on coding challenges covering classes, interfaces, collections, and streams.",
-        subModuleTitle: "3. Java Collections & Stream API Concept Quiz",
-        problemType: "mcq",
-        durationMinutes: 30,
-        totalMarks: 30,
-        difficulty: "Medium",
-        problemDescription: "Multiple choice questionnaire testing Map implementations, List operations, and parallel stream execution.",
-        restrictCopyPaste: "Yes",
-        enforceFullScreen: "Yes",
+        description: "Hands-on coding challenges covering classes, interfaces, collections, and streams."
       },
       {
         title: "Python Data Science & NumPy Bootcamp",
         category: "Python",
         instructor: "Dharunkumar S",
         level: "Beginner",
-        description: "Foundational Python syntax, data manipulation with pandas, and array operations.",
-        subModuleTitle: "1. Pythonic List Comprehensions & Dictionaries",
-        problemType: "coding",
-        durationMinutes: 30,
-        totalMarks: 50,
-        difficulty: "Easy",
-        problemDescription: "Write a function that filters even squares and creates frequency maps using dictionary comprehensions.",
-        restrictCopyPaste: "No",
-        enforceFullScreen: "No",
-      },
-      {
-        title: "Python Data Science & NumPy Bootcamp",
-        category: "Python",
-        instructor: "Dharunkumar S",
-        level: "Beginner",
-        description: "Foundational Python syntax, data manipulation with pandas, and array operations.",
-        subModuleTitle: "2. NumPy Multi-Dimensional Array Slicing",
-        problemType: "coding",
-        durationMinutes: 45,
-        totalMarks: 100,
-        difficulty: "Medium",
-        problemDescription: "Perform vector operations, boolean masking, and matrix multiplications using NumPy ndarrays.",
-        restrictCopyPaste: "No",
-        enforceFullScreen: "No",
+        description: "Foundational Python syntax, data manipulation with pandas, and array operations."
       },
       {
         title: "Full Stack MERN Architecture Practice",
         category: "Web Development",
         instructor: "Dharunkumar S",
         level: "Advanced",
-        description: "Production-grade React, Node.js, Express, and MongoDB exercises.",
-        subModuleTitle: "1. JWT Authentication Middleware Implementation",
-        problemType: "coding",
-        durationMinutes: 60,
-        totalMarks: 100,
-        difficulty: "Hard",
-        problemDescription: "Implement Express middleware verifying Bearer tokens and checking role-based permissions.",
-        restrictCopyPaste: "Yes",
-        enforceFullScreen: "Yes",
-      },
-    ],
-    mapToPayload: (row, idx) => {
-      const smTitle = String(row.subModuleTitle || "").trim();
-      const pType = String(row.problemType || "coding").toLowerCase().trim();
-      const validPType: "coding" | "mcq" | "mixed" = ["coding", "mcq", "mixed"].includes(pType) ? (pType as any) : "coding";
-      const durMins = Number(row.durationMinutes) || 45;
-      const marks = Number(row.totalMarks) || 100;
-      const diff = String(row.difficulty || "Medium").trim();
-      const pDesc = String(row.problemDescription || "").trim();
-
-      const subModules: any[] = [];
-      if (smTitle) {
-        subModules.push({
-          id: `sm_${Date.now()}_${idx}`,
-          title: smTitle,
-          type: validPType,
-          durationMinutes: durMins,
-          totalMarks: marks,
-          questionCount: 1,
-          restrictCopyPaste: isTruthy(row.restrictCopyPaste),
-          enforceFullScreen: isTruthy(row.enforceFullScreen),
-          sections: [
-            {
-              id: `sec_${Date.now()}_${idx}`,
-              title: "Section 1: Practice Exercises",
-              mcqQuestions: (validPType === "mcq" || validPType === "mixed") ? [
-                {
-                  id: `mcq_${Date.now()}_${idx}`,
-                  questionText: pDesc || `Practice question for ${smTitle}`,
-                  options: [
-                    { id: "opt_1", text: "Option A", isCorrect: true },
-                    { id: "opt_2", text: "Option B", isCorrect: false },
-                    { id: "opt_3", text: "Option C", isCorrect: false },
-                    { id: "opt_4", text: "Option D", isCorrect: false },
-                  ],
-                  explanation: "Concept verification explanation.",
-                }
-              ] : [],
-              codingQuestions: (validPType === "coding" || validPType === "mixed") ? [
-                {
-                  id: `cq_${Date.now()}_${idx}`,
-                  title: smTitle,
-                  description: pDesc || `Implement solution for ${smTitle}.`,
-                  difficulty: diff,
-                  publicTestCases: [],
-                  hiddenTestCases: [],
-                }
-              ] : [],
-            }
-          ]
-        });
+        description: "Production-grade React, Node.js, Express, and MongoDB exercises."
       }
-
-      return {
-        id: `track_${Date.now()}_${idx}`,
-        title: String(row.title || "").trim(),
-        description: String(row.description || "Practice track for student batches.").trim(),
-        category: String(row.category || "General").trim(),
-        assignedByName: String(row.instructor || "Dharunkumar S").trim(),
-        level: (row.level && ["Beginner", "Intermediate", "Advanced"].includes(row.level)) ? row.level : "Intermediate",
-        difficulty: (row.level || "intermediate").toLowerCase(),
-        isPublished: true,
-        status: "published",
-        subModules,
-        assignedBatches: [],
-        assignedStudents: [],
-      };
-    },
-    mapAllRows: (rows: Record<string, any>[]) => {
-      const trackMap = new Map<string, {
-        track: any;
-        subModules: any[];
-      }>();
-
-      rows.forEach((row, rowIdx) => {
-        const title = String(row.title || "").trim();
-        if (!title) return;
-        const normKey = title.toLowerCase();
-
-        if (!trackMap.has(normKey)) {
-          trackMap.set(normKey, {
-            track: {
-              id: `track_${Date.now()}_${rowIdx}`,
-              title,
-              description: String(row.description || "Practice track for student batches.").trim(),
-              category: String(row.category || "General").trim(),
-              assignedByName: String(row.instructor || "Dharunkumar S").trim(),
-              level: (row.level && ["Beginner", "Intermediate", "Advanced"].includes(row.level)) ? row.level : "Intermediate",
-              difficulty: (row.level || "intermediate").toLowerCase(),
-              isPublished: true,
-              status: "published",
-              subModules: [],
-              assignedBatches: [],
-              assignedStudents: [],
-            },
-            subModules: [],
-          });
-        }
-
-        const entry = trackMap.get(normKey)!;
-        const smTitle = String(row.subModuleTitle || "").trim();
-
-        if (smTitle) {
-          const pType = String(row.problemType || "coding").toLowerCase().trim();
-          const validPType: "coding" | "mcq" | "mixed" = ["coding", "mcq", "mixed"].includes(pType) ? (pType as any) : "coding";
-          const durMins = Number(row.durationMinutes) || 45;
-          const marks = Number(row.totalMarks) || 100;
-          const diff = String(row.difficulty || "Medium").trim();
-          const pDesc = String(row.problemDescription || "").trim();
-          const smIdx = entry.subModules.length + 1;
-
-          const subModuleItem = {
-            id: `sm_${Date.now()}_${rowIdx}_${smIdx}`,
-            title: smTitle,
-            type: validPType,
-            durationMinutes: durMins,
-            totalMarks: marks,
-            questionCount: 1,
-            restrictCopyPaste: isTruthy(row.restrictCopyPaste),
-            enforceFullScreen: isTruthy(row.enforceFullScreen),
-            sections: [
-              {
-                id: `sec_${Date.now()}_${rowIdx}_${smIdx}`,
-                title: "Section 1: Practice Exercises",
-                mcqQuestions: (validPType === "mcq" || validPType === "mixed") ? [
-                  {
-                    id: `mcq_${Date.now()}_${rowIdx}_${smIdx}`,
-                    questionText: pDesc || `Practice challenge for ${smTitle}`,
-                    options: [
-                      { id: `opt_1_${smIdx}`, text: "Option A", isCorrect: true },
-                      { id: `opt_2_${smIdx}`, text: "Option B", isCorrect: false },
-                      { id: `opt_3_${smIdx}`, text: "Option C", isCorrect: false },
-                      { id: `opt_4_${smIdx}`, text: "Option D", isCorrect: false },
-                    ],
-                    explanation: "Sample explanation for concept verification."
-                  }
-                ] : [],
-                codingQuestions: (validPType === "coding" || validPType === "mixed") ? [
-                  {
-                    id: `cq_${Date.now()}_${rowIdx}_${smIdx}`,
-                    title: smTitle,
-                    description: pDesc || `Implement solution for ${smTitle}.`,
-                    difficulty: diff,
-                    publicTestCases: [],
-                    hiddenTestCases: []
-                  }
-                ] : [],
-              }
-            ]
-          };
-
-          entry.subModules.push(subModuleItem);
-        }
-      });
-
-      return Array.from(trackMap.values()).map(({ track, subModules }) => ({
-        ...track,
-        subModules,
-      }));
-    }
+    ],
+    mapToPayload: (row, idx) => ({
+      id: `track_${Date.now()}_${idx}`,
+      title: String(row.title || "").trim(),
+      description: String(row.description || "Practice track for student batches.").trim(),
+      category: String(row.category || "General").trim(),
+      assignedBy: String(row.instructor || "Dharunkumar S").trim(),
+      level: (row.level && ["Beginner", "Intermediate", "Advanced"].includes(row.level)) ? row.level : "Intermediate",
+      isPublished: true,
+      subModules: [],
+      assignedBatches: [],
+      assignedStudents: [],
+    })
   },
 
   // ─── 9. COURSES BULK CREATION TEMPLATE ──────────────────────────────────────
   course_batch: {
     moduleType: "course_batch",
-    displayName: "Course & Sub-Modules Catalog Template",
-    description: "Template for creating multiple Training Courses with their Main Modules and Sub-Modules / Lessons in bulk.",
-    templateFileName: "courses_with_submodules_bulk_template.xlsx",
+    displayName: "Course Catalog Template",
+    description: "Template for creating multiple Training Courses in bulk.",
+    templateFileName: "courses_bulk_template.xlsx",
     columns: [
       {
         key: "title",
@@ -1109,7 +804,6 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         required: true,
         description: "Full title of the Course (e.g. 'Mastering Modern Spring Boot 3')",
         sampleValue: "Mastering Modern Spring Boot 3",
-        aliases: ["course title", "course name", "course", "title"],
       },
       {
         key: "category",
@@ -1118,7 +812,6 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         required: false,
         description: "Category (e.g. 'Web Development', 'Cloud Computing', 'AI & Machine Learning')",
         sampleValue: "Web Development",
-        aliases: ["category", "course category", "domain"],
       },
       {
         key: "level",
@@ -1126,20 +819,16 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "enum",
         required: false,
         options: ["Beginner", "Intermediate", "Advanced"],
-        defaultValue: "Intermediate",
-        description: "Difficulty level: Beginner, Intermediate, or Advanced",
+        description: "Difficulty level",
         sampleValue: "Intermediate",
-        aliases: ["level", "course level", "difficulty", "difficulty level"],
       },
       {
         key: "instructor",
         label: "Instructor Name",
         type: "string",
         required: false,
-        defaultValue: "Dharunkumar S",
         description: "Primary course instructor",
         sampleValue: "Dharunkumar S",
-        aliases: ["instructor", "instructor name", "trainer", "author"],
       },
       {
         key: "description",
@@ -1148,82 +837,6 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         required: false,
         description: "Detailed syllabus overview and prerequisites",
         sampleValue: "Deep dive into microservices, Spring Security, and cloud deployments.",
-        aliases: ["description", "course description", "overview", "syllabus"],
-      },
-      {
-        key: "mainModuleName",
-        label: "Main Module / Chapter",
-        type: "string",
-        required: false,
-        description: "Title of main chapter/module (e.g. 'Module 1: Foundations'). If omitted, defaults to 'Module 1: General Curriculum'.",
-        sampleValue: "Module 1: Foundations & Architecture",
-        aliases: ["main module", "main module name", "main module title", "chapter", "chapter title", "unit", "module name", "module title", "main module / chapter"],
-      },
-      {
-        key: "subModuleTitle",
-        label: "Sub-Module / Lesson Title",
-        type: "string",
-        required: false,
-        description: "Title of lesson or sub-module (e.g. '1.1 Getting Started'). Multiple rows with the same Course Title add multiple sub-modules.",
-        sampleValue: "1.1 Architecture & Setup",
-        aliases: ["sub module title", "sub-module title", "submodule title", "submodule", "sub module", "lesson", "lesson title", "sub-module / lesson title"],
-      },
-      {
-        key: "deliveryType",
-        label: "Delivery Type",
-        type: "enum",
-        required: false,
-        options: ["video", "reading", "coding", "quiz"],
-        defaultValue: "video",
-        description: "Lesson delivery medium: video, reading, coding, or quiz",
-        sampleValue: "video",
-        aliases: ["delivery type", "type", "lesson type", "format"],
-      },
-      {
-        key: "duration",
-        label: "Duration",
-        type: "string",
-        required: false,
-        defaultValue: "45 mins",
-        description: "Estimated lesson duration (e.g. '45 mins', '1 hr')",
-        sampleValue: "45 mins",
-        aliases: ["duration", "lesson duration", "time", "estimated time"],
-      },
-      {
-        key: "videoUrl",
-        label: "Video Link",
-        type: "url",
-        required: false,
-        description: "Google Drive, YouTube, or direct MP4 link for video lessons",
-        sampleValue: "https://drive.google.com/file/d/sample-vid-1/view",
-        aliases: ["video link", "video url", "video", "url"],
-      },
-      {
-        key: "notes",
-        label: "Lesson Notes",
-        type: "string",
-        required: false,
-        description: "Key concepts, bullet points, or summary notes for video lessons",
-        sampleValue: "# Overview\n- Variable scoping\n- Dependency Injection fundamentals",
-        aliases: ["lesson notes", "notes", "summary", "notes / summary"],
-      },
-      {
-        key: "readingContent",
-        label: "Reading Content",
-        type: "string",
-        required: false,
-        description: "Complete text content or markdown for reading lessons",
-        sampleValue: "In this reading lesson, we explore foundational principles of Spring Boot 3.",
-        aliases: ["reading content", "reading", "article", "reading / article content"],
-      },
-      {
-        key: "practiceDescription",
-        label: "Coding Problem Statement",
-        type: "string",
-        required: false,
-        description: "Problem description for interactive coding lessons",
-        sampleValue: "Implement a REST controller exposing `/api/users` with GET and POST handlers.",
-        aliases: ["coding problem statement", "problem statement", "coding problem", "practice description"],
       },
     ],
     sampleRows: [
@@ -1232,225 +845,41 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         category: "Web Development",
         level: "Intermediate",
         instructor: "Dharunkumar S",
-        description: "Build robust, scalable enterprise microservices using Spring Boot 3 and Docker.",
-        mainModuleName: "Module 1: Foundations & Microservice Architecture",
-        subModuleTitle: "1.1 Spring Boot 3 Architecture & Project Setup",
-        deliveryType: "video",
-        duration: "45 mins",
-        videoUrl: "https://drive.google.com/file/d/sample-vid-1/view",
-        notes: "- Spring Initializr setup\n- Maven/Gradle build configurations\n- Embedded Tomcat internals",
-        readingContent: "",
-        practiceDescription: "",
-      },
-      {
-        title: "Mastering Modern Spring Boot 3",
-        category: "Web Development",
-        level: "Intermediate",
-        instructor: "Dharunkumar S",
-        description: "Build robust, scalable enterprise microservices using Spring Boot 3 and Docker.",
-        mainModuleName: "Module 1: Foundations & Microservice Architecture",
-        subModuleTitle: "1.2 Dependency Injection & ApplicationContext",
-        deliveryType: "reading",
-        duration: "30 mins",
-        videoUrl: "",
-        notes: "",
-        readingContent: "Dependency Injection (DI) is an IoC design pattern where object dependencies are injected by the Spring container.",
-        practiceDescription: "",
-      },
-      {
-        title: "Mastering Modern Spring Boot 3",
-        category: "Web Development",
-        level: "Intermediate",
-        instructor: "Dharunkumar S",
-        description: "Build robust, scalable enterprise microservices using Spring Boot 3 and Docker.",
-        mainModuleName: "Module 2: RESTful API Engineering & JPA Persistence",
-        subModuleTitle: "2.1 Coding Lab: Build REST User Management Controller",
-        deliveryType: "coding",
-        duration: "60 mins",
-        videoUrl: "",
-        notes: "",
-        readingContent: "",
-        practiceDescription: "Create a Spring `@RestController` exposing `/api/users` with GET, POST, and DELETE endpoints.",
+        description: "Build robust, scalable enterprise microservices using Spring Boot 3 and Docker."
       },
       {
         title: "Applied Machine Learning & LLM Engineering",
         category: "AI & Machine Learning",
         level: "Advanced",
         instructor: "Dharunkumar S",
-        description: "Transformers, RAG pipelines, fine-tuning, and production deployment architectures.",
-        mainModuleName: "Module 1: Transformer Foundations & Attention",
-        subModuleTitle: "1.1 Self-Attention Mechanism & Multi-Head Projections",
-        deliveryType: "video",
-        duration: "50 mins",
-        videoUrl: "https://drive.google.com/file/d/sample-vid-2/view",
-        notes: "- Query, Key, Value matrix mathematics\n- Scaled dot-product formula",
-        readingContent: "",
-        practiceDescription: "",
-      },
-      {
-        title: "Applied Machine Learning & LLM Engineering",
-        category: "AI & Machine Learning",
-        level: "Advanced",
-        instructor: "Dharunkumar S",
-        description: "Transformers, RAG pipelines, fine-tuning, and production deployment architectures.",
-        mainModuleName: "Module 1: Transformer Foundations & Attention",
-        subModuleTitle: "1.2 Reading: Tokenization, Embeddings & Positional Encodings",
-        deliveryType: "reading",
-        duration: "40 mins",
-        videoUrl: "",
-        notes: "",
-        readingContent: "Byte-Pair Encoding (BPE) and WordPiece tokenizers break strings into subword tokens for vocabulary compression.",
-        practiceDescription: "",
+        description: "Transformers, RAG pipelines, fine-tuning, and production deployment architectures."
       },
       {
         title: "AWS Certified Solutions Architect Training",
         category: "Cloud Computing",
         level: "Beginner",
         instructor: "Dharunkumar S",
-        description: "Complete guide to AWS EC2, S3, RDS, IAM, and enterprise networking.",
-        mainModuleName: "Module 1: Cloud Virtualization & Identity",
-        subModuleTitle: "1.1 AWS Global Infrastructure, IAM Roles & Policies",
-        deliveryType: "video",
-        duration: "45 mins",
-        videoUrl: "https://drive.google.com/file/d/sample-vid-3/view",
-        notes: "- Regions, Availability Zones, and Edge Locations\n- IAM users, groups, roles, and JSON policy documents",
-        readingContent: "",
-        practiceDescription: "",
+        description: "Complete guide to AWS EC2, S3, RDS, IAM, and enterprise networking."
       }
     ],
-    mapToPayload: (row, idx) => {
-      const subTitle = String(row.subModuleTitle || "").trim();
-      const modTitle = String(row.mainModuleName || "Module 1: Core Curriculum").trim();
-      const delType = String(row.deliveryType || "video").toLowerCase().trim();
-      const validDelivery: "video" | "reading" | "coding" | "quiz" = ["video", "reading", "coding", "quiz"].includes(delType) ? (delType as any) : "video";
-
-      const subModules: any[] = [];
-      if (subTitle) {
-        subModules.push({
-          id: `sub_${Date.now()}_${idx}_1`,
-          title: subTitle,
-          type: validDelivery,
-          duration: row.duration ? String(row.duration).trim() : "45 mins",
-          videoUrl: row.videoUrl ? String(row.videoUrl).trim() : undefined,
-          notes: row.notes ? String(row.notes).trim() : undefined,
-          readingContent: row.readingContent ? String(row.readingContent).trim() : undefined,
-          readingMaterial: row.readingContent ? String(row.readingContent).trim() : undefined,
-          practiceDescription: row.practiceDescription ? String(row.practiceDescription).trim() : undefined,
-          problemStatement: row.practiceDescription ? String(row.practiceDescription).trim() : undefined,
-        });
-      }
-
-      const modules = subModules.length > 0 ? [{
-        id: `mod_${Date.now()}_${idx}`,
-        title: modTitle,
-        description: `Curriculum unit for ${modTitle}`,
-        subModules,
-      }] : [];
-
-      return {
-        id: `course_${Date.now()}_${idx}`,
-        title: String(row.title || "").trim(),
-        category: String(row.category || "General").trim(),
-        level: (row.level && ["Beginner", "Intermediate", "Advanced"].includes(row.level)) ? row.level : "Intermediate",
-        instructor: String(row.instructor || "Dharunkumar S").trim(),
-        description: String(row.description || "Comprehensive course curriculum.").trim(),
-        thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
-        modules,
-        totalLessons: subModules.length,
-        status: "published",
-        enrolledStudents: 0,
-        durationHours: 1,
-        durationMins: 0,
-        isCommon: true,
-        assignedBatches: [],
-        assignedStudents: [],
-      };
-    },
-    mapAllRows: (rows: Record<string, any>[]) => {
-      const courseMap = new Map<string, {
-        course: any;
-        moduleMap: Map<string, { id: string; title: string; description: string; subModules: any[] }>;
-      }>();
-
-      rows.forEach((row, rowIdx) => {
-        const title = String(row.title || "").trim();
-        if (!title) return;
-        const normKey = title.toLowerCase();
-
-        if (!courseMap.has(normKey)) {
-          courseMap.set(normKey, {
-            course: {
-              id: `course_${Date.now()}_${rowIdx}`,
-              title,
-              category: String(row.category || "General").trim(),
-              level: (row.level && ["Beginner", "Intermediate", "Advanced"].includes(row.level)) ? row.level : "Intermediate",
-              instructor: String(row.instructor || "Dharunkumar S").trim(),
-              description: String(row.description || "Comprehensive course curriculum.").trim(),
-              thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
-              modules: [],
-              totalLessons: 0,
-              status: "published",
-              enrolledStudents: 0,
-              durationHours: 0,
-              durationMins: 0,
-              isCommon: true,
-              assignedBatches: [],
-              assignedStudents: [],
-            },
-            moduleMap: new Map(),
-          });
-        }
-
-        const entry = courseMap.get(normKey)!;
-        const subTitle = String(row.subModuleTitle || "").trim();
-
-        // If there is a submodule or main module specified
-        if (subTitle || row.mainModuleName) {
-          const modTitle = String(row.mainModuleName || "").trim() || "Module 1: Core Curriculum";
-          const modKey = modTitle.toLowerCase();
-
-          if (!entry.moduleMap.has(modKey)) {
-            entry.moduleMap.set(modKey, {
-              id: `mod_${Date.now()}_${entry.moduleMap.size + 1}`,
-              title: modTitle,
-              description: `Curriculum unit for ${modTitle}`,
-              subModules: [],
-            });
-          }
-
-          if (subTitle) {
-            const currentMod = entry.moduleMap.get(modKey)!;
-            const subIdx = currentMod.subModules.length + 1;
-            const delType = String(row.deliveryType || "video").toLowerCase().trim();
-            const validDelivery: "video" | "reading" | "coding" | "quiz" = ["video", "reading", "coding", "quiz"].includes(delType) ? (delType as any) : "video";
-
-            currentMod.subModules.push({
-              id: `sub_${Date.now()}_${rowIdx}_${subIdx}`,
-              title: subTitle,
-              type: validDelivery,
-              duration: row.duration ? String(row.duration).trim() : "45 mins",
-              videoUrl: row.videoUrl ? String(row.videoUrl).trim() : undefined,
-              notes: row.notes ? String(row.notes).trim() : undefined,
-              readingContent: row.readingContent ? String(row.readingContent).trim() : undefined,
-              readingMaterial: row.readingContent ? String(row.readingContent).trim() : undefined,
-              practiceDescription: row.practiceDescription ? String(row.practiceDescription).trim() : undefined,
-              problemStatement: row.practiceDescription ? String(row.practiceDescription).trim() : undefined,
-            });
-          }
-        }
-      });
-
-      return Array.from(courseMap.values()).map(({ course, moduleMap }) => {
-        const modules = Array.from(moduleMap.values());
-        const totalLessons = modules.reduce((acc, m) => acc + (m.subModules?.length || 0), 0);
-        return {
-          ...course,
-          modules,
-          totalLessons: totalLessons > 0 ? totalLessons : 1,
-          durationHours: Math.max(1, Math.ceil(totalLessons * 0.75)),
-        };
-      });
-    }
+    mapToPayload: (row, idx) => ({
+      id: `course_${Date.now()}_${idx}`,
+      title: String(row.title || "").trim(),
+      category: String(row.category || "General").trim(),
+      level: (row.level && ["Beginner", "Intermediate", "Advanced"].includes(row.level)) ? row.level : "Intermediate",
+      instructor: String(row.instructor || "Dharunkumar S").trim(),
+      description: String(row.description || "Comprehensive course curriculum.").trim(),
+      thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80",
+      modules: [],
+      totalLessons: 0,
+      status: "published",
+      enrolledStudents: 0,
+      durationHours: 0,
+      durationMins: 0,
+      isCommon: true,
+      assignedBatches: [],
+      assignedStudents: [],
+    })
   },
 
   // ─── 10. ASSESSMENTS BULK CREATION TEMPLATE ─────────────────────────────────

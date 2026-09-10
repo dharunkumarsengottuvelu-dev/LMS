@@ -243,16 +243,11 @@ export function BulkUploadComponent({
         throw new Error("The uploaded file is empty. Please add rows and re-upload.");
       }
 
-      // Create a header mapping from (Label or Key or Aliases) -> Col
+      // Create a header mapping from (Label or Key) -> Key
       const columnMapping: Record<string, ColumnDefinition> = {};
       config.columns.forEach((col) => {
         columnMapping[col.label.toLowerCase().trim()] = col;
         columnMapping[col.key.toLowerCase().trim()] = col;
-        if (col.aliases && Array.isArray(col.aliases)) {
-          col.aliases.forEach((alias) => {
-            columnMapping[alias.toLowerCase().trim()] = col;
-          });
-        }
       });
 
       // Validate each row
@@ -448,9 +443,7 @@ export function BulkUploadComponent({
       return;
     }
 
-    const payload = config.mapAllRows
-      ? config.mapAllRows(validRows.map((r) => r.rawRow))
-      : validRows.map((r, idx) => config.mapToPayload(r.rawRow, idx));
+    const payload = validRows.map((r, idx) => config.mapToPayload(r.rawRow, idx));
     onImport(payload);
 
     toast({
