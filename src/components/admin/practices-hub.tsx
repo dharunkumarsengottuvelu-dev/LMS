@@ -8,7 +8,7 @@ import {
   ArrowLeft, FolderKanban, Sparkles, Trash2, Edit, Save, Check,
   HelpCircle, Layers, Eye, EyeOff, UploadCloud, User,
   Maximize2, Minimize2, ShieldAlert, Lock, Copy, RotateCcw,
-  Edit2, ChevronUp, ChevronDown, FileSpreadsheet, Database
+  Edit2, ChevronUp, ChevronDown, FileSpreadsheet, Database, X, Folder, FolderPlus
 } from "lucide-react";
 import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
@@ -91,6 +91,10 @@ export interface CodingQuestionItem {
   comparison_mode?: string;
   publicTestCases?: any[];
   hiddenTestCases?: any[];
+  marks?: number;
+  points?: number;
+  subModuleId?: string;
+  starterCode?: string;
 }
 
 interface PracticeTrack {
@@ -161,6 +165,26 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [showPracticeBulkUpload, setShowPracticeBulkUpload] = useState<boolean>(false);
   const [showBulkUploadTracks, setShowBulkUploadTracks] = useState<boolean>(false);
   const [expandedSubModuleIds, setExpandedSubModuleIds] = useState<Record<string, boolean>>({});
+
+  // Add Question to Existing Sub-Module State
+  const [addingQuestionSubModuleId, setAddingQuestionSubModuleId] = useState<string | null>(null);
+  const [newQTitle, setNewQTitle] = useState("");
+  const [newQDifficulty, setNewQDifficulty] = useState<"Easy" | "Medium" | "Hard">("Easy");
+  const [newQMarks, setNewQMarks] = useState<number>(10);
+  const [newQDescription, setNewQDescription] = useState("");
+  const [newQConstraints, setNewQConstraints] = useState("");
+  const [newQInputFormat, setNewQInputFormat] = useState("");
+  const [newQOutputFormat, setNewQOutputFormat] = useState("");
+  const [newQTc1Input, setNewQTc1Input] = useState("");
+  const [newQTc1Output, setNewQTc1Output] = useState("");
+  const [newQHiddenInput, setNewQHiddenInput] = useState("");
+  const [newQHiddenOutput, setNewQHiddenOutput] = useState("");
+  const [newQStarterCode, setNewQStarterCode] = useState("");
+
+  // Consolidate legacy single-question sub-modules
+  const [showConsolidateModal, setShowConsolidateModal] = useState<boolean>(false);
+  const [consolidateTargetName, setConsolidateTargetName] = useState<string>("Java Basics");
+  const [selectedSmIdsToConsolidate, setSelectedSmIdsToConsolidate] = useState<string[]>([]);
 
   // Track form state
   const [fTitle, setFTitle]       = useState("");
@@ -986,6 +1010,234 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     }
   };
 
+  const handleSaveQuestionToSubModule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTrack || !addingQuestionSubModuleId || !newQTitle.trim()) return;
+
+    const publicTestCases: any[] = [];
+    if (newQTc1Input || newQTc1Output) {
+      publicTestCases.push({
+        id: `tc_${Date.now()}_1`,
+        name: "Test Case 1",
+        input: newQTc1Input.trim(),
+        expected_output: newQTc1Output.trim(),
+        expectedOutput: newQTc1Output.trim(),
+        is_hidden: false,
+        isSample: true,
+      });
+    }
+
+    const hiddenTestCases: any[] = [];
+    if (newQHiddenInput || newQHiddenOutput) {
+      hiddenTestCases.push({
+        id: `tc_hid_${Date.now()}_1`,
+        name: "Hidden Test Case 1",
+        input: newQHiddenInput.trim(),
+        expected_output: newQHiddenOutput.trim(),
+        expectedOutput: newQHiddenOutput.trim(),
+        is_hidden: true,
+      });
+    }
+
+    const combinedTestCases = [...publicTestCases, ...hiddenTestCases];
+
+    const starterTemplates: Record<string, string> = {
+      java: newQStarterCode || "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write solution here\n    }\n}\n",
+      python: newQStarterCode || "# Write solution here\nimport sys\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n",
+      cpp: newQStarterCode || "#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write solution here\n    return 0;\n}\n",
+      javascript: newQStarterCode || "// Write solution here\nconst fs = require('fs');\nconst input = fs.readFileSync(0, 'utf-8').trim();\n",
+    };
+
+    const newQuestion: CodingQuestionItem & { [key: string]: any } = {
+      id: `cq_${Date.now()}_${addingQuestionSubModuleId}`,
+      subModuleId: addingQuestionSubModuleId,
+      title: newQTitle.trim(),
+      description: newQDescription.trim() || `Solve: ${newQTitle.trim()}`,
+      difficulty: newQDifficulty,
+      marks: Number(newQMarks) || 10,
+      constraints: newQConstraints.trim(),
+      inputFormat: newQInputFormat.trim(),
+      outputFormat: newQOutputFormat.trim(),
+      starterCode: newQStarterCode.trim(),
+      templates: starterTemplates,
+      publicTestCases,
+      hiddenTestCases,
+      test_cases: combinedTestCases,
+      testCases: combinedTestCases,
+    };
+
+    const updatedSubModules = selectedTrack.subModules.map((sm) => {
+      if (sm.id !== addingQuestionSubModuleId) return sm;
+      const currentQuestions = (sm as any).codingQuestions || sm.sections?.flatMap((s: any) => s.codingQuestions || []) || [];
+      const updatedQuestions = [...currentQuestions, newQuestion];
+
+      let updatedSections = sm.sections ? [...sm.sections] : [];
+      if (updatedSections.length > 0 && updatedSections[0]) {
+        updatedSections[0] = {
+          ...updatedSections[0],
+          codingQuestions: updatedQuestions,
+        };
+      } else {
+        updatedSections = [
+          {
+            id: `sec_${Date.now()}_1`,
+            title: `Section 1: ${sm.title}`,
+            mcqQuestions: [],
+            codingQuestions: updatedQuestions,
+          }
+        ];
+      }
+
+      const totalMarks = updatedQuestions.reduce((sum: number, q: any) => sum + (Number(q.marks) || 10), 0);
+
+      return {
+        ...sm,
+        codingQuestions: updatedQuestions,
+        sections: updatedSections,
+        questionCount: updatedQuestions.length + (sm.mcqQuestions?.length || 0),
+        totalMarks: totalMarks > 0 ? totalMarks : (sm.totalMarks || 0) + (Number(newQMarks) || 10),
+      };
+    });
+
+    const updatedTrack = {
+      ...selectedTrack,
+      subModules: updatedSubModules,
+    };
+
+    setSelectedTrack(updatedTrack);
+    const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
+    await syncTracksToStore(updatedTracks);
+
+    setAddingQuestionSubModuleId(null);
+    setNewQTitle("");
+    setNewQDescription("");
+    setNewQConstraints("");
+    setNewQInputFormat("");
+    setNewQOutputFormat("");
+    setNewQTc1Input("");
+    setNewQTc1Output("");
+    setNewQHiddenInput("");
+    setNewQHiddenOutput("");
+    setNewQStarterCode("");
+
+    const targetSubMod = selectedTrack.subModules.find((sm) => sm.id === addingQuestionSubModuleId);
+    const newCount = ((targetSubMod as any)?.codingQuestions?.length || 0) + 1;
+    toast({
+      title: "Question Added",
+      description: `Added "${newQuestion.title}" to ${targetSubMod?.title || "Sub-Module"}. Total questions: ${newCount}.`,
+    });
+  };
+
+  const handleDeleteQuestionFromSubModule = async (subModuleId: string, questionIdOrIdx: any) => {
+    if (!selectedTrack) return;
+    const updatedSubModules = selectedTrack.subModules.map((sm) => {
+      if (sm.id !== subModuleId) return sm;
+      const currentQuestions = (sm as any).codingQuestions || sm.sections?.flatMap((s: any) => s.codingQuestions || []) || [];
+      const updatedQuestions = currentQuestions.filter((q: any, idx: number) => q.id !== questionIdOrIdx && idx !== questionIdOrIdx);
+
+      let updatedSections = sm.sections ? [...sm.sections] : [];
+      if (updatedSections.length > 0 && updatedSections[0]) {
+        updatedSections[0] = {
+          ...updatedSections[0],
+          codingQuestions: updatedQuestions,
+        };
+      }
+      const totalMarks = updatedQuestions.reduce((sum: number, q: any) => sum + (Number(q.marks) || 10), 0);
+
+      return {
+        ...sm,
+        codingQuestions: updatedQuestions,
+        sections: updatedSections,
+        questionCount: updatedQuestions.length + (sm.mcqQuestions?.length || 0),
+        totalMarks: totalMarks > 0 ? totalMarks : 10,
+      };
+    });
+
+    const updatedTrack = { ...selectedTrack, subModules: updatedSubModules };
+    setSelectedTrack(updatedTrack);
+    const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
+    await syncTracksToStore(updatedTracks);
+    toast({ title: "Question Removed", description: "Question removed from sub-module." });
+  };
+
+  const handleConsolidateSubModules = async () => {
+    if (!selectedTrack || !consolidateTargetName.trim() || selectedSmIdsToConsolidate.length === 0) return;
+
+    const selectedSms = selectedTrack.subModules.filter((sm) => selectedSmIdsToConsolidate.includes(sm.id));
+    const nonSelectedSms = selectedTrack.subModules.filter((sm) => !selectedSmIdsToConsolidate.includes(sm.id));
+
+    const allCodingQuestions: CodingQuestionItem[] = [];
+    const allMcqQuestions: MCQQuestionItem[] = [];
+    let maxDuration = 60;
+
+    selectedSms.forEach((sm, smIdx) => {
+      maxDuration = Math.max(maxDuration, sm.durationMinutes || 0);
+      const coding = (sm as any).codingQuestions || sm.sections?.flatMap((s: any) => s.codingQuestions || []) || [];
+      const mcqs = (sm as any).mcqQuestions || sm.sections?.flatMap((s: any) => s.mcqQuestions || []) || [];
+
+      if (coding.length > 0) {
+        coding.forEach((cq: any) => allCodingQuestions.push(cq));
+      } else if (sm.title && !mcqs.length) {
+        allCodingQuestions.push({
+          id: `cq_${Date.now()}_${smIdx}`,
+          title: sm.title,
+          description: (sm as any).problemDescription || "",
+          difficulty: "Easy",
+          marks: sm.totalMarks || 10,
+          starterCode: (sm as any).starterCode || "",
+          publicTestCases: (sm as any).publicTestCases ? (typeof (sm as any).publicTestCases === "string" ? JSON.parse(String((sm as any).publicTestCases)) : (sm as any).publicTestCases) : [],
+          hiddenTestCases: (sm as any).hiddenTestsCode ? (typeof (sm as any).hiddenTestsCode === "string" ? JSON.parse(String((sm as any).hiddenTestsCode)) : (sm as any).hiddenTestsCode) : [],
+        });
+      }
+
+      mcqs.forEach((mq: any) => allMcqQuestions.push(mq));
+    });
+
+    const newModuleId = `sm_${Date.now()}_consolidated`;
+    allCodingQuestions.forEach((cq) => {
+      (cq as any).subModuleId = newModuleId;
+    });
+
+    const totalMarks = allCodingQuestions.reduce((acc, q) => acc + (Number(q.marks) || 10), 0) +
+                       allMcqQuestions.reduce((acc, q) => acc + (Number((q as any).marks) || 10), 0);
+
+    const consolidatedSubModule: SubModuleItem = {
+      id: newModuleId,
+      title: consolidateTargetName.trim(),
+      type: allCodingQuestions.length > 0 && allMcqQuestions.length > 0 ? "mixed" : allMcqQuestions.length > 0 ? "mcq" : "coding",
+      durationMinutes: maxDuration,
+      totalMarks: totalMarks > 0 ? totalMarks : 100,
+      questionCount: allCodingQuestions.length + allMcqQuestions.length,
+      codingQuestions: allCodingQuestions,
+      mcqQuestions: allMcqQuestions,
+      sections: [
+        {
+          id: `sec_${Date.now()}_1`,
+          title: `Section 1: ${consolidateTargetName.trim()}`,
+          mcqQuestions: allMcqQuestions,
+          codingQuestions: allCodingQuestions,
+        }
+      ],
+    };
+
+    const updatedSubModules = [consolidatedSubModule, ...nonSelectedSms];
+    const updatedTrack = {
+      ...selectedTrack,
+      subModules: updatedSubModules,
+    };
+
+    setSelectedTrack(updatedTrack);
+    const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
+    await syncTracksToStore(updatedTracks);
+
+    setShowConsolidateModal(false);
+    setSelectedSmIdsToConsolidate([]);
+    toast({
+      title: "Sub-Module Consolidated!",
+      description: `Created "${consolidateTargetName.trim()}" containing ${allCodingQuestions.length + allMcqQuestions.length} questions.`,
+    });
+  };
+
   const openAssign = (t: PracticeTrack) => {
     setSelectedTrack(t);
     // Filter assigned batches against real valid batches in database
@@ -1310,6 +1562,20 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           backAction={{ label: "Back", onClick: () => setViewState("list") }}
           actions={
             <div className="flex items-center gap-2">
+              {selectedTrack.subModules.length > 1 && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedSmIdsToConsolidate(selectedTrack.subModules.map((sm) => sm.id));
+                    setConsolidateTargetName("Java Basics");
+                    setShowConsolidateModal(true);
+                  }}
+                  className="h-[44px] gap-2 px-3.5 rounded-xl border-[#2563EB]/30 bg-blue-50/50 dark:bg-blue-950/20 text-[#2563EB] font-semibold text-xs shadow-xs hover:bg-blue-100/60"
+                  title="Group multiple existing sub-modules into one unified sub-module"
+                >
+                  <FolderKanban className="h-4 w-4" /> Group Questions
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => setShowPracticeBulkUpload(true)}
@@ -1475,6 +1741,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           {selectedTrack.subModules.map((sm, idx) => {
             const smQuestionsList = (sm as any).codingQuestions || sm.sections?.flatMap((s: any) => s.codingQuestions || []) || [];
             const isExpanded = !!expandedSubModuleIds[sm.id];
+            const computedTotalMarks = smQuestionsList.length > 0
+              ? smQuestionsList.reduce((acc: number, q: any) => acc + (Number(q.marks) || 10), 0)
+              : sm.totalMarks;
+            const computedQuestionCount = smQuestionsList.length > 0 ? smQuestionsList.length : sm.questionCount;
 
             return (
               <Card key={sm.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-hidden transition-all shadow-xs">
@@ -1488,7 +1758,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">{sm.title}</p>
                           <Badge variant="outline" className="text-[10px] border-blue-200 bg-blue-50/50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300 font-mono">
-                            {sm.questionCount} {sm.questionCount === 1 ? "question" : "questions"}
+                            {computedQuestionCount} {computedQuestionCount === 1 ? "question" : "questions"}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -1496,23 +1766,45 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           <span className="text-[10px] text-[#6B7280]">
                             <Clock className="h-2.5 w-2.5 inline mr-0.5" />{sm.durationMinutes > 0 ? `${sm.durationMinutes} mins` : "No Time Limit"}
                           </span>
-                          <span className="text-[10px] text-[#6B7280]">{sm.totalMarks} marks</span>
+                          <span className="text-[10px] text-[#6B7280]">{computedTotalMarks} marks</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {smQuestionsList.length > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setExpandedSubModuleIds((prev) => ({ ...prev, [sm.id]: !prev[sm.id] }))}
-                          className="h-8 px-2.5 text-xs text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg gap-1 font-medium"
-                          title="View questions in this module"
-                        >
-                          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                          <span>{isExpanded ? "Hide" : `Questions (${smQuestionsList.length})`}</span>
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExpandedSubModuleIds((prev) => ({ ...prev, [sm.id]: !prev[sm.id] }))}
+                        className="h-8 px-2.5 text-xs text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg gap-1 font-medium"
+                        title="View questions in this module"
+                      >
+                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        <span>{isExpanded ? "Hide Questions" : `View Questions (${computedQuestionCount})`}</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setAddingQuestionSubModuleId(sm.id);
+                          setNewQTitle("");
+                          setNewQDifficulty("Easy");
+                          setNewQMarks(10);
+                          setNewQDescription("");
+                          setNewQConstraints("");
+                          setNewQInputFormat("");
+                          setNewQOutputFormat("");
+                          setNewQTc1Input("");
+                          setNewQTc1Output("");
+                          setNewQHiddenInput("");
+                          setNewQHiddenOutput("");
+                          setNewQStarterCode("");
+                        }}
+                        className="h-8 px-2.5 text-xs font-semibold gap-1 text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10 rounded-lg"
+                        title="Add Question to this Sub-Module"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Add Question</span>
+                      </Button>
                       <Button onClick={() => handleEditSubModule(selectedTrack.id, sm.id)}
                         variant="ghost" size="icon" className="h-8 w-8 text-[#2563EB]">
                         <Edit className="h-4 w-4" />
@@ -1525,49 +1817,77 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   </div>
 
                   {/* Submodule Nested Questions Drawer */}
-                  {isExpanded && smQuestionsList.length > 0 && (
+                  {isExpanded && (
                     <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-zinc-800 space-y-2">
                       <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                        <span>Questions in this Module ({smQuestionsList.length})</span>
-                        <span className="text-[10px] font-normal text-slate-400">1 Module → Many Questions Architecture</span>
+                        <span>Questions in {sm.title} ({smQuestionsList.length})</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setAddingQuestionSubModuleId(sm.id);
+                            setNewQTitle("");
+                            setNewQDifficulty("Easy");
+                            setNewQMarks(10);
+                            setNewQDescription("");
+                          }}
+                          className="h-6 px-2 text-[11px] text-[#2563EB] hover:bg-blue-50 font-semibold gap-1"
+                        >
+                          <Plus className="h-3 w-3" /> Add Question
+                        </Button>
                       </div>
-                      <div className="divide-y divide-slate-100 dark:divide-zinc-800/80 bg-slate-50/70 dark:bg-zinc-900/50 rounded-xl border border-slate-200/60 dark:border-zinc-800 p-1.5">
-                        {smQuestionsList.map((q: any, qIdx: number) => (
-                          <div key={q.id || qIdx} className="p-2 flex items-center justify-between gap-3 text-xs hover:bg-white/60 dark:hover:bg-zinc-800/50 rounded-lg transition-colors">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="w-5 h-5 rounded-full bg-slate-200/60 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-bold flex items-center justify-center shrink-0">
-                                {qIdx + 1}
-                              </span>
-                              <p className="font-semibold text-slate-800 dark:text-zinc-200 truncate">
-                                {q.title || "Untitled Question"}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {q.difficulty && (
-                                <Badge variant="outline" className={`text-[10px] uppercase font-mono px-1.5 py-0 h-4.5 ${
-                                  q.difficulty.toLowerCase() === "easy"
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400"
-                                    : q.difficulty.toLowerCase() === "medium"
-                                    ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400"
-                                    : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400"
-                                }`}>
-                                  {q.difficulty}
-                                </Badge>
-                              )}
-                              {q.marks && (
-                                <span className="text-[10px] font-semibold text-slate-500 font-mono">
-                                  {q.marks} pts
+                      {smQuestionsList.length === 0 ? (
+                        <div className="text-center py-6 border border-dashed border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-slate-400">
+                          No questions added yet. Click &quot;Add Question&quot; to create the first question in this sub-module.
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-slate-100 dark:divide-zinc-800/80 bg-slate-50/70 dark:bg-zinc-900/50 rounded-xl border border-slate-200/60 dark:border-zinc-800 p-1.5">
+                          {smQuestionsList.map((q: any, qIdx: number) => (
+                            <div key={q.id || qIdx} className="p-2 flex items-center justify-between gap-3 text-xs hover:bg-white/60 dark:hover:bg-zinc-800/50 rounded-lg transition-colors">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className="w-5 h-5 rounded-full bg-slate-200/60 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                  {qIdx + 1}
                                 </span>
-                              )}
-                              {((q.publicTestCases?.length || 0) + (q.hiddenTestCases?.length || 0) > 0 || (q.testCases?.length || 0) > 0) && (
-                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 px-1.5 py-0.5 rounded font-mono">
-                                  {(q.publicTestCases?.length || 0) + (q.hiddenTestCases?.length || 0) || (q.testCases?.length || 0)} tests
-                                </span>
-                              )}
+                                <p className="font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                                  {q.title || "Untitled Question"}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {q.difficulty && (
+                                  <Badge variant="outline" className={`text-[10px] uppercase font-mono px-1.5 py-0 h-4.5 ${
+                                    q.difficulty.toLowerCase() === "easy"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400"
+                                      : q.difficulty.toLowerCase() === "medium"
+                                      ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400"
+                                      : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400"
+                                  }`}>
+                                    {q.difficulty}
+                                  </Badge>
+                                )}
+                                {q.marks && (
+                                  <span className="text-[10px] font-semibold text-slate-500 font-mono">
+                                    {q.marks} pts
+                                  </span>
+                                )}
+                                {((q.publicTestCases?.length || 0) + (q.hiddenTestCases?.length || 0) > 0 || (q.testCases?.length || 0) > 0) && (
+                                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 px-1.5 py-0.5 rounded font-mono">
+                                    {(q.publicTestCases?.length || 0) + (q.hiddenTestCases?.length || 0) || (q.testCases?.length || 0)} tests
+                                  </span>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteQuestionFromSubModule(sm.id, q.id || qIdx)}
+                                  className="h-6 w-6 text-slate-400 hover:text-red-600"
+                                  title="Delete question"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -1575,6 +1895,305 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             );
           })}
         </div>
+
+        {/* ADD QUESTION TO SUB-MODULE MODAL */}
+        {addingQuestionSubModuleId && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in-50 duration-150">
+            <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-4 bg-[#F9FAFB]/90 dark:bg-[#111827]/80">
+                <div>
+                  <h3 className="font-bold text-base text-[#111827] dark:text-[#FAFAFA]">
+                    Add Question to Sub-Module
+                  </h3>
+                  <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">
+                    Target Sub-Module: <span className="font-semibold text-[#2563EB]">{selectedTrack.subModules.find(s => s.id === addingQuestionSubModuleId)?.title}</span>
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setAddingQuestionSubModuleId(null)}
+                  className="h-8 w-8 rounded-full"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <form onSubmit={handleSaveQuestionToSubModule} className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                    Question Title <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    placeholder="e.g. Find Factorial of a Number"
+                    value={newQTitle}
+                    onChange={(e) => setNewQTitle(e.target.value)}
+                    required
+                    className="h-10 text-xs rounded-xl"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Difficulty</label>
+                    <Select value={newQDifficulty} onValueChange={(v: any) => setNewQDifficulty(v)}>
+                      <SelectTrigger className="h-10 text-xs rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Easy">Easy</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="Hard">Hard</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Marks / Points</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={newQMarks}
+                      onChange={(e) => setNewQMarks(Number(e.target.value))}
+                      className="h-10 text-xs rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Problem Statement</label>
+                  <Textarea
+                    placeholder="Describe the problem, input/output requirements, etc."
+                    rows={3}
+                    value={newQDescription}
+                    onChange={(e) => setNewQDescription(e.target.value)}
+                    className="text-xs rounded-xl"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Input Format</label>
+                    <Input
+                      placeholder="e.g. First line contains integer N"
+                      value={newQInputFormat}
+                      onChange={(e) => setNewQInputFormat(e.target.value)}
+                      className="h-9 text-xs rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Output Format</label>
+                    <Input
+                      placeholder="e.g. Print result on a single line"
+                      value={newQOutputFormat}
+                      onChange={(e) => setNewQOutputFormat(e.target.value)}
+                      className="h-9 text-xs rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Constraints</label>
+                  <Input
+                    placeholder="e.g. 1 <= N <= 10^5"
+                    value={newQConstraints}
+                    onChange={(e) => setNewQConstraints(e.target.value)}
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 space-y-3">
+                  <p className="text-xs font-bold text-slate-700 dark:text-zinc-300">Public Test Case 1</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-[11px] text-slate-500">Sample Input</span>
+                      <Input
+                        placeholder="e.g. 5"
+                        value={newQTc1Input}
+                        onChange={(e) => setNewQTc1Input(e.target.value)}
+                        className="h-8 text-xs font-mono rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-500">Expected Output</span>
+                      <Input
+                        placeholder="e.g. 120"
+                        value={newQTc1Output}
+                        onChange={(e) => setNewQTc1Output(e.target.value)}
+                        className="h-8 text-xs font-mono rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-amber-200/60 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/20 space-y-3">
+                  <p className="text-xs font-bold text-amber-900 dark:text-amber-300">Hidden Test Case 1 (Automated Grading)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-[11px] text-slate-500">Hidden Input</span>
+                      <Input
+                        placeholder="e.g. 7"
+                        value={newQHiddenInput}
+                        onChange={(e) => setNewQHiddenInput(e.target.value)}
+                        className="h-8 text-xs font-mono rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-500">Expected Output</span>
+                      <Input
+                        placeholder="e.g. 5040"
+                        value={newQHiddenOutput}
+                        onChange={(e) => setNewQHiddenOutput(e.target.value)}
+                        className="h-8 text-xs font-mono rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-200 dark:border-zinc-800">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAddingQuestionSubModuleId(null)}
+                    className="h-9 px-4 rounded-xl text-xs"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="h-9 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl"
+                  >
+                    Save Question to Sub-Module
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* CONSOLIDATE SUB-MODULES MODAL */}
+        {showConsolidateModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in-50 duration-150">
+            <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-4 bg-[#F9FAFB]/90 dark:bg-[#111827]/80">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center font-bold">
+                    <FolderKanban className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-[#111827] dark:text-[#FAFAFA]">
+                      Group Questions into One Sub-Module
+                    </h3>
+                    <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">
+                      Combine multiple items into 1 Sub-Module container with multiple questions.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowConsolidateModal(false)}
+                  className="h-8 w-8 rounded-full"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                    Target Sub-Module Name <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    placeholder="e.g. Java Basics"
+                    value={consolidateTargetName}
+                    onChange={(e) => setConsolidateTargetName(e.target.value)}
+                    required
+                    className="h-10 text-xs rounded-xl"
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    All selected questions below will be placed inside this Sub-Module.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                      Select Items / Questions to Group ({selectedSmIdsToConsolidate.length} of {selectedTrack.subModules.length})
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedSmIdsToConsolidate.length === selectedTrack.subModules.length) {
+                          setSelectedSmIdsToConsolidate([]);
+                        } else {
+                          setSelectedSmIdsToConsolidate(selectedTrack.subModules.map(sm => sm.id));
+                        }
+                      }}
+                      className="text-xs text-[#2563EB] hover:underline font-semibold"
+                    >
+                      {selectedSmIdsToConsolidate.length === selectedTrack.subModules.length ? "Deselect All" : "Select All"}
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-slate-100 dark:divide-zinc-800 border border-slate-200 dark:border-zinc-800 rounded-xl max-h-60 overflow-y-auto p-1 bg-slate-50/50 dark:bg-zinc-900/50">
+                    {selectedTrack.subModules.map((sm, smIdx) => {
+                      const isChecked = selectedSmIdsToConsolidate.includes(sm.id);
+                      const qCount = ((sm as any).codingQuestions?.length || sm.questionCount || 1);
+                      return (
+                        <div
+                          key={sm.id}
+                          onClick={() => {
+                            setSelectedSmIdsToConsolidate(prev =>
+                              prev.includes(sm.id) ? prev.filter(id => id !== sm.id) : [...prev, sm.id]
+                            );
+                          }}
+                          className="flex items-center justify-between p-2.5 rounded-lg hover:bg-white dark:hover:bg-zinc-800 cursor-pointer transition-colors text-xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                setSelectedSmIdsToConsolidate(prev =>
+                                  checked ? [...prev, sm.id] : prev.filter(id => id !== sm.id)
+                                );
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <span className="font-mono text-[11px] text-slate-400 font-bold">{smIdx + 1}.</span>
+                            <span className="font-medium text-slate-800 dark:text-zinc-200 truncate">{sm.title}</span>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] shrink-0 font-mono">
+                            {qCount} {qCount === 1 ? "question" : "questions"}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-end gap-2 bg-[#F9FAFB]/90 dark:bg-[#111827]/80">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowConsolidateModal(false)}
+                  className="h-9 px-4 rounded-xl text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleConsolidateSubModules}
+                  disabled={!consolidateTargetName.trim() || selectedSmIdsToConsolidate.length === 0}
+                  className="h-9 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-xs"
+                >
+                  Consolidate ({selectedSmIdsToConsolidate.length} into &quot;{consolidateTargetName.trim()}&quot;)
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

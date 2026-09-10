@@ -248,11 +248,91 @@ export function BulkUploadComponent({
         throw new Error("The uploaded file is empty. Please add rows and re-upload.");
       }
 
-      // Create a header mapping from (Label or Key) -> Key
+      // Helper to clean headers: lowercased, alphanumeric only
+      const cleanHeader = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      // Extensive aliases for header matching
+      const HEADER_ALIASES: Record<string, string[]> = {
+        subModuleName: [
+          "submodulename", "submodule", "submoduletitle", "submoduleheader",
+          "modulename", "module", "moduletitle", "chapter", "topic", "group"
+        ],
+        title: [
+          "practiceitemtitle", "itemtitle", "questiontitle", "question", "title",
+          "problemtitle", "problemname", "problem", "challengename", "task"
+        ],
+        description: [
+          "problemstatement", "problemstatementmarkdown", "description", "statement",
+          "problemdesc", "prompt", "overview"
+        ],
+        type: [
+          "problemtype", "type", "questiontype", "format", "category"
+        ],
+        difficulty: [
+          "difficultylevel", "difficulty", "level", "tier"
+        ],
+        durationMinutes: [
+          "durationminutes", "duration", "timelimit", "time", "mins", "minutes"
+        ],
+        totalMarks: [
+          "totalmarks", "totalpoint", "marks", "points", "totalmarkspoints", "score", "maxmarks"
+        ],
+        constraints: [
+          "constraints", "constraint", "limits"
+        ],
+        input_format: [
+          "inputformat", "inputformatdescription", "input"
+        ],
+        output_format: [
+          "outputformat", "outputformatdescription", "output"
+        ],
+        sample_input: [
+          "sampleinput", "sampleinput1", "exampleinput"
+        ],
+        sample_output: [
+          "sampleoutput", "sampleoutput1", "exampleoutput"
+        ],
+        sample_explanation: [
+          "sampleexplanation", "explanation"
+        ],
+        testcase_1_input: [
+          "testcase1input", "testcase1", "testcases", "testcasesinput", "publictestcase1input", "publictestcases"
+        ],
+        testcase_1_output: [
+          "testcase1output", "testcase1expectedoutput", "testcase1expected", "publictestcase1output"
+        ],
+        testcase_2_input: [
+          "testcase2input", "testcase2", "testcase2in"
+        ],
+        testcase_2_output: [
+          "testcase2output", "testcase2expectedoutput", "testcase2out"
+        ],
+        hidden_testcase_input: [
+          "hiddentestcaseinput", "hiddentestcase1input", "hiddentestcases", "hiddentests", "hiddentestinput"
+        ],
+        hidden_testcase_output: [
+          "hiddentestcaseoutput", "hiddentestcase1output", "hiddentestcase1expectedoutput", "hiddentestoutput"
+        ],
+        starterCode: [
+          "startercode", "startercodeboilerplate", "boilerplate", "template", "starter"
+        ],
+        restrictCopyPaste: [
+          "restrictcopypaste", "copypaste", "disablepaste", "proctoringcopypaste"
+        ],
+        enforceFullScreen: [
+          "enforcefullscreen", "fullscreen", "fullscreenmode", "lockfullscreen"
+        ]
+      };
+
+      // Create a normalized header mapping
       const columnMapping: Record<string, ColumnDefinition> = {};
       config.columns.forEach((col) => {
-        columnMapping[col.label.toLowerCase().trim()] = col;
-        columnMapping[col.key.toLowerCase().trim()] = col;
+        columnMapping[cleanHeader(col.label)] = col;
+        columnMapping[cleanHeader(col.key)] = col;
+        const aliases = HEADER_ALIASES[col.key] || [];
+        aliases.forEach((alias) => {
+          columnMapping[cleanHeader(alias)] = col;
+        });
       });
 
       // Validate each row
@@ -263,11 +343,20 @@ export function BulkUploadComponent({
 
         // Match row attributes to canonical column keys
         Object.keys(row).forEach((rawHeader) => {
-          const matchedCol = columnMapping[rawHeader.toLowerCase().trim()];
+          const cleaned = cleanHeader(rawHeader);
+          const matchedCol = columnMapping[cleaned];
           if (matchedCol) {
             mappedRow[matchedCol.key] = row[rawHeader];
           }
         });
+
+        // Cross-populate subModuleName / moduleName
+        if (mappedRow.moduleName && !mappedRow.subModuleName) {
+          mappedRow.subModuleName = mappedRow.moduleName;
+        }
+        if (mappedRow.subModuleName && !mappedRow.moduleName) {
+          mappedRow.moduleName = mappedRow.subModuleName;
+        }
 
         // Check each expected column against rules
         config.columns.forEach((col) => {
@@ -276,16 +365,12 @@ export function BulkUploadComponent({
 
           // 1. Required Check
           if (col.required && isBlank) {
-            if (col.key === "moduleName" && mappedRow.title) {
-              mappedRow.moduleName = mappedRow.title;
-            } else {
-              errors.push({
-                fieldKey: col.key,
-                fieldLabel: col.label,
-                message: `${col.label} is required (Row #${rowNumber}).`,
-              });
-              return;
-            }
+            errors.push({
+              fieldKey: col.key,
+              fieldLabel: col.label,
+              message: `${col.label} is required (Row #${rowNumber}).`,
+            });
+            return;
           }
 
           if (!isBlank) {
@@ -447,8 +532,8 @@ export function BulkUploadComponent({
     const map = new Map<string, { groupKey: string; validRows: ParsedRowResult[]; allRows: ParsedRowResult[]; duplicateTitles: string[] }>();
 
     parsedRows.forEach((r) => {
-      const rawVal = r.rawRow[groupKeyName] ?? r.rawRow.moduleName ?? r.rawRow.module_name ?? r.rawRow.title;
-      const key = (String(rawVal ?? "").trim()) || "Untitled Module";
+      const rawVal = r.rawRow.subModuleName ?? r.rawRow[groupKeyName] ?? r.rawRow.moduleName ?? r.rawRow.sub_module_name ?? r.rawRow.module_name;
+      const key = (String(rawVal ?? "").trim()) || "Unassigned Sub-Module";
       if (!map.has(key)) {
         map.set(key, { groupKey: key, validRows: [], allRows: [], duplicateTitles: [] });
       }
@@ -706,10 +791,10 @@ export function BulkUploadComponent({
         <div className="space-y-5">
           {/* Summary Stats Cards */}
           {config.groupByField ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
               <div className="p-4 rounded-xl border border-[#2563EB]/30 bg-[#2563EB]/5 flex items-center justify-between shadow-xs">
                 <div>
-                  <p className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider">Total Modules</p>
+                  <p className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider">Total Sub-Modules</p>
                   <p className="text-2xl font-bold text-[#2563EB] mt-0.5">{groupedModules.length}</p>
                 </div>
                 <Folder className="h-7 w-7 text-[#2563EB]/50" />
@@ -789,7 +874,7 @@ export function BulkUploadComponent({
                         : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
                     }`}
                   >
-                    <Folder className="h-3.5 w-3.5" /> Module-Wise View ({groupedModules.length})
+                    <Folder className="h-3.5 w-3.5" /> Sub-Module Wise View ({groupedModules.length})
                   </button>
                   <button
                     type="button"
