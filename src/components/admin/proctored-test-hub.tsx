@@ -3,13 +3,45 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import {
-  ClipboardList, Plus, Search, ShieldAlert, ShieldCheck, Clock, Users,
-  Award, Eye, Trash2, Play, ArrowLeft, Sparkles, Lock, FileText, CheckSquare, Settings,
-  CheckCircle2, AlertCircle, Send, Check, Code2, Edit, Download, Calendar, CalendarDays,
-  CalendarRange, X, RotateCcw, Zap, Globe, Timer, Info, Copy, RefreshCw,
-  FileSpreadsheet, UploadCloud
-} from "lucide-react";
+// MNC Pure Text-Only Enterprise UI (No Lucide icons or decorative emojis)
+const NoIcon: React.FC<any> = () => null;
+const ClipboardList = NoIcon;
+const Plus = NoIcon;
+const Search = NoIcon;
+const ShieldAlert = NoIcon;
+const ShieldCheck = NoIcon;
+const Clock = NoIcon;
+const Users = NoIcon;
+const Award = NoIcon;
+const Eye = NoIcon;
+const Trash2 = NoIcon;
+const Play = NoIcon;
+const ArrowLeft = NoIcon;
+const Sparkles = NoIcon;
+const Lock = NoIcon;
+const FileText = NoIcon;
+const CheckSquare = NoIcon;
+const Settings = NoIcon;
+const CheckCircle2 = NoIcon;
+const AlertCircle = NoIcon;
+const Send = NoIcon;
+const Check = NoIcon;
+const Code2 = NoIcon;
+const Edit = NoIcon;
+const Download = NoIcon;
+const Calendar = NoIcon;
+const CalendarDays = NoIcon;
+const CalendarRange = NoIcon;
+const X = NoIcon;
+const RotateCcw = NoIcon;
+const Zap = NoIcon;
+const Globe = NoIcon;
+const Timer = NoIcon;
+const Info = NoIcon;
+const Copy = NoIcon;
+const RefreshCw = NoIcon;
+const FileSpreadsheet = NoIcon;
+const UploadCloud = NoIcon;
 import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -115,6 +147,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   const [viewState, setViewState] = useState<ViewState>("list");
   const [selectedTest, setSelectedTest] = useState<ScheduledTest | null>(null);
+  const [showAssessmentBulkUpload, setShowAssessmentBulkUpload] = useState(false);
+  const [bulkUploadTargetSection, setBulkUploadTargetSection] = useState<string | null>(null);
 
   // MNC Scheduling Mode & Form State for Create Wizard
   const [newScheduleMode, setNewScheduleMode] = useState<"open" | "window" | "scheduled">("open");
@@ -965,8 +999,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               <h2 className="text-base sm:text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Assign Exam Visibility</h2>
               <p className="text-xs text-[#6B7280] mt-0.5">Configure access for &quot;{assigningTest.title}&quot;</p>
             </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-[#E5E7EB] text-[#6B7280]" onClick={() => setAssigningTest(null)}>
-              ✕
+            <Button variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-[#6B7280]" onClick={() => setAssigningTest(null)}>
+              Close
             </Button>
           </div>
           
@@ -1085,11 +1119,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             </div>
             <Button
               variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full hover:bg-[#E5E7EB] text-[#6B7280]"
+              size="sm"
+              className="h-8 px-2.5 text-xs font-semibold text-[#6B7280]"
               onClick={() => !isSubmittingReassign && setReassigningTest(null)}
             >
-              ✕
+              Close
             </Button>
           </div>
 
@@ -1989,11 +2023,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             </div>
             <Button
               variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full hover:bg-[#E5E7EB]"
+              size="sm"
+              className="h-8 px-2.5 text-xs font-semibold text-[#6B7280]"
               onClick={() => setIsEditingExamSettings(false)}
             >
-              ✕
+              Close
             </Button>
           </div>
 
@@ -2556,26 +2590,36 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
+                className="h-9 font-bold text-xs bg-white dark:bg-[#18181B] border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/5"
+                onClick={() => {
+                  setBulkUploadTargetSection(null);
+                  setShowAssessmentBulkUpload(true);
+                }}
+              >
+                Bulk Upload Questions
+              </Button>
+              <Button
+                variant="outline"
                 className="h-9 font-bold text-xs bg-white dark:bg-[#18181B]"
                 onClick={() => openEditExamModal(selectedTest)}
               >
-                <Settings className="h-4 w-4 mr-2 text-[#2563EB]" /> Edit Settings & Schedule
+                Edit Settings & Schedule
               </Button>
               <Button 
                 onClick={() => downloadAssessmentReportCsv(selectedTest)}
                 className="h-9 font-bold text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-2 shadow-xs"
               >
-                <Download className="h-4 w-4" /> Download Candidate Report (CSV)
+                Download Candidate Report (CSV)
               </Button>
               <Button variant="outline" className="h-9 font-bold text-xs bg-white dark:bg-[#18181B]" onClick={() => openAssignModal(selectedTest)}>
-                <Users className="h-4 w-4 mr-2" /> Assign to Batches
+                Assign to Batches
               </Button>
               <Button
                 variant="outline"
                 className="h-9 font-bold text-xs bg-white dark:bg-[#18181B] border-amber-500/30 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
                 onClick={() => openReassignModal(selectedTest)}
               >
-                <RefreshCw className="h-4 w-4 mr-2" /> Reassign Test
+                Reassign Test
               </Button>
             </div>
           }
@@ -2612,7 +2656,18 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                             className="h-7 text-[11px] font-bold text-[#2563EB] hover:bg-[#2563EB]/10"
                             onClick={() => openCreateQuestion(section)}
                           >
-                            <Plus className="h-3 w-3 mr-1" /> Add Question to {section}
+                            Add Question to {section}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-7 text-[11px] font-bold text-[#2563EB] hover:bg-[#2563EB]/10"
+                            onClick={() => {
+                              setBulkUploadTargetSection(section);
+                              setShowAssessmentBulkUpload(true);
+                            }}
+                          >
+                            Bulk Upload to {section}
                           </Button>
                           {(selectedTest.sections || []).length > 1 && (
                             <Button
@@ -2621,7 +2676,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                               className="h-7 text-[11px] font-bold text-[#DC2626] hover:bg-[#DC2626]/10"
                               onClick={() => handleDeleteSection(section)}
                             >
-                              <Trash2 className="h-3 w-3 mr-1" /> Delete Section
+                              Delete Section
                             </Button>
                           )}
                         </div>
@@ -2694,15 +2749,15 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                                     onClick={() => openEditQuestion(q)}
                                     className="h-7 px-2.5 text-[11px] font-bold border-[#2563EB]/30 text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg"
                                   >
-                                    <Edit className="h-3 w-3 mr-1" /> Edit
+                                    Edit
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => handleDeleteQuestion(q.id)}
-                                    className="h-7 px-2 text-[11px] font-bold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg"
+                                    className="h-7 px-2.5 text-[11px] font-bold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg"
                                   >
-                                    <Trash2 className="h-3 w-3" />
+                                    Delete
                                   </Button>
                                 </div>
                               </div>
@@ -2969,6 +3024,98 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         {renderAssignmentModal()}
         {renderReassignModal()}
         {renderEditExamSettingsModal()}
+
+        {showAssessmentBulkUpload && selectedTest && (
+          <BulkUploadCard
+            isOpen={true}
+            inline={false}
+            onClose={() => {
+              setShowAssessmentBulkUpload(false);
+              setBulkUploadTargetSection(null);
+            }}
+            moduleType="assessment_questions"
+            moduleTitle={selectedTest.title}
+            onImport={async (importedData) => {
+              if (!selectedTest) return;
+              const incomingQuestions: TestQuestion[] = [];
+              const incomingSections = new Set<string>();
+
+              if (Array.isArray(importedData)) {
+                importedData.forEach((item: any) => {
+                  if (item.sections && Array.isArray(item.sections)) {
+                    item.sections.forEach((sec: any) => {
+                      const secName = (sec.title || bulkUploadTargetSection || "General").trim();
+                      incomingSections.add(secName);
+                      (sec.questions || []).forEach((q: any) => {
+                        incomingQuestions.push({
+                          id: q.id || `q_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                          title: q.title || q.questionTitle || "Untitled Question",
+                          type: (q.type || q.questionType || "mcq").toLowerCase() as any,
+                          marks: Number(q.marks) || 10,
+                          section: secName,
+                          options: q.options || [],
+                          testCases: q.testCases || [],
+                        });
+                      });
+                    });
+                  } else if (item.questionTitle || item.title) {
+                    const secName = (item.sectionName || item.section || bulkUploadTargetSection || "General").trim();
+                    incomingSections.add(secName);
+                    incomingQuestions.push({
+                      id: item.id || `q_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                      title: item.questionTitle || item.title || "Untitled Question",
+                      type: (item.questionType || item.type || "mcq").toLowerCase() as any,
+                      marks: Number(item.marks) || 10,
+                      section: secName,
+                      options: item.options || [],
+                      testCases: item.testCases || [],
+                    });
+                  }
+                });
+              }
+
+              const existingSections = selectedTest.sections && selectedTest.sections.length > 0 ? selectedTest.sections : ["General"];
+              const mergedSections = Array.from(new Set([...existingSections, ...Array.from(incomingSections)]));
+              const existingQuestions = selectedTest.questions || [];
+
+              const existingKeys = new Set(
+                existingQuestions.map((q) => `${(q.section || "").trim().toLowerCase()}:::${(q.title || "").trim().toLowerCase()}`)
+              );
+              const newQuestionsToAdd = incomingQuestions.filter(
+                (q) => !existingKeys.has(`${(q.section || "").trim().toLowerCase()}:::${(q.title || "").trim().toLowerCase()}`)
+              );
+              const updatedQuestions = [...existingQuestions, ...newQuestionsToAdd];
+              const totalMarks = updatedQuestions.reduce((acc, q) => acc + (Number(q.marks) || 0), 0);
+
+              const updatedTest: ScheduledTest = {
+                ...selectedTest,
+                sections: mergedSections,
+                totalQuestions: updatedQuestions.length,
+                maxMarks: totalMarks,
+                questions: updatedQuestions,
+              };
+
+              try {
+                await fetch("/api/admin/tests", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ test: updatedTest }),
+                });
+              } catch (err) {
+                console.error("Failed to update test with imported questions", err);
+              }
+
+              setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
+              setSelectedTest(updatedTest);
+              setShowAssessmentBulkUpload(false);
+              setBulkUploadTargetSection(null);
+              toast({
+                title: "Assessment Questions Imported",
+                description: `Added ${newQuestionsToAdd.length} question(s) across ${incomingSections.size || 1} section(s). Total questions: ${updatedQuestions.length}.`,
+              });
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -3503,8 +3650,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                       >
                         Manage
                       </Button>
-                      <Button onClick={() => handleDeleteTest(t.id, t.title)} variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626] hover:bg-red-500/10 rounded-lg transition-colors" title="Delete Exam">
-                        <Trash2 className="h-4 w-4" />
+                      <Button onClick={() => handleDeleteTest(t.id, t.title)} variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-[#DC2626] hover:bg-red-500/10 rounded-lg transition-colors">
+                        Delete
                       </Button>
                     </div>
                   </td>

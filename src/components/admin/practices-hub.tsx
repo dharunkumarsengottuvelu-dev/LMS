@@ -1,15 +1,52 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import {
-  Dumbbell, Search, Users, CheckCircle2, Clock, Plus,
-  BookOpen, Code2, FileText, Video, UserCheck,
-  ShieldCheck, PlayCircle, StickyNote, ListChecks,
-  ArrowLeft, FolderKanban, Sparkles, Trash2, Edit, Save, Check,
-  HelpCircle, Layers, Eye, EyeOff, UploadCloud, User,
-  Maximize2, Minimize2, ShieldAlert, Lock, Copy, RotateCcw,
-  Edit2, ChevronUp, ChevronDown, FileSpreadsheet, Database, X, Folder, FolderPlus
-} from "lucide-react";
+import { createPortal } from "react-dom";
+// MNC Pure Text-Only Enterprise UI (No Lucide icons or decorative emojis)
+const NoIcon: React.FC<any> = () => null;
+const Dumbbell = NoIcon;
+const Search = NoIcon;
+const Users = NoIcon;
+const CheckCircle2 = NoIcon;
+const Clock = NoIcon;
+const Plus = NoIcon;
+const BookOpen = NoIcon;
+const Code2 = NoIcon;
+const FileText = NoIcon;
+const Video = NoIcon;
+const UserCheck = NoIcon;
+const ShieldCheck = NoIcon;
+const PlayCircle = NoIcon;
+const StickyNote = NoIcon;
+const ListChecks = NoIcon;
+const ArrowLeft = NoIcon;
+const FolderKanban = NoIcon;
+const Sparkles = NoIcon;
+const Trash2 = NoIcon;
+const Edit = NoIcon;
+const Save = NoIcon;
+const Check = NoIcon;
+const HelpCircle = NoIcon;
+const Layers = NoIcon;
+const Eye = NoIcon;
+const EyeOff = NoIcon;
+const UploadCloud = NoIcon;
+const User = NoIcon;
+const Maximize2 = NoIcon;
+const Minimize2 = NoIcon;
+const ShieldAlert = NoIcon;
+const Lock = NoIcon;
+const Copy = NoIcon;
+const RotateCcw = NoIcon;
+const Edit2 = NoIcon;
+const ChevronUp = NoIcon;
+const ChevronDown = NoIcon;
+const FileSpreadsheet = NoIcon;
+const Database = NoIcon;
+const X = NoIcon;
+const Folder = NoIcon;
+const FolderPlus = NoIcon;
+const Globe = NoIcon;
 import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,7 +59,7 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useLMSStore } from "@/lib/store/lms-store";
-import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+import { CodingProblemCreator, AVAILABLE_CODING_LANGUAGES } from "@/components/admin/coding-problem-creator";
 import { SqlProblemCreator } from "@/components/admin/sql-problem-creator";
 import type { PracticeTrackItem } from "@/services/assessment.service";
 import { PageHeader } from "@/components/layouts/page-header";
@@ -48,6 +85,9 @@ interface SubModuleItem {
   codingSectionTitle?: string;
   restrictCopyPaste?: boolean;
   enforceFullScreen?: boolean;
+  languageMode?: "multi" | "single";
+  allowedLanguages?: string[];
+  defaultLanguage?: string;
   sections?: SubModuleSection[];
   maxAttempts?: number;
   allowResume?: boolean;
@@ -157,6 +197,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     fetchData();
   }, []);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [search, setSearch] = useState("");
   const [viewState, setViewState] = useState<ViewState>("list");
   const [selectedTrack, setSelectedTrack] = useState<PracticeTrack | null>(null);
@@ -216,6 +261,20 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [smAllowResume, setSmAllowResume] = useState<boolean>(true);
   const [smScorePolicy, setSmScorePolicy] = useState<"best" | "latest" | "average">("best");
   const [smAllowReviewBeforeSubmit, setSmAllowReviewBeforeSubmit] = useState<boolean>(true);
+  const [smLanguageMode, setSmLanguageMode] = useState<"multi" | "single">("single");
+  const [smSingleLanguage, setSmSingleLanguage] = useState<string>("java");
+  const [smAllowedLanguages, setSmAllowedLanguages] = useState<string[]>([
+    "java", "python", "cpp", "c", "javascript"
+  ]);
+
+  // Quick Language Mode Modal for existing Sub-Modules on Track Detail page
+  const [langModalSubModuleId, setLangModalSubModuleId] = useState<string | null>(null);
+  const [modalLanguageMode, setModalLanguageMode] = useState<"multi" | "single">("single");
+  const [modalSingleLanguage, setModalSingleLanguage] = useState<string>("java");
+  const [modalAllowedLanguages, setModalAllowedLanguages] = useState<string[]>([
+    "java", "python", "cpp", "c", "javascript"
+  ]);
+
   const [isFullScreenAuthoring, setIsFullScreenAuthoring] = useState(false);
   const [showCodingProblemBuilder, setShowCodingProblemBuilder] = useState(false);
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
@@ -829,8 +888,22 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     e.preventDefault();
     if (!selectedTrack || !smTitle) return;
 
-    const allMcqs = sections.flatMap((s) => s.mcqQuestions);
-    const allCoding = sections.flatMap((s) => s.codingQuestions);
+    const finalAllowed = smLanguageMode === "single"
+      ? [smSingleLanguage]
+      : (smAllowedLanguages.length > 0 ? smAllowedLanguages : undefined);
+
+    const updatedSections = sections.map((sec) => ({
+      ...sec,
+      codingQuestions: sec.codingQuestions.map((cq) => ({
+        ...cq,
+        allowedLanguages: finalAllowed,
+        allowed_languages: finalAllowed,
+        defaultLanguage: smLanguageMode === "single" ? smSingleLanguage : (cq.defaultLanguage || "java"),
+      })),
+    }));
+
+    const allMcqs = updatedSections.flatMap((s) => s.mcqQuestions);
+    const allCoding = updatedSections.flatMap((s) => s.codingQuestions);
     const computedQCount = allMcqs.length + allCoding.length;
 
     const newSm: SubModuleItem & {
@@ -855,11 +928,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       codingSectionTitle: smCodingSectionTitle || "Section 2: Coding",
       restrictCopyPaste: smRestrictCopyPaste,
       enforceFullScreen: smEnforceFullScreen,
+      languageMode: smLanguageMode,
+      allowedLanguages: finalAllowed,
+      defaultLanguage: smLanguageMode === "single" ? smSingleLanguage : undefined,
       maxAttempts: smMaxAttempts,
       allowResume: smAllowResume,
       scoreRetentionPolicy: smScorePolicy,
       allowReviewBeforeSubmit: smAllowReviewBeforeSubmit,
-      sections: sections,
+      sections: updatedSections,
       mcqQuestions: allMcqs,
       codingQuestions: allCoding,
       ...(allCoding.length > 0 ? {
@@ -898,6 +974,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       setSmAllowResume(true);
       setSmScorePolicy("best");
       setSmAllowReviewBeforeSubmit(true);
+      setSmLanguageMode("single");
+      setSmSingleLanguage("java");
+      setSmAllowedLanguages(["java", "python", "cpp", "c", "javascript"]);
       setIsFullScreenAuthoring(false);
       setEditingSubModuleId(null);
       setSections([
@@ -947,6 +1026,21 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setSmAllowResume(sm.allowResume ?? selectedTrack?.allowResume ?? true);
     setSmScorePolicy(sm.scoreRetentionPolicy ?? selectedTrack?.scoreRetentionPolicy ?? "best");
     setSmAllowReviewBeforeSubmit(sm.allowReviewBeforeSubmit ?? selectedTrack?.allowReviewBeforeSubmit ?? true);
+    
+    const firstCq = sm.codingQuestions?.[0] || sm.sections?.flatMap((s: any) => s.codingQuestions || [])?.[0];
+    const detectedSingle = sm.allowedLanguages?.length === 1
+      ? sm.allowedLanguages[0]
+      : firstCq?.allowedLanguages?.length === 1
+      ? firstCq.allowedLanguages[0]
+      : null;
+    const isSingle = sm.languageMode ? sm.languageMode === "single" : (detectedSingle !== null || true);
+    setSmLanguageMode(isSingle ? "single" : "multi");
+    setSmSingleLanguage(detectedSingle || sm.defaultLanguage || "java");
+    if (sm.allowedLanguages && sm.allowedLanguages.length > 1) {
+      setSmAllowedLanguages(sm.allowedLanguages);
+    } else {
+      setSmAllowedLanguages(["java", "python", "cpp", "c", "javascript"]);
+    }
     
     setSmHasHiddenTests(sm.hasHiddenTests || false);
     setSmHiddenTests(sm.hiddenTestsCode || "");
@@ -1010,6 +1104,105 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     }
   };
 
+  const openLanguageModalForSubModule = (sm: any, smQuestionsList: any[]) => {
+    setLangModalSubModuleId(sm.id);
+    const firstCq = smQuestionsList[0];
+    const detectedSingle = sm.allowedLanguages?.length === 1
+      ? sm.allowedLanguages[0]
+      : firstCq?.allowedLanguages?.length === 1
+      ? firstCq.allowedLanguages[0]
+      : null;
+    const isSingle = sm.languageMode ? sm.languageMode === "single" : (detectedSingle !== null || true);
+    setModalLanguageMode(isSingle ? "single" : "multi");
+    setModalSingleLanguage(detectedSingle || sm.defaultLanguage || "java");
+    setModalAllowedLanguages(sm.allowedLanguages && sm.allowedLanguages.length > 1 ? sm.allowedLanguages : ["java", "python", "cpp", "c", "javascript"]);
+  };
+
+  const openAddQuestionForSubModule = (smId: string) => {
+    setAddingQuestionSubModuleId(smId);
+    setNewQTitle("");
+    setNewQDifficulty("Easy");
+    setNewQMarks(10);
+    setNewQDescription("");
+    setNewQConstraints("");
+    setNewQInputFormat("");
+    setNewQOutputFormat("");
+    setNewQTc1Input("");
+    setNewQTc1Output("");
+    setNewQHiddenInput("");
+    setNewQHiddenOutput("");
+    setNewQStarterCode("");
+  };
+
+  const handleApplyLanguageModeToSubModule = async (
+    targetSmId: string,
+    mode: "multi" | "single",
+    singleLang: string,
+    allowedLangs: string[]
+  ) => {
+    if (!selectedTrack) return;
+    const finalAllowed = mode === "single" ? [singleLang] : (allowedLangs.length > 0 ? allowedLangs : undefined);
+
+    const updatedSubModules = selectedTrack.subModules.map((sm) => {
+      if (sm.id !== targetSmId) return sm;
+
+      const rawQuestions = (sm as any).codingQuestions || sm.sections?.flatMap((s: any) => s.codingQuestions || []) || [];
+      const updatedQuestions = rawQuestions.map((q: any) => ({
+        ...q,
+        allowedLanguages: finalAllowed,
+        allowed_languages: finalAllowed,
+        defaultLanguage: mode === "single" ? singleLang : (q.defaultLanguage || "java"),
+      }));
+
+      let updatedSections = sm.sections ? [...sm.sections] : [];
+      if (updatedSections.length > 0) {
+        updatedSections = updatedSections.map((sec) => ({
+          ...sec,
+          codingQuestions: sec.codingQuestions.map((q: any) => ({
+            ...q,
+            allowedLanguages: finalAllowed,
+            allowed_languages: finalAllowed,
+            defaultLanguage: mode === "single" ? singleLang : (q.defaultLanguage || "java"),
+          })),
+        }));
+      } else if (updatedQuestions.length > 0) {
+        updatedSections = [
+          {
+            id: `sec_${Date.now()}`,
+            title: sm.codingSectionTitle || "Section 1: Coding",
+            mcqQuestions: sm.mcqQuestions || [],
+            codingQuestions: updatedQuestions,
+          }
+        ];
+      }
+
+      return {
+        ...sm,
+        languageMode: mode,
+        allowedLanguages: finalAllowed,
+        defaultLanguage: mode === "single" ? singleLang : undefined,
+        codingQuestions: updatedQuestions,
+        sections: updatedSections,
+      };
+    });
+
+    const updatedTrack = {
+      ...selectedTrack,
+      subModules: updatedSubModules,
+    };
+
+    setSelectedTrack(updatedTrack);
+    const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
+    await syncTracksToStore(updatedTracks);
+    setLangModalSubModuleId(null);
+    toast({
+      title: "Language Mode Applied",
+      description: mode === "single"
+        ? `Strict single language (${singleLang.toUpperCase()}) applied to all questions in this sub-module.`
+        : `Multi-language mode (${allowedLangs.length} compilers) enabled for all questions in this sub-module.`,
+    });
+  };
+
   const handleSaveQuestionToSubModule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrack || !addingQuestionSubModuleId || !newQTitle.trim()) return;
@@ -1048,6 +1241,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       javascript: newQStarterCode || "// Write solution here\nconst fs = require('fs');\nconst input = fs.readFileSync(0, 'utf-8').trim();\n",
     };
 
+    const targetSubMod = selectedTrack.subModules.find((sm) => sm.id === addingQuestionSubModuleId);
+    const isSingle = targetSubMod?.languageMode === "single" || (targetSubMod?.allowedLanguages && targetSubMod.allowedLanguages.length === 1);
+    const enforcedLang = targetSubMod?.defaultLanguage || (targetSubMod?.allowedLanguages && targetSubMod.allowedLanguages[0]) || "java";
+    const qAllowed = isSingle ? [enforcedLang] : (targetSubMod?.allowedLanguages || undefined);
+
     const newQuestion: CodingQuestionItem & { [key: string]: any } = {
       id: `cq_${Date.now()}_${addingQuestionSubModuleId}`,
       subModuleId: addingQuestionSubModuleId,
@@ -1060,6 +1258,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       outputFormat: newQOutputFormat.trim(),
       starterCode: newQStarterCode.trim(),
       templates: starterTemplates,
+      allowedLanguages: qAllowed,
+      allowed_languages: qAllowed,
+      defaultLanguage: isSingle ? enforcedLang : "java",
       publicTestCases,
       hiddenTestCases,
       test_cases: combinedTestCases,
@@ -1119,8 +1320,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setNewQHiddenInput("");
     setNewQHiddenOutput("");
     setNewQStarterCode("");
-
-    const targetSubMod = selectedTrack.subModules.find((sm) => sm.id === addingQuestionSubModuleId);
     const newCount = ((targetSubMod as any)?.codingQuestions?.length || 0) + 1;
     toast({
       title: "Question Added",
@@ -1747,105 +1946,133 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             const computedQuestionCount = smQuestionsList.length > 0 ? smQuestionsList.length : sm.questionCount;
 
             return (
-              <Card key={sm.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-hidden transition-all shadow-xs">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between gap-4">
+              <Card key={sm.id} className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800/80 rounded-2xl overflow-hidden transition-all shadow-xs hover:border-slate-300 dark:hover:border-zinc-700">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <span className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs flex items-center justify-center border border-[#2563EB]/20 shrink-0">
-                        {idx + 1}
+                      <span className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-zinc-800/90 border border-slate-200/80 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 font-mono text-xs font-bold flex items-center justify-center shrink-0 shadow-2xs">
+                        {String(idx + 1).padStart(2, "0")}
                       </span>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">{sm.title}</p>
-                          <Badge variant="outline" className="text-[10px] border-blue-200 bg-blue-50/50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300 font-mono">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-bold text-sm sm:text-base text-slate-900 dark:text-zinc-100 tracking-tight">{sm.title}</p>
+                          <Badge variant="outline" className="text-[11px] border-slate-200 dark:border-zinc-700 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 font-mono font-medium rounded-full px-2.5 py-0.5">
                             {computedQuestionCount} {computedQuestionCount === 1 ? "question" : "questions"}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <Badge className={`text-[10px] uppercase ${typeBadgeColor(sm.type)}`}>{sm.type}</Badge>
-                          <span className="text-[10px] text-[#6B7280]">
-                            <Clock className="h-2.5 w-2.5 inline mr-0.5" />{sm.durationMinutes > 0 ? `${sm.durationMinutes} mins` : "No Time Limit"}
+                        <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
+                          <Badge className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md ${typeBadgeColor(sm.type)}`}>{sm.type}</Badge>
+                          <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+                            <Clock className="h-3 w-3 text-slate-400" />
+                            {sm.durationMinutes > 0 ? `${sm.durationMinutes} mins` : "No Time Limit"}
                           </span>
-                          <span className="text-[10px] text-[#6B7280]">{computedTotalMarks} marks</span>
+                          <span className="inline-flex items-center text-[11px] text-slate-500 dark:text-zinc-400 font-medium font-mono">
+                            {computedTotalMarks} marks
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => openLanguageModalForSubModule(sm, smQuestionsList)}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition-all cursor-pointer shadow-2xs ${
+                              sm.languageMode === "multi" && sm.allowedLanguages && sm.allowedLanguages.length > 1
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                                : "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800"
+                            }`}
+                            title="Click to toggle Single or Multi-Language mode for all questions"
+                          >
+                            {sm.languageMode === "multi" && sm.allowedLanguages && sm.allowedLanguages.length > 1 ? (
+                              <>
+                                <Globe className="h-3 w-3" />
+                                <span>Multi-Lang ({sm.allowedLanguages.length})</span>
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="h-3 w-3" />
+                                <span>Single: {(sm.defaultLanguage || (sm.allowedLanguages && sm.allowedLanguages[0]) || "Java").toUpperCase()}</span>
+                              </>
+                            )}
+                          </button>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap lg:flex-nowrap">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        onClick={() => setExpandedSubModuleIds((prev) => ({ ...prev, [sm.id]: !prev[sm.id] }))}
-                        className="h-8 px-2.5 text-xs text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg gap-1 font-medium"
-                        title="View questions in this module"
+                        onClick={() => openLanguageModalForSubModule(sm, smQuestionsList)}
+                        className="h-8.5 px-3 text-xs font-medium text-slate-700 dark:text-zinc-200 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-xl gap-1.5 shadow-2xs"
+                        title="Configure Single vs Multi-Language for this Sub-Module"
                       >
-                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                        <span>{isExpanded ? "Hide Questions" : `View Questions (${computedQuestionCount})`}</span>
+                        <Globe className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <span>Language</span>
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          setAddingQuestionSubModuleId(sm.id);
-                          setNewQTitle("");
-                          setNewQDifficulty("Easy");
-                          setNewQMarks(10);
-                          setNewQDescription("");
-                          setNewQConstraints("");
-                          setNewQInputFormat("");
-                          setNewQOutputFormat("");
-                          setNewQTc1Input("");
-                          setNewQTc1Output("");
-                          setNewQHiddenInput("");
-                          setNewQHiddenOutput("");
-                          setNewQStarterCode("");
-                        }}
-                        className="h-8 px-2.5 text-xs font-semibold gap-1 text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10 rounded-lg"
+                        onClick={() => setExpandedSubModuleIds((prev) => ({ ...prev, [sm.id]: !prev[sm.id] }))}
+                        className={`h-8.5 px-3 text-xs font-medium rounded-xl gap-1.5 transition-colors shadow-2xs ${
+                          isExpanded
+                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800"
+                            : "text-slate-700 dark:text-zinc-200 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                        }`}
+                        title="View questions in this module"
+                      >
+                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        <span>{isExpanded ? "Hide" : "Questions"} ({computedQuestionCount})</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => openAddQuestionForSubModule(sm.id)}
+                        className="h-8.5 px-3.5 text-xs font-semibold text-white bg-[#2563EB] hover:bg-[#1D4ED8] rounded-xl gap-1.5 shadow-xs transition-all"
                         title="Add Question to this Sub-Module"
                       >
                         <Plus className="h-3.5 w-3.5" />
                         <span>Add Question</span>
                       </Button>
-                      <Button onClick={() => handleEditSubModule(selectedTrack.id, sm.id)}
-                        variant="ghost" size="icon" className="h-8 w-8 text-[#2563EB]">
-                        <Edit className="h-4 w-4" />
+                      <div className="hidden sm:block h-5 w-px bg-slate-200 dark:bg-zinc-700 mx-0.5" />
+                      <Button
+                        onClick={() => handleEditSubModule(selectedTrack.id, sm.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-8.5 px-2.5 text-xs font-semibold text-slate-600 hover:text-blue-600 rounded-xl"
+                      >
+                        Edit
                       </Button>
-                      <Button onClick={() => handleDeleteSubModule(selectedTrack.id, sm.id)}
-                        variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626]">
-                        <Trash2 className="h-4 w-4" />
+                      <Button
+                        onClick={() => handleDeleteSubModule(selectedTrack.id, sm.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-8.5 px-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl"
+                      >
+                        Delete
                       </Button>
                     </div>
                   </div>
 
                   {/* Submodule Nested Questions Drawer */}
                   {isExpanded && (
-                    <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+                    <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-zinc-800 space-y-2.5">
                       <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                         <span>Questions in {sm.title} ({smQuestionsList.length})</span>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            setAddingQuestionSubModuleId(sm.id);
-                            setNewQTitle("");
-                            setNewQDifficulty("Easy");
-                            setNewQMarks(10);
-                            setNewQDescription("");
-                          }}
-                          className="h-6 px-2 text-[11px] text-[#2563EB] hover:bg-blue-50 font-semibold gap-1"
+                          onClick={() => openAddQuestionForSubModule(sm.id)}
+                          className="h-6 px-2 text-[11px] text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-950/30 font-semibold gap-1 rounded-lg"
                         >
                           <Plus className="h-3 w-3" /> Add Question
                         </Button>
                       </div>
                       {smQuestionsList.length === 0 ? (
-                        <div className="text-center py-6 border border-dashed border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-slate-400">
+                        <div className="text-center py-6 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl text-xs text-slate-400">
                           No questions added yet. Click &quot;Add Question&quot; to create the first question in this sub-module.
                         </div>
                       ) : (
                         <div className="divide-y divide-slate-100 dark:divide-zinc-800/80 bg-slate-50/70 dark:bg-zinc-900/50 rounded-xl border border-slate-200/60 dark:border-zinc-800 p-1.5">
                           {smQuestionsList.map((q: any, qIdx: number) => (
-                            <div key={q.id || qIdx} className="p-2 flex items-center justify-between gap-3 text-xs hover:bg-white/60 dark:hover:bg-zinc-800/50 rounded-lg transition-colors">
+                            <div key={q.id || qIdx} className="p-2.5 flex items-center justify-between gap-3 text-xs hover:bg-white dark:hover:bg-zinc-800 rounded-lg transition-colors">
                               <div className="flex items-center gap-2.5 min-w-0">
-                                <span className="w-5 h-5 rounded-full bg-slate-200/60 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                <span className="w-5 h-5 rounded-full bg-slate-200/80 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-bold font-mono flex items-center justify-center shrink-0">
                                   {qIdx + 1}
                                 </span>
                                 <p className="font-semibold text-slate-800 dark:text-zinc-200 truncate">
@@ -1854,7 +2081,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 {q.difficulty && (
-                                  <Badge variant="outline" className={`text-[10px] uppercase font-mono px-1.5 py-0 h-4.5 ${
+                                  <Badge variant="outline" className={`text-[10px] uppercase font-mono px-2 py-0.5 rounded-md ${
                                     q.difficulty.toLowerCase() === "easy"
                                       ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400"
                                       : q.difficulty.toLowerCase() === "medium"
@@ -1876,12 +2103,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                 )}
                                 <Button
                                   variant="ghost"
-                                  size="icon"
+                                  size="sm"
                                   onClick={() => handleDeleteQuestionFromSubModule(sm.id, q.id || qIdx)}
-                                  className="h-6 w-6 text-slate-400 hover:text-red-600"
-                                  title="Delete question"
+                                  className="h-6 px-2 text-[11px] font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded"
                                 >
-                                  <Trash2 className="h-3 w-3" />
+                                  Delete
                                 </Button>
                               </div>
                             </div>
@@ -1896,26 +2122,40 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           })}
         </div>
 
-        {/* ADD QUESTION TO SUB-MODULE MODAL */}
-        {addingQuestionSubModuleId && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in-50 duration-150">
-            <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-4 bg-[#F9FAFB]/90 dark:bg-[#111827]/80">
+        {/* ADD QUESTION TO SUB-MODULE MODAL (PORTALED TO BODY) */}
+        {mounted && typeof document !== "undefined" && addingQuestionSubModuleId && createPortal(
+          <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl w-full max-w-2xl my-auto max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="px-6 py-4.5 border-b border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-4 bg-slate-50/70 dark:bg-zinc-900/60">
                 <div>
                   <h3 className="font-bold text-base text-[#111827] dark:text-[#FAFAFA]">
                     Add Question to Sub-Module
                   </h3>
-                  <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">
-                    Target Sub-Module: <span className="font-semibold text-[#2563EB]">{selectedTrack.subModules.find(s => s.id === addingQuestionSubModuleId)?.title}</span>
+                  <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5 flex items-center gap-2 flex-wrap">
+                    <span>Target Sub-Module: <span className="font-semibold text-[#2563EB]">{selectedTrack.subModules.find(s => s.id === addingQuestionSubModuleId)?.title}</span></span>
+                    {(() => {
+                      const targetSm = selectedTrack.subModules.find(s => s.id === addingQuestionSubModuleId);
+                      const isSingle = targetSm?.languageMode === "single" || (targetSm?.allowedLanguages && targetSm.allowedLanguages.length === 1);
+                      const lang = targetSm?.defaultLanguage || (targetSm?.allowedLanguages && targetSm.allowedLanguages[0]) || "java";
+                      return isSingle ? (
+                        <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-600 bg-blue-50 dark:bg-blue-950/40">
+                          Enforced: {lang.toUpperCase()}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40">
+                          Multi-Language
+                        </Badge>
+                      );
+                    })()}
                   </p>
                 </div>
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={() => setAddingQuestionSubModuleId(null)}
-                  className="h-8 w-8 rounded-full"
+                  className="h-8 px-2 text-xs font-semibold text-slate-500"
                 >
-                  <X className="h-4 w-4" />
+                  Close
                 </Button>
               </div>
 
@@ -2068,17 +2308,18 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
-        {/* CONSOLIDATE SUB-MODULES MODAL */}
-        {showConsolidateModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in-50 duration-150">
-            <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex items-center justify-between gap-4 bg-[#F9FAFB]/90 dark:bg-[#111827]/80">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center font-bold">
-                    <FolderKanban className="h-4 w-4" />
+        {/* CONSOLIDATE SUB-MODULES MODAL (PORTALED TO BODY) */}
+        {mounted && typeof document !== "undefined" && showConsolidateModal && createPortal(
+          <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl w-full max-w-xl my-auto max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="px-6 py-4.5 border-b border-slate-200/80 dark:border-zinc-800 flex items-center justify-between gap-4 bg-slate-50/70 dark:bg-zinc-900/60">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] flex items-center justify-center border border-blue-200/50 dark:border-blue-900/40 shrink-0">
+                    <FolderKanban className="h-5 w-5" />
                   </div>
                   <div>
                     <h3 className="font-bold text-base text-[#111827] dark:text-[#FAFAFA]">
@@ -2091,11 +2332,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 </div>
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
                   onClick={() => setShowConsolidateModal(false)}
-                  className="h-8 w-8 rounded-full"
+                  className="h-8 px-2 text-xs font-semibold text-slate-500"
                 >
-                  <X className="h-4 w-4" />
+                  Close
                 </Button>
               </div>
 
@@ -2130,7 +2371,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           setSelectedSmIdsToConsolidate(selectedTrack.subModules.map(sm => sm.id));
                         }
                       }}
-                      className="text-xs text-[#2563EB] hover:underline font-semibold"
+                      className="text-xs text-[#2563EB] hover:underline font-semibold cursor-pointer"
                     >
                       {selectedSmIdsToConsolidate.length === selectedTrack.subModules.length ? "Deselect All" : "Select All"}
                     </button>
@@ -2173,7 +2414,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 </div>
               </div>
 
-              <div className="px-6 py-4 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-end gap-2 bg-[#F9FAFB]/90 dark:bg-[#111827]/80">
+              <div className="px-6 py-4.5 border-t border-slate-200/80 dark:border-zinc-800 flex items-center justify-end gap-2 bg-slate-50/70 dark:bg-zinc-900/60">
                 <Button
                   type="button"
                   variant="outline"
@@ -2192,7 +2433,185 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 </Button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
+        )}
+
+        {/* QUICK LANGUAGE MODE TOGGLE MODAL (PORTALED TO BODY) */}
+        {mounted && typeof document !== "undefined" && langModalSubModuleId && createPortal(
+          <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl w-full max-w-lg my-auto shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+              <div className="px-6 py-4.5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between gap-4 bg-slate-50/70 dark:bg-zinc-900/60">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] flex items-center justify-center border border-blue-200/50 dark:border-blue-900/40 shrink-0">
+                    <Code2 className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-base text-[#111827] dark:text-[#FAFAFA]">
+                      Sub-Module Language Policy
+                    </h3>
+                    <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5 truncate">
+                      Target: <span className="font-semibold text-[#2563EB]">{selectedTrack.subModules.find(s => s.id === langModalSubModuleId)?.title}</span>
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLangModalSubModuleId(null)}
+                  className="h-8 px-2 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-zinc-200"
+                >
+                  Close
+                </Button>
+              </div>
+
+              <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
+                {/* Segmented Mode Switcher */}
+                <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-zinc-900/80 rounded-xl border border-slate-200/80 dark:border-zinc-800 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setModalLanguageMode("single")}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      modalLanguageMode === "single"
+                        ? "bg-white dark:bg-zinc-800 text-[#2563EB] shadow-xs border border-slate-200/60 dark:border-zinc-700/60"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>Single Language</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalLanguageMode("multi")}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      modalLanguageMode === "multi"
+                        ? "bg-white dark:bg-zinc-800 text-emerald-600 dark:text-emerald-400 shadow-xs border border-slate-200/60 dark:border-zinc-700/60"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    <Globe className="h-3.5 w-3.5" />
+                    <span>Multi-Language</span>
+                  </button>
+                </div>
+
+                {modalLanguageMode === "single" ? (
+                  <div className="space-y-3.5">
+                    <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/40 text-[11px] text-blue-800 dark:text-blue-300 leading-relaxed flex items-start gap-2.5">
+                      <ShieldCheck className="h-4 w-4 text-[#2563EB] shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Enforced Compiler Mode:</strong> All questions in this sub-module will strictly run in this language. Students cannot switch compilers in the practice workspace.
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                        Choose Enforced Programming Language
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {AVAILABLE_CODING_LANGUAGES.map((lang) => {
+                          const isSelected = modalSingleLanguage === lang.id;
+                          return (
+                            <button
+                              key={lang.id}
+                              type="button"
+                              onClick={() => setModalSingleLanguage(lang.id)}
+                              className={`flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                                isSelected
+                                  ? "bg-blue-50 border-[#2563EB] text-[#2563EB] dark:bg-blue-950/40 dark:border-blue-500 dark:text-blue-300 ring-2 ring-[#2563EB]/20 shadow-xs"
+                                  : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-800/60"
+                              }`}
+                            >
+                              <span className="truncate">{lang.name}</span>
+                              {isSelected && <Check className="h-4 w-4 text-[#2563EB] shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3.5">
+                    <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[11px] text-emerald-800 dark:text-emerald-300 leading-relaxed flex items-start gap-2.5">
+                      <Globe className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Multi-Compiler Mode:</strong> Students can freely switch between the selected languages in their code editor while solving questions in this sub-module.
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                          Select Allowed Compilers ({modalAllowedLanguages.length})
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setModalAllowedLanguages(AVAILABLE_CODING_LANGUAGES.map(l => l.id))}
+                          className="text-[11px] font-bold text-[#2563EB] hover:underline cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {AVAILABLE_CODING_LANGUAGES.map((lang) => {
+                          const isSelected = modalAllowedLanguages.includes(lang.id);
+                          return (
+                            <button
+                              key={lang.id}
+                              type="button"
+                              onClick={() => {
+                                setModalAllowedLanguages((prev) =>
+                                  prev.includes(lang.id)
+                                    ? (prev.length > 1 ? prev.filter((id) => id !== lang.id) : prev)
+                                    : [...prev, lang.id]
+                                );
+                              }}
+                              className={`flex items-center justify-between p-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                                isSelected
+                                  ? "bg-emerald-50 border-emerald-600 text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-500 dark:text-emerald-300 ring-2 ring-emerald-500/20 shadow-xs"
+                                  : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-800/60"
+                              }`}
+                            >
+                              <span className="truncate">{lang.name}</span>
+                              <Check className={`h-4 w-4 text-emerald-600 shrink-0 ${isSelected ? "opacity-100" : "opacity-0"}`} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-4.5 border-t border-slate-200/80 dark:border-zinc-800 flex items-center justify-end gap-2 bg-slate-50/70 dark:bg-zinc-900/60">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setLangModalSubModuleId(null)}
+                  className="h-9 px-4 text-xs rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (langModalSubModuleId) {
+                      handleApplyLanguageModeToSubModule(
+                        langModalSubModuleId,
+                        modalLanguageMode,
+                        modalSingleLanguage,
+                        modalAllowedLanguages
+                      );
+                    }
+                  }}
+                  className="h-9 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-xs"
+                >
+                  Apply to All Questions
+                </Button>
+              </div>
+            </div>
+          </div>,
+          document.body
         )}
       </div>
     );
@@ -2341,6 +2760,161 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               </div>
             </div>
 
+            {/* Coding & Compiler Language Controls: Single vs Multi Language */}
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-slate-500/5 border border-[#E5E7EB] dark:border-[#27272A] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-blue-500/10 text-[#2563EB]">
+                    <Code2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] uppercase tracking-wider">
+                      Language & Compiler Execution Mode
+                    </h4>
+                    <p className="text-[11px] text-[#6B7280]">
+                      Control whether students must use a single language (e.g. Java only) or choose from multiple compilers.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Single vs Multi Language Toggle Switcher */}
+                <div className="flex items-center bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSmLanguageMode("single")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      smLanguageMode === "single"
+                        ? "bg-[#2563EB] text-white shadow-xs"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100"
+                    }`}
+                  >
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>Single Language</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSmLanguageMode("multi")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      smLanguageMode === "multi"
+                        ? "bg-[#2563EB] text-white shadow-xs"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100"
+                    }`}
+                  >
+                    <Globe className="h-3.5 w-3.5" />
+                    <span>Multi-Language</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Mode Options */}
+              {smLanguageMode === "single" ? (
+                <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] space-y-3 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                        <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                          Single Language Strict Mode Active:{" "}
+                          <span className="text-[#2563EB]">
+                            {AVAILABLE_CODING_LANGUAGES.find((l) => l.id === smSingleLanguage)?.name || smSingleLanguage}
+                          </span>
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#6B7280]">
+                        Every coding challenge in this sub-module will strictly enforce this language. Students cannot switch to other compilers.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-bold text-[#2563EB] border-[#2563EB]/30 self-start sm:self-auto uppercase">
+                      Strict 1-Language Mode
+                    </Badge>
+                  </div>
+
+                  {/* Language Selection Pills */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {AVAILABLE_CODING_LANGUAGES.map((lang) => {
+                      const isSelected = smSingleLanguage === lang.id;
+                      return (
+                        <button
+                          key={lang.id}
+                          type="button"
+                          onClick={() => setSmSingleLanguage(lang.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-[#2563EB] text-white shadow-xs ring-2 ring-[#2563EB]/30"
+                              : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700"
+                          }`}
+                        >
+                          {lang.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] space-y-3 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
+                          Multi-Language Mode Active ({smAllowedLanguages.length} Compilers Allowed)
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#6B7280]">
+                        Students can pick their preferred programming language from the allowed compilers in the code editor.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSmAllowedLanguages(AVAILABLE_CODING_LANGUAGES.map((l) => l.id))}
+                        className="text-[10px] font-bold text-[#2563EB] hover:underline cursor-pointer"
+                      >
+                        Select All
+                      </button>
+                      <span className="text-slate-300 dark:text-zinc-700">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setSmAllowedLanguages(["java", "python", "cpp", "c", "javascript"])}
+                        className="text-[10px] font-bold text-[#6B7280] hover:underline cursor-pointer"
+                      >
+                        Reset Popular
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Multi-Select Pills */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {AVAILABLE_CODING_LANGUAGES.map((lang) => {
+                      const isSelected = smAllowedLanguages.includes(lang.id);
+                      return (
+                        <button
+                          key={lang.id}
+                          type="button"
+                          onClick={() => {
+                            setSmAllowedLanguages((prev) =>
+                              prev.includes(lang.id)
+                                ? (prev.length > 1 ? prev.filter((id) => id !== lang.id) : prev)
+                                : [...prev, lang.id]
+                            );
+                          }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-emerald-600 text-white shadow-xs"
+                              : "bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700"
+                          }`}
+                        >
+                          <Check className={`h-3 w-3 ${isSelected ? "opacity-100" : "opacity-0"}`} />
+                          <span>{lang.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2">
               <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Sub-Module Title</label>
               <Input placeholder="e.g. Module 1: Arrays, Hash Maps & Two Pointer Technique"
@@ -2481,10 +3055,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           <button
                             type="button"
                             onClick={() => removeSection(section.id)}
-                            className="p-1.5 text-[#EF4444] hover:bg-[#EF4444]/10 rounded-lg transition-colors ml-1"
-                            title="Delete Section"
+                            className="px-2 py-1 text-xs font-semibold text-[#EF4444] hover:bg-[#EF4444]/10 rounded-lg transition-colors ml-1"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            Delete Section
                           </button>
                         )}
                       </div>
@@ -2638,10 +3211,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                 <button
                                   type="button"
                                   onClick={() => removeMcqFromSection(section.id, q.id)}
-                                  className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1.5 rounded-lg transition-colors"
-                                  title="Delete Question"
+                                  className="px-2 py-1 text-xs font-semibold text-[#EF4444] hover:bg-[#EF4444]/10 rounded-lg transition-colors"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  Delete
                                 </button>
                               </div>
                             </div>
@@ -2713,9 +3285,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                       <button
                                         type="button"
                                         onClick={() => removeOptionFromSectionMcq(section.id, q.id, opt.id)}
-                                        className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1 rounded transition-colors shrink-0"
+                                        className="text-[#EF4444] hover:bg-[#EF4444]/10 px-1.5 py-0.5 text-xs font-semibold rounded transition-colors shrink-0"
                                       >
-                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Remove
                                       </button>
                                     )}
                                   </div>
@@ -2894,10 +3466,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                 <button
                                   type="button"
                                   onClick={() => removeCodingFromSection(section.id, cq.id)}
-                                  className="text-[#EF4444] hover:bg-[#EF4444]/10 p-1.5 rounded-lg transition-colors"
-                                  title="Delete Problem"
+                                  className="px-2 py-1 text-xs font-semibold text-[#EF4444] hover:bg-[#EF4444]/10 rounded-lg transition-colors"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  Delete
                                 </button>
                               </div>
                             </div>

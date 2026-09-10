@@ -3,17 +3,46 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { CourseService } from "@/services/course.service";
-import {
-  BookOpen, Plus, Search, Edit, Trash2, Eye,
-  Clock, Users, Sparkles, ArrowLeft, ArrowRight, Layers,
-  User, GraduationCap, ListChecks, PlayCircle,
-  StickyNote, Code2, FileText, CheckCircle2,
-  Check, ShieldCheck,
-  UploadCloud, PenSquare, HardDrive, EyeOff,
-  Maximize2, Minimize2, ShieldAlert, Lock,
-  ChevronDown, ChevronUp, FolderPlus, Folder, ArrowUp, ArrowDown,
-  FileSpreadsheet, Boxes
-} from "lucide-react";
+// MNC Pure Text-Only Enterprise UI (No Lucide icons or decorative emojis)
+const NoIcon: React.FC<any> = () => null;
+const BookOpen = NoIcon;
+const Plus = NoIcon;
+const Search = NoIcon;
+const Edit = NoIcon;
+const Trash2 = NoIcon;
+const Eye = NoIcon;
+const Clock = NoIcon;
+const Users = NoIcon;
+const Sparkles = NoIcon;
+const ArrowLeft = NoIcon;
+const ArrowRight = NoIcon;
+const Layers = NoIcon;
+const User = NoIcon;
+const GraduationCap = NoIcon;
+const ListChecks = NoIcon;
+const PlayCircle = NoIcon;
+const StickyNote = NoIcon;
+const Code2 = NoIcon;
+const FileText = NoIcon;
+const CheckCircle2 = NoIcon;
+const Check = NoIcon;
+const ShieldCheck = NoIcon;
+const UploadCloud = NoIcon;
+const PenSquare = NoIcon;
+const HardDrive = NoIcon;
+const EyeOff = NoIcon;
+const Maximize2 = NoIcon;
+const Minimize2 = NoIcon;
+const ShieldAlert = NoIcon;
+const Lock = NoIcon;
+const ChevronDown = NoIcon;
+const ChevronUp = NoIcon;
+const FolderPlus = NoIcon;
+const Folder = NoIcon;
+const ArrowUp = NoIcon;
+const ArrowDown = NoIcon;
+const FileSpreadsheet = NoIcon;
+const Boxes = NoIcon;
 import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

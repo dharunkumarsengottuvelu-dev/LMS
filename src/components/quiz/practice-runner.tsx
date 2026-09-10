@@ -62,6 +62,9 @@ interface PracticeRunnerProps {
     allowResume?: boolean;
     scoreRetentionPolicy?: string;
     allowReviewBeforeSubmit?: boolean;
+    languageMode?: "multi" | "single";
+    allowedLanguages?: string[];
+    defaultLanguage?: string;
     proctoring?: {
       fullscreenLock?: boolean;
       copyPasteRestricted?: boolean;
@@ -680,6 +683,11 @@ export function PracticeRunnerEngine({
 
     const sampleTc = testCases.find(tc => !tc.is_hidden) || testCases[0];
 
+    const effectiveAllowed = (currentQuestion as any).allowedLanguages ||
+      (currentQuestion as any).allowed_languages ||
+      module?.allowedLanguages ||
+      (module?.languageMode === "single" && module?.defaultLanguage ? [module.defaultLanguage] : undefined);
+
     return {
       id: currentQuestion.id,
       title: currentQuestion.title || "Coding Challenge",
@@ -693,8 +701,8 @@ export function PracticeRunnerEngine({
       sample_output: sampleTc?.expected_output || "",
       created_at: now,
       updated_at: now,
-      allowed_languages: (currentQuestion as any).allowed_languages || (currentQuestion as any).allowedLanguages || undefined,
-      allowedLanguages: (currentQuestion as any).allowedLanguages || (currentQuestion as any).allowed_languages || undefined,
+      allowed_languages: effectiveAllowed,
+      allowedLanguages: effectiveAllowed,
       templates: (() => {
         const rawTemplates = typeof currentQuestion.starterCode === "string"
           ? { java: currentQuestion.starterCode }
@@ -705,7 +713,7 @@ export function PracticeRunnerEngine({
               javascript: "// Write your JavaScript solution here\n",
               c: "/* Write your C solution here */\n"
             });
-        const allowedList = (currentQuestion as any).allowedLanguages || (currentQuestion as any).allowed_languages;
+        const allowedList = effectiveAllowed;
         const formatted: Record<string, string> = {};
         for (const [lang, tmpl] of Object.entries(rawTemplates)) {
           if (!allowedList || !Array.isArray(allowedList) || allowedList.length === 0 || allowedList.includes(lang)) {
@@ -1522,6 +1530,10 @@ export function PracticeRunnerEngine({
                   defaultLanguage={
                     (currentQuestion?.allowedLanguages && currentQuestion.allowedLanguages.length > 0
                       ? (currentQuestion.allowedLanguages[0] as CodingLanguage)
+                      : module?.allowedLanguages && module.allowedLanguages.length === 1
+                      ? (module.allowedLanguages[0] as CodingLanguage)
+                      : module?.defaultLanguage
+                      ? (module.defaultLanguage as CodingLanguage)
                       : null) ||
                     (codeAnswers[activeCodingProblem.id]?.language as CodingLanguage) ||
                     "java"
@@ -1575,6 +1587,10 @@ export function PracticeRunnerEngine({
                   defaultLanguage={
                     (currentQuestion?.allowedLanguages && currentQuestion.allowedLanguages.length > 0
                       ? (currentQuestion.allowedLanguages[0] as CodingLanguage)
+                      : module?.allowedLanguages && module.allowedLanguages.length === 1
+                      ? (module.allowedLanguages[0] as CodingLanguage)
+                      : module?.defaultLanguage
+                      ? (module.defaultLanguage as CodingLanguage)
                       : null) ||
                     (codeAnswers[activeCodingProblem.id]?.language as CodingLanguage) ||
                     "java"

@@ -837,6 +837,472 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
     })
   },
 
+  // ─── 4.5. ASSESSMENT SECTION & QUESTIONS TEMPLATE (1 EXAM -> MULTI-SECTIONS -> QUESTIONS) ─
+  assessment_questions: {
+    moduleType: "assessment_questions",
+    displayName: "Assessment Sections & Questions Template",
+    description: "Template for bulk importing questions organized into sections (e.g. Aptitude, Technical, Coding) under an Assessment.",
+    templateFileName: "assessment_sections_and_questions_template.xlsx",
+    groupByField: "sectionName",
+    columns: [
+      {
+        key: "assessmentTitle",
+        label: "Assessment Title",
+        type: "string",
+        required: false,
+        description: "Title of the Assessment exam (e.g. 'Java MNC Assessment'). If left blank, questions will attach to the currently open assessment.",
+        sampleValue: "Java MNC Assessment",
+      },
+      {
+        key: "sectionName",
+        label: "Section Name",
+        type: "string",
+        required: true,
+        description: "Name of the Section (e.g. 'Aptitude & Logical Reasoning', 'Technical MCQ', 'Programming Fundamentals', 'Coding')",
+        sampleValue: "Aptitude & Logical Reasoning",
+      },
+      {
+        key: "title",
+        label: "Question / Problem Statement",
+        type: "string",
+        required: true,
+        description: "The complete question prompt or programming challenge problem statement",
+        sampleValue: "What is the primary difference between JVM and JRE?",
+      },
+      {
+        key: "type",
+        label: "Question Type",
+        type: "enum",
+        required: true,
+        options: ["mcq", "msq", "coding"],
+        description: "Type of question: mcq (Single choice), msq (Multiple select), or coding (Live execution)",
+        sampleValue: "mcq",
+      },
+      {
+        key: "marks",
+        label: "Marks / Points",
+        type: "number",
+        required: true,
+        defaultValue: 5,
+        description: "Marks allocated for this question",
+        sampleValue: 5,
+      },
+      {
+        key: "difficulty",
+        label: "Difficulty Level",
+        type: "enum",
+        required: false,
+        options: ["Easy", "Medium", "Hard"],
+        defaultValue: "Easy",
+        description: "Question difficulty rating",
+        sampleValue: "Easy",
+      },
+      {
+        key: "optionA",
+        label: "Option A",
+        type: "string",
+        required: false,
+        description: "MCQ / MSQ Option A text",
+        sampleValue: "JVM executes bytecode; JRE provides libraries + JVM.",
+      },
+      {
+        key: "optionB",
+        label: "Option B",
+        type: "string",
+        required: false,
+        description: "MCQ / MSQ Option B text",
+        sampleValue: "JVM compiles source code; JRE executes binary.",
+      },
+      {
+        key: "optionC",
+        label: "Option C",
+        type: "string",
+        required: false,
+        description: "MCQ / MSQ Option C text",
+        sampleValue: "JVM and JRE are completely identical.",
+      },
+      {
+        key: "optionD",
+        label: "Option D",
+        type: "string",
+        required: false,
+        description: "MCQ / MSQ Option D text",
+        sampleValue: "None of the above.",
+      },
+      {
+        key: "correctOption",
+        label: "Correct Option (A/B/C/D)",
+        type: "string",
+        required: false,
+        description: "For MCQ enter single letter (A, B, C, or D). For MSQ enter comma-separated letters (e.g. A,B).",
+        sampleValue: "A",
+      },
+      {
+        key: "explanation",
+        label: "Explanation",
+        type: "string",
+        required: false,
+        description: "Reasoning and explanation shown in test review",
+        sampleValue: "JVM is the execution runtime; JRE bundles the JVM with class libraries.",
+      },
+      {
+        key: "constraints",
+        label: "Coding Constraints",
+        type: "string",
+        required: false,
+        description: "Execution boundary for coding problems (e.g. '1 <= N <= 10^5')",
+        sampleValue: "1 <= N <= 10^5",
+      },
+      {
+        key: "input_format",
+        label: "Coding Input Format",
+        type: "string",
+        required: false,
+        description: "Expected structure from stdin",
+        sampleValue: "Single line containing integer N",
+      },
+      {
+        key: "output_format",
+        label: "Coding Output Format",
+        type: "string",
+        required: false,
+        description: "Expected printed output to stdout",
+        sampleValue: "Print the computed result",
+      },
+      {
+        key: "testcase_1_input",
+        label: "Test Case 1 Input",
+        type: "string",
+        required: false,
+        description: "First public testcase input for coding problems",
+        sampleValue: "5",
+      },
+      {
+        key: "testcase_1_output",
+        label: "Test Case 1 Expected Output",
+        type: "string",
+        required: false,
+        description: "First public testcase expected output",
+        sampleValue: "120",
+      },
+      {
+        key: "testcase_2_input",
+        label: "Test Case 2 Input",
+        type: "string",
+        required: false,
+        description: "Second public testcase input",
+        sampleValue: "3",
+      },
+      {
+        key: "testcase_2_output",
+        label: "Test Case 2 Expected Output",
+        type: "string",
+        required: false,
+        description: "Second public testcase expected output",
+        sampleValue: "6",
+      },
+      {
+        key: "hidden_testcase_input",
+        label: "Hidden Test Case Input",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase input to prevent hardcoding",
+        sampleValue: "7",
+      },
+      {
+        key: "hidden_testcase_output",
+        label: "Hidden Test Case Expected Output",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation expected output",
+        sampleValue: "5040",
+      },
+      {
+        key: "starterCode",
+        label: "Starter Boilerplate Code",
+        type: "string",
+        required: false,
+        description: "Pre-filled code template for students",
+        sampleValue: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n    }\n}",
+      }
+    ],
+    sampleRows: [
+      // Section 1: Aptitude & Logical Reasoning (MCQs)
+      {
+        assessmentTitle: "Java MNC Assessment",
+        sectionName: "Aptitude & Logical Reasoning",
+        title: "Find the missing number in series: 2, 6, 12, 20, 30, ?",
+        type: "mcq",
+        marks: 2,
+        difficulty: "Easy",
+        optionA: "36",
+        optionB: "40",
+        optionC: "42",
+        optionD: "46",
+        correctOption: "C",
+        explanation: "The differences are +4, +6, +8, +10, +12. 30 + 12 = 42."
+      },
+      {
+        assessmentTitle: "Java MNC Assessment",
+        sectionName: "Aptitude & Logical Reasoning",
+        title: "A train running at 60 km/hr crosses a pole in 9 seconds. What is the length of the train?",
+        type: "mcq",
+        marks: 2,
+        difficulty: "Easy",
+        optionA: "120 meters",
+        optionB: "150 meters",
+        optionC: "180 meters",
+        optionD: "200 meters",
+        correctOption: "B",
+        explanation: "Speed = 60 * (5/18) = 50/3 m/s. Length = (50/3) * 9 = 150 meters."
+      },
+      {
+        assessmentTitle: "Java MNC Assessment",
+        sectionName: "Aptitude & Logical Reasoning",
+        title: "If 12 men can complete a job in 8 days, how many days will 16 men take?",
+        type: "mcq",
+        marks: 2,
+        difficulty: "Easy",
+        optionA: "4 days",
+        optionB: "6 days",
+        optionC: "8 days",
+        optionD: "10 days",
+        correctOption: "B",
+        explanation: "M1 * D1 = M2 * D2 => 12 * 8 = 16 * D2 => D2 = 6 days."
+      },
+
+      // Section 2: Programming Fundamentals & OOP (MCQs)
+      {
+        assessmentTitle: "Java MNC Assessment",
+        sectionName: "Programming Fundamentals",
+        title: "Which of the following is NOT an access modifier in Java?",
+        type: "mcq",
+        marks: 2,
+        difficulty: "Easy",
+        optionA: "private",
+        optionB: "protected",
+        optionC: "internal",
+        optionD: "public",
+        correctOption: "C",
+        explanation: "'internal' is a C# keyword, not supported in Java."
+      },
+      {
+        assessmentTitle: "Java MNC Assessment",
+        sectionName: "Programming Fundamentals",
+        title: "What is the return type of hashCode() method in java.lang.Object?",
+        type: "mcq",
+        marks: 2,
+        difficulty: "Easy",
+        optionA: "int",
+        optionB: "long",
+        optionC: "String",
+        optionD: "void",
+        correctOption: "A",
+        explanation: "hashCode() returns a 32-bit signed primitive integer."
+      },
+
+      // Section 3: Technical MCQ (MCQ & MSQ)
+      {
+        assessmentTitle: "Java MNC Assessment",
+        sectionName: "Technical MCQ",
+        title: "Which Java collection preserves insertion order and permits null values?",
+        type: "mcq",
+        marks: 2,
+        difficulty: "Medium",
+        optionA: "HashSet",
+        optionB: "TreeSet",
+        optionC: "LinkedHashSet",
+        optionD: "PriorityQueue",
+        correctOption: "C",
+        explanation: "LinkedHashSet maintains a doubly-linked list running across its elements preserving insertion order."
+      },
+      {
+        assessmentTitle: "Java MNC Assessment",
+        sectionName: "Technical MCQ",
+        title: "Which of the following are checked exceptions in Java? (MSQ)",
+        type: "msq",
+        marks: 3,
+        difficulty: "Medium",
+        optionA: "IOException",
+        optionB: "SQLException",
+        optionC: "NullPointerException",
+        optionD: "ArithmeticException",
+        correctOption: "A,B",
+        explanation: "IOException and SQLException are checked exceptions; NullPointerException and ArithmeticException are RuntimeExceptions."
+      },
+
+      // Section 4: Coding (Algorithmic challenges with test cases)
+      {
+        assessmentTitle: "Java MNC Assessment",
+        sectionName: "Coding",
+        title: "Reverse a String",
+        type: "coding",
+        marks: 10,
+        difficulty: "Easy",
+        constraints: "1 <= string.length <= 10^5",
+        input_format: "Single line containing string S",
+        output_format: "Reversed string",
+        testcase_1_input: "hello",
+        testcase_1_output: "olleh",
+        testcase_2_input: "world",
+        testcase_2_output: "dlrow",
+        hidden_testcase_input: "enterprise",
+        hidden_testcase_output: "esirpretne",
+        starterCode: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        String s = sc.nextLine();\n        System.out.println(new StringBuilder(s).reverse().toString());\n    }\n}"
+      },
+      {
+        assessmentTitle: "Java MNC Assessment",
+        sectionName: "Coding",
+        title: "Check Balanced Parentheses",
+        type: "coding",
+        marks: 10,
+        difficulty: "Medium",
+        constraints: "1 <= string.length <= 10^4",
+        input_format: "A string containing brackets '()[]{}'",
+        output_format: "Print 'true' if balanced, else 'false'",
+        testcase_1_input: "{[()]}",
+        testcase_1_output: "true",
+        testcase_2_input: "{[(])}",
+        testcase_2_output: "false",
+        hidden_testcase_input: "((()))",
+        hidden_testcase_output: "true",
+        starterCode: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write solution here\n    }\n}"
+      }
+    ],
+    mapToPayload: (row, idx) => {
+      const qType = String(row.type || "mcq").toLowerCase().trim();
+      const secName = String(row.sectionName || row.section || "General Assessment").trim();
+      const marks = Number(row.marks) || 5;
+
+      const rawCorrect = String(row.correctOption || "A").trim().toUpperCase();
+      const correctParts = rawCorrect.split(",").map((s) => s.trim());
+
+      const options = [
+        { id: 1, text: String(row.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") },
+        { id: 2, text: String(row.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") },
+        { id: 3, text: String(row.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") },
+        { id: 4, text: String(row.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") },
+      ];
+
+      const testCases: any[] = [];
+      if (row.testcase_1_input !== undefined || row.testcase_1_output !== undefined) {
+        testCases.push({
+          id: 1,
+          input: String(row.testcase_1_input || "").trim(),
+          output: String(row.testcase_1_output || "").trim(),
+          isHidden: false,
+        });
+      }
+      if (row.testcase_2_input !== undefined || row.testcase_2_output !== undefined) {
+        testCases.push({
+          id: 2,
+          input: String(row.testcase_2_input || "").trim(),
+          output: String(row.testcase_2_output || "").trim(),
+          isHidden: false,
+        });
+      }
+      if (row.hidden_testcase_input !== undefined || row.hidden_testcase_output !== undefined) {
+        testCases.push({
+          id: 3,
+          input: String(row.hidden_testcase_input || "").trim(),
+          output: String(row.hidden_testcase_output || "").trim(),
+          isHidden: true,
+        });
+      }
+
+      return {
+        id: `q_bulk_${Date.now()}_${idx}`,
+        assessmentTitle: String(row.assessmentTitle || "").trim(),
+        section: secName,
+        title: String(row.title || `Question ${idx + 1}`).trim(),
+        type: qType === "coding" ? "coding" : qType === "msq" ? "msq" : "mcq",
+        marks,
+        difficulty: row.difficulty || "Easy",
+        options: qType !== "coding" ? options : undefined,
+        testCases: qType === "coding" ? testCases : undefined,
+        explanation: String(row.explanation || "").trim(),
+        constraints: String(row.constraints || "").trim(),
+        inputFormat: String(row.input_format || "").trim(),
+        outputFormat: String(row.output_format || "").trim(),
+        starterCode: String(row.starterCode || "").trim(),
+      };
+    },
+    mapGroupedPayload: (grouped, indexOffset = 0) => {
+      return grouped.map((group, gIdx) => {
+        const secName = String(group.groupKey || `Section ${indexOffset + gIdx + 1}`).trim();
+        const rows = group.rows || [];
+
+        const questions = rows.map((r, qIdx) => {
+          const qType = String(r.type || "mcq").toLowerCase().trim();
+          const marks = Number(r.marks) || (qType === "coding" ? 10 : 2);
+          const rawCorrect = String(r.correctOption || "A").trim().toUpperCase();
+          const correctParts = rawCorrect.split(",").map((s) => s.trim());
+
+          const options = [
+            { id: 1, text: String(r.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") },
+            { id: 2, text: String(r.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") },
+            { id: 3, text: String(r.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") },
+            { id: 4, text: String(r.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") },
+          ];
+
+          const testCases: any[] = [];
+          if (r.testcase_1_input !== undefined || r.testcase_1_output !== undefined) {
+            testCases.push({
+              id: 1,
+              input: String(r.testcase_1_input || "").trim(),
+              output: String(r.testcase_1_output || "").trim(),
+              isHidden: false,
+            });
+          }
+          if (r.testcase_2_input !== undefined || r.testcase_2_output !== undefined) {
+            testCases.push({
+              id: 2,
+              input: String(r.testcase_2_input || "").trim(),
+              output: String(r.testcase_2_output || "").trim(),
+              isHidden: false,
+            });
+          }
+          if (r.hidden_testcase_input !== undefined || r.hidden_testcase_output !== undefined) {
+            testCases.push({
+              id: 3,
+              input: String(r.hidden_testcase_input || "").trim(),
+              output: String(r.hidden_testcase_output || "").trim(),
+              isHidden: true,
+            });
+          }
+
+          return {
+            id: `q_bulk_${Date.now()}_${gIdx}_${qIdx}`,
+            assessmentTitle: String(r.assessmentTitle || "").trim(),
+            section: secName,
+            title: String(r.title || `Question ${qIdx + 1}`).trim(),
+            type: qType === "coding" ? "coding" : qType === "msq" ? "msq" : "mcq",
+            marks,
+            difficulty: r.difficulty || "Easy",
+            options: qType !== "coding" ? options : undefined,
+            testCases: qType === "coding" ? testCases : undefined,
+            explanation: String(r.explanation || "").trim(),
+            constraints: String(r.constraints || "").trim(),
+            inputFormat: String(r.input_format || "").trim(),
+            outputFormat: String(r.output_format || "").trim(),
+            starterCode: String(r.starterCode || "").trim(),
+          };
+        });
+
+        const totalSectionMarks = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
+
+        return {
+          sectionName: secName,
+          title: secName,
+          questions,
+          questionCount: questions.length,
+          totalMarks: totalSectionMarks,
+          assessmentTitle: rows[0]?.assessmentTitle ? String(rows[0].assessmentTitle).trim() : undefined,
+        };
+      });
+    }
+  },
+
   // ─── 5. QUIZ TEMPLATE ──────────────────────────────────────────────────────
   quiz: {
     moduleType: "quiz",
@@ -1684,6 +2150,9 @@ export function getTemplateConfig(moduleType: string): ModuleTemplateConfig {
   // Aliases
   if (normalized === "courses" || normalized === "course_batch") return (TEMPLATE_CONFIGS.course_batch || TEMPLATE_CONFIGS.course) as ModuleTemplateConfig;
   if (normalized === "practices" || normalized === "practice_track" || normalized === "tracks") return (TEMPLATE_CONFIGS.practice_track || TEMPLATE_CONFIGS.practice) as ModuleTemplateConfig;
+  if (normalized === "assessment_questions" || normalized === "assessment_question" || normalized === "test_questions" || normalized === "exam_questions") {
+    return (TEMPLATE_CONFIGS.assessment_questions || TEMPLATE_CONFIGS.assessment) as ModuleTemplateConfig;
+  }
   if (normalized === "assessments" || normalized === "assessment_track" || normalized === "tests") return (TEMPLATE_CONFIGS.assessment_track || TEMPLATE_CONFIGS.assessment) as ModuleTemplateConfig;
   if (normalized === "main_modules" || normalized === "units") return (TEMPLATE_CONFIGS.main_module || TEMPLATE_CONFIGS.course) as ModuleTemplateConfig;
   if (normalized === "coding" || normalized === "coding_problem" || normalized === "coding_problems" || normalized === "code_lab" || normalized === "codelab") {
