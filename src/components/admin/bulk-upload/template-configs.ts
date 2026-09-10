@@ -20,7 +20,117 @@ export interface ModuleTemplateConfig {
   templateFileName: string;
   columns: ColumnDefinition[];
   sampleRows: Record<string, any>[];
+  groupByField?: string;
   mapToPayload: (row: Record<string, any>, index: number) => any;
+  mapGroupedPayload?: (grouped: { groupKey: string; rows: Record<string, any>[] }[], indexOffset?: number) => any[];
+}
+
+function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parentModuleId: string) {
+  const publicTestCases: any[] = [];
+  const hiddenTestCases: any[] = [];
+
+  // 1. Explicit Public Test Cases
+  const tc1In = row.testcase_1_input ?? row.testcase1_input ?? row.test_case_1_input;
+  const tc1Out = row.testcase_1_output ?? row.testcase1_output ?? row.test_case_1_output;
+  if (tc1In !== undefined || tc1Out !== undefined) {
+    publicTestCases.push({
+      id: `tc_${Date.now()}_1_${qIdx}`,
+      name: "Test Case 1",
+      input: String(tc1In ?? "").trim(),
+      expected_output: String(tc1Out ?? "").trim(),
+      expectedOutput: String(tc1Out ?? "").trim(),
+      is_hidden: false,
+      isSample: true,
+    });
+  }
+
+  const tc2In = row.testcase_2_input ?? row.testcase2_input ?? row.test_case_2_input;
+  const tc2Out = row.testcase_2_output ?? row.testcase2_output ?? row.test_case_2_output;
+  if (tc2In !== undefined || tc2Out !== undefined) {
+    publicTestCases.push({
+      id: `tc_${Date.now()}_2_${qIdx}`,
+      name: "Test Case 2",
+      input: String(tc2In ?? "").trim(),
+      expected_output: String(tc2Out ?? "").trim(),
+      expectedOutput: String(tc2Out ?? "").trim(),
+      is_hidden: false,
+      isSample: false,
+    });
+  }
+
+  // Sample fallback as public test case if no test cases provided
+  if (publicTestCases.length === 0 && (row.sample_input || row.sample_output || row.sampleInput || row.sampleOutput)) {
+    publicTestCases.push({
+      id: `tc_${Date.now()}_sample_${qIdx}`,
+      name: "Sample Test Case",
+      input: String(row.sample_input ?? row.sampleInput ?? "").trim(),
+      expected_output: String(row.sample_output ?? row.sampleOutput ?? "").trim(),
+      expectedOutput: String(row.sample_output ?? row.sampleOutput ?? "").trim(),
+      explanation: String(row.sample_explanation ?? row.sampleExplanation ?? "").trim(),
+      is_hidden: false,
+      isSample: true,
+    });
+  }
+
+  // 2. Hidden Test Cases
+  const h1In = row.hidden_testcase_input ?? row.hidden_testcase_1_input ?? row.hidden_input ?? row.hiddenInput;
+  const h1Out = row.hidden_testcase_output ?? row.hidden_testcase_1_output ?? row.hidden_output ?? row.hiddenOutput;
+  if (h1In !== undefined || h1Out !== undefined) {
+    hiddenTestCases.push({
+      id: `tc_hid_${Date.now()}_1_${qIdx}`,
+      name: "Hidden Test Case 1",
+      input: String(h1In ?? "").trim(),
+      expected_output: String(h1Out ?? "").trim(),
+      expectedOutput: String(h1Out ?? "").trim(),
+      is_hidden: true,
+    });
+  }
+
+  const h2In = row.hidden_testcase_2_input ?? row.hidden_input_2 ?? row.hidden2Input;
+  const h2Out = row.hidden_testcase_2_output ?? row.hidden_output_2 ?? row.hidden2Output;
+  if (h2In !== undefined || h2Out !== undefined) {
+    hiddenTestCases.push({
+      id: `tc_hid_${Date.now()}_2_${qIdx}`,
+      name: "Hidden Test Case 2",
+      input: String(h2In ?? "").trim(),
+      expected_output: String(h2Out ?? "").trim(),
+      expectedOutput: String(h2Out ?? "").trim(),
+      is_hidden: true,
+    });
+  }
+
+  const problemStatement = String(row.description || row.problemStatement || row.problem_statement || "").trim();
+  const constraints = String(row.constraints || "").trim();
+  const inputFormat = String(row.input_format || row.inputFormat || "").trim();
+  const outputFormat = String(row.output_format || row.outputFormat || "").trim();
+  const starterCodeStr = String(row.starterCode || row.starter_code || "").trim();
+
+  const combinedCases = [...publicTestCases, ...hiddenTestCases];
+
+  const starterTemplates: Record<string, string> = {
+    java: starterCodeStr || "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write solution here\n    }\n}\n",
+    python: starterCodeStr || "# Write solution here\nimport sys\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n",
+    cpp: starterCodeStr || "#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write solution here\n    return 0;\n}\n",
+    javascript: starterCodeStr || "// Write solution here\nconst fs = require('fs');\nconst input = fs.readFileSync(0, 'utf-8').trim();\n",
+    c: starterCodeStr || "/* Write solution here */\n#include <stdio.h>\n\nint main() {\n    return 0;\n}\n",
+  };
+
+  return {
+    id: `cq_${Date.now()}_${parentModuleId}_${qIdx}`,
+    title: String(row.title || `Question ${qIdx + 1}`).trim(),
+    description: problemStatement,
+    difficulty: row.difficulty || "Easy",
+    constraints,
+    inputFormat,
+    outputFormat,
+    marks: Number(row.totalMarks) || 10,
+    templates: starterTemplates,
+    starterCode: starterCodeStr,
+    publicTestCases,
+    hiddenTestCases,
+    test_cases: combinedCases,
+    testCases: combinedCases,
+  };
 }
 
 export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
@@ -207,14 +317,23 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
     displayName: "Practice Challenge & Track Template",
     description: "Template for creating MCQ problem sets, algorithmic coding challenges, and lab tracks.",
     templateFileName: "practice_sub_modules_template.xlsx",
+    groupByField: "moduleName",
     columns: [
+      {
+        key: "moduleName",
+        label: "Module Name",
+        type: "string",
+        required: true,
+        description: "Name of the Module/Chapter (e.g. 'Java Basics', 'Java OOP'). Multiple questions with the same Module Name will be grouped together into a single module containing all of those questions.",
+        sampleValue: "Java Basics",
+      },
       {
         key: "title",
         label: "Practice Item Title",
         type: "string",
         required: true,
-        description: "Title of the practice session or challenge",
-        sampleValue: "Two Sum Problem",
+        description: "Title of the question or challenge (e.g. 'What is Java?', 'Two Sum')",
+        sampleValue: "What is Java?",
       },
       {
         key: "type",
@@ -239,9 +358,9 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         label: "Total Marks / Points",
         type: "number",
         required: false,
-        defaultValue: 100,
-        description: "Maximum score or points for completion",
-        sampleValue: 100,
+        defaultValue: 10,
+        description: "Maximum score or points for this question",
+        sampleValue: 10,
       },
       {
         key: "difficulty",
@@ -249,7 +368,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "enum",
         required: false,
         options: ["Easy", "Medium", "Hard"],
-        defaultValue: "Medium",
+        defaultValue: "Easy",
         description: "Challenge difficulty rating",
         sampleValue: "Easy",
       },
@@ -258,16 +377,16 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         label: "Problem Statement (Markdown)",
         type: "string",
         required: false,
-        description: "Problem prompt, instructions, and constraints",
-        sampleValue: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+        description: "Detailed problem prompt, instructions, and constraints",
+        sampleValue: "Print 'Hello, World!' to standard output or implement the requested logic.",
       },
       {
         key: "constraints",
         label: "Constraints",
         type: "string",
         required: false,
-        description: "Execution and boundary constraints (e.g. '2 <= nums.length <= 10^4')",
-        sampleValue: "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9",
+        description: "Execution and boundary constraints (e.g. '1 <= N <= 10^5')",
+        sampleValue: "1 <= N <= 10^5",
       },
       {
         key: "input_format",
@@ -275,7 +394,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Explanation of input structure received via standard input",
-        sampleValue: "Line 1: Space-separated integers for nums.\nLine 2: target integer.",
+        sampleValue: "Standard input",
       },
       {
         key: "output_format",
@@ -283,7 +402,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Explanation of expected output printed to standard output",
-        sampleValue: "Print the two 0-indexed positions separated by a space.",
+        sampleValue: "Print result to standard output",
       },
       {
         key: "sample_input",
@@ -291,7 +410,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Example input shown in problem overview",
-        sampleValue: "2 7 11 15\n9",
+        sampleValue: "5",
       },
       {
         key: "sample_output",
@@ -299,7 +418,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Expected output for sample case",
-        sampleValue: "0 1",
+        sampleValue: "5",
       },
       {
         key: "sample_explanation",
@@ -307,7 +426,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Reasoning and explanation for sample case",
-        sampleValue: "Because nums[0] + nums[1] == 9, we return 0 1.",
+        sampleValue: "Outputs the value directly.",
       },
       {
         key: "testcase_1_input",
@@ -315,7 +434,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "First public test case input for automated grader",
-        sampleValue: "2 7 11 15\n9",
+        sampleValue: "5",
       },
       {
         key: "testcase_1_output",
@@ -323,7 +442,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "First public test case expected output",
-        sampleValue: "0 1",
+        sampleValue: "5",
       },
       {
         key: "testcase_2_input",
@@ -331,7 +450,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Second public testcase input",
-        sampleValue: "3 2 4\n6",
+        sampleValue: "10",
       },
       {
         key: "testcase_2_output",
@@ -339,7 +458,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Second public testcase expected output",
-        sampleValue: "1 2",
+        sampleValue: "10",
       },
       {
         key: "hidden_testcase_input",
@@ -347,7 +466,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Private/Hidden test case evaluated during Submit to prevent hardcoding",
-        sampleValue: "3 3\n6",
+        sampleValue: "100",
       },
       {
         key: "hidden_testcase_output",
@@ -355,7 +474,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Expected output for hidden test case 1",
-        sampleValue: "0 1",
+        sampleValue: "100",
       },
       {
         key: "hidden_testcase_2_input",
@@ -363,7 +482,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Private/Hidden test case 2 evaluated during Submit",
-        sampleValue: "1 5 8 12\n20",
+        sampleValue: "500",
       },
       {
         key: "hidden_testcase_2_output",
@@ -371,7 +490,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Expected output for hidden test case 2",
-        sampleValue: "2 3",
+        sampleValue: "500",
       },
       {
         key: "starterCode",
@@ -379,7 +498,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         type: "string",
         required: false,
         description: "Pre-filled code template for students (Java / Python / C++)",
-        sampleValue: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        // Your code here\n    }\n}",
+        sampleValue: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write solution here\n    }\n}",
       },
       {
         key: "restrictCopyPaste",
@@ -401,174 +520,139 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
       }
     ],
     sampleRows: [
-      {
-        title: "Two Sum Problem",
-        type: "coding",
-        durationMinutes: 45,
-        totalMarks: 100,
-        difficulty: "Easy",
-        description: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
-        constraints: "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9",
-        input_format: "Line 1: Space-separated integers for nums.\nLine 2: target integer.",
-        output_format: "Print the two 0-indexed positions separated by a space.",
-        sample_input: "2 7 11 15\n9",
-        sample_output: "0 1",
-        sample_explanation: "Because nums[0] + nums[1] == 9, we return 0 1.",
-        testcase_1_input: "2 7 11 15\n9",
-        testcase_1_output: "0 1",
-        testcase_2_input: "3 2 4\n6",
-        testcase_2_output: "1 2",
-        hidden_testcase_input: "3 3\n6",
-        hidden_testcase_output: "0 1",
-        hidden_testcase_2_input: "1 5 8 12\n20",
-        hidden_testcase_2_output: "2 3",
-        starterCode: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write solution here\n    }\n}",
-        restrictCopyPaste: "No",
-        enforceFullScreen: "No"
-      },
-      {
-        title: "Database Indexing & ACID Concept Quiz",
-        type: "mcq",
-        durationMinutes: 30,
-        totalMarks: 30,
-        difficulty: "Medium",
-        description: "Multiple choice questionnaire testing SQL internals.",
-        restrictCopyPaste: "Yes",
-        enforceFullScreen: "Yes"
-      }
+      // ── MODULE 1: Java Basics (10 Questions) ─────────────────────────────────
+      { moduleName: "Java Basics", title: "What is Java?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Write a program that prints 'Java is a robust, object-oriented language'.", testcase_1_input: "", testcase_1_output: "Java is a robust, object-oriented language", hidden_testcase_input: "", hidden_testcase_output: "Java is a robust, object-oriented language" },
+      { moduleName: "Java Basics", title: "What is JVM?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Write a program that demonstrates Java Virtual Machine architecture fundamentals.", testcase_1_input: "jvm", testcase_1_output: "Bytecode Interpreter", hidden_testcase_input: "jvm_arch", hidden_testcase_output: "Bytecode Interpreter" },
+      { moduleName: "Java Basics", title: "What is JDK?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Write a program demonstrating Java Development Kit tools.", testcase_1_input: "jdk", testcase_1_output: "Development Tools", hidden_testcase_input: "compiler", hidden_testcase_output: "javac" },
+      { moduleName: "Java Basics", title: "What is JRE?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Write a program illustrating Java Runtime Environment components.", testcase_1_input: "jre", testcase_1_output: "Runtime Environment", hidden_testcase_input: "runtime", hidden_testcase_output: "Runtime Environment" },
+      { moduleName: "Java Basics", title: "What is a Variable?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Declare an integer variable 'count' with value 42 and print it.", testcase_1_input: "", testcase_1_output: "42", hidden_testcase_input: "", hidden_testcase_output: "42" },
+      { moduleName: "Java Basics", title: "What are Data Types?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Read a float and an integer, print their sum as a double.", testcase_1_input: "3.5 4", testcase_1_output: "7.5", hidden_testcase_input: "10.25 5", hidden_testcase_output: "15.25" },
+      { moduleName: "Java Basics", title: "What are Operators?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Given two numbers a and b, compute and print a % b.", testcase_1_input: "10 3", testcase_1_output: "1", hidden_testcase_input: "25 7", hidden_testcase_output: "4" },
+      { moduleName: "Java Basics", title: "What is Type Casting?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Convert a double to an integer via explicit casting and print it.", testcase_1_input: "9.99", testcase_1_output: "9", hidden_testcase_input: "45.75", hidden_testcase_output: "45" },
+      { moduleName: "Java Basics", title: "What is a Loop?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Given integer N, print numbers from 1 to N separated by a space.", testcase_1_input: "5", testcase_1_output: "1 2 3 4 5", hidden_testcase_input: "3", hidden_testcase_output: "1 2 3" },
+      { moduleName: "Java Basics", title: "What is an Array?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Given N elements, print the first and last element separated by space.", testcase_1_input: "4\n10 20 30 40", testcase_1_output: "10 40", hidden_testcase_input: "3\n5 15 25", hidden_testcase_output: "5 25" },
+
+      // ── MODULE 2: Java OOP (10 Questions) ────────────────────────────────────
+      { moduleName: "Java OOP", title: "What is a Class?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Create a Student class with name and age fields, instantiate and print details.", testcase_1_input: "Alice 20", testcase_1_output: "Student: Alice, Age: 20", hidden_testcase_input: "Bob 22", hidden_testcase_output: "Student: Bob, Age: 22" },
+      { moduleName: "Java OOP", title: "What is an Object?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Instantiate an object and invoke its greet method.", testcase_1_input: "World", testcase_1_output: "Hello, World!", hidden_testcase_input: "Java", hidden_testcase_output: "Hello, Java!" },
+      { moduleName: "Java OOP", title: "What is Inheritance?", type: "coding", difficulty: "Medium", totalMarks: 10, durationMinutes: 60, description: "Demonstrate single inheritance with Animal base class and Dog derived class.", testcase_1_input: "Buddy", testcase_1_output: "Dog Buddy barks", hidden_testcase_input: "Max", hidden_testcase_output: "Dog Max barks" },
+      { moduleName: "Java OOP", title: "What is Polymorphism?", type: "coding", difficulty: "Medium", totalMarks: 10, durationMinutes: 60, description: "Demonstrate runtime polymorphism by overriding the draw() method.", testcase_1_input: "Circle", testcase_1_output: "Drawing Circle", hidden_testcase_input: "Square", hidden_testcase_output: "Drawing Square" },
+      { moduleName: "Java OOP", title: "What is Encapsulation?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Create a BankAccount class with private balance and public getter/setter.", testcase_1_input: "500", testcase_1_output: "Balance: 500", hidden_testcase_input: "1200", hidden_testcase_output: "Balance: 1200" },
+      { moduleName: "Java OOP", title: "What is Abstraction?", type: "coding", difficulty: "Medium", totalMarks: 10, durationMinutes: 60, description: "Define an abstract class Shape with abstract method area().", testcase_1_input: "4 5", testcase_1_output: "Area: 20", hidden_testcase_input: "6 7", hidden_testcase_output: "Area: 42" },
+      { moduleName: "Java OOP", title: "What is Constructor?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Implement a parameterized constructor to initialize object coordinates.", testcase_1_input: "3 4", testcase_1_output: "Point(3, 4)", hidden_testcase_input: "8 9", hidden_testcase_output: "Point(8, 9)" },
+      { moduleName: "Java OOP", title: "What is Method Overloading?", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Overload add() to handle both two integers and three integers.", testcase_1_input: "2 3\n1 2 3", testcase_1_output: "5\n6", hidden_testcase_input: "5 5\n2 3 4", hidden_testcase_output: "10\n9" },
+      { moduleName: "Java OOP", title: "What is Method Overriding?", type: "coding", difficulty: "Medium", totalMarks: 10, durationMinutes: 60, description: "Override sound() method in sub-class Cat returning 'Meow'.", testcase_1_input: "cat", testcase_1_output: "Meow", hidden_testcase_input: "cat2", hidden_testcase_output: "Meow" },
+      { moduleName: "Java OOP", title: "What is Interface?", type: "coding", difficulty: "Medium", totalMarks: 10, durationMinutes: 60, description: "Implement Printable interface with print() method.", testcase_1_input: "Document", testcase_1_output: "Printing Document", hidden_testcase_input: "Invoice", hidden_testcase_output: "Printing Invoice" },
+
+      // ── MODULE 3: Java Arrays (10 Questions) ─────────────────────────────────
+      { moduleName: "Java Arrays", title: "Declare and Initialize an Array", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Initialize an array of size N and print its elements.", testcase_1_input: "3\n1 2 3", testcase_1_output: "1 2 3", hidden_testcase_input: "2\n7 8", hidden_testcase_output: "7 8" },
+      { moduleName: "Java Arrays", title: "Find Maximum in Array", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Find and return the maximum element in the given integer array.", testcase_1_input: "5\n3 1 9 4 2", testcase_1_output: "9", hidden_testcase_input: "4\n-5 -2 -10 -1", hidden_testcase_output: "-1" },
+      { moduleName: "Java Arrays", title: "Find Minimum in Array", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Find and return the minimum element in the given integer array.", testcase_1_input: "5\n3 1 9 4 2", testcase_1_output: "1", hidden_testcase_input: "4\n10 20 5 40", hidden_testcase_output: "5" },
+      { moduleName: "Java Arrays", title: "Reverse an Array", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Reverse an array in-place and print the reversed elements.", testcase_1_input: "4\n1 2 3 4", testcase_1_output: "4 3 2 1", hidden_testcase_input: "3\n9 8 7", hidden_testcase_output: "7 8 9" },
+      { moduleName: "Java Arrays", title: "Check if Array is Sorted", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Return true if the array is sorted in non-decreasing order, else false.", testcase_1_input: "4\n1 2 2 3", testcase_1_output: "true", hidden_testcase_input: "4\n1 3 2 4", hidden_testcase_output: "false" },
+      { moduleName: "Java Arrays", title: "Two Sum Problem", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Find indices of the two numbers that add up to target.", testcase_1_input: "2 7 11 15\n9", testcase_1_output: "0 1", hidden_testcase_input: "3 2 4\n6", hidden_testcase_output: "1 2" },
+      { moduleName: "Java Arrays", title: "Move Zeroes to End", type: "coding", difficulty: "Medium", totalMarks: 10, durationMinutes: 60, description: "Move all zeroes in an array to the end while maintaining relative order of non-zeroes.", testcase_1_input: "5\n0 1 0 3 12", testcase_1_output: "1 3 12 0 0", hidden_testcase_input: "3\n0 0 1", hidden_testcase_output: "1 0 0" },
+      { moduleName: "Java Arrays", title: "Remove Duplicates from Sorted Array", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Remove duplicates in-place from sorted array and return new length.", testcase_1_input: "3\n1 1 2", testcase_1_output: "2", hidden_testcase_input: "5\n0 0 1 1 2", hidden_testcase_output: "3" },
+      { moduleName: "Java Arrays", title: "Rotate Array by K Positions", type: "coding", difficulty: "Medium", totalMarks: 10, durationMinutes: 60, description: "Rotate array to the right by K steps.", testcase_1_input: "5 2\n1 2 3 4 5", testcase_1_output: "4 5 1 2 3", hidden_testcase_input: "4 1\n1 2 3 4", hidden_testcase_output: "4 1 2 3" },
+      { moduleName: "Java Arrays", title: "Linear Search in Array", type: "coding", difficulty: "Easy", totalMarks: 10, durationMinutes: 60, description: "Search for key K in array. Return index if found, else -1.", testcase_1_input: "4 30\n10 20 30 40", testcase_1_output: "2", hidden_testcase_input: "3 50\n10 20 30", hidden_testcase_output: "-1" }
     ],
     mapToPayload: (row, idx) => {
-      const publicTestCases: any[] = [];
-      const hiddenTestCases: any[] = [];
-
-      // 1. Explicit Public Test Cases
-      const tc1In = row.testcase_1_input ?? row.testcase1_input ?? row.test_case_1_input;
-      const tc1Out = row.testcase_1_output ?? row.testcase1_output ?? row.test_case_1_output;
-      if (tc1In !== undefined || tc1Out !== undefined) {
-        publicTestCases.push({
-          id: `tc_${Date.now()}_1_${idx}`,
-          name: "Test Case 1",
-          input: String(tc1In ?? "").trim(),
-          expected_output: String(tc1Out ?? "").trim(),
-          expectedOutput: String(tc1Out ?? "").trim(),
-          is_hidden: false,
-          isSample: true,
-        });
-      }
-
-      const tc2In = row.testcase_2_input ?? row.testcase2_input ?? row.test_case_2_input;
-      const tc2Out = row.testcase_2_output ?? row.testcase2_output ?? row.test_case_2_output;
-      if (tc2In !== undefined || tc2Out !== undefined) {
-        publicTestCases.push({
-          id: `tc_${Date.now()}_2_${idx}`,
-          name: "Test Case 2",
-          input: String(tc2In ?? "").trim(),
-          expected_output: String(tc2Out ?? "").trim(),
-          expectedOutput: String(tc2Out ?? "").trim(),
-          is_hidden: false,
-          isSample: false,
-        });
-      }
-
-      // Sample fallback as public test case if no test cases provided
-      if (publicTestCases.length === 0 && (row.sample_input || row.sample_output || row.sampleInput || row.sampleOutput)) {
-        publicTestCases.push({
-          id: `tc_${Date.now()}_sample_${idx}`,
-          name: "Sample Test Case",
-          input: String(row.sample_input ?? row.sampleInput ?? "").trim(),
-          expected_output: String(row.sample_output ?? row.sampleOutput ?? "").trim(),
-          expectedOutput: String(row.sample_output ?? row.sampleOutput ?? "").trim(),
-          explanation: String(row.sample_explanation ?? row.sampleExplanation ?? "").trim(),
-          is_hidden: false,
-          isSample: true,
-        });
-      }
-
-      // 2. Hidden Test Cases
-      const h1In = row.hidden_testcase_input ?? row.hidden_testcase_1_input ?? row.hidden_input ?? row.hiddenInput;
-      const h1Out = row.hidden_testcase_output ?? row.hidden_testcase_1_output ?? row.hidden_output ?? row.hiddenOutput;
-      if (h1In !== undefined || h1Out !== undefined) {
-        hiddenTestCases.push({
-          id: `tc_hid_${Date.now()}_1_${idx}`,
-          name: "Hidden Test Case 1",
-          input: String(h1In ?? "").trim(),
-          expected_output: String(h1Out ?? "").trim(),
-          expectedOutput: String(h1Out ?? "").trim(),
-          is_hidden: true,
-        });
-      }
-
-      const h2In = row.hidden_testcase_2_input ?? row.hidden_input_2 ?? row.hidden2Input;
-      const h2Out = row.hidden_testcase_2_output ?? row.hidden_output_2 ?? row.hidden2Output;
-      if (h2In !== undefined || h2Out !== undefined) {
-        hiddenTestCases.push({
-          id: `tc_hid_${Date.now()}_2_${idx}`,
-          name: "Hidden Test Case 2",
-          input: String(h2In ?? "").trim(),
-          expected_output: String(h2Out ?? "").trim(),
-          expectedOutput: String(h2Out ?? "").trim(),
-          is_hidden: true,
-        });
-      }
-
-      const problemStatement = String(row.description || row.problemStatement || row.problem_statement || "").trim();
-      const constraints = String(row.constraints || "").trim();
-      const inputFormat = String(row.input_format || row.inputFormat || "").trim();
-      const outputFormat = String(row.output_format || row.outputFormat || "").trim();
+      const parentMod = String(row.moduleName || row.module_name || row.title || `Module ${idx + 1}`).trim();
+      const question = parsePracticeQuestionRow(row, idx, `sm_${idx}`);
       const starterCodeStr = String(row.starterCode || row.starter_code || "").trim();
-
-      const combinedCases = [...publicTestCases, ...hiddenTestCases];
-
-      const starterTemplates: Record<string, string> = {
-        java: starterCodeStr || "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write solution here\n    }\n}\n",
-        python: starterCodeStr || "# Write solution here\nimport sys\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n",
-        cpp: starterCodeStr || "#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write solution here\n    return 0;\n}\n",
-        javascript: starterCodeStr || "// Write solution here\nconst fs = require('fs');\nconst input = fs.readFileSync(0, 'utf-8').trim();\n",
-        c: starterCodeStr || "/* Write solution here */\n#include <stdio.h>\n\nint main() {\n    return 0;\n}\n",
-      };
-
-      const isCodingOrMixed = row.type === "coding" || row.type === "mixed" || !row.type;
 
       return {
         id: `sm_${Date.now()}_${idx}`,
-        title: String(row.title || "").trim(),
+        title: parentMod,
         type: (row.type || "coding").toLowerCase(),
         durationMinutes: Number(row.durationMinutes) || 60,
-        totalMarks: Number(row.totalMarks) || 100,
+        totalMarks: Number(row.totalMarks) || 10,
         questionCount: 1,
         restrictCopyPaste: isTruthy(row.restrictCopyPaste),
         enforceFullScreen: isTruthy(row.enforceFullScreen),
-        hasHiddenTests: hiddenTestCases.length > 0,
-        hiddenTestsCode: hiddenTestCases.length > 0 ? JSON.stringify(hiddenTestCases) : undefined,
-        problemDescription: problemStatement,
-        constraints,
-        inputFormat,
-        outputFormat,
-        publicTestCases: JSON.stringify(publicTestCases),
+        hasHiddenTests: question.hiddenTestCases.length > 0,
+        hiddenTestsCode: question.hiddenTestCases.length > 0 ? JSON.stringify(question.hiddenTestCases) : undefined,
+        problemDescription: question.description,
+        constraints: question.constraints,
+        inputFormat: question.inputFormat,
+        outputFormat: question.outputFormat,
+        publicTestCases: JSON.stringify(question.publicTestCases),
         starterCode: starterCodeStr,
+        codingQuestions: [question],
+        mcqQuestions: [],
         sections: [
           {
             id: `sec_${Date.now()}_${idx}`,
-            title: "Section 1",
+            title: `Section 1: ${parentMod}`,
             mcqQuestions: [],
-            codingQuestions: isCodingOrMixed ? [{
-              id: `cq_${Date.now()}_${idx}`,
-              title: String(row.title || "").trim(),
-              description: problemStatement,
-              difficulty: row.difficulty || "Medium",
-              constraints,
-              inputFormat,
-              outputFormat,
-              templates: starterTemplates,
-              starterCode: starterCodeStr,
-              publicTestCases,
-              hiddenTestCases,
-              test_cases: combinedCases,
-              testCases: combinedCases,
-            }] : []
+            codingQuestions: [question]
           }
         ]
       };
+    },
+    mapGroupedPayload: (grouped, indexOffset = 0) => {
+      return grouped.map((group, gIdx) => {
+        const modIdx = indexOffset + gIdx;
+        const moduleId = `sm_${Date.now()}_${modIdx}`;
+        const moduleTitle = String(group.groupKey || `Module ${modIdx + 1}`).trim();
+        const rows = group.rows || [];
+
+        const restrictCopyPaste = rows.some((r) => isTruthy(r.restrictCopyPaste));
+        const enforceFullScreen = rows.some((r) => isTruthy(r.enforceFullScreen));
+        const totalDuration = rows.reduce((max, r) => Math.max(max, Number(r.durationMinutes) || 0), 60);
+        const totalMarks = rows.reduce((acc, r) => acc + (Number(r.totalMarks) || 10), 0);
+
+        const codingQuestions: any[] = [];
+        const mcqQuestions: any[] = [];
+
+        rows.forEach((r, qIdx) => {
+          const qType = (r.type || "coding").toLowerCase();
+          if (qType === "mcq") {
+            mcqQuestions.push({
+              id: `mcq_${Date.now()}_${modIdx}_${qIdx}`,
+              questionText: String(r.description || r.title || `Question ${qIdx + 1}`).trim(),
+              questionType: "single",
+              marks: Number(r.totalMarks) || 10,
+              options: [
+                { id: "o1", text: "Option A", isCorrect: true },
+                { id: "o2", text: "Option B", isCorrect: false },
+                { id: "o3", text: "Option C", isCorrect: false },
+                { id: "o4", text: "Option D", isCorrect: false },
+              ],
+              explanation: String(r.sample_explanation || "").trim(),
+            });
+          } else {
+            codingQuestions.push(parsePracticeQuestionRow(r, qIdx, moduleId));
+          }
+        });
+
+        const hasHiddenTests = codingQuestions.some((cq) => cq.hiddenTestCases && cq.hiddenTestCases.length > 0);
+        const firstDesc = rows.find((r) => r.description)?.description || `Practice challenge module covering ${moduleTitle}`;
+
+        return {
+          id: moduleId,
+          title: moduleTitle,
+          type: mcqQuestions.length > 0 && codingQuestions.length > 0 ? "mixed" : mcqQuestions.length > 0 ? "mcq" : "coding",
+          durationMinutes: totalDuration > 0 ? totalDuration : 60,
+          totalMarks: totalMarks > 0 ? totalMarks : rows.length * 10,
+          questionCount: rows.length,
+          restrictCopyPaste,
+          enforceFullScreen,
+          hasHiddenTests,
+          hiddenTestsCode: hasHiddenTests ? JSON.stringify(codingQuestions.flatMap((cq) => cq.hiddenTestCases)) : undefined,
+          problemDescription: String(firstDesc).trim(),
+          codingQuestions,
+          mcqQuestions,
+          sections: [
+            {
+              id: `sec_${Date.now()}_${modIdx}`,
+              title: `Section 1: ${moduleTitle}`,
+              mcqQuestions,
+              codingQuestions,
+            }
+          ]
+        };
+      });
     }
   },
 

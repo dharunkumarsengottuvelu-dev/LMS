@@ -8,7 +8,7 @@ import {
   ArrowLeft, FolderKanban, Sparkles, Trash2, Edit, Save, Check,
   HelpCircle, Layers, Eye, EyeOff, UploadCloud, User,
   Maximize2, Minimize2, ShieldAlert, Lock, Copy, RotateCcw,
-  Edit2, ChevronUp, FileSpreadsheet, Database
+  Edit2, ChevronUp, ChevronDown, FileSpreadsheet, Database
 } from "lucide-react";
 import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +53,8 @@ interface SubModuleItem {
   allowResume?: boolean;
   scoreRetentionPolicy?: "best" | "latest" | "average";
   allowReviewBeforeSubmit?: boolean;
+  mcqQuestions?: MCQQuestionItem[];
+  codingQuestions?: CodingQuestionItem[];
 }
 
 export interface MCQQuestionOption {
@@ -158,6 +160,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [editingSubModuleId, setEditingSubModuleId] = useState<string | null>(null);
   const [showPracticeBulkUpload, setShowPracticeBulkUpload] = useState<boolean>(false);
   const [showBulkUploadTracks, setShowBulkUploadTracks] = useState<boolean>(false);
+  const [expandedSubModuleIds, setExpandedSubModuleIds] = useState<Record<string, boolean>>({});
 
   // Track form state
   const [fTitle, setFTitle]       = useState("");
@@ -1359,14 +1362,95 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               moduleTitle={selectedTrack.title}
               onImport={async (importedItems) => {
                 if (!selectedTrack) return;
+                
+                const currentSubModules = [...(selectedTrack.subModules || [])];
+                let addedModulesCount = 0;
+                let mergedModulesCount = 0;
+                let totalQuestionsImported = 0;
+
+                importedItems.forEach((importedMod: any) => {
+                  const incomingQuestions = importedMod.codingQuestions || [];
+                  totalQuestionsImported += incomingQuestions.length || importedMod.questionCount || 0;
+
+                  const existingIdx = currentSubModules.findIndex(
+                    (sm) => (sm.title || "").trim().toLowerCase() === (importedMod.title || "").trim().toLowerCase()
+                  );
+
+                  if (existingIdx >= 0 && currentSubModules[existingIdx]) {
+                    // Merge questions into existing module
+                    mergedModulesCount++;
+                    const existingMod = currentSubModules[existingIdx];
+                    const existingQuestions = existingMod.codingQuestions || [];
+                    
+                    // Deduplicate questions by title
+                    const existingTitles = new Set(
+                      existingQuestions.map((q: any) => (q.title || "").trim().toLowerCase())
+                    );
+                    const newQuestions = incomingQuestions.filter(
+                      (q: any) => !existingTitles.has((q.title || "").trim().toLowerCase())
+                    );
+                    const mergedQuestions = [...existingQuestions, ...newQuestions];
+
+                    // Merge into section 0
+                    let updatedSections: SubModuleSection[] = existingMod.sections ? [...existingMod.sections] : [];
+                    if (updatedSections.length > 0 && updatedSections[0]) {
+                      const firstSection = updatedSections[0];
+                      const secExisting = firstSection.codingQuestions || [];
+                      const secExistingTitles = new Set(secExisting.map((eq: any) => (eq.title || "").trim().toLowerCase()));
+                      const secNew = incomingQuestions.filter(
+                        (q: any) => !secExistingTitles.has((q.title || "").trim().toLowerCase())
+                      );
+                      const sec0: SubModuleSection = {
+                        ...firstSection,
+                        id: firstSection.id || `sec_${Date.now()}`,
+                        title: firstSection.title || "Section 1: Programming Challenges",
+                        mcqQuestions: firstSection.mcqQuestions || [],
+                        codingQuestions: [...secExisting, ...secNew],
+                      };
+                      updatedSections[0] = sec0;
+                    } else {
+                      updatedSections = [
+                        {
+                          id: `sec_${Date.now()}_merged`,
+                          title: "Section 1: Programming Challenges",
+                          mcqQuestions: [],
+                          codingQuestions: mergedQuestions,
+                        }
+                      ];
+                    }
+
+                    const computedTotalMarks = mergedQuestions.reduce(
+                      (sum: number, q: any) => sum + (Number(q.marks) || 10),
+                      0
+                    );
+
+                    currentSubModules[existingIdx] = {
+                      ...existingMod,
+                      codingQuestions: mergedQuestions,
+                      sections: updatedSections,
+                      questionCount: mergedQuestions.length + (existingMod.mcqQuestions?.length || 0),
+                      totalMarks: computedTotalMarks > 0 ? computedTotalMarks : (existingMod.totalMarks || 0) + (importedMod.totalMarks || 0),
+                      durationMinutes: Math.max(existingMod.durationMinutes || 0, importedMod.durationMinutes || 0)
+                    };
+                  } else {
+                    // Brand new module
+                    addedModulesCount++;
+                    currentSubModules.push(importedMod);
+                  }
+                });
+
                 const updatedTrack = {
                   ...selectedTrack,
-                  subModules: [...selectedTrack.subModules, ...importedItems]
+                  subModules: currentSubModules
                 };
                 setSelectedTrack(updatedTrack);
                 const updatedTracks = tracks.map((t) => (t.id === selectedTrack.id ? updatedTrack : t));
                 await syncTracksToStore(updatedTracks);
                 setShowPracticeBulkUpload(false);
+                toast({
+                  title: "Import Successful",
+                  description: `Processed ${totalQuestionsImported} question(s) across ${importedItems.length} module(s) (${addedModulesCount} created, ${mergedModulesCount} merged).`,
+                });
               }}
             />
           )}
@@ -1388,40 +1472,108 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               </div>
             </div>
           )}
-          {selectedTrack.subModules.map((sm, idx) => (
-            <Card key={sm.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <span className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs flex items-center justify-center border border-[#2563EB]/20 shrink-0">
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">{sm.title}</p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <Badge className={`text-[10px] uppercase ${typeBadgeColor(sm.type)}`}>{sm.type}</Badge>
-                        <span className="text-[10px] text-[#6B7280]">
-                          <Clock className="h-2.5 w-2.5 inline mr-0.5" />{sm.durationMinutes > 0 ? `${sm.durationMinutes} mins` : "No Time Limit"}
-                        </span>
-                        <span className="text-[10px] text-[#6B7280]">{sm.totalMarks} marks</span>
-                        <span className="text-[10px] text-[#6B7280]">{sm.questionCount} questions</span>
+          {selectedTrack.subModules.map((sm, idx) => {
+            const smQuestionsList = (sm as any).codingQuestions || sm.sections?.flatMap((s: any) => s.codingQuestions || []) || [];
+            const isExpanded = !!expandedSubModuleIds[sm.id];
+
+            return (
+              <Card key={sm.id} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-hidden transition-all shadow-xs">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <span className="w-8 h-8 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs flex items-center justify-center border border-[#2563EB]/20 shrink-0">
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-sm text-[#111827] dark:text-[#FAFAFA]">{sm.title}</p>
+                          <Badge variant="outline" className="text-[10px] border-blue-200 bg-blue-50/50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300 font-mono">
+                            {sm.questionCount} {sm.questionCount === 1 ? "question" : "questions"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <Badge className={`text-[10px] uppercase ${typeBadgeColor(sm.type)}`}>{sm.type}</Badge>
+                          <span className="text-[10px] text-[#6B7280]">
+                            <Clock className="h-2.5 w-2.5 inline mr-0.5" />{sm.durationMinutes > 0 ? `${sm.durationMinutes} mins` : "No Time Limit"}
+                          </span>
+                          <span className="text-[10px] text-[#6B7280]">{sm.totalMarks} marks</span>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {smQuestionsList.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setExpandedSubModuleIds((prev) => ({ ...prev, [sm.id]: !prev[sm.id] }))}
+                          className="h-8 px-2.5 text-xs text-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg gap-1 font-medium"
+                          title="View questions in this module"
+                        >
+                          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                          <span>{isExpanded ? "Hide" : `Questions (${smQuestionsList.length})`}</span>
+                        </Button>
+                      )}
+                      <Button onClick={() => handleEditSubModule(selectedTrack.id, sm.id)}
+                        variant="ghost" size="icon" className="h-8 w-8 text-[#2563EB]">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button onClick={() => handleDeleteSubModule(selectedTrack.id, sm.id)}
+                        variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626]">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button onClick={() => handleEditSubModule(selectedTrack.id, sm.id)}
-                      variant="ghost" size="icon" className="h-8 w-8 text-[#2563EB]">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button onClick={() => handleDeleteSubModule(selectedTrack.id, sm.id)}
-                      variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626]">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                  {/* Submodule Nested Questions Drawer */}
+                  {isExpanded && smQuestionsList.length > 0 && (
+                    <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <span>Questions in this Module ({smQuestionsList.length})</span>
+                        <span className="text-[10px] font-normal text-slate-400">1 Module → Many Questions Architecture</span>
+                      </div>
+                      <div className="divide-y divide-slate-100 dark:divide-zinc-800/80 bg-slate-50/70 dark:bg-zinc-900/50 rounded-xl border border-slate-200/60 dark:border-zinc-800 p-1.5">
+                        {smQuestionsList.map((q: any, qIdx: number) => (
+                          <div key={q.id || qIdx} className="p-2 flex items-center justify-between gap-3 text-xs hover:bg-white/60 dark:hover:bg-zinc-800/50 rounded-lg transition-colors">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="w-5 h-5 rounded-full bg-slate-200/60 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {qIdx + 1}
+                              </span>
+                              <p className="font-semibold text-slate-800 dark:text-zinc-200 truncate">
+                                {q.title || "Untitled Question"}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {q.difficulty && (
+                                <Badge variant="outline" className={`text-[10px] uppercase font-mono px-1.5 py-0 h-4.5 ${
+                                  q.difficulty.toLowerCase() === "easy"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400"
+                                    : q.difficulty.toLowerCase() === "medium"
+                                    ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400"
+                                    : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400"
+                                }`}>
+                                  {q.difficulty}
+                                </Badge>
+                              )}
+                              {q.marks && (
+                                <span className="text-[10px] font-semibold text-slate-500 font-mono">
+                                  {q.marks} pts
+                                </span>
+                              )}
+                              {((q.publicTestCases?.length || 0) + (q.hiddenTestCases?.length || 0) > 0 || (q.testCases?.length || 0) > 0) && (
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 px-1.5 py-0.5 rounded font-mono">
+                                  {(q.publicTestCases?.length || 0) + (q.hiddenTestCases?.length || 0) || (q.testCases?.length || 0)} tests
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
     );

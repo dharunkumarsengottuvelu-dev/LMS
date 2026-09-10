@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import {
   Download, UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle,
   XCircle, ArrowRight, ArrowLeft, RefreshCw, Layers, FileText, Check,
-  AlertCircle, Sparkles, Filter, Info, Trash2, X, Plus
+  AlertCircle, Sparkles, Filter, Info, Trash2, X, Plus,
+  ChevronDown, ChevronRight, Folder, FolderOpen, Code2, ListOrdered
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,8 @@ export function BulkUploadComponent({
   const [parsedRows, setParsedRows] = useState<ParsedRowResult[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewFilter, setPreviewFilter] = useState<"all" | "valid" | "invalid">("all");
+  const [previewViewMode, setPreviewViewMode] = useState<"modules" | "table">("modules");
+  const [expandedModuleKeys, setExpandedModuleKeys] = useState<Record<string, boolean>>({});
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -89,6 +92,8 @@ export function BulkUploadComponent({
     setParsedRows([]);
     setIsProcessing(false);
     setPreviewFilter("all");
+    setPreviewViewMode(config.groupByField ? "modules" : "table");
+    setExpandedModuleKeys({});
     setSelectedColumnKeys(config.columns.map((c) => c.key));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -271,12 +276,16 @@ export function BulkUploadComponent({
 
           // 1. Required Check
           if (col.required && isBlank) {
-            errors.push({
-              fieldKey: col.key,
-              fieldLabel: col.label,
-              message: `${col.label} is required.`,
-            });
-            return;
+            if (col.key === "moduleName" && mappedRow.title) {
+              mappedRow.moduleName = mappedRow.title;
+            } else {
+              errors.push({
+                fieldKey: col.key,
+                fieldLabel: col.label,
+                message: `${col.label} is required (Row #${rowNumber}).`,
+              });
+              return;
+            }
           }
 
           if (!isBlank) {
@@ -431,6 +440,45 @@ export function BulkUploadComponent({
     }
   };
 
+  // ─── 3.5. GROUPED MODULES COMPUTATION (FOR 1 MODULE -> MANY QUESTIONS) ────
+  const groupedModules = React.useMemo(() => {
+    if (!config.groupByField) return [];
+    const groupKeyName = config.groupByField;
+    const map = new Map<string, { groupKey: string; validRows: ParsedRowResult[]; allRows: ParsedRowResult[]; duplicateTitles: string[] }>();
+
+    parsedRows.forEach((r) => {
+      const rawVal = r.rawRow[groupKeyName] ?? r.rawRow.moduleName ?? r.rawRow.module_name ?? r.rawRow.title;
+      const key = (String(rawVal ?? "").trim()) || "Untitled Module";
+      if (!map.has(key)) {
+        map.set(key, { groupKey: key, validRows: [], allRows: [], duplicateTitles: [] });
+      }
+      const entry = map.get(key)!;
+      entry.allRows.push(r);
+      if (r.isValid) {
+        entry.validRows.push(r);
+      }
+    });
+
+    // Detect duplicate questions inside the same module
+    map.forEach((entry) => {
+      const seenTitles = new Set<string>();
+      const dupes = new Set<string>();
+      entry.allRows.forEach((r) => {
+        const title = String(r.rawRow.title || "").trim().toLowerCase();
+        if (title) {
+          if (seenTitles.has(title)) {
+            dupes.add(String(r.rawRow.title).trim());
+          } else {
+            seenTitles.add(title);
+          }
+        }
+      });
+      entry.duplicateTitles = Array.from(dupes);
+    });
+
+    return Array.from(map.values());
+  }, [parsedRows, config.groupByField]);
+
   // ─── 4. FINAL IMPORT EXECUTION ──────────────────────────────────────────────
   const handleConfirmImport = (importOnlyValid: boolean = false) => {
     const validRows = parsedRows.filter((r) => r.isValid);
@@ -443,12 +491,26 @@ export function BulkUploadComponent({
       return;
     }
 
-    const payload = validRows.map((r, idx) => config.mapToPayload(r.rawRow, idx));
+    let payload: any[];
+    if (config.mapGroupedPayload && config.groupByField) {
+      const groupedForPayload = groupedModules
+        .filter((g) => g.validRows.length > 0)
+        .map((g) => ({
+          groupKey: g.groupKey,
+          rows: g.validRows.map((r) => r.rawRow),
+        }));
+      payload = config.mapGroupedPayload(groupedForPayload);
+    } else {
+      payload = validRows.map((r, idx) => config.mapToPayload(r.rawRow, idx));
+    }
+
     onImport(payload);
 
     toast({
       title: "Bulk Import Initiated",
-      description: `Processing ${payload.length} items for ${moduleTitle || config.displayName}.`,
+      description: config.groupByField
+        ? `Importing ${payload.length} module(s) containing ${validRows.length} question(s).`
+        : `Processing ${payload.length} items for ${moduleTitle || config.displayName}.`,
     });
 
     handleModalClose();
@@ -643,42 +705,109 @@ export function BulkUploadComponent({
       {currentStep === "preview" && (
         <div className="space-y-5">
           {/* Summary Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-            <div className="p-4 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex items-center justify-between shadow-xs">
-              <div>
-                <p className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">Total Records</p>
-                <p className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA] mt-0.5">{totalCount}</p>
+          {config.groupByField ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+              <div className="p-4 rounded-xl border border-[#2563EB]/30 bg-[#2563EB]/5 flex items-center justify-between shadow-xs">
+                <div>
+                  <p className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider">Total Modules</p>
+                  <p className="text-2xl font-bold text-[#2563EB] mt-0.5">{groupedModules.length}</p>
+                </div>
+                <Folder className="h-7 w-7 text-[#2563EB]/50" />
               </div>
-              <FileSpreadsheet className="h-8 w-8 text-[#6B7280]/40" />
-            </div>
 
-            <div className="p-4 rounded-xl border border-[#16A34A]/30 bg-[#16A34A]/5 flex items-center justify-between shadow-xs">
-              <div>
-                <p className="text-[11px] font-bold text-[#16A34A] uppercase tracking-wider">Valid Records</p>
-                <p className="text-2xl font-bold text-[#16A34A] mt-0.5">{validCount}</p>
+              <div className="p-4 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex items-center justify-between shadow-xs">
+                <div>
+                  <p className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">Total Questions</p>
+                  <p className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA] mt-0.5">{totalCount}</p>
+                </div>
+                <FileSpreadsheet className="h-7 w-7 text-[#6B7280]/40" />
               </div>
-              <CheckCircle2 className="h-8 w-8 text-[#16A34A]/50" />
-            </div>
 
-            <div className={`p-4 rounded-xl border flex items-center justify-between shadow-xs ${
-              invalidCount > 0
-                ? "border-[#DC2626]/30 bg-[#DC2626]/5 text-[#DC2626]"
-                : "border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] text-[#6B7280]"
-            }`}>
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider">Invalid Records</p>
-                <p className="text-2xl font-bold mt-0.5">{invalidCount}</p>
+              <div className="p-4 rounded-xl border border-[#16A34A]/30 bg-[#16A34A]/5 flex items-center justify-between shadow-xs">
+                <div>
+                  <p className="text-[11px] font-bold text-[#16A34A] uppercase tracking-wider">Valid Questions</p>
+                  <p className="text-2xl font-bold text-[#16A34A] mt-0.5">{validCount}</p>
+                </div>
+                <CheckCircle2 className="h-7 w-7 text-[#16A34A]/50" />
               </div>
-              <AlertTriangle className="h-8 w-8 opacity-50" />
-            </div>
-          </div>
 
-          {/* Table Controls & Filter Tabs */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+              <div className={`p-4 rounded-xl border flex items-center justify-between shadow-xs ${
+                invalidCount > 0
+                  ? "border-[#DC2626]/30 bg-[#DC2626]/5 text-[#DC2626]"
+                  : "border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] text-[#6B7280]"
+              }`}>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider">Invalid Questions</p>
+                  <p className="text-2xl font-bold mt-0.5">{invalidCount}</p>
+                </div>
+                <AlertTriangle className="h-7 w-7 opacity-50" />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <div className="p-4 rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] flex items-center justify-between shadow-xs">
+                <div>
+                  <p className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">Total Records</p>
+                  <p className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA] mt-0.5">{totalCount}</p>
+                </div>
+                <FileSpreadsheet className="h-8 w-8 text-[#6B7280]/40" />
+              </div>
+
+              <div className="p-4 rounded-xl border border-[#16A34A]/30 bg-[#16A34A]/5 flex items-center justify-between shadow-xs">
+                <div>
+                  <p className="text-[11px] font-bold text-[#16A34A] uppercase tracking-wider">Valid Records</p>
+                  <p className="text-2xl font-bold text-[#16A34A] mt-0.5">{validCount}</p>
+                </div>
+                <CheckCircle2 className="h-8 w-8 text-[#16A34A]/50" />
+              </div>
+
+              <div className={`p-4 rounded-xl border flex items-center justify-between shadow-xs ${
+                invalidCount > 0
+                  ? "border-[#DC2626]/30 bg-[#DC2626]/5 text-[#DC2626]"
+                  : "border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] text-[#6B7280]"
+              }`}>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider">Invalid Records</p>
+                  <p className="text-2xl font-bold mt-0.5">{invalidCount}</p>
+                </div>
+                <AlertTriangle className="h-8 w-8 opacity-50" />
+              </div>
+            </div>
+          )}
+
+          {/* Table Controls, View Mode Switcher & Filter Tabs */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              {config.groupByField && (
+                <div className="flex items-center bg-[#F3F4F6] dark:bg-[#09090B] p-0.5 rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewViewMode("modules")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      previewViewMode === "modules"
+                        ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-xs"
+                        : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+                    }`}
+                  >
+                    <Folder className="h-3.5 w-3.5" /> Module-Wise View ({groupedModules.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewViewMode("table")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      previewViewMode === "table"
+                        ? "bg-white dark:bg-[#18181B] text-[#2563EB] shadow-xs"
+                        : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
+                    }`}
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5" /> All Rows ({totalCount})
+                  </button>
+                </div>
+              )}
+
               <Tabs value={previewFilter} onValueChange={(v) => setPreviewFilter(v as any)}>
                 <TabsList className="h-9">
-                  <TabsTrigger value="all" className="text-xs font-semibold">All Records ({totalCount})</TabsTrigger>
+                  <TabsTrigger value="all" className="text-xs font-semibold">All ({totalCount})</TabsTrigger>
                   <TabsTrigger value="valid" className="text-xs font-semibold text-[#16A34A]">Valid ({validCount})</TabsTrigger>
                   <TabsTrigger value="invalid" className="text-xs font-semibold text-[#DC2626]">Invalid ({invalidCount})</TabsTrigger>
                 </TabsList>
@@ -697,81 +826,232 @@ export function BulkUploadComponent({
             )}
           </div>
 
-          {/* Preview Table */}
-          <div className="border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-hidden shadow-xs bg-white dark:bg-[#18181B]">
-            <div className="max-h-[340px] overflow-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="sticky top-0 bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] z-10">
-                  <tr>
-                    <th className="p-3 font-bold text-[#6B7280] w-16 text-center">Row</th>
-                    <th className="p-3 font-bold text-[#6B7280] w-24">Status</th>
-                    {config.columns.map((col) => (
-                      <th key={col.key} className="p-3 font-bold text-[#111827] dark:text-[#FAFAFA] whitespace-nowrap">
-                        {col.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-                  {displayedRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={config.columns.length + 2} className="p-8 text-center text-xs text-[#6B7280]">
-                        No records matching the selected filter.
-                      </td>
-                    </tr>
-                  ) : (
-                    displayedRows.map((rowItem) => (
-                      <tr
-                        key={rowItem.rowNumber}
-                        className={`hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/50 transition-colors ${
-                          !rowItem.isValid ? "bg-[#FEF2F2]/50 dark:bg-[#450A0A]/20" : ""
-                        }`}
-                      >
-                        <td className="p-3 text-center font-mono font-bold text-[#6B7280]">
-                              #{rowItem.rowNumber}
-                        </td>
-                        <td className="p-3">
-                          {rowItem.isValid ? (
-                            <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-[10px] font-bold">
-                              Valid
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/30 text-[10px] font-bold">
-                              {rowItem.errors.length} Error{rowItem.errors.length > 1 ? "s" : ""}
-                            </Badge>
-                          )}
-                        </td>
+          {/* VIEW 1: MODULE-WISE CARDS (ONE MODULE -> MANY QUESTIONS) */}
+          {config.groupByField && previewViewMode === "modules" ? (
+            <div className="space-y-4">
+              {groupedModules.map((mod, mIdx) => {
+                const isExpanded = expandedModuleKeys[mod.groupKey] !== false; // Default expanded
+                const hasDupes = mod.duplicateTitles.length > 0;
+                const modValidCount = mod.validRows.length;
+                const modTotalCount = mod.allRows.length;
 
-                        {config.columns.map((col) => {
-                          const cellVal = rowItem.rawRow[col.key];
-                          const cellErr = rowItem.errors.find((e) => e.fieldKey === col.key);
+                return (
+                  <Card key={mod.groupKey} className="border-2 border-[#2563EB]/30 dark:border-[#2563EB]/40 bg-white dark:bg-[#18181B] rounded-2xl shadow-xs overflow-hidden">
+                    {/* Module Card Header */}
+                    <div className="p-4 sm:p-5 bg-gradient-to-r from-blue-500/5 via-transparent to-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center font-bold shrink-0">
+                          <Folder className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-sm sm:text-base text-[#111827] dark:text-[#FAFAFA] truncate">
+                              {mod.groupKey}
+                            </h4>
+                            <Badge className="bg-[#2563EB] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-2xs">
+                              {modValidCount} {modValidCount === 1 ? "Question" : "Questions"}
+                            </Badge>
+                            {modTotalCount > modValidCount && (
+                              <Badge className="bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/30 text-[10px] font-bold">
+                                {modTotalCount - modValidCount} Invalid
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF] mt-0.5">
+                            Module {mIdx + 1} of {groupedModules.length} • {modValidCount} challenges to be imported under this module
+                          </p>
+                        </div>
+                      </div>
 
-                          return (
-                            <td key={col.key} className="p-3 max-w-[220px] truncate align-top">
-                              {cellErr ? (
-                                <div className="space-y-0.5">
-                                  <span className="text-[#DC2626] font-bold line-through">
-                                    {cellVal !== undefined && cellVal !== "" ? String(cellVal) : "(Empty)"}
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setExpandedModuleKeys(prev => ({ ...prev, [mod.groupKey]: !isExpanded }))}
+                          className="h-8 text-xs font-semibold gap-1.5 rounded-xl border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10"
+                        >
+                          {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                          {isExpanded ? "Collapse" : "View Questions"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Duplicate Warning if any */}
+                    {hasDupes && (
+                      <div className="p-3 mx-4 mt-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
+                        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                        <span>
+                          Duplicate questions detected in this module: <strong>{mod.duplicateTitles.join(", ")}</strong>
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Question Items List */}
+                    {isExpanded && (
+                      <div className="p-4 sm:p-5 space-y-2 bg-[#F9FAFB]/40 dark:bg-[#09090B]/40">
+                        <div className="divide-y divide-[#E5E7EB] dark:divide-[#27272A] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-hidden bg-white dark:bg-[#18181B]">
+                          {mod.allRows.map((r, qIdx) => {
+                            const qTitle = String(r.rawRow.title || `Question ${qIdx + 1}`).trim();
+                            const qDiff = r.rawRow.difficulty || "Easy";
+                            const qType = r.rawRow.type || "coding";
+                            const hasTc = Boolean(r.rawRow.testcase_1_input || r.rawRow.testcase_1_output);
+                            const hasHid = Boolean(r.rawRow.hidden_testcase_input || r.rawRow.hidden_testcase_output);
+
+                            return (
+                              <div key={r.rowNumber} className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors ${!r.isValid ? "bg-[#FEF2F2]/60 dark:bg-[#450A0A]/20" : "hover:bg-slate-50/70 dark:hover:bg-zinc-900/50"}`}>
+                                <div className="flex items-start gap-2.5 min-w-0">
+                                  <span className="w-6 h-6 rounded-lg bg-[#2563EB]/10 text-[#2563EB] font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                                    {qIdx + 1}
                                   </span>
-                                  <p className="text-[10px] text-[#DC2626] font-medium leading-tight whitespace-normal">
-                                    {cellErr.message}
-                                  </p>
+                                  <div className="min-w-0 space-y-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <p className="font-semibold text-xs text-[#111827] dark:text-[#FAFAFA] truncate">
+                                        {qTitle}
+                                      </p>
+                                      <Badge variant="outline" className="text-[10px] font-semibold">
+                                        {qDiff}
+                                      </Badge>
+                                      <Badge className="bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[10px] uppercase font-bold">
+                                        {qType}
+                                      </Badge>
+                                      {hasTc && (
+                                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                                          • Public Test Cases
+                                        </span>
+                                      )}
+                                      {hasHid && (
+                                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                                          • Hidden Cases
+                                        </span>
+                                      )}
+                                    </div>
+                                    {!r.isValid && (
+                                      <p className="text-[11px] text-[#DC2626] font-medium">
+                                        Row #{r.rowNumber}: {r.errors.map(e => e.message).join(", ")}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                              ) : (
-                                <span className="text-[#111827] dark:text-[#FAFAFA]">
-                                  {cellVal !== undefined && cellVal !== "" ? String(cellVal) : "-"}
-                                </span>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+
+                                <div className="shrink-0 self-end sm:self-center">
+                                  {r.isValid ? (
+                                    <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-[10px] font-bold">
+                                      Valid
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/30 text-[10px] font-bold">
+                                      Row #{r.rowNumber} Error
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+
+              {/* Summary Box */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-[#E5E7EB] dark:border-[#27272A] space-y-2">
+                <h5 className="text-xs font-bold uppercase tracking-wider text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-[#2563EB]" /> Import Summary
+                </h5>
+                <p className="text-xs text-[#6B7280]">
+                  <strong>Total Modules:</strong> {groupedModules.length} &nbsp;|&nbsp; <strong>Total Questions:</strong> {validCount}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
+                  {groupedModules.map(g => (
+                    <div key={g.groupKey} className="p-2.5 rounded-lg bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] text-xs flex items-center justify-between">
+                      <span className="font-semibold truncate pr-2">{g.groupKey}</span>
+                      <Badge className="bg-[#2563EB]/10 text-[#2563EB] text-[10px] font-bold shrink-0">
+                        {g.validRows.length} Questions
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* VIEW 2: DETAILED ROWS TABLE VIEW */
+            <div className="border border-[#E5E7EB] dark:border-[#27272A] rounded-xl overflow-hidden shadow-xs bg-white dark:bg-[#18181B]">
+              <div className="max-h-[340px] overflow-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="sticky top-0 bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] z-10">
+                    <tr>
+                      <th className="p-3 font-bold text-[#6B7280] w-16 text-center">Row</th>
+                      <th className="p-3 font-bold text-[#6B7280] w-24">Status</th>
+                      {config.columns.map((col) => (
+                        <th key={col.key} className="p-3 font-bold text-[#111827] dark:text-[#FAFAFA] whitespace-nowrap">
+                          {col.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
+                    {displayedRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={config.columns.length + 2} className="p-8 text-center text-xs text-[#6B7280]">
+                          No records matching the selected filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      displayedRows.map((rowItem) => (
+                        <tr
+                          key={rowItem.rowNumber}
+                          className={`hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/50 transition-colors ${
+                            !rowItem.isValid ? "bg-[#FEF2F2]/50 dark:bg-[#450A0A]/20" : ""
+                          }`}
+                        >
+                          <td className="p-3 text-center font-mono font-bold text-[#6B7280]">
+                                #{rowItem.rowNumber}
+                          </td>
+                          <td className="p-3">
+                            {rowItem.isValid ? (
+                              <Badge className="bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30 text-[10px] font-bold">
+                                Valid
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/30 text-[10px] font-bold">
+                                {rowItem.errors.length} Error{rowItem.errors.length > 1 ? "s" : ""}
+                              </Badge>
+                            )}
+                          </td>
+
+                          {config.columns.map((col) => {
+                            const cellVal = rowItem.rawRow[col.key];
+                            const cellErr = rowItem.errors.find((e) => e.fieldKey === col.key);
+
+                            return (
+                              <td key={col.key} className="p-3 max-w-[220px] truncate align-top">
+                                {cellErr ? (
+                                  <div className="space-y-0.5">
+                                    <span className="text-[#DC2626] font-bold line-through">
+                                      {cellVal !== undefined && cellVal !== "" ? String(cellVal) : "(Empty)"}
+                                    </span>
+                                    <p className="text-[10px] text-[#DC2626] font-medium leading-tight whitespace-normal">
+                                      {cellErr.message}
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <span className="text-[#111827] dark:text-[#FAFAFA]">
+                                    {cellVal !== undefined && cellVal !== "" ? String(cellVal) : "-"}
+                                  </span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
