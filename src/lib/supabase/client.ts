@@ -12,7 +12,13 @@ export function createClient() {
 
   client = createBrowserClient<Database>(
     SUPABASE_URL,
-    SUPABASE_ANON_KEY
+    SUPABASE_ANON_KEY,
+    {
+      cookieOptions: {
+        path: "/",
+        sameSite: "lax",
+      },
+    }
   );
 
   return client;

@@ -110,7 +110,18 @@ export async function GET(request: Request) {
         }
       }
 
-      return NextResponse.redirect(new URL(redirectPath, origin));
+      const response = NextResponse.redirect(new URL(redirectPath, origin));
+      try {
+        const cookieStore = await cookies();
+        const allCookies = cookieStore.getAll();
+        for (const c of allCookies) {
+          if (c.name.includes("-code-verifier") || (c.name.endsWith("-auth-token") && cookieStore.has(`${c.name}.0`))) {
+            response.cookies.set(c.name, "", { path: "/", maxAge: 0, expires: new Date(0) });
+          }
+        }
+      } catch {}
+
+      return response;
     }
   }
 

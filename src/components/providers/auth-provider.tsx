@@ -114,10 +114,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
+    try {
+      if (typeof window !== "undefined") {
+        const cookies = document.cookie.split(";");
+        for (const c of cookies) {
+          const name = c.split("=")[0]?.trim();
+          if (name && (name.startsWith("sb-") || name.includes("auth-token") || name.includes("code-verifier"))) {
+            document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+            document.cookie = `${name}=; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+          }
+        }
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith("sb-") || key.includes("supabase"))) {
+            localStorage.removeItem(key);
+          }
+        }
+      }
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn("SignOut error:", e);
+    } finally {
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+    }
   }
 
   useEffect(() => {

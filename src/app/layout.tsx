@@ -81,6 +81,9 @@ export default function RootLayout({
                       if (hasChunk0 && name.endsWith('-auth-token')) {
                         document.cookie = name + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
                       }
+                      if (name.indexOf('-code-verifier') > -1 && window.location.pathname.indexOf('/api/auth/callback') === -1 && window.location.search.indexOf('code=') === -1) {
+                        document.cookie = name + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                      }
                     }
                   }
                 } catch(e) {}
