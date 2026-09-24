@@ -185,13 +185,20 @@ export default function InstitutionReportsPage() {
             </span>
             <div className="w-72">
               <Select value={selectedBatchId} onValueChange={(val) => setSelectedBatchId(val || "all")}>
-                <SelectTrigger className="h-10 text-xs font-semibold rounded-xl border-border bg-background">
-                  <SelectValue placeholder="All Batches" />
+                <SelectTrigger className="h-10 text-xs font-semibold rounded-xl border-border bg-background truncate">
+                  <SelectValue placeholder="All Batches">
+                    {selectedBatchId === "all" || !selectedBatchId
+                      ? "All Assigned Batches"
+                      : (() => {
+                          const found = batches.find((b) => b.id === selectedBatchId);
+                          return found ? `${found.code} — ${found.name}` : (isLoading ? "Loading..." : "Selected Batch");
+                        })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border rounded-xl">
-                  <SelectItem value="all">All Assigned Batches</SelectItem>
+                  <SelectItem value="all" label="All Assigned Batches">All Assigned Batches</SelectItem>
                   {batches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
+                    <SelectItem key={b.id} value={b.id} label={`${b.code} — ${b.name}`}>
                       {b.code} — {b.name}
                     </SelectItem>
                   ))}

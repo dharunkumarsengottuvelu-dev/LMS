@@ -474,11 +474,16 @@ export default function RegisterPage() {
                     <Label className="text-xs font-bold text-foreground">Available Active Batches</Label>
                     <Select value={selectedBatchId} onValueChange={(val: string | null) => setSelectedBatchId(val ?? "")}>
                       <SelectTrigger className="h-[46px] rounded-xl text-sm bg-card border-border text-foreground">
-                        <SelectValue placeholder="Select active batch" />
+                        <SelectValue placeholder="Select active batch">
+                          {(() => {
+                            const b = availableMatchingBatches.find((item) => item.id === selectedBatchId);
+                            return b ? `${b.batchName} (${b.collegeName})` : undefined;
+                          })()}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent className="rounded-xl">
                         {availableMatchingBatches.map((b) => (
-                          <SelectItem key={b.id} value={b.id} className="text-sm rounded-lg">
+                          <SelectItem key={b.id} value={b.id} label={`${b.batchName} (${b.collegeName})`} className="text-sm rounded-lg">
                             {b.batchName} ({b.collegeName})
                           </SelectItem>
                         ))}

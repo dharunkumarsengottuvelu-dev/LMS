@@ -326,13 +326,21 @@ export default function InstitutionBatchesPage() {
             {/* Status Filter */}
             <Select value={statusFilter} onValueChange={(val: string | null) => setStatusFilter(val || "all")}>
               <SelectTrigger className="h-[44px] text-xs font-medium w-[140px] rounded-xl bg-background">
-                <SelectValue placeholder="Status: All" />
+                <SelectValue placeholder="Status: All">
+                  {statusFilter === "all"
+                    ? "All Statuses"
+                    : statusFilter === "active"
+                    ? "Active Only"
+                    : statusFilter === "completed"
+                    ? "Completed"
+                    : "Upcoming"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="active">Active Only</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="upcoming">Upcoming</SelectItem>
+                <SelectItem value="all" label="All Statuses">All Statuses</SelectItem>
+                <SelectItem value="active" label="Active Only">Active Only</SelectItem>
+                <SelectItem value="completed" label="Completed">Completed</SelectItem>
+                <SelectItem value="upcoming" label="Upcoming">Upcoming</SelectItem>
               </SelectContent>
             </Select>
 

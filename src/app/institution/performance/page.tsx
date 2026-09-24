@@ -236,6 +236,17 @@ export default function InstitutionPerformancePage() {
     return students.filter((s) => s.status === "Needs Attention").length;
   }, [students]);
 
+  const displayBatches = useMemo(() => {
+    if (currentBatch && !batches.some((b) => b.id === currentBatch.id)) {
+      return [currentBatch, ...batches];
+    }
+    return batches;
+  }, [batches, currentBatch]);
+
+  const currentSelectedBatch = useMemo(() => {
+    return displayBatches.find((b) => b.id === selectedBatchId) || currentBatch;
+  }, [displayBatches, selectedBatchId, currentBatch]);
+
   if (isLoadingBatches) {
     return (
       <div className="space-y-6 pt-2 animate-pulse">
@@ -337,14 +348,24 @@ export default function InstitutionPerformancePage() {
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider shrink-0">
               Active Cohort:
             </span>
-            <div className="w-72">
+            <div className="w-72 sm:w-80">
               <Select value={selectedBatchId} onValueChange={(val) => val && handleBatchChange(val)}>
-                <SelectTrigger className="h-10 text-xs font-semibold rounded-xl border-border bg-background">
-                  <SelectValue placeholder="Select Batch" />
+                <SelectTrigger className="h-10 text-xs font-semibold rounded-xl border-border bg-background truncate">
+                  <SelectValue placeholder={isLoadingBatches ? "Loading cohorts..." : "Select Batch"}>
+                    {currentSelectedBatch ? (
+                      `${currentSelectedBatch.code} — ${currentSelectedBatch.name}${
+                        currentSelectedBatch.studentCount !== undefined ? ` (${currentSelectedBatch.studentCount} students)` : ""
+                      }`
+                    ) : isLoadingBatches ? (
+                      "Loading cohort..."
+                    ) : (
+                      "Select Batch"
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="bg-popover border-border rounded-xl">
-                  {batches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
+                <SelectContent className="bg-popover border-border rounded-xl max-h-72">
+                  {displayBatches.map((b) => (
+                    <SelectItem key={b.id} value={b.id} label={`${b.code} — ${b.name}`}>
                       {b.code} — {b.name} ({b.studentCount} students)
                     </SelectItem>
                   ))}

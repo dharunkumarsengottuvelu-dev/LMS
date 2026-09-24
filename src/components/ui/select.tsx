@@ -18,13 +18,32 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+function SelectValue({ className, children, ...props }: SelectPrimitive.Value.Props) {
+  if (children !== undefined) {
+    return (
+      <SelectPrimitive.Value
+        data-slot="select-value"
+        className={cn("flex flex-1 text-left truncate", className)}
+        {...props}
+      >
+        {children}
+      </SelectPrimitive.Value>
+    )
+  }
+
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
       className={cn("flex flex-1 text-left truncate", className)}
       {...props}
-    />
+    >
+      {(value: any) => {
+        if (typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+          return props.placeholder || "Select option";
+        }
+        return value || props.placeholder;
+      }}
+    </SelectPrimitive.Value>
   )
 }
 
