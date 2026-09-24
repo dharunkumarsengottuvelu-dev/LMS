@@ -1183,7 +1183,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     setNewStudentName("");
     setNewStudentEmail("");
     setNewStudentEmpId("");
-    setNewStudentPassword("Falcon@2026");
+    setNewStudentPassword("SensiLearn@2026");
     toast({
       title: "Student Enrolled Successfully",
       description: `${newStudentName} (${newRecord.employeeId}) enrolled with temp password: ${newStudentPassword}`,

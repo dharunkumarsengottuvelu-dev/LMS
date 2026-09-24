@@ -305,7 +305,7 @@ export default function LoginPage() {
           className="text-[13px] text-slate-500 font-normal leading-normal"
           style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif' }}
         >
-          Sign in to your Falcon account to continue.
+          Sign in to your SensiLearn account to continue.
         </p>
       </div>
 
@@ -418,7 +418,7 @@ export default function LoginPage() {
           disabled={isLoading || isGoogleLoading}
           className="w-full h-11 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-60 shadow-none"
         >
-          {isLoading ? "Signing in..." : "Sign in to FALCON"}
+          {isLoading ? "Signing in..." : "Sign in to SensiLearn"}
         </Button>
       </form>
 

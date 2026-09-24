@@ -30,7 +30,7 @@ export function AdminTopNav() {
         <div className="flex items-center shrink-0">
           <Link href="/admin/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0 group">
             <span className="font-extrabold text-xl tracking-tight text-foreground">
-              FALCON<span className="text-primary font-black">.</span>
+              SensiLearn<span className="text-primary font-black">.</span>
             </span>
             <Badge variant="outline" className="hidden sm:inline-flex bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0.5">
               ADMIN
@@ -80,7 +80,7 @@ export function AdminTopNav() {
               <SheetHeader className="text-left pb-4 border-b border-border">
                 <SheetTitle className="flex items-center gap-2.5">
                   <span className="font-extrabold text-xl text-foreground">
-                    FALCON<span className="text-primary font-black">.</span>
+                    SensiLearn<span className="text-primary font-black">.</span>
                   </span>
                   <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20">ADMIN</Badge>
                 </SheetTitle>

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: { template: "%s | FALCON", default: "Student Portal — FALCON" },
+  title: { template: "%s | SensiLearn", default: "Student Portal — SensiLearn" },
 };
 
 import { SessionTimeout } from "@/components/providers/session-timeout";

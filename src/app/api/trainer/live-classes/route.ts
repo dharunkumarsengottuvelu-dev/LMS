@@ -339,14 +339,14 @@ export async function POST(request: NextRequest) {
           isCommon: true,
           eventType: "live_class_scheduled",
           title: `New Live Class Scheduled: ${title}`,
-          message: `Trainer ${trainerFullName} has scheduled a FALCON live classroom session "${title}" for ${scheduleStr}.`,
+          message: `Trainer ${trainerFullName} has scheduled a SensiLearn live classroom session "${title}" for ${scheduleStr}.`,
           resourceType: "live_class",
           resourceId: classId,
           targetUrl: `/student/live-classes`,
           assignedBy: trainerFullName,
           dueDate: scheduleStr,
           duration: durationStr,
-          category: "FALCON Live Class",
+          category: "SensiLearn Live Class",
         }).catch((e) => console.warn("Trainer batch live class notification error:", e));
       } else if (assignedBatches && assignedBatches.length > 0) {
         for (const bName of assignedBatches) {
@@ -354,14 +354,14 @@ export async function POST(request: NextRequest) {
             batchName: bName,
             eventType: "live_class_scheduled",
             title: `New Live Class Scheduled: ${title}`,
-            message: `A FALCON live classroom session "${title}" has been scheduled for cohort ${bName} on ${scheduleStr}.`,
+            message: `A SensiLearn live classroom session "${title}" has been scheduled for cohort ${bName} on ${scheduleStr}.`,
             resourceType: "live_class",
             resourceId: classId,
             targetUrl: `/student/live-classes`,
             assignedBy: trainerFullName,
             dueDate: scheduleStr,
             duration: durationStr,
-            category: "FALCON Live Class",
+            category: "SensiLearn Live Class",
           }).catch((e) => console.warn("Trainer batch live class notification error:", e));
         }
       }

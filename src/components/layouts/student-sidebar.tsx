@@ -35,7 +35,7 @@ export function StudentSidebar() {
       <div className="flex items-center gap-3 px-6 h-[72px] border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0">
         <div>
           <p className="font-extrabold text-xl text-[#111827] dark:text-[#FAFAFA] tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>
-            FALCON<span className="text-[#2563EB] font-black">.</span>
+            SensiLearn<span className="text-[#2563EB] font-black">.</span>
           </p>
           <p className="text-xs text-[#6B7280] dark:text-[#A1A1AA]">Student Portal</p>
         </div>

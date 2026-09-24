@@ -358,7 +358,7 @@ export async function POST(request: NextRequest) {
           resourceType: "practice",
           resourceId: trackId,
           targetUrl: `/student/practices`,
-          assignedBy: "FALCON Trainer",
+          assignedBy: "SensiLearn Trainer",
         }).catch((e) => console.warn("Practice batch notification error:", e));
       } else if (assignedBatches.length > 0) {
         for (const bName of assignedBatches) {
@@ -370,7 +370,7 @@ export async function POST(request: NextRequest) {
             resourceType: "practice",
             resourceId: trackId,
             targetUrl: `/student/practices`,
-            assignedBy: "FALCON Trainer",
+            assignedBy: "SensiLearn Trainer",
           }).catch((e) => console.warn("Practice batch notification error:", e));
         }
       }

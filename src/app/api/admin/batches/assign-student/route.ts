@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
             try {
               const { data: authUser } = await adminClient.auth.admin.createUser({
                 email: targetEmail,
-                password: "Falcon@2026",
+                password: "SensiLearn@2026",
                 email_confirm: true,
                 user_metadata: {
                   full_name: targetName || `${firstName} ${lastName}`.trim(),
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
       try {
         const { data: authUser } = await adminClient.auth.admin.createUser({
           email: studentEmail.trim().toLowerCase(),
-          password: "Falcon@2026",
+          password: "SensiLearn@2026",
           email_confirm: true,
           user_metadata: {
             full_name: studentName || `${firstName} ${lastName}`.trim(),

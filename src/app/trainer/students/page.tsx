@@ -94,7 +94,7 @@ export default function TrainerStudentsPage() {
         body: JSON.stringify({
           name: newUserName,
           email: newUserEmail,
-          password: newUserPassword || "Falcon@2026",
+          password: newUserPassword || "SensiLearn@2026",
           role: "student",
           batch_id: selectedBatch || undefined,
         }),

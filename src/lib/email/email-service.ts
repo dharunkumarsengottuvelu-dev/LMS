@@ -28,8 +28,8 @@ export function isValidEmail(email: string | null | undefined): boolean {
 }
 
 /**
- * Generates branded FALCON Learning Technologies HTML email for notifications.
- * Format: FALCON header → title → Hello [name], → message → Regards, Falcon Learning Technologies
+ * Generates branded SensiLearn Learning Technologies HTML email for notifications.
+ * Format: SensiLearn header → title → Hello [name], → message → Regards, SensiLearn Learning Technologies
  */
 export function generateNotificationEmailHtml(
   studentName: string,
@@ -63,7 +63,7 @@ export function generateNotificationEmailHtml(
           <tr>
             <td style="background:#0F172A;padding:28px 36px;">
               <p style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">
-                FALCON<span style="color:#2563EB;">.</span>
+                SensiLearn<span style="color:#2563EB;">.</span>
               </p>
               <p style="margin:4px 0 0;font-size:11px;font-weight:600;color:#94A3B8;letter-spacing:1.5px;text-transform:uppercase;">
                 Learning Technologies
@@ -100,10 +100,10 @@ export function generateNotificationEmailHtml(
             <td style="padding:24px 36px 32px;">
               <p style="margin:0 0 4px;font-size:13px;color:#64748B;line-height:1.6;">
                 Regards,<br/>
-                <strong style="color:#0F172A;">Falcon Learning Technologies</strong>
+                <strong style="color:#0F172A;">SensiLearn Learning Technologies</strong>
               </p>
               <p style="margin:16px 0 0;font-size:11px;color:#94A3B8;line-height:1.5;">
-                This is an automated notification from the FALCON LMS platform. Please do not reply to this email.
+                This is an automated notification from the SensiLearn LMS platform. Please do not reply to this email.
               </p>
             </td>
           </tr>
@@ -131,8 +131,8 @@ export async function sendEmail(payload: SendEmailPayload): Promise<EmailDeliver
     };
   }
 
-  const fromEmail = process.env.EMAIL_FROM || process.env.SMTP_FROM || "notifications@falconlms.com";
-  const fromName = process.env.EMAIL_FROM_NAME || "FALCON LMS";
+  const fromEmail = process.env.EMAIL_FROM || process.env.SMTP_FROM || "notifications@sensilearn.com";
+  const fromName = process.env.EMAIL_FROM_NAME || "SensiLearn LMS";
   const formattedFrom = `"${fromName}" <${fromEmail}>`;
 
   // Option 1: Resend API

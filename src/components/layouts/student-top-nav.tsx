@@ -90,7 +90,7 @@ export function StudentTopNav() {
         <div className="flex items-center shrink-0">
           <Link href={homeHref} suppressHydrationWarning className="flex items-center gap-2 shrink-0 group">
             <span className="font-extrabold text-xl tracking-tight text-foreground">
-              FALCON<span className="text-primary font-black">.</span>
+              SensiLearn<span className="text-primary font-black">.</span>
             </span>
             {isAdmin && (
               <Badge variant="outline" className="hidden sm:inline-flex bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0.5">
@@ -148,7 +148,7 @@ export function StudentTopNav() {
             <SheetHeader className="text-left pb-4 border-b border-border">
               <SheetTitle className="flex items-center gap-2">
                 <span className="font-extrabold text-xl text-foreground">
-                  FALCON<span className="text-primary font-black">.</span>
+                  SensiLearn<span className="text-primary font-black">.</span>
                 </span>
                 {isAdmin && (
                   <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20">ADMIN</Badge>

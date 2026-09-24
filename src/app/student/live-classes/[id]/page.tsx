@@ -112,7 +112,7 @@ export default function StudentLiveClassRoomPage() {
     return (
       <div className="h-screen w-full bg-[#0B0F19] flex flex-col items-center justify-center gap-3 text-white">
         <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        <p className="text-xs font-semibold text-zinc-400">Connecting to FALCON Live Classroom...</p>
+        <p className="text-xs font-semibold text-zinc-400">Connecting to SensiLearn Live Classroom...</p>
       </div>
     );
   }

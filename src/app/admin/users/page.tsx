@@ -119,7 +119,7 @@ export default function AdminUsersPage() {
         body: JSON.stringify({
           name: newUserName,
           email: newUserEmail,
-          password: newUserPassword || (newUserType === "institution" ? "Institution@2026" : "Falcon@2026"),
+          password: newUserPassword || (newUserType === "institution" ? "Institution@2026" : "SensiLearn@2026"),
           role: newUserRole,
           batch_id: selectedBatch,
           department: newUserType === "employee" ? newUserDept || "General" : undefined,

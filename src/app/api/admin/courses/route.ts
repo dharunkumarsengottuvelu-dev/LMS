@@ -377,11 +377,11 @@ export async function POST(request: NextRequest) {
           isCommon: true,
           eventType: "course_assigned",
           title: `New Course Assigned: ${courseTitle}`,
-          message: `You have been enrolled in "${courseTitle}". Start your learning journey on FALCON LMS today!`,
+          message: `You have been enrolled in "${courseTitle}". Start your learning journey on SensiLearn LMS today!`,
           resourceType: "course",
           resourceId: courseId,
           targetUrl: `/student/course/${courseSlug}`,
-          assignedBy: meta.instructor || "FALCON Learning Team",
+          assignedBy: meta.instructor || "SensiLearn Learning Team",
           category: meta.category,
         }).catch((e) => console.warn("Course batch notification dispatch error:", e));
       } else if (assignedBatches.length > 0) {
@@ -394,7 +394,7 @@ export async function POST(request: NextRequest) {
             resourceType: "course",
             resourceId: courseId,
             targetUrl: `/student/course/${courseSlug}`,
-            assignedBy: meta.instructor || "FALCON Learning Team",
+            assignedBy: meta.instructor || "SensiLearn Learning Team",
             category: meta.category,
           }).catch((e) => console.warn("Course batch notification dispatch error:", e));
         }
@@ -404,11 +404,11 @@ export async function POST(request: NextRequest) {
           studentIds: assignedStudents,
           eventType: "course_assigned",
           title: `New Course Assigned: ${courseTitle}`,
-          message: `You have been assigned to "${courseTitle}". Start your lessons on FALCON LMS.`,
+          message: `You have been assigned to "${courseTitle}". Start your lessons on SensiLearn LMS.`,
           resourceType: "course",
           resourceId: courseId,
           targetUrl: `/student/course/${courseSlug}`,
-          assignedBy: meta.instructor || "FALCON Learning Team",
+          assignedBy: meta.instructor || "SensiLearn Learning Team",
           category: meta.category,
         }).catch((e) => console.warn("Course student notification dispatch error:", e));
       }

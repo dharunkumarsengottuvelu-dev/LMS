@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: {
     template: "%s | Institution Performance Portal",
-    default: "Institution Performance Portal — FALCON LMS",
+    default: "Institution Performance Portal — SensiLearn LMS",
   },
   description: "Enterprise Academic & Learner Performance Portal for Partner Institutions.",
 };

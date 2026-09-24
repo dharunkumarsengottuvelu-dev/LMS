@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     // 1. Create user in Supabase Auth
     const { data: authUser, error: authError } = await adminClient.auth.admin.createUser({
       email,
-      password: password || "Falcon@2026",
+      password: password || "SensiLearn@2026",
       email_confirm: true,
       user_metadata: {
         full_name: name,

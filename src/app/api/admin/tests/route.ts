@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
           resourceType: "assessment",
           resourceId: testId,
           targetUrl: `/student/tests/${testId}`,
-          assignedBy: "FALCON Examination Team",
+          assignedBy: "SensiLearn Examination Team",
           dueDate: scheduleStr,
           duration: durationStr,
         }).catch((e) => console.warn("Test batch notification error:", e));
@@ -230,7 +230,7 @@ export async function POST(request: NextRequest) {
             resourceType: "assessment",
             resourceId: testId,
             targetUrl: `/student/tests/${testId}`,
-            assignedBy: "FALCON Examination Team",
+            assignedBy: "SensiLearn Examination Team",
             dueDate: scheduleStr,
             duration: durationStr,
           }).catch((e) => console.warn("Test batch notification error:", e));

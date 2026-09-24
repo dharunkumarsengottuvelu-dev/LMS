@@ -3,8 +3,8 @@ import { StudentTopNav } from "@/components/layouts/student-top-nav";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
-  title: "Coding Platform | FALCON LMS",
-  description: "Professional LeetCode-style problem solving experience on FALCON LMS",
+  title: "Coding Platform | SensiLearn LMS",
+  description: "Professional LeetCode-style problem solving experience on SensiLearn LMS",
 };
 
 export default function CodingRootLayout({

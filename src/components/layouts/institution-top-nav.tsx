@@ -40,7 +40,7 @@ export function InstitutionTopNav() {
         <div className="flex items-center gap-2.5 shrink-0">
           <Link href="/institution/overview" className="flex items-center gap-2.5 shrink-0 group">
             <span className="font-extrabold text-xl tracking-tight text-foreground">
-              FALCON<span className="text-primary font-black">.</span>
+              SensiLearn<span className="text-primary font-black">.</span>
             </span>
             <Badge
               variant="outline"
@@ -101,7 +101,7 @@ export function InstitutionTopNav() {
               <SheetHeader className="text-left pb-4 border-b border-border">
                 <SheetTitle className="flex items-center gap-2">
                   <span className="font-extrabold text-lg text-foreground">
-                    FALCON<span className="text-primary font-black">.</span>
+                    SensiLearn<span className="text-primary font-black">.</span>
                   </span>
                   <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20">
                     INSTITUTION

@@ -72,7 +72,7 @@ export async function dispatchStudentNotification(
     resourceType,
     resourceId,
     targetUrl,
-    assignedBy = "FALCON Administrator",
+    assignedBy = "SensiLearn Administrator",
     category,
     dueDate,
     duration,
@@ -192,8 +192,8 @@ export async function dispatchStudentNotification(
         });
       } else {
         emailTemplate = {
-          subject: `[FALCON LMS] ${title}`,
-          html: `<p>Hi ${resolvedName},</p><p>${message}</p><p><a href="${fullTargetUrl}">View on FALCON LMS</a></p>`,
+          subject: `[SensiLearn LMS] ${title}`,
+          html: `<p>Hi ${resolvedName},</p><p>${message}</p><p><a href="${fullTargetUrl}">View on SensiLearn LMS</a></p>`,
           text: `Hi ${resolvedName},\n\n${message}\n\nView: ${fullTargetUrl}`,
         };
       }

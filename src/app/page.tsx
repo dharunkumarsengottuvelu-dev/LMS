@@ -71,8 +71,8 @@ const APPROACH_STEPS = [
 
 
 
-// WHY FALCON Core Value Propositions (Clean Typography, Zero Icons, Pure Content)
-const WHY_FALCON_FEATURES = [
+// WHY SENSILEARN Core Value Propositions (Clean Typography, Zero Icons, Pure Content)
+const WHY_SENSILEARN_FEATURES = [
   {
     title: "Connected Learning",
     desc: "Bring courses, practice, assignments, coding and assessments together into one continuous experience.",
@@ -99,13 +99,13 @@ const WHY_FALCON_FEATURES = [
   },
 ];
 
-// Circular 3D Movable Carousel for "WHY FALCON" (Fills Both Sides, Zero Icons, Pure MNC Typography)
-function WhyFalconCircular3DCarousel() {
+// Circular 3D Movable Carousel for "WHY SENSILEARN" (Fills Both Sides, Zero Icons, Pure MNC Typography)
+function WhySensiLearnCircular3DCarousel() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
-  const total = WHY_FALCON_FEATURES.length; // 6
+  const total = WHY_SENSILEARN_FEATURES.length; // 6
 
   // Responsive stage offset to fill both sides seamlessly across all viewports
   const [spacing, setSpacing] = useState(480);
@@ -280,7 +280,7 @@ function WhyFalconCircular3DCarousel() {
           className="relative w-full h-full flex items-center justify-center"
           style={{ transformStyle: "preserve-3d" }}
         >
-          {WHY_FALCON_FEATURES.map((item, idx) => {
+          {WHY_SENSILEARN_FEATURES.map((item, idx) => {
             const pos = getCardPosition(idx);
 
             return (
@@ -897,21 +897,21 @@ export default function LandingPage() {
   const startScrollLeftRef = useRef(0);
   const scrollPosRef = useRef(0);
 
-  // Viewport intersection observer for refined staggered entrance in WHY FALCON
-  const whyFalconRef = useRef<HTMLDivElement>(null);
-  const [isWhyFalconVisible, setIsWhyFalconVisible] = useState(false);
+  // Viewport intersection observer for refined staggered entrance in WHY SENSILEARN
+  const whySensiLearnRef = useRef<HTMLDivElement>(null);
+  const [isWhySensiLearnVisible, setIsWhySensiLearnVisible] = useState(false);
 
   // Viewport intersection observer for WHAT WE DO section
   const platformRef = useRef<HTMLDivElement>(null);
   const [isPlatformVisible, setIsPlatformVisible] = useState(false);
 
   useEffect(() => {
-    const el = whyFalconRef.current;
+    const el = whySensiLearnRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
-          setIsWhyFalconVisible(true);
+          setIsWhySensiLearnVisible(true);
           observer.disconnect();
         }
       },
@@ -1037,7 +1037,7 @@ export default function LandingPage() {
           <Link href="/" className="flex items-center group">
             <div className="flex flex-col">
               <span className="font-extrabold text-xl text-slate-900 tracking-tight leading-none">
-                FALCON<span className="text-[#2563EB]">.</span>
+                SensiLearn<span className="text-[#2563EB]">.</span>
               </span>
               <span className="text-[10px] text-slate-500 font-medium tracking-tight mt-0.5">
                 Learning Technologies • SENSI Group
@@ -1048,7 +1048,7 @@ export default function LandingPage() {
           {/* Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold text-slate-600">
             <Link href="#approach" className="hover:text-slate-900 transition-colors">The Approach</Link>
-            <Link href="#why-falcon" className="hover:text-slate-900 transition-colors">Why FALCON</Link>
+            <Link href="#why-sensilearn" className="hover:text-slate-900 transition-colors">Why SensiLearn</Link>
             <Link href="#platform" className="hover:text-slate-900 transition-colors">What We Do</Link>
             <Link href="#how-it-works" className="hover:text-slate-900 transition-colors">How It Works</Link>
             <Link href="#ecosystem" className="hover:text-slate-900 transition-colors">Ecosystem</Link>
@@ -1073,14 +1073,14 @@ export default function LandingPage() {
                 <div className="space-y-6">
                   <SheetHeader className="text-left pb-4 border-b border-slate-100">
                     <SheetTitle className="text-base font-bold text-slate-900">
-                      FALCON<span className="text-[#2563EB]">.</span>
+                      SensiLearn<span className="text-[#2563EB]">.</span>
                     </SheetTitle>
-                    <p className="text-xs text-slate-500 font-medium">Falcon Learning Technologies</p>
+                    <p className="text-xs text-slate-500 font-medium">SensiLearn Learning Technologies</p>
                   </SheetHeader>
 
                   <nav className="flex flex-col gap-3 text-sm font-semibold text-slate-700">
                     <Link href="#approach" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">The Approach</Link>
-                    <Link href="#why-falcon" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Why FALCON</Link>
+                    <Link href="#why-sensilearn" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Why SensiLearn</Link>
                     <Link href="#platform" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">What We Do</Link>
                     <Link href="#how-it-works" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">How It Works</Link>
                     <Link href="#ecosystem" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Ecosystem</Link>
@@ -1115,7 +1115,7 @@ export default function LandingPage() {
           {/* Eyebrow */}
           <div>
             <span className="text-xs sm:text-sm font-bold tracking-widest text-[#2563EB] uppercase">
-              FALCON LEARNING TECHNOLOGIES
+              SENSILEARN LEARNING TECHNOLOGIES
             </span>
           </div>
 
@@ -1136,7 +1136,7 @@ export default function LandingPage() {
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
             <Button size="lg" className="h-12 px-7 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg shadow-xs transition-colors" asChild>
               <Link href="/login">
-                Explore FALCON <ArrowRight className="h-4 w-4 ml-2" />
+                Explore SensiLearn <ArrowRight className="h-4 w-4 ml-2" />
               </Link>
             </Button>
             <Button size="lg" variant="outline" className="h-12 px-7 border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-semibold rounded-lg transition-colors" asChild>
@@ -1177,7 +1177,7 @@ export default function LandingPage() {
               A Connected Path from Learning to Capability
             </h2>
             <p className="text-sm text-slate-600">
-              Falcon connects every stage of technical development into an unbroken, measurable pipeline.
+              SensiLearn connects every stage of technical development into an unbroken, measurable pipeline.
             </p>
           </div>
 
@@ -1265,11 +1265,11 @@ export default function LandingPage() {
       {/* ──────────────────────────────────────────────────────────
           5. WHY FALCON (Circular 3D Movable Animation)
           ────────────────────────────────────────────────────────── */}
-      <section id="why-falcon" className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50 border-b border-slate-200 overflow-hidden">
+      <section id="why-sensilearn" className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50 border-b border-slate-200 overflow-hidden">
         <div className="max-w-6xl mx-auto space-y-10">
           
           <div className="text-center space-y-3 max-w-3xl mx-auto">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB]">WHY FALCON</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB]">WHY SENSILEARN</span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               ONE PLATFORM. COMPLETE LEARNING JOURNEY.
             </h2>
@@ -1279,7 +1279,7 @@ export default function LandingPage() {
           </div>
 
           {/* Circular 3D Movable Carousel */}
-          <WhyFalconCircular3DCarousel />
+          <WhySensiLearnCircular3DCarousel />
 
         </div>
       </section>
@@ -1373,7 +1373,7 @@ export default function LandingPage() {
         {/* Foreground Content */}
         <div className="relative z-10 max-w-4xl mx-auto text-center space-y-6">
           <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider text-blue-300 bg-blue-950/70 border border-blue-700/50 backdrop-blur-md uppercase shadow-xs">
-            FALCON LEARNING TECHNOLOGIES
+            SENSILEARN LEARNING TECHNOLOGIES
           </span>
 
           <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
@@ -1381,13 +1381,13 @@ export default function LandingPage() {
           </h2>
 
           <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed font-normal">
-            Bring learning, practice, coding, assessment and performance together with Falcon Learning Technologies.
+            Bring learning, practice, coding, assessment and performance together with SensiLearn Learning Technologies.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
             <Button size="lg" className="h-12 px-8 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-xl shadow-[0_10px_30px_rgba(37,99,235,0.4)] transition-all hover:scale-105 active:scale-95" asChild>
               <Link href="/login">
-                Explore FALCON <ArrowRight className="h-4 w-4 ml-2" />
+                Explore SensiLearn <ArrowRight className="h-4 w-4 ml-2" />
               </Link>
             </Button>
             <Button size="lg" className="h-12 px-8 bg-white hover:bg-slate-100 text-slate-900 hover:text-slate-950 text-sm font-bold rounded-xl shadow-lg border border-white/90 transition-all hover:scale-105 active:scale-95" asChild>
@@ -1412,11 +1412,11 @@ export default function LandingPage() {
             <div className="lg:col-span-2 space-y-3">
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-xl text-slate-900 tracking-tight">
-                  FALCON<span className="text-[#2563EB]">.</span>
+                  SensiLearn<span className="text-[#2563EB]">.</span>
                 </span>
               </div>
               <p className="text-xs font-semibold text-slate-700">
-                Falcon Learning Technologies
+                SensiLearn Learning Technologies
               </p>
               <p className="text-xs text-slate-500 max-w-sm leading-relaxed font-medium">
                 Learn • Build • Lead
@@ -1456,7 +1456,7 @@ export default function LandingPage() {
               <ul className="space-y-2 text-xs font-medium text-slate-600">
                 <li><Link href="#who-we-are" className="hover:text-slate-900 transition-colors">Who We Are</Link></li>
                 <li><Link href="#approach" className="hover:text-slate-900 transition-colors">The Approach</Link></li>
-                <li><Link href="#why-falcon" className="hover:text-slate-900 transition-colors">Why FALCON</Link></li>
+                <li><Link href="#why-sensilearn" className="hover:text-slate-900 transition-colors">Why SensiLearn</Link></li>
                 <li><Link href="#platform" className="hover:text-slate-900 transition-colors">What We Do</Link></li>
                 <li><Link href="/contact" className="hover:text-slate-900 transition-colors">Contact</Link></li>
               </ul>
@@ -1466,7 +1466,7 @@ export default function LandingPage() {
 
           {/* Copyright & Leadership */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-            <p>© {new Date().getFullYear()} FALCON Learning Technologies (SENSI Group). All rights reserved.</p>
+            <p>© {new Date().getFullYear()} SensiLearn Learning Technologies (SENSI Group). All rights reserved.</p>
             <p className="font-medium">Founder &amp; CEO: Dharunkumar S</p>
           </div>
 

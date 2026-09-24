@@ -345,7 +345,7 @@ export default function TrainerNewLiveClassPage() {
                   onChange={(e) => setPlatform(e.target.value as any)}
                   className="w-full h-10 rounded-xl border border-input bg-background px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  <option value="falcon_webrtc">FALCON Live Classroom (Built-in WebRTC)</option>
+                  <option value="falcon_webrtc">SensiLearn Live Classroom (Built-in WebRTC)</option>
                   <option value="google_meet">Google Meet</option>
                   <option value="zoom">Zoom Meeting</option>
                   <option value="teams">Microsoft Teams</option>
@@ -393,7 +393,7 @@ export default function TrainerNewLiveClassPage() {
                   <div className="p-2.5 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/40 text-[11px] text-blue-700 dark:text-blue-300">
                     <p className="font-semibold">Internal WebRTC Mode Active</p>
                     <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 mt-0.5">
-                      No external link required. Students and trainers attend directly inside FALCON LMS.
+                      No external link required. Students and trainers attend directly inside SensiLearn LMS.
                     </p>
                   </div>
                 </div>

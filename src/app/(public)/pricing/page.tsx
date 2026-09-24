@@ -15,7 +15,7 @@ export default function PublicPricingPage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <span className="font-extrabold text-xl text-[#111827] dark:text-[#FAFAFA] tracking-tight">
-              FALCON<span className="text-[#2563EB] font-black">.</span>
+              SensiLearn<span className="text-[#2563EB] font-black">.</span>
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-[#4B5563] dark:text-[#A1A1AA]">

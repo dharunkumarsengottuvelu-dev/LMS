@@ -381,7 +381,7 @@ export default function AdminBatchesPage() {
     ws["!cols"] = [{ wch: 25 }, { wch: 22 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 15 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Batches Template");
-    XLSX.writeFile(wb, "falcon_batches_bulk_template.xlsx");
+    XLSX.writeFile(wb, "sensilearn_batches_bulk_template.xlsx");
   };
 
   // Handle File Upload (Excel or CSV)

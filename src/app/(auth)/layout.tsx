@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Authentication — FALCON Learning Technologies",
+  title: "Authentication — SensiLearn Learning Technologies",
 };
 
 export default function AuthLayout({
@@ -38,7 +38,7 @@ export default function AuthLayout({
         <div className="relative z-10">
           <Link href="/" className="inline-flex flex-col">
             <span className="font-bold text-2xl tracking-tight text-white leading-none">
-              FALCON<span className="text-[#2563EB]">.</span>
+              SensiLearn<span className="text-[#2563EB]">.</span>
             </span>
             <span className="text-xs text-slate-400 font-normal tracking-wide mt-2">
               Learning Technologies
@@ -76,7 +76,7 @@ export default function AuthLayout({
         <div className="lg:hidden w-full max-w-[420px] flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
           <Link href="/" className="inline-flex flex-col">
             <span className="font-bold text-xl tracking-tight text-slate-900 leading-none">
-              FALCON<span className="text-[#2563EB]">.</span>
+              SensiLearn<span className="text-[#2563EB]">.</span>
             </span>
             <span className="text-[10px] text-slate-500 font-normal mt-0.5">
               Learning Technologies

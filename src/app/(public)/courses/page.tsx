@@ -55,9 +55,9 @@ export default function PublicCoursesPage() {
         <div className="max-w-[1280px] mx-auto px-6 h-full flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2563EB] to-indigo-600 flex items-center justify-center text-white font-black text-base shadow-md">
-              F
+              S
             </div>
-            <span className="font-extrabold text-base text-[#111827] tracking-tight">FALCON</span>
+            <span className="font-extrabold text-base text-[#111827] tracking-tight">SensiLearn</span>
             <span className="hidden sm:inline text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 rounded-full tracking-widest">LEARNING TECH</span>
           </Link>
 
@@ -158,11 +158,11 @@ export default function PublicCoursesPage() {
       <footer className="py-10 px-6 border-t border-[#E5E7EB] bg-white">
         <div className="max-w-[1280px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-[#6B7280]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2563EB] to-indigo-600 flex items-center justify-center text-white font-bold text-sm">F</div>
-            <span className="font-bold text-sm text-[#111827]">FALCON</span>
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2563EB] to-indigo-600 flex items-center justify-center text-white font-bold text-sm">S</div>
+            <span className="font-bold text-sm text-[#111827]">SensiLearn</span>
             <span className="text-[#9CA3AF]">Learning Technologies • SENSI Group</span>
           </div>
-          <p>© {new Date().getFullYear()} FALCON Learning Technologies. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} SensiLearn Learning Technologies. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <Link href="/" className="hover:text-[#111827] transition-colors">Home</Link>
             <Link href="/courses" className="hover:text-[#111827] transition-colors">Courses</Link>
