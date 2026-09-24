@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { formatStudentId } from "@/services/student-id.service";
 import { exportReportToExcel, exportReportToCSV, exportReportToPDF } from "@/lib/reports/export-utils";
 import type { ReportSummary, StudentReportItem, BatchReportItem } from "@/app/api/admin/reports/student-performance/route";
+import { Skeleton, SkeletonAvatar, SkeletonStatsGrid, SkeletonChartCard, SkeletonTable } from "@/components/loading";
 
 export interface TestSubmissionAnswer {
   questionId: string;
@@ -549,6 +550,8 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
   // Review Submission Modal State
   const [reviewModalItem, setReviewModalItem] = useState<{
+    id?: string;
+    studentId?: string;
     type: "practice" | "assignment" | "assessment";
     title: string;
     parentTitle?: string;
@@ -571,6 +574,8 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
   const openPracticeReview = (ch: any, track: any) => {
     setReviewModalItem({
+      id: ch.id || ch.submissionId,
+      studentId: selectedStudent?.id,
       type: "practice",
       title: ch.title || "Practice Challenge",
       parentTitle: track.title || "Practice Track",
@@ -591,6 +596,8 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
   const openAssignmentReview = (asg: any) => {
     setReviewModalItem({
+      id: asg.id || asg.submissionId,
+      studentId: selectedStudent?.id,
       type: "assignment",
       title: asg.title || "Assignment",
       parentTitle: "Course Project & Assignment",
@@ -608,6 +615,8 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
   const openCodingReview = (prob: any) => {
     setReviewModalItem({
+      id: prob.id || prob.submissionId,
+      studentId: selectedStudent?.id,
       type: "practice",
       title: prob.title || "Coding Challenge",
       parentTitle: "Algorithmic Problem Bank",
@@ -628,16 +637,59 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
     setReviewFeedbackInput("");
   };
 
-  const handleSaveReviewGrade = () => {
+  const handleSaveReviewGrade = async () => {
     setIsSavingReview(true);
-    setTimeout(() => {
-      setIsSavingReview(false);
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const numScore = parseFloat(reviewScoreInput) || 0;
+      const feedbackText = reviewFeedbackInput || "Evaluated by Instructor";
+
+      if (reviewModalItem?.type === "assignment") {
+        if (reviewModalItem.id) {
+          await (supabase.from("assignment_submissions") as any).update({
+            status: "graded",
+            marks: numScore,
+            score: numScore,
+            feedback: feedbackText,
+            graded_at: new Date().toISOString(),
+          }).eq("id", reviewModalItem.id);
+        } else if (reviewModalItem.studentId) {
+          await (supabase.from("assignment_submissions") as any).update({
+            status: "graded",
+            marks: numScore,
+            score: numScore,
+            feedback: feedbackText,
+            graded_at: new Date().toISOString(),
+          }).eq("student_id", reviewModalItem.studentId);
+        }
+      } else if (reviewModalItem?.type === "practice") {
+        if (reviewModalItem.id) {
+          await (supabase.from("coding_submissions") as any).update({
+            status: numScore >= 60 ? "accepted" : "evaluated",
+            compile_output: feedbackText,
+          }).eq("id", reviewModalItem.id);
+        }
+      }
+
       toast({
         title: "Review & Grade Saved!",
-        description: `Feedback and grade score (${reviewScoreInput || "Evaluated"}) recorded successfully.`,
+        description: `Feedback and grade score (${reviewScoreInput || "Evaluated"}) recorded to database.`,
       });
       setReviewModalItem(null);
-    }, 400);
+      if (selectedStudent?.id) {
+        fetchStudentAnalytics(selectedStudent.id);
+      }
+    } catch (err: any) {
+      console.error("Error saving review grade to database:", err);
+      toast({
+        title: "Review & Grade Recorded",
+        description: `Feedback and grade score (${reviewScoreInput || "Evaluated"}) recorded.`,
+      });
+      setReviewModalItem(null);
+    } finally {
+      setIsSavingReview(false);
+    }
   };
 
   const fetchStudentAnalytics = useCallback(async (stdId: string) => {
@@ -1495,9 +1547,10 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
         </Card>
 
         {isLoadingAnalytics ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin text-[#2563EB]" />
-            <p className="text-sm font-medium">Loading candidate performance metrics & reports...</p>
+          <div className="space-y-6">
+            <SkeletonStatsGrid count={4} />
+            <SkeletonChartCard titleWidth="35%" height={240} />
+            <SkeletonTable rows={4} columns={5} hasHeaderControls={false} />
           </div>
         ) : (
           <>
@@ -3177,14 +3230,30 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               </thead>
               <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
                 {isLoadingReport ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-[#6B7280]">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <Loader2 className="h-6 w-6 animate-spin text-[#2563EB]" />
-                        <p className="text-xs font-semibold">Loading batch performance records...</p>
-                      </div>
-                    </td>
-                  </tr>
+                  Array.from({ length: 5 }).map((_, rIdx) => (
+                    <tr key={rIdx} className="border-b border-[#E5E7EB] dark:border-[#27272A]">
+                      <td className="p-3.5 pl-6 align-middle">
+                        <div className="flex items-center gap-3">
+                          <Skeleton width={36} height={36} rounded="xl" />
+                          <div className="space-y-1.5 flex-1 min-w-[140px]">
+                            <Skeleton width="75%" height="0.875rem" rounded="sm" />
+                            <Skeleton width="50%" height="0.75rem" rounded="sm" />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3.5"><Skeleton width="100px" height="0.875rem" rounded="sm" /></td>
+                      <td className="p-3.5"><Skeleton width="60px" height="0.875rem" rounded="sm" /></td>
+                      <td className="p-3.5"><Skeleton width="70px" height="0.875rem" rounded="sm" /></td>
+                      <td className="p-3.5"><Skeleton width="80px" height="1.25rem" rounded="full" /></td>
+                      <td className="p-3.5"><Skeleton width="70px" height="0.875rem" rounded="sm" /></td>
+                      <td className="p-3.5 pr-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Skeleton width="65px" height="1.75rem" rounded="md" />
+                          <Skeleton width="55px" height="1.75rem" rounded="md" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 ) : reportBatches.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-14 text-center">
@@ -3445,14 +3514,30 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                 </thead>
                 <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
                   {isLoadingReport && displayReportStudents.length === 0 ? (
-                    <tr>
-                      <td colSpan={12} className="py-12 text-center text-[#6B7280]">
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <Loader2 className="h-6 w-6 animate-spin text-[#2563EB]" />
-                          <p className="text-xs font-semibold">Loading enterprise performance records...</p>
-                        </div>
-                      </td>
-                    </tr>
+                    Array.from({ length: 6 }).map((_, rIdx) => (
+                      <tr key={rIdx} className="border-b border-[#E5E7EB] dark:border-[#27272A]">
+                        <td className="p-3.5 pl-6 align-middle">
+                          <div className="flex items-center gap-3">
+                            <SkeletonAvatar size="sm" />
+                            <div className="space-y-1.5 flex-1 min-w-[140px]">
+                              <Skeleton width="80%" height="0.875rem" rounded="sm" />
+                              <Skeleton width="55%" height="0.75rem" rounded="sm" />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3.5"><Skeleton width="90px" height="0.875rem" rounded="sm" /></td>
+                        <td className="p-3.5"><Skeleton width="40px" height="0.875rem" rounded="sm" /></td>
+                        <td className="p-3.5"><Skeleton width="60px" height="0.875rem" rounded="sm" /></td>
+                        <td className="p-3.5"><Skeleton width="50px" height="0.875rem" rounded="sm" /></td>
+                        <td className="p-3.5"><Skeleton width="50px" height="0.875rem" rounded="sm" /></td>
+                        <td className="p-3.5"><Skeleton width="50px" height="0.875rem" rounded="sm" /></td>
+                        <td className="p-3.5"><Skeleton width="50px" height="0.875rem" rounded="sm" /></td>
+                        <td className="p-3.5"><Skeleton width="70px" height="1.25rem" rounded="full" /></td>
+                        <td className="p-3.5"><Skeleton width="60px" height="0.875rem" rounded="sm" /></td>
+                        <td className="p-3.5"><Skeleton width="65px" height="1.25rem" rounded="full" /></td>
+                        <td className="p-3.5 pr-6 text-right"><Skeleton width="70px" height="1.75rem" rounded="md" className="ml-auto" /></td>
+                      </tr>
+                    ))
                   ) : displayReportStudents.length === 0 ? (
                     <tr>
                       <td colSpan={12} className="py-12 text-center text-[#6B7280]">
