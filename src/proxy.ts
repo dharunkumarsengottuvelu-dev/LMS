@@ -150,7 +150,8 @@ function createRedirectWithCookies(
 
   // Preserve all cookies from the session refresh to avoid dropping auth state
   supabaseResponse.cookies.getAll().forEach((cookie) => {
-    response.cookies.set(cookie.name, cookie.value, cookie);
+    const { name, value, ...options } = cookie;
+    response.cookies.set(name, value, options);
   });
 
   return applySecurityHeaders(response);
