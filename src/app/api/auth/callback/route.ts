@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -34,6 +35,22 @@ export async function GET(request: Request) {
     }
 
     if (data?.user) {
+      // Purge any dead PKCE verifiers and duplicate cookies immediately to keep request headers small
+      try {
+        const cookieStore = await cookies();
+        const allCookies = cookieStore.getAll();
+        for (const c of allCookies) {
+          if (c.name.includes("-code-verifier")) {
+            cookieStore.delete(c.name);
+          }
+          if (c.name.endsWith("-auth-token") && cookieStore.has(`${c.name}.0`)) {
+            cookieStore.delete(c.name);
+          }
+        }
+      } catch (err) {
+        console.warn("Cookie cleanup in callback non-critical warning:", err);
+      }
+
       // Fetch user role to redirect to the correct dashboard
       const { data: profileData } = await supabase
         .from("profiles")

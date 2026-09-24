@@ -61,6 +61,33 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
           rel="stylesheet"
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  if (typeof document !== 'undefined' && document.cookie) {
+                    var cookies = document.cookie.split(';');
+                    var hasChunk0 = false;
+                    for (var i = 0; i < cookies.length; i++) {
+                      var name = cookies[i].split('=')[0].trim();
+                      if (name.indexOf('-auth-token.0') > -1) {
+                        hasChunk0 = true;
+                        break;
+                      }
+                    }
+                    for (var i = 0; i < cookies.length; i++) {
+                      var name = cookies[i].split('=')[0].trim();
+                      if (hasChunk0 && name.endsWith('-auth-token')) {
+                        document.cookie = name + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                      }
+                    }
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
       </head>
       <body className="font-sans antialiased">
         <GlobalErrorListener />

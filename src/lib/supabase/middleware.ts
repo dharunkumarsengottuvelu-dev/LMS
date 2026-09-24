@@ -32,5 +32,18 @@ export async function updateSession(request: NextRequest) {
   // Refresh session so it doesn't expire
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Active Garbage Collection: Prune dead PKCE code verifiers & duplicate unchunked tokens
+  if (user) {
+    const allCookies = request.cookies.getAll();
+    allCookies.forEach((cookie) => {
+      if (cookie.name.includes("-code-verifier")) {
+        supabaseResponse.cookies.set(cookie.name, "", { maxAge: 0, path: "/" });
+      }
+      if (cookie.name.endsWith("-auth-token") && request.cookies.has(`${cookie.name}.0`)) {
+        supabaseResponse.cookies.set(cookie.name, "", { maxAge: 0, path: "/" });
+      }
+    });
+  }
+
   return { supabase, supabaseResponse, user };
 }

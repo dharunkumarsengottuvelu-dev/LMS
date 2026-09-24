@@ -60,6 +60,17 @@ export class AuthService {
     let origin = "";
 
     if (typeof window !== "undefined") {
+      // Proactively purge any stale verifier or leftover chunk cookies before initiating OAuth
+      try {
+        const cookies = document.cookie.split(";");
+        for (const c of cookies) {
+          const name = c.split("=")[0]?.trim();
+          if (name && (name.includes("-code-verifier") || name.endsWith("-auth-token-code-verifier"))) {
+            document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+          }
+        }
+      } catch {}
+
       const { createClient: createBrowserClient } = await import("@/lib/supabase/client");
       supabase = createBrowserClient();
       origin = window.location.origin;
@@ -77,6 +88,7 @@ export class AuthService {
       provider: "google",
       options: {
         redirectTo: callbackUrl.toString(),
+        scopes: "openid email profile",
         queryParams: {
           prompt: "select_account",
         },
@@ -87,6 +99,17 @@ export class AuthService {
   }
 
   static async signOut() {
+    if (typeof window !== "undefined") {
+      try {
+        const cookies = document.cookie.split(";");
+        for (const c of cookies) {
+          const name = c.split("=")[0]?.trim();
+          if (name && (name.startsWith("sb-") || name.includes("auth-token"))) {
+            document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+          }
+        }
+      } catch {}
+    }
     const supabase = await createClient();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
