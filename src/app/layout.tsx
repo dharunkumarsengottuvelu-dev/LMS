@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
@@ -66,23 +66,22 @@ export default function RootLayout({
             __html: `
               (function() {
                 try {
-                  if (typeof document !== 'undefined' && document.cookie) {
-                    var cookies = document.cookie.split(';');
-                    var hasChunk0 = false;
-                    for (var i = 0; i < cookies.length; i++) {
-                      var name = cookies[i].split('=')[0].trim();
-                      if (name.indexOf('-auth-token.0') > -1) {
-                        hasChunk0 = true;
-                        break;
-                      }
+                  if (typeof document === 'undefined' || !document.cookie) return;
+                  var cookies = document.cookie.split(';');
+                  var hasChunk0 = false;
+                  for (var i = 0; i < cookies.length; i++) {
+                    if (cookies[i].split('=')[0].trim().indexOf('-auth-token.0') > -1) {
+                      hasChunk0 = true;
+                      break;
                     }
-                    for (var i = 0; i < cookies.length; i++) {
-                      var name = cookies[i].split('=')[0].trim();
-                      if (hasChunk0 && name.endsWith('-auth-token')) {
-                        document.cookie = name + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-                      }
-                      if (name.indexOf('-code-verifier') > -1 && window.location.pathname.indexOf('/api/auth/callback') === -1 && window.location.search.indexOf('code=') === -1) {
-                        document.cookie = name + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                  }
+                  if (hasChunk0) {
+                    for (var j = 0; j < cookies.length; j++) {
+                      var n = cookies[j].split('=')[0].trim();
+                      // Remove unchunked token when chunked form (.0) exists
+                      // Never touch code-verifier — the SDK owns its lifecycle
+                      if (n.endsWith('-auth-token') && n.indexOf('.') === -1) {
+                        document.cookie = n + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
                       }
                     }
                   }
@@ -117,3 +116,4 @@ export default function RootLayout({
     </html>
   );
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -261,23 +261,8 @@ export default function LoginPage() {
       callbackUrl.searchParams.set("next", nextUrl);
     }
 
-    // Purge all stale Supabase auth cookies BEFORE OAuth to prevent 494 REQUEST_HEADER_TOO_LARGE
-    if (typeof document !== "undefined") {
-      document.cookie.split(";").forEach((c) => {
-        const name = c.split("=")[0]?.trim();
-        if (
-          name && (
-            name.startsWith("sb-") ||
-            name.includes("-auth-token") ||
-            name.includes("-code-verifier") ||
-            name.includes("-provider-token")
-          )
-        ) {
-          document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-        }
-      });
-    }
-
+    // Do NOT purge cookies here. The SDK writes the PKCE code_verifier inside
+    // signInWithOAuth and it must survive until the callback consumes it.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -453,3 +438,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

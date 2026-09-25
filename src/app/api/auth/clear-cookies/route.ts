@@ -3,26 +3,35 @@ import { cookies } from "next/headers";
 
 /**
  * GET /api/auth/clear-cookies
- * Emergency endpoint — wipes all Supabase auth cookies and redirects to /login.
- * Fixes 494 REQUEST_HEADER_TOO_LARGE for users with bloated cookie jars.
+ *
+ * Migration endpoint for users who are stuck with oversized cookie headers
+ * from the previous broken implementation (494 REQUEST_HEADER_TOO_LARGE).
+ *
+ * Removes accumulated stale Supabase session cookies, then redirects to /login.
+ * Does NOT remove code-verifier cookies — those are short-lived and self-expiring.
+ *
+ * Safe to call at any time. Does not affect non-auth cookies.
  */
 export async function GET(request: Request) {
   const cookieStore = await cookies();
   const all = cookieStore.getAll();
+  const origin = new URL(request.url).origin;
 
-  const response = NextResponse.redirect(
-    new URL("/login", request.url).toString()
-  );
+  const response = NextResponse.redirect(`${origin}/login`);
 
   for (const c of all) {
-    const isAuthCookie =
-      c.name.startsWith("sb-") ||
+    const isStaleAuthCookie =
+      // Chunked session tokens
       c.name.includes("-auth-token") ||
-      c.name.includes("-code-verifier") ||
+      // Provider token (large, not needed)
       c.name.includes("-provider-token") ||
+      // Refresh token if stored separately
       c.name.includes("-refresh-token");
 
-    if (isAuthCookie) {
+    // Intentionally NOT removing code-verifier — it's short-lived and harmless
+    // Intentionally NOT removing non-auth cookies
+
+    if (isStaleAuthCookie) {
       try { cookieStore.delete(c.name); } catch { /* ignore */ }
       response.cookies.set(c.name, "", {
         path: "/",

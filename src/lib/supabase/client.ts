@@ -4,29 +4,38 @@ import type { Database } from "./database.types";
 const SUPABASE_URL = process.env["NEXT_PUBLIC_SUPABASE_URL"] || "https://placeholder-project.supabase.co";
 const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "placeholder-anon-key";
 
-// Singleton pattern — reset on sign-out to prevent stale token accumulation
+// Module-level singleton — prevents multiple GoTrueClient instances in the browser
 let client: ReturnType<typeof createBrowserClient<Database>> | null = null;
 
 /**
- * Purges all Supabase auth-related cookies from the browser to prevent
- * 494 REQUEST_HEADER_TOO_LARGE caused by stale/oversized cookie headers.
+ * Removes only the unchunked session cookie when the chunked form exists.
+ * Called on sign-out only — NEVER before an OAuth redirect.
+ *
+ * Does NOT touch code_verifier cookies.
+ * The PKCE code_verifier is owned by the Supabase SDK and must be preserved
+ * from signInWithOAuth() until exchangeCodeForSession() consumes it.
  */
-export function purgeAuthCookies() {
+export function purgeStaleSessionCookies() {
   if (typeof document === "undefined") return;
-  const cookies = document.cookie.split(";");
-  for (const c of cookies) {
-    const name = c.split("=")[0]?.trim();
+
+  const cookieList = document.cookie.split(";").map((c) => {
+    const [name, ...rest] = c.split("=");
+    return { name: name?.trim() ?? "", value: rest.join("=") };
+  });
+
+  const names = new Set(cookieList.map((c) => c.name));
+
+  for (const { name } of cookieList) {
     if (!name) continue;
-    const isAuthCookie =
-      name.startsWith("sb-") ||
-      name.includes("-auth-token") ||
-      name.includes("-code-verifier") ||
-      name.includes("-refresh-token") ||
-      name.includes("-provider-token");
-    if (isAuthCookie) {
-      // Expire on all path/domain combinations
+
+    // Remove unchunked token when chunked form (.0) exists
+    if (name.endsWith("-auth-token") && names.has(`${name}.0`)) {
       document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-      document.cookie = `${name}=; path=/; domain=${window.location.hostname}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+    }
+
+    // Remove provider-token — large, not needed client-side
+    if (name.includes("-provider-token")) {
+      document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
     }
   }
 }
@@ -40,19 +49,12 @@ export function createClient() {
       sameSite: "lax",
       secure: typeof window !== "undefined" && window.location.protocol === "https:",
     },
-    auth: {
-      // Use PKCE for more secure OAuth flow and smaller token payloads
-      flowType: "pkce",
-      // Detect session from URL hash on OAuth callback
-      detectSessionInUrl: true,
-      persistSession: true,
-    },
   });
 
-  // Auto-reset singleton when user signs out to prevent stale cookie accumulation
+  // Reset singleton and clean stale cookies when the user signs out
   client.auth.onAuthStateChange((event) => {
     if (event === "SIGNED_OUT") {
-      purgeAuthCookies();
+      purgeStaleSessionCookies();
       client = null;
     }
   });

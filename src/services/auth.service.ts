@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+﻿import { createClient } from "@/lib/supabase/server";
 import type { UserProfile, CreateUserInput } from "@/types";
 
 export class AuthService {
@@ -60,17 +60,8 @@ export class AuthService {
     let origin = "";
 
     if (typeof window !== "undefined") {
-      // Proactively purge any stale verifier or leftover chunk cookies before initiating OAuth
-      try {
-        const cookies = document.cookie.split(";");
-        for (const c of cookies) {
-          const name = c.split("=")[0]?.trim();
-          if (name && (name.includes("-code-verifier") || name.endsWith("-auth-token-code-verifier"))) {
-            document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-          }
-        }
-      } catch {}
-
+      // Do NOT purge code_verifier here. The SDK writes it inside signInWithOAuth
+      // and it must survive until the callback route exchanges the code.
       const { createClient: createBrowserClient } = await import("@/lib/supabase/client");
       supabase = createBrowserClient();
       origin = window.location.origin;
@@ -163,3 +154,4 @@ export class AuthService {
     return data as unknown as UserProfile;
   }
 }
+
