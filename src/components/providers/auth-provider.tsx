@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, purgeStaleSessionCookies } from "@/lib/supabase/client";
 import type { UserProfile } from "@/types";
 
 interface AuthContextType {
@@ -116,16 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     try {
       if (typeof window !== "undefined") {
-        const cookies = document.cookie.split(";");
-        for (const c of cookies) {
-          const name = c.split("=")[0]?.trim();
-          if (name && (name.startsWith("sb-") || name.includes("auth-token") || name.includes("code-verifier") || name.includes("provider-token"))) {
-            document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-            if (window.location.hostname) {
-              document.cookie = `${name}=; path=/; domain=${window.location.hostname}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-            }
-          }
-        }
+        purgeStaleSessionCookies({ clearCodeVerifier: true });
         for (let i = localStorage.length - 1; i >= 0; i--) {
           const key = localStorage.key(i);
           if (key && (key.startsWith("sb-") || key.includes("supabase"))) {

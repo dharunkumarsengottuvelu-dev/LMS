@@ -86,7 +86,7 @@ export interface HostMeetingPermissions {
   isLocked: boolean;
 }
 
-interface UseFalconMeetingEngineOptions {
+export interface UseSensiLearnMeetingEngineOptions {
   classId: string;
   userId: string;
   userName: string;
@@ -95,6 +95,8 @@ interface UseFalconMeetingEngineOptions {
   initialVideo?: boolean;
   onMeetingEnded?: () => void;
 }
+
+export type UseLiveMeetingEngineOptions = UseSensiLearnMeetingEngineOptions;
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -124,7 +126,7 @@ function shouldInitiateOffer(myUserId: string, myRole: string, targetUserId: str
   return myUserId < targetUserId;
 }
 
-export function useFalconMeetingEngine({
+export function useSensiLearnMeetingEngine({
   classId,
   userId,
   userName,
@@ -132,7 +134,7 @@ export function useFalconMeetingEngine({
   initialAudio = true,
   initialVideo = true,
   onMeetingEnded,
-}: UseFalconMeetingEngineOptions) {
+}: UseSensiLearnMeetingEngineOptions) {
   // Lifecycle & Status
   const [lifecycle, setLifecycle] = useState<MeetingLifecycle>("PREJOIN");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

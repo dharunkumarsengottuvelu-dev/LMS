@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { ParticipantModel, ChatMessage, HostMeetingPermissions, JoinRequestItem } from "@/hooks/use-falcon-meeting-engine";
+import { ParticipantModel, ChatMessage, HostMeetingPermissions, JoinRequestItem } from "@/hooks/use-sensilearn-meeting-engine";
 
 interface SidePanelProps {
   activeTab: "chat" | "participants" | "info" | "host_controls";

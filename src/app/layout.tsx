@@ -34,6 +34,10 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     ...(siteConfig.url ? { url: siteConfig.url } : {}),
   },
+  icons: {
+    icon: "/favicon.ico",
+  },
+  manifest: "/site.webmanifest",
   robots: {
     index: true,
     follow: true,

@@ -22,9 +22,7 @@ export interface ProblemSavedState {
 }
 
 const LOCAL_STORAGE_PROGRESS_KEY = "lms_coding_progress_v2";
-const LEGACY_LOCAL_STORAGE_PROGRESS_KEY = "falcon_coding_progress_v2";
 const LOCAL_STORAGE_ACTIVE_PROBLEM_KEY = "lms_coding_active_problem_v2";
-const LEGACY_ACTIVE_PROBLEM_KEY = "falcon_coding_active_problem_v2";
 
 export class CodingProgressService {
   private static memoryStore: Map<string, ProblemSavedState> = new Map();
@@ -42,9 +40,7 @@ export class CodingProgressService {
     if (!this.isBrowser()) return this.memoryStore;
     if (this.storeLoaded) return this.memoryStore;
     try {
-      const raw =
-        localStorage.getItem(LOCAL_STORAGE_PROGRESS_KEY) ||
-        localStorage.getItem(LEGACY_LOCAL_STORAGE_PROGRESS_KEY);
+      const raw = localStorage.getItem(LOCAL_STORAGE_PROGRESS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Record<string, ProblemSavedState>;
         const map = new Map<string, ProblemSavedState>();

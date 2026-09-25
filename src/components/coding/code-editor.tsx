@@ -170,7 +170,7 @@ export function CodeEditor({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedTestCaseIdx, setSelectedTestCaseIdx] = useState(0);
   const [useFallbackTextarea, setUseFallbackTextarea] = useState(false);
-  const [editorTheme] = useState<string>("falcon-light");
+  const [editorTheme] = useState<string>("sensilearn-light");
   const [fontSize, setFontSize] = useState<number>(14);
   const [wordWrap, setWordWrap] = useState<"off" | "on">("off");
   const [showMinimap, setShowMinimap] = useState<boolean>(false);

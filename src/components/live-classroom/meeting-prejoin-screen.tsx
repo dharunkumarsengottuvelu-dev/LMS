@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { DeviceInfo, MeetingLifecycle } from "@/hooks/use-falcon-meeting-engine";
+import { DeviceInfo, MeetingLifecycle } from "@/hooks/use-sensilearn-meeting-engine";
 
 interface MeetingPrejoinScreenProps {
   meetingTitle: string;

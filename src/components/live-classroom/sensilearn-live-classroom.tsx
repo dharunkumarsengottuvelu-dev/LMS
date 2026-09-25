@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  useFalconMeetingEngine,
+  useSensiLearnMeetingEngine,
   ParticipantModel,
   WhiteboardStroke,
-} from "@/hooks/use-falcon-meeting-engine";
+} from "@/hooks/use-sensilearn-meeting-engine";
 import { MeetingHeader } from "./meeting-header";
 import { VideoStage } from "./video-stage";
 import { MeetingControlBar } from "./meeting-control-bar";
@@ -39,7 +39,7 @@ interface LiveClassDetails {
   raiseHandEnabled?: boolean;
 }
 
-interface FalconLiveClassroomProps {
+export interface SensiLearnLiveClassroomProps {
   classDetails: LiveClassDetails;
   currentUser: {
     id: string;
@@ -50,11 +50,11 @@ interface FalconLiveClassroomProps {
   backUrl: string;
 }
 
-export function FalconLiveClassroom({
+export function SensiLearnLiveClassroom({
   classDetails,
   currentUser,
   backUrl,
-}: FalconLiveClassroomProps) {
+}: SensiLearnLiveClassroomProps) {
   const router = useRouter();
 
   // View & UI State
@@ -77,6 +77,8 @@ export function FalconLiveClassroom({
   const isHost = currentUser.role === "trainer" || currentUser.role === "admin";
   const isExternalPlatform = Boolean(
     classDetails.platform &&
+    classDetails.platform !== "sensilearn_webrtc" &&
+    classDetails.platform !== "webrtc" &&
     classDetails.platform !== "falcon_webrtc" &&
     classDetails.meetingUrl
   );
@@ -127,7 +129,7 @@ export function FalconLiveClassroom({
     muteAll,
     endMeeting,
     leaveMeeting,
-  } = useFalconMeetingEngine({
+  } = useSensiLearnMeetingEngine({
     classId: classDetails.id,
     userId: currentUser.id,
     userName: currentUser.name,

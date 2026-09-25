@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { ParticipantModel } from "@/hooks/use-falcon-meeting-engine";
+import { ParticipantModel } from "@/hooks/use-sensilearn-meeting-engine";
 
 export type SelfViewSize = "small" | "medium" | "large";
 

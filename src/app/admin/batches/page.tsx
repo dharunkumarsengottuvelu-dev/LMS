@@ -685,7 +685,7 @@ export default function AdminBatchesPage() {
 
   return (
     <div className="space-y-8 animate-fade-up">
-      {/* 1. Header & Primary Actions (Falcon / Courses / Practices Style) */}
+      {/* 1. Header & Primary Actions (SensiLearn / Courses / Practices Style) */}
       <PageHeader
         title="Batch Management"
         description="Configure student cohorts, link academic partner institutions, assign training tracks, and track learner enrollments."

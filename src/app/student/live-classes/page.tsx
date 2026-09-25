@@ -130,7 +130,8 @@ export default function StudentLiveClassesPage() {
       setIsJoiningId(cls.id);
 
       // If class is configured with an external meeting link (Google Meet, Zoom, Teams, etc.)
-      if (cls.platform !== "falcon_webrtc" && cls.meetingUrl && cls.meetingUrl.trim().startsWith("http")) {
+      const isInternalWebRtc = cls.platform === "sensilearn_webrtc" || cls.platform === "webrtc" || cls.platform === "falcon_webrtc" || !cls.platform;
+      if (!isInternalWebRtc && cls.meetingUrl && cls.meetingUrl.trim().startsWith("http")) {
         // Record attendance in background
         fetch("/api/student/live-classes", {
           method: "POST",
@@ -143,7 +144,7 @@ export default function StudentLiveClassesPage() {
         return;
       }
 
-      // Default: internal FALCON WebRTC live classroom
+      // Default: internal SensiLearn WebRTC live classroom
       router.push(`/student/live-classes/${cls.id}`);
     } catch (err) {
       console.error("Join class error:", err);

@@ -14,7 +14,7 @@ export default function AuthLayout({
     <div className="h-screen max-h-screen overflow-hidden grid lg:grid-cols-12 bg-white antialiased">
       
       {/* ──────────────────────────────────────────────────────────
-          LEFT PANEL: FALCON BRAND PRESENTATION (5 cols)
+          LEFT PANEL: SENSILEARN BRAND PRESENTATION (5 cols)
           Apple / Google-level typographical hierarchy & whitespace
           ────────────────────────────────────────────────────────── */}
       <div className="hidden lg:flex lg:col-span-5 flex-col justify-between text-white p-12 xl:p-16 relative border-r border-slate-200/20 bg-[#070D1E] overflow-hidden h-full select-none">

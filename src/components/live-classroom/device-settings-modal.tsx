@@ -3,7 +3,7 @@
 import React from "react";
 import { Settings, X, Volume2, Video, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DeviceInfo } from "@/hooks/use-falcon-meeting-engine";
+import { DeviceInfo } from "@/hooks/use-sensilearn-meeting-engine";
 
 interface DeviceSettingsModalProps {
   isOpen: boolean;

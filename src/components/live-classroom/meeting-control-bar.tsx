@@ -8,7 +8,7 @@ import {
   PenTool, Eye, EyeOff, LayoutTemplate
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { HostMeetingPermissions } from "@/hooks/use-falcon-meeting-engine";
+import { HostMeetingPermissions } from "@/hooks/use-sensilearn-meeting-engine";
 import { LayoutSelectorPopover, MeetingLayoutMode } from "./layout-selector-popover";
 
 interface MeetingControlBarProps {

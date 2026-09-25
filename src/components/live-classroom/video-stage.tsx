@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect } from "react";
-import { ParticipantModel, WhiteboardStroke } from "@/hooks/use-falcon-meeting-engine";
+import { ParticipantModel, WhiteboardStroke } from "@/hooks/use-sensilearn-meeting-engine";
 import { ParticipantTile } from "./participant-tile";
 import { DraggableSelfView } from "./draggable-self-view";
 import { MeetingLayoutMode } from "./layout-selector-popover";

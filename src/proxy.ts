@@ -132,7 +132,23 @@ function createRedirectWithCookies(
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  // 0. Auto-route OAuth callback only if code param is present on root or auth routes
+  // 0. Skip proxy entirely for static assets, public files, and Next.js internals
+  if (
+    pathname === "/favicon.ico" ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/icons") ||
+    pathname.startsWith("/images") ||
+    pathname === "/manifest.json" ||
+    pathname === "/site.webmanifest" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
+    pathname.includes(".")
+  ) {
+    return NextResponse.next();
+  }
+
+  // 1. Auto-route OAuth callback only if code param is present on root or auth routes
   const codeParam = request.nextUrl.searchParams.get("code");
   const isAuthEntryPage = pathname === "/" || pathname === "/login" || pathname.startsWith("/auth/");
   if (codeParam && isAuthEntryPage && !pathname.startsWith("/api/auth/callback")) {
@@ -143,7 +159,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(callbackUrl);
   }
 
-  // Early defense against header size explosion for legacy browsers with bloated cookie jars
+  // 2. Early defense against header size explosion for legacy browsers with bloated cookie jars
   const rawCookie = request.headers.get("cookie") || "";
   const isAuthCallback = pathname.startsWith("/api/auth/callback");
   if (!isAuthCallback && rawCookie.length > 4096) {
@@ -166,17 +182,6 @@ export async function proxy(request: NextRequest) {
       }
     }
     return cleanRedirect;
-  }
-
-  // Skip proxy for static files and Next.js internals
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon") ||
-    pathname.startsWith("/icons") ||
-    pathname.startsWith("/images") ||
-    pathname.includes(".")
-  ) {
-    return NextResponse.next();
   }
 
   // 1. Rate Limiting Check (IP-based with route scoping)
@@ -433,6 +438,6 @@ export default proxy;
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff|woff2|ttf|eot)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.json|site\\.webmanifest|robots\\.txt|sitemap\\.xml|icons/.*|images/.*|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff|woff2|ttf|eot)$).*)",
   ],
 };

@@ -30,7 +30,7 @@ export default function AdminNewLiveClassPage() {
   const [description, setDescription] = useState("");
   const [courseId, setCourseId] = useState("");
   const [trainerId, setTrainerId] = useState("");
-  const [platform, setPlatform] = useState<"falcon_webrtc" | "google_meet" | "zoom" | "teams" | "other">("falcon_webrtc");
+  const [platform, setPlatform] = useState<"sensilearn_webrtc" | "google_meet" | "zoom" | "teams" | "other">("sensilearn_webrtc");
   const [meetingUrl, setMeetingUrl] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [startTime, setStartTime] = useState("10:00");
@@ -101,7 +101,7 @@ export default function AdminNewLiveClassPage() {
         ? `${selectedTrainer.first_name || ""} ${selectedTrainer.last_name || ""}`.trim() || selectedTrainer.email
         : "Lead Trainer",
       platform: platform,
-      meeting_url: platform === "falcon_webrtc" ? "" : meetingUrl.trim(),
+      meeting_url: (platform === "sensilearn_webrtc" || (platform as string) === "falcon_webrtc") ? "" : meetingUrl.trim(),
       scheduled_date: finalDate,
       start_time: finalStart,
       end_time: finalEnd,
@@ -402,20 +402,20 @@ export default function AdminNewLiveClassPage() {
                   onChange={(e) => setPlatform(e.target.value as any)}
                   className="w-full h-10 rounded-xl border border-input bg-background px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  <option value="falcon_webrtc">SensiLearn Live Classroom (Built-in WebRTC)</option>
+                  <option value="sensilearn_webrtc">SensiLearn Live Classroom (Built-in WebRTC)</option>
                   <option value="google_meet">Google Meet</option>
                   <option value="zoom">Zoom Meeting</option>
                   <option value="teams">Microsoft Teams</option>
                   <option value="other">Custom / External Meeting URL</option>
                 </select>
                 <p className="text-[11px] text-slate-500 pl-1">
-                  {platform === "falcon_webrtc"
+                  {platform === "sensilearn_webrtc" || (platform as string) === "falcon_webrtc"
                     ? "Interactive in-app classroom with video, audio, screen share & live attendance."
                     : "External video meeting platform with automated LMS attendance tracking."}
                 </p>
               </div>
 
-              {platform !== "falcon_webrtc" ? (
+              {platform !== "sensilearn_webrtc" && (platform as string) !== "falcon_webrtc" ? (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">

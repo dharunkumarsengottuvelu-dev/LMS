@@ -1166,7 +1166,7 @@ export default function LandingPage() {
 
 
       {/* ──────────────────────────────────────────────────────────
-          4. WHAT FALCON CONNECTS (Moving Animated & Manual Cards)
+          4. WHAT SENSILEARN CONNECTS (Moving Animated & Manual Cards)
           ────────────────────────────────────────────────────────── */}
       <section id="approach" className="py-20 bg-white border-b border-slate-200 overflow-hidden">
         <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
@@ -1263,7 +1263,7 @@ export default function LandingPage() {
 
 
       {/* ──────────────────────────────────────────────────────────
-          5. WHY FALCON (Circular 3D Movable Animation)
+          5. WHY SENSILEARN (Circular 3D Movable Animation)
           ────────────────────────────────────────────────────────── */}
       <section id="why-sensilearn" className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50 border-b border-slate-200 overflow-hidden">
         <div className="max-w-6xl mx-auto space-y-10">

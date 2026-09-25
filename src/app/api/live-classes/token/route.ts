@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       });
 
       at.addGrant({
-        room: `falcon_room_${classId}`,
+        room: `sensilearn_room_${classId}`,
         roomJoin: true,
         canPublish: true,
         canSubscribe: true,
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         serverUrl: wsUrl,
         token: jwt,
         identity: participantIdentity,
-        roomName: `falcon_room_${classId}`,
+        roomName: `sensilearn_room_${classId}`,
         isHost,
       });
     }
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       serverUrl: null,
       token: null,
       identity: participantIdentity,
-      roomName: `falcon_room_${classId}`,
+      roomName: `sensilearn_room_${classId}`,
       isHost,
     });
   } catch (error: any) {

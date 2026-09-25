@@ -347,6 +347,3 @@ export function wrapInEmailLayout({
 </body>
 </html>`;
 }
-
-// Backward compatibility alias
-export const wrapInFalconLayout = wrapInEmailLayout;

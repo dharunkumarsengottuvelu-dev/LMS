@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
       module_title: moduleName || "",
       trainer_id: user.id,
       trainer_name: trainerFullName,
-      platform: platform || (meeting_url || meetingUrl ? "external" : "falcon_webrtc"),
+      platform: platform || (meeting_url || meetingUrl ? "external" : "sensilearn_webrtc"),
       meeting_url: meeting_url || meetingUrl || "",
       scheduled_date: scheduledDate,
       start_time: startTime,

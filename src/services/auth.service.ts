@@ -61,7 +61,8 @@ export class AuthService {
     const origin = getAppOrigin();
 
     if (typeof window !== "undefined") {
-      const { createClient: createBrowserClient } = await import("@/lib/supabase/client");
+      const { createClient: createBrowserClient, purgeStaleSessionCookies } = await import("@/lib/supabase/client");
+      purgeStaleSessionCookies({ clearCodeVerifier: true });
       supabase = createBrowserClient();
     } else {
       supabase = await createClient();
@@ -89,13 +90,8 @@ export class AuthService {
   static async signOut() {
     if (typeof window !== "undefined") {
       try {
-        const cookies = document.cookie.split(";");
-        for (const c of cookies) {
-          const name = c.split("=")[0]?.trim();
-          if (name && (name.startsWith("sb-") || name.includes("auth-token"))) {
-            document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-          }
-        }
+        const { purgeStaleSessionCookies } = await import("@/lib/supabase/client");
+        purgeStaleSessionCookies({ clearCodeVerifier: true });
       } catch {}
     }
     const supabase = await createClient();

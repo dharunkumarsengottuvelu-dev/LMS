@@ -4,7 +4,7 @@ import React, { useRef, useEffect } from "react";
 import { Mic, MicOff, VideoOff, Pin, PictureInPicture2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { ParticipantModel } from "@/hooks/use-falcon-meeting-engine";
+import { ParticipantModel } from "@/hooks/use-sensilearn-meeting-engine";
 
 interface ParticipantTileProps {
   participant: ParticipantModel;

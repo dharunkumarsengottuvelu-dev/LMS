@@ -1,4 +1,4 @@
-// Professional Falcon Light Theme & Language-Aware Tokenizer System
+// Professional SensiLearn Light Theme & Language-Aware Tokenizer System
 // Designed for Enterprise Coding Platforms (LeetCode Light + VS Code Light)
 // Single Source of Truth for Syntax Highlighting and Code Indentation
 // Centralized Semantic Architecture for All Programming Languages
@@ -8,7 +8,7 @@ import { formatSourceCode } from "@/lib/compiler/code-formatter";
 
 type MonacoInstance = typeof Monaco;
 
-// ── Centralized Semantic Syntax Color Palette (Falcon Light) ────────────────
+// ── Centralized Semantic Syntax Color Palette (SensiLearn Light) ────────────
 export const syntaxColors = {
   keyword: "#2563EB",
   controlKeyword: "#7C3AED",
@@ -49,12 +49,12 @@ export const syntaxColors = {
 
 const c = (hex: string) => hex.replace("#", "");
 
+export const SENSILEARN_LIGHT_THEME_NAME = "sensilearn-light";
 export const LMS_LIGHT_THEME_NAME = "lms-light";
 export const LMS_DARK_THEME_NAME = "lms-dark";
-export const FALCON_LIGHT_THEME_NAME = "falcon-light";
 
-// ── Monaco Falcon Light Theme Data ──────────────────────────────────────────
-export const falconLightTheme: Monaco.editor.IStandaloneThemeData = {
+// ── Monaco SensiLearn Light Theme Data ──────────────────────────────────────
+export const sensiLearnLightTheme: Monaco.editor.IStandaloneThemeData = {
   base: "vs",
   inherit: true,
   rules: [
@@ -235,8 +235,8 @@ export const falconLightTheme: Monaco.editor.IStandaloneThemeData = {
   },
 };
 
-export const lmsLightTheme = falconLightTheme;
-export const lmsDarkTheme = falconLightTheme;
+export const lmsLightTheme = sensiLearnLightTheme;
+export const lmsDarkTheme = sensiLearnLightTheme;
 
 // ── Multi-Language High-Accuracy Monarch Tokenizer Definitions ──────────────
 
@@ -1498,10 +1498,10 @@ export function registerLMSThemes(monaco: MonacoInstance) {
   if (!monaco?.editor) return;
 
   try {
-    monaco.editor.defineTheme(FALCON_LIGHT_THEME_NAME, falconLightTheme);
-    monaco.editor.defineTheme("vs", falconLightTheme);
-    monaco.editor.defineTheme("lms-light", falconLightTheme);
-    monaco.editor.defineTheme("lms-dark", falconLightTheme);
+    monaco.editor.defineTheme(SENSILEARN_LIGHT_THEME_NAME, sensiLearnLightTheme);
+    monaco.editor.defineTheme("vs", sensiLearnLightTheme);
+    monaco.editor.defineTheme("lms-light", sensiLearnLightTheme);
+    monaco.editor.defineTheme("lms-dark", sensiLearnLightTheme);
   } catch (err) {
     console.warn("[SyntaxTheme] Theme registration notice:", err);
   }

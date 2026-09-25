@@ -1,12 +1,12 @@
 /**
- * Meeting Link & Invite Text Auto-Parser Utility for FALCON LMS
+ * Meeting Link & Invite Text Auto-Parser Utility for SensiLearn LMS
  * Extracts platform, clean URL, scheduled date, start time, and end time
  * from raw meeting URLs, query parameters, or full calendar invite texts.
  */
 
 export interface ParsedMeetingData {
   cleanUrl: string;
-  platform: "falcon_webrtc" | "google_meet" | "zoom" | "teams" | "other";
+  platform: "sensilearn_webrtc" | "google_meet" | "zoom" | "teams" | "other";
   scheduledDate?: string; // YYYY-MM-DD
   startTime?: string;     // HH:MM (24h)
   endTime?: string;       // HH:MM (24h)
@@ -26,7 +26,7 @@ export function parseMeetingLinkOrInvite(rawInput: string): ParsedMeetingData {
   const cleanUrl = urlMatch ? urlMatch[0].replace(/[.,;)]+$/, "") : (text.startsWith("http") ? text : "");
 
   // 2. Detect Platform
-  let platform: "falcon_webrtc" | "google_meet" | "zoom" | "teams" | "other" = "other";
+  let platform: "sensilearn_webrtc" | "google_meet" | "zoom" | "teams" | "other" = "other";
   const urlLower = (cleanUrl || text).toLowerCase();
 
   if (urlLower.includes("meet.google.com")) {

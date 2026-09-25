@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { FalconLiveClassroom } from "@/components/live-classroom/falcon-live-classroom";
+import { SensiLearnLiveClassroom } from "@/components/live-classroom/sensilearn-live-classroom";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -63,7 +63,7 @@ export default function AdminLiveClassRoomPage() {
             description: classRecord.description,
             courseName: classRecord.courses?.title || "Interactive Track",
             trainerName: classRecord.trainer_name || adminUser.name,
-            platform: classRecord.platform || "falcon_webrtc",
+            platform: classRecord.platform || "sensilearn_webrtc",
             meetingUrl: classRecord.meeting_url || "",
             scheduledDate: classRecord.scheduled_date,
             startTime: classRecord.start_time,
@@ -117,7 +117,7 @@ export default function AdminLiveClassRoomPage() {
   }
 
   return (
-    <FalconLiveClassroom
+    <SensiLearnLiveClassroom
       classDetails={classDetails}
       currentUser={currentUser}
       backUrl="/admin/live-classes"

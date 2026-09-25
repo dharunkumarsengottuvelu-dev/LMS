@@ -114,7 +114,7 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
     scheduledDate: "",
     startTime: "10:00",
     endTime: "11:00",
-    platform: "falcon_webrtc",
+    platform: "sensilearn_webrtc",
     meetingUrl: "",
     isCommon: true,
     assignedBatches: [] as string[],
@@ -267,7 +267,7 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
       scheduledDate: cls.scheduledDate,
       startTime: cls.startTime,
       endTime: cls.endTime,
-      platform: cls.platform || "falcon_webrtc",
+      platform: cls.platform || "sensilearn_webrtc",
       meetingUrl: cls.meetingUrl || "",
       isCommon: cls.isCommon ?? true,
       assignedBatches: cls.assignedBatches || [],
@@ -323,7 +323,7 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
         is_common: editForm.isCommon,
         assigned_batches: editForm.isCommon ? [] : editForm.assignedBatches,
         platform: editForm.platform,
-        meeting_url: editForm.platform === "falcon_webrtc" ? "" : editForm.meetingUrl,
+        meeting_url: (editForm.platform === "sensilearn_webrtc" || editForm.platform === "falcon_webrtc") ? "" : editForm.meetingUrl,
       };
 
       const res = await fetch(apiEndpoint, {
