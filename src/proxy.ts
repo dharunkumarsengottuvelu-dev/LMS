@@ -120,10 +120,15 @@ function createRedirectWithCookies(
   const redirectUrl = url instanceof URL ? url : new URL(url, request.url);
   const response = NextResponse.redirect(redirectUrl);
 
-  // Preserve all cookies from the session refresh to avoid dropping auth state
+  // Preserve all host-only cookies from the session refresh to avoid dropping auth state
   supabaseResponse.cookies.getAll().forEach((cookie) => {
     const { name, value, ...options } = cookie;
-    response.cookies.set(name, value, options);
+    response.cookies.set(name, value, {
+      ...options,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
   });
 
   return response;
@@ -157,31 +162,6 @@ export async function proxy(request: NextRequest) {
     const nextParam = request.nextUrl.searchParams.get("next");
     if (nextParam) callbackUrl.searchParams.set("next", nextParam);
     return NextResponse.redirect(callbackUrl);
-  }
-
-  // 2. Early defense against header size explosion for legacy browsers with bloated cookie jars
-  const rawCookie = request.headers.get("cookie") || "";
-  const isAuthCallback = pathname.startsWith("/api/auth/callback");
-  if (!isAuthCallback && rawCookie.length > 4096) {
-    const cleanRedirect = NextResponse.redirect(new URL(pathname === "/" ? "/login" : pathname, request.url));
-    const allCookies = request.cookies.getAll();
-    const hostname = request.nextUrl.hostname;
-    for (const c of allCookies) {
-      if (
-        c.name.includes("-provider-token") ||
-        c.name.includes("falcon") ||
-        c.name.startsWith("g_state") ||
-        c.name.includes("oauth_state") ||
-        (c.name.endsWith("-auth-token") && allCookies.some((x) => x.name === `${c.name}.0`))
-      ) {
-        cleanRedirect.cookies.set(c.name, "", { path: "/", maxAge: 0, expires: new Date(0) });
-        if (hostname && !hostname.includes("localhost")) {
-          cleanRedirect.cookies.set(c.name, "", { path: "/", domain: hostname, maxAge: 0, expires: new Date(0) });
-          cleanRedirect.cookies.set(c.name, "", { path: "/", domain: `.${hostname}`, maxAge: 0, expires: new Date(0) });
-        }
-      }
-    }
-    return cleanRedirect;
   }
 
   // 1. Rate Limiting Check (IP-based with route scoping)

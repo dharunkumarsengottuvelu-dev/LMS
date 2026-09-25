@@ -8,12 +8,8 @@ const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "place
 let client: ReturnType<typeof createBrowserClient<Database>> | null = null;
 
 function expireClientCookie(name: string) {
+  // Strictly host-only expiration (never use explicit domain to avoid duplicate domain cookies)
   document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-  if (typeof window !== "undefined" && window.location.hostname) {
-    const host = window.location.hostname;
-    document.cookie = `${name}=; path=/; domain=${host}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-    document.cookie = `${name}=; path=/; domain=.${host}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-  }
 }
 
 /**
@@ -21,12 +17,11 @@ function expireClientCookie(name: string) {
  * - Unchunked session cookie when chunked (.0) exists
  * - Bulky provider-tokens (Google raw access tokens ~2-3KB)
  * - Legacy brand cookies (falcon_*)
- * - Orphaned chunk indices
  *
  * Defaults to preserving PKCE code-verifier unless explicitly instructed to clean up.
  */
 export function purgeStaleSessionCookies(options?: { clearCodeVerifier?: boolean }) {
-  if (typeof document === "undefined") return;
+  if (typeof document === "undefined" || !document.cookie) return;
 
   const cookieList = document.cookie.split(";").map((c) => {
     const [name, ...rest] = c.split("=");
@@ -53,23 +48,9 @@ export function purgeStaleSessionCookies(options?: { clearCodeVerifier?: boolean
       expireClientCookie(name);
     }
 
-    // 4. Optionally clear code-verifier on complete sign-out or fresh OAuth start
+    // 4. Optionally clear code-verifier on complete sign-out
     if (options?.clearCodeVerifier && name.includes("-code-verifier")) {
       expireClientCookie(name);
-    }
-  }
-
-  // 5. Emergency size defense: if cookie header exceeds 3500 chars, prune non-essential cookies
-  if (document.cookie.length > 3500) {
-    for (const { name } of cookieList) {
-      if (
-        name.startsWith("g_state") ||
-        name.includes("oauth_state") ||
-        name.startsWith("_ga") ||
-        name.startsWith("_gid")
-      ) {
-        expireClientCookie(name);
-      }
     }
   }
 }
@@ -82,13 +63,14 @@ export function createClient() {
       path: "/",
       sameSite: "lax",
       secure: typeof window !== "undefined" && window.location.protocol === "https:",
+      // Host-only: never specify domain
     },
   });
 
   // Reset singleton and clean stale cookies when the user signs out
   client.auth.onAuthStateChange((event) => {
     if (event === "SIGNED_OUT") {
-      purgeStaleSessionCookies();
+      purgeStaleSessionCookies({ clearCodeVerifier: true });
       client = null;
     }
   });

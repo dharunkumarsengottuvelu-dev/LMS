@@ -101,7 +101,7 @@ export default function AdminNewLiveClassPage() {
         ? `${selectedTrainer.first_name || ""} ${selectedTrainer.last_name || ""}`.trim() || selectedTrainer.email
         : "Lead Trainer",
       platform: platform,
-      meeting_url: (platform === "sensilearn_webrtc" || (platform as string) === "falcon_webrtc") ? "" : meetingUrl.trim(),
+      meeting_url: platform === "sensilearn_webrtc" ? "" : meetingUrl.trim(),
       scheduled_date: finalDate,
       start_time: finalStart,
       end_time: finalEnd,
@@ -409,13 +409,13 @@ export default function AdminNewLiveClassPage() {
                   <option value="other">Custom / External Meeting URL</option>
                 </select>
                 <p className="text-[11px] text-slate-500 pl-1">
-                  {platform === "sensilearn_webrtc" || (platform as string) === "falcon_webrtc"
+                  {platform === "sensilearn_webrtc"
                     ? "Interactive in-app classroom with video, audio, screen share & live attendance."
                     : "External video meeting platform with automated LMS attendance tracking."}
                 </p>
               </div>
 
-              {platform !== "sensilearn_webrtc" && (platform as string) !== "falcon_webrtc" ? (
+              {platform !== "sensilearn_webrtc" ? (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">

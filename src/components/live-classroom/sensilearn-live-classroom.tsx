@@ -79,7 +79,6 @@ export function SensiLearnLiveClassroom({
     classDetails.platform &&
     classDetails.platform !== "sensilearn_webrtc" &&
     classDetails.platform !== "webrtc" &&
-    classDetails.platform !== "falcon_webrtc" &&
     classDetails.meetingUrl
   );
 

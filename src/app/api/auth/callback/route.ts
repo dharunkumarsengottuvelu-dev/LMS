@@ -15,8 +15,7 @@ const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]!;
  */
 function cleanupAfterExchange(
   response: NextResponse,
-  cookieStore: Awaited<ReturnType<typeof cookies>>,
-  hostname?: string
+  cookieStore: Awaited<ReturnType<typeof cookies>>
 ) {
   try {
     const all = cookieStore.getAll();
@@ -36,35 +35,31 @@ function cleanupAfterExchange(
       }
 
       // 3. Remove raw provider token (Google access/refresh tokens ~2-3KB, unneeded for app auth)
-      if (c.name.includes("-provider-token")) {
+      if (c.name.includes("-provider-token") || c.name.includes("-provider-refresh-token")) {
         shouldExpire = true;
       }
 
       // 4. Remove legacy brand cookies
-      if (c.name.startsWith("falcon_") || c.name.includes("falcon")) {
+      if (
+        c.name.startsWith("falcon_") ||
+        c.name.includes("falcon") ||
+        c.name.startsWith("g_state") ||
+        c.name.includes("oauth_state")
+      ) {
         shouldExpire = true;
       }
 
       if (shouldExpire) {
+        try {
+          cookieStore.delete(c.name);
+        } catch {}
+
+        // Strictly host-only expiration
         response.cookies.set(c.name, "", {
           path: "/",
           maxAge: 0,
           expires: new Date(0),
         });
-        if (hostname && !hostname.includes("localhost") && !hostname.includes("127.0.0.1")) {
-          response.cookies.set(c.name, "", {
-            path: "/",
-            domain: hostname,
-            maxAge: 0,
-            expires: new Date(0),
-          });
-          response.cookies.set(c.name, "", {
-            path: "/",
-            domain: `.${hostname}`,
-            maxAge: 0,
-            expires: new Date(0),
-          });
-        }
       }
     }
   } catch {
@@ -223,7 +218,19 @@ export async function GET(request: Request) {
 
   // ── 4. Build redirect response and prune spent OAuth/duplicate state ───────
   const response = NextResponse.redirect(new URL(redirectPath, origin));
-  cleanupAfterExchange(response, cookieStore, requestUrl.hostname);
+
+  // Copy active Supabase auth tokens to redirect response to guarantee persistence
+  cookieStore.getAll().forEach((c) => {
+    if (c.name.startsWith("sb-") && !c.name.includes("-code-verifier") && !c.name.includes("-provider-token")) {
+      response.cookies.set(c.name, c.value, {
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      });
+    }
+  });
+
+  cleanupAfterExchange(response, cookieStore);
 
   return response;
 }

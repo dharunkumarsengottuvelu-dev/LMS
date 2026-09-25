@@ -6,60 +6,12 @@ const SUPABASE_URL = process.env["NEXT_PUBLIC_SUPABASE_URL"] || "https://placeho
 const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "placeholder-anon-key";
 
 /**
- * Expires a cookie both host-only and for explicit domain variants (e.g., legacy cookies)
- */
-function expireCookieEverywhere(response: NextResponse, name: string, hostname?: string): void {
-  // 1. Host-only (default)
-  response.cookies.set(name, "", {
-    path: "/",
-    maxAge: 0,
-    expires: new Date(0),
-  });
-
-  // 2. Exact domain and dot-prefixed domain if valid hostname
-  if (hostname && !hostname.includes("localhost") && !hostname.includes("127.0.0.1")) {
-    response.cookies.set(name, "", {
-      path: "/",
-      domain: hostname,
-      maxAge: 0,
-      expires: new Date(0),
-    });
-    response.cookies.set(name, "", {
-      path: "/",
-      domain: `.${hostname}`,
-      maxAge: 0,
-      expires: new Date(0),
-    });
-  }
-}
-
-/**
- * Removes duplicate and stale cookies that lead to 494 REQUEST_HEADER_TOO_LARGE:
- * - Unchunked `*-auth-token` when chunked form (`.0`) already exists
- * - Bulky `*-provider-token*` cookies (Google raw tokens ~2-3KB, unneeded for app auth)
- * - Legacy `falcon_*` cookies
- * - Orphaned higher chunk indices from past larger sessions (e.g., `.2`, `.3` when now `.0`, `.1`)
- *
- * PRESERVES PKCE code-verifier cookies during in-flight OAuth flows.
+ * Removes duplicate and stale cookies from the outgoing response.
+ * Uses strictly host-only cookies (no domain attribute) to prevent multi-domain cookie explosion.
  */
 function sanitizeRequestCookies(request: NextRequest, response: NextResponse): void {
   const allCookies = request.cookies.getAll();
   const cookieNames = new Set(allCookies.map((c) => c.name));
-  const hostname = request.nextUrl.hostname;
-
-  // Track chunk indices for each base token
-  const chunkedMaxIndices = new Map<string, number>();
-  for (const c of allCookies) {
-    const match = c.name.match(/^(sb-[^.]+-auth-token)\.(\d+)$/);
-    if (match && match[1] && match[2]) {
-      const base = match[1];
-      const idx = parseInt(match[2], 10);
-      const current = chunkedMaxIndices.get(base) ?? -1;
-      if (idx > current) {
-        chunkedMaxIndices.set(base, idx);
-      }
-    }
-  }
 
   for (const cookie of allCookies) {
     const { name } = cookie;
@@ -70,32 +22,28 @@ function sanitizeRequestCookies(request: NextRequest, response: NextResponse): v
       shouldExpire = true;
     }
 
-    // 2. Remove provider-tokens (not needed for application session validation)
-    if (name.includes("-provider-token")) {
+    // 2. Remove provider-tokens (not needed for session validation, saves ~2-3KB)
+    if (name.includes("-provider-token") || name.includes("-provider-refresh-token")) {
       shouldExpire = true;
     }
 
-    // 3. Remove legacy brand cookies
-    if (name.startsWith("falcon_") || name.includes("falcon")) {
+    // 3. Remove legacy brand cookies or old temporary state
+    if (
+      name.startsWith("falcon_") ||
+      name.includes("falcon") ||
+      name.startsWith("g_state") ||
+      name.includes("oauth_state")
+    ) {
       shouldExpire = true;
     }
 
     if (shouldExpire) {
-      expireCookieEverywhere(response, name, hostname);
-    }
-  }
-
-  // 4. Header size defense: Vercel header threshold is ~8KB. Keep cookies comfortably under 4KB.
-  const totalSize = allCookies.reduce((sum, c) => sum + c.name.length + c.value.length + 3, 0);
-  if (totalSize > 4096) {
-    for (const c of allCookies) {
-      if (
-        c.name.startsWith("g_state") ||
-        c.name.includes("oauth_state") ||
-        (c.name.includes("-code-verifier") && cookieNames.has("sb-*-auth-token.0"))
-      ) {
-        expireCookieEverywhere(response, c.name, hostname);
-      }
+      // Host-only deletion
+      response.cookies.set(name, "", {
+        path: "/",
+        maxAge: 0,
+        expires: new Date(0),
+      });
     }
   }
 }
@@ -134,7 +82,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Apply cookie hygiene on outgoing response
+  // Apply cookie hygiene on outgoing response (host-only, never causes redirect)
   sanitizeRequestCookies(request, supabaseResponse);
 
   return { supabase, supabaseResponse, user };

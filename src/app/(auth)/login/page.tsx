@@ -304,8 +304,8 @@ export default function LoginPage() {
       provider: "google",
       options: {
         redirectTo: callbackUrl.toString(),
+        scopes: "openid email profile",
         queryParams: {
-          access_type: "offline",
           prompt: "select_account",
         },
       },

@@ -323,7 +323,7 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
         is_common: editForm.isCommon,
         assigned_batches: editForm.isCommon ? [] : editForm.assignedBatches,
         platform: editForm.platform,
-        meeting_url: (editForm.platform === "sensilearn_webrtc" || editForm.platform === "falcon_webrtc") ? "" : editForm.meetingUrl,
+        meeting_url: editForm.platform === "sensilearn_webrtc" ? "" : editForm.meetingUrl,
       };
 
       const res = await fetch(apiEndpoint, {

@@ -5,17 +5,13 @@ import { getAppOrigin } from "@/config/site";
 /**
  * GET /api/auth/clear-cookies
  *
- * Migration & recovery endpoint for browsers holding stale/bloated cookies
- * from prior sessions (protecting against 494 REQUEST_HEADER_TOO_LARGE).
- *
- * Removes duplicate chunks, provider tokens, and stale session tokens,
- * expiring them at both host-level and domain-level, then redirects to /login.
+ * Emergency recovery endpoint to completely purge all authentication cookies
+ * from the browser session using standard host-only expiration, then redirect to /login.
  */
 export async function GET(request: Request) {
   const cookieStore = await cookies();
   const all = cookieStore.getAll();
   const origin = getAppOrigin(request);
-  const hostname = new URL(request.url).hostname;
 
   const response = NextResponse.redirect(`${origin}/login`);
 
@@ -26,7 +22,8 @@ export async function GET(request: Request) {
       c.name.includes("-refresh-token") ||
       c.name.startsWith("sb-") ||
       c.name.includes("g_state") ||
-      c.name.includes("oauth_state");
+      c.name.includes("oauth_state") ||
+      c.name.startsWith("falcon_");
 
     if (isAuthCookie) {
       try {
@@ -39,16 +36,6 @@ export async function GET(request: Request) {
         maxAge: 0,
         expires: new Date(0),
       });
-
-      // Domain-scoped expiration (to clean any legacy domain cookies)
-      if (hostname && !hostname.includes("localhost") && !hostname.includes("127.0.0.1")) {
-        response.cookies.set(c.name, "", {
-          path: "/",
-          domain: hostname,
-          maxAge: 0,
-          expires: new Date(0),
-        });
-      }
     }
   }
 
