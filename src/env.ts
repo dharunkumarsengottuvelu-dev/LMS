@@ -14,7 +14,7 @@ const envSchema = z.object({
   JOBE_DEFAULT_MEMORY_LIMIT: z.coerce.number().default(256),
 
   // App
-  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+  NEXT_PUBLIC_APP_URL: z.string().url().default("https://sensilearn-lms.vercel.app"),
   NEXT_PUBLIC_APP_NAME: z.string().default("SensiLearn"),
   NEXT_PUBLIC_APP_DESCRIPTION: z.string().default("SensiLearn Learning Technologies — Enterprise Learning Platform"),
 

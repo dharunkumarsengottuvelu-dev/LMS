@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: edunexus-lms
+    container_name: sensilearn-lms
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -17,8 +17,8 @@ services:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       # ── App URL ───────────────────────────────────────────────────────────
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-EduNexus}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://sensilearn-lms.vercel.app}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-SensiLearn LMS}
       # ── Code Execution: point to the jobe service below ───────────────────
       JOBE_URL: http://jobe:80/jobe/index.php/restapi
       JOBE_TIMEOUT: "10000"
@@ -34,7 +34,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.jobe
-    container_name: edunexus-jobe
+    container_name: sensilearn-jobe
     restart: unless-stopped
     # Jobe runs on port 80 internally — do NOT expose to public internet
     environment:
@@ -52,7 +52,7 @@ services:
   # ── SQL Execution Environments ────────────────────────────────────────────
   postgres-sandbox:
     image: postgres:15-alpine
-    container_name: edunexus-postgres
+    container_name: sensilearn-postgres
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: "jobe_pg_password"
@@ -67,7 +67,7 @@ services:
 
   mysql-sandbox:
     image: mysql:8.0
-    container_name: edunexus-mysql
+    container_name: sensilearn-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: "jobe_mysql_password"
@@ -81,7 +81,7 @@ services:
 
   mariadb-sandbox:
     image: mariadb:10.11
-    container_name: edunexus-mariadb
+    container_name: sensilearn-mariadb
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: "jobe_mariadb_password"

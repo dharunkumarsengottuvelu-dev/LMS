@@ -143,7 +143,7 @@ export async function dispatchStudentNotification(
     // 4. Send Email Notification if valid registered email exists
     let emailStatus = "no_email";
     if (isValidEmail(resolvedEmail)) {
-      const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sensilearn-lms.vercel.app";
       const fullTargetUrl = targetUrl.startsWith("http") ? targetUrl : `${appBaseUrl}${targetUrl}`;
 
       let emailTemplate: { subject: string; html: string; text: string };

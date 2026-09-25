@@ -76,7 +76,7 @@ export class AuthService {
       origin = window.location.origin;
     } else {
       supabase = await createClient();
-      origin = process.env["NEXT_PUBLIC_APP_URL"] || "http://localhost:3000";
+      origin = process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn-lms.vercel.app";
     }
 
     const callbackUrl = new URL("/api/auth/callback", origin);

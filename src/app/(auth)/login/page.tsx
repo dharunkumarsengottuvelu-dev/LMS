@@ -255,10 +255,27 @@ export default function LoginPage() {
 
   async function performOAuthRedirect() {
     const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-    const origin = typeof window !== "undefined" ? window.location.origin : (process.env["NEXT_PUBLIC_APP_URL"] || "http://localhost:3000");
+    const origin = typeof window !== "undefined" ? window.location.origin : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn-lms.vercel.app");
     const callbackUrl = new URL("/api/auth/callback", origin);
     if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
       callbackUrl.searchParams.set("next", nextUrl);
+    }
+
+    // Purge all stale Supabase auth cookies BEFORE OAuth to prevent 494 REQUEST_HEADER_TOO_LARGE
+    if (typeof document !== "undefined") {
+      document.cookie.split(";").forEach((c) => {
+        const name = c.split("=")[0]?.trim();
+        if (
+          name && (
+            name.startsWith("sb-") ||
+            name.includes("-auth-token") ||
+            name.includes("-code-verifier") ||
+            name.includes("-provider-token")
+          )
+        ) {
+          document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+        }
+      });
     }
 
     const { error } = await supabase.auth.signInWithOAuth({
