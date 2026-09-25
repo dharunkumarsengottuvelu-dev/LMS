@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, purgeStaleSessionCookies } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -282,6 +282,13 @@ export default function LoginPage() {
     }
   }, [toast]);
 
+  // Silently prune stale or bloated cookies on page mount to protect normal browsers
+  useEffect(() => {
+    try {
+      purgeStaleSessionCookies();
+    } catch { /* ignore */ }
+  }, []);
+
   async function performOAuthRedirect() {
     const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
     const origin = getAppOrigin();
@@ -289,6 +296,9 @@ export default function LoginPage() {
     if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
       callbackUrl.searchParams.set("next", nextUrl);
     }
+
+    // Ensure cookie jar is pristine and stale verifiers are purged before writing a new PKCE challenge
+    purgeStaleSessionCookies({ clearCodeVerifier: true });
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",

@@ -112,35 +112,6 @@ function getValidDestinationForRole(role: string, nextParam: string | null): str
   return nextParam;
 }
 
-/**
- * Applies OWASP Top 10 Security Headers to the response
- */
-function applySecurityHeaders(response: NextResponse): NextResponse {
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=(), display-capture=(self)");
-  response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
-  response.headers.set(
-    "Content-Security-Policy",
-    [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.youtube.com https://*.youtube.com https://s.ytimg.com https://*.ytimg.com https://player.vimeo.com https://*.loom.com",
-      "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.youtube.com https://*.youtube.com https://s.ytimg.com https://*.ytimg.com https://player.vimeo.com https://*.loom.com",
-      "worker-src 'self' blob: data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
-      "style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
-      "style-src-elem 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
-      "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
-      "img-src 'self' data: blob: https: https://*.googleusercontent.com https://*.gstatic.com",
-      "media-src 'self' blob: data: https: https://commondatastorage.googleapis.com https://*.googleapis.com https://*.supabase.co https://*.cloudinary.com https://*.mux.com https://*.youtube.com https://*.googlevideo.com",
-      "connect-src 'self' blob: data: https: wss: https://accounts.google.com https://*.googleapis.com https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.youtube.com https://*.googlevideo.com",
-      "frame-src 'self' blob: data: https://accounts.google.com https://*.youtube.com https://*.youtube-nocookie.com https://www.youtube.com https://*.vimeo.com https://player.vimeo.com https://*.loom.com https://www.loom.com https://drive.google.com https://docs.google.com",
-      "frame-ancestors 'none'",
-    ].join("; ") + ";"
-  );
-  return response;
-}
-
 function createRedirectWithCookies(
   url: URL | string,
   request: NextRequest,
@@ -155,7 +126,7 @@ function createRedirectWithCookies(
     response.cookies.set(name, value, options);
   });
 
-  return applySecurityHeaders(response);
+  return response;
 }
 
 export async function proxy(request: NextRequest) {
@@ -169,7 +140,32 @@ export async function proxy(request: NextRequest) {
     callbackUrl.searchParams.set("code", codeParam);
     const nextParam = request.nextUrl.searchParams.get("next");
     if (nextParam) callbackUrl.searchParams.set("next", nextParam);
-    return applySecurityHeaders(NextResponse.redirect(callbackUrl));
+    return NextResponse.redirect(callbackUrl);
+  }
+
+  // Early defense against header size explosion for legacy browsers with bloated cookie jars
+  const rawCookie = request.headers.get("cookie") || "";
+  const isAuthCallback = pathname.startsWith("/api/auth/callback");
+  if (!isAuthCallback && rawCookie.length > 4096) {
+    const cleanRedirect = NextResponse.redirect(new URL(pathname === "/" ? "/login" : pathname, request.url));
+    const allCookies = request.cookies.getAll();
+    const hostname = request.nextUrl.hostname;
+    for (const c of allCookies) {
+      if (
+        c.name.includes("-provider-token") ||
+        c.name.includes("falcon") ||
+        c.name.startsWith("g_state") ||
+        c.name.includes("oauth_state") ||
+        (c.name.endsWith("-auth-token") && allCookies.some((x) => x.name === `${c.name}.0`))
+      ) {
+        cleanRedirect.cookies.set(c.name, "", { path: "/", maxAge: 0, expires: new Date(0) });
+        if (hostname && !hostname.includes("localhost")) {
+          cleanRedirect.cookies.set(c.name, "", { path: "/", domain: hostname, maxAge: 0, expires: new Date(0) });
+          cleanRedirect.cookies.set(c.name, "", { path: "/", domain: `.${hostname}`, maxAge: 0, expires: new Date(0) });
+        }
+      }
+    }
+    return cleanRedirect;
   }
 
   // Skip proxy for static files and Next.js internals
@@ -299,7 +295,7 @@ export async function proxy(request: NextRequest) {
       htmlResponse.headers.set("X-RateLimit-Limit", String(rateCheck.limit));
       htmlResponse.headers.set("X-RateLimit-Remaining", "0");
       htmlResponse.headers.set("Retry-After", "60");
-      return applySecurityHeaders(htmlResponse);
+      return htmlResponse;
     }
 
     const errorResponse = new NextResponse(
@@ -309,7 +305,7 @@ export async function proxy(request: NextRequest) {
     errorResponse.headers.set("X-RateLimit-Limit", String(rateCheck.limit));
     errorResponse.headers.set("X-RateLimit-Remaining", "0");
     errorResponse.headers.set("Retry-After", "60");
-    return applySecurityHeaders(errorResponse);
+    return errorResponse;
   }
 
   // 2. Update Supabase Session
@@ -358,11 +354,9 @@ export async function proxy(request: NextRequest) {
   const requiredRoles = getRequiredRoles(pathname);
   if (requiredRoles && !user) {
     if (pathname.startsWith("/api/")) {
-      return applySecurityHeaders(
-        NextResponse.json(
-          { error: "Unauthorized: Active authentication session required" },
-          { status: 401 }
-        )
+      return NextResponse.json(
+        { error: "Unauthorized: Active authentication session required" },
+        { status: 401 }
       );
     }
     const loginUrl = new URL("/login", request.url);
@@ -403,11 +397,9 @@ export async function proxy(request: NextRequest) {
     // Role-based boundary check for API routes
     if (requiredRoles && !requiredRoles.includes(role)) {
       if (pathname.startsWith("/api/")) {
-        return applySecurityHeaders(
-          NextResponse.json(
-            { error: "Forbidden: Insufficient privileges for this resource" },
-            { status: 403 }
-          )
+        return NextResponse.json(
+          { error: "Forbidden: Insufficient privileges for this resource" },
+          { status: 403 }
         );
       }
     }
@@ -433,7 +425,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  return applySecurityHeaders(supabaseResponse);
+  return supabaseResponse;
 }
 
 export const middleware = proxy;

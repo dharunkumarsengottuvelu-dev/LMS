@@ -13,7 +13,11 @@ const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]!;
  *
  * Runs exclusively AFTER exchangeCodeForSession has consumed the code_verifier.
  */
-function cleanupAfterExchange(response: NextResponse, cookieStore: Awaited<ReturnType<typeof cookies>>) {
+function cleanupAfterExchange(
+  response: NextResponse,
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
+  hostname?: string
+) {
   try {
     const all = cookieStore.getAll();
     const names = new Set(all.map((c) => c.name));
@@ -36,12 +40,31 @@ function cleanupAfterExchange(response: NextResponse, cookieStore: Awaited<Retur
         shouldExpire = true;
       }
 
+      // 4. Remove legacy brand cookies
+      if (c.name.startsWith("falcon_") || c.name.includes("falcon")) {
+        shouldExpire = true;
+      }
+
       if (shouldExpire) {
         response.cookies.set(c.name, "", {
           path: "/",
           maxAge: 0,
           expires: new Date(0),
         });
+        if (hostname && !hostname.includes("localhost") && !hostname.includes("127.0.0.1")) {
+          response.cookies.set(c.name, "", {
+            path: "/",
+            domain: hostname,
+            maxAge: 0,
+            expires: new Date(0),
+          });
+          response.cookies.set(c.name, "", {
+            path: "/",
+            domain: `.${hostname}`,
+            maxAge: 0,
+            expires: new Date(0),
+          });
+        }
       }
     }
   } catch {
@@ -200,7 +223,7 @@ export async function GET(request: Request) {
 
   // ── 4. Build redirect response and prune spent OAuth/duplicate state ───────
   const response = NextResponse.redirect(new URL(redirectPath, origin));
-  cleanupAfterExchange(response, cookieStore);
+  cleanupAfterExchange(response, cookieStore, requestUrl.hostname);
 
   return response;
 }

@@ -65,6 +65,15 @@ export default function RootLayout({
               (function() {
                 try {
                   if (typeof document === 'undefined' || !document.cookie) return;
+                  var host = window.location.hostname || '';
+                  function expire(n) {
+                    document.cookie = n + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                    if (host && host.indexOf('localhost') === -1) {
+                      document.cookie = n + '=; path=/; domain=' + host + '; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                      document.cookie = n + '=; path=/; domain=.' + host + '; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                    }
+                  }
+
                   var cookieStr = document.cookie;
                   var cookies = cookieStr.split(';');
                   var hasChunk0 = false;
@@ -85,29 +94,31 @@ export default function RootLayout({
 
                     // 1. Remove duplicate unchunked session cookie when chunked (.0) exists
                     if (hasChunk0 && name.endsWith('-auth-token') && name.indexOf('.') === -1) {
-                      document.cookie = name + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-                      if (window.location.hostname) {
-                        document.cookie = name + '=; path=/; domain=' + window.location.hostname + '; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-                      }
+                      expire(name);
                     }
 
                     // 2. Remove bulky provider-token chunks (Google raw tokens ~2-3KB, unneeded for session)
-                    if (name.indexOf('-provider-token') > -1) {
-                      document.cookie = name + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                    if (name.indexOf('-provider-token') > -1 || name.indexOf('-provider-refresh-token') > -1) {
+                      expire(name);
                     }
 
-                    // 3. Remove stale code-verifier if user already has an active session and is not in OAuth callback
+                    // 3. Remove legacy brand cookies
+                    if (name.indexOf('falcon_') === 0 || name.indexOf('falcon') > -1) {
+                      expire(name);
+                    }
+
+                    // 4. Remove stale code-verifier if user already has an active session and is not in OAuth callback
                     if (hasActiveSession && name.indexOf('-code-verifier') > -1 && window.location.pathname.indexOf('/api/auth/callback') === -1) {
-                      document.cookie = name + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                      expire(name);
                     }
                   }
 
-                  // 4. Emergency defense: if cookie header is approaching limit (> 5000 chars), purge legacy cookies
-                  if (cookieStr.length > 5000) {
+                  // 5. Emergency defense: if cookie header is approaching limit (> 3500 chars), purge legacy cookies
+                  if (cookieStr.length > 3500) {
                     for (var k = 0; k < cookies.length; k++) {
                       var n = cookies[k].split('=')[0].trim();
                       if (n.indexOf('g_state') > -1 || n.indexOf('oauth_state') > -1) {
-                        document.cookie = n + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                        expire(n);
                       }
                     }
                   }
