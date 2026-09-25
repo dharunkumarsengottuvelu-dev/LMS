@@ -7,9 +7,16 @@ const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "place
 
 /**
  * Removes duplicate and stale cookies from the outgoing response.
- * Uses strictly host-only cookies (no domain attribute) to prevent multi-domain cookie explosion.
+ * Uses strictly host-only cookies (no domain attribute) to prevent
+ * multi-domain cookie explosion and header bloat.
+ *
+ * Targets:
+ * - Unchunked session token when chunked form (.0) already exists
+ * - Provider tokens (Google raw access/refresh tokens — ~2-3 KB, not needed for app auth)
+ * - Legacy branding cookies (falcon_*, g_state)
+ * - Stale OAuth state cookies
  */
-function sanitizeRequestCookies(request: NextRequest, response: NextResponse): void {
+function sanitizeResponseCookies(request: NextRequest, response: NextResponse): void {
   const allCookies = request.cookies.getAll();
   const cookieNames = new Set(allCookies.map((c) => c.name));
 
@@ -38,7 +45,7 @@ function sanitizeRequestCookies(request: NextRequest, response: NextResponse): v
     }
 
     if (shouldExpire) {
-      // Host-only deletion
+      // Host-only deletion — never specify domain
       response.cookies.set(name, "", {
         path: "/",
         maxAge: 0,
@@ -56,7 +63,7 @@ export async function updateSession(request: NextRequest) {
       path: "/",
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      // Host-only: never specify domain to avoid duplicate domain-scoped cookies
+      // Host-only: NEVER specify domain — prevents duplicate domain-scoped cookie writes
     },
     cookies: {
       getAll() {
@@ -71,19 +78,22 @@ export async function updateSession(request: NextRequest) {
             path: "/",
             sameSite: "lax",
             secure: process.env.NODE_ENV === "production",
+            // Host-only: NEVER specify domain
+            domain: undefined,
           })
         );
       },
     },
   });
 
-  // Refresh user session on application routes
+  // Validate user session — this is the only server round-trip per request
+  // getUser() is preferred over getSession() as it re-validates the JWT with Supabase
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Apply cookie hygiene on outgoing response (host-only, never causes redirect)
-  sanitizeRequestCookies(request, supabaseResponse);
+  // Apply cookie hygiene: expire stale/duplicate/provider cookies (host-only, never causes redirect)
+  sanitizeResponseCookies(request, supabaseResponse);
 
   return { supabase, supabaseResponse, user };
 }
