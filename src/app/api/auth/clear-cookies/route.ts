@@ -1,43 +1,54 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getAppOrigin } from "@/config/site";
 
 /**
  * GET /api/auth/clear-cookies
  *
- * Migration endpoint for users who are stuck with oversized cookie headers
- * from the previous broken implementation (494 REQUEST_HEADER_TOO_LARGE).
+ * Migration & recovery endpoint for browsers holding stale/bloated cookies
+ * from prior sessions (protecting against 494 REQUEST_HEADER_TOO_LARGE).
  *
- * Removes accumulated stale Supabase session cookies, then redirects to /login.
- * Does NOT remove code-verifier cookies — those are short-lived and self-expiring.
- *
- * Safe to call at any time. Does not affect non-auth cookies.
+ * Removes duplicate chunks, provider tokens, and stale session tokens,
+ * expiring them at both host-level and domain-level, then redirects to /login.
  */
 export async function GET(request: Request) {
   const cookieStore = await cookies();
   const all = cookieStore.getAll();
-  const origin = new URL(request.url).origin;
+  const origin = getAppOrigin(request);
+  const hostname = new URL(request.url).hostname;
 
   const response = NextResponse.redirect(`${origin}/login`);
 
   for (const c of all) {
-    const isStaleAuthCookie =
-      // Chunked session tokens
+    const isAuthCookie =
       c.name.includes("-auth-token") ||
-      // Provider token (large, not needed)
       c.name.includes("-provider-token") ||
-      // Refresh token if stored separately
-      c.name.includes("-refresh-token");
+      c.name.includes("-refresh-token") ||
+      c.name.startsWith("sb-") ||
+      c.name.includes("g_state") ||
+      c.name.includes("oauth_state");
 
-    // Intentionally NOT removing code-verifier — it's short-lived and harmless
-    // Intentionally NOT removing non-auth cookies
+    if (isAuthCookie) {
+      try {
+        cookieStore.delete(c.name);
+      } catch { /* ignore */ }
 
-    if (isStaleAuthCookie) {
-      try { cookieStore.delete(c.name); } catch { /* ignore */ }
+      // Host-only cookie expiration
       response.cookies.set(c.name, "", {
         path: "/",
         maxAge: 0,
         expires: new Date(0),
       });
+
+      // Domain-scoped expiration (to clean any legacy domain cookies)
+      if (hostname && !hostname.includes("localhost") && !hostname.includes("127.0.0.1")) {
+        response.cookies.set(c.name, "", {
+          path: "/",
+          domain: hostname,
+          maxAge: 0,
+          expires: new Date(0),
+        });
+      }
     }
   }
 

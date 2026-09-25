@@ -7,6 +7,7 @@ import {
   generateResultPublishedEmail,
   generateLiveClassScheduledEmail,
 } from "@/lib/email/email-templates";
+import { getAppOrigin, siteConfig } from "@/config/site";
 
 export type LMSNotificationEventType =
   | "course_assigned"
@@ -72,7 +73,7 @@ export async function dispatchStudentNotification(
     resourceType,
     resourceId,
     targetUrl,
-    assignedBy = "SensiLearn Administrator",
+    assignedBy = `${siteConfig.name} Administrator`,
     category,
     dueDate,
     duration,
@@ -143,7 +144,7 @@ export async function dispatchStudentNotification(
     // 4. Send Email Notification if valid registered email exists
     let emailStatus = "no_email";
     if (isValidEmail(resolvedEmail)) {
-      const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sensilearn-lms.vercel.app";
+      const appBaseUrl = getAppOrigin();
       const fullTargetUrl = targetUrl.startsWith("http") ? targetUrl : `${appBaseUrl}${targetUrl}`;
 
       let emailTemplate: { subject: string; html: string; text: string };
@@ -192,8 +193,8 @@ export async function dispatchStudentNotification(
         });
       } else {
         emailTemplate = {
-          subject: `[SensiLearn LMS] ${title}`,
-          html: `<p>Hi ${resolvedName},</p><p>${message}</p><p><a href="${fullTargetUrl}">View on SensiLearn LMS</a></p>`,
+          subject: `[${siteConfig.name}] ${title}`,
+          html: `<p>Hi ${resolvedName},</p><p>${message}</p><p><a href="${fullTargetUrl}">View on ${siteConfig.name}</a></p>`,
           text: `Hi ${resolvedName},\n\n${message}\n\nView: ${fullTargetUrl}`,
         };
       }

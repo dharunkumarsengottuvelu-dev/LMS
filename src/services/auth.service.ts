@@ -1,5 +1,6 @@
-﻿import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import type { UserProfile, CreateUserInput } from "@/types";
+import { getAppOrigin, getAbsoluteUrl } from "@/config/site";
 
 export class AuthService {
   static async signIn(email: string, password: string) {
@@ -57,17 +58,13 @@ export class AuthService {
 
   static async signInWithGoogle(nextUrl?: string) {
     let supabase;
-    let origin = "";
+    const origin = getAppOrigin();
 
     if (typeof window !== "undefined") {
-      // Do NOT purge code_verifier here. The SDK writes it inside signInWithOAuth
-      // and it must survive until the callback route exchanges the code.
       const { createClient: createBrowserClient } = await import("@/lib/supabase/client");
       supabase = createBrowserClient();
-      origin = window.location.origin;
     } else {
       supabase = await createClient();
-      origin = process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn-lms.vercel.app";
     }
 
     const callbackUrl = new URL("/api/auth/callback", origin);
@@ -109,7 +106,7 @@ export class AuthService {
   static async requestPasswordReset(email: string) {
     const supabase = await createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env["NEXT_PUBLIC_APP_URL"]}/auth/reset-password`,
+      redirectTo: getAbsoluteUrl("/auth/reset-password"),
     });
     if (error) throw error;
   }

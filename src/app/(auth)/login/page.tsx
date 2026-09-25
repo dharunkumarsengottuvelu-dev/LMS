@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { getAppOrigin, siteConfig } from "@/config/site";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -253,16 +254,42 @@ export default function LoginPage() {
     }
   }, [isGsiLoaded, handleGoogleCredentialResponse]);
 
+  // Handle OAuth callback errors (e.g., bad_oauth_state, expired session)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error");
+    if (err) {
+      let description = "Sign-in could not be completed. Please try again.";
+      const lower = err.toLowerCase();
+      if (lower.includes("state") || lower.includes("expired") || lower.includes("bad_oauth")) {
+        description = "Your sign-in session expired or was interrupted. Please click 'Continue with Google' to try again.";
+      } else if (lower.includes("no_auth_code")) {
+        description = "No authentication code was received. Please try again.";
+      } else if (err.length < 150) {
+        description = decodeURIComponent(err);
+      }
+
+      toast({
+        title: "Sign-in Notice",
+        description,
+        variant: "destructive",
+      });
+
+      // Clean query string from browser address bar without page reload
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, [toast]);
+
   async function performOAuthRedirect() {
     const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-    const origin = typeof window !== "undefined" ? window.location.origin : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn-lms.vercel.app");
+    const origin = getAppOrigin();
     const callbackUrl = new URL("/api/auth/callback", origin);
     if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
       callbackUrl.searchParams.set("next", nextUrl);
     }
 
-    // Do NOT purge cookies here. The SDK writes the PKCE code_verifier inside
-    // signInWithOAuth and it must survive until the callback consumes it.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -307,7 +334,7 @@ export default function LoginPage() {
           className="text-[13px] text-slate-500 font-normal leading-normal"
           style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif' }}
         >
-          Sign in to your SensiLearn account to continue.
+          Sign in to your {siteConfig.name} account to continue.
         </p>
       </div>
 
@@ -420,7 +447,7 @@ export default function LoginPage() {
           disabled={isLoading || isGoogleLoading}
           className="w-full h-11 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-60 shadow-none"
         >
-          {isLoading ? "Signing in..." : "Sign in to SensiLearn"}
+          {isLoading ? "Signing in..." : `Sign in to ${siteConfig.name}`}
         </Button>
       </form>
 

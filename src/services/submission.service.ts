@@ -10,7 +10,8 @@ import type {
 import { CodingProblemsService } from "@/services/coding-problems.service";
 export { SAMPLE_CODING_PROBLEMS } from "@/services/coding-problems.service";
 
-const LOCAL_STORAGE_SUBMISSIONS_KEY = "edunexus_coding_submissions_v1";
+const LOCAL_STORAGE_SUBMISSIONS_KEY = "lms_coding_submissions_v1";
+const LEGACY_LOCAL_STORAGE_SUBMISSIONS_KEY = "edunexus_coding_submissions_v1";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -206,7 +207,9 @@ export class SubmissionService {
   public static getStudentSubmissions(studentId?: string): CodingSubmission[] {
     if (this.submissionsMemoryStore.length === 0 && typeof window !== "undefined") {
       try {
-        const raw = localStorage.getItem(LOCAL_STORAGE_SUBMISSIONS_KEY);
+        const raw =
+          localStorage.getItem(LOCAL_STORAGE_SUBMISSIONS_KEY) ||
+          localStorage.getItem(LEGACY_LOCAL_STORAGE_SUBMISSIONS_KEY);
         if (raw) {
           this.submissionsMemoryStore = JSON.parse(raw);
         }

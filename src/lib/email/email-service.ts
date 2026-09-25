@@ -201,7 +201,7 @@ export async function sendEmail(payload: SendEmailPayload): Promise<EmailDeliver
   }
 
   // Option 3: Development Simulation / Console Transport
-  console.log(`\n================== [FALCON LMS EMAIL DISPATCH] ==================`);
+  console.log(`\n================== [LMS EMAIL DISPATCH] ==================`);
   console.log(`To: ${to}`);
   console.log(`Subject: ${subject}`);
   console.log(`From: ${formattedFrom}`);

@@ -1,5 +1,8 @@
+import { siteConfig } from "@/config/site";
+
 /**
- * Professional responsive HTML email templates for SensiLearn LMS.
+ * Professional responsive HTML email templates for LMS notifications.
+ * Fully brand-agnostic and driven by siteConfig.
  */
 
 interface BaseEmailOptions {
@@ -17,20 +20,20 @@ interface BaseEmailOptions {
 export function generateCourseAssignedEmail({
   studentName,
   resourceTitle,
-  assignedBy = "SensiLearn Academic Team",
+  assignedBy = `${siteConfig.name} Academic Team`,
   targetUrl,
   category = "Technical Training",
 }: BaseEmailOptions): { subject: string; html: string; text: string } {
-  const subject = `[SensiLearn LMS] New Course Assigned: ${resourceTitle}`;
-  const text = `Hi ${studentName},\n\nA new course has been assigned to you on SensiLearn LMS.\n\nCourse: ${resourceTitle}\nCategory: ${category}\nAssigned By: ${assignedBy}\n\nStart Learning: ${targetUrl}\n\nRegards,\nSensiLearn Learning Technologies`;
+  const subject = `[${siteConfig.name}] New Course Assigned: ${resourceTitle}`;
+  const text = `Hi ${studentName},\n\nA new course has been assigned to you on ${siteConfig.name}.\n\nCourse: ${resourceTitle}\nCategory: ${category}\nAssigned By: ${assignedBy}\n\nStart Learning: ${targetUrl}\n\nRegards,\n${siteConfig.companyName}`;
 
-  const html = wrapInFalconLayout({
+  const html = wrapInEmailLayout({
     preheader: `New course assigned: ${resourceTitle}`,
     title: "New Course Assigned",
     studentName,
     bodyHtml: `
       <p style="margin: 0 0 16px; font-size: 15px; color: #374151; line-height: 24px;">
-        A new technical course has been assigned to your learning cohort on <strong>SensiLearn LMS</strong>.
+        A new technical course has been assigned to your learning cohort on <strong>${siteConfig.name}</strong>.
       </p>
 
       <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin: 20px 0;">
@@ -64,21 +67,21 @@ export function generateCourseAssignedEmail({
 export function generateAssessmentAssignedEmail({
   studentName,
   resourceTitle,
-  assignedBy = "SensiLearn Examination Team",
+  assignedBy = `${siteConfig.name} Examination Team`,
   targetUrl,
   dueDate,
   duration = "60 Mins",
 }: BaseEmailOptions): { subject: string; html: string; text: string } {
-  const subject = `[SensiLearn LMS] New Assessment Scheduled: ${resourceTitle}`;
-  const text = `Hi ${studentName},\n\nA new proctored evaluation/assessment has been scheduled for you on SensiLearn LMS.\n\nAssessment: ${resourceTitle}\nDuration: ${duration}\n${dueDate ? `Schedule: ${dueDate}\n` : ""}Assigned By: ${assignedBy}\n\nAccess Assessment: ${targetUrl}\n\nRegards,\nSensiLearn Learning Technologies`;
+  const subject = `[${siteConfig.name}] New Assessment Scheduled: ${resourceTitle}`;
+  const text = `Hi ${studentName},\n\nA new proctored evaluation/assessment has been scheduled for you on ${siteConfig.name}.\n\nAssessment: ${resourceTitle}\nDuration: ${duration}\n${dueDate ? `Schedule: ${dueDate}\n` : ""}Assigned By: ${assignedBy}\n\nAccess Assessment: ${targetUrl}\n\nRegards,\n${siteConfig.companyName}`;
 
-  const html = wrapInFalconLayout({
+  const html = wrapInEmailLayout({
     preheader: `Assessment scheduled: ${resourceTitle}`,
     title: "New Assessment Scheduled",
     studentName,
     bodyHtml: `
       <p style="margin: 0 0 16px; font-size: 15px; color: #374151; line-height: 24px;">
-        A new proctored assessment has been scheduled for your batch on <strong>SensiLearn LMS</strong>.
+        A new proctored assessment has been scheduled for your batch on <strong>${siteConfig.name}</strong>.
       </p>
 
       <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin: 20px 0;">
@@ -120,14 +123,14 @@ export function generateAssessmentAssignedEmail({
 export function generatePracticeAssignedEmail({
   studentName,
   resourceTitle,
-  assignedBy = "SensiLearn Trainer",
+  assignedBy = `${siteConfig.name} Trainer`,
   targetUrl,
   category = "Practice Track",
 }: BaseEmailOptions): { subject: string; html: string; text: string } {
-  const subject = `[SensiLearn LMS] New Practice Track Assigned: ${resourceTitle}`;
-  const text = `Hi ${studentName},\n\nA new practice module has been assigned to you on SensiLearn LMS.\n\nPractice Track: ${resourceTitle}\nAssigned By: ${assignedBy}\n\nStart Practice: ${targetUrl}\n\nRegards,\nSensiLearn Learning Technologies`;
+  const subject = `[${siteConfig.name}] New Practice Track Assigned: ${resourceTitle}`;
+  const text = `Hi ${studentName},\n\nA new practice module has been assigned to you on ${siteConfig.name}.\n\nPractice Track: ${resourceTitle}\nAssigned By: ${assignedBy}\n\nStart Practice: ${targetUrl}\n\nRegards,\n${siteConfig.companyName}`;
 
-  const html = wrapInFalconLayout({
+  const html = wrapInEmailLayout({
     preheader: `New practice assigned: ${resourceTitle}`,
     title: "New Practice Track Assigned",
     studentName,
@@ -166,10 +169,10 @@ export function generateResultPublishedEmail({
   targetUrl,
   score = "Evaluated",
 }: BaseEmailOptions): { subject: string; html: string; text: string } {
-  const subject = `[SensiLearn LMS] Assessment Result Published: ${resourceTitle}`;
-  const text = `Hi ${studentName},\n\nYour evaluation result for "${resourceTitle}" is now available on SensiLearn LMS.\n\nScore: ${score}\n\nView Detailed Report: ${targetUrl}\n\nRegards,\nSensiLearn Learning Technologies`;
+  const subject = `[${siteConfig.name}] Assessment Result Published: ${resourceTitle}`;
+  const text = `Hi ${studentName},\n\nYour evaluation result for "${resourceTitle}" is now available on ${siteConfig.name}.\n\nScore: ${score}\n\nView Detailed Report: ${targetUrl}\n\nRegards,\n${siteConfig.companyName}`;
 
-  const html = wrapInFalconLayout({
+  const html = wrapInEmailLayout({
     preheader: `Result published: ${resourceTitle}`,
     title: "Assessment Result Published",
     studentName,
@@ -197,22 +200,22 @@ export function generateResultPublishedEmail({
 export function generateLiveClassScheduledEmail({
   studentName,
   resourceTitle,
-  assignedBy = "SensiLearn Lead Trainer",
+  assignedBy = `${siteConfig.name} Lead Trainer`,
   targetUrl,
   dueDate,
   duration = "60 Mins",
   category = "Google Meet",
 }: BaseEmailOptions): { subject: string; html: string; text: string } {
-  const subject = `[SensiLearn LMS] New Live Class Scheduled: ${resourceTitle}`;
-  const text = `Hi ${studentName},\n\nA live interactive training session has been scheduled for your cohort on SensiLearn LMS.\n\nClass: ${resourceTitle}\nTrainer: ${assignedBy}\nSchedule: ${dueDate || "Check Portal"}\nPlatform: ${category}\nDuration: ${duration}\n\nJoin Class: ${targetUrl}\n\nRegards,\nSensiLearn Learning Technologies`;
+  const subject = `[${siteConfig.name}] New Live Class Scheduled: ${resourceTitle}`;
+  const text = `Hi ${studentName},\n\nA live interactive training session has been scheduled for your cohort on ${siteConfig.name}.\n\nClass: ${resourceTitle}\nTrainer: ${assignedBy}\nSchedule: ${dueDate || "Check Portal"}\nPlatform: ${category}\nDuration: ${duration}\n\nJoin Class: ${targetUrl}\n\nRegards,\n${siteConfig.companyName}`;
 
-  const html = wrapInFalconLayout({
+  const html = wrapInEmailLayout({
     preheader: `Live class scheduled: ${resourceTitle}`,
     title: "New Live Class Scheduled",
     studentName,
     bodyHtml: `
       <p style="margin: 0 0 16px; font-size: 15px; color: #374151; line-height: 24px;">
-        A live interactive training session has been scheduled for your cohort on <strong>SensiLearn LMS</strong>.
+        A live interactive training session has been scheduled for your cohort on <strong>${siteConfig.name}</strong>.
       </p>
 
       <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin: 20px 0;">
@@ -258,7 +261,7 @@ export function generateLiveClassScheduledEmail({
 /**
  * Common responsive enterprise email wrapper.
  */
-function wrapInFalconLayout({
+export function wrapInEmailLayout({
   preheader,
   title,
   studentName,
@@ -298,7 +301,7 @@ function wrapInFalconLayout({
         <tr>
           <td>
             <span style="font-size: 22px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px;">
-              SensiLearn<span style="color: #2563EB;">.</span>
+              ${siteConfig.name}<span style="color: #2563EB;">.</span>
             </span>
           </td>
           <td style="text-align: right;">
@@ -333,10 +336,10 @@ function wrapInFalconLayout({
     <!-- Footer -->
     <div style="padding: 24px 32px; background-color: #F8FAFC; border-top: 1px solid #E2E8F0; text-align: center;">
       <p style="margin: 0 0 6px; font-size: 12px; color: #64748B;">
-        This is an automated notification from <strong>SensiLearn Learning Technologies</strong>.
+        This is an automated notification from <strong>${siteConfig.companyName}</strong>.
       </p>
       <p style="margin: 0; font-size: 11px; color: #94A3B8;">
-        &copy; ${new Date().getFullYear()} SensiLearn LMS. All rights reserved.
+        &copy; ${new Date().getFullYear()} ${siteConfig.name}. All rights reserved.
       </p>
     </div>
 
@@ -344,3 +347,6 @@ function wrapInFalconLayout({
 </body>
 </html>`;
 }
+
+// Backward compatibility alias
+export const wrapInFalconLayout = wrapInEmailLayout;

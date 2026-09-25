@@ -2,27 +2,16 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/lib/supabase/database.types";
+import { getAppOrigin } from "@/config/site";
 
 const SUPABASE_URL = process.env["NEXT_PUBLIC_SUPABASE_URL"]!;
 const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]!;
 
 /**
- * Resolves the canonical origin for redirects, handling Vercel's reverse proxy headers.
- */
-function resolveOrigin(request: Request): string {
-  const url = new URL(request.url);
-  const forwardedHost = request.headers.get("x-forwarded-host");
-  const host = forwardedHost || request.headers.get("host") || url.host;
-  const proto = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
-
-/**
- * After a successful session exchange, clean up ONLY the spent PKCE verifier
- * and any duplicate unchunked session tokens. The new session cookies are
- * already written by the SDK at this point.
+ * After a successful OAuth session exchange, prunes spent temporary PKCE cookies,
+ * duplicate unchunked session tokens, and oversized provider tokens.
  *
- * MUST be called AFTER exchangeCodeForSession — never before.
+ * Runs exclusively AFTER exchangeCodeForSession has consumed the code_verifier.
  */
 function cleanupAfterExchange(response: NextResponse, cookieStore: Awaited<ReturnType<typeof cookies>>) {
   try {
@@ -32,13 +21,18 @@ function cleanupAfterExchange(response: NextResponse, cookieStore: Awaited<Retur
     for (const c of all) {
       let shouldExpire = false;
 
-      // The code_verifier was consumed by exchangeCodeForSession — safe to remove
+      // 1. The code_verifier was consumed by exchangeCodeForSession
       if (c.name.includes("-code-verifier")) {
         shouldExpire = true;
       }
 
-      // Remove unchunked session cookie if the chunked form (.0) now exists
+      // 2. Remove duplicate unchunked session cookie if chunked (.0) now exists
       if (c.name.endsWith("-auth-token") && names.has(`${c.name}.0`)) {
+        shouldExpire = true;
+      }
+
+      // 3. Remove raw provider token (Google access/refresh tokens ~2-3KB, unneeded for app auth)
+      if (c.name.includes("-provider-token")) {
         shouldExpire = true;
       }
 
@@ -51,32 +45,39 @@ function cleanupAfterExchange(response: NextResponse, cookieStore: Awaited<Retur
       }
     }
   } catch {
-    // Non-critical — cookie cleanup failure should not abort the redirect
+    // Non-critical — cookie cleanup failure must not block authentication redirect
   }
 }
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
-  const origin = resolveOrigin(request);
+  const origin = getAppOrigin(request);
 
-  // ── Handle errors sent back from the OAuth provider ──────────────────────
+  // ── 1. Handle OAuth provider errors (e.g. user cancelled or state expired) ─
   const authError = requestUrl.searchParams.get("error");
+  const errorCode = requestUrl.searchParams.get("error_code");
   const errorDescription = requestUrl.searchParams.get("error_description");
-  if (authError) {
-    console.warn("[auth/callback] OAuth provider returned error:", authError);
-    // Clean up any stale PKCE state left from the failed attempt
+
+  if (authError || errorCode) {
+    console.warn(`[auth/callback] OAuth provider returned error: ${errorCode || authError}`);
+
+    const failureRedirect = errorCode === "bad_oauth_state" || (errorDescription && errorDescription.includes("expired"))
+      ? `${origin}/login?error=oauth_state_expired`
+      : `${origin}/login?error=${encodeURIComponent(errorDescription || authError || "authentication_failed")}`;
+
+    const failureResponse = NextResponse.redirect(failureRedirect);
+
+    // Clean up any in-flight code-verifier so subsequent login attempts start completely fresh
     try {
       const cookieStore = await cookies();
-      const failureResponse = NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorDescription || authError)}`);
       cookieStore.getAll().forEach((c) => {
         if (c.name.includes("-code-verifier")) {
           failureResponse.cookies.set(c.name, "", { path: "/", maxAge: 0, expires: new Date(0) });
         }
       });
-      return failureResponse;
-    } catch {
-      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorDescription || authError)}`);
-    }
+    } catch { /* ignore */ }
+
+    return failureResponse;
   }
 
   const code = requestUrl.searchParams.get("code");
@@ -84,15 +85,11 @@ export async function GET(request: Request) {
   const otpType = (requestUrl.searchParams.get("type") as any) || "magiclink";
 
   if (!code && !token_hash) {
-    // No auth payload — stale or manually constructed URL
-    console.warn("[auth/callback] No code or token_hash present");
+    console.warn("[auth/callback] Invoked without code or token_hash parameter");
     return NextResponse.redirect(`${origin}/login?error=no_auth_code`);
   }
 
-  // ── Exchange the authorization code for a session ─────────────────────────
-  // We build our own createServerClient here (not createClient()) to guarantee
-  // that NO cookie pruning runs before exchangeCodeForSession reads the
-  // code_verifier that the SDK stored during signInWithOAuth.
+  // ── 2. Exchange authorization code for authenticated session ──────────────
   const cookieStore = await cookies();
 
   const supabase = createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -100,6 +97,7 @@ export async function GET(request: Request) {
       path: "/",
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
+      // Host-only: never specify domain
     },
     cookies: {
       getAll() {
@@ -116,8 +114,7 @@ export async function GET(request: Request) {
             })
           );
         } catch {
-          // Route handler context supports writes — this should not throw
-          console.warn("[auth/callback] Failed to set cookie");
+          console.warn("[auth/callback] Notice: cookieStore write in handler context");
         }
       },
     },
@@ -128,18 +125,20 @@ export async function GET(request: Request) {
     : await supabase.auth.verifyOtp({ token_hash: token_hash!, type: otpType });
 
   if (error) {
-    console.warn("[auth/callback] Session exchange failed:", error.message);
+    console.warn(`[auth/callback] Exchange failed: ${error.message}`);
     const errResponse = NextResponse.redirect(
       `${origin}/login?error=${encodeURIComponent(error.message)}`
     );
-    // Clean up the spent/invalid code_verifier so it cannot cause future errors
+
+    // Clean up spent/invalid PKCE verifier to avoid poisoning subsequent attempts
     try {
       cookieStore.getAll().forEach((c) => {
         if (c.name.includes("-code-verifier")) {
           errResponse.cookies.set(c.name, "", { path: "/", maxAge: 0, expires: new Date(0) });
         }
       });
-    } catch { /* non-critical */ }
+    } catch { /* ignore */ }
+
     return errResponse;
   }
 
@@ -147,7 +146,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=no_user`);
   }
 
-  // ── Resolve role → determine redirect target ──────────────────────────────
+  // ── 3. Role-based routing to dedicated user portal ─────────────────────────
   const { data: profileData } = await supabase
     .from("profiles")
     .select("role")
@@ -199,7 +198,7 @@ export async function GET(request: Request) {
     }
   }
 
-  // ── Build redirect and clean up spent PKCE state ──────────────────────────
+  // ── 4. Build redirect response and prune spent OAuth/duplicate state ───────
   const response = NextResponse.redirect(new URL(redirectPath, origin));
   cleanupAfterExchange(response, cookieStore);
 

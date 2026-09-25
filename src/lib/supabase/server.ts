@@ -7,12 +7,10 @@ const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "place
 const SUPABASE_SERVICE_ROLE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"] || "placeholder-service-role-key";
 
 /**
- * Removes only the unchunked auth-token cookie when chunked (.0) form already
- * exists — prevents duplicate-token header bloat.
+ * Removes duplicate session cookies (unchunked token when chunked form exists)
+ * and bulky provider tokens from the request cookie store.
  *
- * IMPORTANT: Does NOT touch code-verifier cookies.
- * The PKCE code_verifier is owned by the Supabase SDK and must survive until
- * exchangeCodeForSession() consumes it inside the callback route.
+ * PRESERVES PKCE code-verifier cookies needed for OAuth authorization.
  */
 function pruneSessionDuplicates(cookieStore: Awaited<ReturnType<typeof cookies>>) {
   try {
@@ -24,9 +22,13 @@ function pruneSessionDuplicates(cookieStore: Awaited<ReturnType<typeof cookies>>
       if (c.name.endsWith("-auth-token") && names.has(`${c.name}.0`)) {
         cookieStore.delete(c.name);
       }
+      // Remove provider token
+      if (c.name.includes("-provider-token")) {
+        cookieStore.delete(c.name);
+      }
     }
   } catch {
-    // Read-only context (Server Component) — ignore silently
+    // Read-only context (Server Component) — ignore
   }
 }
 
@@ -39,6 +41,7 @@ export async function createClient() {
       path: "/",
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
+      // Host-only: never specify domain
     },
     cookies: {
       getAll() {

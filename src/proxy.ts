@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
+import { siteConfig } from "@/config/site";
 
 // Define protected route patterns and their required roles (RBAC)
 const ROUTE_ROLE_MAP: Record<string, string[]> = {
@@ -224,7 +225,7 @@ export async function proxy(request: NextRequest) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Too Many Requests | SensiLearn LMS</title>
+  <title>Too Many Requests | ${siteConfig.name}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -440,6 +441,6 @@ export default proxy;
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff|woff2|ttf|eot)$).*)",
   ],
 };

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useLMSStore } from "@/lib/store/lms-store";
+import { getAppOrigin, siteConfig } from "@/config/site";
 
 const registerSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
@@ -55,7 +56,7 @@ export default function RegisterPage() {
     setIsGoogleLoading(true);
     try {
       const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-      const origin = typeof window !== "undefined" ? window.location.origin : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn-lms.vercel.app");
+      const origin = getAppOrigin();
       const callbackUrl = new URL("/api/auth/callback", origin);
       if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
         callbackUrl.searchParams.set("next", nextUrl);
@@ -232,7 +233,7 @@ export default function RegisterPage() {
             {step === 3 && "Join a batch"}
           </h1>
           <p className="text-sm text-muted-foreground font-medium mt-1">
-            {step === 1 && "Join thousands of enterprise learners on SensiLearn"}
+            {step === 1 && `Join thousands of enterprise learners on ${siteConfig.name}`}
             {step === 2 && "Tell us your college and course for personalized learning"}
             {step === 3 && "Join an existing batch or continue without a batch"}
           </p>

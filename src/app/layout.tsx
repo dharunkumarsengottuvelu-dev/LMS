@@ -1,47 +1,44 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { AutoLogoutProvider } from "@/components/providers/auto-logout-provider";
-
 import { LMSProvider } from "@/lib/store/lms-store";
 import { ActiveTimeProvider } from "@/components/providers/active-time-provider";
+import { GlobalErrorListener } from "@/components/providers/global-error-listener";
+import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
   title: {
-    default: "SensiLearn Learning Technologies — Enterprise Learning Platform",
-    template: "%s | SensiLearn",
+    default: `${siteConfig.name} — Enterprise Learning Platform`,
+    template: `%s | ${siteConfig.name}`,
   },
-  description:
-    "SensiLearn Learning Technologies is a next-generation learning and technology-driven training company under SENSI Group. Focused. Adaptive. Learning. Curated. Organized. Next-Gen.",
+  description: siteConfig.description,
   keywords: [
-    "SensiLearn",
-    "SensiLearn Learning Technologies",
-    "SENSI Group",
+    siteConfig.name,
+    siteConfig.companyName,
     "LMS",
     "e-learning",
     "corporate training",
     "online courses",
     "coding assessment",
   ],
-  authors: [{ name: "SensiLearn Learning Technologies" }],
+  authors: [{ name: siteConfig.companyName }],
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: process.env["NEXT_PUBLIC_APP_URL"],
-    title: "SensiLearn Learning Technologies — Enterprise Learning Platform",
-    description: "Next-generation enterprise learning platform under SENSI Group.",
-    siteName: "SensiLearn",
+    title: `${siteConfig.name} — Enterprise Learning Platform`,
+    description: siteConfig.description,
+    siteName: siteConfig.name,
+    ...(siteConfig.url ? { url: siteConfig.url } : {}),
   },
   robots: {
     index: true,
     follow: true,
   },
 };
-
-import { GlobalErrorListener } from "@/components/providers/global-error-listener";
 
 export default function RootLayout({
   children,
@@ -61,26 +58,55 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
           rel="stylesheet"
         />
+        {/* Client-side cookie hygiene script: runs synchronously before body render */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 try {
                   if (typeof document === 'undefined' || !document.cookie) return;
-                  var cookies = document.cookie.split(';');
+                  var cookieStr = document.cookie;
+                  var cookies = cookieStr.split(';');
                   var hasChunk0 = false;
+                  var hasActiveSession = false;
+
                   for (var i = 0; i < cookies.length; i++) {
-                    if (cookies[i].split('=')[0].trim().indexOf('-auth-token.0') > -1) {
+                    var cName = cookies[i].split('=')[0].trim();
+                    if (cName.indexOf('-auth-token.0') > -1) {
                       hasChunk0 = true;
+                      hasActiveSession = true;
                       break;
                     }
                   }
-                  if (hasChunk0) {
-                    for (var j = 0; j < cookies.length; j++) {
-                      var n = cookies[j].split('=')[0].trim();
-                      // Remove unchunked token when chunked form (.0) exists
-                      // Never touch code-verifier — the SDK owns its lifecycle
-                      if (n.endsWith('-auth-token') && n.indexOf('.') === -1) {
+
+                  for (var j = 0; j < cookies.length; j++) {
+                    var name = cookies[j].split('=')[0].trim();
+                    if (!name) continue;
+
+                    // 1. Remove duplicate unchunked session cookie when chunked (.0) exists
+                    if (hasChunk0 && name.endsWith('-auth-token') && name.indexOf('.') === -1) {
+                      document.cookie = name + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                      if (window.location.hostname) {
+                        document.cookie = name + '=; path=/; domain=' + window.location.hostname + '; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                      }
+                    }
+
+                    // 2. Remove bulky provider-token chunks (Google raw tokens ~2-3KB, unneeded for session)
+                    if (name.indexOf('-provider-token') > -1) {
+                      document.cookie = name + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                    }
+
+                    // 3. Remove stale code-verifier if user already has an active session and is not in OAuth callback
+                    if (hasActiveSession && name.indexOf('-code-verifier') > -1 && window.location.pathname.indexOf('/api/auth/callback') === -1) {
+                      document.cookie = name + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+                    }
+                  }
+
+                  // 4. Emergency defense: if cookie header is approaching limit (> 5000 chars), purge legacy cookies
+                  if (cookieStr.length > 5000) {
+                    for (var k = 0; k < cookies.length; k++) {
+                      var n = cookies[k].split('=')[0].trim();
+                      if (n.indexOf('g_state') > -1 || n.indexOf('oauth_state') > -1) {
                         document.cookie = n + '=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT';
                       }
                     }
@@ -116,4 +142,3 @@ export default function RootLayout({
     </html>
   );
 }
-

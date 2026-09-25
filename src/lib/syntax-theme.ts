@@ -49,9 +49,9 @@ export const syntaxColors = {
 
 const c = (hex: string) => hex.replace("#", "");
 
+export const LMS_LIGHT_THEME_NAME = "lms-light";
+export const LMS_DARK_THEME_NAME = "lms-dark";
 export const FALCON_LIGHT_THEME_NAME = "falcon-light";
-export const LMS_LIGHT_THEME_NAME = "falcon-light";
-export const LMS_DARK_THEME_NAME = "falcon-light";
 
 // ── Monaco Falcon Light Theme Data ──────────────────────────────────────────
 export const falconLightTheme: Monaco.editor.IStandaloneThemeData = {

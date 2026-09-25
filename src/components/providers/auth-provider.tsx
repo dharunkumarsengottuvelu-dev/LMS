@@ -119,9 +119,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const cookies = document.cookie.split(";");
         for (const c of cookies) {
           const name = c.split("=")[0]?.trim();
-          if (name && (name.startsWith("sb-") || name.includes("auth-token") || name.includes("code-verifier"))) {
+          if (name && (name.startsWith("sb-") || name.includes("auth-token") || name.includes("code-verifier") || name.includes("provider-token"))) {
             document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-            document.cookie = `${name}=; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+            if (window.location.hostname) {
+              document.cookie = `${name}=; path=/; domain=${window.location.hostname}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+            }
           }
         }
         for (let i = localStorage.length - 1; i >= 0; i--) {

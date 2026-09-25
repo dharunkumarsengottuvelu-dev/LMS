@@ -31,11 +31,17 @@ export function purgeStaleSessionCookies() {
     // Remove unchunked token when chunked form (.0) exists
     if (name.endsWith("-auth-token") && names.has(`${name}.0`)) {
       document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+      if (window.location.hostname) {
+        document.cookie = `${name}=; path=/; domain=${window.location.hostname}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+      }
     }
 
     // Remove provider-token — large, not needed client-side
     if (name.includes("-provider-token")) {
       document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+      if (window.location.hostname) {
+        document.cookie = `${name}=; path=/; domain=${window.location.hostname}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+      }
     }
   }
 }
