@@ -93,7 +93,31 @@ export async function GET(request: Request) {
         }
       }
 
-      return NextResponse.redirect(new URL(redirectPath, origin));
+      const response = NextResponse.redirect(new URL(redirectPath, origin));
+
+      // Cleanse any bloated provider tokens or legacy cookies from the client
+      // to ensure subsequent requests to the dashboard do not trigger 494 REQUEST_HEADER_TOO_LARGE
+      const cookieHeader = request.headers.get("cookie") || "";
+      const cookiePairs = cookieHeader.split(";").map((p) => p.trim());
+      for (const pair of cookiePairs) {
+        const eqIdx = pair.indexOf("=");
+        const name = eqIdx > -1 ? pair.slice(0, eqIdx).trim() : pair.trim();
+        if (
+          name.includes("provider-token") ||
+          name.includes("provider-refresh-token") ||
+          name.includes("provider_token") ||
+          name.startsWith("falcon_") ||
+          name.startsWith("g_state")
+        ) {
+          response.cookies.set(name, "", {
+            path: "/",
+            maxAge: 0,
+            expires: new Date(0),
+          });
+        }
+      }
+
+      return response;
     }
   }
 
