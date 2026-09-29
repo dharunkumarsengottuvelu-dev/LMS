@@ -1,8 +1,5 @@
-import { siteConfig } from "@/config/site";
-
 /**
- * Professional responsive HTML email templates for LMS notifications.
- * Fully brand-agnostic and driven by siteConfig.
+ * Professional responsive HTML email templates for FALCON LMS.
  */
 
 interface BaseEmailOptions {
@@ -20,20 +17,20 @@ interface BaseEmailOptions {
 export function generateCourseAssignedEmail({
   studentName,
   resourceTitle,
-  assignedBy = `${siteConfig.name} Academic Team`,
+  assignedBy = "FALCON Academic Team",
   targetUrl,
   category = "Technical Training",
 }: BaseEmailOptions): { subject: string; html: string; text: string } {
-  const subject = `[${siteConfig.name}] New Course Assigned: ${resourceTitle}`;
-  const text = `Hi ${studentName},\n\nA new course has been assigned to you on ${siteConfig.name}.\n\nCourse: ${resourceTitle}\nCategory: ${category}\nAssigned By: ${assignedBy}\n\nStart Learning: ${targetUrl}\n\nRegards,\n${siteConfig.companyName}`;
+  const subject = `[FALCON LMS] New Course Assigned: ${resourceTitle}`;
+  const text = `Hi ${studentName},\n\nA new course has been assigned to you on FALCON LMS.\n\nCourse: ${resourceTitle}\nCategory: ${category}\nAssigned By: ${assignedBy}\n\nStart Learning: ${targetUrl}\n\nRegards,\nFALCON Learning Technologies`;
 
-  const html = wrapInEmailLayout({
+  const html = wrapInFalconLayout({
     preheader: `New course assigned: ${resourceTitle}`,
     title: "New Course Assigned",
     studentName,
     bodyHtml: `
       <p style="margin: 0 0 16px; font-size: 15px; color: #374151; line-height: 24px;">
-        A new technical course has been assigned to your learning cohort on <strong>${siteConfig.name}</strong>.
+        A new technical course has been assigned to your learning cohort on <strong>FALCON LMS</strong>.
       </p>
 
       <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin: 20px 0;">
@@ -67,21 +64,21 @@ export function generateCourseAssignedEmail({
 export function generateAssessmentAssignedEmail({
   studentName,
   resourceTitle,
-  assignedBy = `${siteConfig.name} Examination Team`,
+  assignedBy = "FALCON Examination Team",
   targetUrl,
   dueDate,
   duration = "60 Mins",
 }: BaseEmailOptions): { subject: string; html: string; text: string } {
-  const subject = `[${siteConfig.name}] New Assessment Scheduled: ${resourceTitle}`;
-  const text = `Hi ${studentName},\n\nA new proctored evaluation/assessment has been scheduled for you on ${siteConfig.name}.\n\nAssessment: ${resourceTitle}\nDuration: ${duration}\n${dueDate ? `Schedule: ${dueDate}\n` : ""}Assigned By: ${assignedBy}\n\nAccess Assessment: ${targetUrl}\n\nRegards,\n${siteConfig.companyName}`;
+  const subject = `[FALCON LMS] New Assessment Scheduled: ${resourceTitle}`;
+  const text = `Hi ${studentName},\n\nA new proctored evaluation/assessment has been scheduled for you on FALCON LMS.\n\nAssessment: ${resourceTitle}\nDuration: ${duration}\n${dueDate ? `Schedule: ${dueDate}\n` : ""}Assigned By: ${assignedBy}\n\nAccess Assessment: ${targetUrl}\n\nRegards,\nFALCON Learning Technologies`;
 
-  const html = wrapInEmailLayout({
+  const html = wrapInFalconLayout({
     preheader: `Assessment scheduled: ${resourceTitle}`,
     title: "New Assessment Scheduled",
     studentName,
     bodyHtml: `
       <p style="margin: 0 0 16px; font-size: 15px; color: #374151; line-height: 24px;">
-        A new proctored assessment has been scheduled for your batch on <strong>${siteConfig.name}</strong>.
+        A new proctored assessment has been scheduled for your batch on <strong>FALCON LMS</strong>.
       </p>
 
       <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin: 20px 0;">
@@ -123,14 +120,14 @@ export function generateAssessmentAssignedEmail({
 export function generatePracticeAssignedEmail({
   studentName,
   resourceTitle,
-  assignedBy = `${siteConfig.name} Trainer`,
+  assignedBy = "FALCON Trainer",
   targetUrl,
   category = "Practice Track",
 }: BaseEmailOptions): { subject: string; html: string; text: string } {
-  const subject = `[${siteConfig.name}] New Practice Track Assigned: ${resourceTitle}`;
-  const text = `Hi ${studentName},\n\nA new practice module has been assigned to you on ${siteConfig.name}.\n\nPractice Track: ${resourceTitle}\nAssigned By: ${assignedBy}\n\nStart Practice: ${targetUrl}\n\nRegards,\n${siteConfig.companyName}`;
+  const subject = `[FALCON LMS] New Practice Track Assigned: ${resourceTitle}`;
+  const text = `Hi ${studentName},\n\nA new practice module has been assigned to you on FALCON LMS.\n\nPractice Track: ${resourceTitle}\nAssigned By: ${assignedBy}\n\nStart Practice: ${targetUrl}\n\nRegards,\nFALCON Learning Technologies`;
 
-  const html = wrapInEmailLayout({
+  const html = wrapInFalconLayout({
     preheader: `New practice assigned: ${resourceTitle}`,
     title: "New Practice Track Assigned",
     studentName,
@@ -169,10 +166,10 @@ export function generateResultPublishedEmail({
   targetUrl,
   score = "Evaluated",
 }: BaseEmailOptions): { subject: string; html: string; text: string } {
-  const subject = `[${siteConfig.name}] Assessment Result Published: ${resourceTitle}`;
-  const text = `Hi ${studentName},\n\nYour evaluation result for "${resourceTitle}" is now available on ${siteConfig.name}.\n\nScore: ${score}\n\nView Detailed Report: ${targetUrl}\n\nRegards,\n${siteConfig.companyName}`;
+  const subject = `[FALCON LMS] Assessment Result Published: ${resourceTitle}`;
+  const text = `Hi ${studentName},\n\nYour evaluation result for "${resourceTitle}" is now available on FALCON LMS.\n\nScore: ${score}\n\nView Detailed Report: ${targetUrl}\n\nRegards,\nFALCON Learning Technologies`;
 
-  const html = wrapInEmailLayout({
+  const html = wrapInFalconLayout({
     preheader: `Result published: ${resourceTitle}`,
     title: "Assessment Result Published",
     studentName,
@@ -200,22 +197,22 @@ export function generateResultPublishedEmail({
 export function generateLiveClassScheduledEmail({
   studentName,
   resourceTitle,
-  assignedBy = `${siteConfig.name} Lead Trainer`,
+  assignedBy = "FALCON Lead Trainer",
   targetUrl,
   dueDate,
   duration = "60 Mins",
   category = "Google Meet",
 }: BaseEmailOptions): { subject: string; html: string; text: string } {
-  const subject = `[${siteConfig.name}] New Live Class Scheduled: ${resourceTitle}`;
-  const text = `Hi ${studentName},\n\nA live interactive training session has been scheduled for your cohort on ${siteConfig.name}.\n\nClass: ${resourceTitle}\nTrainer: ${assignedBy}\nSchedule: ${dueDate || "Check Portal"}\nPlatform: ${category}\nDuration: ${duration}\n\nJoin Class: ${targetUrl}\n\nRegards,\n${siteConfig.companyName}`;
+  const subject = `[FALCON LMS] New Live Class Scheduled: ${resourceTitle}`;
+  const text = `Hi ${studentName},\n\nA live interactive training session has been scheduled for your cohort on FALCON LMS.\n\nClass: ${resourceTitle}\nTrainer: ${assignedBy}\nSchedule: ${dueDate || "Check Portal"}\nPlatform: ${category}\nDuration: ${duration}\n\nJoin Class: ${targetUrl}\n\nRegards,\nFALCON Learning Technologies`;
 
-  const html = wrapInEmailLayout({
+  const html = wrapInFalconLayout({
     preheader: `Live class scheduled: ${resourceTitle}`,
     title: "New Live Class Scheduled",
     studentName,
     bodyHtml: `
       <p style="margin: 0 0 16px; font-size: 15px; color: #374151; line-height: 24px;">
-        A live interactive training session has been scheduled for your cohort on <strong>${siteConfig.name}</strong>.
+        A live interactive training session has been scheduled for your cohort on <strong>FALCON LMS</strong>.
       </p>
 
       <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin: 20px 0;">
@@ -261,7 +258,7 @@ export function generateLiveClassScheduledEmail({
 /**
  * Common responsive enterprise email wrapper.
  */
-export function wrapInEmailLayout({
+function wrapInFalconLayout({
   preheader,
   title,
   studentName,
@@ -301,7 +298,7 @@ export function wrapInEmailLayout({
         <tr>
           <td>
             <span style="font-size: 22px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.5px;">
-              ${siteConfig.name}<span style="color: #2563EB;">.</span>
+              FALCON<span style="color: #2563EB;">.</span>
             </span>
           </td>
           <td style="text-align: right;">
@@ -336,10 +333,10 @@ export function wrapInEmailLayout({
     <!-- Footer -->
     <div style="padding: 24px 32px; background-color: #F8FAFC; border-top: 1px solid #E2E8F0; text-align: center;">
       <p style="margin: 0 0 6px; font-size: 12px; color: #64748B;">
-        This is an automated notification from <strong>${siteConfig.companyName}</strong>.
+        This is an automated notification from <strong>FALCON Learning Technologies</strong>.
       </p>
       <p style="margin: 0; font-size: 11px; color: #94A3B8;">
-        &copy; ${new Date().getFullYear()} ${siteConfig.name}. All rights reserved.
+        &copy; ${new Date().getFullYear()} FALCON LMS. All rights reserved.
       </p>
     </div>
 

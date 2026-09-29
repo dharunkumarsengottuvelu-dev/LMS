@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
       module_title: moduleName || "",
       trainer_id: user.id,
       trainer_name: trainerFullName,
-      platform: platform || (meeting_url || meetingUrl ? "external" : "sensilearn_webrtc"),
+      platform: platform || (meeting_url || meetingUrl ? "external" : "falcon_webrtc"),
       meeting_url: meeting_url || meetingUrl || "",
       scheduled_date: scheduledDate,
       start_time: startTime,
@@ -339,14 +339,14 @@ export async function POST(request: NextRequest) {
           isCommon: true,
           eventType: "live_class_scheduled",
           title: `New Live Class Scheduled: ${title}`,
-          message: `Trainer ${trainerFullName} has scheduled a SensiLearn live classroom session "${title}" for ${scheduleStr}.`,
+          message: `Trainer ${trainerFullName} has scheduled a FALCON live classroom session "${title}" for ${scheduleStr}.`,
           resourceType: "live_class",
           resourceId: classId,
           targetUrl: `/student/live-classes`,
           assignedBy: trainerFullName,
           dueDate: scheduleStr,
           duration: durationStr,
-          category: "SensiLearn Live Class",
+          category: "FALCON Live Class",
         }).catch((e) => console.warn("Trainer batch live class notification error:", e));
       } else if (assignedBatches && assignedBatches.length > 0) {
         for (const bName of assignedBatches) {
@@ -354,14 +354,14 @@ export async function POST(request: NextRequest) {
             batchName: bName,
             eventType: "live_class_scheduled",
             title: `New Live Class Scheduled: ${title}`,
-            message: `A SensiLearn live classroom session "${title}" has been scheduled for cohort ${bName} on ${scheduleStr}.`,
+            message: `A FALCON live classroom session "${title}" has been scheduled for cohort ${bName} on ${scheduleStr}.`,
             resourceType: "live_class",
             resourceId: classId,
             targetUrl: `/student/live-classes`,
             assignedBy: trainerFullName,
             dueDate: scheduleStr,
             duration: durationStr,
-            category: "SensiLearn Live Class",
+            category: "FALCON Live Class",
           }).catch((e) => console.warn("Trainer batch live class notification error:", e));
         }
       }

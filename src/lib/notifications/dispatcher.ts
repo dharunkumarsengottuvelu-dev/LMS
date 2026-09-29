@@ -7,7 +7,6 @@ import {
   generateResultPublishedEmail,
   generateLiveClassScheduledEmail,
 } from "@/lib/email/email-templates";
-import { getAppOrigin, siteConfig } from "@/config/site";
 
 export type LMSNotificationEventType =
   | "course_assigned"
@@ -73,7 +72,7 @@ export async function dispatchStudentNotification(
     resourceType,
     resourceId,
     targetUrl,
-    assignedBy = `${siteConfig.name} Administrator`,
+    assignedBy = "FALCON Administrator",
     category,
     dueDate,
     duration,
@@ -144,7 +143,7 @@ export async function dispatchStudentNotification(
     // 4. Send Email Notification if valid registered email exists
     let emailStatus = "no_email";
     if (isValidEmail(resolvedEmail)) {
-      const appBaseUrl = getAppOrigin();
+      const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       const fullTargetUrl = targetUrl.startsWith("http") ? targetUrl : `${appBaseUrl}${targetUrl}`;
 
       let emailTemplate: { subject: string; html: string; text: string };
@@ -193,8 +192,8 @@ export async function dispatchStudentNotification(
         });
       } else {
         emailTemplate = {
-          subject: `[${siteConfig.name}] ${title}`,
-          html: `<p>Hi ${resolvedName},</p><p>${message}</p><p><a href="${fullTargetUrl}">View on ${siteConfig.name}</a></p>`,
+          subject: `[FALCON LMS] ${title}`,
+          html: `<p>Hi ${resolvedName},</p><p>${message}</p><p><a href="${fullTargetUrl}">View on FALCON LMS</a></p>`,
           text: `Hi ${resolvedName},\n\n${message}\n\nView: ${fullTargetUrl}`,
         };
       }

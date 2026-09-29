@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
-import { createClient, purgeStaleSessionCookies } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import type { UserProfile } from "@/types";
 
 interface AuthContextType {
@@ -114,27 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    try {
-      if (typeof window !== "undefined") {
-        purgeStaleSessionCookies({ clearCodeVerifier: true });
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-          const key = localStorage.key(i);
-          if (key && (key.startsWith("sb-") || key.includes("supabase"))) {
-            localStorage.removeItem(key);
-          }
-        }
-      }
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.warn("SignOut error:", e);
-    } finally {
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-    }
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setProfile(null);
   }
 
   useEffect(() => {

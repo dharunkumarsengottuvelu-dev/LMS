@@ -19,7 +19,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useLMSStore } from "@/lib/store/lms-store";
-import { getAppOrigin, siteConfig } from "@/config/site";
 
 const registerSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
@@ -56,20 +55,18 @@ export default function RegisterPage() {
     setIsGoogleLoading(true);
     try {
       const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-      const origin = getAppOrigin();
+      const origin = typeof window !== "undefined" ? window.location.origin : (process.env["NEXT_PUBLIC_APP_URL"] || "http://localhost:3000");
       const callbackUrl = new URL("/api/auth/callback", origin);
       if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
         callbackUrl.searchParams.set("next", nextUrl);
       }
 
-      // Do NOT purge cookies here. The SDK writes the PKCE code_verifier inside
-      // signInWithOAuth and it must survive until the callback consumes it.
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: callbackUrl.toString(),
-          scopes: "openid email profile",
           queryParams: {
+            access_type: "offline",
             prompt: "select_account",
           },
         },
@@ -233,7 +230,7 @@ export default function RegisterPage() {
             {step === 3 && "Join a batch"}
           </h1>
           <p className="text-sm text-muted-foreground font-medium mt-1">
-            {step === 1 && `Join thousands of enterprise learners on ${siteConfig.name}`}
+            {step === 1 && "Join thousands of enterprise learners on FALCON"}
             {step === 2 && "Tell us your college and course for personalized learning"}
             {step === 3 && "Join an existing batch or continue without a batch"}
           </p>
@@ -562,4 +559,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-

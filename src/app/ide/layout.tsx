@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Code Playground | SensiLearn IDE",
-  description: "Practice coding in 14+ languages with real-time execution in SensiLearn",
+  title: "Code Playground | FALCON IDE",
+  description: "Practice coding in 14+ languages with real-time execution in FALCON",
 };
 
 export default function IDELayout({ children }: { children: React.ReactNode }) {

@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import type { UserProfile, CreateUserInput } from "@/types";
-import { getAppOrigin, getAbsoluteUrl } from "@/config/site";
 
 export class AuthService {
   static async signIn(email: string, password: string) {
@@ -58,14 +57,15 @@ export class AuthService {
 
   static async signInWithGoogle(nextUrl?: string) {
     let supabase;
-    const origin = getAppOrigin();
+    let origin = "";
 
     if (typeof window !== "undefined") {
-      const { createClient: createBrowserClient, purgeStaleSessionCookies } = await import("@/lib/supabase/client");
-      purgeStaleSessionCookies({ clearCodeVerifier: true });
+      const { createClient: createBrowserClient } = await import("@/lib/supabase/client");
       supabase = createBrowserClient();
+      origin = window.location.origin;
     } else {
       supabase = await createClient();
+      origin = process.env["NEXT_PUBLIC_APP_URL"] || "http://localhost:3000";
     }
 
     const callbackUrl = new URL("/api/auth/callback", origin);
@@ -77,8 +77,8 @@ export class AuthService {
       provider: "google",
       options: {
         redirectTo: callbackUrl.toString(),
-        scopes: "openid email profile",
         queryParams: {
+          access_type: "offline",
           prompt: "select_account",
         },
       },
@@ -88,12 +88,6 @@ export class AuthService {
   }
 
   static async signOut() {
-    if (typeof window !== "undefined") {
-      try {
-        const { purgeStaleSessionCookies } = await import("@/lib/supabase/client");
-        purgeStaleSessionCookies({ clearCodeVerifier: true });
-      } catch {}
-    }
     const supabase = await createClient();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -102,7 +96,7 @@ export class AuthService {
   static async requestPasswordReset(email: string) {
     const supabase = await createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: getAbsoluteUrl("/auth/reset-password"),
+      redirectTo: `${process.env["NEXT_PUBLIC_APP_URL"]}/auth/reset-password`,
     });
     if (error) throw error;
   }
@@ -147,4 +141,3 @@ export class AuthService {
     return data as unknown as UserProfile;
   }
 }
-

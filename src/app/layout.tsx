@@ -5,44 +5,43 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { AutoLogoutProvider } from "@/components/providers/auto-logout-provider";
+
 import { LMSProvider } from "@/lib/store/lms-store";
 import { ActiveTimeProvider } from "@/components/providers/active-time-provider";
-import { GlobalErrorListener } from "@/components/providers/global-error-listener";
-import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
   title: {
-    default: `${siteConfig.name} — Enterprise Learning Platform`,
-    template: `%s | ${siteConfig.name}`,
+    default: "FALCON Learning Technologies — Enterprise Learning Platform",
+    template: "%s | FALCON",
   },
-  description: siteConfig.description,
+  description:
+    "FALCON Learning Technologies is a next-generation learning and technology-driven training company under SENSI Group. Focused. Adaptive. Learning. Curated. Organized. Next-Gen.",
   keywords: [
-    siteConfig.name,
-    siteConfig.companyName,
+    "FALCON",
+    "FALCON Learning Technologies",
+    "SENSI Group",
     "LMS",
     "e-learning",
     "corporate training",
     "online courses",
     "coding assessment",
   ],
-  authors: [{ name: siteConfig.companyName }],
+  authors: [{ name: "FALCON Learning Technologies" }],
   openGraph: {
     type: "website",
     locale: "en_US",
-    title: `${siteConfig.name} — Enterprise Learning Platform`,
-    description: siteConfig.description,
-    siteName: siteConfig.name,
-    ...(siteConfig.url ? { url: siteConfig.url } : {}),
+    url: process.env["NEXT_PUBLIC_APP_URL"],
+    title: "FALCON Learning Technologies — Enterprise Learning Platform",
+    description: "Next-generation enterprise learning platform under SENSI Group.",
+    siteName: "FALCON",
   },
-  icons: {
-    icon: "/favicon.ico",
-  },
-  manifest: "/site.webmanifest",
   robots: {
     index: true,
     follow: true,
   },
 };
+
+import { GlobalErrorListener } from "@/components/providers/global-error-listener";
 
 export default function RootLayout({
   children,

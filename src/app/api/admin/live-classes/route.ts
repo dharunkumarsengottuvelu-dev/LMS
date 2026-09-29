@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
         moduleName: cls.module_title || cls.module_name || null,
         trainerId: cls.trainer_id || null,
         trainerName: cls.trainer_name || "",
-        platform: cls.platform || "sensilearn_webrtc",
+        platform: "falcon_webrtc",
         meetingUrl: `/student/live-classes/${cls.id}`,
         scheduledDate: cls.scheduled_date,
         startTime: cls.start_time,
@@ -322,7 +322,7 @@ export async function POST(request: NextRequest) {
       course_title: effectiveCourseName,
       trainer_id: effectiveTrainerId,
       trainer_name: effectiveTrainerName,
-      platform: platform || (meeting_url || meetingUrl ? "external" : "sensilearn_webrtc"),
+      platform: platform || (meeting_url || meetingUrl ? "external" : "falcon_webrtc"),
       meeting_url: meeting_url || meetingUrl || "",
       scheduled_date: effectiveDate,
       start_time: effectiveStartTime,
@@ -411,10 +411,10 @@ export async function POST(request: NextRequest) {
           resourceType: "live_class",
           resourceId: classId,
           targetUrl: `/student/live-classes`,
-          assignedBy: effectiveTrainerName || "SensiLearn Trainer",
+          assignedBy: effectiveTrainerName || "FALCON Trainer",
           dueDate: scheduleStr,
           duration: durationStr,
-          category: "SensiLearn Live Class",
+          category: "FALCON Live Class",
         }).catch((e) => console.warn("Live class batch notification error:", e));
       } else if (effectiveBatches && effectiveBatches.length > 0) {
         for (const bName of effectiveBatches) {
@@ -426,10 +426,10 @@ export async function POST(request: NextRequest) {
             resourceType: "live_class",
             resourceId: classId,
             targetUrl: `/student/live-classes`,
-            assignedBy: effectiveTrainerName || "SensiLearn Trainer",
+            assignedBy: effectiveTrainerName || "FALCON Trainer",
             dueDate: scheduleStr,
             duration: durationStr,
-            category: "SensiLearn Live Class",
+            category: "FALCON Live Class",
           }).catch((e) => console.warn("Live class batch notification error:", e));
         }
       }

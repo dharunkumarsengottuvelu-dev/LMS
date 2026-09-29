@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Authentication — SensiLearn Learning Technologies",
+  title: "Authentication — FALCON Learning Technologies",
 };
 
 export default function AuthLayout({
@@ -14,7 +14,7 @@ export default function AuthLayout({
     <div className="h-screen max-h-screen overflow-hidden grid lg:grid-cols-12 bg-white antialiased">
       
       {/* ──────────────────────────────────────────────────────────
-          LEFT PANEL: SENSILEARN BRAND PRESENTATION (5 cols)
+          LEFT PANEL: FALCON BRAND PRESENTATION (5 cols)
           Apple / Google-level typographical hierarchy & whitespace
           ────────────────────────────────────────────────────────── */}
       <div className="hidden lg:flex lg:col-span-5 flex-col justify-between text-white p-12 xl:p-16 relative border-r border-slate-200/20 bg-[#070D1E] overflow-hidden h-full select-none">
@@ -38,7 +38,7 @@ export default function AuthLayout({
         <div className="relative z-10">
           <Link href="/" className="inline-flex flex-col">
             <span className="font-bold text-2xl tracking-tight text-white leading-none">
-              SensiLearn<span className="text-[#2563EB]">.</span>
+              FALCON<span className="text-[#2563EB]">.</span>
             </span>
             <span className="text-xs text-slate-400 font-normal tracking-wide mt-2">
               Learning Technologies
@@ -76,7 +76,7 @@ export default function AuthLayout({
         <div className="lg:hidden w-full max-w-[420px] flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
           <Link href="/" className="inline-flex flex-col">
             <span className="font-bold text-xl tracking-tight text-slate-900 leading-none">
-              SensiLearn<span className="text-[#2563EB]">.</span>
+              FALCON<span className="text-[#2563EB]">.</span>
             </span>
             <span className="text-[10px] text-slate-500 font-normal mt-0.5">
               Learning Technologies

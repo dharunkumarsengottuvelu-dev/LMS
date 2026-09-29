@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { SensiLearnLiveClassroom } from "@/components/live-classroom/sensilearn-live-classroom";
+import { FalconLiveClassroom } from "@/components/live-classroom/falcon-live-classroom";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -66,7 +66,7 @@ export default function StudentLiveClassRoomPage() {
               description: found.description,
               courseName: found.courseName,
               trainerName: found.trainerName,
-              platform: found.platform || "sensilearn_webrtc",
+              platform: found.platform || "falcon_webrtc",
               meetingUrl: found.meetingUrl || "",
               scheduledDate: found.scheduledDate,
               startTime: found.startTime,
@@ -85,7 +85,7 @@ export default function StudentLiveClassRoomPage() {
             description: classRecord.description,
             courseName: classRecord.courses?.title || "Interactive Track",
             trainerName: classRecord.trainer_name || "Lead Instructor",
-            platform: classRecord.platform || "sensilearn_webrtc",
+            platform: classRecord.platform || "falcon_webrtc",
             meetingUrl: classRecord.meeting_url || "",
             scheduledDate: classRecord.scheduled_date,
             startTime: classRecord.start_time,
@@ -112,7 +112,7 @@ export default function StudentLiveClassRoomPage() {
     return (
       <div className="h-screen w-full bg-[#0B0F19] flex flex-col items-center justify-center gap-3 text-white">
         <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        <p className="text-xs font-semibold text-zinc-400">Connecting to SensiLearn Live Classroom...</p>
+        <p className="text-xs font-semibold text-zinc-400">Connecting to FALCON Live Classroom...</p>
       </div>
     );
   }
@@ -132,7 +132,7 @@ export default function StudentLiveClassRoomPage() {
   }
 
   return (
-    <SensiLearnLiveClassroom
+    <FalconLiveClassroom
       classDetails={classDetails}
       currentUser={currentUser}
       backUrl="/student/live-classes"

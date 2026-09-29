@@ -27,7 +27,7 @@ export default function TrainerNewLiveClassPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [courseId, setCourseId] = useState("");
-  const [platform, setPlatform] = useState<"sensilearn_webrtc" | "google_meet" | "zoom" | "teams" | "other">("sensilearn_webrtc");
+  const [platform, setPlatform] = useState<"falcon_webrtc" | "google_meet" | "zoom" | "teams" | "other">("falcon_webrtc");
   const [meetingUrl, setMeetingUrl] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [startTime, setStartTime] = useState("10:00");
@@ -88,7 +88,7 @@ export default function TrainerNewLiveClassPage() {
       course_id: courseId || null,
       course_name: selectedCourse?.title || "",
       platform: platform,
-      meeting_url: platform === "sensilearn_webrtc" ? "" : meetingUrl.trim(),
+      meeting_url: platform === "falcon_webrtc" ? "" : meetingUrl.trim(),
       scheduled_date: finalDate,
       start_time: finalStart,
       end_time: finalEnd,
@@ -105,8 +105,11 @@ export default function TrainerNewLiveClassPage() {
       setMeetingUrl(parsed.cleanUrl);
     }
 
-    if (parsed.platform && parsed.platform !== "other" && platform !== parsed.platform) {
-      setPlatform(parsed.platform);
+    if (parsed.platform && parsed.platform !== "other") {
+      const detected = parsed.platform === "sensilearn_webrtc" ? "falcon_webrtc" : parsed.platform;
+      if (platform !== detected) {
+        setPlatform(detected);
+      }
     }
 
     const detectedParts: string[] = [];
@@ -345,20 +348,20 @@ export default function TrainerNewLiveClassPage() {
                   onChange={(e) => setPlatform(e.target.value as any)}
                   className="w-full h-10 rounded-xl border border-input bg-background px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  <option value="sensilearn_webrtc">SensiLearn Live Classroom (Built-in WebRTC)</option>
+                  <option value="falcon_webrtc">FALCON Live Classroom (Built-in WebRTC)</option>
                   <option value="google_meet">Google Meet</option>
                   <option value="zoom">Zoom Meeting</option>
                   <option value="teams">Microsoft Teams</option>
                   <option value="other">Custom / External Meeting URL</option>
                 </select>
                 <p className="text-[11px] text-slate-500 pl-1">
-                  {platform === "sensilearn_webrtc"
+                  {platform === "falcon_webrtc"
                     ? "Interactive in-app classroom with video, audio, screen share & live attendance."
                     : "External video meeting platform with automated LMS attendance tracking."}
                 </p>
               </div>
 
-              {platform !== "sensilearn_webrtc" ? (
+              {platform !== "falcon_webrtc" ? (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
@@ -393,7 +396,7 @@ export default function TrainerNewLiveClassPage() {
                   <div className="p-2.5 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/40 text-[11px] text-blue-700 dark:text-blue-300">
                     <p className="font-semibold">Internal WebRTC Mode Active</p>
                     <p className="text-[10px] text-blue-600/80 dark:text-blue-400/80 mt-0.5">
-                      No external link required. Students and trainers attend directly inside SensiLearn LMS.
+                      No external link required. Students and trainers attend directly inside FALCON LMS.
                     </p>
                   </div>
                 </div>

@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
-import { siteConfig } from "@/config/site";
 
 // Define protected route patterns and their required roles (RBAC)
 const ROUTE_ROLE_MAP: Record<string, string[]> = {
@@ -79,6 +78,7 @@ function getValidDestinationForRole(role: string, nextParam: string | null): str
     return getRoleDefaultPath(role);
   }
 
+  // Cross-role protection: Ensure authenticated users are never routed to an unauthorized portal
   if (isSuperAdminOrAdmin) {
     if (nextParam.startsWith("/admin") || nextParam.startsWith("/coding") || nextParam.startsWith("/courses") || nextParam.startsWith("/ide")) {
       return nextParam;
@@ -112,50 +112,32 @@ function getValidDestinationForRole(role: string, nextParam: string | null): str
 }
 
 /**
- * Resolves the user's effective role from the JWT user object alone —
- * NO database query required. Falls back gracefully to "student".
- *
- * Using JWT metadata means:
- * 1. Zero extra DB roundtrips in middleware (no cookie bloat from refreshes)
- * 2. Role is always available even before profile is synced
+ * Applies OWASP Top 10 Security Headers to the response
  */
-function resolveRoleFromUser(user: {
-  email?: string;
-  user_metadata?: Record<string, unknown>;
-  app_metadata?: Record<string, unknown>;
-}): string {
-  const email = user.email?.toLowerCase() || "";
-  const metaRole = (
-    (user.user_metadata?.role as string) ||
-    (user.app_metadata?.role as string) ||
-    ""
-  ).toLowerCase();
-
-  // Trust app_metadata first (server-set, authoritative)
-  if (user.app_metadata?.role) {
-    const r = (user.app_metadata.role as string).toLowerCase();
-    if (r === "super_admin" || r === "admin" || r === "founder" || r === "ceo") return "admin";
-    if (r === "trainer") return "trainer";
-    if (r === "institution") return "institution";
-    if (r === "recruiter") return "recruiter";
-    if (r === "student") return "student";
-  }
-
-  // Then user_metadata (set at registration or via admin)
-  if (metaRole) {
-    if (metaRole === "super_admin" || metaRole === "admin" || metaRole === "founder" || metaRole === "ceo") return "admin";
-    if (metaRole === "trainer") return "trainer";
-    if (metaRole === "institution") return "institution";
-    if (metaRole === "recruiter") return "recruiter";
-    if (metaRole === "student") return "student";
-  }
-
-  // Email-based role detection (last resort)
-  if (email.includes("admin")) return "admin";
-  if (email.includes("trainer")) return "trainer";
-  if (email.includes("institution")) return "institution";
-
-  return "student";
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=(), display-capture=(self)");
+  response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+  response.headers.set(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.youtube.com https://*.youtube.com https://s.ytimg.com https://*.ytimg.com https://player.vimeo.com https://*.loom.com",
+      "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.youtube.com https://*.youtube.com https://s.ytimg.com https://*.ytimg.com https://player.vimeo.com https://*.loom.com",
+      "worker-src 'self' blob: data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+      "style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+      "style-src-elem 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+      "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+      "img-src 'self' data: blob: https: https://*.googleusercontent.com https://*.gstatic.com",
+      "media-src 'self' blob: data: https: https://commondatastorage.googleapis.com https://*.googleapis.com https://*.supabase.co https://*.cloudinary.com https://*.mux.com https://*.youtube.com https://*.googlevideo.com",
+      "connect-src 'self' blob: data: https: wss: https://accounts.google.com https://*.googleapis.com https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://*.youtube.com https://*.googlevideo.com",
+      "frame-src 'self' blob: data: https://accounts.google.com https://*.youtube.com https://*.youtube-nocookie.com https://www.youtube.com https://*.vimeo.com https://player.vimeo.com https://*.loom.com https://www.loom.com https://drive.google.com https://docs.google.com",
+      "frame-ancestors 'none'",
+    ].join("; ") + ";"
+  );
+  return response;
 }
 
 function createRedirectWithCookies(
@@ -166,41 +148,18 @@ function createRedirectWithCookies(
   const redirectUrl = url instanceof URL ? url : new URL(url, request.url);
   const response = NextResponse.redirect(redirectUrl);
 
-  // Preserve all host-only cookies from the session refresh to avoid dropping auth state
+  // Preserve all cookies from the session refresh to avoid dropping auth state
   supabaseResponse.cookies.getAll().forEach((cookie) => {
-    const { name, value, ...options } = cookie;
-    response.cookies.set(name, value, {
-      ...options,
-      path: "/",
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-    });
+    response.cookies.set(cookie.name, cookie.value, cookie);
   });
 
-  return response;
+  return applySecurityHeaders(response);
 }
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  // 0. Skip proxy entirely for static assets, public files, and Next.js internals
-  if (
-    pathname === "/favicon.ico" ||
-    pathname.startsWith("/favicon") ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/icons") ||
-    pathname.startsWith("/images") ||
-    pathname === "/manifest.json" ||
-    pathname === "/site.webmanifest" ||
-    pathname === "/robots.txt" ||
-    pathname === "/sitemap.xml" ||
-    pathname === "/clear.html" ||
-    pathname.includes(".")
-  ) {
-    return NextResponse.next();
-  }
-
-  // 1. Auto-route OAuth callback only if code param is present on root or auth routes
+  // 0. Auto-route OAuth callback only if code param is present on root or auth routes
   const codeParam = request.nextUrl.searchParams.get("code");
   const isAuthEntryPage = pathname === "/" || pathname === "/login" || pathname.startsWith("/auth/");
   if (codeParam && isAuthEntryPage && !pathname.startsWith("/api/auth/callback")) {
@@ -208,10 +167,21 @@ export async function proxy(request: NextRequest) {
     callbackUrl.searchParams.set("code", codeParam);
     const nextParam = request.nextUrl.searchParams.get("next");
     if (nextParam) callbackUrl.searchParams.set("next", nextParam);
-    return NextResponse.redirect(callbackUrl);
+    return applySecurityHeaders(NextResponse.redirect(callbackUrl));
   }
 
-  // 2. Rate Limiting Check (IP-based with route scoping)
+  // Skip proxy for static files and Next.js internals
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/icons") ||
+    pathname.startsWith("/images") ||
+    pathname.includes(".")
+  ) {
+    return NextResponse.next();
+  }
+
+  // 1. Rate Limiting Check (IP-based with route scoping)
   const clientIp =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip")?.trim() ||
@@ -228,14 +198,14 @@ export async function proxy(request: NextRequest) {
   const isApiRoute = pathname.startsWith("/api/");
 
   let scope = "general";
-  let limit = 300;
+  let limit = 300; // 300 req/min for general routes
 
   if (isAuthApi) {
     scope = "auth_api";
-    limit = 60;
+    limit = 60; // 60 req/min for auth API endpoints
   } else if (isAuthPage) {
     scope = "auth_page";
-    limit = 200;
+    limit = 200; // 200 req/min for auth UI pages
   } else if (isApiRoute) {
     scope = "api";
     limit = 200;
@@ -253,7 +223,7 @@ export async function proxy(request: NextRequest) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Too Many Requests | ${siteConfig.name}</title>
+  <title>Too Many Requests | FALCON LMS</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -327,7 +297,7 @@ export async function proxy(request: NextRequest) {
       htmlResponse.headers.set("X-RateLimit-Limit", String(rateCheck.limit));
       htmlResponse.headers.set("X-RateLimit-Remaining", "0");
       htmlResponse.headers.set("Retry-After", "60");
-      return htmlResponse;
+      return applySecurityHeaders(htmlResponse);
     }
 
     const errorResponse = new NextResponse(
@@ -337,28 +307,60 @@ export async function proxy(request: NextRequest) {
     errorResponse.headers.set("X-RateLimit-Limit", String(rateCheck.limit));
     errorResponse.headers.set("X-RateLimit-Remaining", "0");
     errorResponse.headers.set("Retry-After", "60");
-    return errorResponse;
+    return applySecurityHeaders(errorResponse);
   }
 
-  // 3. Update Supabase Session (single call — also runs cookie sanitization)
-  const { supabase: _supabase, supabaseResponse, user } = await updateSession(request);
+  // 2. Update Supabase Session
+  const { supabase, supabaseResponse, user } = await updateSession(request);
 
-  // 4. Redirect authenticated users away from auth pages
-  //    Role is resolved purely from JWT metadata — NO extra DB query
+  // 3. Authenticated User Redirection ONLY when visiting auth/login/register pages directly
   if (user && (pathname.startsWith("/auth/") || pathname === "/login" || pathname === "/register")) {
-    const role = resolveRoleFromUser(user);
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+      .maybeSingle();
+
+    const userEmail = user.email?.toLowerCase() || "";
+    const dbRole = (
+      (profile as { role?: string } | null)?.role ||
+      (user.user_metadata?.role as string) ||
+      (user.app_metadata?.role as string) ||
+      ""
+    ).toLowerCase();
+
+    let role = "student";
+    if (dbRole === "super_admin" || dbRole === "admin" || dbRole === "founder" || dbRole === "ceo" || userEmail.includes("admin")) {
+      role = "admin";
+    } else if (dbRole === "trainer" || userEmail.includes("trainer")) {
+      role = "trainer";
+    } else if (dbRole === "institution" || userEmail.includes("institution")) {
+      role = "institution";
+    } else if (dbRole === "recruiter") {
+      role = "recruiter";
+    } else if (dbRole) {
+      role = dbRole;
+    }
+
     const nextParam = request.nextUrl.searchParams.get("next");
     const destination = getValidDestinationForRole(role, nextParam);
-    return createRedirectWithCookies(new URL(destination, request.url), request, supabaseResponse);
+
+    return createRedirectWithCookies(
+      new URL(destination, request.url),
+      request,
+      supabaseResponse
+    );
   }
 
-  // 5. Protect private routes — unauthenticated access
+  // 4. Protect private route spaces if user is unauthenticated
   const requiredRoles = getRequiredRoles(pathname);
   if (requiredRoles && !user) {
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json(
-        { error: "Unauthorized: Active authentication session required" },
-        { status: 401 }
+      return applySecurityHeaders(
+        NextResponse.json(
+          { error: "Unauthorized: Active authentication session required" },
+          { status: 401 }
+        )
       );
     }
     const loginUrl = new URL("/login", request.url);
@@ -367,36 +369,69 @@ export async function proxy(request: NextRequest) {
     return createRedirectWithCookies(loginUrl, request, supabaseResponse);
   }
 
-  // 6. Cross-role boundary enforcement — JWT metadata only (no DB call)
+  // 5. Cross-role boundary enforcement for authenticated users
   if (user && (pathname.startsWith("/admin") || pathname.startsWith("/student") || pathname.startsWith("/trainer") || pathname.startsWith("/institution"))) {
-    const role = resolveRoleFromUser(user);
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const userEmail = user.email?.toLowerCase() || "";
+    const dbRole = (
+      (profile as { role?: string } | null)?.role ||
+      (user.user_metadata?.role as string) ||
+      (user.app_metadata?.role as string) ||
+      ""
+    ).toLowerCase();
+
+    let role = "student";
+    if (dbRole === "super_admin" || dbRole === "admin" || dbRole === "founder" || dbRole === "ceo" || userEmail.includes("admin")) {
+      role = "admin";
+    } else if (dbRole === "trainer" || userEmail.includes("trainer")) {
+      role = "trainer";
+    } else if (dbRole === "institution" || userEmail.includes("institution")) {
+      role = "institution";
+    } else if (dbRole === "recruiter") {
+      role = "recruiter";
+    } else if (dbRole) {
+      role = dbRole;
+    }
 
     // Role-based boundary check for API routes
     if (requiredRoles && !requiredRoles.includes(role)) {
       if (pathname.startsWith("/api/")) {
-        return NextResponse.json(
-          { error: "Forbidden: Insufficient privileges for this resource" },
-          { status: 403 }
+        return applySecurityHeaders(
+          NextResponse.json(
+            { error: "Forbidden: Insufficient privileges for this resource" },
+            { status: 403 }
+          )
         );
       }
     }
 
-    // Portal boundary redirects
+    // If Admin/Management visits Student portal, redirect to Admin Dashboard
     if (role === "admin" && pathname.startsWith("/student")) {
       return createRedirectWithCookies(new URL("/admin/dashboard", request.url), request, supabaseResponse);
     }
+
+    // If Institution visits Student, Admin, or Trainer portals, redirect to Institution Overview
     if (role === "institution" && (pathname.startsWith("/admin") || pathname.startsWith("/student") || pathname.startsWith("/trainer"))) {
       return createRedirectWithCookies(new URL("/institution/overview", request.url), request, supabaseResponse);
     }
+
+    // If Student visits Admin, Trainer, or Institution portals, redirect to Student Dashboard
     if (role === "student" && (pathname.startsWith("/admin") || pathname.startsWith("/trainer") || pathname.startsWith("/institution"))) {
       return createRedirectWithCookies(new URL("/student/dashboard", request.url), request, supabaseResponse);
     }
+
+    // If Trainer visits Student or Institution portals, redirect to Trainer Dashboard
     if (role === "trainer" && (pathname.startsWith("/student") || pathname.startsWith("/institution"))) {
       return createRedirectWithCookies(new URL("/trainer/dashboard", request.url), request, supabaseResponse);
     }
   }
 
-  return supabaseResponse;
+  return applySecurityHeaders(supabaseResponse);
 }
 
 export const middleware = proxy;
@@ -404,6 +439,6 @@ export default proxy;
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.json|site\\.webmanifest|robots\\.txt|sitemap\\.xml|clear\\.html|icons/.*|images/.*|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|woff|woff2|ttf|eot)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
