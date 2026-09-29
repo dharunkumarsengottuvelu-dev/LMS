@@ -66,7 +66,6 @@ export default function RegisterPage() {
         options: {
           redirectTo: callbackUrl.toString(),
           queryParams: {
-            access_type: "offline",
             prompt: "select_account",
           },
         },

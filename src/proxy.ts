@@ -169,11 +169,19 @@ function createRedirectWithCookies(
   // Preserve all host-only cookies from the session refresh to avoid dropping auth state
   supabaseResponse.cookies.getAll().forEach((cookie) => {
     const { name, value, ...options } = cookie;
+    if (
+      name.includes("provider-token") ||
+      name.includes("provider-refresh-token") ||
+      name.includes("provider_token")
+    ) {
+      return;
+    }
     response.cookies.set(name, value, {
       ...options,
       path: "/",
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
+      domain: undefined,
     });
   });
 

@@ -70,9 +70,31 @@ export async function updateSession(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        cookiesToSet.forEach(({ name, value }) => {
+          if (
+            name.includes("provider-token") ||
+            name.includes("provider-refresh-token") ||
+            name.includes("provider_token")
+          ) {
+            return;
+          }
+          request.cookies.set(name, value);
+        });
         supabaseResponse = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) =>
+        cookiesToSet.forEach(({ name, value, options }) => {
+          if (
+            name.includes("provider-token") ||
+            name.includes("provider-refresh-token") ||
+            name.includes("provider_token")
+          ) {
+            // Expire immediately from response
+            supabaseResponse.cookies.set(name, "", {
+              path: "/",
+              maxAge: 0,
+              expires: new Date(0),
+            });
+            return;
+          }
           supabaseResponse.cookies.set(name, value, {
             ...options,
             path: "/",
@@ -80,8 +102,8 @@ export async function updateSession(request: NextRequest) {
             secure: process.env.NODE_ENV === "production",
             // Host-only: NEVER specify domain
             domain: undefined,
-          })
-        );
+          });
+        });
       },
     },
   });
