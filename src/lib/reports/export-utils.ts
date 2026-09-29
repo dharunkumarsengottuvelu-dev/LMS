@@ -32,7 +32,7 @@ export async function exportReportToExcel(
   });
 
   const summaryAoa: any[][] = [
-    ["FALCON LEARNING TECHNOLOGIES • SENSI GROUP"],
+    ["SENSILEARN LEARNING TECHNOLOGIES • SENSI GROUP"],
     ["Enterprise Student Performance & Analytics Executive Summary"],
     [],
     ["REPORT METADATA", ""],
@@ -224,7 +224,7 @@ export async function exportReportToExcel(
   // Determine Safe Filename
   const cleanScope = summary.scope.replace(/[^a-zA-Z0-9_-]/g, "_");
   const dateStamp = new Date().toISOString().slice(0, 10);
-  const fileName = customFilename || `FALCON_Student_Performance_${cleanScope}_${dateStamp}.xlsx`;
+  const fileName = customFilename || `SensiLearn_Student_Performance_${cleanScope}_${dateStamp}.xlsx`;
 
   XLSX.writeFile(wb, fileName);
 }
@@ -307,7 +307,7 @@ export function exportReportToCSV(
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const cleanScope = summary.scope.replace(/[^a-zA-Z0-9_-]/g, "_");
   const dateStamp = new Date().toISOString().slice(0, 10);
-  const fileName = customFilename || `FALCON_Student_Performance_${cleanScope}_${dateStamp}.csv`;
+  const fileName = customFilename || `SensiLearn_Student_Performance_${cleanScope}_${dateStamp}.csv`;
 
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
@@ -321,7 +321,7 @@ export function exportReportToCSV(
 
 /**
  * Generates and downloads a clean, professional enterprise PDF
- * formatted with official SENSI Group / FALCON header and styled table.
+ * formatted with official SENSI Group / SensiLearn header and styled table.
  */
 export async function exportReportToPDF(
   summary: ReportSummary,
@@ -335,7 +335,7 @@ export async function exportReportToPDF(
 
   const cleanScope = summary.scope.replace(/[^a-zA-Z0-9_-]/g, "_");
   const dateStamp = new Date().toISOString().slice(0, 10);
-  const fileName = customFilename || `FALCON_Student_Performance_${cleanScope}_${dateStamp}.pdf`;
+  const fileName = customFilename || `SensiLearn_Student_Performance_${cleanScope}_${dateStamp}.pdf`;
 
   // Build high-fidelity print window with exact enterprise layout
   const printWindow = window.open("", "_blank");
@@ -486,7 +486,7 @@ export async function exportReportToPDF(
 <body>
   <div class="header-bar">
     <div>
-      <h1 class="brand-title">FALCON</h1>
+      <h1 class="brand-title">SENSILEARN</h1>
       <p class="brand-subtitle">Learning Technologies • SENSI Group</p>
       <div class="report-title">Student Performance & Enterprise Analytics Report</div>
       <div style="font-size: 10px; color: #4B5563; margin-top: 2px;">
@@ -575,7 +575,7 @@ export async function exportReportToPDF(
   </table>
 
   <div class="footer">
-    <div>FALCON Learning Technologies • Enterprise Analytics Engine • Confidential</div>
+    <div>SensiLearn Learning Technologies • Enterprise Analytics Engine • Confidential</div>
     <div>Report Document Generated: ${genDateFormatted} • All database records verified</div>
   </div>
 

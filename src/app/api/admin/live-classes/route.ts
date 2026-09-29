@@ -411,10 +411,10 @@ export async function POST(request: NextRequest) {
           resourceType: "live_class",
           resourceId: classId,
           targetUrl: `/student/live-classes`,
-          assignedBy: effectiveTrainerName || "FALCON Trainer",
+          assignedBy: effectiveTrainerName || "SensiLearn Trainer",
           dueDate: scheduleStr,
           duration: durationStr,
-          category: "FALCON Live Class",
+          category: "SensiLearn Live Class",
         }).catch((e) => console.warn("Live class batch notification error:", e));
       } else if (effectiveBatches && effectiveBatches.length > 0) {
         for (const bName of effectiveBatches) {
@@ -426,10 +426,10 @@ export async function POST(request: NextRequest) {
             resourceType: "live_class",
             resourceId: classId,
             targetUrl: `/student/live-classes`,
-            assignedBy: effectiveTrainerName || "FALCON Trainer",
+            assignedBy: effectiveTrainerName || "SensiLearn Trainer",
             dueDate: scheduleStr,
             duration: durationStr,
-            category: "FALCON Live Class",
+            category: "SensiLearn Live Class",
           }).catch((e) => console.warn("Live class batch notification error:", e));
         }
       }

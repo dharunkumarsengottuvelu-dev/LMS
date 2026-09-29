@@ -11,14 +11,14 @@ import { ActiveTimeProvider } from "@/components/providers/active-time-provider"
 
 export const metadata: Metadata = {
   title: {
-    default: "FALCON Learning Technologies — Enterprise Learning Platform",
-    template: "%s | FALCON",
+    default: "SensiLearn — Enterprise Learning Platform",
+    template: "%s | SensiLearn",
   },
   description:
-    "FALCON Learning Technologies is a next-generation learning and technology-driven training company under SENSI Group. Focused. Adaptive. Learning. Curated. Organized. Next-Gen.",
+    "SensiLearn is a next-generation learning and technology-driven training platform under SENSI Group. Focused. Adaptive. Learning. Curated. Organized. Next-Gen.",
   keywords: [
-    "FALCON",
-    "FALCON Learning Technologies",
+    "SensiLearn",
+    "SensiLearn Learning Technologies",
     "SENSI Group",
     "LMS",
     "e-learning",
@@ -26,14 +26,14 @@ export const metadata: Metadata = {
     "online courses",
     "coding assessment",
   ],
-  authors: [{ name: "FALCON Learning Technologies" }],
+  authors: [{ name: "SensiLearn Learning Technologies" }],
   openGraph: {
     type: "website",
     locale: "en_US",
     url: process.env["NEXT_PUBLIC_APP_URL"],
-    title: "FALCON Learning Technologies — Enterprise Learning Platform",
+    title: "SensiLearn — Enterprise Learning Platform",
     description: "Next-generation enterprise learning platform under SENSI Group.",
-    siteName: "FALCON",
+    siteName: "SensiLearn",
   },
   robots: {
     index: true,

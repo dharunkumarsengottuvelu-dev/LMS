@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: { template: "%s | Trainer — FALCON", default: "Trainer — FALCON" },
+  title: { template: "%s | Trainer — SensiLearn", default: "Trainer — SensiLearn" },
 };
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {

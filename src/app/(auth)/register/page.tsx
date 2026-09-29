@@ -230,7 +230,7 @@ export default function RegisterPage() {
             {step === 3 && "Join a batch"}
           </h1>
           <p className="text-sm text-muted-foreground font-medium mt-1">
-            {step === 1 && "Join thousands of enterprise learners on FALCON"}
+            {step === 1 && "Join thousands of enterprise learners on SensiLearn"}
             {step === 2 && "Tell us your college and course for personalized learning"}
             {step === 3 && "Join an existing batch or continue without a batch"}
           </p>

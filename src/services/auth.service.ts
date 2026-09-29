@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { UserProfile, CreateUserInput } from "@/types";
+import { getAppOrigin, getAbsoluteUrl } from "@/config/site";
 
 export class AuthService {
   static async signIn(email: string, password: string) {
@@ -65,7 +66,7 @@ export class AuthService {
       origin = window.location.origin;
     } else {
       supabase = await createClient();
-      origin = process.env["NEXT_PUBLIC_APP_URL"] || "http://localhost:3000";
+      origin = getAppOrigin();
     }
 
     const callbackUrl = new URL("/api/auth/callback", origin);
@@ -96,7 +97,7 @@ export class AuthService {
   static async requestPasswordReset(email: string) {
     const supabase = await createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env["NEXT_PUBLIC_APP_URL"]}/auth/reset-password`,
+      redirectTo: getAbsoluteUrl("/auth/reset-password"),
     });
     if (error) throw error;
   }

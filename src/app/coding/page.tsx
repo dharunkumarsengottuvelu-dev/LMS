@@ -132,7 +132,7 @@ export default function CodingDashboardPage() {
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-              FALCON Coding Workspace
+              SensiLearn Coding Workspace
             </h1>
           </div>
         </div>

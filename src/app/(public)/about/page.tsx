@@ -18,7 +18,7 @@ const team = [
     role: "Founder & Chief Executive Officer",
     initials: "DS",
     color: "#2563EB",
-    bio: "Visionary founder steering FALCON towards bridging academic education and industry-grade practical capability.",
+    bio: "Visionary founder steering SensiLearn towards bridging academic education and industry-grade practical capability.",
     skills: ["System Architecture", "Product Strategy", "Technical Leadership", "Capability Design"],
   },
   {
@@ -57,11 +57,11 @@ export default function AboutPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3.5 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary via-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-primary/25 group-hover:scale-105 transition-transform duration-200">
-              F
+              S
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg text-foreground tracking-tight">FALCON</span>
+                <span className="font-extrabold text-lg text-foreground tracking-tight">SENSILEARN</span>
                 <Badge variant="outline" className="hidden sm:inline-flex bg-primary/10 text-primary border-primary/20 text-[10px] font-extrabold px-2 py-0.5 tracking-wider">
                   LEARNING TECHNOLOGIES
                 </Badge>
@@ -91,7 +91,7 @@ export default function AboutPage() {
       <section className="pt-36 pb-20 px-4 sm:px-6 lg:px-8 text-center bg-gradient-to-b from-primary/10 via-background to-background border-b border-border">
         <div className="max-w-4xl mx-auto space-y-6">
           <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-bold tracking-widest px-3.5 py-1">
-            ABOUT FALCON LEARNING TECHNOLOGIES
+            ABOUT SENSILEARN LEARNING TECHNOLOGIES
           </Badge>
           <h1 className="text-4xl sm:text-6xl font-black leading-[1.1] tracking-tight text-foreground">
             Transforming Theory Into{" "}
@@ -100,7 +100,7 @@ export default function AboutPage() {
             </span>
           </h1>
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            FALCON is a next-generation learning and technology-driven training company under <strong>SENSI Group of Companies</strong>, built to bridge academic education and real-world career readiness.
+            SensiLearn is a next-generation learning and technology-driven training platform under <strong>SENSI Group of Companies</strong>, built to bridge academic education and real-world career readiness.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-xs font-semibold text-muted-foreground">
             {["Outcome-Oriented", "Hands-On Practice", "Measurable Progress", "SENSI Group Company"].map((t) => (
@@ -120,7 +120,7 @@ export default function AboutPage() {
             <Badge className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 text-xs font-bold tracking-widest px-3 py-1">
               LEADERSHIP &amp; TEAM
             </Badge>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">The People Behind FALCON</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">The People Behind SensiLearn</h2>
             <p className="text-muted-foreground text-base max-w-xl mx-auto font-medium">
               Driven by a shared mission to empower learners and build future-ready talent.
             </p>
@@ -199,7 +199,7 @@ export default function AboutPage() {
             Part of SENSI Group of Companies
           </h2>
           <p className="text-base text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-            FALCON Learning Technologies operates under the SENSI Group of Companies umbrella. Together, we are committed to shaping the future of technology, practical education, and continuous capability development across global industries.
+            SensiLearn Learning Technologies operates under the SENSI Group of Companies umbrella. Together, we are committed to shaping the future of technology, practical education, and continuous capability development across global industries.
           </p>
           <div className="pt-2">
             <Button className="h-[48px] px-8 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl shadow-md" asChild>
@@ -213,11 +213,11 @@ export default function AboutPage() {
       <footer className="py-10 px-4 sm:px-6 lg:px-8 bg-card">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-muted-foreground">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-white font-black text-sm">F</div>
-            <span className="font-extrabold text-sm text-foreground">FALCON Learning Technologies</span>
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-white font-black text-sm">S</div>
+            <span className="font-extrabold text-sm text-foreground">SensiLearn Learning Technologies</span>
             <span className="text-muted-foreground">• SENSI Group</span>
           </div>
-          <p>© {new Date().getFullYear()} FALCON Learning Technologies. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} SensiLearn Learning Technologies. All rights reserved.</p>
           <div className="flex items-center gap-6 font-semibold">
             <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
             <Link href="/courses" className="hover:text-foreground transition-colors">Courses</Link>

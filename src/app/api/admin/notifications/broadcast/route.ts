@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
 
         const result = await sendEmail({
           to: recipientEmail,
-          subject: `[FALCON LMS] ${title}`,
+          subject: `[SENSILEARN LMS] ${title}`,
           html: emailHtml,
           studentName: studentDisplayName,
         });
