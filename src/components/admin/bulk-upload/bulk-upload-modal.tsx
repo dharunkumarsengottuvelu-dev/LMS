@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { getTemplateConfig, ModuleTemplateConfig, ColumnDefinition } from "./template-configs";
+import { safeParseSpreadsheet } from "@/lib/excel-security";
 
 export interface BulkUploadProps {
   isOpen?: boolean;
@@ -198,23 +199,7 @@ export function BulkUploadComponent({
     setIsProcessing(true);
 
     try {
-      const XLSX = await import("xlsx");
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
-
-      const firstSheetName = workbook.SheetNames[0];
-      if (!firstSheetName) {
-        throw new Error("Workbook contains no readable sheets.");
-      }
-
-      const worksheet = workbook.Sheets[firstSheetName];
-      if (!worksheet) {
-        throw new Error("Worksheet not found in workbook.");
-      }
-      const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet, {
-        defval: "",
-        blankrows: false,
-      });
+      const { rows: rawRows } = await safeParseSpreadsheet(file);
 
       if (rawRows.length === 0) {
         throw new Error("The uploaded sheet has no data rows.");

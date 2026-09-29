@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLMSStore } from "@/lib/store/lms-store";
 import { PageHeader } from "@/components/layouts/page-header";
 import { createClient } from "@/lib/supabase/client";
+import { safeParseSpreadsheet } from "@/lib/excel-security";
 
 type UserRole = "admin" | "manager" | "trainer" | "student" | "institution";
 type UserStatus = "active" | "pending" | "suspended";
@@ -870,12 +871,8 @@ export default function AdminUsersPage() {
                   const file = e.target.files?.[0];
                   if (!file) return;
                   try {
-                    const XLSX = await import("xlsx");
-                    const buf = await file.arrayBuffer();
-                    const wb = XLSX.read(buf, { type: "array" });
-                    const ws = wb.Sheets[wb.SheetNames[0]!];
-                    if (!ws) { toast({ title: "Empty File", variant: "destructive" }); return; }
-                    const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+                    const { rows } = await safeParseSpreadsheet(file);
+                    if (!rows || rows.length === 0) { toast({ title: "Empty File", variant: "destructive" }); return; }
                     const parsed = rows.map((r: any, i) => {
                       const name = String(r["Name"] || r["name"] || r["Full Name"] || "").trim();
                       const email = String(r["Email"] || r["email"] || r["Email Address"] || "").trim().toLowerCase();
