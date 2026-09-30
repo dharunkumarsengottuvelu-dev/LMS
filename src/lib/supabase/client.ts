@@ -10,16 +10,29 @@ const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "place
 export function createClient() {
   if (client) return client;
 
+  const userStorageAdapter =
+    typeof window !== "undefined" && window.localStorage
+      ? window.localStorage
+      : {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        };
+
   client = createBrowserClient<Database>(
     SUPABASE_URL,
     SUPABASE_ANON_KEY,
     {
+      auth: {
+        userStorage: userStorageAdapter,
+      },
       cookieOptions: {
         path: "/",
         sameSite: "lax",
         secure: typeof window !== "undefined" && window.location.protocol === "https:",
       },
       cookies: {
+        encode: "tokens-only",
         getAll() {
           if (typeof document === "undefined") return [];
           const raw = document.cookie;
@@ -33,15 +46,26 @@ export function createClient() {
           });
         },
         setAll(cookiesToSet) {
-          if (typeof document === "undefined") return;
+          if (typeof window === "undefined" || typeof document === "undefined") return;
+          const host = window?.location?.hostname || "";
+          const isDomainWithDots = host.includes(".");
+          const paths = ["/", "/api/auth/callback", "/student", "/admin", "/trainer", "/institution", "/api"];
+
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Never store third-party Google OAuth provider tokens in client cookies
+            // 1. Never store third-party Google OAuth provider tokens or obsolete chunks in client cookies
             if (
               name.includes("provider-token") ||
               name.includes("provider-refresh-token") ||
-              name.includes("provider_token")
+              name.includes("provider_token") ||
+              /\-auth\-token\.\d+$/.test(name)
             ) {
-              document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+              paths.forEach((p) => {
+                document.cookie = `${name}=; path=${p}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+                if (isDomainWithDots) {
+                  document.cookie = `${name}=; path=${p}; domain=${host}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+                  document.cookie = `${name}=; path=${p}; domain=.${host}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+                }
+              });
               return;
             }
 

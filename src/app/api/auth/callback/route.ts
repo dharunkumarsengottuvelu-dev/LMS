@@ -95,10 +95,35 @@ export async function GET(request: Request) {
 
       const response = NextResponse.redirect(new URL(redirectPath, origin));
 
-      // Cleanse any bloated provider tokens or legacy cookies from the client
-      // to ensure subsequent requests to the dashboard do not trigger 494 REQUEST_HEADER_TOO_LARGE
+      // 1. Ensure the clean, compact tokens-only session cookie is attached to the 302 response
+      const { cookies: getCookies } = await import("next/headers");
+      const cookieStore = await getCookies();
+      for (const c of cookieStore.getAll()) {
+        if (
+          !c.name.includes("provider-token") &&
+          !c.name.includes("provider-refresh-token") &&
+          !c.name.includes("provider_token") &&
+          !/\-auth\-token\.\d+$/.test(c.name)
+        ) {
+          response.cookies.set(c.name, c.value, {
+            path: "/",
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+            domain: undefined,
+          });
+        }
+      }
+
+      // 2. Cleanse any bloated provider tokens, old chunked cookies (.0, .1), or legacy cookies
+      // from the client across all scopes to guarantee the subsequent request to /student/dashboard
+      // carries only the single ~1.2 KB session token.
       const cookieHeader = request.headers.get("cookie") || "";
       const cookiePairs = cookieHeader.split(";").map((p) => p.trim());
+      const host = requestUrl.hostname;
+      const isDomainWithDots = host.includes(".");
+      const paths = ["/", "/api/auth/callback", "/student", "/admin", "/trainer", "/institution", "/api"];
+      const domains: (string | undefined)[] = isDomainWithDots ? [undefined, host, `.${host}`] : [undefined];
+
       for (const pair of cookiePairs) {
         const eqIdx = pair.indexOf("=");
         const name = eqIdx > -1 ? pair.slice(0, eqIdx).trim() : pair.trim();
@@ -106,14 +131,21 @@ export async function GET(request: Request) {
           name.includes("provider-token") ||
           name.includes("provider-refresh-token") ||
           name.includes("provider_token") ||
+          /\-auth\-token\.\d+$/.test(name) ||
+          name.endsWith("-code-verifier") ||
           name.startsWith("falcon_") ||
           name.startsWith("g_state")
         ) {
-          response.cookies.set(name, "", {
-            path: "/",
-            maxAge: 0,
-            expires: new Date(0),
-          });
+          for (const p of paths) {
+            for (const d of domains) {
+              response.cookies.set(name, "", {
+                path: p,
+                domain: d,
+                maxAge: 0,
+                expires: new Date(0),
+              });
+            }
+          }
         }
       }
 

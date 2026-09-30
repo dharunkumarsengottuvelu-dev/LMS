@@ -12,8 +12,13 @@ export async function GET(request: Request) {
   const cookieStore = await cookies();
   const all = cookieStore.getAll();
   const origin = getAppOrigin(request);
+  const requestUrl = new URL(request.url);
+  const host = requestUrl.hostname;
+  const isDomainWithDots = host.includes(".");
 
   const response = NextResponse.redirect(`${origin}/login`);
+  const paths = ["/", "/api/auth/callback", "/student", "/admin", "/trainer", "/institution", "/api"];
+  const domains: (string | undefined)[] = isDomainWithDots ? [undefined, host, `.${host}`] : [undefined];
 
   for (const c of all) {
     const isAuthCookie =
@@ -30,12 +35,16 @@ export async function GET(request: Request) {
         cookieStore.delete(c.name);
       } catch { /* ignore */ }
 
-      // Host-only cookie expiration
-      response.cookies.set(c.name, "", {
-        path: "/",
-        maxAge: 0,
-        expires: new Date(0),
-      });
+      for (const p of paths) {
+        for (const d of domains) {
+          response.cookies.set(c.name, "", {
+            path: p,
+            domain: d,
+            maxAge: 0,
+            expires: new Date(0),
+          });
+        }
+      }
     }
   }
 

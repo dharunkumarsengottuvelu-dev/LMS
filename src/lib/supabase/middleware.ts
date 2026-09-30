@@ -6,51 +6,57 @@ const SUPABASE_URL = process.env["NEXT_PUBLIC_SUPABASE_URL"] || "https://placeho
 const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "placeholder-anon-key";
 
 /**
- * Removes duplicate and stale cookies from the outgoing response.
- * Uses strictly host-only cookies (no domain attribute) to prevent
- * multi-domain cookie explosion and header bloat.
- *
- * Targets:
- * - Unchunked session token when chunked form (.0) already exists
- * - Provider tokens (Google raw access/refresh tokens — ~2-3 KB, not needed for app auth)
- * - Legacy branding cookies (falcon_*, g_state)
- * - Stale OAuth state cookies
+ * Removes duplicate, stale, and oversized cookies from the outgoing response.
+ * Completely evicts obsolete chunked cookies, third-party provider tokens,
+ * and legacy state across all potential domain and path scopes.
  */
-function sanitizeResponseCookies(request: NextRequest, response: NextResponse): void {
+export function sanitizeResponseCookies(request: NextRequest, response: NextResponse): void {
   const allCookies = request.cookies.getAll();
-  const cookieNames = new Set(allCookies.map((c) => c.name));
+  const host = request.nextUrl.hostname;
+  const isDomainWithDots = host.includes(".");
 
   for (const cookie of allCookies) {
     const { name } = cookie;
     let shouldExpire = false;
 
-    // 1. Remove unchunked token if chunked form (.0) exists
-    if (name.endsWith("-auth-token") && cookieNames.has(`${name}.0`)) {
+    // 1. Remove obsolete chunked cookies (.0, .1, etc.) since tokens-only uses a single compact cookie
+    if (/\-auth\-token\.\d+$/.test(name)) {
       shouldExpire = true;
     }
 
-    // 2. Remove provider-tokens (not needed for session validation, saves ~2-3KB)
-    if (name.includes("-provider-token") || name.includes("-provider-refresh-token")) {
-      shouldExpire = true;
-    }
-
-    // 3. Remove legacy brand cookies or old temporary state
+    // 2. Remove third-party provider tokens (Google OAuth access/refresh tokens: ~2-4 KB)
     if (
+      name.includes("provider-token") ||
+      name.includes("provider-refresh-token") ||
+      name.includes("provider_token")
+    ) {
+      shouldExpire = true;
+    }
+
+    // 3. Remove stale OAuth verifiers or legacy temporary state
+    if (
+      name.endsWith("-code-verifier") ||
+      name.includes("oauth_state") ||
       name.startsWith("falcon_") ||
-      name.includes("falcon") ||
-      name.startsWith("g_state") ||
-      name.includes("oauth_state")
+      name.startsWith("g_state")
     ) {
       shouldExpire = true;
     }
 
     if (shouldExpire) {
-      // Host-only deletion — never specify domain
-      response.cookies.set(name, "", {
-        path: "/",
-        maxAge: 0,
-        expires: new Date(0),
-      });
+      const paths = ["/", "/api/auth/callback", "/student", "/admin", "/trainer", "/institution", "/api"];
+      const domains: (string | undefined)[] = isDomainWithDots ? [undefined, host, `.${host}`] : [undefined];
+
+      for (const p of paths) {
+        for (const d of domains) {
+          response.cookies.set(name, "", {
+            path: p,
+            domain: d,
+            maxAge: 0,
+            expires: new Date(0),
+          });
+        }
+      }
     }
   }
 }
@@ -66,6 +72,7 @@ export async function updateSession(request: NextRequest) {
       // Host-only: NEVER specify domain — prevents duplicate domain-scoped cookie writes
     },
     cookies: {
+      encode: "tokens-only",
       getAll() {
         return request.cookies.getAll();
       },
@@ -74,7 +81,8 @@ export async function updateSession(request: NextRequest) {
           if (
             name.includes("provider-token") ||
             name.includes("provider-refresh-token") ||
-            name.includes("provider_token")
+            name.includes("provider_token") ||
+            /\-auth\-token\.\d+$/.test(name)
           ) {
             return;
           }
@@ -85,7 +93,8 @@ export async function updateSession(request: NextRequest) {
           if (
             name.includes("provider-token") ||
             name.includes("provider-refresh-token") ||
-            name.includes("provider_token")
+            name.includes("provider_token") ||
+            /\-auth\-token\.\d+$/.test(name)
           ) {
             // Expire immediately from response
             supabaseResponse.cookies.set(name, "", {
@@ -113,7 +122,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Apply cookie hygiene: expire stale/duplicate/provider cookies (host-only, never causes redirect)
+  // Apply cookie hygiene: expire stale/duplicate/provider cookies across all scopes
   sanitizeResponseCookies(request, supabaseResponse);
 
   return { supabase, supabaseResponse, user };

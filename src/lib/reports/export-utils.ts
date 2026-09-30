@@ -12,6 +12,8 @@ function escapeCsv(val: any): string {
   return `"${str}"`;
 }
 
+import { downloadExcelWorkbook } from "@/lib/excel-security";
+
 /**
  * Generates and downloads a multi-sheet Enterprise Excel workbook (.xlsx)
  */
@@ -20,9 +22,6 @@ export async function exportReportToExcel(
   students: StudentReportItem[],
   customFilename?: string
 ): Promise<void> {
-  const XLSX = await import("xlsx");
-  const wb = XLSX.utils.book_new();
-
   // ══════════════════════════════════════════════════════════════
   // SHEET 1: EXECUTIVE SUMMARY
   // ══════════════════════════════════════════════════════════════
@@ -60,10 +59,6 @@ export async function exportReportToExcel(
     ["Total Cumulative Active Learning Time", summary.totalActiveTimeFormatted],
     ["Average Active Time per Candidate", summary.averageActiveTimeFormatted],
   ];
-
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryAoa);
-  wsSummary["!cols"] = [{ wch: 38 }, { wch: 34 }];
-  XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
 
   // ══════════════════════════════════════════════════════════════
   // SHEET 2: STUDENT PERFORMANCE ROSTER
@@ -122,36 +117,6 @@ export async function exportReportToExcel(
     s.overallStatus,
   ]);
 
-  const wsStudents = XLSX.utils.aoa_to_sheet([studentHeaders, ...studentRows]);
-  wsStudents["!cols"] = [
-    { wch: 22 }, // Name
-    { wch: 30 }, // Email
-    { wch: 14 }, // Emp ID
-    { wch: 20 }, // Batch
-    { wch: 16 }, // Dept
-    { wch: 14 }, // Status
-    { wch: 16 }, // Enrolled
-    { wch: 16 }, // Completed
-    { wch: 32 }, // Course Titles
-    { wch: 18 }, // Avg Score
-    { wch: 18 }, // Practice
-    { wch: 18 }, // Practice Count
-    { wch: 18 }, // Coding Acc
-    { wch: 16 }, // Solved
-    { wch: 18 }, // Subs
-    { wch: 20 }, // Exam Score
-    { wch: 18 }, // Exams Taken
-    { wch: 22 }, // Assignments
-    { wch: 24 }, // Proctoring
-    { wch: 18 }, // Violations
-    { wch: 20 }, // Active Time
-    { wch: 18 }, // Last Activity
-    { wch: 22 }, // Overall Perf
-    { wch: 18 }, // Status
-  ];
-
-  XLSX.utils.book_append_sheet(wb, wsStudents, "Student Performance");
-
   // ══════════════════════════════════════════════════════════════
   // SHEET 3: BATCH LEVEL SUMMARY
   // ══════════════════════════════════════════════════════════════
@@ -209,24 +174,19 @@ export async function exportReportToExcel(
     ]);
   });
 
-  const wsBatches = XLSX.utils.aoa_to_sheet([batchHeaders, ...batchRows]);
-  wsBatches["!cols"] = [
-    { wch: 26 },
-    { wch: 18 },
-    { wch: 18 },
-    { wch: 22 },
-    { wch: 20 },
-    { wch: 26 },
-    { wch: 24 },
-  ];
-  XLSX.utils.book_append_sheet(wb, wsBatches, "Batch Analytics");
-
   // Determine Safe Filename
   const cleanScope = summary.scope.replace(/[^a-zA-Z0-9_-]/g, "_");
   const dateStamp = new Date().toISOString().slice(0, 10);
   const fileName = customFilename || `SensiLearn_Student_Performance_${cleanScope}_${dateStamp}.xlsx`;
 
-  XLSX.writeFile(wb, fileName);
+  await downloadExcelWorkbook(
+    [
+      { sheet: "Summary", rows: summaryAoa },
+      { sheet: "Student Performance", rows: [studentHeaders, ...studentRows] },
+      { sheet: "Batch Analytics", rows: [batchHeaders, ...batchRows] },
+    ],
+    fileName
+  );
 }
 
 function formatSeconds(secs: number): string {

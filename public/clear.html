@@ -77,14 +77,17 @@
       try {
         // 1. Expire every cookie visible to this origin
         var pairs = document.cookie.split(';');
+        var host = window.location.hostname;
+        var domains = host.indexOf('.') !== -1 ? ['', '; domain=' + host, '; domain=.' + host] : [''];
+        var paths = ['/', '/api/auth/callback', '/student', '/admin', '/trainer', '/institution', '/api'];
         for (var i = 0; i < pairs.length; i++) {
           var name = pairs[i].split('=')[0].trim();
           if (!name) continue;
-          // Expire with every plausible path
-          var paths = ['/', '/student', '/admin', '/trainer', '/institution', '/api'];
           for (var j = 0; j < paths.length; j++) {
-            document.cookie = name + '=; path=' + paths[j] + '; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
-            document.cookie = name + '=; path=' + paths[j] + '; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure';
+            for (var d = 0; d < domains.length; d++) {
+              document.cookie = name + '=; path=' + paths[j] + domains[d] + '; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+              document.cookie = name + '=; path=' + paths[j] + domains[d] + '; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure';
+            }
           }
         }
 

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { updateSession } from "@/lib/supabase/middleware";
+import { updateSession, sanitizeResponseCookies } from "@/lib/supabase/middleware";
 import { checkRateLimit } from "@/lib/security/rate-limiter";
 import { siteConfig } from "@/config/site";
 
@@ -166,13 +166,14 @@ function createRedirectWithCookies(
   const redirectUrl = url instanceof URL ? url : new URL(url, request.url);
   const response = NextResponse.redirect(redirectUrl);
 
-  // Preserve all host-only cookies from the session refresh to avoid dropping auth state
+  // Preserve valid host-only session cookies from the session refresh
   supabaseResponse.cookies.getAll().forEach((cookie) => {
     const { name, value, ...options } = cookie;
     if (
       name.includes("provider-token") ||
       name.includes("provider-refresh-token") ||
-      name.includes("provider_token")
+      name.includes("provider_token") ||
+      /\-auth\-token\.\d+$/.test(name)
     ) {
       return;
     }
@@ -184,6 +185,9 @@ function createRedirectWithCookies(
       domain: undefined,
     });
   });
+
+  // Ensure all obsolete/duplicate cookies across all scopes are evicted on redirect
+  sanitizeResponseCookies(request, response);
 
   return response;
 }

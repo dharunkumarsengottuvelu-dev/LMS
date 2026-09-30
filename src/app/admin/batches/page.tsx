@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/layouts/page-header";
+import { safeParseSpreadsheet, downloadSpreadsheetFile } from "@/lib/excel-security";
 
 interface LMSBatch {
   id: string;
@@ -369,19 +370,14 @@ export default function AdminBatchesPage() {
 
   // Download Sample Template for Bulk Batches
   const handleDownloadTemplate = async () => {
-    const XLSX = await import("xlsx");
+    const headers = ["Batch Name", "College / Institution", "Lead Trainer", "Course Track", "Start Date", "Batch Code"];
     const templateData = [
-      ["Batch Name", "College / Institution", "Lead Trainer", "Course Track", "Start Date", "Batch Code"],
       ["Full Stack Java 2026", "SSCET", "Dr. Aris Thorne", "Full Stack Web Development", "2026-09-15", "FS-2026"],
       ["AI & Data Science Batch A", "SSCET", "Sarah Jenkins", "Applied Machine Learning", "2026-10-01", "AI-2026"],
       ["Cloud & DevOps Cohort", "", "Michael Scott", "Cloud Architecture", "2026-10-15", "DEV-2026"],
     ];
 
-    const ws = XLSX.utils.aoa_to_sheet(templateData);
-    ws["!cols"] = [{ wch: 25 }, { wch: 22 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 15 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Batches Template");
-    XLSX.writeFile(wb, "sensilearn_batches_bulk_template.xlsx");
+    await downloadSpreadsheetFile(headers, templateData, "Batches Template", "sensilearn_batches_bulk_template.xlsx");
   };
 
   // Handle File Upload (Excel or CSV)
@@ -391,15 +387,7 @@ export default function AdminBatchesPage() {
     setBulkFileError(null);
 
     try {
-      const XLSX = await import("xlsx");
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
-      const sheetName = workbook.SheetNames[0];
-      if (!sheetName) throw new Error("File contains no sheets.");
-
-      const sheet = workbook.Sheets[sheetName];
-      if (!sheet) throw new Error("Worksheet could not be read.");
-      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const { rawRows: rows } = await safeParseSpreadsheet(file);
 
       if (rows.length < 2) {
         throw new Error("File must contain at least a header row and one batch record.");

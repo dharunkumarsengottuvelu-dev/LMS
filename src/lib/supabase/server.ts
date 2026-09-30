@@ -13,15 +13,20 @@ export async function createClient() {
     SUPABASE_URL,
     SUPABASE_ANON_KEY,
     {
+      cookieOptions: {
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
       cookies: {
+        encode: "tokens-only",
         getAll() {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
-              // Completely drop provider tokens (Google OAuth access/refresh tokens).
-              // Supabase Auth provides these for calling third-party Google APIs, which this LMS does not do.
+              // 1. Drop third-party provider tokens (Google OAuth access/refresh tokens).
               // Storing them in cookies adds 3-5 KB of header weight, causing 494 REQUEST_HEADER_TOO_LARGE on Vercel.
               if (
                 name.includes("provider-token") ||
@@ -38,7 +43,7 @@ export async function createClient() {
                 return;
               }
 
-              // Enforce host-only scoping (domain: undefined) and standard path
+              // 2. Enforce host-only scoping (domain: undefined) and standard root path
               cookieStore.set(name, value, {
                 ...options,
                 path: "/",
@@ -48,7 +53,7 @@ export async function createClient() {
               });
             });
           } catch {
-            // Server Component ignore
+            // Server Component ignore (Next.js prohibits cookie writes during render)
           }
         },
       },
@@ -56,46 +61,18 @@ export async function createClient() {
   );
 }
 
-// Admin client with service role
+// Admin client with service role for server-side database access (does not touch auth cookies)
 export async function createAdminClient() {
-  const cookieStore = await cookies();
-
   return createServerClient<Database>(
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          return [];
         },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              if (
-                name.includes("provider-token") ||
-                name.includes("provider-refresh-token") ||
-                name.includes("provider_token")
-              ) {
-                try {
-                  cookieStore.set(name, "", {
-                    path: "/",
-                    maxAge: 0,
-                    expires: new Date(0),
-                  });
-                } catch {}
-                return;
-              }
-              cookieStore.set(name, value, {
-                ...options,
-                path: "/",
-                sameSite: "lax",
-                secure: process.env.NODE_ENV === "production",
-                domain: undefined,
-              });
-            });
-          } catch {
-            // ignore in server components
-          }
+        setAll() {
+          // Service role client never sets browser cookies
         },
       },
     }

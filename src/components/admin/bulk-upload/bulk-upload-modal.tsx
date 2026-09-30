@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { getTemplateConfig, ModuleTemplateConfig, ColumnDefinition } from "./template-configs";
-import { safeParseSpreadsheet } from "@/lib/excel-security";
+import { safeParseSpreadsheet, downloadExcelWorkbook, downloadSpreadsheetFile } from "@/lib/excel-security";
 
 export interface BulkUploadProps {
   isOpen?: boolean;
@@ -141,25 +141,16 @@ export function BulkUploadComponent({
         });
       });
 
-      const XLSX = await import("xlsx");
-      const worksheetData = [headerRow, ...sampleDataRows];
-      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-
-      worksheet["!cols"] = activeColumns.map((col) => ({
-        wch: Math.max(col.label.length + 4, 18),
-      }));
-
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
-
       const baseName = config.templateFileName.replace(/\.(xlsx|csv)$/i, "");
       const fileName = `${baseName}_${activeColumns.length}_cols.${format}`;
 
-      if (format === "csv") {
-        XLSX.writeFile(workbook, fileName, { bookType: "csv" });
-      } else {
-        XLSX.writeFile(workbook, fileName, { bookType: "xlsx" });
-      }
+      await downloadSpreadsheetFile(
+        headerRow,
+        sampleDataRows,
+        "Template",
+        fileName,
+        format
+      );
 
       toast({
         title: "Template Downloaded",
@@ -377,18 +368,10 @@ export function BulkUploadComponent({
         });
       });
 
-      const XLSX = await import("xlsx");
-      const ws = XLSX.utils.aoa_to_sheet([reportHeaders, ...reportData]);
-      ws["!cols"] = [
-        { wch: 12 },
-        { wch: 22 },
-        { wch: 45 },
-        ...config.columns.map(() => ({ wch: 20 })),
-      ];
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Errors");
-      XLSX.writeFile(wb, `bulk_upload_errors_${config.moduleType}_report.xlsx`);
+      await downloadExcelWorkbook(
+        [{ sheet: "Errors", rows: [reportHeaders, ...reportData] }],
+        `bulk_upload_errors_${config.moduleType}_report.xlsx`
+      );
 
       toast({
         title: "Error Report Downloaded",
