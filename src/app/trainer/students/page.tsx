@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Search, Plus, UserCheck, Trash2, Edit, GraduationCap, Mail, Key, Upload, FileSpreadsheet, UploadCloud } from "lucide-react";
+import { Users, Search, Plus, UserCheck, Trash2, Edit, GraduationCap, Mail, Key, Upload, FileSpreadsheet, UploadCloud, Boxes } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,28 +34,51 @@ export default function TrainerStudentsPage() {
 
   const loadStudents = async () => {
     try {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      
-      const { data: sData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("role", "student")
-        .order("created_at", { ascending: false });
-
-      if (sData) {
-        setUsers(sData.map((s: any) => ({
+      // 1. Fetch authoritative users with resolved batches
+      const res = await fetch("/api/admin/users");
+      if (res.ok) {
+        const json = await res.json();
+        const studentUsers = (json.users || []).filter((u: any) => u.type === "student" || u.role === "student");
+        setUsers(studentUsers.map((s: any) => ({
           id: s.id,
-          name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email,
+          name: s.name || s.email,
           email: s.email,
           status: (s.status as UserStatus) || "active",
-          joined: String(s.created_at || new Date().toISOString()).split("T")[0] || "",
-          batch: s.batch_id || s.batch_name || s.batch || "Unassigned Batch",
+          joined: s.joined || "",
+          batch: s.batch && s.batch !== "Unassigned" ? s.batch : "Unassigned",
         })));
+      } else {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data: sData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("role", "student")
+          .order("created_at", { ascending: false });
+
+        if (sData) {
+          setUsers(sData.map((s: any) => ({
+            id: s.id,
+            name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email,
+            email: s.email,
+            status: (s.status as UserStatus) || "active",
+            joined: String(s.created_at || new Date().toISOString()).split("T")[0] || "",
+            batch: s.batch_name || s.batch || "Unassigned",
+          })));
+        }
       }
 
-      const { data: bData } = await supabase.from("batches").select("*");
-      if (bData) setStoreBatches(bData);
+      // 2. Fetch available batches
+      const bRes = await fetch("/api/admin/batches");
+      if (bRes.ok) {
+        const bJson = await bRes.json();
+        if (Array.isArray(bJson.batches)) {
+          setStoreBatches(bJson.batches.map((b: any) => ({
+            id: String(b.id),
+            batchName: b.name || b.batchName || b.batch_name || `Batch #${b.id}`,
+          })));
+        }
+      }
     } catch (err) {
       console.error("Failed to load students:", err);
     }
@@ -140,32 +163,27 @@ export default function TrainerStudentsPage() {
   const saveEditUser = async () => {
     if (!editingUserId) return;
     try {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      const [firstName, ...lastNameArr] = newUserName.trim().split(" ");
-      const lastName = lastNameArr.join(" ");
       const selectedBatch = newUserBatch === "custom" ? customBatch : newUserBatch;
+      const res = await fetch("/api/admin/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingUserId,
+          name: newUserName,
+          email: newUserEmail,
+          role: "student",
+          batch: selectedBatch || "Unassigned",
+        }),
+      });
 
-      const { error } = await (supabase as any)
-        .from("profiles")
-        .update({
-          first_name: firstName || "Student",
-          last_name: lastName || "",
-          email: newUserEmail.trim().toLowerCase(),
-          batch_id: selectedBatch || null,
-          batch_name: selectedBatch || null,
-          batch: selectedBatch || null,
-        })
-        .eq("id", editingUserId);
-
-      if (error) {
-        toast({ title: "Update Failed", description: error.message, variant: "destructive" });
-        return;
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update student profile");
       }
 
       await loadStudents();
       setIsEditOpen(false);
-      toast({ title: "Profile Updated", description: "Student details saved successfully to database." });
+      toast({ title: "Profile Updated", description: "Student details and batch assignment saved successfully." });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -275,9 +293,26 @@ export default function TrainerStudentsPage() {
                       </div>
                     </td>
                     <td className="p-4">
-                      <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
-                        {user.batch}
-                      </Badge>
+                      {user.batch && user.batch !== "Unassigned" ? (
+                        <Badge
+                          variant="outline"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border-blue-200 dark:border-blue-900/60 bg-blue-50/80 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-2xs hover:bg-blue-100/70 transition-colors"
+                        >
+                          <Boxes className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                          <span className="truncate max-w-[160px]">{user.batch}</span>
+                        </Badge>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleEditUser(user.id)}
+                          title="Click to assign batch"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-dashed border-amber-300/80 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100/80 hover:border-amber-400 transition-all cursor-pointer group"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 group-hover:scale-125 transition-transform" />
+                          <span>Unassigned</span>
+                          <span className="text-[10px] opacity-0 group-hover:opacity-100 font-semibold transition-opacity ml-0.5 text-amber-800 dark:text-amber-300">+ Assign</span>
+                        </button>
+                      )}
                     </td>
                     <td className="p-4">
                       <Badge className={`text-[10px] font-bold capitalize ${
@@ -413,12 +448,13 @@ export default function TrainerStudentsPage() {
                     <SelectValue placeholder="Select Batch" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Unassigned" className="text-amber-600 dark:text-amber-400 font-medium">Unassigned (No Batch)</SelectItem>
                     {storeBatches.length > 0 ? (
                       storeBatches.map(b => (
                         <SelectItem key={b.id} value={b.batchName}>{b.batchName}</SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="no_batches" disabled>No batches available</SelectItem>
+                      <SelectItem value="no_batches" disabled>No cohorts found</SelectItem>
                     )}
                     <SelectItem value="custom" className="text-[#2563EB] font-bold">+ Custom Batch...</SelectItem>
                   </SelectContent>

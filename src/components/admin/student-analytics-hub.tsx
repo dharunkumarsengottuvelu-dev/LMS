@@ -7,7 +7,7 @@ import {
   Award, AlertTriangle, CheckCircle2, FileText, Code2, Clock, ShieldAlert,
   GraduationCap, ArrowUpRight, BarChart3, Lock, ShieldCheck, ArrowLeft, Sparkles, FolderKanban,
   Upload, Download, FileSpreadsheet, UploadCloud, FileUp, X, Calendar, CalendarDays, Check,
-  BookOpen, Dumbbell, ClipboardList, Inbox, Loader2, Layers, TrendingUp, Laptop, Copy, ExternalLink, FileCheck, Video
+  BookOpen, Dumbbell, ClipboardList, Inbox, Loader2, Layers, TrendingUp, Laptop, Copy, ExternalLink, FileCheck, Video, Boxes
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -3481,9 +3481,20 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                         </td>
 
                         <td className="p-3.5">
-                          <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
-                            {std.batch || "Unassigned"}
-                          </Badge>
+                          {std.batch && std.batch !== "Unassigned" ? (
+                            <Badge
+                              variant="outline"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border-blue-200 dark:border-blue-900/60 bg-blue-50/80 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-2xs hover:bg-blue-100/70 transition-colors"
+                            >
+                              <Boxes className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                              <span className="truncate max-w-[140px]">{std.batch}</span>
+                            </Badge>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border border-dashed border-amber-300/80 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                              <span>Unassigned</span>
+                            </span>
+                          )}
                         </td>
 
                         <td className="p-3.5 text-xs text-[#111827] dark:text-[#FAFAFA] font-medium">

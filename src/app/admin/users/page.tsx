@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, Search, Plus, UserCheck, Shield, Trash2, Edit, GraduationCap, Building2, Briefcase, Mail, Key, Upload, FileSpreadsheet, UploadCloud, X, ExternalLink, Phone } from "lucide-react";
+import { Users, Search, Plus, UserCheck, Shield, Trash2, Edit, GraduationCap, Building2, Briefcase, Mail, Key, Upload, FileSpreadsheet, UploadCloud, X, ExternalLink, Phone, Boxes } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,10 +41,37 @@ const initialUsers: SystemUser[] = [];
 export default function AdminUsersPage() {
   const { toast } = useToast();
   const { batches: storeBatches } = useLMSStore();
+  const [availableBatches, setAvailableBatches] = useState<{ id: string; name: string }[]>([]);
   const [users, setUsers] = useState<SystemUser[]>(initialUsers);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("student");
   const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch batches directly from API
+  const fetchBatches = async () => {
+    try {
+      const res = await fetch("/api/admin/batches");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.batches)) {
+          setAvailableBatches(
+            data.batches.map((b: any) => ({
+              id: String(b.id),
+              name: b.name || b.batchName || b.batch_name || `Batch #${b.id}`,
+            }))
+          );
+        }
+      }
+    } catch (e) {
+      console.warn("Could not fetch batches:", e);
+    }
+  };
+
+  // Combined deduplicated batch list for dropdowns
+  const allBatchesList = [
+    ...availableBatches,
+    ...storeBatches.map((b) => ({ id: String(b.id), name: b.batchName })),
+  ].filter((b, idx, arr) => arr.findIndex((x) => x.name.toLowerCase() === b.name.toLowerCase()) === idx);
   
   // Fetch users from API (connects auth.users and profiles)
   const fetchUsers = async () => {
@@ -66,6 +93,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     fetchUsers();
+    fetchBatches();
 
     const supabase = createClient();
     const channel = supabase
@@ -183,31 +211,35 @@ export default function AdminUsersPage() {
   };
 
   const saveEditUser = async () => {
-    const supabase = createClient();
-    const [firstName, ...lastNameArr] = newUserName.split(" ");
-    const lastName = lastNameArr.join(" ");
-    
-    const { error } = await (supabase as any).from("profiles").update({
-      first_name: firstName || "Unknown",
-      last_name: lastName || "",
-      role: newUserRole,
-      department: newUserType === "employee" ? newUserDept || "General" : null,
-      batch_id: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null,
-      batch_name: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null,
-      batch: newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || null : null,
-      college: newUserType === "institution" ? (newUserCollege || newUserName) : null,
-      branch: newUserType === "institution" ? (newUserCode || null) : null,
-      phone: newUserPhone || null
-    }).eq("id", editingUserId as string);
+    try {
+      const selectedBatch = newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || "Unassigned" : null;
+      const res = await fetch("/api/admin/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingUserId,
+          name: newUserName,
+          email: newUserEmail,
+          role: newUserRole,
+          department: newUserType === "employee" ? newUserDept || "General" : null,
+          batch: selectedBatch,
+          college: newUserType === "institution" ? (newUserCollege || newUserName) : null,
+          branch: newUserType === "institution" ? (newUserCode || null) : null,
+          phone: newUserPhone || null,
+        }),
+      });
 
-    if (error) {
-      toast({ title: "Error", description: "Failed to update profile", variant: "destructive" });
-      return;
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update profile");
+      }
+
+      await fetchUsers();
+      setIsEditOpen(false);
+      toast({ title: "Profile Updated", description: "User details and batch assignment saved successfully." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to update profile", variant: "destructive" });
     }
-
-    fetchUsers();
-    setIsEditOpen(false);
-    toast({ title: "Profile Updated", description: "User details saved successfully." });
   };
 
   const handleDeleteUser = async (id: string, name: string) => {
@@ -469,12 +501,13 @@ export default function AdminUsersPage() {
                           <SelectValue placeholder="Select Batch" />
                         </SelectTrigger>
                         <SelectContent>
-                          {storeBatches.length > 0 ? (
-                            storeBatches.map(b => (
-                              <SelectItem key={b.id} value={b.batchName}>{b.batchName}</SelectItem>
+                          <SelectItem value="Unassigned" className="text-amber-600 dark:text-amber-400 font-medium">Unassigned (No Batch)</SelectItem>
+                          {allBatchesList.length > 0 ? (
+                            allBatchesList.map(b => (
+                              <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>
                             ))
                           ) : (
-                            <SelectItem value="no_batches" disabled>No batches available</SelectItem>
+                            <SelectItem value="no_batches" disabled>No cohorts found</SelectItem>
                           )}
                           <SelectItem value="custom" className="text-[#2563EB] font-bold">+ Custom Batch...</SelectItem>
                         </SelectContent>
@@ -625,9 +658,26 @@ export default function AdminUsersPage() {
                           </div>
                         </td>
                         <td className="p-4">
-                          <Badge variant="outline" className="text-xs font-semibold border-[#2563EB]/30 text-[#2563EB] bg-[#2563EB]/5">
-                            {user.batch}
-                          </Badge>
+                          {user.batch && user.batch !== "Unassigned" ? (
+                            <Badge
+                              variant="outline"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border-blue-200 dark:border-blue-900/60 bg-blue-50/80 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-2xs hover:bg-blue-100/70 transition-colors"
+                            >
+                              <Boxes className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                              <span className="truncate max-w-[160px]">{user.batch}</span>
+                            </Badge>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleEditUser(user.id)}
+                              title="Click to assign batch"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-dashed border-amber-300/80 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100/80 hover:border-amber-400 transition-all cursor-pointer group"
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 group-hover:scale-125 transition-transform" />
+                              <span>Unassigned</span>
+                              <span className="text-[10px] opacity-0 group-hover:opacity-100 font-semibold transition-opacity ml-0.5 text-amber-800 dark:text-amber-300">+ Assign</span>
+                            </button>
+                          )}
                         </td>
                         <td className="p-4">
                           <Badge className={`text-[10px] font-bold capitalize ${
