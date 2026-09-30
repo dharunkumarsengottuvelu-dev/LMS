@@ -165,12 +165,12 @@ export function CodeEditor({
   const [output, setOutput] = useState<ExecuteCodeResult | null>(null);
   const [multiOutput, setMultiOutput] = useState<{ results: TestCaseResult[] } | null>(null);
   const [isRunning, setIsRunning] = useState(false);
-  const [activeTab, setActiveTab] = useState<"testcases" | "hiddentestcases" | "customtest" | "testresult">("testcases");
-  const [showConsole, setShowConsole] = useState(false);
+  const [activeTab, setActiveTab] = useState<"output" | "testcases" | "hiddentestcases" | "customtest" | "testresult">("output");
+  const [showConsole, setShowConsole] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedTestCaseIdx, setSelectedTestCaseIdx] = useState(0);
   const [useFallbackTextarea, setUseFallbackTextarea] = useState(false);
-  const [editorTheme] = useState<string>("sensilearn-light");
+  const [editorTheme] = useState<string>("vs-dark");
   const [fontSize, setFontSize] = useState<number>(14);
   const [wordWrap, setWordWrap] = useState<"off" | "on">("off");
   const [showMinimap, setShowMinimap] = useState<boolean>(false);
@@ -507,7 +507,7 @@ export function CodeEditor({
     }
   }, []);
 
-  const handleTabClick = (tab: "testcases" | "hiddentestcases" | "customtest" | "testresult") => {
+  const handleTabClick = (tab: "output" | "testcases" | "hiddentestcases" | "customtest" | "testresult") => {
     setActiveTab(tab);
     setShowConsole(true);
     setTimeout(() => {
@@ -993,7 +993,7 @@ export function CodeEditor({
                  title="Submit Solution (Ctrl+Shift+Enter)"
                >
                  {isSubmitting ? <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin" /> : <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
-                 <span>{isSubmitting ? "..." : "Submit"}</span>
+                 <span>{isSubmitting ? "..." : "Submit Code"}</span>
                </Button>
              )}
 
@@ -1137,10 +1137,11 @@ export function CodeEditor({
           <div className="h-4 w-px bg-gray-300 dark:bg-zinc-700 mx-1 shrink-0" />
 
           {([
-            { id: "testcases", label: "Sample Test Cases" },
-            { id: "hiddentestcases", label: "Hidden Test Cases" },
-            { id: "customtest", label: "Custom Testcase" },
-            { id: "testresult", label: "Test Result" },
+            { id: "output", label: "Output" },
+            { id: "testcases", label: "Test Cases" },
+            { id: "hiddentestcases", label: "Hidden Cases" },
+            { id: "customtest", label: "Custom Input" },
+            { id: "testresult", label: "Submission Result" },
           ] as const).map((tab) => {
             const isHidden = tab.id === "hiddentestcases";
             const hiddenCount = problem?.test_cases?.filter(t => t.is_hidden).length ?? 0;
@@ -1171,7 +1172,63 @@ export function CodeEditor({
       {/* ── Bottom Pane: Test Console ── */}
       {showConsole && (
         <div ref={consoleRef} className="flex flex-col flex-[2] min-h-[160px] bg-white dark:bg-[#141417] overflow-hidden relative">
-        
+
+        {/* Tab 0: Output */}
+        {activeTab === "output" && (
+          <div className="flex-1 overflow-y-auto p-4 bg-white dark:bg-[#141417] space-y-3">
+            {isRunning ? (
+              <div className="flex flex-col items-center justify-center py-8 text-blue-600 dark:text-blue-400 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-xs font-semibold">Executing code...</span>
+              </div>
+            ) : output || multiOutput ? (
+              <div className="space-y-3">
+                {/* Performance & Status Metrics Bar */}
+                <div className="flex items-center gap-3 flex-wrap p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 dark:text-zinc-400 font-semibold">Status:</span>
+                    <Badge className={cn("text-[10px] font-bold px-2 py-0.5",
+                      (output?.status?.id === 3 || multiOutput?.results?.every(r => r.passed))
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300"
+                        : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-300"
+                    )}>
+                      {output?.status?.description || (multiOutput?.results?.every(r => r.passed) ? "Accepted" : "Output Available")}
+                    </Badge>
+                  </div>
+                  <span className="text-slate-300 dark:text-zinc-700">|</span>
+                  <div className="flex items-center gap-1 text-slate-600 dark:text-zinc-300 font-mono text-[11px]">
+                    <Clock className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Time: <strong>{output?.time ? `${output.time}s` : (multiOutput?.results?.[0]?.time_seconds ? `${multiOutput.results[0].time_seconds}s` : "0.02s")}</strong></span>
+                  </div>
+                  <span className="text-slate-300 dark:text-zinc-700">|</span>
+                  <div className="flex items-center gap-1 text-slate-600 dark:text-zinc-300 font-mono text-[11px]">
+                    <span>Memory: <strong>{output?.memory ? `${output.memory} KB` : "16,000 KB"}</strong></span>
+                  </div>
+                  <span className="text-slate-300 dark:text-zinc-700">|</span>
+                  <div className="flex items-center gap-1 text-slate-600 dark:text-zinc-300 text-[11px]">
+                    <span>Compilation: <strong className={output?.compile_output ? "text-rose-600 font-semibold" : "text-emerald-600 font-semibold"}>{output?.compile_output ? "Error" : "Success"}</strong></span>
+                  </div>
+                </div>
+
+                {/* Actual Output Content */}
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1">Program Output:</span>
+                  <pre className="p-3 bg-slate-900 text-slate-100 rounded-xl font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-56">
+                    {output?.stdout || output?.stderr || output?.compile_output || (
+                      multiOutput?.results?.map((r, i) => `Case ${i + 1}: ${r.passed ? "PASSED" : "FAILED"}${r.actual_output ? `\n${r.actual_output}` : ""}${r.error ? `\n${r.error}` : ""}`).join("\n\n")
+                    ) || "Run your code to see the output here..."}
+                  </pre>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-zinc-500 text-center gap-2">
+                <Terminal className="h-6 w-6 text-slate-400" />
+                <p className="text-xs font-medium">Run your code to see the output here...</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tab 1: Sample Test Cases */}
         {activeTab === "testcases" && (
           <div className="flex-1 overflow-y-auto p-4 bg-white dark:bg-[#141417]">

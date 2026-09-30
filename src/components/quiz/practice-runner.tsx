@@ -850,6 +850,20 @@ export function PracticeRunnerEngine({
             </p>
           </div>
         )}
+
+        {/* Topics / Tags */}
+        {Boolean((activeCodingProblem as any).tags || (currentQuestion as any).tags || (currentQuestion as any).topics) && (
+          <div className="space-y-1.5 pt-1">
+            <strong className="text-slate-900 dark:text-white text-xs font-bold uppercase tracking-wider block">Topics:</strong>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {(((activeCodingProblem as any).tags || (currentQuestion as any).tags || (currentQuestion as any).topics || []) as string[]).map((tag: string, i: number) => (
+                <Badge key={i} variant="outline" className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -1248,70 +1262,75 @@ export function PracticeRunnerEngine({
 
   return (
     <div className="space-y-4 w-full pb-36 sm:pb-28 relative max-w-full overflow-x-hidden">
-      {/* Top Header - Spacious Enterprise MNC Header */}
-      <div className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-6 lg:p-7 shadow-xs overflow-visible">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          {/* Left Column: Integrated Breadcrumb + Title + Metadata */}
-          <div className="space-y-2 flex-1 min-w-0">
-            {/* Top Breadcrumb */}
-            <div>
-              <button
-                type="button"
-                onClick={onBack || (() => router.back())}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5"
-              >
-                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
-                <span>Back to Track</span>
-              </button>
-            </div>
-
-            {/* Main Row: Module Title */}
-            <div>
-              <h1 className="text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight break-words">
-                {module?.title || "Assessment"}
-              </h1>
-            </div>
-
-            {/* Metadata Row */}
-            <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 font-normal leading-relaxed flex-wrap pt-0.5">
-              <span>
-                Assigned by: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{module?.assignedBy || (module as any)?.assignedByName || "Instructor"}</strong>
-              </span>
-              <span className="hidden xs:inline">•</span>
-              <span>
-                Total Questions: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{totalQuestions} ({mcqQuestions.length} MCQs, {codingQuestions.length} Coding)</strong>
-              </span>
-              <span className="hidden xs:inline">•</span>
-              <span>
-                Max Marks: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{(module?.totalMarks ?? 0) > 0 ? module?.totalMarks : (questions || []).reduce((sum, q) => sum + (q?.marks || 0), 0)}</strong>
-              </span>
-            </div>
+      {/* ── 1. Top Header (MNC Online Assessment Navigation) ── */}
+      <header className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 px-4 sm:px-6 py-3 shadow-xs flex items-center justify-between gap-4 shrink-0">
+        {/* Left: Sensilearn branding + Back button */}
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="font-black tracking-tight text-sm sm:text-base text-slate-900 dark:text-white">
+              SENSI<span className="text-[#2563EB]">LEARN</span>
+            </span>
+            <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0.2 border-blue-200 text-[#2563EB] bg-blue-50/60 rounded">
+              ASSESSMENT
+            </Badge>
           </div>
 
-          {/* Right Section: Proctor + Timer + Submit on Mobile / Desktop */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between lg:justify-end gap-3 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-zinc-800">
-            {extraHeaderContent && (
-              <div className="flex items-center justify-center shrink-0 self-center sm:self-auto">
-                {extraHeaderContent}
-              </div>
-            )}
+          <div className="h-4 w-px bg-slate-200 dark:bg-zinc-700 shrink-0" />
 
-            {/* Timer & Submit Action */}
-            <div className="flex items-center justify-between sm:justify-start gap-2.5 sm:gap-3 shrink-0 w-full sm:w-auto">
-              {!isUntimed && (
-                <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white shadow-2xs">
-                  <Clock className="h-4 w-4 text-[#2563EB] shrink-0" />
-                  <span>{formatTimerDisplay(timeLeft)}</span>
-                </div>
-              )}
-              <Button
-                onClick={handleInitiateSubmit}
-                className="h-9 sm:h-10 px-4 sm:px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-1.5 sm:gap-2 rounded-xl shadow-xs transition-all flex-1 sm:flex-initial"
-              >
-                <Send className="h-3.5 w-3.5 shrink-0" /> <span>Submit</span>
-              </Button>
-            </div>
+          <button
+            type="button"
+            onClick={onBack || (() => router.back())}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-[#2563EB] dark:text-zinc-400 dark:hover:text-blue-400 transition-colors py-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 shrink-0 cursor-pointer"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 text-slate-500" />
+            <span>Back to Assessment</span>
+          </button>
+        </div>
+
+        {/* Center: Proctor / Extra Header Content (if present) */}
+        {extraHeaderContent && (
+          <div className="hidden md:flex items-center justify-center shrink-0">
+            {extraHeaderContent}
           </div>
+        )}
+
+        {/* Right: Assessment Timer + Submit Assessment */}
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          {!isUntimed && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 text-xs font-bold text-slate-900 dark:text-white shadow-2xs">
+              <Clock className="h-3.5 w-3.5 text-[#2563EB] shrink-0" />
+              <span>{formatTimerDisplay(timeLeft)}</span>
+            </div>
+          )}
+          <Button
+            onClick={handleInitiateSubmit}
+            className="h-9 px-4 sm:px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-1.5 rounded-xl shadow-xs transition-all cursor-pointer"
+          >
+            <span>Submit Assessment</span>
+          </Button>
+        </div>
+      </header>
+
+      {/* ── 2. Assessment Information (Clean, Compact Bar) ── */}
+      <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 px-4 sm:px-6 py-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <span className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white">
+            {module?.title || "Assessment"}
+          </span>
+          <span className="text-slate-300 dark:text-zinc-700">•</span>
+          <span className="text-slate-500 dark:text-zinc-400">
+            Assigned by: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{module?.assignedBy || (module as any)?.assignedByName || "Admin"}</strong>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-4 text-slate-500 dark:text-zinc-400">
+          <span>
+            Total Questions: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{totalQuestions} ({mcqQuestions.length} MCQs, {codingQuestions.length} Coding)</strong>
+          </span>
+          <span className="text-slate-300 dark:text-zinc-700">|</span>
+          <span>
+            Maximum Marks: <strong className="text-slate-700 dark:text-zinc-200 font-semibold">{(module?.totalMarks ?? 0) > 0 ? module?.totalMarks : (questions || []).reduce((sum, q) => sum + (q?.marks || 0), 0)}</strong>
+          </span>
         </div>
       </div>
 
@@ -1361,8 +1380,8 @@ export function PracticeRunnerEngine({
             )}
           </div>
 
-          <div className={cn("flex flex-col lg:flex-row items-start gap-6 w-full", mobileTab === "palette" ? "hidden lg:flex" : "flex")}>
-            <div className="flex-1 min-w-0 space-y-6 w-full">
+          <div className={cn("flex flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_23%] items-start gap-4 w-full", mobileTab === "palette" ? "hidden lg:grid" : "flex")}>
+            <div className="min-w-0 space-y-6 w-full">
               <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm rounded-2xl overflow-hidden">
                 <CardHeader className="p-4 sm:p-6 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-row items-center justify-between gap-2">
                   <div className="space-y-1.5 min-w-0 flex-1">
@@ -1464,9 +1483,9 @@ export function PracticeRunnerEngine({
               </Card>
             </div>
 
-            {/* Desktop Question Palette (Hidden on mobile/tablet to give full hero space to active question) */}
-            <div className="hidden lg:block w-[260px] shrink-0">
-              {renderPaletteContent()}
+            {/* Desktop Question Palette (23%) */}
+            <div className="hidden lg:block w-full shrink-0">
+              {renderPaletteContent(false)}
             </div>
           </div>
         </div>
@@ -1522,32 +1541,16 @@ export function PracticeRunnerEngine({
             </button>
           </div>
 
-          {/* Desktop Responsive Workspace (>= lg / >= 1024px) */}
-          <div className="hidden lg:flex items-stretch gap-4 w-full h-[calc(100vh-210px)] min-h-[580px] max-h-[920px] transition-all">
-            {/* Left Problem Details Panel (Expandable / Collapsible) */}
-            {showProblemStatement ? (
-              <div className="w-[320px] xl:w-[350px] 2xl:w-[380px] h-full shrink-0">
-                {renderProblemStatementContent(true)}
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowProblemStatement(true)}
-                className="h-full w-9 shrink-0 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-slate-500 hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
-                title="Show Problem Details"
-              >
-                <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
-                  <ChevronRight className="h-4 w-4" />
-                </div>
-                <span className="text-[11px] font-bold tracking-wider uppercase [writing-mode:vertical-rl] rotate-180">
-                  Problem Details
-                </span>
-              </button>
-            )}
+          {/* Desktop Responsive 3-Column Workspace: 27% Problem | 50% Code Editor | 23% Questions */}
+          <div className="hidden lg:grid grid-cols-[27%_minmax(0,1fr)_23%] gap-4 w-full h-[calc(100vh-200px)] min-h-[580px] max-h-[940px] overflow-hidden">
+            {/* Left Problem Details Panel (27%) */}
+            <div className="h-full overflow-hidden flex flex-col min-w-0">
+              {renderProblemStatementContent(false)}
+            </div>
 
-            {/* Middle Monaco CodeEditor (Flex-1 for maximum available editor width) */}
-            <div className="flex-1 min-w-[420px] h-full overflow-hidden">
-              <div className="w-full h-full rounded-2xl overflow-hidden shadow-xs border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B]">
+            {/* Middle Monaco CodeEditor + Output (50%) */}
+            <div className="h-full overflow-hidden flex flex-col min-w-0">
+              <div className="w-full h-full rounded-2xl overflow-hidden shadow-xs border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B] flex flex-col">
                 <CodeEditor
                   key={activeCodingProblem.id}
                   problem={activeCodingProblem}
@@ -1573,26 +1576,10 @@ export function PracticeRunnerEngine({
               </div>
             </div>
 
-            {/* Right Questions Panel (Responsive width, auto-collapsible) */}
-            {showQuestionPalette ? (
-              <div className="w-[260px] xl:w-[280px] 2xl:w-[300px] shrink-0 h-full overflow-hidden">
-                {renderPaletteContent(true)}
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowQuestionPalette(true)}
-                className="h-full w-9 shrink-0 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#18181B] hover:border-[#2563EB] text-slate-500 hover:text-[#2563EB] flex flex-col items-center justify-center gap-3 p-1 transition-all shadow-xs group"
-                title="Show Questions"
-              >
-                <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 group-hover:bg-[#2563EB]/10 flex items-center justify-center transition-colors">
-                  <ChevronLeft className="h-4 w-4" />
-                </div>
-                <span className="text-[11px] font-bold tracking-wider uppercase [writing-mode:vertical-rl] rotate-180">
-                  Questions
-                </span>
-              </button>
-            )}
+            {/* Right Questions Panel (23%) */}
+            <div className="h-full overflow-hidden flex flex-col min-w-0">
+              {renderPaletteContent(false)}
+            </div>
           </div>
 
           {/* Mobile & Tablet Body Views (< lg / < 1024px) */}
@@ -2304,17 +2291,53 @@ export function PracticeRunnerEngine({
       )}
 
       <AlertDialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-        <AlertDialogContent className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl">
+        <AlertDialogContent className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl max-w-lg p-6">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-lg font-bold text-[#111827] dark:text-[#FAFAFA]">Submit Practice Module?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-[#6B7280]">
-              You have completed {answeredCount} out of {totalQuestions} items in this practice module. Are you sure you want to finalize your submission?
+            <AlertDialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
+              Submit Assessment?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-500 dark:text-zinc-400">
+              Please review your progress before finalizing your assessment. Once submitted, your answers will be evaluated and recorded.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="pt-2 gap-2 sm:gap-0">
-            <AlertDialogCancel className="h-10 text-xs font-semibold rounded-xl">Continue Practice</AlertDialogCancel>
-            <AlertDialogAction disabled={isFinalSubmitting} onClick={() => handleFinalSubmit()} className="h-10 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white font-bold rounded-xl">
-              {isFinalSubmitting ? "Submitting..." : "Yes, Submit Practice"}
+
+          {/* Submission Status Summary Cards */}
+          <div className="grid grid-cols-2 gap-3 my-4">
+            <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40">
+              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 block">Answered Questions</span>
+              <strong className="text-lg font-bold text-emerald-800 dark:text-emerald-300">{answeredCount} of {totalQuestions}</strong>
+            </div>
+
+            <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40">
+              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 block">Unanswered Questions</span>
+              <strong className="text-lg font-bold text-amber-800 dark:text-amber-300">{Math.max(0, totalQuestions - answeredCount)}</strong>
+            </div>
+
+            <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40">
+              <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-400 block">Coding Submitted</span>
+              <strong className="text-lg font-bold text-blue-800 dark:text-blue-300">
+                {codingQuestions.filter(q => Boolean(submissionResults[q.id])).length} of {codingQuestions.length}
+              </strong>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 block">Remaining Time</span>
+              <strong className="text-lg font-bold text-slate-800 dark:text-zinc-200 font-mono">
+                {!isUntimed ? formatTimerDisplay(timeLeft) : "Untimed"}
+              </strong>
+            </div>
+          </div>
+
+          <AlertDialogFooter className="pt-2 gap-2 sm:gap-2">
+            <AlertDialogCancel className="h-10 px-4 text-xs font-semibold rounded-xl">
+              Continue Assessment
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isFinalSubmitting}
+              onClick={() => handleFinalSubmit()}
+              className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
+            >
+              {isFinalSubmitting ? "Submitting..." : "Confirm & Submit Assessment"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
