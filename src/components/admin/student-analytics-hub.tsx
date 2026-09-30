@@ -3482,17 +3482,12 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
                         <td className="p-3.5">
                           {std.batch && std.batch !== "Unassigned" ? (
-                            <Badge
-                              variant="outline"
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border-blue-200 dark:border-blue-900/60 bg-blue-50/80 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-2xs hover:bg-blue-100/70 transition-colors"
-                            >
-                              <Boxes className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
-                              <span className="truncate max-w-[140px]">{std.batch}</span>
-                            </Badge>
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50/80 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/60">
+                              <span className="truncate max-w-[150px]">{std.batch}</span>
+                            </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border border-dashed border-amber-300/80 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400">
-                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                              <span>Unassigned</span>
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-normal border border-dashed border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900/50 text-slate-500 dark:text-zinc-400">
+                              Unassigned
                             </span>
                           )}
                         </td>
