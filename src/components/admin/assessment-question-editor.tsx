@@ -993,11 +993,11 @@ export function AssessmentQuestionEditor({
                   </div>
 
                   {/* Monaco Editor Canvas */}
-                  <div className="flex-1 min-h-[260px] relative overflow-hidden bg-[#18181B]">
+                  <div className="flex-1 min-h-[260px] relative overflow-hidden bg-white border-t border-slate-200">
                     <MonacoEditor
                       height="100%"
                       language={activeMonacoLang}
-                      theme="vs-dark"
+                      theme="vs"
                       value={
                         activeCodeTab === "starter"
                           ? getStarterCodeString(currentQ, activeLanguage)

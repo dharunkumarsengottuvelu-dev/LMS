@@ -22,7 +22,14 @@ import {
   Users, 
   Check, 
   AlertTriangle,
-  Search 
+  Search,
+  Eye,
+  Code2,
+  HelpCircle,
+  CheckCircle2,
+  Trash2,
+  Edit3,
+  Plus
 } from "lucide-react";
 
 // ─── TYPES FOR STRICT 3-LEVEL HIERARCHY ──────────────────────────────
@@ -53,6 +60,8 @@ export interface PracticeModule {
   durationMinutes: number;
   totalMarks: number;
   questionCount: number;
+  mcqSectionTitle?: string;
+  codingSectionTitle?: string;
   mcqQuestions: MCQQuestion[];
   codingQuestions: any[];
   created_at?: string;
@@ -146,6 +155,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [fModMarks, setFModMarks] = useState<number>(100);
   const [fModStatus, setFModStatus] = useState<"active" | "inactive">("active");
   const [fModOrder, setFModOrder] = useState<number>(0);
+  const [fModMcqSectionTitle, setFModMcqSectionTitle] = useState<string>("Section 1: MCQs");
+  const [fModCodingSectionTitle, setFModCodingSectionTitle] = useState<string>("Section 2: Coding");
 
   // Module Questions Editor State
   const [activeTab, setActiveTab] = useState<"mcq" | "coding">("mcq");
@@ -155,7 +166,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [editingCodingIndex, setEditingCodingIndex] = useState<number | null>(null);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState<boolean>(false);
   const [bulkUploadModuleType, setBulkUploadModuleType] = useState<"coding_problem" | "assessment_questions">("coding_problem");
-  const [itemToDelete, setItemToDelete] = useState<{ type: "coding" | "mcq"; index: number; title: string } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ type: "coding" | "mcq"; index: number; title: string; targetModule?: PracticeModule } | null>(null);
+
+  // View Module Questions Modal State
+  const [viewingQuestionsModule, setViewingQuestionsModule] = useState<PracticeModule | null>(null);
+  const [viewQuestionsFilter, setViewQuestionsFilter] = useState<"all" | "mcq" | "coding">("all");
 
   // Fetch actual data from backend
   const fetchData = useCallback(async () => {
@@ -450,6 +465,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setFModMarks(100);
     setFModStatus("active");
     setFModOrder(currentSubmodule.modules.length + 1);
+    setFModMcqSectionTitle("Section 1: MCQs");
+    setFModCodingSectionTitle("Section 2: Coding");
     setShowModuleModal(true);
   };
 
@@ -465,6 +482,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setFModMarks(m.totalMarks || 100);
     setFModStatus(m.status);
     setFModOrder(m.display_order ?? 0);
+    setFModMcqSectionTitle(m.mcqSectionTitle || "Section 1: MCQs");
+    setFModCodingSectionTitle(m.codingSectionTitle || "Section 2: Coding");
     setShowModuleModal(true);
   };
 
@@ -492,6 +511,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         totalMarks: Number(fModMarks) || 100,
         status: fModStatus,
         display_order: Number(fModOrder) || 0,
+        mcqSectionTitle: fModMcqSectionTitle.trim() || "Section 1: MCQs",
+        codingSectionTitle: fModCodingSectionTitle.trim() || "Section 2: Coding",
       };
 
       const res = await fetch("/api/admin/practices", {
@@ -585,6 +606,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           submodule_id: currentSubmodule.id,
           id: currentModule.id,
           name: currentModule.name,
+          mcqSectionTitle: currentModule.mcqSectionTitle || "Section 1: MCQs",
+          codingSectionTitle: currentModule.codingSectionTitle || "Section 2: Coding",
           mcqQuestions: mcqList,
           codingQuestions: codingList,
         }),
@@ -629,6 +652,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           submodule_id: currentSubmodule.id,
           id: currentModule.id,
           name: currentModule.name,
+          mcqSectionTitle: currentModule.mcqSectionTitle || "Section 1: MCQs",
+          codingSectionTitle: currentModule.codingSectionTitle || "Section 2: Coding",
           mcqQuestions: updatedList,
           codingQuestions: codingList,
         }),
@@ -645,58 +670,86 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   // 5. CONFIRM DELETE FOR QUESTIONS (CODING & MCQ)
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
-    const { type, index, title } = itemToDelete;
+    const { type, index, title, targetModule } = itemToDelete;
     setItemToDelete(null);
 
-    if (type === "coding") {
-      const updated = codingList.filter((_, i) => i !== index);
-      setCodingList(updated);
-      if (currentMainModule && currentSubmodule && currentModule) {
-        try {
-          await fetch("/api/admin/practices", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "update_module",
-              main_module_id: currentMainModule.id,
-              submodule_id: currentSubmodule.id,
-              id: currentModule.id,
-              name: currentModule.name,
-              mcqQuestions: mcqList,
-              codingQuestions: updated,
-            }),
-          });
-          await fetchData();
-          toast({ title: "Problem Deleted", description: `"${title}" has been deleted from this module.` });
-        } catch (err: any) {
-          toast({ title: "Delete Error", description: err.message, variant: "destructive" });
-        }
-      }
-    } else {
-      const updated = mcqList.filter((_, i) => i !== index);
-      setMcqList(updated);
-      if (currentMainModule && currentSubmodule && currentModule) {
-        try {
-          await fetch("/api/admin/practices", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "update_module",
-              main_module_id: currentMainModule.id,
-              submodule_id: currentSubmodule.id,
-              id: currentModule.id,
-              name: currentModule.name,
-              mcqQuestions: updated,
-              codingQuestions: codingList,
-            }),
-          });
-          await fetchData();
-          toast({ title: "Question Deleted", description: `MCQ question has been deleted from this module.` });
-        } catch (err: any) {
-          toast({ title: "Delete Error", description: err.message, variant: "destructive" });
-        }
-      }
+    const activeMod = targetModule || currentModule;
+    if (!currentMainModule || !currentSubmodule || !activeMod) return;
+
+    const currentMcqs = (activeMod.id === currentModule?.id) ? mcqList : (activeMod.mcqQuestions || []);
+    const currentCodings = (activeMod.id === currentModule?.id) ? codingList : (activeMod.codingQuestions || []);
+
+    const updatedMcqs = type === "mcq" ? currentMcqs.filter((_, i) => i !== index) : currentMcqs;
+    const updatedCodings = type === "coding" ? currentCodings.filter((_, i) => i !== index) : currentCodings;
+
+    if (activeMod.id === currentModule?.id) {
+      if (type === "mcq") setMcqList(updatedMcqs);
+      if (type === "coding") setCodingList(updatedCodings);
     }
+
+    try {
+      const res = await fetch("/api/admin/practices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_module",
+          main_module_id: currentMainModule.id,
+          submodule_id: currentSubmodule.id,
+          id: activeMod.id,
+          name: activeMod.name || activeMod.title,
+          mcqSectionTitle: activeMod.mcqSectionTitle || "Section 1: MCQs",
+          codingSectionTitle: activeMod.codingSectionTitle || "Section 2: Coding",
+          mcqQuestions: updatedMcqs,
+          codingQuestions: updatedCodings,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Delete failed");
+
+      if (viewingQuestionsModule && viewingQuestionsModule.id === activeMod.id) {
+        setViewingQuestionsModule({
+          ...viewingQuestionsModule,
+          mcqQuestions: updatedMcqs,
+          codingQuestions: updatedCodings,
+          questionCount: updatedMcqs.length + updatedCodings.length,
+        });
+      }
+
+      await fetchData();
+      toast({ title: "Deleted", description: `"${title}" has been deleted successfully.` });
+    } catch (err: any) {
+      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  // Helper actions for View Questions Modal
+  const handleOpenViewQuestions = (m: PracticeModule) => {
+    setViewingQuestionsModule(m);
+    setViewQuestionsFilter("all");
+  };
+
+  const handleEditQuestionFromView = (m: PracticeModule, type: "mcq" | "coding", index: number) => {
+    setViewingQuestionsModule(null);
+    handleOpenModuleEditor(m);
+    if (type === "mcq") {
+      setActiveTab("mcq");
+      toast({ title: "Editing MCQ", description: `Editing Question #${index + 1}` });
+    } else {
+      setActiveTab("coding");
+      setEditingCodingIndex(index);
+      setShowCodingCreator(true);
+      toast({ title: "Editing Coding Problem", description: `Editing ${m.codingQuestions?.[index]?.title || `Problem #${index + 1}`}` });
+    }
+  };
+
+  const handleDeleteQuestionFromView = (m: PracticeModule, type: "mcq" | "coding", index: number, title: string) => {
+    setItemToDelete({
+      type,
+      index,
+      title,
+      targetModule: m,
+    });
   };
 
   // 6. BULK IMPORT HANDLER (FOR CODING CHALLENGES & MCQS)
@@ -1365,20 +1418,44 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           Total Marks: <span className="font-bold">{mod.totalMarks}</span>
                         </div>
                       </div>
+                      {/* Display Section Names */}
+                      {(mod.mcqSectionTitle || mod.codingSectionTitle) && (
+                        <div className="pt-1.5 border-t border-slate-100 dark:border-zinc-800/60 flex items-center gap-1.5 flex-wrap text-[10px]">
+                          {mod.type !== "coding" && (
+                            <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 truncate max-w-[140px]" title={mod.mcqSectionTitle || "Section 1: MCQs"}>
+                              {mod.mcqSectionTitle || "Section 1: MCQs"}
+                            </span>
+                          )}
+                          {mod.type !== "mcq" && (
+                            <span className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 truncate max-w-[140px]" title={mod.codingSectionTitle || "Section 2: Coding"}>
+                              {mod.codingSectionTitle || "Section 2: Coding"}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="pt-4 border-t border-slate-100 dark:border-zinc-800/80 space-y-2">
-                      <Button
-                        type="button"
-                        onClick={() => handleOpenModuleEditor(mod)}
-                        className="w-full h-8 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
-                      >
-                        {mod.type === "coding"
-                          ? `+ Add / Manage Coding Problems (${mod.codingQuestions?.length || 0})`
-                          : mod.type === "mcq"
-                          ? `+ Add / Manage MCQs (${mod.mcqQuestions?.length || 0})`
-                          : `+ Add / Manage Questions (${qCount})`}
-                      </Button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          onClick={() => handleOpenViewQuestions(mod)}
+                          variant="outline"
+                          className="h-8 text-xs font-semibold rounded-lg border-blue-200 dark:border-blue-900/60 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View Questions ({qCount})</span>
+                        </Button>
+
+                        <Button
+                          type="button"
+                          onClick={() => handleOpenModuleEditor(mod)}
+                          className="h-8 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Add Questions</span>
+                        </Button>
+                      </div>
 
                       <div className="grid grid-cols-3 gap-1.5 text-[11px]">
                         <button
@@ -1444,7 +1521,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
                   }`}
                 >
-                  MCQ Questions ({mcqList.length})
+                  {currentModule.mcqSectionTitle || "Section 1: MCQs"} ({mcqList.length})
                 </button>
                 <button
                   type="button"
@@ -1455,16 +1532,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
                   }`}
                 >
-                  Coding Problems ({codingList.length})
+                  {currentModule.codingSectionTitle || "Section 2: Coding"} ({codingList.length})
                 </button>
               </div>
             ) : currentModule.type === "coding" ? (
               <div className="px-3.5 py-1.5 text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs">
-                Coding Problems ({codingList.length})
+                {currentModule.codingSectionTitle || "Coding Problems"} ({codingList.length})
               </div>
             ) : (
               <div className="px-3.5 py-1.5 text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs">
-                MCQ Questions ({mcqList.length})
+                {currentModule.mcqSectionTitle || "MCQ Questions"} ({mcqList.length})
               </div>
             )}
           </div>
@@ -1474,10 +1551,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Multiple Choice Questions ({mcqList.length})
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      {currentModule.mcqSectionTitle || "Section 1: MCQs"}
+                    </span>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Multiple Choice Questions ({mcqList.length})
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                     Type question statement, enter options, select radio for correct answer, and set marks.
                   </p>
                 </div>
@@ -1754,10 +1836,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 dark:border-zinc-800 pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Coding Problems ({codingList.length})
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      {currentModule.codingSectionTitle || "Section 2: Coding"}
+                    </span>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Coding Problems ({codingList.length})
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                     Add interactive algorithm challenges, starter code, and test cases.
                   </p>
                 </div>
@@ -2521,6 +2608,47 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   />
                 </div>
               </div>
+
+              {/* Custom Section Titles Configuration */}
+              <div className="p-3.5 bg-purple-50/60 dark:bg-purple-950/20 rounded-xl border border-purple-200/60 dark:border-purple-800/40 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                    Section Configuration (Custom Section Names)
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Set custom names for the sections in this module (e.g. &quot;Core Java MCQs&quot;, &quot;Algorithmic Challenges&quot;).
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {(fModType === "mixed" || fModType === "mcq") && (
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">
+                        MCQ Section Name
+                      </label>
+                      <Input
+                        placeholder="e.g. Section 1: MCQs"
+                        value={fModMcqSectionTitle}
+                        onChange={(e) => setFModMcqSectionTitle(e.target.value)}
+                        className="h-9 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg"
+                      />
+                    </div>
+                  )}
+                  {(fModType === "mixed" || fModType === "coding") && (
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">
+                        Coding Section Name
+                      </label>
+                      <Input
+                        placeholder="e.g. Section 2: Coding"
+                        value={fModCodingSectionTitle}
+                        onChange={(e) => setFModCodingSectionTitle(e.target.value)}
+                        className="h-9 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 px-6 py-4 bg-white dark:bg-[#18181B] border-t border-slate-200/80 dark:border-zinc-800 shrink-0">
@@ -2538,6 +2666,309 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 className="h-9 px-5 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-700 text-white cursor-pointer shadow-sm transition-all"
               >
                 {editingModule ? "Save Changes" : "Create Module"}
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ─── MODAL 4: VIEW QUESTIONS (WITH DIRECT EDIT & DELETE) ─────────── */}
+      {mounted && typeof document !== "undefined" && viewingQuestionsModule && currentMainModule && currentSubmodule && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+          <div className="fixed inset-0 cursor-pointer" onClick={() => setViewingQuestionsModule(null)} />
+          <div className="relative w-full max-w-3xl max-h-[90vh] bg-white dark:bg-[#0F172A] border border-slate-200/80 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10 animate-in zoom-in-95 duration-200 my-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4.5 bg-white dark:bg-[#18181B] border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-900/40 flex items-center justify-center text-blue-600 shrink-0 shadow-xs">
+                  <Eye className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
+                      Level 3 · Questions List
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                      Total: {(viewingQuestionsModule.mcqQuestions?.length || 0) + (viewingQuestionsModule.codingQuestions?.length || 0)} questions
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                    {viewingQuestionsModule.name || viewingQuestionsModule.title}
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingQuestionsModule(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Filter Tabs & Quick Actions */}
+            <div className="px-6 py-3 bg-slate-50/80 dark:bg-zinc-900/70 border-b border-slate-200/80 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setViewQuestionsFilter("all")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    viewQuestionsFilter === "all"
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 hover:text-slate-900"
+                  }`}
+                >
+                  All Questions ({(viewingQuestionsModule.mcqQuestions?.length || 0) + (viewingQuestionsModule.codingQuestions?.length || 0)})
+                </button>
+                {(viewingQuestionsModule.type === "mixed" || viewingQuestionsModule.type === "mcq") && (
+                  <button
+                    type="button"
+                    onClick={() => setViewQuestionsFilter("mcq")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      viewQuestionsFilter === "mcq"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 hover:text-slate-900"
+                    }`}
+                  >
+                    {viewingQuestionsModule.mcqSectionTitle || "Section 1: MCQs"} ({viewingQuestionsModule.mcqQuestions?.length || 0})
+                  </button>
+                )}
+                {(viewingQuestionsModule.type === "mixed" || viewingQuestionsModule.type === "coding") && (
+                  <button
+                    type="button"
+                    onClick={() => setViewQuestionsFilter("coding")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      viewQuestionsFilter === "coding"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 hover:text-slate-900"
+                    }`}
+                  >
+                    {viewingQuestionsModule.codingSectionTitle || "Section 2: Coding"} ({viewingQuestionsModule.codingQuestions?.length || 0})
+                  </button>
+                )}
+              </div>
+
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  const m = viewingQuestionsModule;
+                  setViewingQuestionsModule(null);
+                  handleOpenModuleEditor(m);
+                }}
+                className="h-8 px-3.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-xs gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add More Questions</span>
+              </Button>
+            </div>
+
+            {/* Questions Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* If no questions */}
+              {((viewingQuestionsModule.mcqQuestions?.length || 0) === 0 && (viewingQuestionsModule.codingQuestions?.length || 0) === 0) ? (
+                <div className="text-center py-12 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl p-6 space-y-3">
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                    No questions have been added to this module yet.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const m = viewingQuestionsModule;
+                      setViewingQuestionsModule(null);
+                      handleOpenModuleEditor(m);
+                    }}
+                    className="h-8.5 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                  >
+                    + Add First Question
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* MCQs Section */}
+                  {(viewQuestionsFilter === "all" || viewQuestionsFilter === "mcq") && (viewingQuestionsModule.mcqQuestions || []).length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between pb-1 border-b border-slate-200 dark:border-zinc-800">
+                        <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wide flex items-center gap-1.5">
+                          <Layers className="w-3.5 h-3.5 text-blue-600" />
+                          {viewingQuestionsModule.mcqSectionTitle || "Section 1: MCQs"} ({(viewingQuestionsModule.mcqQuestions || []).length})
+                        </span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {(viewingQuestionsModule.mcqQuestions || []).map((q, qIdx) => (
+                          <div
+                            key={q.id || qIdx}
+                            className="p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono text-xs font-bold text-slate-700 dark:text-zinc-300">
+                                  Q{qIdx + 1}.
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                  MCQ
+                                </span>
+                                <span className="text-xs text-slate-500 font-semibold">
+                                  {q.marks || 10} Marks
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditQuestionFromView(viewingQuestionsModule, "mcq", qIdx)}
+                                  className="h-7 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors"
+                                >
+                                  <Edit3 className="w-3 h-3 text-blue-600" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteQuestionFromView(viewingQuestionsModule, "mcq", qIdx, `MCQ Question #${qIdx + 1}`)}
+                                  className="h-7 px-3 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            <p className="text-xs font-medium text-slate-900 dark:text-white leading-relaxed">
+                              {q.questionText || "(No question statement provided)"}
+                            </p>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
+                              {q.options?.map((opt, oIdx) => (
+                                <div
+                                  key={opt.id || oIdx}
+                                  className={`p-2 rounded-lg border flex items-center justify-between gap-2 ${
+                                    opt.isCorrect
+                                      ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-medium"
+                                      : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400"
+                                  }`}
+                                >
+                                  <span className="truncate">{opt.text || `Option ${oIdx + 1}`}</span>
+                                  {opt.isCorrect && (
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded shrink-0">
+                                      Correct
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            {q.explanation && (
+                              <p className="text-[11px] text-slate-500 italic pt-1 border-t border-slate-200/50 dark:border-zinc-800/50">
+                                Explanation: {q.explanation}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Coding Problems Section */}
+                  {(viewQuestionsFilter === "all" || viewQuestionsFilter === "coding") && (viewingQuestionsModule.codingQuestions || []).length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between pb-1 border-b border-slate-200 dark:border-zinc-800">
+                        <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wide flex items-center gap-1.5">
+                          <Layers className="w-3.5 h-3.5 text-purple-600" />
+                          {viewingQuestionsModule.codingSectionTitle || "Section 2: Coding"} ({(viewingQuestionsModule.codingQuestions || []).length})
+                        </span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {(viewingQuestionsModule.codingQuestions || []).map((cp, cIdx) => {
+                          const tcCount = (cp.test_cases?.length || 0) + (cp.sample_test_cases?.length || 0) + (cp.hidden_test_cases?.length || 0);
+                          const diff = (cp.difficulty || "medium").toLowerCase();
+                          return (
+                            <div
+                              key={cp.id || cIdx}
+                              className="p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-mono text-xs font-bold text-slate-700 dark:text-zinc-300">
+                                    #{cp.problem_number || cIdx + 1}.
+                                  </span>
+                                  <strong className="text-xs font-bold text-slate-900 dark:text-white">
+                                    {cp.title || "Untitled Coding Problem"}
+                                  </strong>
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                      diff === "easy"
+                                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                                        : diff === "hard"
+                                        ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800"
+                                        : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                                    }`}
+                                  >
+                                    {cp.difficulty || "Medium"}
+                                  </span>
+                                  <span className="text-xs text-slate-500 font-semibold">
+                                    {cp.points || 100} Points
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditQuestionFromView(viewingQuestionsModule, "coding", cIdx)}
+                                    className="h-7 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors"
+                                  >
+                                    <Edit3 className="w-3 h-3 text-purple-600" />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteQuestionFromView(viewingQuestionsModule, "coding", cIdx, cp.title || `Coding Problem #${cIdx + 1}`)}
+                                    className="h-7 px-3 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              <p className="text-xs text-slate-600 dark:text-zinc-400 line-clamp-2">
+                                {cp.description || "Interactive algorithm challenge with automated test cases."}
+                              </p>
+
+                              <div className="flex items-center gap-4 text-[11px] text-slate-500 dark:text-zinc-400 pt-1 border-t border-slate-200/50 dark:border-zinc-800/50">
+                                <span>Time Limit: <strong>{cp.time_limit_ms || 2000}ms</strong></span>
+                                <span>Memory Limit: <strong>{cp.memory_limit_mb || 256}MB</strong></span>
+                                <span>Total Test Cases: <strong>{tcCount}</strong></span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-[#18181B] border-t border-slate-200/80 dark:border-zinc-800 shrink-0">
+              <Button
+                type="button"
+                onClick={() => {
+                  const m = viewingQuestionsModule;
+                  setViewingQuestionsModule(null);
+                  handleOpenModuleEditor(m);
+                }}
+                className="h-9 px-4 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Add / Manage Questions</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setViewingQuestionsModule(null)}
+                className="h-9 px-5 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 cursor-pointer"
+              >
+                Close
               </Button>
             </div>
           </div>
