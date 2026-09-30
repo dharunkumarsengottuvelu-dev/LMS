@@ -929,7 +929,7 @@ export function SqlProblemCreator({
                           <td className="p-2 text-center">
                             <Button
                               type="button"
-                              size="icon"
+                              size="sm"
                               variant="ghost"
                               onClick={() => {
                                 const next = [...tables];
@@ -938,9 +938,9 @@ export function SqlProblemCreator({
                                   setTables(next);
                                 }
                               }}
-                              className="h-6 w-6 text-red-500 hover:bg-red-50"
+                              className="h-6 px-2 text-[11px] font-semibold text-red-500 hover:bg-red-50"
                             >
-                              <Trash2 className="h-3 w-3" />
+                              Delete
                             </Button>
                           </td>
                         </tr>
@@ -1027,7 +1027,7 @@ export function SqlProblemCreator({
                             <td className="p-1.5 text-center">
                               <Button
                                 type="button"
-                                size="icon"
+                                size="sm"
                                 variant="ghost"
                                 onClick={() => {
                                   const next = [...tables];
@@ -1036,9 +1036,9 @@ export function SqlProblemCreator({
                                     setTables(next);
                                   }
                                 }}
-                                className="h-6 w-6 text-red-500 hover:bg-red-50"
+                                className="h-6 px-2 text-[11px] font-semibold text-red-500 hover:bg-red-50"
                               >
-                                <Trash2 className="h-3 w-3" />
+                                Delete
                               </Button>
                             </td>
                           </tr>
@@ -1211,12 +1211,12 @@ export function SqlProblemCreator({
 
                   <Button
                     type="button"
-                    size="icon"
+                    size="sm"
                     variant="ghost"
                     onClick={() => setTestCases((prev) => prev.filter((_, i) => i !== idx))}
-                    className="h-7 w-7 text-red-500 hover:bg-red-50"
+                    className="h-7 px-2 text-xs font-semibold text-red-500 hover:bg-red-50"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
                   </Button>
                 </div>
               </div>

@@ -1172,15 +1172,15 @@ export function AssessmentQuestionEditor({
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      size="icon"
+                                      size="sm"
                                       onClick={() => {
                                         updateCurrentQuestion({
                                           testCases: (currentQ?.testCases || []).filter((t) => t.id !== tc.id),
                                         });
                                       }}
-                                      className="h-6 w-6 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                      className="h-6 px-2 text-[11px] font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
                                     >
-                                      <Trash2 className="h-3 w-3" />
+                                      Delete
                                     </Button>
                                   </div>
                                   <div className="space-y-1">
@@ -1276,15 +1276,15 @@ export function AssessmentQuestionEditor({
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      size="icon"
+                                      size="sm"
                                       onClick={() => {
                                         updateCurrentQuestion({
                                           testCases: (currentQ?.testCases || []).filter((t) => t.id !== tc.id),
                                         });
                                       }}
-                                      className="h-6 w-6 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                      className="h-6 px-2 text-[11px] font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
                                     >
-                                      <Trash2 className="h-3 w-3" />
+                                      Delete
                                     </Button>
                                   </div>
                                   <div className="space-y-1">
@@ -1559,15 +1559,15 @@ export function AssessmentQuestionEditor({
                             <Button
                               type="button"
                               variant="ghost"
-                              size="icon"
+                              size="sm"
                               onClick={() => {
                                 if (!currentQ) return;
                                 const filtered = (currentQ.options || []).filter((_, oIdx) => oIdx !== idx);
                                 updateCurrentQuestion({ options: filtered });
                               }}
-                              className="h-8 w-8 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                              className="h-8 px-2.5 text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete
                             </Button>
                           )}
                         </div>

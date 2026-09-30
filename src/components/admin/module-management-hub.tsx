@@ -840,8 +840,8 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
                         <Users className="h-3.5 w-3.5" /> Assign
                       </Button>
                       <Button onClick={() => handleDeleteModule(m.id, m.title)}
-                        variant="ghost" size="icon" className="h-8 w-8 text-[#DC2626]">
-                        <Trash2 className="h-4 w-4" />
+                        variant="ghost" size="sm" className="h-8 px-2.5 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg">
+                        Delete
                       </Button>
                     </div>
                   </td>

@@ -750,11 +750,11 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
                         <Button
                           onClick={() => handleOpenEdit(cls)}
                           variant="outline"
-                          size="icon"
-                          className="h-8 w-8 text-[#D97706] border-[#D97706]/40 hover:bg-[#D97706]/10 rounded-xl cursor-pointer"
+                          size="sm"
+                          className="h-8 px-2.5 text-xs font-semibold text-[#D97706] border-[#D97706]/40 hover:bg-[#D97706]/10 rounded-xl cursor-pointer"
                           title="Edit Class Details"
                         >
-                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
                         </Button>
 
                         {/* Cancel Button */}
@@ -762,23 +762,23 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
                           <Button
                             onClick={() => handleCancelClass(cls.id, cls.title)}
                             variant="outline"
-                            size="icon"
-                            className="h-8 w-8 text-amber-600 border-amber-500/40 hover:bg-amber-50 rounded-xl cursor-pointer"
+                            size="sm"
+                            className="h-8 px-2.5 text-xs font-semibold text-amber-600 border-amber-500/40 hover:bg-amber-50 rounded-xl cursor-pointer"
                             title="Cancel Live Class"
                           >
-                            <Ban className="h-3.5 w-3.5" />
+                            Cancel
                           </Button>
                         )}
 
-                        {/* Delete Button (Red matching Delete button in Practice Tracks) */}
+                        {/* Delete Button */}
                         <Button
                           onClick={() => handleDeleteClass(cls.id, cls.title)}
                           variant="outline"
-                          size="icon"
-                          className="h-8 w-8 text-[#DC2626] border-[#DC2626]/40 hover:bg-[#DC2626]/10 rounded-xl cursor-pointer"
+                          size="sm"
+                          className="h-8 px-2.5 text-xs font-semibold text-[#DC2626] border-[#DC2626]/40 hover:bg-[#DC2626]/10 rounded-xl cursor-pointer"
                           title="Delete Live Class"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
                         </Button>
                       </div>
                     </div>

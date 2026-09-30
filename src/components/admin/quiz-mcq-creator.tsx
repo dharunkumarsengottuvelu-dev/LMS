@@ -397,10 +397,10 @@ export function QuizMcqCreator({ value, onChange }: QuizMcqCreatorProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeOption(qIndex, oIndex)}
-                          className="h-[42px] px-2.5 text-xs text-[#DC2626] hover:bg-[#DC2626]/10 rounded-xl"
+                          className="h-[42px] px-3 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-xl"
                           title="Remove Option"
                         >
-                          ✕
+                          Remove
                         </Button>
                       )}
                     </div>

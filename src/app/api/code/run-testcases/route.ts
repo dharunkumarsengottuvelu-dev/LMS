@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let testCases = test_cases;
+    let testCases = Array.isArray(test_cases) ? test_cases.filter((tc: any) => !tc.is_hidden) : null;
     let datasetName = body.dataset_name || "university";
     let problem: any = null;
 

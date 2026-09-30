@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,8 +10,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
 import { BulkUploadModal } from "@/components/admin/bulk-upload";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { CodingProblemsService } from "@/services/coding-problems.service";
+import { 
+  FolderPlus, 
+  Layers, 
+  BookOpen, 
+  X, 
+  Globe, 
+  Users, 
+  Check, 
+  AlertTriangle,
+  Search 
+} from "lucide-react";
 
 // ─── TYPES FOR STRICT 3-LEVEL HIERARCHY ──────────────────────────────
 export interface MCQOption {
@@ -112,6 +124,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [fMainOrder, setFMainOrder] = useState<number>(0);
   const [fMainIsCommon, setFMainIsCommon] = useState<boolean>(true);
   const [fMainBatches, setFMainBatches] = useState<string[]>([]);
+  const [fBatchSearch, setFBatchSearch] = useState<string>("");
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Form Fields: Submodule
   const [fSubName, setFSubName] = useState<string>("");
@@ -2003,244 +2021,321 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       )}
 
       {/* ─── MODAL 1: CREATE / EDIT MAIN MODULE ─────────────────────────── */}
-      {showMainModuleModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-stretch justify-end">
-          <div className="flex-1 cursor-pointer" onClick={() => setShowMainModuleModal(false)} />
-          <div className="w-full max-w-2xl h-full bg-[#F8FAFC] dark:bg-[#0F172A] flex flex-col shadow-2xl">
+      {mounted && typeof document !== "undefined" && showMainModuleModal && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 lg:p-8 overflow-y-auto animate-in fade-in duration-200">
+          <div className="fixed inset-0 cursor-pointer" onClick={() => setShowMainModuleModal(false)} />
+          <div className="relative w-full max-w-4xl max-h-[88vh] bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-200/80 dark:border-zinc-800 shadow-2xl flex flex-col overflow-hidden z-10 animate-in zoom-in-95 duration-200 my-auto">
 
             {/* ── Header bar ── */}
-            <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-[#18181B] border-b border-slate-200 dark:border-zinc-800 shrink-0">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#2563EB]">Level 1 · Main Module</span>
-                <h2 className="text-[15px] font-bold text-slate-900 dark:text-white mt-0.5">
-                  {editingMainModule ? "Edit Main Module" : "New Main Module"}
-                </h2>
+            <div className="flex items-center justify-between px-6 py-4.5 bg-white dark:bg-[#18181B] border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-900/40 flex items-center justify-center text-[#2563EB] shrink-0 shadow-xs">
+                  <FolderPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/70 text-[#2563EB] dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                      Level 1 · Main Module
+                    </span>
+                  </div>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1">
+                    {editingMainModule ? "Edit Main Module" : "New Main Module"}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Configure track metadata, status, and batch access rules.
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowMainModuleModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* ── Scrollable content: 2-Column MNC Layout ── */}
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-zinc-950/40">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                {/* ══ LEFT COLUMN: SECTION 1 ══ */}
+                <div className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+                  <div>
+                    <div className="pb-3 border-b border-slate-100 dark:border-zinc-800">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#2563EB]">Section 1</p>
+                      <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-100 mt-0.5">Basic Information</h3>
+                      <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Name, description and display ordering.</p>
+                    </div>
+
+                    <div className="space-y-3.5 mt-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                          Module Name <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          placeholder="e.g. Java Programming, System Design, Algorithms..."
+                          value={fMainName}
+                          onChange={(e) => setFMainName(e.target.value)}
+                          className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Description</label>
+                        <Textarea
+                          placeholder="Short description of this module..."
+                          value={fMainDesc}
+                          onChange={(e) => setFMainDesc(e.target.value)}
+                          className="text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl resize-none focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                          rows={4}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Status</label>
+                          <Select value={fMainStatus} onValueChange={(v: any) => setFMainStatus(v)}>
+                            <SelectTrigger className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Display Order</label>
+                          <Input
+                            type="number"
+                            value={fMainOrder}
+                            onChange={(e) => setFMainOrder(parseInt(e.target.value) || 0)}
+                            className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ══ RIGHT COLUMN: SECTION 2 ══ */}
+                <div className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 shadow-xs rounded-2xl p-5 space-y-4 flex flex-col">
+                  <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#2563EB]">Section 2</p>
+                      <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-100 mt-0.5">Batch Assignment</h3>
+                      <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Choose who can access this module.</p>
+                    </div>
+                    <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-slate-200 dark:border-zinc-700 shrink-0 ml-4">
+                      <button
+                        type="button"
+                        onClick={() => setFMainIsCommon(true)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${fMainIsCommon ? "bg-[#2563EB] text-white shadow-xs" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"}`}
+                      >
+                        Common
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFMainIsCommon(false)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${!fMainIsCommon ? "bg-[#2563EB] text-white shadow-xs" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"}`}
+                      >
+                        Batch Wise
+                        {!fMainIsCommon && fMainBatches.length > 0 && (
+                          <span className="ml-1 bg-white/25 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">{fMainBatches.length}</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {fMainIsCommon ? (
+                    <div className="flex-1 flex flex-col justify-center">
+                      <div className="flex items-start gap-3.5 p-4.5 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 text-xs text-blue-800 dark:text-blue-300">
+                        <Globe className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold text-[13px]">Universal Batch Access Active</p>
+                          <p className="text-[11px] text-blue-600 dark:text-blue-400/90 mt-1 leading-relaxed">
+                            This module will be automatically visible to <strong>all student batches</strong> across the institution. No individual batch assignment is required.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 flex-1 flex flex-col">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="relative flex-1">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          <Input
+                            placeholder="Filter batches..."
+                            value={fBatchSearch}
+                            onChange={(e) => setFBatchSearch(e.target.value)}
+                            className="h-8 pl-8 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button type="button" onClick={() => setFMainBatches(batches.map((b: any) => b.id))} className="text-[11px] font-semibold text-[#2563EB] hover:underline cursor-pointer">All</button>
+                          <span className="text-slate-300 dark:text-zinc-600">|</span>
+                          <button type="button" onClick={() => setFMainBatches([])} className="text-[11px] font-semibold text-slate-500 hover:underline cursor-pointer">Clear</button>
+                        </div>
+                      </div>
+
+                      {batches.length === 0 ? (
+                        <div className="text-center py-8 border border-dashed border-slate-200 dark:border-zinc-700 rounded-xl text-xs text-slate-500 dark:text-zinc-400">
+                          No batches found. Create batches in Batch Management first.
+                        </div>
+                      ) : (
+                        <div className="flex-1 max-h-[180px] overflow-y-auto space-y-1.5 pr-1">
+                          {batches
+                            .filter((b: any) => (b.name || b.batch_name || b.id || "").toLowerCase().includes(fBatchSearch.toLowerCase()))
+                            .map((batch: any) => {
+                              const isSelected = fMainBatches.includes(batch.id);
+                              return (
+                                <button
+                                  key={batch.id}
+                                  type="button"
+                                  onClick={() => setFMainBatches((prev) => prev.includes(batch.id) ? prev.filter((id) => id !== batch.id) : [...prev, batch.id])}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border text-xs transition-all cursor-pointer ${isSelected ? "bg-[#2563EB] text-white border-[#2563EB] font-semibold shadow-xs" : "bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-[#2563EB]/40 hover:bg-blue-50/40 font-medium"}`}
+                                >
+                                  <div className="flex items-center gap-2 truncate">
+                                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${isSelected ? "bg-white text-[#2563EB] border-white" : "border-slate-300 dark:border-zinc-600"}`}>
+                                      {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                    </div>
+                                    <span className="truncate">{batch.name || batch.batch_name || batch.id}</span>
+                                  </div>
+                                  <span className={`text-[10px] shrink-0 ml-2 ${isSelected ? "text-blue-100" : "text-slate-400"}`}>
+                                    {batch.studentCount != null ? `${batch.studentCount} students` : ""}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                        </div>
+                      )}
+
+                      {fMainBatches.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1 max-h-[50px] overflow-y-auto">
+                          {fMainBatches.map((bId) => {
+                            const b = batches.find((x: any) => x.id === bId);
+                            return (
+                              <span key={bId} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                {b?.name || bId}
+                                <button type="button" onClick={() => setFMainBatches((prev) => prev.filter((id) => id !== bId))} className="hover:text-blue-900 cursor-pointer">×</button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {fMainBatches.length === 0 && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">⚠ No batches selected — module will not be visible to students.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+
+            {/* ── Footer ── */}
+            <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-[#18181B] border-t border-slate-200/80 dark:border-zinc-800 shrink-0">
+              <div className="text-xs text-slate-500 dark:text-zinc-400 font-medium hidden sm:flex items-center gap-1.5">
+                {!fMainIsCommon ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    <span><strong>{fMainBatches.length}</strong> batch{fMainBatches.length === 1 ? "" : "es"} assigned</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold">Accessible to all student batches</span>
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-3 ml-auto">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowMainModuleModal(false)}
-                  className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
+                  className="h-9 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 cursor-pointer"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="button"
                   onClick={handleSaveMainModule}
-                  className="h-8 px-4 text-xs font-bold rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer shadow-xs"
+                  className="h-9 px-5 text-xs font-bold rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer shadow-sm transition-all"
                 >
-                  {editingMainModule ? "Save Changes" : "Create Module"}
+                  {editingMainModule ? "Save Changes" : "Create Main Module"}
                 </Button>
               </div>
             </div>
 
-            {/* ── Scrollable content ── */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-
-              {/* ══ SECTION 1 ══ */}
-              <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 shadow-xs rounded-2xl p-5 space-y-4">
-                <div className="pb-3 border-b border-slate-100 dark:border-zinc-800">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#2563EB]">Section 1</p>
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-100 mt-0.5">Basic Information</h3>
-                  <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Name, description and ordering.</p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
-                    Module Name <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    placeholder="e.g. Java Programming, System Design, Algorithms..."
-                    value={fMainName}
-                    onChange={(e) => setFMainName(e.target.value)}
-                    className="h-9 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Description</label>
-                  <Textarea
-                    placeholder="Short description of this module..."
-                    value={fMainDesc}
-                    onChange={(e) => setFMainDesc(e.target.value)}
-                    className="text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl resize-none"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Status</label>
-                    <Select value={fMainStatus} onValueChange={(v: any) => setFMainStatus(v)}>
-                      <SelectTrigger className="h-9 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Display Order</label>
-                    <Input
-                      type="number"
-                      value={fMainOrder}
-                      onChange={(e) => setFMainOrder(parseInt(e.target.value) || 0)}
-                      className="h-9 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* ══ SECTION 2 ══ */}
-              <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 shadow-xs rounded-2xl p-5 space-y-4">
-                <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#2563EB]">Section 2</p>
-                    <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-100 mt-0.5">Batch Assignment</h3>
-                    <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Choose who can access this module.</p>
-                  </div>
-                  <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-slate-200 dark:border-zinc-700 shrink-0 ml-4">
-                    <button
-                      type="button"
-                      onClick={() => setFMainIsCommon(true)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${fMainIsCommon ? "bg-[#2563EB] text-white shadow-xs" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"}`}
-                    >
-                      Common
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFMainIsCommon(false)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${!fMainIsCommon ? "bg-[#2563EB] text-white shadow-xs" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"}`}
-                    >
-                      Batch Wise
-                      {!fMainIsCommon && fMainBatches.length > 0 && (
-                        <span className="ml-1 bg-white/25 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">{fMainBatches.length}</span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {fMainIsCommon ? (
-                  <div className="px-4 py-3 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 text-xs text-blue-700 dark:text-blue-300 font-medium">
-                    This module will be visible to <strong>all student batches</strong> in the system.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Select batches that can access this module:</span>
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => setFMainBatches(batches.map((b: any) => b.id))} className="text-[11px] font-semibold text-[#2563EB] hover:underline cursor-pointer">Select All</button>
-                        <span className="text-slate-300 dark:text-zinc-600">|</span>
-                        <button type="button" onClick={() => setFMainBatches([])} className="text-[11px] font-semibold text-slate-500 hover:underline cursor-pointer">Clear</button>
-                      </div>
-                    </div>
-
-                    {batches.length === 0 ? (
-                      <div className="text-center py-6 border border-dashed border-slate-200 dark:border-zinc-700 rounded-xl text-xs text-slate-500 dark:text-zinc-400">
-                        No batches found. Create batches in Batch Management first.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
-                        {batches.map((batch: any) => {
-                          const isSelected = fMainBatches.includes(batch.id);
-                          return (
-                            <button
-                              key={batch.id}
-                              type="button"
-                              onClick={() => setFMainBatches((prev) => prev.includes(batch.id) ? prev.filter((id) => id !== batch.id) : [...prev, batch.id])}
-                              className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-xs transition-all cursor-pointer ${isSelected ? "bg-[#2563EB] text-white border-[#2563EB] font-semibold shadow-xs" : "bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-[#2563EB]/40 hover:bg-blue-50/40 font-medium"}`}
-                            >
-                              <span className="truncate">{batch.name || batch.batch_name || batch.id}</span>
-                              <span className={`text-[10px] shrink-0 ml-2 ${isSelected ? "text-blue-100" : "text-slate-400"}`}>
-                                {batch.studentCount != null ? `${batch.studentCount} students` : ""}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {fMainBatches.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {fMainBatches.map((bId) => {
-                          const b = batches.find((x: any) => x.id === bId);
-                          return (
-                            <span key={bId} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                              {b?.name || bId}
-                              <button type="button" onClick={() => setFMainBatches((prev) => prev.filter((id) => id !== bId))} className="hover:text-blue-900 cursor-pointer">×</button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {fMainBatches.length === 0 && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">⚠ No batches selected — module will not be visible to any students.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─── MODAL 2: CREATE / EDIT SUBMODULE ────────────────────────────── */}
-      {showSubmoduleModal && currentMainModule && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-xl p-6 max-w-lg w-full shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">LEVEL 2</span>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {editingSubmodule ? "Edit Submodule" : "Add Submodule"}
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Parent: {currentMainModule.name || currentMainModule.title}
-                </p>
+      {mounted && typeof document !== "undefined" && showSubmoduleModal && currentMainModule && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+          <div className="fixed inset-0 cursor-pointer" onClick={() => setShowSubmoduleModal(false)} />
+          <div className="relative w-full max-w-lg bg-white dark:bg-[#0F172A] border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-5 z-10 animate-in zoom-in-95 duration-200 my-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-900/40 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+                    Level 2 · Submodule
+                  </span>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                    {editingSubmodule ? "Edit Submodule" : "Add Submodule"}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Parent: {currentMainModule.name || currentMainModule.title}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowSubmoduleModal(false)}
-                className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Close"
               >
-                Close
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-zinc-300">
+            <div className="space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 dark:text-zinc-300">
                   Submodule Name <span className="text-red-500">*</span>
                 </label>
                 <Input
                   placeholder="e.g. Basics, Data Structures, OOP..."
                   value={fSubName}
                   onChange={(e) => setFSubName(e.target.value)}
-                  className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
+                  className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-indigo-500/20"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-zinc-300">Description</label>
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 dark:text-zinc-300">Description</label>
                 <Textarea
                   placeholder="Short description of this Submodule..."
                   value={fSubDesc}
                   onChange={(e) => setFSubDesc(e.target.value)}
-                  className="text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
-                  rows={2}
+                  className="text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl resize-none focus-visible:ring-2 focus-visible:ring-indigo-500/20"
+                  rows={3}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-zinc-300">Status</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700 dark:text-zinc-300">Status</label>
                   <Select value={fSubStatus} onValueChange={(v: any) => setFSubStatus(v)}>
-                    <SelectTrigger className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700">
+                    <SelectTrigger className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -2250,91 +2345,101 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   </Select>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-zinc-300">Display Order</label>
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700 dark:text-zinc-300">Display Order</label>
                   <Input
                     type="number"
                     value={fSubOrder}
                     onChange={(e) => setFSubOrder(parseInt(e.target.value) || 0)}
-                    className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
+                    className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-indigo-500/20"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-zinc-800">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-zinc-800">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setShowSubmoduleModal(false)}
-                className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
+                className="h-9 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 cursor-pointer"
               >
                 Cancel
               </Button>
               <Button
                 type="button"
                 onClick={handleSaveSubmodule}
-                className="h-8 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                className="h-9 px-5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-sm transition-all"
               >
                 {editingSubmodule ? "Save Changes" : "Create Submodule"}
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─── MODAL 3: CREATE / EDIT MODULE ──────────────────────────────── */}
-      {showModuleModal && currentMainModule && currentSubmodule && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-xl p-6 max-w-lg w-full shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600">LEVEL 3</span>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {editingModule ? "Edit Module" : "Add Module"}
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Submodule: {currentSubmodule.name || currentSubmodule.title}
-                </p>
+      {mounted && typeof document !== "undefined" && showModuleModal && currentMainModule && currentSubmodule && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+          <div className="fixed inset-0 cursor-pointer" onClick={() => setShowModuleModal(false)} />
+          <div className="relative w-full max-w-xl max-h-[88vh] bg-white dark:bg-[#0F172A] border border-slate-200/80 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10 animate-in zoom-in-95 duration-200 my-auto">
+            <div className="flex items-center justify-between px-6 py-4.5 bg-white dark:bg-[#18181B] border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200/60 dark:border-purple-900/40 flex items-center justify-center text-purple-600 shrink-0 shadow-xs">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/70 text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
+                    Level 3 · Practice Module
+                  </span>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                    {editingModule ? "Edit Module" : "Add Module"}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Submodule: {currentSubmodule.name || currentSubmodule.title}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowModuleModal(false)}
-                className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Close"
               >
-                Close
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-zinc-300">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs bg-slate-50/50 dark:bg-zinc-950/40">
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 dark:text-zinc-300">
                   Module Name <span className="text-red-500">*</span>
                 </label>
                 <Input
                   placeholder="e.g. Variables & Data Types, Binary Search..."
                   value={fModName}
                   onChange={(e) => setFModName(e.target.value)}
-                  className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
+                  className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-purple-500/20"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-zinc-300">Description</label>
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 dark:text-zinc-300">Description</label>
                 <Textarea
                   placeholder="Short description of this Module..."
                   value={fModDesc}
                   onChange={(e) => setFModDesc(e.target.value)}
-                  className="text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
-                  rows={2}
+                  className="text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl resize-none focus-visible:ring-2 focus-visible:ring-purple-500/20"
+                  rows={3}
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-zinc-300">Type</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700 dark:text-zinc-300">Type</label>
                   <Select value={fModType} onValueChange={(v: any) => setFModType(v)}>
-                    <SelectTrigger className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700">
+                    <SelectTrigger className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -2345,13 +2450,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   </Select>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="font-bold text-slate-700 dark:text-zinc-300">Duration (m)</label>
+                    <label className="font-semibold text-slate-700 dark:text-zinc-300">Duration (m)</label>
                     <button
                       type="button"
                       onClick={() => setFModDurationEnabled(!fModDurationEnabled)}
-                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border cursor-pointer transition-colors ${
                         fModDurationEnabled
                           ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
                           : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
@@ -2365,14 +2470,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       type="number"
                       value={fModDuration}
                       onChange={(e) => setFModDuration(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
+                      className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-purple-500/20"
                       placeholder="e.g. 60"
                       min={1}
                     />
                   ) : (
                     <div
                       onClick={() => setFModDurationEnabled(true)}
-                      className="h-8.5 px-2.5 flex items-center justify-between bg-slate-100 dark:bg-zinc-800/80 rounded-md border border-dashed border-slate-200 dark:border-zinc-700 text-[11px] text-slate-500 dark:text-zinc-400 font-semibold cursor-pointer hover:border-blue-400"
+                      className="h-9.5 px-3 flex items-center justify-between bg-slate-100 dark:bg-zinc-800/80 rounded-xl border border-dashed border-slate-200 dark:border-zinc-700 text-[11px] text-slate-500 dark:text-zinc-400 font-semibold cursor-pointer hover:border-purple-400 transition-colors"
                       title="Click to turn duration ON"
                     >
                       <span>No Time Limit</span>
@@ -2381,22 +2486,22 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   )}
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-zinc-300">Total Marks</label>
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700 dark:text-zinc-300">Total Marks</label>
                   <Input
                     type="number"
                     value={fModMarks}
                     onChange={(e) => setFModMarks(parseInt(e.target.value) || 100)}
-                    className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
+                    className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-purple-500/20"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-zinc-300">Status</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700 dark:text-zinc-300">Status</label>
                   <Select value={fModStatus} onValueChange={(v: any) => setFModStatus(v)}>
-                    <SelectTrigger className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700">
+                    <SelectTrigger className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -2406,71 +2511,79 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   </Select>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-zinc-300">Display Order</label>
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700 dark:text-zinc-300">Display Order</label>
                   <Input
                     type="number"
                     value={fModOrder}
                     onChange={(e) => setFModOrder(parseInt(e.target.value) || 0)}
-                    className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
+                    className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-purple-500/20"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-zinc-800">
+            <div className="flex items-center justify-end gap-3 px-6 py-4 bg-white dark:bg-[#18181B] border-t border-slate-200/80 dark:border-zinc-800 shrink-0">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setShowModuleModal(false)}
-                className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
+                className="h-9 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 cursor-pointer"
               >
                 Cancel
               </Button>
               <Button
                 type="button"
                 onClick={handleSaveModule}
-                className="h-8 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                className="h-9 px-5 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-700 text-white cursor-pointer shadow-sm transition-all"
               >
                 {editingModule ? "Save Changes" : "Create Module"}
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─── DELETE CONFIRMATION MODAL ────────────────────────────────────── */}
-      {itemToDelete && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-xl p-5 max-w-md w-full shadow-2xl space-y-4">
-            <div className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-red-600">CONFIRM DELETION</span>
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                Delete {itemToDelete.type === "coding" ? "Coding Problem" : "MCQ Question"}
-              </h4>
-              <p className="text-xs text-slate-500 dark:text-zinc-400">
-                Are you sure you want to delete <strong className="text-slate-800 dark:text-zinc-200">&quot;{itemToDelete.title}&quot;</strong> from this module? This action will immediately remove it.
-              </p>
+      {mounted && typeof document !== "undefined" && itemToDelete && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 cursor-pointer" onClick={() => setItemToDelete(null)} />
+          <div className="relative w-full max-w-md bg-white dark:bg-[#0F172A] border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-5 z-10 animate-in zoom-in-95 duration-200 my-auto">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200/60 dark:border-red-900/40 flex items-center justify-center text-red-600 shrink-0 shadow-xs">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-red-600">CONFIRM DELETION</span>
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                  Delete {itemToDelete.type === "coding" ? "Coding Problem" : "MCQ Question"}
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
+                  Are you sure you want to delete <strong className="text-slate-800 dark:text-zinc-200">&quot;{itemToDelete.title}&quot;</strong> from this module? This action cannot be undone.
+                </p>
+              </div>
             </div>
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-zinc-800">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setItemToDelete(null)}
-                className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
+                className="h-9 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 cursor-pointer"
               >
                 Cancel
               </Button>
               <Button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="h-8 px-4 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-2xs"
+                className="h-9 px-5 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-sm transition-all"
               >
-                Confirm Delete
+                Delete Question
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ─── BULK UPLOAD MODAL (FOR CODING CHALLENGES & MCQS) ───────────────── */}

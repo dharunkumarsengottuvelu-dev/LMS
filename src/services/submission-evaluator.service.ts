@@ -85,17 +85,16 @@ export class SubmissionEvaluatorService {
           }
         }
 
-        const shouldReveal =
-          (problem as any)?.reveal_hidden_testcases !== false &&
-          (input as any)?.reveal_hidden_testcases !== false;
+        const isHidden = Boolean(tc.is_hidden);
+        const shouldReveal = isHidden ? Boolean((problem as any)?.reveal_hidden_testcases === true) : true;
 
         return {
           test_case_id: tc.id,
           passed,
-          input: shouldReveal || !tc.is_hidden ? tc.input : undefined,
-          actual_output: shouldReveal || !tc.is_hidden ? trimmedActual : (passed ? "Match" : "Mismatch (Hidden Test Case)"),
-          expected_output: shouldReveal || !tc.is_hidden ? expectedOutput : "Hidden",
-          error: !passed ? (resError || "Output mismatch") : undefined,
+          input: shouldReveal ? tc.input : undefined,
+          actual_output: shouldReveal ? trimmedActual : (passed ? "Match" : "Mismatch (Hidden Test Case)"),
+          expected_output: shouldReveal ? expectedOutput : "Hidden",
+          error: !passed ? (isHidden && !shouldReveal ? "Test case failed" : (resError || "Output mismatch")) : undefined,
           time_seconds: executionTime,
           memory_kb: 16000,
         };
