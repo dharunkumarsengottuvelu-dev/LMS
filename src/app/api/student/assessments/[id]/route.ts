@@ -98,7 +98,18 @@ export async function GET(
       }
 
       const subModules = meta.subModules || t.sub_modules || [];
-      const sm = subModules.find((s: any) => s.id === id);
+      let sm = subModules.find((s: any) => s.id === id);
+      if (!sm) {
+        for (const s of subModules) {
+          if (Array.isArray(s.modules)) {
+            const foundMod = s.modules.find((m: any) => m.id === id);
+            if (foundMod) {
+              sm = foundMod;
+              break;
+            }
+          }
+        }
+      }
 
       if (sm) {
         const assignedBatches =

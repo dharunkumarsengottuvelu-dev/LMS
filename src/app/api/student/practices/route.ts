@@ -7,7 +7,6 @@ import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/bat
 import {
   calculateModuleProgress,
   calculateTrackProgressPercentage,
-  calculateCompletedModules,
   calculateAnsweredQuestions,
 } from "@/lib/practice-progress";
 
@@ -33,7 +32,7 @@ export async function GET(request: NextRequest) {
       .select("*")
       .order("created_at", { ascending: false }) as any;
 
-    // 3. Map and Filter authorized tracks
+    // 3. Map and Filter authorized tracks (Main Modules)
     const allTracks = (dbTracks || []).map((t: any) => {
       let meta: any = {};
       if (t.tags && t.tags[0]) {
@@ -65,12 +64,17 @@ export async function GET(request: NextRequest) {
         assignedBatches.includes("common") ||
         assignedBatches.includes("all");
 
+      const displayOrder = typeof t.display_order === "number"
+        ? t.display_order
+        : (typeof meta.display_order === "number" ? meta.display_order : (typeof meta.displayOrder === "number" ? meta.displayOrder : 0));
+
       return {
         id: t.id,
+        name: t.title,
         title: t.title,
         category: t.category,
         difficulty: t.difficulty || "medium",
-        description: meta.description || t.description || "Practice Track",
+        description: t.description || meta.description || "",
         thumbnail: getTopicThumbnail(t.title, t.category, meta.thumbnail || t.thumbnail),
         assigned_by_name: meta.assignedByName || t.assigned_by_name || t.assignedByName || "Admin",
         assigned_batches: assignedBatches,
@@ -78,15 +82,20 @@ export async function GET(request: NextRequest) {
         sub_modules: meta.subModules || t.sub_modules || t.subModules || [],
         is_common: isCommon,
         status: t.status || meta.status || "published",
+        display_order: displayOrder,
         created_at: t.created_at,
       };
     });
 
+    // Student rule: Only active/published records matching student batch
     const authorizedTracks = allTracks.filter((track: any) =>
-      track.status !== "draft" && isContentVisibleToStudent(track, batchContext)
+      track.status !== "draft" && track.status !== "inactive" && isContentVisibleToStudent(track, batchContext)
     );
 
-    // 4. Calculate student progress for authorized tracks across all student identifiers
+    // Sort Main Modules by display_order
+    authorizedTracks.sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+
+    // 4. Calculate student progress for authorized tracks
     const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
 
     const { data: submissions } = await adminClient
@@ -111,89 +120,136 @@ export async function GET(request: NextRequest) {
       attemptsMap.set(att.assessment_id, att);
     });
 
-    // 5. Map tracks with real question-weighted module counts and overall progress strictly from Database
+    // 5. Structure the dynamic 3-level hierarchy: Main Module -> Submodule -> Module
     const mappedTracks = authorizedTracks.map((track: any) => {
       let totalQuestionsAcrossTrack = 0;
       let completedQuestionsAcrossTrack = 0;
+      let totalModulesInTrack = 0;
+      let completedModulesInTrack = 0;
 
-      const subModules = (track.sub_modules || track.subModules || []).map((sm: any) => {
-        const directMcqs = sm.mcqQuestions?.length || sm.mcqs?.length || 0;
-        const directCoding = sm.codingQuestions?.length || sm.codingProblems?.length || 0;
-        const sectionMcqs = sm.sections?.flatMap((s: any) => s.mcqQuestions || []).length || 0;
-        const sectionCoding = sm.sections?.flatMap((s: any) => s.codingQuestions || []).length || 0;
-        const mcqsCount = Math.max(directMcqs, sectionMcqs);
-        const codingCount = Math.max(
-          directCoding,
-          sectionCoding,
-          (sm.type === "coding" || sm.problemDescription) && (mcqsCount + directCoding + sectionCoding === 0) ? 1 : 0
-        );
-        let qCount = mcqsCount + codingCount;
-        if (qCount === 0) {
-          qCount = sm.questionCount || sm.question_count || sm.questions?.length || 1;
-        }
+      const rawSubmodules: any[] = Array.isArray(track.sub_modules) ? track.sub_modules : [];
 
-        const attempt = attemptsMap.get(sm.id);
-        const isAttemptCompleted = Boolean(
-          attempt && (attempt.status === "submitted" || attempt.status === "auto_submitted" || attempt.status === "passed")
-        );
-        const codingProblemsList = sm.codingQuestions || sm.codingProblems || [];
-        const solvedProblemsCount = codingProblemsList.filter((p: any) => completedProblemIds.has(p.id)).length;
-
-        let answeredInAttempt = 0;
-        if (attempt && attempt.answers && typeof attempt.answers === "object") {
-          answeredInAttempt = calculateAnsweredQuestions(attempt.answers, qCount);
-        }
-        if (solvedProblemsCount > 0) {
-          answeredInAttempt = Math.max(answeredInAttempt, solvedProblemsCount);
-        }
-
-        let completedQuestionsInModule = 0;
-        let isCompleted = false;
-        let status: "not_started" | "in_progress" | "completed" = "not_started";
-
-        if (isAttemptCompleted) {
-          completedQuestionsInModule = Math.min(qCount, answeredInAttempt);
-          if (completedQuestionsInModule >= qCount && qCount > 0) {
-            isCompleted = true;
-            status = "completed";
-          } else {
-            status = completedQuestionsInModule > 0 ? "in_progress" : "not_started";
+      // Filter only active submodules (Level 2)
+      const activeSubmodules = rawSubmodules
+        .filter((sm: any) => sm.status !== "inactive")
+        .sort((a: any, b: any) => (a.display_order ?? a.displayOrder ?? 0) - (b.display_order ?? b.displayOrder ?? 0))
+        .map((sm: any) => {
+          let rawModules: any[] = [];
+          if (Array.isArray(sm.modules) && sm.modules.length > 0) {
+            rawModules = sm.modules;
+          } else if (
+            (Array.isArray(sm.mcqQuestions) && sm.mcqQuestions.length > 0) ||
+            (Array.isArray(sm.codingQuestions) && sm.codingQuestions.length > 0) ||
+            sm.type
+          ) {
+            rawModules = [
+              {
+                id: sm.id,
+                submodule_id: sm.id,
+                name: sm.name || sm.title,
+                title: sm.name || sm.title,
+                description: sm.description || "",
+                status: sm.status || "active",
+                display_order: 0,
+                type: sm.type || "mixed",
+                durationMinutes: typeof sm.durationMinutes === "number" ? sm.durationMinutes : 60,
+                totalMarks: sm.totalMarks || 100,
+                questionCount: sm.questionCount || 0,
+                mcqQuestions: sm.mcqQuestions || [],
+                codingQuestions: sm.codingQuestions || [],
+              },
+            ];
           }
-        } else if (solvedProblemsCount > 0) {
-          completedQuestionsInModule = Math.min(qCount, solvedProblemsCount);
-          if (completedQuestionsInModule >= qCount && qCount > 0) {
-            isCompleted = true;
-            status = "completed";
-          } else {
-            status = "in_progress";
-          }
-        } else if (sm.problemId && completedProblemIds.has(sm.problemId)) {
-          isCompleted = true;
-          completedQuestionsInModule = qCount;
-          status = "completed";
-        }
 
-        totalQuestionsAcrossTrack += qCount;
-        completedQuestionsAcrossTrack += completedQuestionsInModule;
+          // Filter only active modules (Level 3)
+          const activeModules = rawModules
+            .filter((m: any) => m.status !== "inactive")
+            .sort((a: any, b: any) => (a.display_order ?? a.displayOrder ?? 0) - (b.display_order ?? b.displayOrder ?? 0))
+            .map((m: any) => {
+              const directMcqs = m.mcqQuestions?.length || m.mcqs?.length || 0;
+              const directCoding = m.codingQuestions?.length || m.codingProblems?.length || 0;
+              let qCount = directMcqs + directCoding;
+              if (qCount === 0) {
+                qCount = m.questionCount || m.question_count || 1;
+              }
 
-        const modulePercentage = calculateModuleProgress(completedQuestionsInModule, qCount);
+              const attempt = attemptsMap.get(m.id);
+              const isAttemptCompleted = Boolean(
+                attempt && (attempt.status === "submitted" || attempt.status === "auto_submitted" || attempt.status === "passed")
+              );
+              const codingProblemsList = m.codingQuestions || m.codingProblems || [];
+              const solvedProblemsCount = codingProblemsList.filter((p: any) => completedProblemIds.has(p.id)).length;
 
-        return {
-          id: sm.id,
-          title: sm.title,
-          type: sm.type || "coding",
-          durationMinutes: typeof sm.durationMinutes === "number" ? sm.durationMinutes : (typeof sm.duration_minutes === "number" ? sm.duration_minutes : 0),
-          totalMarks: sm.totalMarks || sm.total_marks || 100,
-          questionCount: qCount,
-          totalQuestions: qCount,
-          completedQuestions: completedQuestionsInModule,
-          percentage: modulePercentage,
-          status,
-        };
-      });
+              let answeredInAttempt = 0;
+              if (attempt && attempt.answers && typeof attempt.answers === "object") {
+                answeredInAttempt = calculateAnsweredQuestions(attempt.answers, qCount);
+              }
+              if (solvedProblemsCount > 0) {
+                answeredInAttempt = Math.max(answeredInAttempt, solvedProblemsCount);
+              }
 
-      const totalSubModules = subModules.length;
-      const completedSubModules = calculateCompletedModules(subModules);
+              let completedQuestionsInModule = 0;
+              let isCompleted = false;
+              let modStatus: "not_started" | "in_progress" | "completed" = "not_started";
+
+              if (isAttemptCompleted) {
+                completedQuestionsInModule = Math.min(qCount, answeredInAttempt);
+                if (completedQuestionsInModule >= qCount && qCount > 0) {
+                  isCompleted = true;
+                  modStatus = "completed";
+                } else {
+                  modStatus = completedQuestionsInModule > 0 ? "in_progress" : "not_started";
+                }
+              } else if (solvedProblemsCount > 0) {
+                completedQuestionsInModule = Math.min(qCount, solvedProblemsCount);
+                if (completedQuestionsInModule >= qCount && qCount > 0) {
+                  isCompleted = true;
+                  modStatus = "completed";
+                } else {
+                  modStatus = "in_progress";
+                }
+              }
+
+              totalQuestionsAcrossTrack += qCount;
+              completedQuestionsAcrossTrack += completedQuestionsInModule;
+              totalModulesInTrack += 1;
+              if (isCompleted) {
+                completedModulesInTrack += 1;
+              }
+
+              const modulePercentage = calculateModuleProgress(completedQuestionsInModule, qCount);
+
+              return {
+                id: m.id,
+                submodule_id: sm.id,
+                main_module_id: track.id,
+                name: m.name || m.title || "Module",
+                title: m.name || m.title || "Module",
+                description: m.description || "",
+                type: m.type || "mixed",
+                durationMinutes: typeof m.durationMinutes === "number" ? m.durationMinutes : 60,
+                totalMarks: m.totalMarks || 100,
+                questionCount: qCount,
+                completedQuestions: completedQuestionsInModule,
+                percentage: modulePercentage,
+                status: modStatus,
+                display_order: m.display_order ?? m.displayOrder ?? 0,
+              };
+            });
+
+          return {
+            id: sm.id,
+            main_module_id: track.id,
+            name: sm.name || sm.title || "Submodule",
+            title: sm.name || sm.title || "Submodule",
+            description: sm.description || "",
+            status: sm.status || "active",
+            display_order: sm.display_order ?? sm.displayOrder ?? 0,
+            modules: activeModules,
+            moduleCount: activeModules.length,
+          };
+        });
+
       const progressPercentage = calculateTrackProgressPercentage(
         completedQuestionsAcrossTrack,
         totalQuestionsAcrossTrack
@@ -201,40 +257,32 @@ export async function GET(request: NextRequest) {
 
       return {
         id: track.id,
+        name: track.name || track.title,
         title: track.title,
-        category: track.category || "General",
-        description: track.description || "Practice Track",
-        thumbnail: track.thumbnail || "",
-        assignedByName: track.assigned_by_name || track.assignedByName || "Admin",
-        subModules,
-        totalModules: totalSubModules,
+        category: track.category,
+        difficulty: track.difficulty,
+        description: track.description,
+        thumbnail: track.thumbnail,
+        assignedByName: track.assigned_by_name,
+        assignedBy: "Admin",
+        submodules: activeSubmodules,
+        subModules: activeSubmodules,
+        totalSubmodules: activeSubmodules.length,
+        totalModules: totalModulesInTrack,
+        completedModules: completedModulesInTrack,
         totalProblems: totalQuestionsAcrossTrack,
-        totalQuestions: totalQuestionsAcrossTrack,
-        completedProblems: completedQuestionsAcrossTrack,
-        completedQuestions: completedQuestionsAcrossTrack,
-        completedModules: completedSubModules,
         progressPercentage,
+        display_order: track.display_order ?? 0,
+        createdAt: track.created_at,
       };
     });
 
-    // Deduplicate tracks by title & id
-    const seenTrackKeys = new Set<string>();
-    const uniqueTracks = mappedTracks.filter((t: any) => {
-      const key = `${t.title}`.trim().toLowerCase();
-      if (seenTrackKeys.has(key)) return false;
-      seenTrackKeys.add(key);
-      return true;
+    return NextResponse.json({
+      tracks: mappedTracks,
+      count: mappedTracks.length,
     });
-
-    return NextResponse.json({ tracks: uniqueTracks }, { status: 200 });
-  } catch (error: unknown) {
-    console.error("GET /api/student/practices Error:", error);
-    return NextResponse.json(
-      {
-        error: getErrorMessage(error),
-        tracks: [],
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("GET /api/student/practices error:", error);
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
