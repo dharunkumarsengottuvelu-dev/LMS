@@ -4,6 +4,24 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
 
+function toDeterministicUUID(str: string): string {
+  if (!str) return "00000000-0000-0000-0000-000000000000";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
+    return str;
+  }
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex1 = Math.abs(hash).toString(16).padStart(8, "0");
+  const hex2 = Math.abs((hash * 31) | 0).toString(16).padStart(8, "0");
+  const hex3 = Math.abs((hash * 57) | 0).toString(16).padStart(8, "0");
+  const hex4 = Math.abs((hash * 93) | 0).toString(16).padStart(8, "0");
+  const full = (hex1 + hex2 + hex3 + hex4).slice(0, 32);
+  return `${full.slice(0, 8)}-${full.slice(8, 12)}-4${full.slice(13, 16)}-a${full.slice(17, 20)}-${full.slice(20, 32)}`;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -23,6 +41,27 @@ export async function GET(
 
     // 1. Resolve student batch context
     const batchContext = await getStudentBatchAccess(adminClient, user);
+
+    // Query attempt for this student from DB directly
+    const assessmentUUID = toDeterministicUUID(id);
+    const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
+    const { data: latestAttempt } = await adminClient
+      .from("assessment_attempts")
+      .select("*")
+      .eq("assessment_id", assessmentUUID)
+      .or(studentFilter)
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle() as any;
+
+    const formattedAttempt = latestAttempt ? {
+      score: latestAttempt.score ?? 0,
+      bestScore: latestAttempt.score ?? 0,
+      totalMarks: latestAttempt.total_marks ?? 100,
+      attemptsCount: 1,
+      submittedAt: latestAttempt.submitted_at || new Date().toISOString(),
+      answers: latestAttempt.answers || {},
+    } : null;
 
     // 2. Fetch assessment from database
     const { data: assessment, error } = await adminClient
@@ -81,6 +120,7 @@ export async function GET(
           isCommon,
           assignedBatches,
         },
+        attempt: formattedAttempt,
       });
     }
 
@@ -163,6 +203,7 @@ export async function GET(
             isCommon,
             assignedBatches,
           },
+          attempt: formattedAttempt,
         });
       }
     }
@@ -203,24 +244,6 @@ export async function POST(
 
     const profileId = profile?.id || user.id;
     const studentUserId = user.id;
-
-function toDeterministicUUID(str: string): string {
-  if (!str) return "00000000-0000-0000-0000-000000000000";
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
-    return str;
-  }
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  const hex1 = Math.abs(hash).toString(16).padStart(8, "0");
-  const hex2 = Math.abs((hash * 31) | 0).toString(16).padStart(8, "0");
-  const hex3 = Math.abs((hash * 57) | 0).toString(16).padStart(8, "0");
-  const hex4 = Math.abs((hash * 93) | 0).toString(16).padStart(8, "0");
-  const full = (hex1 + hex2 + hex3 + hex4).slice(0, 32);
-  return `${full.slice(0, 8)}-${full.slice(8, 12)}-4${full.slice(13, 16)}-a${full.slice(17, 20)}-${full.slice(20, 32)}`;
-}
 
     const assessmentUUID = toDeterministicUUID(id);
 

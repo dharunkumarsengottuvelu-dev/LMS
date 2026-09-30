@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { createClient } from "@/lib/supabase/client";
 
 interface PracticeMainModule {
   id: string;
@@ -47,9 +48,25 @@ export default function StudentPracticesPage() {
 
     loadTracks();
 
+    // Supabase Realtime subscription for live track updates from database
+    const supabase = createClient();
+    const channel = supabase
+      .channel("student_practice_tracks_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "practice_tracks" },
+        () => {
+          loadTracks();
+        }
+      )
+      .subscribe();
+
     const handleFocus = () => loadTracks();
     window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("focus", handleFocus);
+    };
   }, []);
 
   const filteredTracks = tracks.filter((track) => {
@@ -165,9 +182,9 @@ export default function StudentPracticesPage() {
                     <Button
                       type="button"
                       onClick={() => router.push(`/student/practices/${track.id}`)}
-                      className="w-full h-8.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                      className="w-full h-8.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                     >
-                      [ Explore Main Module &gt; ]
+                      Explore Main Module
                     </Button>
                   </CardFooter>
                 </Card>

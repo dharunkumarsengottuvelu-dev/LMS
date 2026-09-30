@@ -33,6 +33,7 @@ interface ParsedRowResult {
 }
 
 export function BulkUploadModal(props: BulkUploadProps) {
+  if (!props.isOpen) return null;
   return <BulkUploadComponent {...props} inline={props.inline ?? false} />;
 }
 
@@ -82,6 +83,60 @@ export function BulkUploadComponent({
       document.body.style.overflow = prevOverflow;
     };
   }, [isOpen, inline]);
+
+  // ─── 3.5. GROUPED CONTAINERS COMPUTATION (FOR 1 PARENT -> MANY CHILDREN) ────
+  const groupedModules = useMemo(() => {
+    if (!config.groupByField) return [];
+    const groupKeyName = config.groupByField;
+    const map = new Map<
+      string,
+      {
+        groupKey: string;
+        validRows: ParsedRowResult[];
+        allRows: ParsedRowResult[];
+        duplicateTitles: string[];
+      }
+    >();
+
+    parsedRows.forEach((r) => {
+      const rawVal =
+        r.rawRow.sectionName ??
+        r.rawRow.subModuleName ??
+        r.rawRow[groupKeyName] ??
+        r.rawRow.moduleName;
+      const key = String(rawVal ?? "").trim() || "General Section";
+      if (!map.has(key)) {
+        map.set(key, { groupKey: key, validRows: [], allRows: [], duplicateTitles: [] });
+      }
+      const entry = map.get(key)!;
+      entry.allRows.push(r);
+      if (r.isValid) {
+        entry.validRows.push(r);
+      }
+    });
+
+    map.forEach((entry) => {
+      const seenTitles = new Set<string>();
+      const dupes = new Set<string>();
+      entry.allRows.forEach((r) => {
+        const title = String(r.rawRow.title || "").trim().toLowerCase();
+        if (title) {
+          if (seenTitles.has(title)) {
+            dupes.add(String(r.rawRow.title).trim());
+          } else {
+            seenTitles.add(title);
+          }
+        }
+      });
+      entry.duplicateTitles = Array.from(dupes);
+    });
+
+    return Array.from(map.values());
+  }, [parsedRows, config.groupByField]);
+
+  const totalDuplicatesCount = useMemo(() => {
+    return groupedModules.reduce((acc, g) => acc + g.duplicateTitles.length, 0);
+  }, [groupedModules]);
 
   const resetState = () => {
     setCurrentStep("upload");
@@ -386,60 +441,6 @@ export function BulkUploadComponent({
       });
     }
   };
-
-  // ─── 3.5. GROUPED CONTAINERS COMPUTATION (FOR 1 PARENT -> MANY CHILDREN) ────
-  const groupedModules = useMemo(() => {
-    if (!config.groupByField) return [];
-    const groupKeyName = config.groupByField;
-    const map = new Map<
-      string,
-      {
-        groupKey: string;
-        validRows: ParsedRowResult[];
-        allRows: ParsedRowResult[];
-        duplicateTitles: string[];
-      }
-    >();
-
-    parsedRows.forEach((r) => {
-      const rawVal =
-        r.rawRow.sectionName ??
-        r.rawRow.subModuleName ??
-        r.rawRow[groupKeyName] ??
-        r.rawRow.moduleName;
-      const key = String(rawVal ?? "").trim() || "General Section";
-      if (!map.has(key)) {
-        map.set(key, { groupKey: key, validRows: [], allRows: [], duplicateTitles: [] });
-      }
-      const entry = map.get(key)!;
-      entry.allRows.push(r);
-      if (r.isValid) {
-        entry.validRows.push(r);
-      }
-    });
-
-    map.forEach((entry) => {
-      const seenTitles = new Set<string>();
-      const dupes = new Set<string>();
-      entry.allRows.forEach((r) => {
-        const title = String(r.rawRow.title || "").trim().toLowerCase();
-        if (title) {
-          if (seenTitles.has(title)) {
-            dupes.add(String(r.rawRow.title).trim());
-          } else {
-            seenTitles.add(title);
-          }
-        }
-      });
-      entry.duplicateTitles = Array.from(dupes);
-    });
-
-    return Array.from(map.values());
-  }, [parsedRows, config.groupByField]);
-
-  const totalDuplicatesCount = useMemo(() => {
-    return groupedModules.reduce((acc, g) => acc + g.duplicateTitles.length, 0);
-  }, [groupedModules]);
 
   // ─── 4. FINAL IMPORT EXECUTION ──────────────────────────────────────────────
   const handleConfirmImport = (importOnlyValid: boolean = false) => {

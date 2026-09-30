@@ -250,8 +250,10 @@ export interface CodingProblemCreatorProps {
   initialComparisonMode?: any;
   initialProvideTables?: any;
   initialSqlQuestionMode?: any;
+  initialProblemNumber?: number | string;
   onCancel?: () => void;
   onSave?: (problem: any) => void;
+  onSaveAndNext?: (problem: any) => void;
   onChange?: (data: any) => void;
   hideHeader?: boolean;
   inline?: boolean;
@@ -270,8 +272,10 @@ export function CodingProblemCreator({
   initialDefaultLanguage,
   initialPublicTestCases,
   initialHiddenTestCases,
+  initialProblemNumber,
   onCancel,
   onSave,
+  onSaveAndNext,
   onChange,
 }: CodingProblemCreatorProps) {
   const existing = useMemo(() => {
@@ -281,30 +285,73 @@ export function CodingProblemCreator({
   // View Mode: "edit_form" or "live_preview"
   const [activeView, setActiveView] = useState<"edit_form" | "live_preview">("edit_form");
 
-  // 1. BASIC PROBLEM INFORMATION
+  // 1. BASIC PROBLEM INFORMATION (Start from 1 and continue sequentially)
   const [problemNumber, setProblemNumber] = useState<string>(() => {
-    if ((existing as any).problem_number) return String((existing as any).problem_number);
-    // If id is a valid numeric string, use it; do NOT use 36-char UUIDs as human problem numbers
+    if (initialProblemNumber !== undefined && initialProblemNumber !== null && String(initialProblemNumber).trim()) {
+      return String(initialProblemNumber);
+    }
+    const rawNum = (existing as any).problem_number;
+    if (rawNum && !isNaN(Number(rawNum)) && Number(rawNum) > 0 && Number(rawNum) <= 10000) {
+      return String(rawNum);
+    }
+    // If id is a clean small integer (<= 10000) and not a UUID, use it
     if (existing.id && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(existing.id) && !isNaN(Number(existing.id))) {
-      return existing.id;
+      const num = Number(existing.id);
+      if (num > 0 && num <= 10000) return String(num);
     }
     const all = CodingProblemsService.getAllProblems();
-    const maxId = all.reduce((max, p) => Math.max(max, parseInt(p.id, 10) || 0), 0);
-    return String(maxId + 1);
+    const validNums = all
+      .map((p) => {
+        const pNum = (p as any).problem_number;
+        if (pNum && !isNaN(Number(pNum)) && Number(pNum) > 0 && Number(pNum) <= 10000) return Number(pNum);
+        if (p.id && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(p.id) && !isNaN(Number(p.id))) {
+          const n = Number(p.id);
+          if (n > 0 && n <= 10000) return n;
+        }
+        return 0;
+      })
+      .filter((n) => n > 0);
+
+    const maxId = validNums.length > 0 ? Math.max(...validNums) : all.length;
+    return String(Math.max(1, maxId + 1));
   });
 
   // Auto-sync problem number if creating a new problem and existing problem list loads
   useEffect(() => {
+    if (initialProblemNumber !== undefined && initialProblemNumber !== null && String(initialProblemNumber).trim()) {
+      setProblemNumber(String(initialProblemNumber));
+      return;
+    }
     const isUUID = Boolean(existing.id && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(existing.id));
     if (!existing.id || isUUID) {
       CodingProblemsService.fetchProblems().then((all) => {
         if (all && all.length > 0) {
-          const maxId = all.reduce((max, p) => Math.max(max, parseInt(p.id, 10) || 0), 0);
-          setProblemNumber((curr) => (!curr || curr === "1" || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(curr) ? String(maxId + 1) : curr));
+          const validNums = all
+            .map((p) => {
+              const pNum = (p as any).problem_number;
+              if (pNum && !isNaN(Number(pNum)) && Number(pNum) > 0 && Number(pNum) <= 10000) return Number(pNum);
+              if (p.id && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(p.id) && !isNaN(Number(p.id))) {
+                const n = Number(p.id);
+                if (n > 0 && n <= 10000) return n;
+              }
+              return 0;
+            })
+            .filter((n) => n > 0);
+
+          const maxId = validNums.length > 0 ? Math.max(...validNums) : all.length;
+          const nextSequential = String(Math.max(1, maxId + 1));
+          setProblemNumber((curr) => {
+            if (!curr || isNaN(Number(curr)) || Number(curr) > 10000 || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(curr)) {
+              return nextSequential;
+            }
+            return curr;
+          });
+        } else {
+          setProblemNumber((curr) => (!curr || Number(curr) > 10000 ? "1" : curr));
         }
       });
     }
-  }, [existing.id]);
+  }, [existing.id, initialProblemNumber]);
 
   const [title, setTitle] = useState<string>(existing.title || initialTitle || "");
   const [slug, setSlug] = useState<string>(existing.slug || "");
@@ -411,11 +458,22 @@ export function CodingProblemCreator({
     return null;
   }, [existing, initialAllowedLanguages, initialTemplates]);
 
-  const [languageMode, setLanguageMode] = useState<"all" | "single">(
-    initialSingleLang ? "single" : "all"
+  const initialMultiLangs = useMemo(() => {
+    const allowed = existing.allowed_languages || (existing as any).allowedLanguages || initialAllowedLanguages;
+    if (allowed && allowed.length > 1 && allowed.length < AVAILABLE_CODING_LANGUAGES.length) {
+      return allowed as string[];
+    }
+    return null;
+  }, [existing, initialAllowedLanguages]);
+
+  const [languageMode, setLanguageMode] = useState<"all" | "multi" | "single">(
+    initialSingleLang ? "single" : initialMultiLangs ? "multi" : "all"
   );
   const [selectedSingleLanguage, setSelectedSingleLanguage] = useState<string>(
     initialSingleLang || initialDefaultLanguage || (existing as any).default_language || "java"
+  );
+  const [selectedMultiLanguages, setSelectedMultiLanguages] = useState<string[]>(
+    initialMultiLangs || AVAILABLE_CODING_LANGUAGES.map((l) => l.id)
   );
 
   const [templates, setTemplates] = useState<Record<string, string>>(() => {
@@ -439,16 +497,35 @@ export function CodingProblemCreator({
   const [timeLimitMs, setTimeLimitMs] = useState<number>(existing.time_limit_ms || 2000);
   const [memoryLimitMb, setMemoryLimitMb] = useState<number>(existing.memory_limit_mb || 256);
 
-  const handleSelectLanguageMode = (mode: "all" | "single") => {
+  const handleSelectLanguageMode = (mode: "all" | "multi" | "single") => {
     setLanguageMode(mode);
     if (mode === "single") {
       setActiveCodeLang(selectedSingleLanguage);
+    } else if (mode === "multi") {
+      // Keep active lang if it's in the multi set, else switch to first selected
+      if (!selectedMultiLanguages.includes(activeCodeLang) && selectedMultiLanguages.length > 0) {
+        setActiveCodeLang(selectedMultiLanguages[0] || "python");
+      }
     }
   };
 
   const handleSelectSingleLanguage = (lang: string) => {
     setSelectedSingleLanguage(lang);
     setActiveCodeLang(lang);
+  };
+
+  const handleToggleMultiLanguage = (lang: string) => {
+    setSelectedMultiLanguages((prev) => {
+      if (prev.includes(lang)) {
+        // Don't allow deselecting the last one
+        if (prev.length <= 1) return prev;
+        const next = prev.filter((l) => l !== lang);
+        // If active code lang was deselected, switch to first available
+        if (activeCodeLang === lang) setActiveCodeLang(next[0] || "python");
+        return next;
+      }
+      return [...prev, lang];
+    });
   };
 
   // 7 & 8. TEST CASES (PUBLIC & HIDDEN)
@@ -510,11 +587,16 @@ export function CodingProblemCreator({
   React.useEffect(() => {
     if (onChange) {
       const isSingle = languageMode === "single";
+      const isMulti = languageMode === "multi";
       const finalAllowed = isSingle
         ? [selectedSingleLanguage]
+        : isMulti
+        ? selectedMultiLanguages
         : Object.keys(DEFAULT_STARTER_CODES);
       const finalTemplates = isSingle
         ? { [selectedSingleLanguage]: templates[selectedSingleLanguage] || DEFAULT_STARTER_CODES[selectedSingleLanguage] || "" }
+        : isMulti
+        ? Object.fromEntries(selectedMultiLanguages.map((l) => [l, templates[l] || DEFAULT_STARTER_CODES[l] || ""]))
         : templates;
 
       onChange({
@@ -545,6 +627,7 @@ export function CodingProblemCreator({
     testCases,
     languageMode,
     selectedSingleLanguage,
+    selectedMultiLanguages,
     onChange,
   ]);
 
@@ -650,7 +733,7 @@ export function CodingProblemCreator({
   };
 
   // Save / Publish Pipeline
-  const handleSave = async (saveStatus: "draft" | "published") => {
+  const handleSave = async (saveStatus: "draft" | "published", isNext: boolean = false) => {
     if (!title.trim()) {
       toast.error("Please provide a Problem Title.");
       return;
@@ -665,15 +748,21 @@ export function CodingProblemCreator({
     };
 
     const isSingle = languageMode === "single";
+    const isMulti = languageMode === "multi";
     const finalAllowed = isSingle
       ? [selectedSingleLanguage]
+      : isMulti
+      ? selectedMultiLanguages
       : Object.keys(DEFAULT_STARTER_CODES);
     const finalTemplates = isSingle
       ? { [selectedSingleLanguage]: templates[selectedSingleLanguage] || DEFAULT_STARTER_CODES[selectedSingleLanguage] || "" }
+      : isMulti
+      ? Object.fromEntries(selectedMultiLanguages.map((l) => [l, templates[l] || DEFAULT_STARTER_CODES[l] || ""]))
       : templates;
 
     const problemRecord: CodingProblem = {
       id: cleanNumber,
+      problem_number: !isNaN(Number(cleanNumber)) ? Number(cleanNumber) : undefined,
       title: title.trim(),
       slug: autoSlug,
       description: description.trim(),
@@ -709,18 +798,54 @@ export function CodingProblemCreator({
     };
 
     try {
-      await CodingProblemsService.saveProblem(problemRecord);
-      toast.success(
-        saveStatus === "published"
-          ? `Problem "${problemRecord.title}" published successfully.`
-          : `Problem draft saved.`
-      );
-      if (onSave) {
+      const saved = await CodingProblemsService.saveProblem(problemRecord);
+      if (isNext) {
+        toast.success(`Problem "${problemRecord.title}" saved. Ready for next question.`);
+
+        // ── Reset all form fields for the next blank question ──────────────
+        setTitle("");
+        setSlug("");
+        setDescription("");
+        setInputFormat("");
+        setOutputFormat("");
+        setConstraints("");
+        setExamples([]);
+        setSelectedTopics([]);
+        setFunctionSignature("");
+        setDriverCode("");
+        setEditorialOverview("");
+        setApproaches([]);
+        setTemplates(DEFAULT_STARTER_CODES);
+        setTestCases([
+          { id: `tc_${Date.now()}`, name: "Test Case 1", input: "", expected_output: "", is_hidden: false, weight: 10, is_enabled: true },
+        ]);
+        setProblemNumber((curr) => String((parseInt(curr, 10) || 0) + 1));
+
+        if (onSaveAndNext) {
+          onSaveAndNext(saved || problemRecord);
+        } else {
+          if (onSave) onSave(saved || problemRecord);
+        }
+      } else {
+        toast.success(
+          saveStatus === "published"
+            ? `Problem "${problemRecord.title}" published successfully.`
+            : `Problem draft saved.`
+        );
+        if (onSave) {
+          onSave(saved || problemRecord);
+        }
+      }
+    } catch (err: any) {
+      console.error("Save error:", err);
+      const errMsg = err?.response?.data?.error || err?.message || "Failed to save problem.";
+      toast.error(errMsg);
+      // Fallback: if inside module editor, still preserve question in local module state
+      if (isNext && onSaveAndNext) {
+        onSaveAndNext(problemRecord);
+      } else if (onSave) {
         onSave(problemRecord);
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to save problem.");
     }
   };
 
@@ -1605,7 +1730,7 @@ export function CodingProblemCreator({
             </p>
           </div>
 
-          {/* Language Availability Mode: All Languages vs Single Language */}
+          {/* Language Availability Mode: All / Multi / Single */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
             <button
               type="button"
@@ -1621,6 +1746,18 @@ export function CodingProblemCreator({
             </button>
             <button
               type="button"
+              onClick={() => handleSelectLanguageMode("multi")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                languageMode === "multi"
+                  ? "bg-white text-[#2563EB] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <span className="text-[11px]">⊞</span>
+              <span>Multi Language</span>
+            </button>
+            <button
+              type="button"
               onClick={() => handleSelectLanguageMode("single")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 languageMode === "single"
@@ -1629,30 +1766,25 @@ export function CodingProblemCreator({
               }`}
             >
               <Lock className="h-3.5 w-3.5" />
-              <span>Single Language Only</span>
+              <span>Single Language</span>
             </button>
           </div>
         </div>
 
-        {/* Mode Detail: Multi-Language Switcher vs Single Language Selector */}
-        {languageMode === "all" ? (
+        {/* Mode Detail panels */}
+        {languageMode === "all" && (
           <div className="p-3.5 bg-slate-50/80 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                 <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200">
-                  Multi-Language Mode Active
-                </span>
-                <span className="text-[11px] text-slate-500 dark:text-zinc-400 hidden sm:inline">
-                  — Select language tab to configure starter template
+                  All Languages Mode — All {AVAILABLE_CODING_LANGUAGES.length} Compilers Enabled
                 </span>
               </div>
               <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 self-start sm:self-auto">
-                17 Compilers Enabled
+                Select language tab to configure starter template
               </span>
             </div>
-
-            {/* MNC Corporate Clean Tab Strip (No Emojis / Playful Icons) */}
             <div className="flex flex-wrap items-center gap-1.5 p-1 bg-white dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800 rounded-lg">
               {AVAILABLE_CODING_LANGUAGES.map((item) => {
                 const isActive = activeCodeLang === item.id;
@@ -1673,7 +1805,121 @@ export function CodingProblemCreator({
               })}
             </div>
           </div>
-        ) : (
+        )}
+
+        {languageMode === "multi" && (
+          <div className="p-4 bg-slate-50/80 dark:bg-zinc-900/60 rounded-xl border border-blue-200 dark:border-blue-900/50 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-[#2563EB] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    Multi Language Selection
+                  </Badge>
+                  <span className="text-xs font-bold text-slate-800 dark:text-zinc-100">
+                    Choose Allowed Compilers:
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Students can submit using any of the selected languages. Click a language to toggle it on/off.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                <span className="text-[11px] font-semibold text-[#2563EB] dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                  {selectedMultiLanguages.length} / {AVAILABLE_CODING_LANGUAGES.length} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMultiLanguages(AVAILABLE_CODING_LANGUAGES.map((l) => l.id))}
+                  className="text-[11px] font-semibold text-[#2563EB] hover:underline cursor-pointer"
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const first = AVAILABLE_CODING_LANGUAGES[0]!.id;
+                    setSelectedMultiLanguages([first]);
+                    setActiveCodeLang(first);
+                  }}
+                  className="text-[11px] font-semibold text-slate-500 hover:underline cursor-pointer"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            {/* Multi-select language grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 pt-1 max-h-[260px] overflow-y-auto pr-1">
+              {AVAILABLE_CODING_LANGUAGES.map((item) => {
+                const isOn = selectedMultiLanguages.includes(item.id);
+                const isActive = activeCodeLang === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      handleToggleMultiLanguage(item.id);
+                      if (isOn && selectedMultiLanguages.length > 1) {
+                        if (activeCodeLang === item.id) {
+                          const next = selectedMultiLanguages.find((l) => l !== item.id);
+                          if (next) setActiveCodeLang(next);
+                        }
+                      } else if (!isOn) {
+                        setActiveCodeLang(item.id);
+                      }
+                    }}
+                    className={`relative flex items-center justify-between px-3 py-2 rounded-lg border text-xs transition-all cursor-pointer ${
+                      isOn
+                        ? isActive
+                          ? "bg-[#2563EB] text-white border-[#2563EB] font-semibold shadow-xs ring-2 ring-blue-300"
+                          : "bg-blue-50 dark:bg-blue-950/40 text-[#2563EB] dark:text-blue-300 border-blue-300 dark:border-blue-700 font-semibold"
+                        : "bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-400 dark:text-zinc-500 hover:border-slate-300 font-medium opacity-50"
+                    }`}
+                    title={isOn ? `Click to remove ${item.name}` : `Click to add ${item.name}`}
+                  >
+                    <span className="truncate">{item.name}</span>
+                    {isOn ? (
+                      <Check className="h-3.5 w-3.5 stroke-[2.5] shrink-0" />
+                    ) : (
+                      <span className="text-[10px] opacity-60">{item.category}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active lang tab strip for template editing */}
+            {selectedMultiLanguages.length > 0 && (
+              <div className="pt-2 border-t border-blue-100 dark:border-blue-900/40 space-y-1.5">
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400">
+                  Click to edit starter code for each enabled language:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedMultiLanguages.map((langId) => {
+                    const langInfo = AVAILABLE_CODING_LANGUAGES.find((l) => l.id === langId);
+                    const isActive = activeCodeLang === langId;
+                    return (
+                      <button
+                        key={langId}
+                        type="button"
+                        onClick={() => setActiveCodeLang(langId)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                          isActive
+                            ? "bg-[#2563EB] text-white font-semibold shadow-xs"
+                            : "bg-white dark:bg-zinc-800 border border-blue-200 dark:border-blue-800 text-[#2563EB] dark:text-blue-300 hover:bg-blue-50"
+                        }`}
+                      >
+                        {langInfo?.name || langId}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {languageMode === "single" && (
           <div className="p-4 bg-slate-50/80 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="space-y-0.5">
@@ -1696,8 +1942,6 @@ export function CodingProblemCreator({
                 </span>
               </div>
             </div>
-
-            {/* Language Selection Grid (MNC Corporate, No Emojis) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 pt-1 max-h-[220px] overflow-y-auto pr-1">
               {AVAILABLE_CODING_LANGUAGES.map((item) => {
                 const isSelected = selectedSingleLanguage === item.id;
@@ -2158,8 +2402,16 @@ export function CodingProblemCreator({
 
           <Button
             type="button"
-            onClick={() => handleSave("published")}
-            className="h-[42px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-sm"
+            onClick={() => handleSave("published", true)}
+            className="h-[42px] px-5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+          >
+            + Save &amp; Add Next Question
+          </Button>
+
+          <Button
+            type="button"
+            onClick={() => handleSave("published", false)}
+            className="h-[42px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-sm cursor-pointer"
           >
             Publish Problem
           </Button>

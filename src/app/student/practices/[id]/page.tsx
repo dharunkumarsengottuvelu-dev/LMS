@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { createClient } from "@/lib/supabase/client";
 
 interface StudentModule {
   id: string;
@@ -94,9 +95,33 @@ export default function StudentTrackDetailPage() {
 
   useEffect(() => {
     fetchTrackDetails();
+
+    // Supabase Realtime subscription for live track and attempt changes from database
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`student_track_${trackId}_realtime`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "practice_tracks" },
+        () => {
+          fetchTrackDetails();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "assessment_attempts" },
+        () => {
+          fetchTrackDetails();
+        }
+      )
+      .subscribe();
+
     const handleFocus = () => fetchTrackDetails();
     window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("focus", handleFocus);
+    };
   }, [trackId]);
 
   const handleStartModule = (mod: StudentModule) => {
@@ -120,7 +145,7 @@ export default function StudentTrackDetailPage() {
           className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
           onClick={() => router.push("/student/practices")}
         >
-          [ &lt; Back to Practice Tracks ]
+          Back to Practice Tracks
         </Button>
         <Card className="text-center py-12 bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-2xs">
           <CardContent className="space-y-3">
@@ -132,7 +157,7 @@ export default function StudentTrackDetailPage() {
               variant="outline"
               className="h-8 px-4 text-xs font-semibold rounded-lg cursor-pointer"
             >
-              [ Try Again ]
+              Try Again
             </Button>
           </CardContent>
         </Card>
@@ -155,7 +180,7 @@ export default function StudentTrackDetailPage() {
                 onClick={() => router.push("/student/practices")}
                 className="text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 cursor-pointer"
               >
-                [ &lt; Back to Practice Tracks ]
+                Back to Practice Tracks
               </button>
             </div>
 
@@ -286,7 +311,7 @@ export default function StudentTrackDetailPage() {
                                       : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700"
                                   }`}
                                 >
-                                  {isDone ? "[ COMPLETED ]" : inProg ? "[ IN PROGRESS ]" : "[ NOT STARTED ]"}
+                                  {isDone ? "Completed" : inProg ? "In Progress" : "Not Started"}
                                 </span>
                               </div>
 
@@ -308,7 +333,7 @@ export default function StudentTrackDetailPage() {
                             <Button
                               type="button"
                               onClick={() => handleStartModule(m)}
-                              className={`w-full h-8 text-xs font-bold rounded-lg cursor-pointer shadow-2xs ${
+                              className={`w-full h-8 text-xs font-semibold rounded-lg cursor-pointer shadow-2xs ${
                                 isDone
                                   ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                                   : inProg
@@ -317,10 +342,10 @@ export default function StudentTrackDetailPage() {
                               }`}
                             >
                               {isDone
-                                ? "[ Review Submission ]"
+                                ? "Review Submission"
                                 : inProg
-                                ? "[ Continue Practice ]"
-                                : "[ Start Practice ]"}
+                                ? "Continue Practice"
+                                : "Start Practice"}
                             </Button>
                           </div>
                         );

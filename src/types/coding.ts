@@ -167,6 +167,7 @@ export interface CodeTemplate {
 
 export interface CodingProblem {
   id: string;
+  problem_number?: number | string;
   title: string;
   slug: string;
   description: string;

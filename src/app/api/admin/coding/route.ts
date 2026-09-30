@@ -51,13 +51,14 @@ export async function GET() {
       const extra = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
       const sol = typeof p.solution_code === "object" && p.solution_code !== null ? p.solution_code : {};
       const dbTc = testCasesByProblem.get(p.id);
-      const sampleTc = Array.isArray(p.sample_test_cases) ? p.sample_test_cases : [];
-      const hiddenTc = Array.isArray(p.hidden_test_cases) ? p.hidden_test_cases : [];
+      const sampleTc = Array.isArray(extra.sample_test_cases) ? extra.sample_test_cases : [];
+      const hiddenTc = Array.isArray(extra.hidden_test_cases) ? extra.hidden_test_cases : [];
       const combinedTc = [...sampleTc, ...hiddenTc];
       const tcList = (dbTc && dbTc.length > 0) ? dbTc : (combinedTc.length > 0 ? combinedTc : (extra.test_cases || []));
 
       return {
         id: p.id,
+        problem_number: extra.problem_number ? Number(extra.problem_number) : (idx + 1),
         title: p.title,
         slug: p.slug,
         description: p.description,
@@ -149,6 +150,7 @@ export async function POST(request: NextRequest) {
         allow_submit: problem.allow_submit !== false,
         is_mandatory: !!problem.is_mandatory,
         acceptance_rate: problem.acceptance_rate || undefined,
+        problem_number: (problem as any).problem_number ? Number((problem as any).problem_number) : undefined,
         test_cases: problem.test_cases || [],
       };
 
@@ -176,8 +178,6 @@ export async function POST(request: NextRequest) {
               memory_limit_mb: problem.memory_limit_mb || 256,
               starter_code: starterCodePayload,
               solution_code: solutionCodePayload,
-              sample_test_cases: sampleTestCases,
-              hidden_test_cases: hiddenTestCases,
               status: problem.status || "published",
               updated_at: new Date().toISOString(),
             },
@@ -205,8 +205,6 @@ export async function POST(request: NextRequest) {
               memory_limit_mb: problem.memory_limit_mb || 256,
               starter_code: starterCodePayload,
               solution_code: solutionCodePayload,
-              sample_test_cases: sampleTestCases,
-              hidden_test_cases: hiddenTestCases,
               status: problem.status || "published",
             },
           ])

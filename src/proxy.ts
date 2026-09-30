@@ -212,10 +212,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 1. Auto-route OAuth callback only if code param is present on root or auth routes
+  // 1. Auto-route OAuth callback — MUST run before session/rate-limit checks.
+  //    Google redirects back to /login?code=xxx or /?code=xxx.
+  //    Always forward to /api/auth/callback so Supabase can exchange the code.
   const codeParam = request.nextUrl.searchParams.get("code");
-  const isAuthEntryPage = pathname === "/" || pathname === "/login" || pathname.startsWith("/auth/");
-  if (codeParam && isAuthEntryPage && !pathname.startsWith("/api/auth/callback")) {
+  if (codeParam && !pathname.startsWith("/api/auth/callback")) {
     const callbackUrl = new URL("/api/auth/callback", request.url);
     callbackUrl.searchParams.set("code", codeParam);
     const nextParam = request.nextUrl.searchParams.get("next");

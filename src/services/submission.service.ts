@@ -163,8 +163,25 @@ export class SubmissionService {
     if (typeof window !== "undefined") {
       try {
         this.submissionsMemoryStore = [submission, ...this.submissionsMemoryStore.filter((s) => s.id !== submission.id)];
-        localStorage.setItem(LOCAL_STORAGE_SUBMISSIONS_KEY, JSON.stringify(this.submissionsMemoryStore));
         window.dispatchEvent(new CustomEvent("student-activity-updated"));
+
+        // Persist directly to Supabase DB via backend API
+        fetch("/api/code/submissions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            problem_id: submission.problem_id,
+            problem_title: (submission as any).problem_title || submission.problem_id,
+            language: submission.language,
+            code: submission.code,
+            status: submission.status,
+            passed_test_cases: submission.passed_test_cases,
+            total_test_cases: submission.total_test_cases,
+            results: submission.results,
+          }),
+        }).catch((err) => {
+          console.warn("Direct DB submission persistence notice:", err);
+        });
       } catch (err) {
         console.error("Failed to update submission store:", err);
       }

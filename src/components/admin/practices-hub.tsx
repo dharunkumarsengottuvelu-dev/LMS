@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+import { BulkUploadModal } from "@/components/admin/bulk-upload";
+import { createClient } from "@/lib/supabase/client";
+import { CodingProblemsService } from "@/services/coding-problems.service";
 
 // ─── TYPES FOR STRICT 3-LEVEL HIERARCHY ──────────────────────────────
 export interface MCQOption {
@@ -20,6 +23,7 @@ export interface MCQOption {
 export interface MCQQuestion {
   id: string;
   questionText: string;
+  marks?: number;
   options: MCQOption[];
   explanation?: string;
 }
@@ -129,6 +133,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [activeTab, setActiveTab] = useState<"mcq" | "coding">("mcq");
   const [mcqList, setMcqList] = useState<MCQQuestion[]>([]);
   const [codingList, setCodingList] = useState<any[]>([]);
+  const [showCodingCreator, setShowCodingCreator] = useState<boolean>(false);
+  const [editingCodingIndex, setEditingCodingIndex] = useState<number | null>(null);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState<boolean>(false);
+  const [bulkUploadModuleType, setBulkUploadModuleType] = useState<"coding_problem" | "assessment_questions">("coding_problem");
+  const [itemToDelete, setItemToDelete] = useState<{ type: "coding" | "mcq"; index: number; title: string } | null>(null);
 
   // Fetch actual data from backend
   const fetchData = useCallback(async () => {
@@ -156,6 +165,27 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   useEffect(() => {
     fetchData();
+
+    // Supabase Realtime channel for live sync with database
+    const supabase = createClient();
+    const channel = supabase
+      .channel("admin_practice_tracks_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "practice_tracks" },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    const handleFocus = () => fetchData();
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("focus", handleFocus);
+    };
   }, [fetchData]);
 
   // Derived current Main Module and Submodule
@@ -519,6 +549,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setMcqList(m.mcqQuestions || []);
     setCodingList(m.codingQuestions || []);
     setActiveTab(m.type === "coding" ? "coding" : "mcq");
+    setShowCodingCreator(false);
+    setEditingCodingIndex(null);
     setActiveLevel("module_editor");
   };
 
@@ -548,6 +580,231 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       setActiveLevel("modules");
     } catch (err: any) {
       toast({ title: "Save Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  // Save current MCQ list to DB and immediately append a blank new question
+  const handleSaveAndAddNextMCQ = async (currentList: MCQQuestion[]) => {
+    if (!currentMainModule || !currentSubmodule || !currentModule) return;
+
+    const newQ: MCQQuestion = {
+      id: `mcq_${Date.now()}`,
+      questionText: "",
+      marks: 10,
+      options: [
+        { id: `opt_${Date.now()}_1`, text: "", isCorrect: true },
+        { id: `opt_${Date.now()}_2`, text: "", isCorrect: false },
+        { id: `opt_${Date.now()}_3`, text: "", isCorrect: false },
+        { id: `opt_${Date.now()}_4`, text: "", isCorrect: false },
+      ],
+    };
+    const updatedList = [...currentList, newQ];
+    setMcqList(updatedList);
+
+    try {
+      const res = await fetch("/api/admin/practices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_module",
+          main_module_id: currentMainModule.id,
+          submodule_id: currentSubmodule.id,
+          id: currentModule.id,
+          name: currentModule.name,
+          mcqQuestions: updatedList,
+          codingQuestions: codingList,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Save failed");
+      toast({ title: "Saved & New Question Added", description: `Question #${currentList.length + 1} saved. New blank question ready.` });
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: "Save Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  // 5. CONFIRM DELETE FOR QUESTIONS (CODING & MCQ)
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    const { type, index, title } = itemToDelete;
+    setItemToDelete(null);
+
+    if (type === "coding") {
+      const updated = codingList.filter((_, i) => i !== index);
+      setCodingList(updated);
+      if (currentMainModule && currentSubmodule && currentModule) {
+        try {
+          await fetch("/api/admin/practices", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "update_module",
+              main_module_id: currentMainModule.id,
+              submodule_id: currentSubmodule.id,
+              id: currentModule.id,
+              name: currentModule.name,
+              mcqQuestions: mcqList,
+              codingQuestions: updated,
+            }),
+          });
+          await fetchData();
+          toast({ title: "Problem Deleted", description: `"${title}" has been deleted from this module.` });
+        } catch (err: any) {
+          toast({ title: "Delete Error", description: err.message, variant: "destructive" });
+        }
+      }
+    } else {
+      const updated = mcqList.filter((_, i) => i !== index);
+      setMcqList(updated);
+      if (currentMainModule && currentSubmodule && currentModule) {
+        try {
+          await fetch("/api/admin/practices", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "update_module",
+              main_module_id: currentMainModule.id,
+              submodule_id: currentSubmodule.id,
+              id: currentModule.id,
+              name: currentModule.name,
+              mcqQuestions: updated,
+              codingQuestions: codingList,
+            }),
+          });
+          await fetchData();
+          toast({ title: "Question Deleted", description: `MCQ question has been deleted from this module.` });
+        } catch (err: any) {
+          toast({ title: "Delete Error", description: err.message, variant: "destructive" });
+        }
+      }
+    }
+  };
+
+  // 6. BULK IMPORT HANDLER (FOR CODING CHALLENGES & MCQS)
+  const handleBulkImport = async (importedItems: any[]) => {
+    if (!importedItems || importedItems.length === 0) return;
+
+    if (bulkUploadModuleType === "coding_problem") {
+      const newCodingProblems = importedItems.map((p, i) => {
+        const starterCode = p.starter_code || p.templates || {};
+        const testCases = Array.isArray(p.test_cases) ? p.test_cases : [];
+        const sampleCases = testCases.filter((tc: any) => !tc.is_hidden);
+        const hiddenCases = testCases.filter((tc: any) => tc.is_hidden);
+
+        return {
+          id: p.id || `cp-${Date.now()}-${i}`,
+          title: p.title || `Coding Challenge ${i + 1}`,
+          slug: p.slug || `prob-${Date.now()}-${i}`,
+          description: p.description || "",
+          difficulty: (p.difficulty || "medium").toLowerCase(),
+          category: p.category || "Algorithms",
+          tags: p.topic_tags || p.tags || [],
+          points: Number(p.points) || 100,
+          time_limit_ms: Number(p.time_limit_ms) || 2000,
+          memory_limit_mb: Number(p.memory_limit_mb) || 256,
+          starter_code: starterCode,
+          test_cases: testCases,
+          sample_test_cases: sampleCases,
+          hidden_test_cases: hiddenCases,
+          status: "published",
+          assessment_id: currentModule?.id,
+          module_id: currentModule?.id,
+        };
+      });
+
+      const updated = [...codingList, ...newCodingProblems];
+      setCodingList(updated);
+      setIsBulkUploadOpen(false);
+
+      // Persist imported coding problems directly to Supabase coding_problems table
+      CodingProblemsService.saveProblems(newCodingProblems as any).catch((err) => {
+        console.warn("Direct DB bulk coding persistence notice:", err);
+      });
+
+      if (currentMainModule && currentSubmodule && currentModule) {
+        try {
+          await fetch("/api/admin/practices", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "update_module",
+              main_module_id: currentMainModule.id,
+              submodule_id: currentSubmodule.id,
+              id: currentModule.id,
+              name: currentModule.name,
+              mcqQuestions: mcqList,
+              codingQuestions: updated,
+            }),
+          });
+          await fetchData();
+          toast({
+            title: "Bulk Upload Complete",
+            description: `Imported and saved ${newCodingProblems.length} coding challenges to database.`,
+          });
+        } catch (err: any) {
+          toast({
+            title: "Save Required",
+            description: "Click 'Save Questions & Exit' to persist changes to database.",
+          });
+        }
+      }
+    } else {
+      // MCQ Import
+      const newMCQs: MCQQuestion[] = importedItems.map((item, idx) => {
+        const opt1 = { id: `opt_${Date.now()}_1_${idx}`, text: item.option_1 || item.option1 || item.optionA || "Option A", isCorrect: false };
+        const opt2 = { id: `opt_${Date.now()}_2_${idx}`, text: item.option_2 || item.option2 || item.optionB || "Option B", isCorrect: false };
+        const opt3 = { id: `opt_${Date.now()}_3_${idx}`, text: item.option_3 || item.option3 || item.optionC || "Option C", isCorrect: false };
+        const opt4 = { id: `opt_${Date.now()}_4_${idx}`, text: item.option_4 || item.option4 || item.optionD || "Option D", isCorrect: false };
+
+        const correctStr = String(item.correctAnswer || item.correct_answer || "A").trim().toUpperCase();
+        if (correctStr.includes("B") || correctStr === "2") opt2.isCorrect = true;
+        else if (correctStr.includes("C") || correctStr === "3") opt3.isCorrect = true;
+        else if (correctStr.includes("D") || correctStr === "4") opt4.isCorrect = true;
+        else opt1.isCorrect = true;
+
+        const rawOptions = [opt1, opt2, opt3, opt4];
+
+        return {
+          id: item.id || `mcq_${Date.now()}_${idx}`,
+          questionText: String(item.question || item.questionText || item.title || `Question ${idx + 1}`).trim(),
+          marks: Number(item.marks || item.totalMarks) || 10,
+          options: rawOptions,
+          explanation: String(item.explanation || "").trim(),
+        };
+      });
+
+      const updated = [...mcqList, ...newMCQs];
+      setMcqList(updated);
+      setIsBulkUploadOpen(false);
+
+      if (currentMainModule && currentSubmodule && currentModule) {
+        try {
+          await fetch("/api/admin/practices", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "update_module",
+              main_module_id: currentMainModule.id,
+              submodule_id: currentSubmodule.id,
+              id: currentModule.id,
+              name: currentModule.name,
+              mcqQuestions: updated,
+              codingQuestions: codingList,
+            }),
+          });
+          await fetchData();
+          toast({
+            title: "Bulk Upload Complete",
+            description: `Imported and saved ${newMCQs.length} MCQ questions to database.`,
+          });
+        } catch (err: any) {
+          toast({
+            title: "Save Required",
+            description: "Click 'Save Questions & Exit' to persist changes to database.",
+          });
+        }
+      }
     }
   };
 
@@ -646,7 +903,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 onClick={handleOpenAddMainModule}
                 className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
               >
-                [ + Add Main Module ]
+                + Add Main Module
               </Button>
             )}
 
@@ -661,14 +918,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   }}
                   className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
                 >
-                  [ &lt; Back to Main Modules ]
+                  Back to Main Modules
                 </Button>
                 <Button
                   type="button"
                   onClick={handleOpenAddSubmodule}
                   className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                 >
-                  [ + Add Submodule ]
+                  + Add Submodule
                 </Button>
               </>
             )}
@@ -684,14 +941,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   }}
                   className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
                 >
-                  [ &lt; Back to Submodules ]
+                  Back to Submodules
                 </Button>
                 <Button
                   type="button"
                   onClick={handleOpenAddModule}
                   className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                 >
-                  [ + Add Module ]
+                  + Add Module
                 </Button>
               </>
             )}
@@ -704,14 +961,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   onClick={() => setActiveLevel("modules")}
                   className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
                 >
-                  [ &lt; Back to Modules ]
+                  Back to Modules
                 </Button>
                 <Button
                   type="button"
                   onClick={handleSaveModuleQuestions}
                   className="h-9 px-4 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
                 >
-                  [ Save Questions &amp; Exit ]
+                  Save Questions &amp; Exit
                 </Button>
               </>
             )}
@@ -754,7 +1011,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     onClick={handleOpenAddMainModule}
                     className="h-9 px-5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                   >
-                    [ Add Main Module ]
+                    Add Main Module
                   </Button>
                 </div>
               </div>
@@ -786,7 +1043,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
                           }`}
                         >
-                          {isActive ? "[ ACTIVE ]" : "[ INACTIVE ]"}
+                          {isActive ? "Active" : "Inactive"}
                         </span>
                       </div>
 
@@ -825,9 +1082,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           setSelectedMainModuleId(m.id);
                           setActiveLevel("submodules");
                         }}
-                        className="w-full h-8 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                        className="w-full h-8 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                       >
-                        [ View Submodules ({subCount}) &gt; ]
+                        View Submodules ({subCount})
                       </Button>
 
                       <div className="grid grid-cols-3 gap-1.5 text-[11px]">
@@ -836,21 +1093,21 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           onClick={(e) => handleOpenEditMainModule(m, e)}
                           className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
                         >
-                          [ Edit ]
+                          Edit
                         </button>
                         <button
                           type="button"
                           onClick={(e) => handleToggleMainModuleStatus(m, e)}
                           className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
                         >
-                          {isActive ? "[ Deactivate ]" : "[ Activate ]"}
+                          {isActive ? "Deactivate" : "Activate"}
                         </button>
                         <button
                           type="button"
                           onClick={(e) => handleDeleteMainModule(m, e)}
                           className="h-7 rounded border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 font-semibold cursor-pointer"
                         >
-                          [ Delete ]
+                          Delete
                         </button>
                       </div>
                     </div>
@@ -896,7 +1153,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     onClick={handleOpenAddSubmodule}
                     className="h-9 px-5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                   >
-                    [ Add Submodule ]
+                    Add Submodule
                   </Button>
                 </div>
               </div>
@@ -924,7 +1181,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
                           }`}
                         >
-                          {isActive ? "[ ACTIVE ]" : "[ INACTIVE ]"}
+                          {isActive ? "Active" : "Inactive"}
                         </span>
                       </div>
 
@@ -954,9 +1211,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           setSelectedSubmoduleId(sm.id);
                           setActiveLevel("modules");
                         }}
-                        className="w-full h-8 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                        className="w-full h-8 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                       >
-                        [ View Modules ({modCount}) &gt; ]
+                        View Modules ({modCount})
                       </Button>
 
                       <div className="grid grid-cols-3 gap-1.5 text-[11px]">
@@ -965,21 +1222,21 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           onClick={(e) => handleOpenEditSubmodule(sm, e)}
                           className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
                         >
-                          [ Edit ]
+                          Edit
                         </button>
                         <button
                           type="button"
                           onClick={(e) => handleToggleSubmoduleStatus(sm, e)}
                           className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
                         >
-                          {isActive ? "[ Deactivate ]" : "[ Activate ]"}
+                          {isActive ? "Deactivate" : "Activate"}
                         </button>
                         <button
                           type="button"
                           onClick={(e) => handleDeleteSubmodule(sm, e)}
                           className="h-7 rounded border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 font-semibold cursor-pointer"
                         >
-                          [ Delete ]
+                          Delete
                         </button>
                       </div>
                     </div>
@@ -1006,9 +1263,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 {currentSubmodule.name || currentSubmodule.title}
               </strong>
             </div>
-            <span className="text-slate-500 dark:text-zinc-400 font-medium">
-              Modules Count: {currentSubmodule.modules.length}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-slate-500 dark:text-zinc-400 font-medium">
+                Modules Count: {currentSubmodule.modules.length}
+              </span>
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold hidden md:inline">
+                Click &quot;+ Add / Manage Questions&quot; on any module below
+              </span>
+            </div>
           </div>
 
           {/* Empty State: Modules */}
@@ -1030,7 +1292,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     onClick={handleOpenAddModule}
                     className="h-9 px-5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                   >
-                    [ Add Module ]
+                    Add Module
                   </Button>
                 </div>
               </div>
@@ -1058,7 +1320,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
                           }`}
                         >
-                          {isActive ? "[ ACTIVE ]" : "[ INACTIVE ]"}
+                          {isActive ? "Active" : "Inactive"}
                         </span>
                       </div>
 
@@ -1091,9 +1353,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       <Button
                         type="button"
                         onClick={() => handleOpenModuleEditor(mod)}
-                        className="w-full h-8 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
+                        className="w-full h-8 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
                       >
-                        [ Manage Questions &amp; Coding ({qCount}) ]
+                        {mod.type === "coding"
+                          ? `+ Add / Manage Coding Problems (${mod.codingQuestions?.length || 0})`
+                          : mod.type === "mcq"
+                          ? `+ Add / Manage MCQs (${mod.mcqQuestions?.length || 0})`
+                          : `+ Add / Manage Questions (${qCount})`}
                       </Button>
 
                       <div className="grid grid-cols-3 gap-1.5 text-[11px]">
@@ -1102,21 +1368,21 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           onClick={(e) => handleOpenEditModule(mod, e)}
                           className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
                         >
-                          [ Edit ]
+                          Edit
                         </button>
                         <button
                           type="button"
                           onClick={(e) => handleToggleModuleStatus(mod, e)}
                           className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
                         >
-                          {isActive ? "[ Deactivate ]" : "[ Activate ]"}
+                          {isActive ? "Deactivate" : "Activate"}
                         </button>
                         <button
                           type="button"
                           onClick={(e) => handleDeleteModule(mod, e)}
                           className="h-7 rounded border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 font-semibold cursor-pointer"
                         >
-                          [ Delete ]
+                          Delete
                         </button>
                       </div>
                     </div>
@@ -1131,97 +1397,183 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       {/* ─── LEVEL 3: MODULE QUESTIONS EDITOR ───────────────────────────── */}
       {activeLevel === "module_editor" && currentModule && (
         <Card className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-6 shadow-2xs space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-4">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                PRACTICE CONTENT RUNNER
+                LEVEL 3: MODULE QUESTIONS ({currentModule.type === "coding" ? "CODING ONLY" : currentModule.type === "mcq" ? "MCQ ONLY" : "MIXED MCQ + CODING"})
               </span>
               <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-1">
-                Content for: {currentModule.name || currentModule.title}
+                Configure Questions: {currentModule.name || currentModule.title}
               </h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                {currentModule.type === "coding"
+                  ? "Configure interactive algorithm challenges, starter code, and test cases."
+                  : currentModule.type === "mcq"
+                  ? "Configure multiple choice questions, answer options, marks, and explanations."
+                  : "Add Multiple Choice Questions (MCQ) and Coding Challenges to this module."}
+              </p>
             </div>
 
-            {/* Tab switch */}
-            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg">
-              <button
-                type="button"
-                onClick={() => setActiveTab("mcq")}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
-                  activeTab === "mcq"
-                    ? "bg-white dark:bg-zinc-900 text-blue-600 shadow-2xs"
-                    : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
-                }`}
-              >
-                MCQ Questions ({mcqList.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("coding")}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
-                  activeTab === "coding"
-                    ? "bg-white dark:bg-zinc-900 text-blue-600 shadow-2xs"
-                    : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
-                }`}
-              >
+            {/* Tab switch / Type indicator */}
+            {currentModule.type === "mixed" ? (
+              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("mcq")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                    activeTab === "mcq"
+                      ? "bg-white dark:bg-zinc-900 text-blue-600 shadow-2xs"
+                      : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
+                  }`}
+                >
+                  MCQ Questions ({mcqList.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("coding")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                    activeTab === "coding"
+                      ? "bg-white dark:bg-zinc-900 text-blue-600 shadow-2xs"
+                      : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
+                  }`}
+                >
+                  Coding Problems ({codingList.length})
+                </button>
+              </div>
+            ) : currentModule.type === "coding" ? (
+              <div className="px-3.5 py-1.5 text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs">
                 Coding Problems ({codingList.length})
-              </button>
-            </div>
+              </div>
+            ) : (
+              <div className="px-3.5 py-1.5 text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs">
+                MCQ Questions ({mcqList.length})
+              </div>
+            )}
           </div>
 
-          {/* MCQ TAB CONTENT */}
-          {activeTab === "mcq" && (
+          {/* MCQ TAB CONTENT: only if type is mcq or mixed */}
+          {(currentModule.type === "mcq" || (currentModule.type === "mixed" && activeTab === "mcq")) && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Multiple Choice Questions ({mcqList.length})
-                </h3>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    const newQ: MCQQuestion = {
-                      id: `mcq_${Date.now()}`,
-                      questionText: "",
-                      options: [
-                        { id: `opt_${Date.now()}_1`, text: "", isCorrect: true },
-                        { id: `opt_${Date.now()}_2`, text: "", isCorrect: false },
-                        { id: `opt_${Date.now()}_3`, text: "", isCorrect: false },
-                        { id: `opt_${Date.now()}_4`, text: "", isCorrect: false },
-                      ],
-                    };
-                    setMcqList([...mcqList, newQ]);
-                  }}
-                  className="h-8 px-3.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
-                >
-                  [ + Add MCQ Question ]
-                </Button>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Multiple Choice Questions ({mcqList.length})
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Type question statement, enter options, select radio for correct answer, and set marks.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setBulkUploadModuleType("assessment_questions");
+                      setIsBulkUploadOpen(true);
+                    }}
+                    className="h-8.5 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 cursor-pointer"
+                  >
+                    Bulk Upload
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const newQ: MCQQuestion = {
+                        id: `mcq_${Date.now()}`,
+                        questionText: "",
+                        marks: 10,
+                        options: [
+                          { id: `opt_${Date.now()}_1`, text: "", isCorrect: true },
+                          { id: `opt_${Date.now()}_2`, text: "", isCorrect: false },
+                          { id: `opt_${Date.now()}_3`, text: "", isCorrect: false },
+                          { id: `opt_${Date.now()}_4`, text: "", isCorrect: false },
+                        ],
+                      };
+                      setMcqList([...mcqList, newQ]);
+                    }}
+                    className="h-8.5 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                  >
+                    + Add MCQ Question
+                  </Button>
+                </div>
               </div>
 
               {mcqList.length === 0 ? (
-                <div className="text-center py-8 border border-dashed border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-slate-500 dark:text-zinc-400">
-                  No MCQ questions added yet. Click [ + Add MCQ Question ] above.
+                <div className="text-center py-10 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl p-6 space-y-3">
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                    No MCQ questions added to this module yet.
+                  </p>
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setBulkUploadModuleType("assessment_questions");
+                        setIsBulkUploadOpen(true);
+                      }}
+                      className="h-8.5 px-4 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
+                    >
+                      Bulk Upload
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const newQ: MCQQuestion = {
+                          id: `mcq_${Date.now()}`,
+                          questionText: "",
+                          marks: 10,
+                          options: [
+                            { id: `opt_${Date.now()}_1`, text: "", isCorrect: true },
+                            { id: `opt_${Date.now()}_2`, text: "", isCorrect: false },
+                            { id: `opt_${Date.now()}_3`, text: "", isCorrect: false },
+                            { id: `opt_${Date.now()}_4`, text: "", isCorrect: false },
+                          ],
+                        };
+                        setMcqList([...mcqList, newQ]);
+                      }}
+                      className="h-8.5 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                    >
+                      + Add First MCQ Question
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {mcqList.map((q, qIdx) => (
                     <div
                       key={q.id}
-                      className="p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3"
+                      className="p-4.5 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3.5"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700 dark:text-zinc-300">
+                        <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
                           Question #{qIdx + 1}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setMcqList(mcqList.filter((item) => item.id !== q.id))}
-                          className="text-xs text-red-600 hover:underline font-semibold cursor-pointer"
-                        >
-                          [ Delete Question ]
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-zinc-400">
+                            <span className="font-semibold">Marks:</span>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={q.marks ?? 10}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 1;
+                                setMcqList(mcqList.map((item) => item.id === q.id ? { ...item, marks: val } : item));
+                              }}
+                              className="h-7 w-16 text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setItemToDelete({ type: "mcq", index: qIdx, title: `Question #${qIdx + 1}` })}
+                            className="text-xs text-red-600 hover:underline font-semibold cursor-pointer"
+                          >
+                            Delete Question
+                          </button>
+                        </div>
                       </div>
 
                       <Textarea
-                        placeholder="Enter question text here..."
+                        placeholder="Enter question statement here..."
                         value={q.questionText}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -1233,10 +1585,31 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         rows={2}
                       />
 
-                      <div className="space-y-2 pt-2">
-                        <span className="text-[11px] font-bold text-slate-600 dark:text-zinc-400">
-                          Answer Options (Select correct radio):
-                        </span>
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-600 dark:text-zinc-400">
+                            Answer Choices (Select radio button for the correct answer):
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newOptId = `opt_${Date.now()}_${q.options.length + 1}`;
+                              setMcqList(
+                                mcqList.map((item) => {
+                                  if (item.id !== q.id) return item;
+                                  return {
+                                    ...item,
+                                    options: [...item.options, { id: newOptId, text: "", isCorrect: false }],
+                                  };
+                                })
+                              );
+                            }}
+                            className="text-[11px] font-semibold text-blue-600 hover:underline cursor-pointer"
+                          >
+                            + Add Option
+                          </button>
+                        </div>
+
                         {q.options.map((opt, optIdx) => (
                           <div key={opt.id} className="flex items-center gap-2">
                             <input
@@ -1258,6 +1631,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                 );
                               }}
                               className="cursor-pointer"
+                              title="Mark as correct answer"
                             />
                             <Input
                               placeholder={`Option ${optIdx + 1}`}
@@ -1277,169 +1651,539 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               className="h-8 text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 flex-1"
                             />
                             {opt.isCorrect && (
-                              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                                [ CORRECT ]
+                              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 shrink-0">
+                                Correct Answer
                               </span>
+                            )}
+                            {q.options.length > 2 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMcqList(
+                                    mcqList.map((item) => {
+                                      if (item.id !== q.id) return item;
+                                      return {
+                                        ...item,
+                                        options: item.options.filter((o) => o.id !== opt.id),
+                                      };
+                                    })
+                                  );
+                                }}
+                                className="text-xs text-red-500 hover:text-red-700 px-1 cursor-pointer"
+                                title="Remove this option"
+                              >
+                                ✕
+                              </button>
                             )}
                           </div>
                         ))}
                       </div>
+
+                      <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-800/60 space-y-1">
+                        <label className="text-[11px] font-semibold text-slate-500">
+                          Explanation (Optional, shown to student after submitting):
+                        </label>
+                        <Input
+                          placeholder="e.g. In Java, Strings are immutable..."
+                          value={q.explanation || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setMcqList(mcqList.map((item) => item.id === q.id ? { ...item, explanation: val } : item));
+                          }}
+                          className="h-7 text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800"
+                        />
+                      </div>
                     </div>
                   ))}
-                </div>
-              )}
-            </div>
-          )}
 
-          {/* CODING TAB CONTENT */}
-          {activeTab === "coding" && (
-            <div className="space-y-4">
-              <CodingProblemCreator
-                onSave={(newProb: any) => {
-                  const problemToSave = {
-                    ...newProb,
-                    assessment_id: currentModule.id,
-                    module_id: currentModule.id,
-                  };
-                  setCodingList([...codingList, problemToSave]);
-                  toast({ title: "Coding Problem Added", description: `Added: ${newProb?.title || "New Problem"}` });
-                }}
-              />
-
-              {codingList.length > 0 && (
-                <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-zinc-800">
-                  <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase">
-                    Configured Coding Problems ({codingList.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {codingList.map((cp, idx) => (
-                      <div
-                        key={cp.id || idx}
-                        className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs"
-                      >
-                        <div>
-                          <strong className="text-slate-900 dark:text-white font-bold">{cp.title}</strong>
-                          <span className="ml-2 text-slate-500">[{cp.difficulty || "Medium"}]</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setCodingList(codingList.filter((_, i) => i !== idx))}
-                          className="text-red-600 hover:underline font-semibold cursor-pointer"
-                        >
-                          [ Remove ]
-                        </button>
-                      </div>
-                    ))}
+                  <div className="pt-2 flex items-center gap-2 flex-wrap">
+                    <Button
+                      type="button"
+                      onClick={() => handleSaveAndAddNextMCQ(mcqList)}
+                      className="h-8 px-4 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
+                    >
+                      Save &amp; Add Next Question
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const newQ: MCQQuestion = {
+                          id: `mcq_${Date.now()}`,
+                          questionText: "",
+                          marks: 10,
+                          options: [
+                            { id: `opt_${Date.now()}_1`, text: "", isCorrect: true },
+                            { id: `opt_${Date.now()}_2`, text: "", isCorrect: false },
+                            { id: `opt_${Date.now()}_3`, text: "", isCorrect: false },
+                            { id: `opt_${Date.now()}_4`, text: "", isCorrect: false },
+                          ],
+                        };
+                        setMcqList([...mcqList, newQ]);
+                      }}
+                      variant="outline"
+                      className="h-8 px-4 text-xs font-semibold rounded-lg cursor-pointer"
+                    >
+                      + Add Another MCQ Question
+                    </Button>
                   </div>
                 </div>
               )}
             </div>
           )}
+
+          {/* CODING TAB CONTENT: only if type is coding or mixed */}
+          {(currentModule.type === "coding" || (currentModule.type === "mixed" && activeTab === "coding")) && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 dark:border-zinc-800 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Coding Problems ({codingList.length})
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Add interactive algorithm challenges, starter code, and test cases.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setBulkUploadModuleType("coding_problem");
+                      setIsBulkUploadOpen(true);
+                    }}
+                    className="h-8.5 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 cursor-pointer"
+                  >
+                    Bulk Upload
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (showCodingCreator && editingCodingIndex === null) {
+                        setShowCodingCreator(false);
+                      } else {
+                        setEditingCodingIndex(null);
+                        setShowCodingCreator(true);
+                      }
+                    }}
+                    className="h-8.5 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                  >
+                    {showCodingCreator && editingCodingIndex === null ? "Close Creator Form" : "+ Create New Coding Problem"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Creator Form (when opened) */}
+              {showCodingCreator && (
+                <div className="p-4 bg-slate-50 dark:bg-zinc-900/80 rounded-xl border border-blue-200 dark:border-blue-900/50 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-2">
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                      {editingCodingIndex !== null
+                        ? `Edit Coding Problem: ${codingList[editingCodingIndex]?.title || ""}`
+                        : "New Coding Challenge Creator"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCodingCreator(false);
+                        setEditingCodingIndex(null);
+                      }}
+                      className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+                    >
+                      Cancel Form
+                    </button>
+                  </div>
+                  <CodingProblemCreator
+                    initialProblem={editingCodingIndex !== null ? codingList[editingCodingIndex] : undefined}
+                    initialProblemNumber={editingCodingIndex !== null ? (codingList[editingCodingIndex]?.problem_number || editingCodingIndex + 1) : codingList.length + 1}
+                    onCancel={() => {
+                      setShowCodingCreator(false);
+                      setEditingCodingIndex(null);
+                    }}
+                    onSave={async (newProb: any) => {
+                      const assignedProblemNum = editingCodingIndex !== null
+                        ? (newProb?.problem_number || codingList[editingCodingIndex]?.problem_number || editingCodingIndex + 1)
+                        : (newProb?.problem_number || codingList.length + 1);
+
+                      const problemToSave = {
+                        ...newProb,
+                        problem_number: assignedProblemNum,
+                        assessment_id: currentModule.id,
+                        module_id: currentModule.id,
+                      };
+                      let updatedList: any[];
+                      if (editingCodingIndex !== null) {
+                        updatedList = codingList.map((item, i) => (i === editingCodingIndex ? problemToSave : item));
+                        toast({ title: "Coding Problem Updated", description: `Updated: ${newProb?.title || "Problem"}` });
+                      } else {
+                        updatedList = [...codingList, problemToSave];
+                        toast({ title: "Coding Problem Added", description: `Added: ${newProb?.title || "New Problem"}` });
+                      }
+                      setCodingList(updatedList);
+                      setShowCodingCreator(false);
+                      setEditingCodingIndex(null);
+
+                      if (currentMainModule && currentSubmodule && currentModule) {
+                        try {
+                          await fetch("/api/admin/practices", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              action: "update_module",
+                              main_module_id: currentMainModule.id,
+                              submodule_id: currentSubmodule.id,
+                              id: currentModule.id,
+                              name: currentModule.name,
+                              mcqQuestions: mcqList,
+                              codingQuestions: updatedList,
+                            }),
+                          });
+                          await fetchData();
+                        } catch (err: any) {
+                          console.error("Auto-save coding problem error:", err);
+                        }
+                      }
+                    }}
+                    onSaveAndNext={async (newProb: any) => {
+                      const assignedProblemNum = editingCodingIndex !== null
+                        ? (newProb?.problem_number || codingList[editingCodingIndex]?.problem_number || editingCodingIndex + 1)
+                        : (newProb?.problem_number || codingList.length + 1);
+
+                      const problemToSave = {
+                        ...newProb,
+                        problem_number: assignedProblemNum,
+                        assessment_id: currentModule.id,
+                        module_id: currentModule.id,
+                      };
+                      const updatedList = editingCodingIndex !== null
+                        ? codingList.map((item, i) => (i === editingCodingIndex ? problemToSave : item))
+                        : [...codingList, problemToSave];
+
+                      setCodingList(updatedList);
+                      // Reset to create a new problem (don't close creator)
+                      setEditingCodingIndex(null);
+
+                      if (currentMainModule && currentSubmodule && currentModule) {
+                        try {
+                          await fetch("/api/admin/practices", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              action: "update_module",
+                              main_module_id: currentMainModule.id,
+                              submodule_id: currentSubmodule.id,
+                              id: currentModule.id,
+                              name: currentModule.name,
+                              mcqQuestions: mcqList,
+                              codingQuestions: updatedList,
+                            }),
+                          });
+                          await fetchData();
+                          toast({ title: "Saved & Ready for Next", description: `Problem #${assignedProblemNum} saved. Create the next one!` });
+                        } catch (err: any) {
+                          console.error("Save & Next coding error:", err);
+                          toast({ title: "Save Error", description: err.message, variant: "destructive" });
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Configured Coding Problems List */}
+              {codingList.length === 0 && !showCodingCreator ? (
+                <div className="text-center py-10 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl p-6 space-y-3">
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                    No coding problems configured for this module yet.
+                  </p>
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setBulkUploadModuleType("coding_problem");
+                        setIsBulkUploadOpen(true);
+                      }}
+                      className="h-8.5 px-4 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
+                    >
+                      Bulk Upload
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setShowCodingCreator(true)}
+                      className="h-8.5 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                    >
+                      + Create New Coding Problem
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wide">
+                    Configured Coding Problems ({codingList.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {codingList.map((cp, idx) => {
+                      const tcCount = (cp.test_cases?.length || 0) + (cp.sample_test_cases?.length || 0) + (cp.hidden_test_cases?.length || 0);
+                      const diff = (cp.difficulty || "medium").toLowerCase();
+
+                      return (
+                        <div
+                          key={cp.id || idx}
+                          className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50/80 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-bold text-slate-400">#{cp.problem_number || idx + 1}.</span>
+                              <strong className="text-slate-900 dark:text-white font-bold">{cp.title}</strong>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                  diff === "easy"
+                                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                                    : diff === "hard"
+                                    ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800"
+                                    : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                                }`}
+                              >
+                                {cp.difficulty || "Medium"}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-3">
+                              <span>Points: <strong>{cp.points || 100}</strong></span>
+                              <span>Time Limit: <strong>{cp.time_limit_ms || 2000}ms</strong></span>
+                              {tcCount > 0 && <span>Test Cases: <strong>{tcCount}</strong></span>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCodingIndex(idx);
+                                setShowCodingCreator(true);
+                              }}
+                              className="h-7 px-3.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 font-semibold cursor-pointer text-xs transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setItemToDelete({ type: "coding", index: idx, title: cp.title || `Coding Problem #${idx + 1}` })}
+                              className="h-7 px-3.5 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 font-semibold cursor-pointer text-xs transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bottom Action Footer for Questions Editor */}
+          <div className="pt-4 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setActiveLevel("modules")}
+              className="h-9 px-4 text-xs font-semibold rounded-lg cursor-pointer"
+            >
+              Back to Modules
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveModuleQuestions}
+              className="h-9 px-5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
+            >
+              Save Questions &amp; Exit
+            </Button>
+          </div>
         </Card>
       )}
 
       {/* ─── MODAL 1: CREATE / EDIT MAIN MODULE ─────────────────────────── */}
       {showMainModuleModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-xl p-6 max-w-lg w-full shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-stretch justify-end">
+          <div className="flex-1 cursor-pointer" onClick={() => setShowMainModuleModal(false)} />
+          <div className="w-full max-w-2xl h-full bg-[#F8FAFC] dark:bg-[#0F172A] flex flex-col shadow-2xl">
+
+            {/* ── Header bar ── */}
+            <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-[#18181B] border-b border-slate-200 dark:border-zinc-800 shrink-0">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">LEVEL 1</span>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {editingMainModule ? "Edit Main Module" : "Add Main Module"}
-                </h3>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#2563EB]">Level 1 · Main Module</span>
+                <h2 className="text-[15px] font-bold text-slate-900 dark:text-white mt-0.5">
+                  {editingMainModule ? "Edit Main Module" : "New Main Module"}
+                </h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowMainModuleModal(false)}
-                className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-              >
-                [ Close ]
-              </button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowMainModuleModal(false)}
+                  className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSaveMainModule}
+                  className="h-8 px-4 text-xs font-bold rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer shadow-xs"
+                >
+                  {editingMainModule ? "Save Changes" : "Create Module"}
+                </Button>
+              </div>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-zinc-300">
-                  Main Module Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="e.g. Java Programming, System Design, Algorithms..."
-                  value={fMainName}
-                  onChange={(e) => setFMainName(e.target.value)}
-                  className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
-                />
-              </div>
+            {/* ── Scrollable content ── */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-zinc-300">Description</label>
-                <Textarea
-                  placeholder="Short description of this Main Module..."
-                  value={fMainDesc}
-                  onChange={(e) => setFMainDesc(e.target.value)}
-                  className="text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
-                  rows={2}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-zinc-300">Status</label>
-                  <Select value={fMainStatus} onValueChange={(v: any) => setFMainStatus(v)}>
-                    <SelectTrigger className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">[ ACTIVE ]</SelectItem>
-                      <SelectItem value="inactive">[ INACTIVE ]</SelectItem>
-                    </SelectContent>
-                  </Select>
+              {/* ══ SECTION 1 ══ */}
+              <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 shadow-xs rounded-2xl p-5 space-y-4">
+                <div className="pb-3 border-b border-slate-100 dark:border-zinc-800">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#2563EB]">Section 1</p>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-100 mt-0.5">Basic Information</h3>
+                  <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Name, description and ordering.</p>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-zinc-300">Display Order</label>
-                  <Input
-                    type="number"
-                    value={fMainOrder}
-                    onChange={(e) => setFMainOrder(parseInt(e.target.value) || 0)}
-                    className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1 pt-1">
-                <label className="font-bold text-slate-700 dark:text-zinc-300">Cohort / Batch Visibility</label>
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="checkbox"
-                    id="chk_common"
-                    checked={fMainIsCommon}
-                    onChange={(e) => setFMainIsCommon(e.target.checked)}
-                    className="cursor-pointer"
-                  />
-                  <label htmlFor="chk_common" className="cursor-pointer text-slate-800 dark:text-zinc-200">
-                    Make Common (Visible to all assigned student batches)
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                    Module Name <span className="text-red-500">*</span>
                   </label>
+                  <Input
+                    placeholder="e.g. Java Programming, System Design, Algorithms..."
+                    value={fMainName}
+                    onChange={(e) => setFMainName(e.target.value)}
+                    className="h-9 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Description</label>
+                  <Textarea
+                    placeholder="Short description of this module..."
+                    value={fMainDesc}
+                    onChange={(e) => setFMainDesc(e.target.value)}
+                    className="text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Status</label>
+                    <Select value={fMainStatus} onValueChange={(v: any) => setFMainStatus(v)}>
+                      <SelectTrigger className="h-9 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Display Order</label>
+                    <Input
+                      type="number"
+                      value={fMainOrder}
+                      onChange={(e) => setFMainOrder(parseInt(e.target.value) || 0)}
+                      className="h-9 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-zinc-800">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowMainModuleModal(false)}
-                className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
-              >
-                [ Cancel ]
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSaveMainModule}
-                className="h-8 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
-              >
-                [ {editingMainModule ? "Save Changes" : "Create Main Module"} ]
-              </Button>
+              {/* ══ SECTION 2 ══ */}
+              <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 shadow-xs rounded-2xl p-5 space-y-4">
+                <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#2563EB]">Section 2</p>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-100 mt-0.5">Batch Assignment</h3>
+                    <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">Choose who can access this module.</p>
+                  </div>
+                  <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-slate-200 dark:border-zinc-700 shrink-0 ml-4">
+                    <button
+                      type="button"
+                      onClick={() => setFMainIsCommon(true)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${fMainIsCommon ? "bg-[#2563EB] text-white shadow-xs" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"}`}
+                    >
+                      Common
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFMainIsCommon(false)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${!fMainIsCommon ? "bg-[#2563EB] text-white shadow-xs" : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"}`}
+                    >
+                      Batch Wise
+                      {!fMainIsCommon && fMainBatches.length > 0 && (
+                        <span className="ml-1 bg-white/25 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">{fMainBatches.length}</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {fMainIsCommon ? (
+                  <div className="px-4 py-3 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 text-xs text-blue-700 dark:text-blue-300 font-medium">
+                    This module will be visible to <strong>all student batches</strong> in the system.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Select batches that can access this module:</span>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => setFMainBatches(batches.map((b: any) => b.id))} className="text-[11px] font-semibold text-[#2563EB] hover:underline cursor-pointer">Select All</button>
+                        <span className="text-slate-300 dark:text-zinc-600">|</span>
+                        <button type="button" onClick={() => setFMainBatches([])} className="text-[11px] font-semibold text-slate-500 hover:underline cursor-pointer">Clear</button>
+                      </div>
+                    </div>
+
+                    {batches.length === 0 ? (
+                      <div className="text-center py-6 border border-dashed border-slate-200 dark:border-zinc-700 rounded-xl text-xs text-slate-500 dark:text-zinc-400">
+                        No batches found. Create batches in Batch Management first.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
+                        {batches.map((batch: any) => {
+                          const isSelected = fMainBatches.includes(batch.id);
+                          return (
+                            <button
+                              key={batch.id}
+                              type="button"
+                              onClick={() => setFMainBatches((prev) => prev.includes(batch.id) ? prev.filter((id) => id !== batch.id) : [...prev, batch.id])}
+                              className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-xs transition-all cursor-pointer ${isSelected ? "bg-[#2563EB] text-white border-[#2563EB] font-semibold shadow-xs" : "bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:border-[#2563EB]/40 hover:bg-blue-50/40 font-medium"}`}
+                            >
+                              <span className="truncate">{batch.name || batch.batch_name || batch.id}</span>
+                              <span className={`text-[10px] shrink-0 ml-2 ${isSelected ? "text-blue-100" : "text-slate-400"}`}>
+                                {batch.studentCount != null ? `${batch.studentCount} students` : ""}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {fMainBatches.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {fMainBatches.map((bId) => {
+                          const b = batches.find((x: any) => x.id === bId);
+                          return (
+                            <span key={bId} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                              {b?.name || bId}
+                              <button type="button" onClick={() => setFMainBatches((prev) => prev.filter((id) => id !== bId))} className="hover:text-blue-900 cursor-pointer">×</button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {fMainBatches.length === 0 && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">⚠ No batches selected — module will not be visible to any students.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
             </div>
           </div>
         </div>
@@ -1464,7 +2208,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 onClick={() => setShowSubmoduleModal(false)}
                 className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
               >
-                [ Close ]
+                Close
               </button>
             </div>
 
@@ -1500,8 +2244,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">[ ACTIVE ]</SelectItem>
-                      <SelectItem value="inactive">[ INACTIVE ]</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1525,14 +2269,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 onClick={() => setShowSubmoduleModal(false)}
                 className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
               >
-                [ Cancel ]
+                Cancel
               </Button>
               <Button
                 type="button"
                 onClick={handleSaveSubmodule}
                 className="h-8 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
               >
-                [ {editingSubmodule ? "Save Changes" : "Create Submodule"} ]
+                {editingSubmodule ? "Save Changes" : "Create Submodule"}
               </Button>
             </div>
           </div>
@@ -1558,7 +2302,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 onClick={() => setShowModuleModal(false)}
                 className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
               >
-                [ Close ]
+                Close
               </button>
             </div>
 
@@ -1613,7 +2357,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
                       }`}
                     >
-                      {fModDurationEnabled ? "[ ON ]" : "[ OFF ]"}
+                      {fModDurationEnabled ? "ON" : "OFF"}
                     </button>
                   </div>
                   {fModDurationEnabled ? (
@@ -1632,7 +2376,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       title="Click to turn duration ON"
                     >
                       <span>No Time Limit</span>
-                      <span className="text-[10px] uppercase font-bold text-slate-400">[ OFF ]</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400">OFF</span>
                     </div>
                   )}
                 </div>
@@ -1656,8 +2400,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">[ ACTIVE ]</SelectItem>
-                      <SelectItem value="inactive">[ INACTIVE ]</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1681,19 +2425,62 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 onClick={() => setShowModuleModal(false)}
                 className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
               >
-                [ Cancel ]
+                Cancel
               </Button>
               <Button
                 type="button"
                 onClick={handleSaveModule}
                 className="h-8 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
               >
-                [ {editingModule ? "Save Changes" : "Create Module"} ]
+                {editingModule ? "Save Changes" : "Create Module"}
               </Button>
             </div>
           </div>
         </div>
       )}
+
+      {/* ─── DELETE CONFIRMATION MODAL ────────────────────────────────────── */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-xl p-5 max-w-md w-full shadow-2xl space-y-4">
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-red-600">CONFIRM DELETION</span>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                Delete {itemToDelete.type === "coding" ? "Coding Problem" : "MCQ Question"}
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-zinc-400">
+                Are you sure you want to delete <strong className="text-slate-800 dark:text-zinc-200">&quot;{itemToDelete.title}&quot;</strong> from this module? This action will immediately remove it.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-zinc-800">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setItemToDelete(null)}
+                className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="h-8 px-4 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-2xs"
+              >
+                Confirm Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── BULK UPLOAD MODAL (FOR CODING CHALLENGES & MCQS) ───────────────── */}
+      <BulkUploadModal
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+        moduleType={bulkUploadModuleType}
+        moduleTitle={currentModule?.name ? `${currentModule.name} (${bulkUploadModuleType === "coding_problem" ? "Coding Challenges" : "MCQ Questions"})` : "Practice Module"}
+        onImport={handleBulkImport}
+      />
     </div>
   );
 }

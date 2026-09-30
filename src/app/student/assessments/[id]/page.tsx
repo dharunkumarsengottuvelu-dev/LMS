@@ -132,17 +132,7 @@ export default function AssessmentTakePage() {
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const [runnerKey, setRunnerKey] = useState(0);
 
-  const [completedRecord, setCompletedRecord] = useState<CompletedRecord | null>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get("retake") === "true") return null;
-        const resStr = localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
-        if (resStr) return JSON.parse(resStr);
-      } catch {}
-    }
-    return null;
-  });
+  const [completedRecord, setCompletedRecord] = useState<CompletedRecord | null>(null);
 
   const loadData = async () => {
     if (!subModuleId) {
@@ -154,36 +144,10 @@ export default function AssessmentTakePage() {
 
     const isRetakeRequested = searchParams?.get("retake") === "true";
 
-    // If retake requested, purge all cached state, answers, and drafts
+    // If retake requested, purge cached drafts and reset record
     if (isRetakeRequested) {
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.removeItem(`lms_completed_assessment_${subModuleId}`);
-          localStorage.removeItem(`lms_practice_session_${subModuleId}`);
-          localStorage.removeItem(`lms_practice_session_${subModuleId}_submitted`);
-          const keysToRemove: string[] = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && (k.startsWith("edunexus_draft_") || k.startsWith("draft_") || k.includes(subModuleId))) {
-              keysToRemove.push(k);
-            }
-          }
-          keysToRemove.forEach((k) => localStorage.removeItem(k));
-          window.dispatchEvent(new Event("storage"));
-        } catch {}
-      }
       fetch(`/api/student/drafts?key=lms_practice_session_${subModuleId}`, { method: "DELETE" }).catch(() => {});
       setCompletedRecord(null);
-    } else {
-      // Check completion status from storage on load
-      if (typeof window !== "undefined") {
-        try {
-          const resStr = localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
-          if (resStr) {
-            setCompletedRecord(JSON.parse(resStr));
-          }
-        } catch {}
-      }
     }
 
     try {
@@ -321,20 +285,16 @@ export default function AssessmentTakePage() {
           "Section 2: Coding",
       });
 
-      // If explicitly marked completed in Database or localStorage, initialize completedRecord
-      const localSubmitted = typeof window !== "undefined" && localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
-      if (!isRetakeRequested && (targetSubModule.status === "completed" || targetSubModule.isCompleted === true || localSubmitted)) {
-        let localParsed: any = null;
-        if (localSubmitted) {
-          try { localParsed = JSON.parse(localSubmitted); } catch {}
-        }
+      // If explicitly marked completed in Database, initialize completedRecord
+      if (!isRetakeRequested && (targetSubModule.status === "completed" || targetSubModule.isCompleted === true || targetSubModule.attempt)) {
+        const att = targetSubModule.attempt;
         setCompletedRecord((prev) => prev || {
-          score: localParsed?.score ?? targetSubModule.score ?? (targetSubModule.totalMarks || 100),
-          bestScore: localParsed?.bestScore ?? targetSubModule.score ?? (targetSubModule.totalMarks || 100),
-          totalMarks: localParsed?.totalMarks ?? targetSubModule.totalMarks ?? targetSubModule.total_marks ?? 100,
-          attemptsCount: localParsed?.attemptsCount ?? 1,
-          submittedAt: localParsed?.submittedAt ?? targetSubModule.submittedAt ?? new Date().toISOString(),
-          answers: localParsed?.answers ?? {},
+          score: att?.score ?? targetSubModule.score ?? (targetSubModule.totalMarks || 100),
+          bestScore: att?.bestScore ?? targetSubModule.score ?? (targetSubModule.totalMarks || 100),
+          totalMarks: att?.totalMarks ?? targetSubModule.totalMarks ?? targetSubModule.total_marks ?? 100,
+          attemptsCount: att?.attemptsCount ?? 1,
+          submittedAt: att?.submittedAt ?? targetSubModule.submittedAt ?? new Date().toISOString(),
+          answers: att?.answers ?? {},
         });
       }
 
@@ -627,45 +587,45 @@ export default function AssessmentTakePage() {
     let attemptsCount = 1;
     let bestScore = obtainedMarks;
 
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(`lms_practice_session_${subModuleId}`);
-      localStorage.setItem(`lms_practice_session_${subModuleId}_submitted`, "true");
-      
-      const prevCompleted = localStorage.getItem(`lms_completed_assessment_${subModuleId}`);
-      if (prevCompleted) {
-        try {
-          const parsed = JSON.parse(prevCompleted);
-          attemptsCount = (parsed.attemptsCount || 1) + 1;
-          bestScore = Math.max(parsed.score || 0, obtainedMarks);
-        } catch {}
-      }
+    const rec: CompletedRecord = {
+      score: obtainedMarks,
+      bestScore,
+      totalMarks: currentSubModule?.totalMarks || 100,
+      attemptsCount,
+      submittedAt: completedAt,
+      timeSpentSeconds,
+      answers,
+    };
 
-      const rec: CompletedRecord = {
-        score: obtainedMarks,
-        bestScore,
-        totalMarks: currentSubModule?.totalMarks || 100,
-        attemptsCount,
-        submittedAt: completedAt,
-        timeSpentSeconds,
-        answers,
-      };
-
-      localStorage.setItem(`lms_completed_assessment_${subModuleId}`, JSON.stringify(rec));
-      window.dispatchEvent(new Event("storage"));
-      setCompletedRecord(rec);
-    }
+    setCompletedRecord(rec);
 
     try {
-      await fetch(`/api/student/assessments/${subModuleId}`, {
+      const res = await fetch(`/api/student/assessments/${subModuleId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, score: obtainedMarks, completedAt, timeSpentSeconds })
+        body: JSON.stringify({ answers, score: obtainedMarks, totalMarks: currentSubModule?.totalMarks || 100, completedAt, timeSpentSeconds }),
       });
-    } catch {}
+      if (res.ok) {
+        const data = await res.json();
+        if (data.attempt) {
+          setCompletedRecord({
+            score: data.attempt.score ?? obtainedMarks,
+            bestScore: data.attempt.score ?? bestScore,
+            totalMarks: data.attempt.total_marks ?? (currentSubModule?.totalMarks || 100),
+            attemptsCount: 1,
+            submittedAt: data.attempt.submitted_at || completedAt,
+            timeSpentSeconds,
+            answers: data.attempt.answers || answers,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Database submission error:", err);
+    }
 
     toast({
       title: "Practice Completed",
-      description: `Your submission has been recorded. Score: ${obtainedMarks} / ${currentSubModule?.totalMarks || 100}`,
+      description: `Your submission has been recorded in the database. Score: ${obtainedMarks} / ${currentSubModule?.totalMarks || 100}`,
     });
   };
 
