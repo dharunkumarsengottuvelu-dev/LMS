@@ -283,7 +283,11 @@ export function CodingProblemCreator({
 
   // 1. BASIC PROBLEM INFORMATION
   const [problemNumber, setProblemNumber] = useState<string>(() => {
-    if (existing.id) return existing.id;
+    if ((existing as any).problem_number) return String((existing as any).problem_number);
+    // If id is a valid numeric string, use it; do NOT use 36-char UUIDs as human problem numbers
+    if (existing.id && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(existing.id) && !isNaN(Number(existing.id))) {
+      return existing.id;
+    }
     const all = CodingProblemsService.getAllProblems();
     const maxId = all.reduce((max, p) => Math.max(max, parseInt(p.id, 10) || 0), 0);
     return String(maxId + 1);
@@ -291,11 +295,12 @@ export function CodingProblemCreator({
 
   // Auto-sync problem number if creating a new problem and existing problem list loads
   useEffect(() => {
-    if (!existing.id) {
+    const isUUID = Boolean(existing.id && /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(existing.id));
+    if (!existing.id || isUUID) {
       CodingProblemsService.fetchProblems().then((all) => {
         if (all && all.length > 0) {
           const maxId = all.reduce((max, p) => Math.max(max, parseInt(p.id, 10) || 0), 0);
-          setProblemNumber((curr) => (!curr || curr === "1" ? String(maxId + 1) : curr));
+          setProblemNumber((curr) => (!curr || curr === "1" || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(curr) ? String(maxId + 1) : curr));
         }
       });
     }

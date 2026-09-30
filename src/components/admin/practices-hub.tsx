@@ -1295,9 +1295,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           {activeTab === "coding" && (
             <div className="space-y-4">
               <CodingProblemCreator
-                initialProblem={{ id: currentModule.id } as any}
                 onSave={(newProb: any) => {
-                  setCodingList([...codingList, newProb]);
+                  const problemToSave = {
+                    ...newProb,
+                    assessment_id: currentModule.id,
+                    module_id: currentModule.id,
+                  };
+                  setCodingList([...codingList, problemToSave]);
                   toast({ title: "Coding Problem Added", description: `Added: ${newProb?.title || "New Problem"}` });
                 }}
               />
