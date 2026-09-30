@@ -54,6 +54,7 @@ import { CodingProblemCreator } from "@/components/admin/coding-problem-creator"
 import { PageHeader } from "@/components/layouts/page-header";
 import { VisibilitySelector } from "@/components/admin/visibility-selector";
 import { AutoSaveBadge } from "@/components/ui/auto-save-badge";
+import { AssessmentQuestionEditor } from "@/components/admin/assessment-question-editor";
 
 export interface ScheduledTest {
   id: string;
@@ -101,6 +102,16 @@ export interface TestQuestion {
   type: "coding" | "mcq" | "msq" | "both";
   marks: number;
   section: string;
+  difficulty?: "easy" | "medium" | "hard" | string;
+  language?: string;
+  problemStatement?: string;
+  description?: string;
+  inputFormat?: string;
+  outputFormat?: string;
+  constraints?: string;
+  explanation?: string;
+  starterCode?: Record<string, string> | string;
+  referenceCode?: Record<string, string> | string;
   options?: Array<{ id: number; text: string; isCorrect: boolean }>;
   testCases?: Array<{ id: number; input: string; output: string; isHidden?: boolean }>;
 }
@@ -2589,6 +2600,12 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
           actions={
             <div className="flex items-center gap-2">
               <Button
+                className="h-9 font-bold text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-2 shadow-xs"
+                onClick={() => setViewState("add-question")}
+              >
+                <Code2 className="h-4 w-4" /> Manage Questions
+              </Button>
+              <Button
                 variant="outline"
                 className="h-9 font-bold text-xs bg-white dark:bg-[#18181B] border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/5"
                 onClick={() => {
@@ -3121,332 +3138,33 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   }
 
   if (viewState === "add-question" && selectedTest) {
-    const existingQuestions = selectedTest.questions || [];
-    const currentQIndex = editingQuestionId
-      ? existingQuestions.findIndex((q) => q.id === editingQuestionId)
-      : existingQuestions.length;
-
     return (
-      <div className="space-y-6 w-full animate-in fade-in duration-300">
-        <PageHeader
-          title={editingQuestionId ? `Edit Question #${currentQIndex + 1}` : `Create Question #${existingQuestions.length + 1}`}
-          backAction={{ label: "Back to Dashboard", onClick: () => {
-            setEditingQuestionId(null);
-            setViewState("exam-dashboard");
-          }}}
-          actions={
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleQuickNewQuestion}
-                className="h-9 text-xs font-bold border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5"
-              >
-                <Plus className="h-4 w-4" /> + Add Blank Question
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleDuplicateQuestion}
-                className="h-9 text-xs font-bold gap-1.5"
-                title="Duplicate problem statement & options as a new question draft"
-              >
-                <Copy className="h-3.5 w-3.5" /> Duplicate / Clone
-              </Button>
-            </div>
+      <AssessmentQuestionEditor
+        test={selectedTest}
+        role={role}
+        onBack={() => {
+          setEditingQuestionId(null);
+          setViewState("exam-dashboard");
+        }}
+        onSave={async (updatedTest: ScheduledTest) => {
+          try {
+            const res = await fetch("/api/admin/tests", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ test: updatedTest }),
+            });
+            if (!res.ok) {
+              const errData = await res.json();
+              throw new Error(errData.error || "Failed to update assessment");
+            }
+            setTests((prev) => prev.map((t) => (t.id === updatedTest.id ? updatedTest : t)));
+            setSelectedTest(updatedTest);
+          } catch (err) {
+            console.error("Save assessment error:", err);
+            throw err;
           }
-        />
-
-        {/* Interactive Question Navigation Chip Bar */}
-        <div className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-2xl shadow-xs space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-              <ClipboardList className="h-4 w-4 text-[#2563EB]" /> Questions in this Assessment ({existingQuestions.length})
-            </span>
-            <span className="text-[11px] text-[#6B7280]">
-              Total Marks Pool: <strong className="text-[#2563EB]">{selectedTest.maxMarks || 0} Marks</strong>
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            {existingQuestions.map((q, idx) => {
-              const isCurrent = editingQuestionId === q.id;
-              return (
-                <button
-                  key={q.id}
-                  type="button"
-                  onClick={() => handleSwitchToQuestion(q)}
-                  className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
-                    isCurrent
-                      ? "bg-[#2563EB] text-white border-[#2563EB] shadow-sm"
-                      : "bg-[#F9FAFB] dark:bg-[#09090B] border-[#E5E7EB] dark:border-[#27272A] text-[#4B5563] dark:text-[#D1D5DB] hover:border-[#2563EB] hover:text-[#2563EB]"
-                  }`}
-                >
-                  <span>Q{idx + 1}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${isCurrent ? "bg-white/20 text-white" : "bg-[#E5E7EB] dark:bg-[#27272A] text-[#6B7280]"}`}>
-                    {q.marks}m
-                  </span>
-                </button>
-              );
-            })}
-
-            {/* Quick + Add New Question Button */}
-            <button
-              type="button"
-              onClick={handleSwitchToNewQuestion}
-              className={`h-9 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border-2 border-dashed ${
-                !editingQuestionId
-                  ? "border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20 text-[#2563EB] shadow-xs"
-                  : "border-[#9CA3AF]/40 text-[#2563EB] hover:bg-[#2563EB]/5 hover:border-[#2563EB]"
-              }`}
-            >
-              <Plus className="h-4 w-4" />
-              <span>+ Add Question #{existingQuestions.length + 1}</span>
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={(e) => handleAddQuestion(e, false)} className="space-y-6">
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 rounded-2xl shadow-sm">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                  <Code2 className="h-4 w-4 text-[#2563EB]" /> {editingQuestionId ? `Editing Question #${currentQIndex + 1}` : `Compose Question #${existingQuestions.length + 1}`}
-                </h3>
-                <Badge variant="outline" className="text-[10px] font-bold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
-                  Section: {manualQuestionSection || "General Assessment"}
-                </Badge>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Select value={manualQuestionType} onValueChange={(val) => val && setManualQuestionType(val as any)}>
-                  <SelectTrigger className="h-9 text-xs w-[200px] bg-[#F9FAFB] dark:bg-[#09090B] font-bold"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mcq">Single Choice (MCQ)</SelectItem>
-                    <SelectItem value="msq">Multiple Select (MSQ)</SelectItem>
-                    <SelectItem value="coding">Programming Task (Coding)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              {manualQuestionType === "coding" ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-[#F9FAFB] dark:bg-[#09090B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
-                    <div>
-                      <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Marks Allocated for this Coding Question</p>
-                      <p className="text-[11px] text-[#6B7280]">Total points awarded to student upon passing test cases.</p>
-                    </div>
-                    <div className="w-32">
-                      <Input
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={manualQuestionMarks}
-                        onChange={(e) => setManualQuestionMarks(Number(e.target.value))}
-                        className="h-9 text-xs font-bold text-center rounded-lg"
-                      />
-                    </div>
-                  </div>
-
-                  <CodingProblemCreator
-                    inline
-                    hideHeader
-                    initialTitle={manualQuestionTitle || ""}
-                    initialDescription={manualQuestionTitle}
-                    onChange={(problem) => {
-                      if (problem.title) {
-                        setManualQuestionTitle(problem.title);
-                      }
-                      const allTC = [...(problem.publicTestCases || []), ...(problem.hiddenTestCases || [])];
-                      if (allTC.length > 0) {
-                        setManualTestCases(allTC.map((t, index) => ({
-                          id: index + 1,
-                          input: t.input,
-                          output: t.expected_output,
-                          isHidden: t.is_hidden
-                        })));
-                      }
-                    }}
-                  />
-                </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Question / Problem Statement <span className="text-[#DC2626]">*</span></label>
-                      <textarea 
-                        className="w-full min-h-[120px] p-4 text-sm rounded-xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B] focus:ring-2 focus:ring-[#2563EB] outline-none transition-all resize-y"
-                        placeholder="Enter your question statement here (e.g., What is the output of the given expression? or Find the missing number in the sequence)..."
-                        value={manualQuestionTitle}
-                        onChange={(e) => setManualQuestionTitle(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Marks Allocated</label>
-                      <Input type="number" min={1} max={100} value={manualQuestionMarks} onChange={(e) => setManualQuestionMarks(Number(e.target.value))} required className="h-10 text-sm rounded-lg" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">
-                        {manualQuestionType === "msq" ? "Multiple Select Options" : "Single Choice Options"}
-                      </label>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <Button
-                          type="button"
-                          onClick={() =>
-                            setManualMCQOptions([
-                              { id: 1, text: "True", isCorrect: true },
-                              { id: 2, text: "False", isCorrect: false },
-                            ])
-                          }
-                          variant="outline"
-                          className="h-7 px-2 text-[10px] font-bold"
-                        >
-                          True/False
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() =>
-                            setManualMCQOptions([
-                              { id: 1, text: "", isCorrect: false },
-                              { id: 2, text: "", isCorrect: false },
-                              { id: 3, text: "", isCorrect: false },
-                              { id: 4, text: "", isCorrect: false },
-                            ])
-                          }
-                          variant="outline"
-                          className="h-7 px-2 text-[10px] font-bold text-[#DC2626]"
-                        >
-                          Clear Text
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() =>
-                            setManualMCQOptions([
-                              ...manualMCQOptions,
-                              { id: Date.now(), text: "", isCorrect: false },
-                            ])
-                          }
-                          variant="outline"
-                          className="h-7 px-2.5 text-[10px] font-bold text-[#2563EB] border-[#2563EB]/40"
-                        >
-                          <Plus className="h-3 w-3 mr-1" /> Add Option
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      {manualMCQOptions.map((opt, idx) => (
-                        <div key={opt.id || idx} className={`flex items-center gap-3 p-3 border ${opt.isCorrect ? 'border-[#2563EB] bg-[#EFF6FF] dark:bg-[#1E3A8A]/20' : 'border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB] dark:bg-[#09090B]'} rounded-xl group transition-all`}>
-                          <div className="flex items-center justify-center w-6 h-6 rounded bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] text-[10px] font-bold text-[#6B7280]">
-                            {String.fromCharCode(65 + idx)}
-                          </div>
-                          <Input 
-                            value={opt.text ?? ""} 
-                            onChange={(e) => setManualMCQOptions(manualMCQOptions.map(o => o.id === opt.id ? { ...o, text: e.target.value } : o))} 
-                            placeholder={`Option ${idx + 1}`} 
-                            className="h-9 text-xs flex-1 bg-white dark:bg-[#18181B]" 
-                          />
-                          <label className="flex items-center gap-2 cursor-pointer ml-2 pr-2">
-                            {manualQuestionType === "mcq" ? (
-                              <input 
-                                type="radio" 
-                                name="mcq-correct-answer"
-                                checked={Boolean(opt.isCorrect)}
-                                onChange={() => setManualMCQOptions(manualMCQOptions.map(o => ({ ...o, isCorrect: o.id === opt.id })))}
-                                className="w-4 h-4 text-[#2563EB] cursor-pointer"
-                              />
-                            ) : (
-                              <Switch 
-                                checked={Boolean(opt.isCorrect)} 
-                                onCheckedChange={(checked) => setManualMCQOptions(manualMCQOptions.map(o => o.id === opt.id ? { ...o, isCorrect: checked } : o))} 
-                                className="scale-75" 
-                              />
-                            )}
-                            <span className={`text-[10px] font-bold ${opt.isCorrect ? 'text-[#2563EB]' : 'text-[#6B7280]'}`}>
-                              Correct Answer
-                            </span>
-                          </label>
-                          <button type="button" onClick={() => manualMCQOptions.length > 2 && setManualMCQOptions(manualMCQOptions.filter(o => o.id !== opt.id))} className="text-[#EF4444] opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-            
-            {/* Action Buttons Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-8 border-t border-[#E5E7EB] dark:border-[#27272A] mt-6 gap-3">
-              <div className="flex items-center gap-2">
-                {editingQuestionId && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      handleDeleteQuestion(editingQuestionId);
-                      setEditingQuestionId(null);
-                      setViewState("exam-dashboard");
-                    }}
-                    className="h-10 px-4 border-[#DC2626]/30 text-[#DC2626] hover:bg-[#DC2626]/10 text-xs font-bold rounded-xl gap-2"
-                  >
-                    <Trash2 className="h-4 w-4" /> Delete Question
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleQuickNewQuestion}
-                  className="h-10 px-4 border-dashed text-xs font-bold rounded-xl gap-1.5 text-[#2563EB]"
-                >
-                  <Plus className="h-4 w-4" /> + Add Blank Question
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-end gap-2.5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setEditingQuestionId(null);
-                    setViewState("exam-dashboard");
-                  }}
-                  className="h-10 px-4 text-xs font-bold rounded-xl"
-                >
-                  Cancel
-                </Button>
-
-                {/* SAVE & ADD NEXT QUESTION BUTTON (PRIMARY FEATURE) */}
-                <Button
-                  type="button"
-                  onClick={() => handleAddQuestion(undefined, true)}
-                  className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl shadow-md shadow-[#2563EB]/20 gap-2"
-                >
-                  <Plus className="h-4 w-4" /> Save & Add Next Question
-                </Button>
-
-                {/* SAVE & FINISH BUTTON */}
-                <Button
-                  type="submit"
-                  className="h-10 px-5 bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-bold rounded-xl shadow-sm gap-2"
-                >
-                  <CheckCircle2 className="h-4 w-4" /> {editingQuestionId ? "Save & Return" : "Save & Finish (Dashboard)"}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </form>
-      </div>
+        }}
+      />
     );
   }
 

@@ -179,6 +179,7 @@ export interface CodingProblem {
   constraints?: string;
   input_format?: string;
   output_format?: string;
+  explanation?: string;
   sample_input?: string;
   sample_output?: string;
   example_cases?: ExampleCase[];

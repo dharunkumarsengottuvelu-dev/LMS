@@ -723,7 +723,8 @@ export function PracticeRunnerEngine({
         return Object.keys(formatted).length > 0 ? formatted : { java: "// Write your code here\n" };
       })(),
       test_cases: testCases,
-      reveal_hidden_testcases: (currentQuestion as any).reveal_hidden_testcases !== false
+      reveal_hidden_testcases: (currentQuestion as any).reveal_hidden_testcases !== false,
+      explanation: currentQuestion.explanation || (currentQuestion as any).explanation,
     };
   }, [currentQuestion]);
 
@@ -835,6 +836,18 @@ export function PracticeRunnerEngine({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Explanation / Editorial Section */}
+        {(activeCodingProblem.explanation || (currentQuestion as any)?.explanation) && (
+          <div className="p-3.5 bg-amber-50/70 dark:bg-amber-950/25 rounded-xl border border-amber-200/80 dark:border-amber-900/40 space-y-1.5 pt-1">
+            <strong className="text-amber-800 dark:text-amber-300 text-xs font-bold uppercase tracking-wider block flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" /> Explanation:
+            </strong>
+            <p className="text-slate-700 dark:text-zinc-300 whitespace-pre-line text-xs leading-relaxed">
+              {activeCodingProblem.explanation || (currentQuestion as any)?.explanation}
+            </p>
           </div>
         )}
       </CardContent>
@@ -1436,6 +1449,17 @@ export function PracticeRunnerEngine({
                       })
                     )}
                   </div>
+
+                  {currentQuestion.explanation && (
+                    <div className="p-3.5 bg-amber-50/70 dark:bg-amber-950/25 rounded-xl border border-amber-200/80 dark:border-amber-900/40 space-y-1.5">
+                      <strong className="text-amber-800 dark:text-amber-300 text-xs font-bold uppercase tracking-wider block flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5" /> Explanation:
+                      </strong>
+                      <p className="text-slate-700 dark:text-zinc-300 whitespace-pre-line text-xs leading-relaxed">
+                        {currentQuestion.explanation}
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

@@ -178,10 +178,11 @@ export default function StudentTestRunnerPage() {
                 marks: Number(q.marks) || 10,
                 section: "coding",
                 sectionTitle: "Coding Challenges",
-                difficulty: "medium",
+                difficulty: q.difficulty || "medium",
                 constraints: q.constraints || "Standard time and memory limits apply.",
                 inputFormat: q.inputFormat || "Standard Input",
                 outputFormat: q.outputFormat || "Standard Output",
+                explanation: q.explanation || "",
                 starterCode: q.starterCode || {
                   python: "# Write your Python solution here\n",
                   java: "// Write your Java solution here\n",
@@ -211,6 +212,7 @@ export default function StudentTestRunnerPage() {
                 marks: Number(q.marks) || 1,
                 section: "mcq",
                 sectionTitle: isMSQ ? "Multiple Select (MSQ)" : "Multiple Choice (MCQ)",
+                explanation: q.explanation || "",
                 options: optionsList,
               };
             }

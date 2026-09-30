@@ -83,6 +83,19 @@ export async function GET(
         (opt: any) => typeof opt === "object" && Boolean(opt.isCorrect)
       );
 
+      // Sanitize test cases for students: public cases keep input & output; hidden cases keep only metadata without revealing answers
+      const sanitizedTestCases = (q.testCases || []).map((tc: any, tcIdx: number) => {
+        const isHidden = Boolean(tc.isHidden || tc.is_hidden);
+        return {
+          id: tc.id || `tc_${tcIdx + 1}`,
+          input: isHidden ? "" : (tc.input || ""),
+          output: isHidden ? "" : (tc.output || tc.expected_output || tc.expectedOutput || ""),
+          expected_output: isHidden ? "" : (tc.output || tc.expected_output || tc.expectedOutput || ""),
+          isHidden: isHidden,
+          is_hidden: isHidden,
+        };
+      });
+
       return {
         id: index + 1,
         questionId: q.id || `q_${index + 1}`,
@@ -91,16 +104,22 @@ export async function GET(
         problemStatement: q.problemStatement || q.description || q.title || "",
         marks: Number(q.marks) || 1,
         section: q.section || "General Assessment",
+        difficulty: q.difficulty || "medium",
+        language: q.language || (typeof q.starterCode === "object" ? Object.keys(q.starterCode)[0] : "java"),
+        inputFormat: q.inputFormat || "",
+        outputFormat: q.outputFormat || "",
+        constraints: q.constraints || "",
+        explanation: q.explanation || "",
         options: optionsArray.length > 0 ? optionsArray : ["Option A", "Option B", "Option C", "Option D"],
         optionsList: q.options || [],
         correctOption: correctIndex >= 0 ? correctIndex : 0,
-        testCases: q.testCases || [],
+        testCases: sanitizedTestCases,
         starterCode: q.starterCode || q.templates || {
-          python: "def solution():\n    # Write your python code here\n    pass",
-          javascript: "function solution() {\n    // Write your javascript code here\n}",
-          java: "public class Solution {\n    public static void main(String[] args) {\n        // Write your java code here\n    }\n}",
-          cpp: "#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your C++ code here\n    return 0;\n}",
-          c: "#include <stdio.h>\n\nint main() {\n    // Write your C code here\n    return 0;\n}"
+          python: "# Write your Python solution here\n",
+          javascript: "// Write your JavaScript solution here\n",
+          java: "public class Main {\n    public static void main(String[] args) {\n        // Write your Java solution here\n    }\n}",
+          cpp: "#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}",
+          c: "#include <stdio.h>\n\nint main() {\n    return 0;\n}"
         },
       };
     });
