@@ -300,7 +300,7 @@ export default function StudentTrackDetailPage() {
                               </div>
 
                               <div className="pt-2 border-t border-slate-200/70 dark:border-zinc-800 flex items-center justify-between text-[11px] text-slate-600 dark:text-zinc-400">
-                                <span>{m.durationMinutes}m | {m.totalMarks} Marks</span>
+                                <span>{m.durationMinutes > 0 ? `${m.durationMinutes}m` : "Untimed"} | {m.totalMarks} Marks</span>
                                 <span className="font-semibold">{m.questionCount} Qs</span>
                               </div>
                             </div>

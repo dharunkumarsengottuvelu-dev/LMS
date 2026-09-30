@@ -119,6 +119,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [fModName, setFModName] = useState<string>("");
   const [fModDesc, setFModDesc] = useState<string>("");
   const [fModType, setFModType] = useState<"mixed" | "mcq" | "coding">("mixed");
+  const [fModDurationEnabled, setFModDurationEnabled] = useState<boolean>(true);
   const [fModDuration, setFModDuration] = useState<number>(60);
   const [fModMarks, setFModMarks] = useState<number>(100);
   const [fModStatus, setFModStatus] = useState<"active" | "inactive">("active");
@@ -396,6 +397,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setFModName("");
     setFModDesc("");
     setFModType("mixed");
+    setFModDurationEnabled(true);
     setFModDuration(60);
     setFModMarks(100);
     setFModStatus("active");
@@ -409,7 +411,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setFModName(m.name || m.title || "");
     setFModDesc(m.description || "");
     setFModType(m.type || "mixed");
-    setFModDuration(m.durationMinutes || 60);
+    const hasDur = typeof m.durationMinutes === "number" && m.durationMinutes > 0;
+    setFModDurationEnabled(hasDur);
+    setFModDuration(hasDur ? m.durationMinutes : 60);
     setFModMarks(m.totalMarks || 100);
     setFModStatus(m.status);
     setFModOrder(m.display_order ?? 0);
@@ -426,6 +430,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     try {
       const isEdit = Boolean(editingModule?.id);
       const action = isEdit ? "update_module" : "create_module";
+      const finalDuration = fModDurationEnabled ? (Number(fModDuration) || 60) : 0;
       const payload: any = {
         action,
         main_module_id: currentMainModule.id,
@@ -435,7 +440,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         title: trimmedName,
         description: fModDesc.trim(),
         type: fModType,
-        durationMinutes: Number(fModDuration) || 60,
+        durationMinutes: finalDuration,
         totalMarks: Number(fModMarks) || 100,
         status: fModStatus,
         display_order: Number(fModOrder) || 0,
@@ -1074,7 +1079,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           Questions: <span className="font-bold text-slate-900 dark:text-zinc-200">{qCount}</span>
                         </div>
                         <div>
-                          Duration: <span className="font-bold">{mod.durationMinutes}m</span>
+                          Duration: <span className="font-bold">{mod.durationMinutes > 0 ? `${mod.durationMinutes}m` : "Untimed"}</span>
                         </div>
                         <div>
                           Total Marks: <span className="font-bold">{mod.totalMarks}</span>
@@ -1577,7 +1582,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div className="space-y-1">
                   <label className="font-bold text-slate-700 dark:text-zinc-300">Type</label>
                   <Select value={fModType} onValueChange={(v: any) => setFModType(v)}>
@@ -1593,13 +1598,39 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-zinc-300">Duration (m)</label>
-                  <Input
-                    type="number"
-                    value={fModDuration}
-                    onChange={(e) => setFModDuration(parseInt(e.target.value) || 60)}
-                    className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
-                  />
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-slate-700 dark:text-zinc-300">Duration (m)</label>
+                    <button
+                      type="button"
+                      onClick={() => setFModDurationEnabled(!fModDurationEnabled)}
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${
+                        fModDurationEnabled
+                          ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                          : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
+                      }`}
+                    >
+                      {fModDurationEnabled ? "[ ON ]" : "[ OFF ]"}
+                    </button>
+                  </div>
+                  {fModDurationEnabled ? (
+                    <Input
+                      type="number"
+                      value={fModDuration}
+                      onChange={(e) => setFModDuration(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="h-8.5 text-xs bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700"
+                      placeholder="e.g. 60"
+                      min={1}
+                    />
+                  ) : (
+                    <div
+                      onClick={() => setFModDurationEnabled(true)}
+                      className="h-8.5 px-2.5 flex items-center justify-between bg-slate-100 dark:bg-zinc-800/80 rounded-md border border-dashed border-slate-200 dark:border-zinc-700 text-[11px] text-slate-500 dark:text-zinc-400 font-semibold cursor-pointer hover:border-blue-400"
+                      title="Click to turn duration ON"
+                    >
+                      <span>No Time Limit</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400">[ OFF ]</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1">
