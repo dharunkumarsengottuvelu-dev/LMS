@@ -42,6 +42,7 @@ export async function GET(request: Request) {
         .maybeSingle();
 
       const profile = profileData as { role?: string } | null;
+      const emailLower = (data.user.email || "").toLowerCase();
       const userMetaRole =
         (data.user.user_metadata?.role as string) ||
         (data.user.app_metadata?.role as string) ||
