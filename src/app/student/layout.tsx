@@ -13,7 +13,8 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login?next=/student/dashboard");
+    console.log("STUDENT LAYOUT: !user, redirecting to login");
+    redirect("/login?error=session_expired&next=/student/dashboard");
   }
 
   const { data: profile } = await supabase
@@ -23,7 +24,10 @@ export default async function StudentLayout({ children }: { children: React.Reac
     .maybeSingle();
 
   const profileData = profile as { role?: string; status?: string } | null;
-  if (profileData?.status === "suspended") redirect("/login?error=suspended");
+  if (profileData?.status === "suspended") {
+    console.log("STUDENT LAYOUT: user suspended, redirecting");
+    redirect("/login?error=suspended");
+  }
 
   const role = (profileData?.role || user.user_metadata?.role || user.app_metadata?.role || "").toLowerCase();
   const email = (user.email || "").toLowerCase();
@@ -39,10 +43,13 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const isInstitution = role === "institution";
 
   if (isAdmin) {
+    console.log("STUDENT LAYOUT: isAdmin, redirecting to admin dashboard");
     redirect("/admin/dashboard");
   } else if (isTrainer) {
+    console.log("STUDENT LAYOUT: isTrainer, redirecting to trainer dashboard");
     redirect("/trainer/dashboard");
   } else if (isInstitution) {
+    console.log("STUDENT LAYOUT: isInstitution, redirecting to institution overview");
     redirect("/institution/overview");
   }
 

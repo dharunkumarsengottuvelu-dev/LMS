@@ -12,7 +12,7 @@ export default async function TrainerLayout({ children }: { children: React.Reac
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login?next=/trainer/dashboard");
+    redirect("/login?error=session_expired&next=/trainer/dashboard");
   }
 
   const { data: profileData } = await supabase

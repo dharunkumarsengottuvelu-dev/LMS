@@ -88,6 +88,13 @@ export async function updateSession(request: NextRequest) {
           }
           request.cookies.set(name, value);
         });
+
+        // FIX: In Next.js 14+, modifying request.cookies doesn't update the headers for Server Components.
+        // We must manually serialize the cookies back to request.headers.
+        const updatedCookies = request.cookies.getAll();
+        const cookieHeader = updatedCookies.map(c => `${c.name}=${encodeURIComponent(c.value)}`).join("; ");
+        request.headers.set("cookie", cookieHeader);
+
         supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) => {
           if (

@@ -355,8 +355,10 @@ export async function proxy(request: NextRequest) {
 
     // 4. Redirect authenticated users away from auth pages
     //    Role is resolved purely from JWT metadata — NO extra DB query
+    const hasError = request.nextUrl.searchParams.has("error");
     if (
       user &&
+      !hasError &&
       (pathname.startsWith("/auth/") ||
         pathname === "/login" ||
         pathname === "/register")

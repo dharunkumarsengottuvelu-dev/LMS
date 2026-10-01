@@ -20,7 +20,7 @@ export default async function InstitutionLayout({
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
   if (authErr || !user) {
-    redirect("/login?next=/institution/overview");
+    redirect("/login?error=session_expired&next=/institution/overview");
   }
 
   const { data: profile } = await supabase
