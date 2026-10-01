@@ -10,10 +10,10 @@ export const metadata: Metadata = {
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
   if (!user) {
-    console.log("STUDENT LAYOUT: !user, redirecting to login");
+    console.log("STUDENT LAYOUT: !user, authErr:", authErr);
     redirect("/login?error=session_expired&next=/student/dashboard");
   }
 

@@ -94,24 +94,7 @@ export async function GET(request: Request) {
 
       const response = NextResponse.redirect(new URL(redirectPath, origin));
 
-      // 1. Ensure the clean, compact tokens-only session cookie is attached to the 302 response
-      const { cookies: getCookies } = await import("next/headers");
-      const cookieStore = await getCookies();
-      for (const c of cookieStore.getAll()) {
-        if (
-          !c.name.includes("provider-token") &&
-          !c.name.includes("provider-refresh-token") &&
-          !c.name.includes("provider_token") &&
-          !/\-auth\-token\.\d+$/.test(c.name)
-        ) {
-          response.cookies.set(c.name, c.value, {
-            path: "/",
-            sameSite: "lax",
-            secure: process.env.NODE_ENV === "production",
-            domain: undefined,
-          });
-        }
-      }
+      // (Removed buggy manual cookie copying that was overwriting new tokens with old request cookies)
 
       // 2. Cleanse any bloated provider tokens, old chunked cookies (.0, .1), or legacy cookies
       // from the client across all scopes to guarantee the subsequent request to /student/dashboard
