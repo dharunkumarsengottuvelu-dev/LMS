@@ -230,7 +230,7 @@ export async function GET() {
     const studentProfiles = (profilesData || []).filter((p: any) => {
       const r = (p.role || "").toLowerCase();
       const em = (p.email || "").toLowerCase();
-      return r === "student" || (!em.includes("admin") && !em.includes("trainer") && r !== "admin" && r !== "trainer");
+      return r === "student";
     });
 
     const mappedStudents = studentProfiles.map((s: any) => {

@@ -33,13 +33,10 @@ export default async function StudentLayout({ children }: { children: React.Reac
     role === "admin" ||
     role === "super_admin" ||
     role === "founder" ||
-    role === "ceo" ||
-    localPart === "admin" ||
-    localPart.startsWith("admin.") ||
-    localPart.startsWith("superadmin");
+    role === "ceo";
 
-  const isTrainer = role === "trainer" || localPart === "trainer" || localPart.startsWith("trainer.");
-  const isInstitution = role === "institution" || localPart === "institution" || localPart.startsWith("institution.");
+  const isTrainer = role === "trainer";
+  const isInstitution = role === "institution";
 
   if (isAdmin) {
     redirect("/admin/dashboard");

@@ -150,12 +150,7 @@ function resolveRoleFromUser(user: {
     if (metaRole === "student") return "student";
   }
 
-  // Email-based role detection (exact keyword prefixes only, not substring)
-  const [localPart = "", domain = ""] = email.split("@");
-  if (localPart === "admin" || localPart.startsWith("admin.") || localPart.startsWith("admin_") || localPart.startsWith("superadmin")) return "admin";
-  if (localPart === "trainer" || localPart.startsWith("trainer.") || localPart.startsWith("trainer_")) return "trainer";
-  if (localPart === "institution" || localPart.startsWith("institution.") || localPart.startsWith("institution_")) return "institution";
-
+  // Removed fragile email-based role detection which incorrectly elevates students
   return "student";
 }
 
@@ -358,20 +353,9 @@ export async function proxy(request: NextRequest) {
     // 3. Update Supabase Session (single call — also runs cookie sanitization)
     const { supabase: _supabase, supabaseResponse, user } = await updateSession(request);
 
-    // ─── REDIRECT LOOP GUARD ────────────────────────────────────────────────
-    // If the browser has been redirected 3+ times in rapid succession
-    // (detected via a short-lived cookie), stop redirecting and let the page
-    // render so the client can recover the session gracefully.
-    const redirectCount = parseInt(
-      request.cookies.get("_redir_guard")?.value || "0",
-      10
-    );
-    const isLooping = redirectCount >= 3;
-
     // 4. Redirect authenticated users away from auth pages
     //    Role is resolved purely from JWT metadata — NO extra DB query
     if (
-      !isLooping &&
       user &&
       (pathname.startsWith("/auth/") ||
         pathname === "/login" ||
@@ -392,21 +376,13 @@ export async function proxy(request: NextRequest) {
           request,
           supabaseResponse
         );
-        // Clear guard cookie on successful auth redirect
-        response.cookies.set("_redir_guard", "0", {
-          maxAge: 0,
-          httpOnly: true,
-          sameSite: "lax",
-          path: "/",
-          secure: process.env.NODE_ENV === "production",
-        });
         return response;
       }
     }
 
     // 5. Protect private routes — unauthenticated access
     const requiredRoles = getRequiredRoles(pathname);
-    if (!isLooping && requiredRoles && !user) {
+    if (requiredRoles && !user) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
           { error: "Unauthorized: Active authentication session required" },
@@ -421,104 +397,12 @@ export async function proxy(request: NextRequest) {
         loginUrl.searchParams.set("next", fullOriginalPath);
       }
 
-      const response = createRedirectWithCookies(loginUrl, request, supabaseResponse);
-      // Increment the guard counter so we can detect rapid redirect loops
-      response.cookies.set("_redir_guard", String(redirectCount + 1), {
-        maxAge: 10, // expires after 10 seconds
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      });
-      return response;
+      return createRedirectWithCookies(loginUrl, request, supabaseResponse);
     }
 
-    // 6. Cross-role boundary enforcement — JWT metadata only (no DB call)
-    if (
-      !isLooping &&
-      user &&
-      (
-        pathname.startsWith("/admin") ||
-        pathname.startsWith("/student") ||
-        pathname.startsWith("/trainer") ||
-        pathname.startsWith("/institution")
-      )
-    ) {
-      const role = resolveRoleFromUser(user);
-
-      // Role-based boundary check for API routes
-      if (requiredRoles && !requiredRoles.includes(role)) {
-        if (pathname.startsWith("/api/")) {
-          return NextResponse.json(
-            { error: "Forbidden: Insufficient privileges for this resource" },
-            { status: 403 }
-          );
-        }
-      }
-
-      // Portal boundary redirects — only redirect if the user is in the WRONG portal
-      const defaultPath = getRoleDefaultPath(role);
-
-      if (
-        role === "admin" &&
-        (pathname.startsWith("/student") ||
-          pathname.startsWith("/trainer") ||
-          pathname.startsWith("/institution"))
-      ) {
-        return createRedirectWithCookies(
-          new URL("/admin/dashboard", request.url),
-          request,
-          supabaseResponse
-        );
-      }
-      if (
-        role === "institution" &&
-        (pathname.startsWith("/admin") ||
-          pathname.startsWith("/student") ||
-          pathname.startsWith("/trainer"))
-      ) {
-        return createRedirectWithCookies(
-          new URL("/institution/overview", request.url),
-          request,
-          supabaseResponse
-        );
-      }
-      if (
-        role === "student" &&
-        (pathname.startsWith("/admin") ||
-          pathname.startsWith("/trainer") ||
-          pathname.startsWith("/institution"))
-      ) {
-        return createRedirectWithCookies(
-          new URL("/student/dashboard", request.url),
-          request,
-          supabaseResponse
-        );
-      }
-      if (
-        role === "trainer" &&
-        (pathname.startsWith("/admin") ||
-          pathname.startsWith("/student") ||
-          pathname.startsWith("/institution"))
-      ) {
-        return createRedirectWithCookies(
-          new URL("/trainer/dashboard", request.url),
-          request,
-          supabaseResponse
-        );
-      }
-
-      // If role is correct for this portal, clear any stale redirect guard
-      if (defaultPath && pathname.startsWith("/" + role.replace("_", "-").replace("super-admin", "admin"))) {
-        supabaseResponse.cookies.set("_redir_guard", "0", {
-          maxAge: 0,
-          httpOnly: true,
-          sameSite: "lax",
-          path: "/",
-          secure: process.env.NODE_ENV === "production",
-        });
-      }
-    }
+    // Cross-role boundary enforcement (Step 6) is now handled entirely
+    // by Server Components (e.g., layout.tsx) which can reliably query the DB
+    // to determine the user's role without conflicting with JWT metadata.
 
     return supabaseResponse;
   } catch (err) {

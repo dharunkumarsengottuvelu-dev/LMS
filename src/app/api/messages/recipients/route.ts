@@ -60,9 +60,7 @@ export async function GET(request: NextRequest) {
             u.id !== user.id &&
             (role === "admin" ||
               role === "super_admin" ||
-              role === "trainer" ||
-              u.email?.toLowerCase().includes("admin") ||
-              u.email?.toLowerCase().includes("trainer"))
+              role === "trainer")
           );
         });
       } catch (authErr) {

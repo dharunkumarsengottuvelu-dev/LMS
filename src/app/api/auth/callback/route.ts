@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const forwardedHost = request.headers.get("x-forwarded-host");
   const host = forwardedHost || request.headers.get("host") || requestUrl.host;
   const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  const origin = `${protocol}://${host}`;
+  const origin = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
 
   // Check if provider returned an error directly in query string
   const authError = requestUrl.searchParams.get("error");
@@ -53,14 +53,11 @@ export async function GET(request: Request) {
         dbRole === "super_admin" ||
         dbRole === "admin" ||
         dbRole === "founder" ||
-        dbRole === "ceo" ||
-        (!dbRole && (localPart === "admin" || localPart.startsWith("admin.") || localPart.startsWith("superadmin")));
+        dbRole === "ceo";
       const isInstitution =
-        dbRole === "institution" ||
-        (!dbRole && (localPart === "institution" || localPart.startsWith("institution.")));
+        dbRole === "institution";
       const isTrainer =
-        dbRole === "trainer" ||
-        (!dbRole && (localPart === "trainer" || localPart.startsWith("trainer.")));
+        dbRole === "trainer";
       const isRecruiter = dbRole === "recruiter";
 
       const defaultPath = isSuperAdminOrAdmin

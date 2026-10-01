@@ -386,6 +386,25 @@ export async function POST(
           );
         } catch {}
       }
+
+      // Also record in student_practice_submissions per user request
+      const practiceSubPayload = {
+        track_id: trackId,
+        module_id: module_id,
+        student_id: studentProfileId,
+        status: "completed",
+        score: typeof score === "number" ? score : 0,
+        completed_at: new Date().toISOString()
+      };
+      
+      try {
+        await (adminClient.from("student_practice_submissions") as any).upsert(
+          practiceSubPayload,
+          { onConflict: "track_id,module_id,student_id" }
+        );
+      } catch (err) {
+        console.warn("Could not insert into student_practice_submissions:", err);
+      }
     }
 
     return NextResponse.json(

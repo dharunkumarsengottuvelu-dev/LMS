@@ -37,15 +37,12 @@ export default async function AdminLayout({
     role === "admin" ||
     role === "super_admin" ||
     role === "founder" ||
-    role === "ceo" ||
-    localPart === "admin" ||
-    localPart.startsWith("admin.") ||
-    localPart.startsWith("superadmin");
+    role === "ceo";
 
   if (!isAdmin) {
-    if (role === "trainer" || localPart === "trainer" || localPart.startsWith("trainer.")) {
+    if (role === "trainer") {
       redirect("/trainer/dashboard");
-    } else if (role === "institution" || localPart === "institution" || localPart.startsWith("institution.")) {
+    } else if (role === "institution") {
       redirect("/institution/overview");
     } else {
       redirect("/student/dashboard");

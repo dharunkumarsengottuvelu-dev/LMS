@@ -43,9 +43,9 @@ export async function GET(request: NextRequest) {
         const role =
           metaRole === "super_admin"
             ? "super_admin"
-            : metaRole === "admin" || au.email?.includes("admin")
+            : metaRole === "admin"
             ? "admin"
-            : metaRole === "trainer" || au.email?.includes("trainer")
+            : metaRole === "trainer"
             ? "trainer"
             : metaRole || "student";
 
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
       const first = p.first_name || "";
       const last = p.last_name || "";
       const fullName = (first || last) ? `${first} ${last}`.trim() : (p.email?.split("@")[0] || "User");
-      const role = p.role || (p.email?.includes("admin") ? "admin" : p.email?.includes("trainer") ? "trainer" : p.email?.includes("institution") ? "institution" : "student");
+      const role = p.role || "student";
       const isStudent = role === "student";
       const isInstitution = role === "institution";
 

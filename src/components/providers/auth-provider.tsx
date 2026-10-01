@@ -38,13 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const userEmail = email?.toLowerCase() || user?.email?.toLowerCase() || "";
       const [localPart = ""] = userEmail.split("@");
-      const defaultRole = (localPart === "admin" || localPart.startsWith("admin.") || localPart.startsWith("superadmin"))
-        ? "admin" 
-        : (localPart === "trainer" || localPart.startsWith("trainer."))
-          ? "trainer" 
-          : (localPart === "institution" || localPart.startsWith("institution."))
-            ? "institution"
-            : "student";
+      const defaultRole = "student";
 
       const currentAuthUser = user || (await supabase.auth.getUser()).data.user;
       const meta = currentAuthUser?.user_metadata || {};

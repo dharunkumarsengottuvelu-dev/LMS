@@ -267,7 +267,7 @@ export default function StudentCodingIDEPage() {
             className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground hover:-translate-y-0.5 transition-all duration-200 ease-out text-xs font-semibold px-5 rounded-lg shadow-sm hover:shadow"
             onClick={() => toast({ title: "Assessment submitted!", description: "Your answers have been recorded." })}
           >
-            Submit Assessment
+            Complete Practice
           </Button>
         </div>
       </div>

@@ -44,11 +44,7 @@ export async function GET() {
         const formattedEmailName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
         const firstName = meta.first_name || nameParts[0] || formattedEmailName;
         const lastName = meta.last_name || nameParts.slice(1).join(" ") || "";
-        const role = au.email?.includes("admin")
-          ? "admin"
-          : au.email?.includes("trainer")
-          ? "trainer"
-          : (meta.role || "student");
+        const role = meta.role || "student";
 
         const newProfile = {
           user_id: au.id,
@@ -78,7 +74,7 @@ export async function GET() {
     const studentProfiles = mergedProfiles.filter((p: any) => {
       const r = (p.role || "").toLowerCase();
       const em = (p.email || "").toLowerCase();
-      return r === "student" || (!em.includes("admin") && !em.includes("trainer") && r !== "admin" && r !== "trainer");
+      return r === "student";
     });
 
     const mappedStudents = studentProfiles.map((s: any) => {

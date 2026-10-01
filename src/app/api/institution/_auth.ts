@@ -31,8 +31,7 @@ export async function authenticateInstitutionSession() {
     const isAllowed =
       role === "institution" ||
       role === "admin" ||
-      role === "super_admin" ||
-      (!role && (localPart === "institution" || localPart.startsWith("institution.") || localPart === "admin" || localPart.startsWith("admin.")));
+      role === "super_admin";
 
     // Also verify profile role
     const instInfo = await InstitutionPerformanceService.resolveInstitution(user.id, role);

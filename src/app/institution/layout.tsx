@@ -47,15 +47,10 @@ export default async function InstitutionLayout({
   const isAllowed =
     role === "institution" ||
     role === "admin" ||
-    role === "super_admin" ||
-    localPart === "institution" ||
-    localPart.startsWith("institution.") ||
-    localPart === "admin" ||
-    localPart.startsWith("admin.") ||
-    localPart.startsWith("superadmin");
+    role === "super_admin";
 
   if (!isAllowed) {
-    if (role === "trainer" || localPart === "trainer" || localPart.startsWith("trainer.")) {
+    if (role === "trainer") {
       redirect("/trainer/dashboard");
     } else {
       redirect("/student/dashboard");

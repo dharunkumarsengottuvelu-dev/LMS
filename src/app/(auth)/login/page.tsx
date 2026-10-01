@@ -148,15 +148,7 @@ export default function LoginPage() {
         const [localPart = ""] = emailLower.split("@");
         let effectiveRole = profileRole || "student";
         if (!profileRole) {
-          if (localPart === "admin" || localPart.startsWith("admin.") || localPart.startsWith("superadmin")) {
-            effectiveRole = "admin";
-          } else if (localPart === "institution" || localPart.startsWith("institution.")) {
-            effectiveRole = "institution";
-          } else if (localPart === "trainer" || localPart.startsWith("trainer.")) {
-            effectiveRole = "trainer";
-          } else {
-            effectiveRole = "student";
-          }
+          effectiveRole = "student";
         }
 
         const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
@@ -211,11 +203,11 @@ export default function LoginPage() {
         ).toLowerCase();
 
         let effectiveRole = "student";
-        if (profileRole === "super_admin" || profileRole === "admin" || emailLower.includes("admin")) {
+        if (profileRole === "super_admin" || profileRole === "admin") {
           effectiveRole = "admin";
-        } else if (profileRole === "institution" || emailLower.includes("institution")) {
+        } else if (profileRole === "institution") {
           effectiveRole = "institution";
-        } else if (profileRole === "trainer" || emailLower.includes("trainer")) {
+        } else if (profileRole === "trainer") {
           effectiveRole = "trainer";
         } else if (profileRole === "recruiter") {
           effectiveRole = "recruiter";
@@ -258,7 +250,12 @@ export default function LoginPage() {
 
   async function performOAuthRedirect() {
     const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-    const origin = typeof window !== "undefined" ? window.location.origin : (process.env["NEXT_PUBLIC_APP_URL"] || "http://localhost:3000");
+    let origin = "http://localhost:3000";
+    if (process.env.NEXT_PUBLIC_APP_URL) {
+      origin = process.env.NEXT_PUBLIC_APP_URL;
+    } else if (typeof window !== "undefined") {
+      origin = window.location.origin;
+    }
     const callbackUrl = new URL("/api/auth/callback", origin);
     if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
       callbackUrl.searchParams.set("next", nextUrl);

@@ -30,8 +30,8 @@ export default async function TrainerLayout({ children }: { children: React.Reac
   const email = (user.email || "").toLowerCase();
   const [localPart = ""] = email.split("@");
 
-  const isTrainer = role === "trainer" || localPart === "trainer" || localPart.startsWith("trainer.");
-  const isAdmin = role === "admin" || role === "super_admin" || role === "founder" || role === "ceo" || localPart === "admin" || localPart.startsWith("superadmin");
+  const isTrainer = role === "trainer";
+  const isAdmin = role === "admin" || role === "super_admin" || role === "founder" || role === "ceo";
 
   if (!isTrainer && !isAdmin) {
     if (role === "institution") {

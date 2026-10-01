@@ -31,15 +31,9 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       const userMetadataRole = (existingUser.user_metadata?.role as string) || (existingUser.app_metadata?.role as string) || "";
-      const [localPart = ""] = lowerEmail.split("@");
-      const isExplicitAdmin = localPart === "admin" || localPart.startsWith("admin.") || localPart.startsWith("superadmin");
-      const isExplicitTrainer = localPart === "trainer" || localPart.startsWith("trainer.");
-      const isExplicitInstitution = localPart === "institution" || localPart.startsWith("institution.");
-
       let effectiveRole = profile?.role || userMetadataRole;
-
       if (!effectiveRole) {
-        effectiveRole = isExplicitAdmin ? "admin" : isExplicitTrainer ? "trainer" : isExplicitInstitution ? "institution" : "student";
+        effectiveRole = "student";
       }
 
       if (!profile) {

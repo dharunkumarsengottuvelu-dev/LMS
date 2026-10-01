@@ -1306,7 +1306,7 @@ export function PracticeRunnerEngine({
             onClick={handleInitiateSubmit}
             className="h-9 px-4 sm:px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs gap-1.5 rounded-xl shadow-xs transition-all cursor-pointer"
           >
-            <span>Submit Assessment</span>
+            <span>Complete Practice</span>
           </Button>
         </div>
       </header>
@@ -2294,7 +2294,7 @@ export function PracticeRunnerEngine({
         <AlertDialogContent className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-2xl max-w-lg p-6">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
-              Submit Assessment?
+              Complete Practice?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-slate-500 dark:text-zinc-400">
               Please review your progress before finalizing your assessment. Once submitted, your answers will be evaluated and recorded.
@@ -2337,7 +2337,7 @@ export function PracticeRunnerEngine({
               onClick={() => handleFinalSubmit()}
               className="h-10 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
             >
-              {isFinalSubmitting ? "Submitting..." : "Confirm & Submit Assessment"}
+              {isFinalSubmitting ? "Submitting..." : "Confirm & Complete Practice"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

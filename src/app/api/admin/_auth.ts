@@ -41,8 +41,8 @@ export async function authenticateAdminSession(
     const emailLower = user.email?.toLowerCase() || "";
     const [localPart = ""] = emailLower.split("@");
     const isSuperAdmin = role === "super_admin";
-    const isAdmin = role === "admin" || (!role && (localPart === "admin" || localPart.startsWith("admin.") || localPart.startsWith("superadmin")));
-    const isTrainer = role === "trainer" || (!role && (localPart === "trainer" || localPart.startsWith("trainer.")));
+    const isAdmin = role === "admin";
+    const isTrainer = role === "trainer";
 
     const effectiveRole = isSuperAdmin
       ? "super_admin"
