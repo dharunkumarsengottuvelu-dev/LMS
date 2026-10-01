@@ -24,13 +24,15 @@ export async function authenticateInstitutionSession() {
       ""
     ).toLowerCase();
 
+    const emailLower = user.email?.toLowerCase() || "";
+    const [localPart = ""] = emailLower.split("@");
+
     // Check if role is allowed
     const isAllowed =
       role === "institution" ||
       role === "admin" ||
       role === "super_admin" ||
-      user.email?.toLowerCase().includes("admin") ||
-      user.email?.toLowerCase().includes("institution");
+      (!role && (localPart === "institution" || localPart.startsWith("institution.") || localPart === "admin" || localPart.startsWith("admin.")));
 
     // Also verify profile role
     const instInfo = await InstitutionPerformanceService.resolveInstitution(user.id, role);

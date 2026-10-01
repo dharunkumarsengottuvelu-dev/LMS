@@ -197,7 +197,11 @@ export async function GET(
           .sort((a: any, b: any) => (a.display_order ?? a.displayOrder ?? 0) - (b.display_order ?? b.displayOrder ?? 0))
           .map((m: any, mIdx: number) => {
             const problems = codingProblemsMap[m.id] || [];
-            const combinedCoding = m.codingQuestions && m.codingQuestions.length > 0 ? m.codingQuestions : problems;
+            const rawCombinedCoding = m.codingQuestions && m.codingQuestions.length > 0 ? m.codingQuestions : problems;
+            const combinedCoding = rawCombinedCoding.map((cq: any) => {
+              const { hidden_test_cases, hiddenTestCases, ...safeCq } = cq;
+              return safeCq;
+            });
             const directMcqs = m.mcqQuestions?.length || m.mcqs?.length || 0;
             const mcqsCount = directMcqs;
             const codingCount = combinedCoding.length;
@@ -328,6 +332,68 @@ export async function GET(
     );
   } catch (error: unknown) {
     console.error("GET /api/student/practices/[id] Error:", error);
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: trackId } = await params;
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const adminClient = createAdminClient();
+    const batchContext = await getStudentBatchAccess(adminClient, user);
+    const body = await request.json();
+    const { module_id, score, total_marks, answers } = body;
+
+    const studentProfileId = batchContext.profileId || user.id;
+
+    if (module_id) {
+      const attemptPayload = {
+        assessment_id: module_id,
+        student_id: studentProfileId,
+        status: "submitted",
+        score: typeof score === "number" ? score : 0,
+        total_marks: typeof total_marks === "number" ? total_marks : 100,
+        answers: answers || {},
+        submitted_at: new Date().toISOString(),
+      };
+
+      try {
+        await (adminClient.from("assessment_attempts") as any).upsert(
+          attemptPayload,
+          { onConflict: "assessment_id,student_id" }
+        );
+      } catch {
+        await (adminClient.from("assessment_attempts") as any).insert(attemptPayload);
+      }
+
+      if (batchContext.studentUserId && batchContext.studentUserId !== studentProfileId) {
+        try {
+          await (adminClient.from("assessment_attempts") as any).upsert(
+            { ...attemptPayload, student_id: batchContext.studentUserId },
+            { onConflict: "assessment_id,student_id" }
+          );
+        } catch {}
+      }
+    }
+
+    return NextResponse.json(
+      { success: true, message: "Practice completed successfully." },
+      { status: 200 }
+    );
+  } catch (error: unknown) {
+    console.error("POST /api/student/practices/[id] Error:", error);
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

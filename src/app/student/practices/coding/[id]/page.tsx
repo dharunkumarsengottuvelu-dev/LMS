@@ -22,10 +22,19 @@ import {
   Minimize2,
   Maximize2,
   Lock,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck,
+  CheckCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -159,6 +168,19 @@ export default function StudentPracticeCodingRunnerPage() {
   // Student progress per problem
   const [solvedProblemIds, setSolvedProblemIds] = useState<Set<string>>(new Set());
   const [inProgressProblemIds, setInProgressProblemIds] = useState<Set<string>>(new Set());
+
+  // Practice completion modal & state
+  const [showCompleteDialog, setShowCompleteDialog] = useState<boolean>(false);
+  const [isCompletingPractice, setIsCompletingPractice] = useState<boolean>(false);
+
+  // Execution tracking (Run vs Submit)
+  const [executionType, setExecutionType] = useState<"run" | "submit" | null>(null);
+  const [submissionMeta, setSubmissionMeta] = useState<{
+    status?: string;
+    execution_time_ms?: number;
+    memory_used_kb?: number;
+    score?: number;
+  } | null>(null);
 
   // Discussion state
   const [discussions, setDiscussions] = useState<any[]>([]);
@@ -497,48 +519,30 @@ export default function StudentPracticeCodingRunnerPage() {
     ];
   }, [currentProblem, allTestCases]);
 
-  // Hidden Test Cases (Evaluated on Run & Submit)
-  const hiddenTestCases = useMemo(() => {
-    if (!currentProblem) return [];
-    const starter = currentProblem.starter_code || {};
-    const directHidden =
-      Array.isArray(currentProblem.hidden_test_cases) && currentProblem.hidden_test_cases.length > 0
-        ? currentProblem.hidden_test_cases
-        : Array.isArray(currentProblem.hiddenTestCases) && currentProblem.hiddenTestCases.length > 0
-        ? currentProblem.hiddenTestCases
-        : Array.isArray(starter.hidden_test_cases) && starter.hidden_test_cases.length > 0
-        ? starter.hidden_test_cases
-        : [];
-    if (directHidden.length > 0) return directHidden;
+  // NOTE: hiddenTestCases must never be sent to the browser.
+  // We do NOT expose this variable in the Testcase tab UI.
+  // It is intentionally unused on the client — hidden tests are evaluated SERVER-SIDE on Submit.
 
-    return allTestCases.filter((tc: any) => tc.is_hidden);
-  }, [currentProblem, allTestCases]);
-
-  // ─── 4. RUN CODE (AGAINST SAMPLE & HIDDEN TEST CASES) ───────────────────────
+  // ─── 4. RUN CODE (AGAINST SAMPLE CASES ONLY — NO HIDDEN TESTS) ─────────────
   const handleRunCode = async () => {
     if (!currentProblem || isRunning || isSubmitting) return;
     setIsRunning(true);
     setExecutionError(null);
+    setCustomRunResult(null);
+    setSubmissionMeta(null);
+    setExecutionType("run");
     setIsBottomMinimized(false);
     setBottomTab("testresult");
-    setConsoleOutput("Compiling and executing against test cases...\n");
+    setConsoleOutput("Compiling and executing against sample test cases...\n");
 
     try {
+      // RUN only executes VISIBLE / SAMPLE test cases — NEVER hidden ones
       const sampleCases = systemTestCases.map((tc: any, i: number) => ({
         id: tc.id || `tc_sample_${i}`,
         input: tc.input === "(No input)" ? "" : (tc.input || ""),
         expected_output: tc.expected_output || "",
         is_hidden: false,
       }));
-
-      const hiddenCases = hiddenTestCases.map((tc: any, i: number) => ({
-        id: tc.id || `tc_hidden_${i}`,
-        input: tc.input || "",
-        expected_output: tc.expected_output || "",
-        is_hidden: true,
-      }));
-
-      const casesToRun = [...sampleCases, ...hiddenCases];
 
       const res = await fetch("/api/code/run-testcases", {
         method: "POST",
@@ -547,8 +551,8 @@ export default function StudentPracticeCodingRunnerPage() {
           problem_id: currentProblem.id,
           language: selectedLanguage,
           code,
-          test_cases: casesToRun,
-          include_hidden: true,
+          test_cases: sampleCases,
+          include_hidden: false, // NEVER run hidden tests on Run
         }),
       });
 
@@ -594,14 +598,14 @@ export default function StudentPracticeCodingRunnerPage() {
         data.stdout ||
           data.output ||
           `Execution finished in ${data.total_execution_time_ms || 25}ms.\n` +
-            `Passed: ${results.filter((r: any) => r.passed).length}/${results.length}`
+            `Sample Tests Passed: ${results.filter((r: any) => r.passed).length}/${results.length}`
       );
 
       const allPassed = results.length > 0 && results.every((r: any) => r.passed);
       if (allPassed) {
-        toast({ title: "Tests Passed", description: "All test cases passed!" });
+        toast({ title: "Sample Tests Passed", description: "All visible test cases passed!" });
       } else {
-        toast({ title: "Tests Failed", description: "One or more test cases did not match expected output.", variant: "destructive" });
+        toast({ title: "Sample Tests Failed", description: "One or more sample test cases did not match.", variant: "destructive" });
       }
     } catch (err: any) {
       console.error("Run error:", err);
@@ -688,11 +692,14 @@ export default function StudentPracticeCodingRunnerPage() {
     }
   };
 
-  // ─── 6. SUBMIT SOLUTION ─────────────────────────────────────────────────────
+  // ─── 6. SUBMIT SOLUTION (evaluates ALL test cases including hidden, server-side) ─
   const handleSubmitCode = async () => {
     if (!currentProblem || isSubmitting) return;
     setIsSubmitting(true);
     setExecutionError(null);
+    setCustomRunResult(null);
+    setSubmissionMeta(null);
+    setExecutionType("submit");
     setIsBottomMinimized(false);
     setBottomTab("testresult");
     setConsoleOutput("Submitting solution to practice evaluation engine...\n");
@@ -762,6 +769,13 @@ export default function StudentPracticeCodingRunnerPage() {
           `Memory: ${Math.round((data.memory_used_kb || 512) / 1024)}MB\n` +
           (data.error_message ? `Error: ${data.error_message}` : "")
       );
+
+      setSubmissionMeta({
+        status: data.status,
+        execution_time_ms: data.execution_time_ms || 28,
+        memory_used_kb: data.memory_used_kb || 512,
+        score: data.score,
+      });
     } catch (err: any) {
       console.error("Submission error:", err);
       const errMsg = err.message || "Failed to submit code.";
@@ -798,6 +812,64 @@ export default function StudentPracticeCodingRunnerPage() {
       router.push(`/student/practices/${trackId}`);
     } else {
       router.push("/student/practices");
+    }
+  };
+
+  // ─── 8. COMPLETE PRACTICE (Final Submission for entire Practice set) ─────────
+  const handleCompletePractice = async () => {
+    setIsCompletingPractice(true);
+    try {
+      // Autosave current code
+      if (currentProblem) {
+        const key = getStorageKey(currentProblem.id, selectedLanguage);
+        if (typeof window !== "undefined" && code.trim()) {
+          try { localStorage.setItem(key, code); } catch {}
+        }
+      }
+
+      const solvedCount = solvedProblemIds.size;
+      const score = Math.round((solvedCount / problems.length) * 100);
+
+      // Record completion to DB via track POST endpoint
+      if (trackId && moduleId) {
+        try {
+          await fetch(`/api/student/practices/${trackId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              module_id: moduleId,
+              score,
+              total_marks: 100,
+              answers: Object.fromEntries(
+                Array.from(solvedProblemIds).map((id) => [id, { status: "solved" }])
+              ),
+            }),
+          });
+        } catch {}
+      }
+
+      setShowCompleteDialog(false);
+      toast({
+        title: "Practice Completed! 🎉",
+        description: `You solved ${solvedCount} of ${problems.length} problems. Score: ${score}%.`,
+      });
+
+      setTimeout(() => {
+        if (trackId) {
+          router.push(`/student/practices/${trackId}`);
+        } else {
+          router.push("/student/practices");
+        }
+      }, 1200);
+    } catch (err: any) {
+      console.error("Complete practice error:", err);
+      toast({
+        title: "Completion Error",
+        description: err.message || "Could not record practice completion.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCompletingPractice(false);
     }
   };
 
@@ -1475,32 +1547,6 @@ export default function StudentPracticeCodingRunnerPage() {
                         </div>
                       </div>
                     ))}
-
-                    {/* Hidden Test Cases List */}
-                    {hiddenTestCases.length > 0 && (
-                      <div className="pt-3 border-t border-slate-100 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                            <Lock className="w-3.5 h-3.5 text-slate-500" />
-                            <span>Hidden Test Cases ({hiddenTestCases.length})</span>
-                          </div>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-md">
-                            Evaluated on Run & Submit
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {hiddenTestCases.map((tc: any, hIdx: number) => (
-                            <div
-                              key={tc.id || hIdx}
-                              className="p-2.5 bg-slate-50/70 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs"
-                            >
-                              <span className="font-medium text-slate-700">Hidden Test Case {hIdx + 1}</span>
-                              <span className="text-[11px] text-slate-400 font-mono">🔒 [Hidden]</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -1549,91 +1595,141 @@ export default function StudentPracticeCodingRunnerPage() {
                     </div>
                   )}
 
-                  {/* Standard / Hidden Test Run Results */}
-                  {runResults && runResults.length > 0 ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-                        <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                          Verdict: {runResults.every((r) => r.passed) ? (
-                            <span className="text-emerald-600 font-bold">All Passed (✓)</span>
-                          ) : (
-                            <span className="text-rose-600 font-bold">Some Failed (✗)</span>
-                          )}
-                        </span>
-                        <span className="text-slate-500 font-medium text-xs">
-                          {runResults.filter((r) => r.passed).length}/{runResults.length} Test Cases Passed
-                        </span>
-                      </div>
+                  {/* Test Run Results (Run vs Submit aware) */}
+                  {runResults && runResults.length > 0 ? (() => {
+                    const visibleResults = runResults.filter((r) => !r.is_hidden);
+                    const hiddenResults = runResults.filter((r) => r.is_hidden);
+                    const allVisiblePassed = visibleResults.length > 0 && visibleResults.every((r) => r.passed);
+                    const allHiddenPassed = hiddenResults.length === 0 || hiddenResults.every((r) => r.passed);
+                    const isSubmit = executionType === "submit";
 
-                      {runResults.map((r, idx) => (
-                        <div
-                          key={idx}
-                          className={cn(
-                            "p-3 rounded-xl border space-y-2 transition-colors",
-                            r.passed
-                              ? "bg-emerald-50/40 border-emerald-200 text-emerald-900"
-                              : "bg-rose-50/40 border-rose-200 text-rose-900"
-                          )}
-                        >
-                          <div className="flex items-center justify-between font-bold text-xs">
-                            <div className="flex items-center gap-2">
-                              <span className="flex items-center gap-1.5">
-                                {r.passed ? (
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                ) : (
-                                  <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                                )}
-                                Test Case {idx + 1}
-                              </span>
-                              {r.is_hidden ? (
-                                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                  <Lock className="w-2.5 h-2.5" />
-                                  Hidden
-                                </span>
+                    return (
+                      <div className="space-y-3">
+                        {/* Verdict header */}
+                        <div className={cn(
+                          "p-3 rounded-xl border flex items-center justify-between",
+                          isSubmit
+                            ? (allVisiblePassed && allHiddenPassed
+                                ? "bg-emerald-50 border-emerald-200"
+                                : "bg-rose-50 border-rose-200")
+                            : (allVisiblePassed
+                                ? "bg-emerald-50 border-emerald-200"
+                                : "bg-rose-50 border-rose-200")
+                        )}>
+                          <span className="font-bold text-xs flex items-center gap-2">
+                            {isSubmit ? (
+                              allVisiblePassed && allHiddenPassed ? (
+                                <><CheckCircle2 className="w-4 h-4 text-emerald-600" /><span className="text-emerald-800">Accepted — All test cases passed</span></>
                               ) : (
+                                <><XCircle className="w-4 h-4 text-rose-600" /><span className="text-rose-800">Failed — Some test cases did not pass</span></>
+                              )
+                            ) : (
+                              allVisiblePassed ? (
+                                <><CheckCircle2 className="w-4 h-4 text-emerald-600" /><span className="text-emerald-800">Sample Tests Passed</span></>
+                              ) : (
+                                <><XCircle className="w-4 h-4 text-rose-600" /><span className="text-rose-800">Sample Tests Failed</span></>
+                              )
+                            )}
+                          </span>
+                          <span className="text-slate-500 font-medium text-xs">
+                            {isSubmit
+                              ? `${visibleResults.filter((r) => r.passed).length}/${visibleResults.length} visible passed`
+                              : `${visibleResults.filter((r) => r.passed).length}/${visibleResults.length} passed`}
+                          </span>
+                        </div>
+
+                        {/* Visible test case cards */}
+                        {visibleResults.map((r, idx) => (
+                          <div
+                            key={idx}
+                            className={cn(
+                              "p-3 rounded-xl border space-y-2 transition-colors",
+                              r.passed
+                                ? "bg-emerald-50/40 border-emerald-200 text-emerald-900"
+                                : "bg-rose-50/40 border-rose-200 text-rose-900"
+                            )}
+                          >
+                            <div className="flex items-center justify-between font-bold text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="flex items-center gap-1.5">
+                                  {r.passed ? (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  ) : (
+                                    <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                                  )}
+                                  Test Case {idx + 1}
+                                </span>
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-200">
                                   Sample
                                 </span>
-                              )}
+                              </div>
+                              <span className={cn("text-[11px] font-bold", r.passed ? "text-emerald-600" : "text-rose-600")}>
+                                {r.passed ? "PASSED" : "FAILED"}
+                              </span>
                             </div>
-                            <span className={cn("text-[11px] font-bold", r.passed ? "text-emerald-600" : "text-rose-600")}>
-                              {r.passed ? "PASSED" : "FAILED"}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                              <div>
+                                <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold">Expected Output:</span>
+                                <pre className="p-2 bg-white rounded border border-slate-200 text-slate-800 whitespace-pre-wrap min-h-[34px]">
+                                  {r.expected_output || "(No output)"}
+                                </pre>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold">Actual Output:</span>
+                                <pre className="p-2 bg-white rounded border border-slate-200 text-slate-800 whitespace-pre-wrap min-h-[34px]">
+                                  {r.actual_output || (r.passed ? "Match" : "(No output produced)")}
+                                </pre>
+                              </div>
+                            </div>
+
+                            {r.error && (
+                              <div className="p-2.5 bg-rose-50/90 border border-rose-200 rounded-lg space-y-1">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block font-sans">
+                                  Error / Diagnostic:
+                                </span>
+                                <pre className="text-xs text-rose-800 font-mono whitespace-pre-wrap">
+                                  {r.error}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* Hidden test cases — safe summary shown ONLY after Submit */}
+                        {isSubmit && (
+                          <div className={cn(
+                            "p-3 rounded-xl border flex items-center justify-between text-xs",
+                            allHiddenPassed
+                              ? "bg-emerald-50/30 border-emerald-200"
+                              : "bg-rose-50/30 border-rose-200"
+                          )}>
+                            <div className="flex items-center gap-2 font-semibold">
+                              <Lock className={cn("w-3.5 h-3.5", allHiddenPassed ? "text-emerald-600" : "text-rose-600")} />
+                              <span className={allHiddenPassed ? "text-emerald-800" : "text-rose-800"}>
+                                Hidden Test Cases
+                              </span>
+                            </div>
+                            <span className={cn(
+                              "px-2 py-0.5 rounded-lg text-[10px] font-bold border",
+                              allHiddenPassed
+                                ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                : "bg-rose-100 text-rose-700 border-rose-200"
+                            )}>
+                              {hiddenResults.length === 0
+                                ? "No hidden tests"
+                                : allHiddenPassed
+                                  ? `Passed (${hiddenResults.length}/${hiddenResults.length}) ✓`
+                                  : `${hiddenResults.filter((r) => r.passed).length}/${hiddenResults.length} Passed`}
                             </span>
                           </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
-                            <div>
-                              <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold">Expected Output:</span>
-                              <pre className="p-2 bg-white rounded border border-slate-200 text-slate-800 whitespace-pre-wrap min-h-[34px]">
-                                {r.is_hidden ? "[Hidden for evaluation]" : (r.expected_output || "(No output)")}
-                              </pre>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold">Actual Output:</span>
-                              <pre className="p-2 bg-white rounded border border-slate-200 text-slate-800 whitespace-pre-wrap min-h-[34px]">
-                                {r.actual_output || (r.passed ? "Match" : "(No output produced)")}
-                              </pre>
-                            </div>
-                          </div>
-
-                          {/* Error / Diagnostic Details Box */}
-                          {r.error && (
-                            <div className="p-2.5 bg-rose-50/90 border border-rose-200 rounded-lg space-y-1">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block font-sans">
-                                Error / Diagnostic:
-                              </span>
-                              <pre className="text-xs text-rose-800 font-mono whitespace-pre-wrap">
-                                {r.error}
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : !customRunResult && !executionError ? (
+                        )}
+                      </div>
+                    );
+                  })() : !customRunResult && !executionError ? (
                     <div className="flex flex-col items-center justify-center py-8 text-slate-400">
                       <Terminal className="w-6 h-6 mb-2 stroke-1" />
-                      <p className="text-xs font-semibold">Click &apos;Run&apos; or &apos;Run Custom Input&apos; to view execution results.</p>
+                      <p className="text-xs font-semibold">Click &apos;Run&apos; or &apos;Submit&apos; to view execution results.</p>
                     </div>
                   ) : null}
                 </div>
@@ -1712,7 +1808,7 @@ export default function StudentPracticeCodingRunnerPage() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          3. BOTTOM NAVIGATION BAR: [ ← Previous ]   1 / 10   [ Next → ]
+          3. BOTTOM NAVIGATION BAR: [ ← Previous ]   1 / 10   [ Next → ] [ Complete Practice ]
       ══════════════════════════════════════════════════════════════════════ */}
       <footer className="h-13 bg-white border-t border-slate-200/90 px-6 flex items-center justify-between shrink-0 shadow-2xs z-20">
         <Button
@@ -1730,16 +1826,78 @@ export default function StudentPracticeCodingRunnerPage() {
           {currentIdx + 1} / {problems.length}
         </span>
 
-        <Button
-          type="button"
-          size="sm"
-          onClick={handleNext}
-          disabled={currentIdx >= problems.length - 1}
-          className="h-8 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-40"
-        >
-          Next <span className="ml-1">→</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleNext}
+            disabled={currentIdx >= problems.length - 1}
+            className="h-8 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-40"
+          >
+            Next <span className="ml-1">→</span>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => setShowCompleteDialog(true)}
+            className="h-8 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1.5"
+          >
+            <CheckCheck className="w-3.5 h-3.5" />
+            Complete Practice
+          </Button>
+        </div>
       </footer>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          4. COMPLETE PRACTICE CONFIRMATION DIALOG
+      ══════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
+        <DialogContent className="max-w-sm bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl" showCloseButton={false}>
+          <DialogHeader>
+            <div className="flex items-center justify-center mb-3">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
+                <ShieldCheck className="w-6 h-6 text-emerald-600" />
+              </div>
+            </div>
+            <DialogTitle className="text-center text-base font-bold text-slate-900">
+              Complete Practice?
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm text-slate-500 mt-1">
+              You have completed{" "}
+              <span className="font-bold text-slate-800">{solvedProblemIds.size}</span> of{" "}
+              <span className="font-bold text-slate-800">{problems.length}</span> problems.
+              {solvedProblemIds.size < problems.length && (
+                <span className="block mt-1 text-amber-600 text-xs font-medium">
+                  You can still go back and attempt the remaining problems.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-5 flex flex-row gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 h-9 rounded-xl border-slate-200 text-slate-700 text-sm font-semibold cursor-pointer"
+              onClick={() => setShowCompleteDialog(false)}
+              disabled={isCompletingPractice}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold cursor-pointer"
+              onClick={handleCompletePractice}
+              disabled={isCompletingPractice}
+            >
+              {isCompletingPractice ? (
+                <><Loader2 className="w-4 h-4 animate-spin mr-1.5" /> Completing...</>
+              ) : (
+                <><CheckCheck className="w-4 h-4 mr-1.5" /> Complete Practice</>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

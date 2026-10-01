@@ -2,35 +2,51 @@ import { StudentLayoutWrapper } from "@/components/layouts/student-layout-wrappe
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { SessionTimeout } from "@/components/providers/session-timeout";
 
 export const metadata: Metadata = {
   title: { template: "%s | SensiLearn", default: "Student Portal — SensiLearn" },
 };
 
-import { SessionTimeout } from "@/components/providers/session-timeout";
-
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, status")
-      .eq("user_id", user.id)
-      .maybeSingle();
+  if (!user) {
+    redirect("/login?next=/student/dashboard");
+  }
 
-    const profileData = profile as { role?: string; status?: string } | null;
-    if (profileData?.status === "suspended") redirect("/login?error=suspended");
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-    const role = (profileData?.role || user.user_metadata?.role || user.app_metadata?.role || "").toLowerCase();
-    const email = (user.email || "").toLowerCase();
+  const profileData = profile as { role?: string; status?: string } | null;
+  if (profileData?.status === "suspended") redirect("/login?error=suspended");
 
-    if (role === "admin" || role === "super_admin" || role === "founder" || role === "ceo" || email.includes("admin")) {
-      redirect("/admin/dashboard");
-    } else if (role === "trainer" || email.includes("trainer")) {
-      redirect("/trainer/dashboard");
-    }
+  const role = (profileData?.role || user.user_metadata?.role || user.app_metadata?.role || "").toLowerCase();
+  const email = (user.email || "").toLowerCase();
+  const [localPart = ""] = email.split("@");
+
+  const isAdmin =
+    role === "admin" ||
+    role === "super_admin" ||
+    role === "founder" ||
+    role === "ceo" ||
+    localPart === "admin" ||
+    localPart.startsWith("admin.") ||
+    localPart.startsWith("superadmin");
+
+  const isTrainer = role === "trainer" || localPart === "trainer" || localPart.startsWith("trainer.");
+  const isInstitution = role === "institution" || localPart === "institution" || localPart.startsWith("institution.");
+
+  if (isAdmin) {
+    redirect("/admin/dashboard");
+  } else if (isTrainer) {
+    redirect("/trainer/dashboard");
+  } else if (isInstitution) {
+    redirect("/institution/overview");
   }
 
   return (

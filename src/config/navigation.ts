@@ -88,7 +88,7 @@ export const adminNavigation: NavItem[] = [
  */
 export const studentNavigation: NavItem[] = [
   {
-    label: "Home",
+    label: "Dashboard",
     href: "/student/dashboard",
     icon: LayoutDashboard,
   },
@@ -99,7 +99,7 @@ export const studentNavigation: NavItem[] = [
     icon: BookOpen,
   },
   {
-    label: "Skill Lab",
+    label: "Practice",
     href: "/student/practices",
     aliases: ["/student/practices"],
     icon: Dumbbell,
@@ -117,7 +117,7 @@ export const studentNavigation: NavItem[] = [
     icon: Code2,
   },
   {
-    label: "Assess",
+    label: "Assessments",
     href: "/student/tests",
     aliases: ["/student/assessments", "/student/tests", "/assessments"],
     icon: ClipboardList,

@@ -145,15 +145,18 @@ export default function LoginPage() {
           ""
         ).toLowerCase();
 
-        let effectiveRole = "student";
-        if (profileRole === "super_admin" || profileRole === "admin" || emailLower.includes("admin")) {
-          effectiveRole = "admin";
-        } else if (profileRole === "institution" || emailLower.includes("institution")) {
-          effectiveRole = "institution";
-        } else if (profileRole === "trainer" || emailLower.includes("trainer")) {
-          effectiveRole = "trainer";
-        } else if (profileRole === "recruiter") {
-          effectiveRole = "recruiter";
+        const [localPart = ""] = emailLower.split("@");
+        let effectiveRole = profileRole || "student";
+        if (!profileRole) {
+          if (localPart === "admin" || localPart.startsWith("admin.") || localPart.startsWith("superadmin")) {
+            effectiveRole = "admin";
+          } else if (localPart === "institution" || localPart.startsWith("institution.")) {
+            effectiveRole = "institution";
+          } else if (localPart === "trainer" || localPart.startsWith("trainer.")) {
+            effectiveRole = "trainer";
+          } else {
+            effectiveRole = "student";
+          }
         }
 
         const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;

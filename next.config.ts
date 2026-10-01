@@ -53,6 +53,10 @@ const nextConfig: NextConfig = {
         source: "/auth/register",
         destination: "/register",
       },
+      {
+        source: "/auth/callback",
+        destination: "/api/auth/callback",
+      },
     ];
   },
 

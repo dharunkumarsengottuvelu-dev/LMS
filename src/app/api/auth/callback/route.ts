@@ -46,19 +46,20 @@ export async function GET(request: Request) {
         (data.user.user_metadata?.role as string) ||
         (data.user.app_metadata?.role as string) ||
         "";
-      const emailLower = data.user.email?.toLowerCase() || "";
-
+      const [localPart = ""] = emailLower.split("@");
       const dbRole = (profile?.role || userMetaRole || "").toLowerCase();
       const isSuperAdminOrAdmin =
         dbRole === "super_admin" ||
         dbRole === "admin" ||
-        emailLower.includes("admin");
+        dbRole === "founder" ||
+        dbRole === "ceo" ||
+        (!dbRole && (localPart === "admin" || localPart.startsWith("admin.") || localPart.startsWith("superadmin")));
       const isInstitution =
         dbRole === "institution" ||
-        emailLower.includes("institution");
+        (!dbRole && (localPart === "institution" || localPart.startsWith("institution.")));
       const isTrainer =
         dbRole === "trainer" ||
-        emailLower.includes("trainer");
+        (!dbRole && (localPart === "trainer" || localPart.startsWith("trainer.")));
       const isRecruiter = dbRole === "recruiter";
 
       const defaultPath = isSuperAdminOrAdmin

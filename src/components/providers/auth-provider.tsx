@@ -37,11 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const userEmail = email?.toLowerCase() || user?.email?.toLowerCase() || "";
-      const defaultRole = userEmail.includes("admin") 
+      const [localPart = ""] = userEmail.split("@");
+      const defaultRole = (localPart === "admin" || localPart.startsWith("admin.") || localPart.startsWith("superadmin"))
         ? "admin" 
-        : userEmail.includes("trainer") 
+        : (localPart === "trainer" || localPart.startsWith("trainer."))
           ? "trainer" 
-          : userEmail.includes("institution")
+          : (localPart === "institution" || localPart.startsWith("institution."))
             ? "institution"
             : "student";
 

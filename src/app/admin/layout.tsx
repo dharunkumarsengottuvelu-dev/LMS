@@ -32,11 +32,21 @@ export default async function AdminLayout({
 
   const role = (profile?.role || user.user_metadata?.role || user.app_metadata?.role || "").toLowerCase();
   const email = (user.email || "").toLowerCase();
-  const isAdmin = role === "admin" || role === "super_admin" || role === "founder" || role === "ceo" || email.includes("admin");
+  const [localPart = ""] = email.split("@");
+  const isAdmin =
+    role === "admin" ||
+    role === "super_admin" ||
+    role === "founder" ||
+    role === "ceo" ||
+    localPart === "admin" ||
+    localPart.startsWith("admin.") ||
+    localPart.startsWith("superadmin");
 
   if (!isAdmin) {
-    if (role === "trainer" || email.includes("trainer")) {
+    if (role === "trainer" || localPart === "trainer" || localPart.startsWith("trainer.")) {
       redirect("/trainer/dashboard");
+    } else if (role === "institution" || localPart === "institution" || localPart.startsWith("institution.")) {
+      redirect("/institution/overview");
     } else {
       redirect("/student/dashboard");
     }

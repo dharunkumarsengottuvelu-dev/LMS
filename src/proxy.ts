@@ -6,14 +6,14 @@ import { siteConfig } from "@/config/site";
 // Define protected route patterns and their required roles (RBAC)
 const ROUTE_ROLE_MAP: Record<string, string[]> = {
   "/admin": ["super_admin", "admin"],
-  "/api/admin": ["super_admin", "admin", "trainer"],
+  "/api/admin": ["super_admin", "admin"],
   "/trainer": ["super_admin", "admin", "trainer"],
   "/api/trainer": ["super_admin", "admin", "trainer"],
   "/recruiter": ["super_admin", "admin", "recruiter"],
   "/institution": ["super_admin", "admin", "institution"],
   "/api/institution": ["super_admin", "admin", "institution"],
-  "/student": ["super_admin", "admin", "trainer", "student"],
-  "/api/student": ["super_admin", "admin", "trainer", "student"],
+  "/student": ["student"],
+  "/api/student": ["student", "super_admin", "admin", "trainer"],
   "/ide": ["super_admin", "admin", "trainer", "student"],
 };
 
@@ -150,10 +150,11 @@ function resolveRoleFromUser(user: {
     if (metaRole === "student") return "student";
   }
 
-  // Email-based role detection (last resort)
-  if (email.includes("admin")) return "admin";
-  if (email.includes("trainer")) return "trainer";
-  if (email.includes("institution")) return "institution";
+  // Email-based role detection (exact keyword prefixes only, not substring)
+  const [localPart = "", domain = ""] = email.split("@");
+  if (localPart === "admin" || localPart.startsWith("admin.") || localPart.startsWith("admin_") || localPart.startsWith("superadmin")) return "admin";
+  if (localPart === "trainer" || localPart.startsWith("trainer.") || localPart.startsWith("trainer_")) return "trainer";
+  if (localPart === "institution" || localPart.startsWith("institution.") || localPart.startsWith("institution_")) return "institution";
 
   return "student";
 }
@@ -396,7 +397,7 @@ export async function proxy(request: NextRequest) {
       }
 
       // Portal boundary redirects
-      if (role === "admin" && pathname.startsWith("/student")) {
+      if (role === "admin" && (pathname.startsWith("/student") || pathname.startsWith("/trainer") || pathname.startsWith("/institution"))) {
         return createRedirectWithCookies(new URL("/admin/dashboard", request.url), request, supabaseResponse);
       }
       if (role === "institution" && (pathname.startsWith("/admin") || pathname.startsWith("/student") || pathname.startsWith("/trainer"))) {
@@ -405,7 +406,7 @@ export async function proxy(request: NextRequest) {
       if (role === "student" && (pathname.startsWith("/admin") || pathname.startsWith("/trainer") || pathname.startsWith("/institution"))) {
         return createRedirectWithCookies(new URL("/student/dashboard", request.url), request, supabaseResponse);
       }
-      if (role === "trainer" && (pathname.startsWith("/student") || pathname.startsWith("/institution"))) {
+      if (role === "trainer" && (pathname.startsWith("/admin") || pathname.startsWith("/student") || pathname.startsWith("/institution"))) {
         return createRedirectWithCookies(new URL("/trainer/dashboard", request.url), request, supabaseResponse);
       }
     }

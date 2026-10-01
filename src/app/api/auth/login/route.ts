@@ -31,20 +31,15 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       const userMetadataRole = (existingUser.user_metadata?.role as string) || (existingUser.app_metadata?.role as string) || "";
-      const isEmailAdmin = lowerEmail.includes("admin");
-      const isEmailTrainer = lowerEmail.includes("trainer");
-      const isEmailInstitution = lowerEmail.includes("institution");
+      const [localPart = ""] = lowerEmail.split("@");
+      const isExplicitAdmin = localPart === "admin" || localPart.startsWith("admin.") || localPart.startsWith("superadmin");
+      const isExplicitTrainer = localPart === "trainer" || localPart.startsWith("trainer.");
+      const isExplicitInstitution = localPart === "institution" || localPart.startsWith("institution.");
 
       let effectiveRole = profile?.role || userMetadataRole;
 
       if (!effectiveRole) {
-        effectiveRole = isEmailAdmin ? "admin" : isEmailTrainer ? "trainer" : isEmailInstitution ? "institution" : "student";
-      } else if (effectiveRole === "student" && isEmailAdmin) {
-        effectiveRole = "admin";
-      } else if (effectiveRole === "student" && isEmailTrainer) {
-        effectiveRole = "trainer";
-      } else if (effectiveRole === "student" && isEmailInstitution) {
-        effectiveRole = "institution";
+        effectiveRole = isExplicitAdmin ? "admin" : isExplicitTrainer ? "trainer" : isExplicitInstitution ? "institution" : "student";
       }
 
       if (!profile) {
@@ -56,8 +51,6 @@ export async function POST(request: Request) {
           role: effectiveRole,
           status: "active",
         });
-      } else if (profile.role === "student" && (isEmailAdmin || isEmailTrainer || isEmailInstitution)) {
-        await admin.from("profiles").update({ role: effectiveRole }).eq("user_id", existingUser.id);
       }
 
       return NextResponse.json({ success: true, role: effectiveRole });

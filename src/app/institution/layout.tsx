@@ -41,15 +41,21 @@ export default async function InstitutionLayout({
     ""
   ).toLowerCase();
 
+  const email = (user.email || "").toLowerCase();
+  const [localPart = ""] = email.split("@");
+
   const isAllowed =
     role === "institution" ||
     role === "admin" ||
     role === "super_admin" ||
-    user.email?.toLowerCase().includes("admin") ||
-    user.email?.toLowerCase().includes("institution");
+    localPart === "institution" ||
+    localPart.startsWith("institution.") ||
+    localPart === "admin" ||
+    localPart.startsWith("admin.") ||
+    localPart.startsWith("superadmin");
 
   if (!isAllowed) {
-    if (role === "trainer" || user.email?.toLowerCase().includes("trainer")) {
+    if (role === "trainer" || localPart === "trainer" || localPart.startsWith("trainer.")) {
       redirect("/trainer/dashboard");
     } else {
       redirect("/student/dashboard");
