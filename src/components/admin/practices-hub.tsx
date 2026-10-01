@@ -378,21 +378,73 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [deleteTarget, isDeleting]);
 
-  // Derived current Main Module and Submodule
+  // Helper functions to resolve parent hierarchy reliably across any navigation flow
+  const resolveHierarchyForModule = useCallback((modId: string) => {
+    for (const main of tracks) {
+      for (const sub of main.submodules || []) {
+        const foundMod = sub.modules?.find((m) => m.id === modId);
+        if (foundMod) {
+          return { mainModule: main, submodule: sub, module: foundMod };
+        }
+      }
+    }
+    return { mainModule: null, submodule: null, module: null };
+  }, [tracks]);
+
+  const resolveHierarchyForSubmodule = useCallback((subId: string) => {
+    for (const main of tracks) {
+      const foundSub = main.submodules?.find((s) => s.id === subId);
+      if (foundSub) {
+        return { mainModule: main, submodule: foundSub };
+      }
+    }
+    return { mainModule: null, submodule: null };
+  }, [tracks]);
+
+  // Derived current Main Module, Submodule, and Module with robust fallbacks
   const currentMainModule = useMemo(() => {
-    if (!selectedMainModuleId) return null;
-    return tracks.find((t) => t.id === selectedMainModuleId) || null;
-  }, [tracks, selectedMainModuleId]);
+    if (selectedMainModuleId) {
+      const found = tracks.find((t) => t.id === selectedMainModuleId);
+      if (found) return found;
+    }
+    if (selectedModuleId) {
+      const { mainModule } = resolveHierarchyForModule(selectedModuleId);
+      if (mainModule) return mainModule;
+    }
+    if (selectedSubmoduleId) {
+      const { mainModule } = resolveHierarchyForSubmodule(selectedSubmoduleId);
+      if (mainModule) return mainModule;
+    }
+    return null;
+  }, [tracks, selectedMainModuleId, selectedSubmoduleId, selectedModuleId, resolveHierarchyForModule, resolveHierarchyForSubmodule]);
 
   const currentSubmodule = useMemo(() => {
-    if (!currentMainModule || !selectedSubmoduleId) return null;
-    return currentMainModule.submodules.find((s) => s.id === selectedSubmoduleId) || null;
-  }, [currentMainModule, selectedSubmoduleId]);
+    if (currentMainModule && selectedSubmoduleId) {
+      const found = currentMainModule.submodules.find((s) => s.id === selectedSubmoduleId);
+      if (found) return found;
+    }
+    if (selectedModuleId) {
+      const { submodule } = resolveHierarchyForModule(selectedModuleId);
+      if (submodule) return submodule;
+    }
+    if (selectedSubmoduleId) {
+      const { submodule } = resolveHierarchyForSubmodule(selectedSubmoduleId);
+      if (submodule) return submodule;
+    }
+    return null;
+  }, [currentMainModule, selectedSubmoduleId, selectedModuleId, resolveHierarchyForModule, resolveHierarchyForSubmodule]);
 
   const currentModule = useMemo(() => {
-    if (!currentSubmodule || !selectedModuleId) return null;
-    return currentSubmodule.modules.find((m) => m.id === selectedModuleId) || null;
-  }, [currentSubmodule, selectedModuleId]);
+    if (currentSubmodule && selectedModuleId) {
+      const found = currentSubmodule.modules.find((m) => m.id === selectedModuleId);
+      if (found) return found;
+    }
+    if (selectedModuleId) {
+      const { module } = resolveHierarchyForModule(selectedModuleId);
+      if (module) return module;
+    }
+    return null;
+  }, [currentSubmodule, selectedModuleId, resolveHierarchyForModule]);
 
   // ─── CRUD HANDLERS ──────────────────────────────────────────────────
 
@@ -578,7 +630,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const handleDeleteSubmodule = (sm: PracticeSubmodule, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!currentMainModule) return;
     setDeleteTarget({
       type: "submodule",
       item: sm,
@@ -694,7 +745,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const handleDeleteModule = (m: PracticeModule, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!currentMainModule || !currentSubmodule) return;
     const qCount = (m.mcqQuestions?.length || 0) + (m.codingQuestions?.length || 0);
     setDeleteTarget({
       type: "module",
@@ -706,6 +756,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   // 4. OPEN MODULE QUESTIONS EDITOR
   const handleOpenModuleEditor = (m: PracticeModule) => {
+    const hierarchy = resolveHierarchyForModule(m.id);
+    const mainId = m.main_module_id || hierarchy.mainModule?.id;
+    const subId = m.submodule_id || hierarchy.submodule?.id;
+    if (mainId) setSelectedMainModuleId(mainId);
+    if (subId) setSelectedSubmoduleId(subId);
     setSelectedModuleId(m.id);
     setMcqList(m.mcqQuestions || []);
     setCodingList(m.codingQuestions || []);
@@ -716,7 +771,20 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   };
 
   const handleSaveModuleQuestions = async () => {
-    if (!currentMainModule || !currentSubmodule || !currentModule) return;
+    const activeMod = currentModule || (selectedModuleId ? resolveHierarchyForModule(selectedModuleId).module : null);
+    if (!activeMod) {
+      toast({ title: "Error", description: "Module not found", variant: "destructive" });
+      return;
+    }
+
+    const resolvedHierarchy = resolveHierarchyForModule(activeMod.id);
+    const parentMainId = activeMod.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
+    const parentSubId = activeMod.submodule_id || currentSubmodule?.id || resolvedHierarchy.submodule?.id;
+
+    if (!parentMainId || !parentSubId) {
+      toast({ title: "Error", description: "Parent module hierarchy not found", variant: "destructive" });
+      return;
+    }
 
     try {
       const res = await fetch("/api/admin/practices", {
@@ -724,12 +792,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "update_module",
-          main_module_id: currentMainModule.id,
-          submodule_id: currentSubmodule.id,
-          id: currentModule.id,
-          name: currentModule.name,
-          mcqSectionTitle: currentModule.mcqSectionTitle || "Section 1: MCQs",
-          codingSectionTitle: currentModule.codingSectionTitle || "Section 2: Coding",
+          main_module_id: parentMainId,
+          submodule_id: parentSubId,
+          id: activeMod.id,
+          name: activeMod.name || activeMod.title,
+          mcqSectionTitle: activeMod.mcqSectionTitle || "Section 1: MCQs",
+          codingSectionTitle: activeMod.codingSectionTitle || "Section 2: Coding",
           mcqQuestions: mcqList,
           codingQuestions: codingList,
         }),
@@ -748,7 +816,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   // Save current MCQ list to DB and immediately append a blank new question
   const handleSaveAndAddNextMCQ = async (currentList: MCQQuestion[]) => {
-    if (!currentMainModule || !currentSubmodule || !currentModule) return;
+    const activeMod = currentModule || (selectedModuleId ? resolveHierarchyForModule(selectedModuleId).module : null);
+    if (!activeMod) return;
+
+    const resolvedHierarchy = resolveHierarchyForModule(activeMod.id);
+    const parentMainId = activeMod.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
+    const parentSubId = activeMod.submodule_id || currentSubmodule?.id || resolvedHierarchy.submodule?.id;
+    if (!parentMainId || !parentSubId) return;
 
     const newQ: MCQQuestion = {
       id: `mcq_${Date.now()}`,
@@ -770,12 +844,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "update_module",
-          main_module_id: currentMainModule.id,
-          submodule_id: currentSubmodule.id,
-          id: currentModule.id,
-          name: currentModule.name,
-          mcqSectionTitle: currentModule.mcqSectionTitle || "Section 1: MCQs",
-          codingSectionTitle: currentModule.codingSectionTitle || "Section 2: Coding",
+          main_module_id: parentMainId,
+          submodule_id: parentSubId,
+          id: activeMod.id,
+          name: activeMod.name || activeMod.title,
+          mcqSectionTitle: activeMod.mcqSectionTitle || "Section 1: MCQs",
+          codingSectionTitle: activeMod.codingSectionTitle || "Section 2: Coding",
           mcqQuestions: updatedList,
           codingQuestions: codingList,
         }),
@@ -797,7 +871,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     try {
       if (deleteTarget.type === "main_module") {
         const m = deleteTarget.item;
-        const res = await fetch(`/api/admin/practices?id=${m.id}&type=main_module`, { method: "DELETE" });
+        const res = await fetch(`/api/admin/practices?id=${encodeURIComponent(m.id)}&type=main_module`, { method: "DELETE" });
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.error || "Failed to delete Main Module");
         toast({ title: "Deleted", description: `Main Module "${deleteTarget.title}" deleted successfully.` });
@@ -808,10 +882,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         setDeleteTarget(null);
         await fetchData();
       } else if (deleteTarget.type === "submodule") {
-        if (!currentMainModule) return;
         const sm = deleteTarget.item;
+        const resolvedHierarchy = resolveHierarchyForSubmodule(sm.id);
+        const parentMainId = sm.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
+        if (!parentMainId) throw new Error("Parent Main Module ID could not be identified.");
+
         const res = await fetch(
-          `/api/admin/practices?id=${sm.id}&type=submodule&main_module_id=${currentMainModule.id}`,
+          `/api/admin/practices?id=${encodeURIComponent(sm.id)}&type=submodule&main_module_id=${encodeURIComponent(parentMainId)}`,
           { method: "DELETE" }
         );
         const data = await res.json();
@@ -824,10 +901,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         setDeleteTarget(null);
         await fetchData();
       } else if (deleteTarget.type === "module") {
-        if (!currentMainModule || !currentSubmodule) return;
         const mod = deleteTarget.item;
+        const resolvedHierarchy = resolveHierarchyForModule(mod.id);
+        const parentMainId = mod.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
+        const parentSubId = mod.submodule_id || currentSubmodule?.id || resolvedHierarchy.submodule?.id;
+        if (!parentMainId || !parentSubId) throw new Error("Parent hierarchy could not be identified for this module.");
+
         const res = await fetch(
-          `/api/admin/practices?id=${mod.id}&type=module&main_module_id=${currentMainModule.id}&submodule_id=${currentSubmodule.id}`,
+          `/api/admin/practices?id=${encodeURIComponent(mod.id)}&type=module&main_module_id=${encodeURIComponent(parentMainId)}&submodule_id=${encodeURIComponent(parentSubId)}`,
           { method: "DELETE" }
         );
         const data = await res.json();
@@ -841,16 +922,22 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         await fetchData();
       } else if (deleteTarget.type === "question") {
         const { questionType, index, title, targetModule } = deleteTarget;
-        const activeMod = targetModule || currentModule;
-        if (!currentMainModule || !currentSubmodule || !activeMod) return;
+        const activeMod = targetModule || currentModule || (selectedModuleId ? resolveHierarchyForModule(selectedModuleId).module : null);
+        if (!activeMod) throw new Error("Module not found for this question.");
 
-        const currentMcqs = activeMod.id === currentModule?.id ? mcqList : activeMod.mcqQuestions || [];
-        const currentCodings = activeMod.id === currentModule?.id ? codingList : activeMod.codingQuestions || [];
+        const resolvedHierarchy = resolveHierarchyForModule(activeMod.id);
+        const parentMainId = activeMod.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
+        const parentSubId = activeMod.submodule_id || currentSubmodule?.id || resolvedHierarchy.submodule?.id;
+        if (!parentMainId || !parentSubId) throw new Error("Parent module hierarchy not found.");
+
+        const isCurrentActive = activeMod.id === currentModule?.id || activeMod.id === selectedModuleId;
+        const currentMcqs = isCurrentActive ? mcqList : (activeMod.mcqQuestions || []);
+        const currentCodings = isCurrentActive ? codingList : (activeMod.codingQuestions || []);
 
         const updatedMcqs = questionType === "mcq" ? currentMcqs.filter((_, i) => i !== index) : currentMcqs;
         const updatedCodings = questionType === "coding" ? currentCodings.filter((_, i) => i !== index) : currentCodings;
 
-        if (activeMod.id === currentModule?.id) {
+        if (isCurrentActive) {
           if (questionType === "mcq") setMcqList(updatedMcqs);
           if (questionType === "coding") setCodingList(updatedCodings);
         }
@@ -860,8 +947,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "update_module",
-            main_module_id: currentMainModule.id,
-            submodule_id: currentSubmodule.id,
+            main_module_id: parentMainId,
+            submodule_id: parentSubId,
             id: activeMod.id,
             name: activeMod.name || activeMod.title,
             mcqSectionTitle: activeMod.mcqSectionTitle || "Section 1: MCQs",
@@ -889,6 +976,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       }
     } catch (err: any) {
       toast({ title: "Delete Error", description: err.message || "Failed to complete deletion", variant: "destructive" });
+      setDeleteTarget(null);
     } finally {
       setIsDeleting(false);
     }
@@ -1066,158 +1154,157 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   return (
     <div className="w-full space-y-6 pb-16 font-sans">
       {/* ─── MNC PAGE HEADER (PURE TEXT, ZERO ICONS) ────────────────────── */}
-      <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/90 dark:border-zinc-800 p-5 shadow-2xs">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1">
-            {/* Breadcrumb Hierarchy Navigation */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400 font-medium flex-wrap">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedMainModuleId(null);
-                  setSelectedSubmoduleId(null);
-                  setSelectedModuleId(null);
-                  setActiveLevel("main_modules");
-                }}
-                className="hover:text-blue-600 dark:hover:text-blue-400 underline-offset-2 hover:underline cursor-pointer"
-              >
-                Practice Management
-              </button>
+      {!(activeLevel === "module_editor" && showCodingCreator) && (
+        <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/90 dark:border-zinc-800 p-5 shadow-2xs">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="space-y-1">
+              {/* Breadcrumb Hierarchy Navigation */}
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400 font-medium flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedMainModuleId(null);
+                    setSelectedSubmoduleId(null);
+                    setSelectedModuleId(null);
+                    setActiveLevel("main_modules");
+                  }}
+                  className="hover:text-blue-600 dark:hover:text-blue-400 underline-offset-2 hover:underline cursor-pointer"
+                >
+                  Practice Management
+                </button>
 
-              {currentMainModule && (
+                {currentMainModule && (
+                  <>
+                    <span className="text-slate-400">/</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSubmoduleId(null);
+                        setSelectedModuleId(null);
+                        setActiveLevel("submodules");
+                      }}
+                      className="hover:text-blue-600 dark:hover:text-blue-400 underline-offset-2 hover:underline cursor-pointer font-semibold text-slate-800 dark:text-zinc-200"
+                    >
+                      {currentMainModule.name || currentMainModule.title}
+                    </button>
+                  </>
+                )}
+
+                {currentSubmodule && (
+                  <>
+                    <span className="text-slate-400">/</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedModuleId(null);
+                        setActiveLevel("modules");
+                      }}
+                      className="hover:text-blue-600 dark:hover:text-blue-400 underline-offset-2 hover:underline cursor-pointer font-semibold text-slate-800 dark:text-zinc-200"
+                    >
+                      {currentSubmodule.name || currentSubmodule.title}
+                    </button>
+                  </>
+                )}
+
+                {activeLevel === "module_editor" && currentModule && (
+                  <>
+                    <span className="text-slate-400">/</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">
+                      Content Editor ({currentModule.name || currentModule.title})
+                    </span>
+                  </>
+                )}
+              </div>
+
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                {activeLevel === "main_modules" && "Practice Main Modules"}
+                {activeLevel === "submodules" && `Submodules: ${currentMainModule?.name || currentMainModule?.title}`}
+                {activeLevel === "modules" && `Modules: ${currentSubmodule?.name || currentSubmodule?.title}`}
+                {activeLevel === "module_editor" && `Questions Editor: ${currentModule?.name || currentModule?.title}`}
+              </h1>
+            </div>
+
+            {/* Top Level Action Buttons */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {activeLevel === "main_modules" && (
+                <Button
+                  type="button"
+                  onClick={handleOpenAddMainModule}
+                  className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                >
+                  + Add Main Module
+                </Button>
+              )}
+
+              {activeLevel === "submodules" && (
                 <>
-                  <span className="text-slate-400">/</span>
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedMainModuleId(null);
+                      setActiveLevel("main_modules");
+                    }}
+                    className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
+                  >
+                    Back to Main Modules
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleOpenAddSubmodule}
+                    className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                  >
+                    + Add Submodule
+                  </Button>
+                </>
+              )}
+
+              {activeLevel === "modules" && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => {
                       setSelectedSubmoduleId(null);
-                      setSelectedModuleId(null);
                       setActiveLevel("submodules");
                     }}
-                    className="hover:text-blue-600 dark:hover:text-blue-400 underline-offset-2 hover:underline cursor-pointer font-semibold text-slate-800 dark:text-zinc-200"
+                    className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
                   >
-                    {currentMainModule.name || currentMainModule.title}
-                  </button>
-                </>
-              )}
-
-              {currentSubmodule && (
-                <>
-                  <span className="text-slate-400">/</span>
-                  <button
+                    Back to Submodules
+                  </Button>
+                  <Button
                     type="button"
-                    onClick={() => {
-                      setSelectedModuleId(null);
-                      setActiveLevel("modules");
-                    }}
-                    className="hover:text-blue-600 dark:hover:text-blue-400 underline-offset-2 hover:underline cursor-pointer font-semibold text-slate-800 dark:text-zinc-200"
+                    onClick={handleOpenAddModule}
+                    className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                   >
-                    {currentSubmodule.name || currentSubmodule.title}
-                  </button>
+                    + Add Module
+                  </Button>
                 </>
               )}
 
-              {activeLevel === "module_editor" && currentModule && (
+              {activeLevel === "module_editor" && (
                 <>
-                  <span className="text-slate-400">/</span>
-                  <span className="font-bold text-blue-600 dark:text-blue-400">
-                    Content Editor ({currentModule.name || currentModule.title})
-                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setActiveLevel("modules")}
+                    className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
+                  >
+                    Back to Modules
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSaveModuleQuestions}
+                    className="h-9 px-4 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
+                  >
+                    Save Questions &amp; Exit
+                  </Button>
                 </>
               )}
             </div>
-
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              {activeLevel === "main_modules" && "Practice Main Modules"}
-              {activeLevel === "submodules" && `Submodules: ${currentMainModule?.name || currentMainModule?.title}`}
-              {activeLevel === "modules" && `Modules: ${currentSubmodule?.name || currentSubmodule?.title}`}
-              {activeLevel === "module_editor" && `Questions Editor: ${currentModule?.name || currentModule?.title}`}
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-zinc-400">
-              3-Level Dynamic Practice Hierarchy: Main Module &gt; Submodule &gt; Module
-            </p>
-          </div>
-
-          {/* Top Level Action Buttons */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {activeLevel === "main_modules" && (
-              <Button
-                type="button"
-                onClick={handleOpenAddMainModule}
-                className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
-              >
-                + Add Main Module
-              </Button>
-            )}
-
-            {activeLevel === "submodules" && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedMainModuleId(null);
-                    setActiveLevel("main_modules");
-                  }}
-                  className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
-                >
-                  Back to Main Modules
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleOpenAddSubmodule}
-                  className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
-                >
-                  + Add Submodule
-                </Button>
-              </>
-            )}
-
-            {activeLevel === "modules" && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedSubmoduleId(null);
-                    setActiveLevel("submodules");
-                  }}
-                  className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
-                >
-                  Back to Submodules
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleOpenAddModule}
-                  className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
-                >
-                  + Add Module
-                </Button>
-              </>
-            )}
-
-            {activeLevel === "module_editor" && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setActiveLevel("modules")}
-                  className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
-                >
-                  Back to Modules
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleSaveModuleQuestions}
-                  className="h-9 px-4 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
-                >
-                  Save Questions &amp; Exit
-                </Button>
-              </>
-            )}
           </div>
         </div>
-      </div>
+      )}
 
       {/* ─── LEVEL 1: MAIN MODULES VIEW ─────────────────────────────────── */}
       {activeLevel === "main_modules" && (
@@ -1666,18 +1753,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         <Card className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-6 shadow-2xs space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-4">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                LEVEL 3: MODULE QUESTIONS ({currentModule.type === "coding" ? "CODING ONLY" : currentModule.type === "mcq" ? "MCQ ONLY" : "MIXED MCQ + CODING"})
-              </span>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white mt-1">
-                Configure Questions: {currentModule.name || currentModule.title}
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                {currentModule.name || currentModule.title} · Questions
               </h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400">
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                 {currentModule.type === "coding"
-                  ? "Configure interactive algorithm challenges, starter code, and test cases."
+                  ? "Interactive algorithm challenges, starter code, and test cases."
                   : currentModule.type === "mcq"
-                  ? "Configure multiple choice questions, answer options, marks, and explanations."
-                  : "Add Multiple Choice Questions (MCQ) and Coding Challenges to this module."}
+                  ? "Multiple choice questions, answer options, marks, and explanations."
+                  : "Multiple choice questions and interactive coding challenges."}
               </p>
             </div>
 
@@ -1693,7 +1777,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
                   }`}
                 >
-                  {currentModule.mcqSectionTitle || "Section 1: MCQs"} ({mcqList.length})
+                  MCQs ({mcqList.length})
                 </button>
                 <button
                   type="button"
@@ -1704,16 +1788,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
                   }`}
                 >
-                  {currentModule.codingSectionTitle || "Section 2: Coding"} ({codingList.length})
+                  Coding Problems ({codingList.length})
                 </button>
               </div>
             ) : currentModule.type === "coding" ? (
               <div className="px-3.5 py-1.5 text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs">
-                {currentModule.codingSectionTitle || "Coding Problems"} ({codingList.length})
+                Coding Problems ({codingList.length})
               </div>
             ) : (
               <div className="px-3.5 py-1.5 text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs">
-                {currentModule.mcqSectionTitle || "MCQ Questions"} ({mcqList.length})
+                MCQ Questions ({mcqList.length})
               </div>
             )}
           </div>
@@ -2001,10 +2085,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                     })
                                   );
                                 }}
-                                className="text-xs text-red-500 hover:text-red-700 px-1 cursor-pointer"
+                                className="text-slate-400 hover:text-red-500 p-1 cursor-pointer transition-colors"
                                 title="Remove this option"
                               >
-                                ✕
+                                <X className="w-3.5 h-3.5" />
                               </button>
                             )}
                           </div>
@@ -2066,18 +2150,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           {/* CODING TAB CONTENT: only if type is coding or mixed */}
           {(currentModule.type === "coding" || (currentModule.type === "mixed" && activeTab === "coding")) && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 dark:border-zinc-800 pb-3">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-zinc-800 pb-3">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                      {currentModule.codingSectionTitle || "Section 2: Coding"}
-                    </span>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                      Coding Problems ({codingList.length})
-                    </h3>
-                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Coding Problems ({codingList.length})
+                  </h3>
                   <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                    Add interactive algorithm challenges, starter code, and test cases.
+                    Interactive algorithm challenges, starter code, and test cases.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -2104,31 +2183,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     }}
                     className="h-8.5 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                   >
-                    {showCodingCreator && editingCodingIndex === null ? "Close Creator Form" : "+ Create New Coding Problem"}
+                    {showCodingCreator && editingCodingIndex === null ? "Close Creator Form" : "+ Create Coding Problem"}
                   </Button>
                 </div>
               </div>
 
               {/* Creator Form (when opened) */}
               {showCodingCreator && (
-                <div className="p-4 bg-slate-50 dark:bg-zinc-900/80 rounded-xl border border-blue-200 dark:border-blue-900/50 space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-2">
-                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                      {editingCodingIndex !== null
-                        ? `Edit Coding Problem: ${codingList[editingCodingIndex]?.title || ""}`
-                        : "New Coding Challenge Creator"}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCodingCreator(false);
-                        setEditingCodingIndex(null);
-                      }}
-                      className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
-                    >
-                      Cancel Form
-                    </button>
-                  </div>
+                <div className="pt-1">
                   <CodingProblemCreator
                     initialProblem={editingCodingIndex !== null ? codingList[editingCodingIndex] : undefined}
                     initialProblemNumber={editingCodingIndex !== null ? (codingList[editingCodingIndex]?.problem_number || editingCodingIndex + 1) : codingList.length + 1}
@@ -2141,11 +2203,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         ? (newProb?.problem_number || codingList[editingCodingIndex]?.problem_number || editingCodingIndex + 1)
                         : (newProb?.problem_number || codingList.length + 1);
 
+                      const activeMod = currentModule || (selectedModuleId ? resolveHierarchyForModule(selectedModuleId).module : null);
+                      const modId = activeMod?.id || selectedModuleId || "";
+
                       const problemToSave = {
                         ...newProb,
                         problem_number: assignedProblemNum,
-                        assessment_id: currentModule.id,
-                        module_id: currentModule.id,
+                        assessment_id: modId,
+                        module_id: modId,
                       };
                       let updatedList: any[];
                       if (editingCodingIndex !== null) {
@@ -2159,24 +2224,30 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       setShowCodingCreator(false);
                       setEditingCodingIndex(null);
 
-                      if (currentMainModule && currentSubmodule && currentModule) {
-                        try {
-                          await fetch("/api/admin/practices", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              action: "update_module",
-                              main_module_id: currentMainModule.id,
-                              submodule_id: currentSubmodule.id,
-                              id: currentModule.id,
-                              name: currentModule.name,
-                              mcqQuestions: mcqList,
-                              codingQuestions: updatedList,
-                            }),
-                          });
-                          await fetchData();
-                        } catch (err: any) {
-                          console.error("Auto-save coding problem error:", err);
+                      if (activeMod) {
+                        const resolvedHierarchy = resolveHierarchyForModule(activeMod.id);
+                        const parentMainId = activeMod.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
+                        const parentSubId = activeMod.submodule_id || currentSubmodule?.id || resolvedHierarchy.submodule?.id;
+
+                        if (parentMainId && parentSubId) {
+                          try {
+                            await fetch("/api/admin/practices", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                action: "update_module",
+                                main_module_id: parentMainId,
+                                submodule_id: parentSubId,
+                                id: activeMod.id,
+                                name: activeMod.name || activeMod.title,
+                                mcqQuestions: mcqList,
+                                codingQuestions: updatedList,
+                              }),
+                            });
+                            await fetchData();
+                          } catch (err: any) {
+                            console.error("Auto-save coding problem error:", err);
+                          }
                         }
                       }
                     }}
@@ -2185,40 +2256,48 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         ? (newProb?.problem_number || codingList[editingCodingIndex]?.problem_number || editingCodingIndex + 1)
                         : (newProb?.problem_number || codingList.length + 1);
 
+                      const activeMod = currentModule || (selectedModuleId ? resolveHierarchyForModule(selectedModuleId).module : null);
+                      const modId = activeMod?.id || selectedModuleId || "";
+
                       const problemToSave = {
                         ...newProb,
                         problem_number: assignedProblemNum,
-                        assessment_id: currentModule.id,
-                        module_id: currentModule.id,
+                        assessment_id: modId,
+                        module_id: modId,
                       };
                       const updatedList = editingCodingIndex !== null
                         ? codingList.map((item, i) => (i === editingCodingIndex ? problemToSave : item))
                         : [...codingList, problemToSave];
 
                       setCodingList(updatedList);
-                      // Reset to create a new problem (don't close creator)
                       setEditingCodingIndex(null);
 
-                      if (currentMainModule && currentSubmodule && currentModule) {
-                        try {
-                          await fetch("/api/admin/practices", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              action: "update_module",
-                              main_module_id: currentMainModule.id,
-                              submodule_id: currentSubmodule.id,
-                              id: currentModule.id,
-                              name: currentModule.name,
-                              mcqQuestions: mcqList,
-                              codingQuestions: updatedList,
-                            }),
-                          });
-                          await fetchData();
-                          toast({ title: "Saved & Ready for Next", description: `Problem #${assignedProblemNum} saved. Create the next one!` });
-                        } catch (err: any) {
-                          console.error("Save & Next coding error:", err);
-                          toast({ title: "Save Error", description: err.message, variant: "destructive" });
+                      if (activeMod) {
+                        const resolvedHierarchy = resolveHierarchyForModule(activeMod.id);
+                        const parentMainId = activeMod.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
+                        const parentSubId = activeMod.submodule_id || currentSubmodule?.id || resolvedHierarchy.submodule?.id;
+
+                        if (parentMainId && parentSubId) {
+                          try {
+                            await fetch("/api/admin/practices", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                action: "update_module",
+                                main_module_id: parentMainId,
+                                submodule_id: parentSubId,
+                                id: activeMod.id,
+                                name: activeMod.name || activeMod.title,
+                                mcqQuestions: mcqList,
+                                codingQuestions: updatedList,
+                              }),
+                            });
+                            await fetchData();
+                            toast({ title: "Saved & Ready for Next", description: `Problem #${assignedProblemNum} saved. Create the next one!` });
+                          } catch (err: any) {
+                            console.error("Save & Next coding error:", err);
+                            toast({ title: "Save Error", description: err.message, variant: "destructive" });
+                          }
                         }
                       }
                     }}
@@ -2554,7 +2633,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       )}
 
                       {fMainBatches.length === 0 && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">⚠ No batches selected — module will not be visible to students.</p>
+                        <p className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          No batches selected — module will not be visible to students.
+                        </p>
                       )}
                     </div>
                   )}

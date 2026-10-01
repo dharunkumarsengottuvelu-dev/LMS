@@ -1351,7 +1351,7 @@ export function CodingProblemCreator({
                   className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 bg-blue-50/70 hover:bg-blue-100/70 px-2 py-0.5 rounded-md border border-blue-200 transition-colors cursor-pointer"
                   title="Set a manual benchmark acceptance rate"
                 >
-                  ✏️ Set Manually
+                  Set Manually
                 </button>
               </div>
             )}
@@ -1753,7 +1753,6 @@ export function CodingProblemCreator({
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <span className="text-[11px]">⊞</span>
               <span>Multi Language</span>
             </button>
             <button
