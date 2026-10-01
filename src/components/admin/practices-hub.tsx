@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { BulkUploadModal } from "@/components/admin/bulk-upload";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { CodingProblemsService } from "@/services/coding-problems.service";
+import { cn } from "@/lib/utils";
 import { 
   FolderPlus, 
   Layers, 
@@ -22,6 +23,8 @@ import {
   Users, 
   Check, 
   AlertTriangle,
+  ShieldAlert,
+  Loader2,
   Search,
   Eye,
   Code2,
@@ -29,7 +32,8 @@ import {
   CheckCircle2,
   Trash2,
   Edit3,
-  Plus
+  Plus,
+  ChevronDown
 } from "lucide-react";
 
 // ─── TYPES FOR STRICT 3-LEVEL HIERARCHY ──────────────────────────────
@@ -101,6 +105,203 @@ export interface PracticeMainModule {
 
 type NavigationLevel = "main_modules" | "submodules" | "modules" | "module_editor";
 
+// ─── MNC-LEVEL CUSTOM DROPDOWN SELECT COMPONENT ────────────────────────
+interface MncSelectOption {
+  value: string;
+  label: string;
+  description?: string;
+  badge?: string;
+  icon?: React.ReactNode;
+  dotColor?: string;
+}
+
+interface MncSelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: MncSelectOption[];
+  placeholder?: string;
+  className?: string;
+  variant?: "purple" | "blue" | "emerald";
+}
+
+function MncSelect({
+  value,
+  onChange,
+  options,
+  placeholder = "Select an option...",
+  className = "",
+  variant = "purple",
+}: MncSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = options.find((opt) => opt.value === value) || options[0];
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("mousedown", handleOutsideClick);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const activeRing =
+    variant === "blue"
+      ? "ring-2 ring-blue-500/20 border-blue-500 dark:border-blue-500"
+      : variant === "emerald"
+      ? "ring-2 ring-emerald-500/20 border-emerald-500 dark:border-emerald-500"
+      : "ring-2 ring-purple-500/20 border-purple-500 dark:border-purple-500";
+
+  return (
+    <div ref={containerRef} className={cn("relative w-full", className)}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className={cn(
+          "w-full h-9.5 px-3 flex items-center justify-between gap-2 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none",
+          "bg-slate-50/70 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 shadow-2xs",
+          "hover:border-purple-400 dark:hover:border-purple-500 hover:bg-white dark:hover:bg-zinc-800/90",
+          isOpen ? activeRing : ""
+        )}
+      >
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          {selectedOption?.icon && (
+            <div className="shrink-0 text-slate-500 dark:text-zinc-400">
+              {selectedOption.icon}
+            </div>
+          )}
+          {selectedOption?.dotColor && (
+            <span className={cn("w-2 h-2 rounded-full shrink-0", selectedOption.dotColor)} />
+          )}
+          <span className="truncate text-slate-900 dark:text-zinc-100 font-semibold">
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          {selectedOption?.badge && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200/60 dark:border-zinc-700">
+              {selectedOption.badge}
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              "w-4 h-4 text-slate-400 dark:text-zinc-500 transition-transform duration-200",
+              isOpen ? "rotate-180 text-purple-600 dark:text-purple-400" : ""
+            )}
+          />
+        </div>
+      </button>
+
+      {isOpen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute left-0 right-0 top-full mt-1.5 z-50 p-1.5 bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl space-y-1 animate-in fade-in-0 zoom-in-95 duration-150 min-w-[220px]"
+        >
+          {options.map((opt) => {
+            const isSelected = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={cn(
+                  "w-full p-2.5 rounded-xl text-left flex items-start gap-2.5 transition-all cursor-pointer group select-none",
+                  isSelected
+                    ? "bg-purple-50 dark:bg-purple-950/40 border border-purple-200/70 dark:border-purple-800/60"
+                    : "hover:bg-slate-100/80 dark:hover:bg-zinc-800/80 border border-transparent"
+                )}
+              >
+                <div className="mt-0.5 shrink-0">
+                  {opt.icon ? (
+                    <div
+                      className={cn(
+                        "p-1.5 rounded-lg border",
+                        isSelected
+                          ? "bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border-purple-300/60 dark:border-purple-700/60"
+                          : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
+                      )}
+                    >
+                      {opt.icon}
+                    </div>
+                  ) : opt.dotColor ? (
+                    <span className={cn("inline-block w-2.5 h-2.5 rounded-full mt-1", opt.dotColor)} />
+                  ) : null}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span
+                      className={cn(
+                        "text-xs font-bold leading-none",
+                        isSelected
+                          ? "text-purple-900 dark:text-purple-200"
+                          : "text-slate-800 dark:text-zinc-200 group-hover:text-slate-900 dark:group-hover:text-white"
+                      )}
+                    >
+                      {opt.label}
+                    </span>
+                    {opt.badge && (
+                      <span
+                        className={cn(
+                          "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider",
+                          isSelected
+                            ? "bg-purple-200/80 dark:bg-purple-900/80 text-purple-800 dark:text-purple-200"
+                            : "bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400"
+                        )}
+                      >
+                        {opt.badge}
+                      </span>
+                    )}
+                  </div>
+                  {opt.description && (
+                    <p
+                      className={cn(
+                        "text-[10px] mt-1 leading-snug",
+                        isSelected
+                          ? "text-purple-700/90 dark:text-purple-300/80"
+                          : "text-slate-500 dark:text-zinc-400"
+                      )}
+                    >
+                      {opt.description}
+                    </p>
+                  )}
+                </div>
+
+                {isSelected && (
+                  <div className="shrink-0 self-center">
+                    <Check className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" }) {
   const { toast } = useToast();
 
@@ -166,7 +367,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [editingCodingIndex, setEditingCodingIndex] = useState<number | null>(null);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState<boolean>(false);
   const [bulkUploadModuleType, setBulkUploadModuleType] = useState<"coding_problem" | "assessment_questions">("coding_problem");
-  const [itemToDelete, setItemToDelete] = useState<{ type: "coding" | "mcq"; index: number; title: string; targetModule?: PracticeModule } | null>(null);
+  // MNC-Level Delete Confirmation State
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { type: "main_module"; item: PracticeMainModule; title: string; subCount: number }
+    | { type: "submodule"; item: PracticeSubmodule; title: string; modCount: number }
+    | { type: "module"; item: PracticeModule; title: string; questionCount: number }
+    | { type: "question"; questionType: "coding" | "mcq"; index: number; title: string; targetModule?: PracticeModule }
+    | null
+  >(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // View Module Questions Modal State
   const [viewingQuestionsModule, setViewingQuestionsModule] = useState<PracticeModule | null>(null);
@@ -220,6 +429,17 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       window.removeEventListener("focus", handleFocus);
     };
   }, [fetchData]);
+
+  // Handle ESC key for MNC Delete Confirmation Modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && deleteTarget && !isDeleting) {
+        setDeleteTarget(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [deleteTarget, isDeleting]);
 
   // Derived current Main Module and Submodule
   const currentMainModule = useMemo(() => {
@@ -325,24 +545,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     }
   };
 
-  const handleDeleteMainModule = async (m: PracticeMainModule, e: React.MouseEvent) => {
+  const handleDeleteMainModule = (m: PracticeMainModule, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm(`Delete Main Module "${m.name || m.title}" and all its submodules? This cannot be undone.`)) {
-      return;
-    }
-    try {
-      const res = await fetch(`/api/admin/practices?id=${m.id}&type=main_module`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error);
-      toast({ title: "Deleted", description: "Main Module deleted successfully" });
-      if (selectedMainModuleId === m.id) {
-        setSelectedMainModuleId(null);
-        setActiveLevel("main_modules");
-      }
-      await fetchData();
-    } catch (err: any) {
-      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
-    }
+    setDeleteTarget({
+      type: "main_module",
+      item: m,
+      title: m.name || m.title || "Main Module",
+      subCount: m.submodules?.length || 0,
+    });
   };
 
   // 2. SUBMODULE ACTIONS
@@ -429,28 +639,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     }
   };
 
-  const handleDeleteSubmodule = async (sm: PracticeSubmodule, e: React.MouseEvent) => {
+  const handleDeleteSubmodule = (sm: PracticeSubmodule, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentMainModule) return;
-    if (!window.confirm(`Delete Submodule "${sm.name || sm.title}" and all its modules? This cannot be undone.`)) {
-      return;
-    }
-    try {
-      const res = await fetch(
-        `/api/admin/practices?id=${sm.id}&type=submodule&main_module_id=${currentMainModule.id}`,
-        { method: "DELETE" }
-      );
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error);
-      toast({ title: "Deleted", description: "Submodule deleted successfully" });
-      if (selectedSubmoduleId === sm.id) {
-        setSelectedSubmoduleId(null);
-        setActiveLevel("submodules");
-      }
-      await fetchData();
-    } catch (err: any) {
-      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
-    }
+    setDeleteTarget({
+      type: "submodule",
+      item: sm,
+      title: sm.name || sm.title || "Submodule",
+      modCount: sm.modules?.length || 0,
+    });
   };
 
   // 3. MODULE ACTIONS
@@ -558,28 +755,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     }
   };
 
-  const handleDeleteModule = async (m: PracticeModule, e: React.MouseEvent) => {
+  const handleDeleteModule = (m: PracticeModule, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentMainModule || !currentSubmodule) return;
-    if (!window.confirm(`Delete Module "${m.name || m.title}"? This will remove its questions.`)) {
-      return;
-    }
-    try {
-      const res = await fetch(
-        `/api/admin/practices?id=${m.id}&type=module&main_module_id=${currentMainModule.id}&submodule_id=${currentSubmodule.id}`,
-        { method: "DELETE" }
-      );
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error);
-      toast({ title: "Deleted", description: "Module deleted successfully" });
-      if (selectedModuleId === m.id) {
-        setSelectedModuleId(null);
-        setActiveLevel("modules");
-      }
-      await fetchData();
-    } catch (err: any) {
-      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
-    }
+    const qCount = (m.mcqQuestions?.length || 0) + (m.codingQuestions?.length || 0);
+    setDeleteTarget({
+      type: "module",
+      item: m,
+      title: m.name || m.title || "Practice Module",
+      questionCount: qCount,
+    });
   };
 
   // 4. OPEN MODULE QUESTIONS EDITOR
@@ -667,59 +852,108 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     }
   };
 
-  // 5. CONFIRM DELETE FOR QUESTIONS (CODING & MCQ)
-  const handleConfirmDelete = async () => {
-    if (!itemToDelete) return;
-    const { type, index, title, targetModule } = itemToDelete;
-    setItemToDelete(null);
-
-    const activeMod = targetModule || currentModule;
-    if (!currentMainModule || !currentSubmodule || !activeMod) return;
-
-    const currentMcqs = (activeMod.id === currentModule?.id) ? mcqList : (activeMod.mcqQuestions || []);
-    const currentCodings = (activeMod.id === currentModule?.id) ? codingList : (activeMod.codingQuestions || []);
-
-    const updatedMcqs = type === "mcq" ? currentMcqs.filter((_, i) => i !== index) : currentMcqs;
-    const updatedCodings = type === "coding" ? currentCodings.filter((_, i) => i !== index) : currentCodings;
-
-    if (activeMod.id === currentModule?.id) {
-      if (type === "mcq") setMcqList(updatedMcqs);
-      if (type === "coding") setCodingList(updatedCodings);
-    }
+  // 5. UNIFIED MNC-LEVEL DELETE EXECUTION HANDLER
+  const handleExecuteDelete = async () => {
+    if (!deleteTarget || isDeleting) return;
+    setIsDeleting(true);
 
     try {
-      const res = await fetch("/api/admin/practices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update_module",
-          main_module_id: currentMainModule.id,
-          submodule_id: currentSubmodule.id,
-          id: activeMod.id,
-          name: activeMod.name || activeMod.title,
-          mcqSectionTitle: activeMod.mcqSectionTitle || "Section 1: MCQs",
-          codingSectionTitle: activeMod.codingSectionTitle || "Section 2: Coding",
-          mcqQuestions: updatedMcqs,
-          codingQuestions: updatedCodings,
-        }),
-      });
+      if (deleteTarget.type === "main_module") {
+        const m = deleteTarget.item;
+        const res = await fetch(`/api/admin/practices?id=${m.id}&type=main_module`, { method: "DELETE" });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "Failed to delete Main Module");
+        toast({ title: "Deleted", description: `Main Module "${deleteTarget.title}" deleted successfully.` });
+        if (selectedMainModuleId === m.id) {
+          setSelectedMainModuleId(null);
+          setActiveLevel("main_modules");
+        }
+        setDeleteTarget(null);
+        await fetchData();
+      } else if (deleteTarget.type === "submodule") {
+        if (!currentMainModule) return;
+        const sm = deleteTarget.item;
+        const res = await fetch(
+          `/api/admin/practices?id=${sm.id}&type=submodule&main_module_id=${currentMainModule.id}`,
+          { method: "DELETE" }
+        );
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "Failed to delete Submodule");
+        toast({ title: "Deleted", description: `Submodule "${deleteTarget.title}" deleted successfully.` });
+        if (selectedSubmoduleId === sm.id) {
+          setSelectedSubmoduleId(null);
+          setActiveLevel("submodules");
+        }
+        setDeleteTarget(null);
+        await fetchData();
+      } else if (deleteTarget.type === "module") {
+        if (!currentMainModule || !currentSubmodule) return;
+        const mod = deleteTarget.item;
+        const res = await fetch(
+          `/api/admin/practices?id=${mod.id}&type=module&main_module_id=${currentMainModule.id}&submodule_id=${currentSubmodule.id}`,
+          { method: "DELETE" }
+        );
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "Failed to delete Module");
+        toast({ title: "Deleted", description: `Module "${deleteTarget.title}" deleted successfully.` });
+        if (selectedModuleId === mod.id) {
+          setSelectedModuleId(null);
+          setActiveLevel("modules");
+        }
+        setDeleteTarget(null);
+        await fetchData();
+      } else if (deleteTarget.type === "question") {
+        const { questionType, index, title, targetModule } = deleteTarget;
+        const activeMod = targetModule || currentModule;
+        if (!currentMainModule || !currentSubmodule || !activeMod) return;
 
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Delete failed");
+        const currentMcqs = activeMod.id === currentModule?.id ? mcqList : activeMod.mcqQuestions || [];
+        const currentCodings = activeMod.id === currentModule?.id ? codingList : activeMod.codingQuestions || [];
 
-      if (viewingQuestionsModule && viewingQuestionsModule.id === activeMod.id) {
-        setViewingQuestionsModule({
-          ...viewingQuestionsModule,
-          mcqQuestions: updatedMcqs,
-          codingQuestions: updatedCodings,
-          questionCount: updatedMcqs.length + updatedCodings.length,
+        const updatedMcqs = questionType === "mcq" ? currentMcqs.filter((_, i) => i !== index) : currentMcqs;
+        const updatedCodings = questionType === "coding" ? currentCodings.filter((_, i) => i !== index) : currentCodings;
+
+        if (activeMod.id === currentModule?.id) {
+          if (questionType === "mcq") setMcqList(updatedMcqs);
+          if (questionType === "coding") setCodingList(updatedCodings);
+        }
+
+        const res = await fetch("/api/admin/practices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_module",
+            main_module_id: currentMainModule.id,
+            submodule_id: currentSubmodule.id,
+            id: activeMod.id,
+            name: activeMod.name || activeMod.title,
+            mcqSectionTitle: activeMod.mcqSectionTitle || "Section 1: MCQs",
+            codingSectionTitle: activeMod.codingSectionTitle || "Section 2: Coding",
+            mcqQuestions: updatedMcqs,
+            codingQuestions: updatedCodings,
+          }),
         });
-      }
 
-      await fetchData();
-      toast({ title: "Deleted", description: `"${title}" has been deleted successfully.` });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || "Delete failed");
+
+        if (viewingQuestionsModule && viewingQuestionsModule.id === activeMod.id) {
+          setViewingQuestionsModule({
+            ...viewingQuestionsModule,
+            mcqQuestions: updatedMcqs,
+            codingQuestions: updatedCodings,
+            questionCount: updatedMcqs.length + updatedCodings.length,
+          });
+        }
+
+        toast({ title: "Deleted", description: `"${title}" has been deleted successfully.` });
+        setDeleteTarget(null);
+        await fetchData();
+      }
     } catch (err: any) {
-      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
+      toast({ title: "Delete Error", description: err.message || "Failed to complete deletion", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -744,8 +978,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   };
 
   const handleDeleteQuestionFromView = (m: PracticeModule, type: "mcq" | "coding", index: number, title: string) => {
-    setItemToDelete({
-      type,
+    setDeleteTarget({
+      type: "question",
+      questionType: type,
       index,
       title,
       targetModule: m,
@@ -1664,7 +1899,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           </div>
                           <button
                             type="button"
-                            onClick={() => setItemToDelete({ type: "mcq", index: qIdx, title: `Question #${qIdx + 1}` })}
+                            onClick={() => setDeleteTarget({ type: "question", questionType: "mcq", index: qIdx, title: `Question #${qIdx + 1}` })}
                             className="text-xs text-red-600 hover:underline font-semibold cursor-pointer"
                           >
                             Delete Question
@@ -2071,7 +2306,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                             </button>
                             <button
                               type="button"
-                              onClick={() => setItemToDelete({ type: "coding", index: idx, title: cp.title || `Coding Problem #${idx + 1}` })}
+                              onClick={() => setDeleteTarget({ type: "question", questionType: "coding", index: idx, title: cp.title || `Coding Problem #${idx + 1}` })}
                               className="h-7 px-3.5 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 font-semibold cursor-pointer text-xs transition-colors"
                             >
                               Delete
@@ -2183,15 +2418,27 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       <div className="grid grid-cols-2 gap-3 pt-1">
                         <div className="space-y-1.5">
                           <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Status</label>
-                          <Select value={fMainStatus} onValueChange={(v: any) => setFMainStatus(v)}>
-                            <SelectTrigger className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="inactive">Inactive</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <MncSelect
+                            value={fMainStatus}
+                            onChange={(v: any) => setFMainStatus(v)}
+                            variant="blue"
+                            options={[
+                              {
+                                value: "active",
+                                label: "Active",
+                                badge: "Live",
+                                description: "Track is active and visible to assigned batches",
+                                dotColor: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+                              },
+                              {
+                                value: "inactive",
+                                label: "Inactive",
+                                badge: "Draft",
+                                description: "Track is hidden in draft mode",
+                                dotColor: "bg-slate-400",
+                              },
+                            ]}
+                          />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Display Order</label>
@@ -2421,15 +2668,27 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-semibold text-slate-700 dark:text-zinc-300">Status</label>
-                  <Select value={fSubStatus} onValueChange={(v: any) => setFSubStatus(v)}>
-                    <SelectTrigger className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <MncSelect
+                    value={fSubStatus}
+                    onChange={(v: any) => setFSubStatus(v)}
+                    variant="purple"
+                    options={[
+                      {
+                        value: "active",
+                        label: "Active",
+                        badge: "Live",
+                        description: "Submodule is active and accessible",
+                        dotColor: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+                      },
+                      {
+                        value: "inactive",
+                        label: "Inactive",
+                        badge: "Draft",
+                        description: "Submodule is hidden in draft mode",
+                        dotColor: "bg-slate-400",
+                      },
+                    ]}
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -2525,16 +2784,34 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <label className="font-semibold text-slate-700 dark:text-zinc-300">Type</label>
-                  <Select value={fModType} onValueChange={(v: any) => setFModType(v)}>
-                    <SelectTrigger className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mixed">Mixed (MCQ + Code)</SelectItem>
-                      <SelectItem value="mcq">MCQ Only</SelectItem>
-                      <SelectItem value="coding">Coding Only</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <MncSelect
+                    value={fModType}
+                    onChange={(v: any) => setFModType(v)}
+                    variant="purple"
+                    options={[
+                      {
+                        value: "mixed",
+                        label: "Mixed (MCQ + Code)",
+                        badge: "Full Track",
+                        description: "Includes both MCQs and interactive coding challenges",
+                        icon: <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />,
+                      },
+                      {
+                        value: "mcq",
+                        label: "MCQ Only",
+                        badge: "Quiz",
+                        description: "Multiple-choice assessment questions only",
+                        icon: <HelpCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />,
+                      },
+                      {
+                        value: "coding",
+                        label: "Coding Only",
+                        badge: "Code Lab",
+                        description: "Interactive algorithm & code execution problems",
+                        icon: <Code2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />,
+                      },
+                    ]}
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -2587,15 +2864,27 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-semibold text-slate-700 dark:text-zinc-300">Status</label>
-                  <Select value={fModStatus} onValueChange={(v: any) => setFModStatus(v)}>
-                    <SelectTrigger className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <MncSelect
+                    value={fModStatus}
+                    onChange={(v: any) => setFModStatus(v)}
+                    variant="purple"
+                    options={[
+                      {
+                        value: "active",
+                        label: "Active",
+                        badge: "Live",
+                        description: "Module is visible and accessible to students",
+                        dotColor: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+                      },
+                      {
+                        value: "inactive",
+                        label: "Inactive",
+                        badge: "Draft",
+                        description: "Hidden from students; trainer view only",
+                        dotColor: "bg-slate-400",
+                      },
+                    ]}
+                  />
                 </div>
 
                 <div className="space-y-1.5">
@@ -2976,41 +3265,144 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         document.body
       )}
 
-      {/* ─── DELETE CONFIRMATION MODAL ────────────────────────────────────── */}
-      {mounted && typeof document !== "undefined" && itemToDelete && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="fixed inset-0 cursor-pointer" onClick={() => setItemToDelete(null)} />
-          <div className="relative w-full max-w-md bg-white dark:bg-[#0F172A] border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-5 z-10 animate-in zoom-in-95 duration-200 my-auto">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200/60 dark:border-red-900/40 flex items-center justify-center text-red-600 shrink-0 shadow-xs">
-                <AlertTriangle className="w-5 h-5" />
+      {/* ─── MNC-LEVEL ENTERPRISE DELETE CONFIRMATION MODAL ──────────────── */}
+      {mounted && typeof document !== "undefined" && deleteTarget && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+          <div 
+            className="fixed inset-0 cursor-pointer" 
+            onClick={() => { if (!isDeleting) setDeleteTarget(null); }} 
+          />
+          <div className="relative w-full max-w-lg bg-white dark:bg-[#0F172A] border border-slate-200/90 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200 my-auto">
+            {/* Top Danger Gradient Accent Line */}
+            <div className="h-1.5 w-full bg-gradient-to-r from-red-500 via-rose-500 to-amber-500" />
+
+            <div className="p-6 sm:p-7 space-y-5">
+              {/* Header with Danger Ring & Level Indicator */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/50 border border-red-200/70 dark:border-red-900/40 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0 shadow-xs ring-4 ring-red-500/10">
+                    <AlertTriangle className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-md border ${
+                        deleteTarget.type === "main_module"
+                          ? "bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-300 border-blue-200/60 dark:border-blue-800/60"
+                          : deleteTarget.type === "submodule"
+                          ? "bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 border-purple-200/60 dark:border-purple-800/60"
+                          : deleteTarget.type === "module"
+                          ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/60"
+                          : "bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300 border-amber-200/60 dark:border-amber-800/60"
+                      }`}>
+                        {deleteTarget.type === "main_module" && "Level 1 · Main Module"}
+                        {deleteTarget.type === "submodule" && "Level 2 · Submodule"}
+                        {deleteTarget.type === "module" && "Level 3 · Practice Module"}
+                        {deleteTarget.type === "question" && (deleteTarget.questionType === "coding" ? "Coding Problem" : "MCQ Question")}
+                      </span>
+                      <span className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest bg-red-50 dark:bg-red-950/50 px-2 py-0.5 rounded-md border border-red-200/50 dark:border-red-900/40">
+                        Critical Action
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                      {deleteTarget.type === "main_module" && "Delete Main Module"}
+                      {deleteTarget.type === "submodule" && "Delete Submodule"}
+                      {deleteTarget.type === "module" && "Delete Practice Module"}
+                      {deleteTarget.type === "question" && `Delete ${deleteTarget.questionType === "coding" ? "Coding Problem" : "MCQ Question"}`}
+                    </h3>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setDeleteTarget(null)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40 cursor-pointer"
+                  title="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-red-600">CONFIRM DELETION</span>
-                <h4 className="text-base font-bold text-slate-900 dark:text-white">
-                  Delete {itemToDelete.type === "coding" ? "Coding Problem" : "MCQ Question"}
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
-                  Are you sure you want to delete <strong className="text-slate-800 dark:text-zinc-200">&quot;{itemToDelete.title}&quot;</strong> from this module? This action cannot be undone.
-                </p>
+
+              {/* Selected Target Summary Card */}
+              <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/60 p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                    Target Resource
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
+                    {deleteTarget.type === "main_module" && `${deleteTarget.subCount} Submodule${deleteTarget.subCount === 1 ? "" : "s"}`}
+                    {deleteTarget.type === "submodule" && `${deleteTarget.modCount} Module${deleteTarget.modCount === 1 ? "" : "s"}`}
+                    {deleteTarget.type === "module" && `${deleteTarget.questionCount} Question${deleteTarget.questionCount === 1 ? "" : "s"}`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200/80 dark:border-zinc-700 shadow-2xs text-slate-700 dark:text-zinc-200 shrink-0">
+                    {deleteTarget.type === "main_module" && <FolderPlus className="w-5 h-5 text-[#2563EB]" />}
+                    {deleteTarget.type === "submodule" && <Layers className="w-5 h-5 text-purple-600" />}
+                    {deleteTarget.type === "module" && <BookOpen className="w-5 h-5 text-emerald-600" />}
+                    {deleteTarget.type === "question" && (deleteTarget.questionType === "coding" ? <Code2 className="w-5 h-5 text-indigo-600" /> : <HelpCircle className="w-5 h-5 text-amber-600" />)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-bold text-slate-900 dark:text-white truncate">
+                      {deleteTarget.title}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400">
+                      {deleteTarget.type === "main_module" && "All child submodules, modules, and practice questions will be removed."}
+                      {deleteTarget.type === "submodule" && "All modules and questions grouped in this submodule will be removed."}
+                      {deleteTarget.type === "module" && "All MCQs and coding challenges in this module will be permanently removed."}
+                      {deleteTarget.type === "question" && "This question will be permanently removed from this practice module."}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setItemToDelete(null)}
-                className="h-9 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 cursor-pointer"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleConfirmDelete}
-                className="h-9 px-5 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-sm transition-all"
-              >
-                Delete Question
-              </Button>
+
+              {/* Enterprise Irreversible Warning Alert */}
+              <div className="rounded-2xl border border-red-200/70 dark:border-red-900/40 bg-red-50/60 dark:bg-red-950/30 p-3.5 flex items-start gap-3">
+                <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 text-xs text-red-900 dark:text-red-200">
+                  <p className="font-bold">Irreversible Action Warning</p>
+                  <p className="text-[11px] leading-relaxed text-red-800/80 dark:text-red-300/80">
+                    {deleteTarget.type === "main_module"
+                      ? `Deleting Main Module "${deleteTarget.title}" will permanently cascade and erase all nested submodules, modules, test cases, and student progress records. This action cannot be undone.`
+                      : deleteTarget.type === "submodule"
+                      ? `Deleting Submodule "${deleteTarget.title}" will permanently remove all child modules and associated questions. This action cannot be reversed.`
+                      : deleteTarget.type === "module"
+                      ? `Deleting Module "${deleteTarget.title}" will remove all practice questions. Once deleted, this data cannot be recovered.`
+                      : `Are you sure you want to delete "${deleteTarget.title}"? Once confirmed, this item cannot be recovered.`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isDeleting}
+                  onClick={() => setDeleteTarget(null)}
+                  className="h-10 px-5 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleExecuteDelete}
+                  className="h-10 px-6 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete Permanently</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>,

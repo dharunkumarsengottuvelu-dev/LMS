@@ -97,13 +97,13 @@ function SelectContent({
         align={align}
         alignOffset={alignOffset}
         alignItemWithTrigger={alignItemWithTrigger}
-        className="isolate z-50 w-[var(--anchor-width)] min-w-[12rem]"
+        className="isolate z-[10005] w-[var(--anchor-width)] min-w-[12rem]"
       >
         <SelectPrimitive.Popup
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={cn(
-            "relative isolate z-50 max-h-(--available-height) min-w-[12rem] p-1.5 overflow-x-hidden overflow-y-auto rounded-xl bg-white dark:bg-[#18181B] text-popover-foreground shadow-xl border border-border duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "relative isolate z-[10005] max-h-(--available-height) min-w-[12rem] p-1.5 overflow-x-hidden overflow-y-auto rounded-xl bg-white dark:bg-[#18181B] text-popover-foreground shadow-2xl border border-border duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             className
           )}
           {...props}
