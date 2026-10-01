@@ -13,7 +13,6 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
   if (!user) {
-    console.log("STUDENT LAYOUT: !user, authErr:", authErr);
     redirect("/login?error=session_expired&next=/student/dashboard");
   }
 

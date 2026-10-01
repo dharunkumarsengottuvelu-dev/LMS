@@ -10,14 +10,30 @@ const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "place
 export function createClient() {
   if (client) return client;
 
-  const userStorageAdapter =
-    typeof window !== "undefined" && window.localStorage
-      ? window.localStorage
-      : {
-          getItem: () => null,
-          setItem: () => {},
-          removeItem: () => {},
-        };
+  const userStorageAdapter = {
+    getItem: (key: string): string | null => {
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          return window.localStorage.getItem(key);
+        }
+      } catch {}
+      return null;
+    },
+    setItem: (key: string, value: string): void => {
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem(key, value);
+        }
+      } catch {}
+    },
+    removeItem: (key: string): void => {
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.removeItem(key);
+        }
+      } catch {}
+    },
+  };
 
   client = createBrowserClient<Database>(
     SUPABASE_URL,

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { getSafeUser, getSafeSession, isProxyUser } from "@/lib/auth/safe-auth";
 import type { UserProfile } from "@/types";
 
 interface AuthContextType {
@@ -25,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = createClient();
 
   async function fetchProfile(userId: string, email?: string) {
+    if (!userId) return;
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -37,10 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const userEmail = email?.toLowerCase() || user?.email?.toLowerCase() || "";
-      const [localPart = ""] = userEmail.split("@");
       const defaultRole = "student";
 
-      const currentAuthUser = user || (await supabase.auth.getUser()).data.user;
+      let currentAuthUser = user && !isProxyUser(user) ? user : null;
+      if (!currentAuthUser) {
+        const { user: authUser } = await getSafeUser(supabase);
+        currentAuthUser = authUser;
+      }
+
       const meta = currentAuthUser?.user_metadata || {};
       const fullName = (meta.full_name || meta.name || "").trim();
       const nameParts = fullName.split(" ");
@@ -103,58 +109,129 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function refreshProfile() {
-    if (user) {
-      await fetchProfile(user.id, user.email);
+    let activeUser = user && !isProxyUser(user) ? user : null;
+    if (!activeUser) {
+      const { user: authUser } = await getSafeUser(supabase);
+      activeUser = authUser;
+    }
+    if (activeUser) {
+      await fetchProfile(activeUser.id, activeUser.email);
     }
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn("Sign out notice:", err);
+    } finally {
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+    }
   }
 
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Get initial session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (!isMounted) return;
-      if (error) {
-        console.warn("Session retrieval error:", error.message);
-      }
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
+    // 1. Authoritative initial auth verification using getUser()
+    async function initAuth() {
+      try {
+        const { user: authUser, error: userError } = await getSafeUser(supabase);
+        if (!isMounted) return;
+
+        if (userError) {
+          console.warn("Initial auth notice:", userError.message);
+        }
+
+        if (!authUser) {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        setUser(authUser);
+
+        // Fetch session safely without accessing session.user properties
+        try {
+          const { session: currentSession } = await getSafeSession(supabase);
+          if (isMounted) {
+            setSession(currentSession);
+          }
+        } catch {}
+
         if (typeof window !== "undefined") {
-          const firstLoginKey = `first_login_${session.user.id}`;
+          const firstLoginKey = `first_login_${authUser.id}`;
           if (!localStorage.getItem(firstLoginKey)) {
-            const initialDate = session.user.created_at || new Date().toISOString();
+            const initialDate = authUser.created_at || new Date().toISOString();
             localStorage.setItem(firstLoginKey, initialDate);
           }
         }
-        fetchProfile(session.user.id, session.user.email).finally(() => {
-          if (isMounted) setLoading(false);
-        });
-      } else {
-        setLoading(false);
-      }
-    });
 
-    // 2. Listen for auth changes
+        await fetchProfile(authUser.id, authUser.email);
+      } catch (err) {
+        console.warn("Auth initialization notice:", err);
+        if (isMounted) {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    initAuth();
+
+    // 2. Listen for auth changes safely
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id, session.user.email);
-        if (isMounted) setLoading(false);
-      } else {
+
+      if (event === "SIGNED_OUT" || !newSession) {
+        setUser(null);
+        setSession(null);
         setProfile(null);
-        if (isMounted) setLoading(false);
+        setLoading(false);
+        return;
+      }
+
+      // On auth change (SIGNED_IN, TOKEN_REFRESHED, etc.), use authoritative getUser()
+      try {
+        const { user: authUser } = await getSafeUser(supabase);
+        if (!isMounted) return;
+
+        if (!authUser) {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        setUser(authUser);
+        setSession(newSession);
+
+        if (typeof window !== "undefined") {
+          const firstLoginKey = `first_login_${authUser.id}`;
+          if (!localStorage.getItem(firstLoginKey)) {
+            const initialDate = authUser.created_at || new Date().toISOString();
+            localStorage.setItem(firstLoginKey, initialDate);
+          }
+        }
+
+        await fetchProfile(authUser.id, authUser.email);
+      } catch (err) {
+        console.warn("Auth state change notice:", err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     });
 

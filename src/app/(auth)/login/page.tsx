@@ -83,6 +83,25 @@ export default function LoginPage() {
 
   const remember = watch("remember");
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get("error");
+    if (errorParam === "session_expired") {
+      toast({
+        title: "Session Expired",
+        description: "Your session has expired. Please sign in again to continue.",
+        variant: "destructive",
+      });
+    } else if (errorParam === "suspended") {
+      toast({
+        title: "Account Suspended",
+        description: "Your account has been suspended. Please contact your administrator.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
   async function onSubmit(data: LoginFormData) {
     setIsLoading(true);
     try {
