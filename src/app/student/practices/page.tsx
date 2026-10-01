@@ -142,7 +142,7 @@ export default function StudentPracticesPage() {
                   <CardHeader className="p-4 pb-2 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/40">
-                        LEVEL 1: MAIN MODULE
+                        Practice Track
                       </span>
                       <span className="text-[10px] font-semibold text-slate-400">
                         {track.category || "General"}

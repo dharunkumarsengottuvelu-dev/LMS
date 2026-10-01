@@ -12,9 +12,9 @@ export class CodingProblemsService {
   /**
    * Fetch all coding problems directly from Supabase DB via /api/admin/coding
    */
-  public static async fetchProblems(): Promise<(ExtendedCodingProblem | CodingProblem)[]> {
+  public static async fetchProblems(scope: string = "codelab"): Promise<(ExtendedCodingProblem | CodingProblem)[]> {
     try {
-      const res = await axios.get("/api/admin/coding");
+      const res = await axios.get(`/api/admin/coding?scope=${encodeURIComponent(scope)}`);
       const dbProblems: CodingProblem[] = res.data?.problems || [];
 
       // Ensure chronological ordering: oldest first (1st added is #1)

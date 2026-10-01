@@ -28,7 +28,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let testCases = Array.isArray(test_cases) ? test_cases.filter((tc: any) => !tc.is_hidden) : null;
+    const includeHidden = body.include_hidden === true;
+    let testCases = Array.isArray(test_cases)
+      ? (includeHidden ? test_cases : test_cases)
+      : null;
     let datasetName = body.dataset_name || "university";
     let problem: any = null;
 
@@ -44,8 +47,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Problem not found in database" }, { status: 404 });
       }
       problem = dbProblem;
-      // true = only public testcases for the 'Run' feature
-      testCases = (dbProblem.test_cases as TestCase[]).filter(tc => !tc.is_hidden);
+      const allDbCases = (dbProblem.test_cases as TestCase[]) || [];
+      testCases = includeHidden ? allDbCases : allDbCases.filter(tc => !tc.is_hidden);
+      if (testCases.length === 0 && allDbCases.length > 0) {
+        testCases = allDbCases;
+      }
       datasetName = dbProblem.dataset_name ?? "university";
     }
 
@@ -92,12 +98,16 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        const isHidden = Boolean(tc.is_hidden);
         return {
           test_case_id: tc.id,
           passed,
-          input: tc.input,
-          actual_output: trimmedActual,
-          expected_output: expectedOutput,
+          is_hidden: isHidden,
+          input: isHidden ? undefined : tc.input,
+          actual_output: isHidden
+            ? (passed ? "Match (Passed against hidden test case)" : (resError ? `Error: ${resError}` : "Mismatch (Hidden Test Case)"))
+            : trimmedActual,
+          expected_output: isHidden ? "[Hidden for evaluation]" : expectedOutput,
           error: resError,
           time_seconds: execTime,
           memory_kb: 16000,
@@ -105,7 +115,15 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({ results: testResults }, { status: 200 });
+    const firstCompileError = testResults.find(
+      (r) => r.error && (r.error.toLowerCase().includes("compilation") || r.error.toLowerCase().includes("error:") || r.error.toLowerCase().includes("syntaxerror"))
+    );
+
+    return NextResponse.json({
+      results: testResults,
+      has_error: testResults.some(r => !r.passed),
+      compilation_error: firstCompileError?.error || null,
+    }, { status: 200 });
   } catch (error: unknown) {
     const msg = getErrorMessage(error);
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -251,6 +251,7 @@ export interface CodingProblemCreatorProps {
   initialProvideTables?: any;
   initialSqlQuestionMode?: any;
   initialProblemNumber?: number | string;
+  scope?: "codelab" | "practice" | "assessment";
   onCancel?: () => void;
   onSave?: (problem: any) => void;
   onSaveAndNext?: (problem: any) => void;
@@ -273,6 +274,7 @@ export function CodingProblemCreator({
   initialPublicTestCases,
   initialHiddenTestCases,
   initialProblemNumber,
+  scope = "codelab",
   onCancel,
   onSave,
   onSaveAndNext,
@@ -793,6 +795,7 @@ export function CodingProblemCreator({
       acceptance_rate: isManualAcceptance && manualAcceptanceRate.trim()
         ? `${manualAcceptanceRate.trim().replace("%", "")}%`
         : (existing as any).acceptance_rate || undefined,
+      scope: scope || (existing as any).scope || "codelab",
       created_at: existing.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

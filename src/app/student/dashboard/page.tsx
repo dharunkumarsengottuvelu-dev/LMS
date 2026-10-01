@@ -74,7 +74,7 @@ async function getStudentData() {
     adminClient.from("practice_tracks").select("*").order("created_at", { ascending: false }),
     adminClient.from("assessments").select("*").order("created_at", { ascending: false }),
     adminClient.from("notifications").select("*").order("created_at", { ascending: false }).limit(8),
-    adminClient.from("coding_problems").select("id, title, slug, difficulty, category, topic_tags, points, created_at").order("created_at", { ascending: false }).limit(6),
+    adminClient.from("coding_problems").select("id, title, slug, difficulty, category, topic_tags, points, created_at, starter_code").order("created_at", { ascending: false }),
   ]);
 
   const rawCourses = ((coursesRes.data as any[]) || [])
@@ -138,7 +138,10 @@ async function getStudentData() {
     profile: resolvedProfile as any,
     initialCourses: rawCourses,
     initialTracks: rawTracks,
-    initialCodingProblems: (codingRes?.data as any[]) || [],
+    initialCodingProblems: (((codingRes?.data as any[]) || []).filter((p: any) => {
+      const extra = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
+      return extra.scope !== "practice" && !extra.module_id;
+    })).slice(0, 6),
     enrollments: rawCourses as any,
     assessments: ((testsRes.data as any[]) || []) as any,
     tests: ((testsRes.data as any[]) || []) as any,

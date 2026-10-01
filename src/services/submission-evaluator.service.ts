@@ -91,10 +91,11 @@ export class SubmissionEvaluatorService {
         return {
           test_case_id: tc.id,
           passed,
+          is_hidden: isHidden,
           input: shouldReveal ? tc.input : undefined,
-          actual_output: shouldReveal ? trimmedActual : (passed ? "Match" : "Mismatch (Hidden Test Case)"),
-          expected_output: shouldReveal ? expectedOutput : "Hidden",
-          error: !passed ? (isHidden && !shouldReveal ? "Test case failed" : (resError || "Output mismatch")) : undefined,
+          actual_output: shouldReveal ? trimmedActual : (passed ? "Match (Passed against hidden test case)" : "Mismatch (Hidden Test Case)"),
+          expected_output: shouldReveal ? expectedOutput : "[Hidden for evaluation]",
+          error: !passed ? (resError || (isHidden && !shouldReveal ? "Test case failed against hidden input" : "Output mismatch")) : undefined,
           time_seconds: executionTime,
           memory_kb: 16000,
         };

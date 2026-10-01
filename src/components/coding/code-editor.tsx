@@ -556,14 +556,21 @@ export function CodeEditor({
   }, [submissionResult, scrollToConsole]);
 
   const allowedLanguages = useMemo(() => {
-    if ((problem as any)?.allowed_languages && Array.isArray((problem as any).allowed_languages) && (problem as any).allowed_languages.length > 0) {
-      return (problem as any).allowed_languages as CodingLanguage[];
-    }
-    if ((problem as any)?.allowedLanguages && Array.isArray((problem as any).allowedLanguages) && (problem as any).allowedLanguages.length > 0) {
-      return (problem as any).allowedLanguages as CodingLanguage[];
+    const starter = (problem as any)?.starter_code || {};
+    const raw =
+      (problem as any)?.allowed_languages ||
+      (problem as any)?.allowedLanguages ||
+      starter.allowed_languages ||
+      starter.allowedLanguages;
+
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw as CodingLanguage[];
     }
     if (problem?.templates && Object.keys(problem.templates).length > 0) {
       return Object.keys(problem.templates) as CodingLanguage[];
+    }
+    if (starter?.templates && Object.keys(starter.templates).length > 0) {
+      return Object.keys(starter.templates) as CodingLanguage[];
     }
     return [defaultLanguage] as CodingLanguage[];
   }, [problem, defaultLanguage]);

@@ -20,7 +20,11 @@ import {
   ArrowLeft,
   CheckCircle2,
   XCircle,
-  FileText
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  Lock,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -144,6 +148,12 @@ export default function ProblemSolvingWorkspace() {
   const [consoleLogs, setConsoleLogs] = useState<string>("");
   const [latestSubmission, setLatestSubmission] = useState<CodingSubmission | null>(null);
   const [showVerdictModal, setShowVerdictModal] = useState(false);
+  const [isBottomMinimized, setIsBottomMinimized] = useState<boolean>(false);
+  const [executionError, setExecutionError] = useState<{
+    title: string;
+    message: string;
+    type?: "compilation" | "runtime" | "system";
+  } | null>(null);
 
   // Discussions & Comments
   const [discussions, setDiscussions] = useState<CodingDiscussPost[]>([]);
@@ -153,17 +163,71 @@ export default function ProblemSolvingWorkspace() {
   // Monaco Editor Ref
   const editorRef = useRef<any>(null);
 
+  // ─── LANGUAGE RESTRICTIONS: SINGLE vs MULTI vs ALL ─────────────────────────
+  const allowedLanguages: string[] = useMemo(() => {
+    if (!problem) return [];
+    const starter = (problem as any).starter_code || {};
+    const raw =
+      (problem as any).allowed_languages ||
+      (problem as any).allowedLanguages ||
+      starter.allowed_languages ||
+      starter.allowedLanguages ||
+      (problem.templates ? Object.keys(problem.templates) : null) ||
+      (starter.templates ? Object.keys(starter.templates) : null);
+
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((l: string) => String(l).toLowerCase().trim());
+    }
+
+    const defLang =
+      (problem as any).default_language ||
+      (problem as any).defaultLanguage ||
+      starter.default_language ||
+      starter.defaultLanguage;
+
+    if (defLang && ((problem as any).language_mode === "single" || starter.language_mode === "single")) {
+      return [String(defLang).toLowerCase().trim()];
+    }
+
+    return [];
+  }, [problem]);
+
+  const availableLanguages = useMemo(() => {
+    if (allowedLanguages.length > 0) {
+      const filtered = SUPPORTED_LANGUAGES.filter((l) => allowedLanguages.includes(l.id.toLowerCase()));
+      if (filtered.length > 0) return filtered;
+    }
+    return SUPPORTED_LANGUAGES;
+  }, [allowedLanguages]);
+
   // Load problem-specific state whenever active problem changes
   useEffect(() => {
     if (!problem) return;
 
+    const starter = (problem as any).starter_code || {};
+    const configuredDefault =
+      (problem as any).default_language ||
+      (problem as any).defaultLanguage ||
+      starter.default_language ||
+      starter.defaultLanguage;
+
     const saved = CodingProgressService.getProblemState(problem.id);
-    const lang = (saved?.language || "java") as CodingLanguage;
+    const targetSavedLang = saved?.language;
+
+    const lang: CodingLanguage = (
+      targetSavedLang && availableLanguages.some((l) => l.id === targetSavedLang)
+        ? targetSavedLang
+        : (configuredDefault && availableLanguages.some((l) => l.id === configuredDefault))
+        ? configuredDefault
+        : availableLanguages[0]?.id || "java"
+    ) as CodingLanguage;
+
     setSelectedLanguage(lang);
 
     const initialCode =
       saved?.code ||
       problem.templates?.[lang] ||
+      starter.templates?.[lang] ||
       problem.templates?.["java"] ||
       problem.templates?.["python"] ||
       "";
@@ -182,7 +246,7 @@ export default function ProblemSolvingWorkspace() {
     } else {
       setLatestSubmission(saved?.lastSubmission || null);
     }
-  }, [problem?.id]);
+  }, [problem?.id, availableLanguages]);
 
   // Handle Language Change
   const handleLanguageChange = (newLang: CodingLanguage) => {
@@ -196,7 +260,7 @@ export default function ProblemSolvingWorkspace() {
     if (savedForLang) {
       setCode(savedForLang);
     } else {
-      const template = problem.templates?.[newLang] || "";
+      const template = problem.templates?.[newLang] || (problem as any).starter_code?.templates?.[newLang] || "";
       setCode(template);
     }
 
@@ -271,20 +335,37 @@ export default function ProblemSolvingWorkspace() {
     ];
   }, [problem]);
 
-  // RUN CODE against system test cases
+  // Hidden Test Cases (Evaluated on Run & Submit)
+  const hiddenTestCases = useMemo(() => {
+    if (!problem) return [];
+    return (problem.test_cases || []).filter((tc) => tc.is_hidden);
+  }, [problem]);
+
+  // RUN CODE against system sample and hidden test cases
   const handleRunCode = async () => {
     if (!problem) return;
     setIsRunning(true);
+    setExecutionError(null);
+    setIsBottomMinimized(false);
     setBottomTab("testresult");
     setConsoleLogs(`[RUN] Executing ${selectedLanguage.toUpperCase()} code against test cases...\n`);
 
     try {
-      const casesToRun = systemTestCases.map((tc) => ({
+      const sampleCases = systemTestCases.map((tc) => ({
         id: tc.id,
         input: tc.input === "(No input)" ? "" : tc.input,
         expected_output: tc.expected_output || "",
         is_hidden: false,
       }));
+
+      const hiddenCases = hiddenTestCases.map((tc) => ({
+        id: tc.id,
+        input: tc.input || "",
+        expected_output: tc.expected_output || "",
+        is_hidden: true,
+      }));
+
+      const casesToRun = [...sampleCases, ...hiddenCases];
 
       const res = await fetch("/api/code/run-testcases", {
         method: "POST",
@@ -294,22 +375,53 @@ export default function ProblemSolvingWorkspace() {
           language: selectedLanguage,
           code,
           test_cases: casesToRun,
+          include_hidden: true,
         }),
       });
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || "Failed to execute code");
+        const errMsg = errJson.error || "Failed to execute code";
+        const isComp = errMsg.toLowerCase().includes("compil") || errMsg.toLowerCase().includes("syntax") || errMsg.toLowerCase().includes("error:");
+        setExecutionError({
+          title: isComp ? "Compilation Error" : "Execution Error",
+          message: errMsg,
+          type: isComp ? "compilation" : "system",
+        });
+        throw new Error(errMsg);
       }
 
       const data = await res.json();
+      if (data.compilation_error) {
+        setExecutionError({
+          title: "Compilation Error",
+          message: data.compilation_error,
+          type: "compilation",
+        });
+      }
+
       const results: TestCaseResult[] = data.results || [];
       setRunResults(results);
+
+      // Check if any failed case has compilation or runtime diagnostic
+      const firstFailedWithError = results.find((r) => !r.passed && r.error);
+      if (firstFailedWithError && !data.compilation_error) {
+        const errText = firstFailedWithError.error || "";
+        const isComp = errText.toLowerCase().includes("compil") || errText.toLowerCase().includes("syntax");
+        const isRun = errText.toLowerCase().includes("traceback") || errText.toLowerCase().includes("exception") || errText.toLowerCase().includes("runtime");
+        if (isComp || isRun) {
+          setExecutionError({
+            title: isComp ? "Compilation Error" : "Runtime Error",
+            message: errText,
+            type: isComp ? "compilation" : "runtime",
+          });
+        }
+      }
 
       let logStr = `\n===== TEST EXECUTION SUMMARY =====\n`;
       let passedCount = 0;
       results.forEach((r, idx) => {
-        logStr += `Test Case ${idx + 1}: ${r.passed ? "PASSED (✓)" : "FAILED (✗)"} [Time: ${Math.round((r.time_seconds || 0.02) * 1000)}ms]\n`;
+        logStr += `Test Case ${idx + 1}${r.is_hidden ? " [Hidden]" : ""}: ${r.passed ? "PASSED (✓)" : "FAILED (✗)"} [Time: ${Math.round((r.time_seconds || 0.02) * 1000)}ms]\n`;
         if (r.passed) passedCount++;
         if (r.error) logStr += `Error: ${r.error}\n`;
       });
@@ -328,6 +440,13 @@ export default function ProblemSolvingWorkspace() {
       }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Execution error";
+      if (!executionError) {
+        setExecutionError({
+          title: "Execution Error",
+          message: errMsg,
+          type: "system",
+        });
+      }
       toast.error(errMsg);
       setConsoleLogs((prev) => prev + `\n[ERROR] ${errMsg}\n`);
     } finally {
@@ -339,6 +458,7 @@ export default function ProblemSolvingWorkspace() {
   const handleRunCustomInput = async () => {
     if (!problem) return;
     setIsRunningCustomInput(true);
+    setIsBottomMinimized(false);
     setBottomTab("testresult");
     setConsoleLogs(`[CUSTOM INPUT] Running code with custom stdin...\n`);
 
@@ -394,6 +514,9 @@ export default function ProblemSolvingWorkspace() {
   const handleSubmitCode = async () => {
     if (!problem) return;
     setIsSubmitting(true);
+    setExecutionError(null);
+    setIsBottomMinimized(false);
+    setBottomTab("testresult");
     setConsoleLogs(`[SUBMIT] Submitting solution for official evaluation...\n`);
 
     const wasAlreadySolved =
@@ -414,12 +537,27 @@ export default function ProblemSolvingWorkspace() {
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || "Submission evaluation failed");
+        const errMsg = errJson.error || "Submission evaluation failed";
+        setExecutionError({
+          title: "Submission Error",
+          message: errMsg,
+          type: "system",
+        });
+        throw new Error(errMsg);
       }
 
       const submission: CodingSubmission = await res.json();
       setLatestSubmission(submission);
+      setRunResults(submission.results || []);
       setShowVerdictModal(true);
+
+      if (submission.status === "compilation_error" || submission.status === "runtime_error" || (submission as any).error_message) {
+        setExecutionError({
+          title: submission.status === "compilation_error" ? "Compilation Error" : "Runtime Error",
+          message: (submission as any).error_message || (submission.results || []).find((r: any) => r.error)?.error || "An error occurred during evaluation.",
+          type: submission.status === "compilation_error" ? "compilation" : "runtime",
+        });
+      }
 
       CodingProgressService.markAttempted(
         problem.id,
@@ -448,6 +586,13 @@ export default function ProblemSolvingWorkspace() {
       }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Submission error";
+      if (!executionError) {
+        setExecutionError({
+          title: "Submission Error",
+          message: errMsg,
+          type: "system",
+        });
+      }
       toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
@@ -499,11 +644,30 @@ export default function ProblemSolvingWorkspace() {
     return remaining >= 0 ? remaining : 0;
   }, [allProblems.length, solvedCount, inProgressCount]);
 
-  if (isLoading || !problem) {
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-white text-slate-500 font-sans">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600 mr-2" />
-        <span className="text-sm font-semibold">Loading practice problem...</span>
+        <span className="text-sm font-semibold">Loading Code Lab problem...</span>
+      </div>
+    );
+  }
+
+  if (!problem) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-slate-50 text-slate-800 font-sans p-6 text-center">
+        <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-2">Problem Not Available in Code Lab</h2>
+        <p className="text-xs text-slate-600 max-w-md mb-6 leading-relaxed">
+          This problem belongs to a Practice Module or is not published in Code Lab. Practice and Code Lab problems are isolated.
+        </p>
+        <div className="flex items-center gap-3">
+          <Button onClick={() => router.push("/coding")} variant="outline" className="rounded-xl text-xs">
+            Back to Code Lab
+          </Button>
+          <Button onClick={() => router.push("/student/practices")} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs">
+            Go to Practice
+          </Button>
+        </div>
       </div>
     );
   }
@@ -553,22 +717,29 @@ export default function ProblemSolvingWorkspace() {
 
         {/* Right Action Bar: [Language ▼] [Reset Code] [Run] [Submit] */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          {/* Language Selector */}
-          <Select
-            value={selectedLanguage}
-            onValueChange={(val) => handleLanguageChange(val as CodingLanguage)}
-          >
-            <SelectTrigger className="h-8.5 text-xs font-semibold bg-white border-slate-200 w-28 sm:w-32 rounded-lg text-slate-800 shadow-2xs cursor-pointer">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-white border border-slate-200 shadow-md z-50">
-              {SUPPORTED_LANGUAGES.map((l) => (
-                <SelectItem key={l.id} value={l.id} className="text-xs font-medium cursor-pointer">
-                  {l.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Language selector: Single Language (fixed/locked) vs Multi Language (filtered dropdown) */}
+          {availableLanguages.length === 1 ? (
+            <div className="h-8.5 px-3 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-800 flex items-center gap-1.5 shadow-2xs select-none">
+              <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" />
+              <span className="font-bold">{availableLanguages[0]?.label || availableLanguages[0]?.name || "Language"}</span>
+            </div>
+          ) : (
+            <Select
+              value={selectedLanguage}
+              onValueChange={(val) => handleLanguageChange(val as CodingLanguage)}
+            >
+              <SelectTrigger className="h-8.5 text-xs font-semibold bg-white border-slate-200 w-28 sm:w-32 rounded-lg text-slate-800 shadow-2xs cursor-pointer">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white border border-slate-200 shadow-md z-50">
+                {availableLanguages.map((l) => (
+                  <SelectItem key={l.id} value={l.id} className="text-xs font-medium cursor-pointer">
+                    {l.label || l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           {/* Reset Code */}
           <Button
@@ -1000,49 +1171,86 @@ export default function ProblemSolvingWorkspace() {
             </div>
 
             {/* Lower: Testcase / Test Result / Console Panel */}
-            <div className="h-60 sm:h-64 rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden shrink-0">
-              {/* Bottom Panel Tabs: Testcase | Test Result | Console */}
-              <div className="h-9.5 border-b border-slate-200 px-4 flex items-center gap-5 shrink-0 bg-white">
+            <div
+              className={cn(
+                "rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden shrink-0 transition-all duration-200",
+                isBottomMinimized ? "h-9.5" : "h-60 sm:h-64"
+              )}
+            >
+              {/* Bottom Panel Tabs: Testcase | Test Result | Console + Minimize/Expand Button */}
+              <div className="h-9.5 border-b border-slate-200 px-4 flex items-center justify-between shrink-0 bg-white select-none">
+                <div className="flex items-center gap-5 h-full">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBottomTab("testcase");
+                      if (isBottomMinimized) setIsBottomMinimized(false);
+                    }}
+                    className={cn(
+                      "h-full text-xs font-bold transition-all relative cursor-pointer",
+                      bottomTab === "testcase"
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+                    )}
+                  >
+                    Testcase
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBottomTab("testresult");
+                      if (isBottomMinimized) setIsBottomMinimized(false);
+                    }}
+                    className={cn(
+                      "h-full text-xs font-bold transition-all relative cursor-pointer",
+                      bottomTab === "testresult"
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+                    )}
+                  >
+                    Test Result
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBottomTab("console");
+                      if (isBottomMinimized) setIsBottomMinimized(false);
+                    }}
+                    className={cn(
+                      "h-full text-xs font-bold transition-all relative cursor-pointer",
+                      bottomTab === "console"
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+                    )}
+                  >
+                    Console
+                  </button>
+                </div>
+
+                {/* Minimize / Expand Toggle Button */}
                 <button
                   type="button"
-                  onClick={() => setBottomTab("testcase")}
-                  className={cn(
-                    "h-full text-xs font-bold transition-all relative cursor-pointer",
-                    bottomTab === "testcase"
-                      ? "text-blue-600 border-b-2 border-blue-600"
-                      : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
-                  )}
+                  onClick={() => setIsBottomMinimized((prev) => !prev)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 py-1 px-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                  title={isBottomMinimized ? "Expand testcase panel" : "Minimize testcase panel"}
                 >
-                  Testcase
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBottomTab("testresult")}
-                  className={cn(
-                    "h-full text-xs font-bold transition-all relative cursor-pointer",
-                    bottomTab === "testresult"
-                      ? "text-blue-600 border-b-2 border-blue-600"
-                      : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+                  {isBottomMinimized ? (
+                    <>
+                      <ChevronUp className="w-3.5 h-3.5 text-blue-600" />
+                      <span className="text-blue-600 font-semibold text-[11px]">Expand</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                      <span className="text-slate-600 text-[11px]">Minimize</span>
+                    </>
                   )}
-                >
-                  Test Result
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBottomTab("console")}
-                  className={cn(
-                    "h-full text-xs font-bold transition-all relative cursor-pointer",
-                    bottomTab === "console"
-                      ? "text-blue-600 border-b-2 border-blue-600"
-                      : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
-                  )}
-                >
-                  Console
                 </button>
               </div>
 
               {/* Bottom Tab Content */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs select-text">
+              {!isBottomMinimized && (
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs select-text">
                 {/* ─── TAB 1: TESTCASE (CUSTOM INPUT + SYSTEM TEST CASES) ─── */}
                 {bottomTab === "testcase" && (
                   <div className="space-y-4">
@@ -1084,10 +1292,19 @@ export default function ProblemSolvingWorkspace() {
 
                     {/* System Test Cases (Strictly Read-Only, No Add/Delete Case) */}
                     <div className="space-y-3 pt-3 border-t border-slate-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800">
+                          Sample Test Cases ({systemTestCases.length})
+                        </span>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
+                          Public
+                        </span>
+                      </div>
+
                       {systemTestCases.map((tc, idx) => (
                         <div key={tc.id || idx} className="space-y-2">
-                          <span className="font-bold text-slate-800 text-xs block">
-                            Sample Test Case {idx + 1}:
+                          <span className="font-semibold text-slate-700 text-xs block">
+                            Sample Case {idx + 1}:
                           </span>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1107,6 +1324,32 @@ export default function ProblemSolvingWorkspace() {
                           </div>
                         </div>
                       ))}
+
+                      {/* Hidden Test Cases Section */}
+                      {hiddenTestCases.length > 0 && (
+                        <div className="pt-3 border-t border-slate-100 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                              <Lock className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Hidden Test Cases ({hiddenTestCases.length})</span>
+                            </div>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-md">
+                              Evaluated on Run & Submit
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {hiddenTestCases.map((tc: any, hIdx: number) => (
+                              <div
+                                key={tc.id || hIdx}
+                                className="p-2.5 bg-slate-50/70 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs"
+                              >
+                                <span className="font-medium text-slate-700">Hidden Test Case {hIdx + 1}</span>
+                                <span className="text-[11px] text-slate-400 font-mono">🔒 [Hidden]</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1114,6 +1357,25 @@ export default function ProblemSolvingWorkspace() {
                 {/* ─── TAB 2: TEST RESULT ─── */}
                 {bottomTab === "testresult" && (
                   <div className="space-y-3">
+                    {/* Compilation / Runtime Error Banner */}
+                    {executionError && (
+                      <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50/70 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                            <span className="font-bold text-xs text-rose-900">{executionError.title}</span>
+                          </div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 px-2 py-0.5 bg-white border border-rose-200 rounded">
+                            {executionError.type || "Error"}
+                          </span>
+                        </div>
+                        <pre className="p-2.5 bg-white border border-rose-200 text-rose-800 rounded-lg font-mono text-xs whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed shadow-2xs">
+                          {executionError.message}
+                        </pre>
+                      </div>
+                    )}
+
+                    {/* Custom Input Result */}
                     {customRunResult && (
                       <div className="p-3 rounded-xl border border-blue-200 bg-blue-50/40 space-y-2">
                         <div className="flex items-center justify-between text-xs font-bold text-blue-900">
@@ -1136,17 +1398,18 @@ export default function ProblemSolvingWorkspace() {
                       </div>
                     )}
 
+                    {/* Standard & Hidden Test Run Results */}
                     {runResults && runResults.length > 0 ? (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-                          <span className="font-bold text-slate-800">
+                          <span className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
                             Verdict: {runResults.every((r) => r.passed) ? (
-                              <span className="text-emerald-600">All Passed (✓)</span>
+                              <span className="text-emerald-600 font-bold">All Passed (✓)</span>
                             ) : (
-                              <span className="text-rose-600">Some Failed (✗)</span>
+                              <span className="text-rose-600 font-bold">Some Failed (✗)</span>
                             )}
                           </span>
-                          <span className="text-slate-500 font-medium">
+                          <span className="text-slate-500 font-medium text-xs">
                             {runResults.filter((r) => r.passed).length}/{runResults.length} Test Cases Passed
                           </span>
                         </div>
@@ -1155,42 +1418,71 @@ export default function ProblemSolvingWorkspace() {
                           <div
                             key={rIdx}
                             className={cn(
-                              "p-3 rounded-xl border space-y-2",
+                              "p-3 rounded-xl border space-y-2 transition-colors",
                               r.passed ? "bg-emerald-50/40 border-emerald-200/80" : "bg-rose-50/40 border-rose-200/80"
                             )}
                           >
                             <div className="flex items-center justify-between font-bold text-xs">
-                              <span className={r.passed ? "text-emerald-700" : "text-rose-700"}>
-                                Case {rIdx + 1}: {r.passed ? "Passed" : "Failed"}
-                              </span>
-                              <span className="text-slate-500 text-[11px] font-normal">
-                                {Math.round((r.time_seconds || 0.02) * 1000)}ms
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className={cn("flex items-center gap-1.5", r.passed ? "text-emerald-700" : "text-rose-700")}>
+                                  {r.passed ? (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  ) : (
+                                    <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                                  )}
+                                  Case {rIdx + 1}
+                                </span>
+                                {r.is_hidden ? (
+                                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                    <Lock className="w-2.5 h-2.5" />
+                                    Hidden
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-600 border border-blue-200">
+                                    Sample
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={cn("text-[11px] font-bold", r.passed ? "text-emerald-600" : "text-rose-600")}>
+                                  {r.passed ? "PASSED" : "FAILED"}
+                                </span>
+                                <span className="text-slate-500 text-[11px] font-normal">
+                                  {Math.round((r.time_seconds || 0.02) * 1000)}ms
+                                </span>
+                              </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
                               <div>
-                                <span className="text-[11px] font-semibold text-slate-600 block">Actual Output:</span>
-                                <pre className="p-2 bg-white rounded border border-slate-200 font-mono text-xs whitespace-pre-wrap">
-                                  {r.actual_output || "(No output)"}
+                                <span className="text-[10px] font-semibold text-slate-600 block uppercase font-sans">Expected Output:</span>
+                                <pre className="p-2 bg-white rounded border border-slate-200 font-mono text-xs whitespace-pre-wrap min-h-[34px]">
+                                  {r.is_hidden ? "[Hidden for evaluation]" : (r.expected_output || "(No output)")}
                                 </pre>
                               </div>
                               <div>
-                                <span className="text-[11px] font-semibold text-slate-600 block">Expected Output:</span>
-                                <pre className="p-2 bg-white rounded border border-slate-200 font-mono text-xs whitespace-pre-wrap">
-                                  {r.expected_output || "(No output)"}
+                                <span className="text-[10px] font-semibold text-slate-600 block uppercase font-sans">Actual Output:</span>
+                                <pre className="p-2 bg-white rounded border border-slate-200 font-mono text-xs whitespace-pre-wrap min-h-[34px]">
+                                  {r.actual_output || (r.passed ? "Match" : "(No output produced)")}
                                 </pre>
                               </div>
                             </div>
+
+                            {/* Error Details Box */}
                             {r.error && (
-                              <div className="p-2 bg-rose-100 text-rose-800 rounded font-mono text-xs">
-                                {r.error}
+                              <div className="p-2.5 bg-rose-50/90 border border-rose-200 rounded-lg space-y-1">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block font-sans">
+                                  Error / Diagnostic:
+                                </span>
+                                <pre className="text-xs text-rose-800 font-mono whitespace-pre-wrap">
+                                  {r.error}
+                                </pre>
                               </div>
                             )}
                           </div>
                         ))}
                       </div>
-                    ) : !customRunResult ? (
+                    ) : !customRunResult && !executionError ? (
                       <div className="py-8 text-center text-slate-400">
                         Click <strong className="text-slate-600">Run</strong> or <strong className="text-slate-600">Run Custom Input</strong> to evaluate your code.
                       </div>
@@ -1207,6 +1499,7 @@ export default function ProblemSolvingWorkspace() {
                   </div>
                 )}
               </div>
+              )}
             </div>
           </div>
 

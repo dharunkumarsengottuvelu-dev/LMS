@@ -1039,6 +1039,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           sample_test_cases: sampleCases,
           hidden_test_cases: hiddenCases,
           status: "published",
+          scope: "practice",
           assessment_id: currentModule?.id,
           module_id: currentModule?.id,
         };
@@ -2194,6 +2195,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   <CodingProblemCreator
                     initialProblem={editingCodingIndex !== null ? codingList[editingCodingIndex] : undefined}
                     initialProblemNumber={editingCodingIndex !== null ? (codingList[editingCodingIndex]?.problem_number || editingCodingIndex + 1) : codingList.length + 1}
+                    scope="practice"
                     onCancel={() => {
                       setShowCodingCreator(false);
                       setEditingCodingIndex(null);
@@ -2209,6 +2211,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       const problemToSave = {
                         ...newProb,
                         problem_number: assignedProblemNum,
+                        scope: "practice",
                         assessment_id: modId,
                         module_id: modId,
                       };

@@ -2,13 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CodingProblem, TestCase } from "@/types/coding";
 
-// GET /api/admin/coding - Fetch all coding problems from Supabase DB
-export async function GET() {
+// GET /api/admin/coding - Fetch coding problems from Supabase DB scoped to Code Lab or Practice
+export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminClient();
+    const { searchParams } = new URL(request.url);
+    const scopeParam = searchParams.get("scope") || searchParams.get("context") || "codelab";
 
-    // 1. Fetch problems from coding_problems table in chronological order (1st added is #1, followed by #2, #3, ...)
-    const { data: dbProblems, error: pError } = await supabase
+    // 1. Fetch practice tracks to isolate practice problems from Code Lab
+    const { data: dbTracks } = await supabase.from("practice_tracks").select("sub_modules, tags");
+    const practiceProblemIds = new Set<string>();
+    (dbTracks || []).forEach((t: any) => {
+      let subModules = t.sub_modules || [];
+      if (!Array.isArray(subModules) && t.tags && t.tags[0]) {
+        try { subModules = JSON.parse(t.tags[0]).subModules || []; } catch {}
+      }
+      (subModules || []).forEach((sm: any) => {
+        (sm.codingQuestions || []).forEach((cq: any) => {
+          if (cq.id) practiceProblemIds.add(cq.id);
+        });
+        (sm.modules || []).forEach((m: any) => {
+          (m.codingQuestions || []).forEach((cq: any) => {
+            if (cq.id) practiceProblemIds.add(cq.id);
+          });
+        });
+      });
+    });
+
+    // 2. Fetch problems from coding_problems table in chronological order (1st added is #1, followed by #2, #3, ...)
+    const { data: rawProblems, error: pError } = await supabase
       .from("coding_problems")
       .select("*")
       .order("created_at", { ascending: true });
@@ -17,6 +39,18 @@ export async function GET() {
       console.error("Error fetching coding_problems from Supabase:", pError);
       return NextResponse.json({ error: pError.message }, { status: 500 });
     }
+
+    // 3. Filter by scope at API/Query level: Code Lab never receives Practice problems
+    const dbProblems = (rawProblems || []).filter((p: any) => {
+      const extra = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
+      const isPractice = extra.scope === "practice" || !!extra.module_id || practiceProblemIds.has(p.id);
+
+      if (scopeParam === "practice") {
+        return isPractice;
+      }
+      // "codelab": strictly exclude practice problems
+      return !isPractice;
+    });
 
     if (!dbProblems || dbProblems.length === 0) {
       return NextResponse.json({ problems: [] });
@@ -130,7 +164,11 @@ export async function POST(request: NextRequest) {
       const baseSlug = problem.slug || problem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       const slug = problemId ? baseSlug : `${baseSlug}-${Date.now().toString(36)}`;
 
+      const problemScope = (problem as any).scope || ((problem as any).module_id || (problem as any).assessment_id ? "practice" : "codelab");
       const starterCodePayload = {
+        scope: problemScope,
+        module_id: (problem as any).module_id || (problem as any).moduleId || undefined,
+        assessment_id: (problem as any).assessment_id || undefined,
         templates: problem.templates || {},
         allowed_languages: problem.allowed_languages || (problem as any).allowedLanguages || undefined,
         allowedLanguages: problem.allowed_languages || (problem as any).allowedLanguages || undefined,

@@ -152,6 +152,7 @@ export interface TestCase {
 export interface TestCaseResult {
   test_case_id: string;
   passed: boolean;
+  is_hidden?: boolean;
   input?: string;
   actual_output?: string;
   expected_output?: string;
@@ -209,6 +210,7 @@ export interface CodingProblem {
   allow_run?: boolean;
   allow_submit?: boolean;
   is_mandatory?: boolean;
+  scope?: "codelab" | "practice" | "assessment";
   created_at: string;
   updated_at: string;
 }
