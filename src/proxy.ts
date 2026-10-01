@@ -358,32 +358,92 @@ export async function proxy(request: NextRequest) {
     // 3. Update Supabase Session (single call — also runs cookie sanitization)
     const { supabase: _supabase, supabaseResponse, user } = await updateSession(request);
 
+    // ─── REDIRECT LOOP GUARD ────────────────────────────────────────────────
+    // If the browser has been redirected 3+ times in rapid succession
+    // (detected via a short-lived cookie), stop redirecting and let the page
+    // render so the client can recover the session gracefully.
+    const redirectCount = parseInt(
+      request.cookies.get("_redir_guard")?.value || "0",
+      10
+    );
+    const isLooping = redirectCount >= 3;
+
     // 4. Redirect authenticated users away from auth pages
     //    Role is resolved purely from JWT metadata — NO extra DB query
-    if (user && (pathname.startsWith("/auth/") || pathname === "/login" || pathname === "/register")) {
+    if (
+      !isLooping &&
+      user &&
+      (pathname.startsWith("/auth/") ||
+        pathname === "/login" ||
+        pathname === "/register")
+    ) {
       const role = resolveRoleFromUser(user);
       const nextParam = request.nextUrl.searchParams.get("next");
       const destination = getValidDestinationForRole(role, nextParam);
-      return createRedirectWithCookies(new URL(destination, request.url), request, supabaseResponse);
+
+      // Safety: never redirect to login/register (would create a loop)
+      if (
+        destination &&
+        !destination.startsWith("/login") &&
+        !destination.startsWith("/register")
+      ) {
+        const response = createRedirectWithCookies(
+          new URL(destination, request.url),
+          request,
+          supabaseResponse
+        );
+        // Clear guard cookie on successful auth redirect
+        response.cookies.set("_redir_guard", "0", {
+          maxAge: 0,
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: process.env.NODE_ENV === "production",
+        });
+        return response;
+      }
     }
 
     // 5. Protect private routes — unauthenticated access
     const requiredRoles = getRequiredRoles(pathname);
-    if (requiredRoles && !user) {
+    if (!isLooping && requiredRoles && !user) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
           { error: "Unauthorized: Active authentication session required" },
           { status: 401 }
         );
       }
+
       const loginUrl = new URL("/login", request.url);
+      // Only set ?next if it won't create a loop (i.e. not already pointing at login)
       const fullOriginalPath = `${pathname}${search}`;
-      loginUrl.searchParams.set("next", fullOriginalPath);
-      return createRedirectWithCookies(loginUrl, request, supabaseResponse);
+      if (!fullOriginalPath.startsWith("/login") && !fullOriginalPath.startsWith("/register")) {
+        loginUrl.searchParams.set("next", fullOriginalPath);
+      }
+
+      const response = createRedirectWithCookies(loginUrl, request, supabaseResponse);
+      // Increment the guard counter so we can detect rapid redirect loops
+      response.cookies.set("_redir_guard", String(redirectCount + 1), {
+        maxAge: 10, // expires after 10 seconds
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      });
+      return response;
     }
 
     // 6. Cross-role boundary enforcement — JWT metadata only (no DB call)
-    if (user && (pathname.startsWith("/admin") || pathname.startsWith("/student") || pathname.startsWith("/trainer") || pathname.startsWith("/institution"))) {
+    if (
+      !isLooping &&
+      user &&
+      (
+        pathname.startsWith("/admin") ||
+        pathname.startsWith("/student") ||
+        pathname.startsWith("/trainer") ||
+        pathname.startsWith("/institution")
+      )
+    ) {
       const role = resolveRoleFromUser(user);
 
       // Role-based boundary check for API routes
@@ -396,18 +456,67 @@ export async function proxy(request: NextRequest) {
         }
       }
 
-      // Portal boundary redirects
-      if (role === "admin" && (pathname.startsWith("/student") || pathname.startsWith("/trainer") || pathname.startsWith("/institution"))) {
-        return createRedirectWithCookies(new URL("/admin/dashboard", request.url), request, supabaseResponse);
+      // Portal boundary redirects — only redirect if the user is in the WRONG portal
+      const defaultPath = getRoleDefaultPath(role);
+
+      if (
+        role === "admin" &&
+        (pathname.startsWith("/student") ||
+          pathname.startsWith("/trainer") ||
+          pathname.startsWith("/institution"))
+      ) {
+        return createRedirectWithCookies(
+          new URL("/admin/dashboard", request.url),
+          request,
+          supabaseResponse
+        );
       }
-      if (role === "institution" && (pathname.startsWith("/admin") || pathname.startsWith("/student") || pathname.startsWith("/trainer"))) {
-        return createRedirectWithCookies(new URL("/institution/overview", request.url), request, supabaseResponse);
+      if (
+        role === "institution" &&
+        (pathname.startsWith("/admin") ||
+          pathname.startsWith("/student") ||
+          pathname.startsWith("/trainer"))
+      ) {
+        return createRedirectWithCookies(
+          new URL("/institution/overview", request.url),
+          request,
+          supabaseResponse
+        );
       }
-      if (role === "student" && (pathname.startsWith("/admin") || pathname.startsWith("/trainer") || pathname.startsWith("/institution"))) {
-        return createRedirectWithCookies(new URL("/student/dashboard", request.url), request, supabaseResponse);
+      if (
+        role === "student" &&
+        (pathname.startsWith("/admin") ||
+          pathname.startsWith("/trainer") ||
+          pathname.startsWith("/institution"))
+      ) {
+        return createRedirectWithCookies(
+          new URL("/student/dashboard", request.url),
+          request,
+          supabaseResponse
+        );
       }
-      if (role === "trainer" && (pathname.startsWith("/admin") || pathname.startsWith("/student") || pathname.startsWith("/institution"))) {
-        return createRedirectWithCookies(new URL("/trainer/dashboard", request.url), request, supabaseResponse);
+      if (
+        role === "trainer" &&
+        (pathname.startsWith("/admin") ||
+          pathname.startsWith("/student") ||
+          pathname.startsWith("/institution"))
+      ) {
+        return createRedirectWithCookies(
+          new URL("/trainer/dashboard", request.url),
+          request,
+          supabaseResponse
+        );
+      }
+
+      // If role is correct for this portal, clear any stale redirect guard
+      if (defaultPath && pathname.startsWith("/" + role.replace("_", "-").replace("super-admin", "admin"))) {
+        supabaseResponse.cookies.set("_redir_guard", "0", {
+          maxAge: 0,
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure: process.env.NODE_ENV === "production",
+        });
       }
     }
 
@@ -418,7 +527,7 @@ export async function proxy(request: NextRequest) {
   }
 }
 
-export const middleware = proxy;
+// Next.js 16: export the function as "proxy" (default) + config
 export default proxy;
 
 export const config = {
