@@ -49,6 +49,7 @@ export interface MCQQuestion {
   marks?: number;
   options: MCQOption[];
   explanation?: string;
+  allowMultiple?: boolean;
 }
 
 export interface PracticeModule {
@@ -109,8 +110,6 @@ type NavigationLevel = "main_modules" | "submodules" | "modules" | "module_edito
 interface MncSelectOption {
   value: string;
   label: string;
-  description?: string;
-  badge?: string;
   icon?: React.ReactNode;
   dotColor?: string;
 }
@@ -128,7 +127,7 @@ function MncSelect({
   value,
   onChange,
   options,
-  placeholder = "Select an option...",
+  placeholder = "Select...",
   className = "",
   variant = "purple",
 }: MncSelectProps) {
@@ -175,12 +174,12 @@ function MncSelect({
         }}
         className={cn(
           "w-full h-9.5 px-3 flex items-center justify-between gap-2 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none",
-          "bg-slate-50/70 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 shadow-2xs",
-          "hover:border-purple-400 dark:hover:border-purple-500 hover:bg-white dark:hover:bg-zinc-800/90",
+          "bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 shadow-2xs",
+          "hover:border-purple-400 dark:hover:border-purple-500 hover:bg-slate-50 dark:hover:bg-zinc-800/90",
           isOpen ? activeRing : ""
         )}
       >
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           {selectedOption?.icon && (
             <div className="shrink-0 text-slate-500 dark:text-zinc-400">
               {selectedOption.icon}
@@ -194,25 +193,18 @@ function MncSelect({
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          {selectedOption?.badge && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200/60 dark:border-zinc-700">
-              {selectedOption.badge}
-            </span>
+        <ChevronDown
+          className={cn(
+            "w-4 h-4 text-slate-400 dark:text-zinc-500 shrink-0 transition-transform duration-200",
+            isOpen ? "rotate-180 text-purple-600 dark:text-purple-400" : ""
           )}
-          <ChevronDown
-            className={cn(
-              "w-4 h-4 text-slate-400 dark:text-zinc-500 transition-transform duration-200",
-              isOpen ? "rotate-180 text-purple-600 dark:text-purple-400" : ""
-            )}
-          />
-        </div>
+        />
       </button>
 
       {isOpen && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute left-0 right-0 top-full mt-1.5 z-50 p-1.5 bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl space-y-1 animate-in fade-in-0 zoom-in-95 duration-150 min-w-[220px]"
+          className="absolute left-0 right-0 top-full mt-1.5 z-50 p-1 bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl space-y-0.5 animate-in fade-in-0 zoom-in-95 duration-150 min-w-[130px]"
         >
           {options.map((opt) => {
             const isSelected = opt.value === value;
@@ -226,73 +218,18 @@ function MncSelect({
                   setIsOpen(false);
                 }}
                 className={cn(
-                  "w-full p-2.5 rounded-xl text-left flex items-start gap-2.5 transition-all cursor-pointer group select-none",
+                  "w-full h-8.5 px-2.5 rounded-lg text-left flex items-center justify-between gap-2 text-xs font-semibold transition-all cursor-pointer select-none",
                   isSelected
-                    ? "bg-purple-50 dark:bg-purple-950/40 border border-purple-200/70 dark:border-purple-800/60"
-                    : "hover:bg-slate-100/80 dark:hover:bg-zinc-800/80 border border-transparent"
+                    ? "bg-purple-50 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 font-bold"
+                    : "text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800"
                 )}
               >
-                <div className="mt-0.5 shrink-0">
-                  {opt.icon ? (
-                    <div
-                      className={cn(
-                        "p-1.5 rounded-lg border",
-                        isSelected
-                          ? "bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border-purple-300/60 dark:border-purple-700/60"
-                          : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
-                      )}
-                    >
-                      {opt.icon}
-                    </div>
-                  ) : opt.dotColor ? (
-                    <span className={cn("inline-block w-2.5 h-2.5 rounded-full mt-1", opt.dotColor)} />
-                  ) : null}
+                <div className="flex items-center gap-2 min-w-0">
+                  {opt.icon && <div className="shrink-0">{opt.icon}</div>}
+                  {opt.dotColor && <span className={cn("w-2 h-2 rounded-full shrink-0", opt.dotColor)} />}
+                  <span className="truncate">{opt.label}</span>
                 </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <span
-                      className={cn(
-                        "text-xs font-bold leading-none",
-                        isSelected
-                          ? "text-purple-900 dark:text-purple-200"
-                          : "text-slate-800 dark:text-zinc-200 group-hover:text-slate-900 dark:group-hover:text-white"
-                      )}
-                    >
-                      {opt.label}
-                    </span>
-                    {opt.badge && (
-                      <span
-                        className={cn(
-                          "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider",
-                          isSelected
-                            ? "bg-purple-200/80 dark:bg-purple-900/80 text-purple-800 dark:text-purple-200"
-                            : "bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400"
-                        )}
-                      >
-                        {opt.badge}
-                      </span>
-                    )}
-                  </div>
-                  {opt.description && (
-                    <p
-                      className={cn(
-                        "text-[10px] mt-1 leading-snug",
-                        isSelected
-                          ? "text-purple-700/90 dark:text-purple-300/80"
-                          : "text-slate-500 dark:text-zinc-400"
-                      )}
-                    >
-                      {opt.description}
-                    </p>
-                  )}
-                </div>
-
-                {isSelected && (
-                  <div className="shrink-0 self-center">
-                    <Check className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  </div>
-                )}
+                {isSelected && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />}
               </button>
             );
           })}
@@ -1817,6 +1754,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         id: `mcq_${Date.now()}`,
                         questionText: "",
                         marks: 10,
+                        allowMultiple: false,
                         options: [
                           { id: `opt_${Date.now()}_1`, text: "", isCorrect: true },
                           { id: `opt_${Date.now()}_2`, text: "", isCorrect: false },
@@ -1857,6 +1795,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           id: `mcq_${Date.now()}`,
                           questionText: "",
                           marks: 10,
+                          allowMultiple: false,
                           options: [
                             { id: `opt_${Date.now()}_1`, text: "", isCorrect: true },
                             { id: `opt_${Date.now()}_2`, text: "", isCorrect: false },
@@ -1884,6 +1823,40 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           Question #{qIdx + 1}
                         </span>
                         <div className="flex items-center gap-3">
+                          {/* Extra Option for Multiple Answer Question */}
+                          <label className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-zinc-300 font-semibold cursor-pointer select-none bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 px-2.5 py-1 rounded-lg">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(q.allowMultiple)}
+                              onChange={(e) => {
+                                const isMultiple = e.target.checked;
+                                setMcqList(
+                                  mcqList.map((item) => {
+                                    if (item.id !== q.id) return item;
+                                    return {
+                                      ...item,
+                                      allowMultiple: isMultiple,
+                                      options: isMultiple
+                                        ? item.options
+                                        : (() => {
+                                            let hasCorrect = false;
+                                            return item.options.map((o) => {
+                                              if (o.isCorrect && !hasCorrect) {
+                                                hasCorrect = true;
+                                                return o;
+                                              }
+                                              return { ...o, isCorrect: false };
+                                            });
+                                          })(),
+                                    };
+                                  })
+                                );
+                              }}
+                              className="w-3.5 h-3.5 rounded cursor-pointer accent-purple-600"
+                            />
+                            <span>Multiple Answers</span>
+                          </label>
+
                           <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-zinc-400">
                             <span className="font-semibold">Marks:</span>
                             <Input
@@ -1923,7 +1896,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       <div className="space-y-2 pt-1">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold text-slate-600 dark:text-zinc-400">
-                            Answer Choices (Select radio button for the correct answer):
+                            {q.allowMultiple
+                              ? "Answer Choices (Select checkboxes for all correct answers):"
+                              : "Answer Choices (Select radio button for the correct answer):"}
                           </span>
                           <button
                             type="button"
@@ -1947,27 +1922,49 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
                         {q.options.map((opt, optIdx) => (
                           <div key={opt.id} className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name={`correct_${q.id}`}
-                              checked={opt.isCorrect}
-                              onChange={() => {
-                                setMcqList(
-                                  mcqList.map((item) => {
-                                    if (item.id !== q.id) return item;
-                                    return {
-                                      ...item,
-                                      options: item.options.map((o) => ({
-                                        ...o,
-                                        isCorrect: o.id === opt.id,
-                                      })),
-                                    };
-                                  })
-                                );
-                              }}
-                              className="cursor-pointer"
-                              title="Mark as correct answer"
-                            />
+                            {q.allowMultiple ? (
+                              <input
+                                type="checkbox"
+                                checked={opt.isCorrect}
+                                onChange={() => {
+                                  setMcqList(
+                                    mcqList.map((item) => {
+                                      if (item.id !== q.id) return item;
+                                      return {
+                                        ...item,
+                                        options: item.options.map((o) =>
+                                          o.id === opt.id ? { ...o, isCorrect: !o.isCorrect } : o
+                                        ),
+                                      };
+                                    })
+                                  );
+                                }}
+                                className="w-4 h-4 cursor-pointer accent-purple-600 rounded"
+                                title="Toggle correct answer"
+                              />
+                            ) : (
+                              <input
+                                type="radio"
+                                name={`correct_${q.id}`}
+                                checked={opt.isCorrect}
+                                onChange={() => {
+                                  setMcqList(
+                                    mcqList.map((item) => {
+                                      if (item.id !== q.id) return item;
+                                      return {
+                                        ...item,
+                                        options: item.options.map((o) => ({
+                                          ...o,
+                                          isCorrect: o.id === opt.id,
+                                        })),
+                                      };
+                                    })
+                                  );
+                                }}
+                                className="w-4 h-4 cursor-pointer accent-purple-600"
+                                title="Mark as correct answer"
+                              />
+                            )}
                             <Input
                               placeholder={`Option ${optIdx + 1}`}
                               value={opt.text}
@@ -2426,15 +2423,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               {
                                 value: "active",
                                 label: "Active",
-                                badge: "Live",
-                                description: "Track is active and visible to assigned batches",
-                                dotColor: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+                                dotColor: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]",
                               },
                               {
                                 value: "inactive",
                                 label: "Inactive",
-                                badge: "Draft",
-                                description: "Track is hidden in draft mode",
                                 dotColor: "bg-slate-400",
                               },
                             ]}
@@ -2676,15 +2669,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       {
                         value: "active",
                         label: "Active",
-                        badge: "Live",
-                        description: "Submodule is active and accessible",
-                        dotColor: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+                        dotColor: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]",
                       },
                       {
                         value: "inactive",
                         label: "Inactive",
-                        badge: "Draft",
-                        description: "Submodule is hidden in draft mode",
                         dotColor: "bg-slate-400",
                       },
                     ]}
@@ -2791,24 +2780,18 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     options={[
                       {
                         value: "mixed",
-                        label: "Mixed (MCQ + Code)",
-                        badge: "Full Track",
-                        description: "Includes both MCQs and interactive coding challenges",
+                        label: "Mixed",
                         icon: <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />,
+                      },
+                      {
+                        value: "coding",
+                        label: "Code Only",
+                        icon: <Code2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />,
                       },
                       {
                         value: "mcq",
                         label: "MCQ Only",
-                        badge: "Quiz",
-                        description: "Multiple-choice assessment questions only",
                         icon: <HelpCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />,
-                      },
-                      {
-                        value: "coding",
-                        label: "Coding Only",
-                        badge: "Code Lab",
-                        description: "Interactive algorithm & code execution problems",
-                        icon: <Code2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />,
                       },
                     ]}
                   />
@@ -2872,15 +2855,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       {
                         value: "active",
                         label: "Active",
-                        badge: "Live",
-                        description: "Module is visible and accessible to students",
-                        dotColor: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+                        dotColor: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]",
                       },
                       {
                         value: "inactive",
                         label: "Inactive",
-                        badge: "Draft",
-                        description: "Hidden from students; trainer view only",
                         dotColor: "bg-slate-400",
                       },
                     ]}
