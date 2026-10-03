@@ -168,8 +168,7 @@ function createRedirectWithCookies(
     if (
       name.includes("provider-token") ||
       name.includes("provider-refresh-token") ||
-      name.includes("provider_token") ||
-      /\-auth\-token\.\d+$/.test(name)
+      name.includes("provider_token")
     ) {
       return;
     }

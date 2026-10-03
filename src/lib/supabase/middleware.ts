@@ -19,12 +19,7 @@ export function sanitizeResponseCookies(request: NextRequest, response: NextResp
     const { name } = cookie;
     let shouldExpire = false;
 
-    // 1. Remove obsolete chunked cookies (.0, .1, etc.) since tokens-only uses a single compact cookie
-    if (/\-auth\-token\.\d+$/.test(name)) {
-      shouldExpire = true;
-    }
-
-    // 2. Remove third-party provider tokens (Google OAuth access/refresh tokens: ~2-4 KB)
+    // 1. Remove third-party provider tokens (Google OAuth access/refresh tokens: ~2-4 KB)
     if (
       name.includes("provider-token") ||
       name.includes("provider-refresh-token") ||
@@ -33,7 +28,7 @@ export function sanitizeResponseCookies(request: NextRequest, response: NextResp
       shouldExpire = true;
     }
 
-    // 3. Remove legacy temporary state (never touch active code-verifier or oauth_state during PKCE flow)
+    // 2. Remove legacy temporary state (never touch active code-verifier or oauth_state during PKCE flow)
     if (
       name.startsWith("falcon_") ||
       name.startsWith("g_state")
@@ -71,15 +66,14 @@ export async function updateSession(request: NextRequest) {
           if (
             name.includes("provider-token") ||
             name.includes("provider-refresh-token") ||
-            name.includes("provider_token") ||
-            /\-auth\-token\.\d+$/.test(name)
+            name.includes("provider_token")
           ) {
             return;
           }
           request.cookies.set(name, value);
         });
 
-        // FIX: In Next.js 14+, modifying request.cookies doesn't update the headers for Server Components.
+        // In Next.js 14+, modifying request.cookies doesn't update the headers for Server Components.
         // We must manually serialize the cookies back to request.headers.
         const updatedCookies = request.cookies.getAll();
         const cookieHeader = updatedCookies.map(c => `${c.name}=${c.value}`).join("; ");
@@ -90,8 +84,7 @@ export async function updateSession(request: NextRequest) {
           if (
             name.includes("provider-token") ||
             name.includes("provider-refresh-token") ||
-            name.includes("provider_token") ||
-            /\-auth\-token\.\d+$/.test(name)
+            name.includes("provider_token")
           ) {
             // Expire immediately from response
             supabaseResponse.cookies.set(name, "", {

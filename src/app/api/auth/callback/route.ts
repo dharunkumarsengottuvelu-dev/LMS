@@ -45,7 +45,7 @@ export async function GET(request: Request) {
 
   if (code || token_hash) {
     const cookieStore = await cookies();
-    const cookiesToPersist: BufferedCookie[] = [];
+    const cookiesToPersist = new Map<string, BufferedCookie>();
 
     // Create Supabase SSR client specifically configured for route handlers with direct cookie capture
     const supabase = createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -66,8 +66,7 @@ export async function GET(request: Request) {
             if (
               name.includes("provider-token") ||
               name.includes("provider-refresh-token") ||
-              name.includes("provider_token") ||
-              /\-auth\-token\.\d+$/.test(name)
+              name.includes("provider_token")
             ) {
               return;
             }
@@ -88,27 +87,36 @@ export async function GET(request: Request) {
             }
 
             // Buffer cookie so we can explicitly set it on the outgoing NextResponse.redirect
-            cookiesToPersist.push({ name, value, options: cookieOpts });
+            cookiesToPersist.set(name, { name, value, options: cookieOpts });
           });
         },
       },
     });
 
-    const { data, error } = code
+    const { error: exchangeError } = code
       ? await supabase.auth.exchangeCodeForSession(code)
       : await supabase.auth.verifyOtp({ token_hash: token_hash!, type: otpType });
 
-    if (error) {
-      console.error("[AUTH] Code exchange failed:", error.message);
-      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`);
+    if (exchangeError) {
+      console.error("[AUTH] Code exchange failed:", exchangeError.message);
+      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(exchangeError.message)}`);
     }
 
-    if (data?.user) {
-      const user = data.user;
-      console.log(`[AUTH] Code exchange successful: user ID exists = ${Boolean(user.id)}, email exists = ${Boolean(user.email)}`);
+    // Authoritative user verification post-exchange
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-      let userRole = "student";
-      let userStatus = "active";
+    if (userError || !user) {
+      console.error("[AUTH] getUser verification failed after code exchange:", userError?.message);
+      return NextResponse.redirect(`${origin}/login?error=auth_verification_failed`);
+    }
+
+    console.log(`[AUTH] Code exchange successful: user ID = ${user.id}, email = ${user.email}`);
+
+    let userRole = "student";
+    let userStatus = "active";
 
       // 1. Authoritative profile lookup & sync
       try {
@@ -230,7 +238,7 @@ export async function GET(request: Request) {
       // 3. Construct redirect response and explicitly attach authenticated session cookies
       const response = NextResponse.redirect(new URL(redirectPath, origin));
 
-      for (const { name, value, options } of cookiesToPersist) {
+      for (const [name, { value, options }] of cookiesToPersist.entries()) {
         response.cookies.set(name, value, options);
       }
 
@@ -251,10 +259,9 @@ export async function GET(request: Request) {
         }
       }
 
-      console.log(`[AUTH] Callback completing redirect: role = ${userRole}, target = ${redirectPath}, cookies attached = ${cookiesToPersist.length}`);
+      console.log(`[AUTH] Callback completing redirect: role = ${userRole}, target = ${redirectPath}, cookies attached = ${cookiesToPersist.size}`);
       return response;
     }
-  }
 
   // Fallback if neither code nor token_hash is present
   return NextResponse.redirect(`${origin}/login?error=no_auth_code`);
