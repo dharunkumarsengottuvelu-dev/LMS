@@ -143,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { user: authUser, error: userError } = await getSafeUser(supabase);
         if (!isMounted) return;
 
-        if (userError) {
+        if (userError && !userError.message?.toLowerCase().includes("session missing") && !userError.message?.toLowerCase().includes("auth session")) {
           console.warn("Initial auth notice:", userError.message);
         }
 
