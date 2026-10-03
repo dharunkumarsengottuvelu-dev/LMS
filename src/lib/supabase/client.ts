@@ -1,5 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "./database.types";
+import { deduplicateCookies } from "./cookie-utils";
 
 // Singleton pattern for browser client
 let client: ReturnType<typeof createBrowserClient<Database>> | null = null;
@@ -53,19 +54,19 @@ export function createClient() {
           if (typeof document === "undefined") return [];
           const raw = document.cookie;
           if (!raw) return [];
-          return raw.split(";").map((p) => {
+          const cookies = raw.split(";").map((p) => {
             const trimmed = p.trim();
             const eqIdx = trimmed.indexOf("=");
             const name = eqIdx > -1 ? trimmed.slice(0, eqIdx).trim() : trimmed;
             const value = eqIdx > -1 ? trimmed.slice(eqIdx + 1).trim() : "";
             return { name, value };
           });
+          return deduplicateCookies(cookies);
         },
         setAll(cookiesToSet) {
           if (typeof window === "undefined" || typeof document === "undefined") return;
-          const host = window?.location?.hostname || "";
-          const isDomainWithDots = host.includes(".");
-          const paths = ["/", "/api/auth/callback", "/student", "/admin", "/trainer", "/institution", "/api"];
+
+          const subPaths = ["/student", "/admin", "/trainer", "/institution", "/api", "/api/auth/callback"];
 
           cookiesToSet.forEach(({ name, value, options }) => {
             // 1. Never store third-party Google OAuth provider tokens in client cookies
@@ -77,6 +78,11 @@ export function createClient() {
               document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
               return;
             }
+
+            // 2. Clear any shadowing cookies at subpaths
+            subPaths.forEach((sp) => {
+              document.cookie = `${name}=; path=${sp}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+            });
 
             const isHttps = window.location.protocol === "https:";
             const secureFlag = isHttps ? "; Secure" : "";
