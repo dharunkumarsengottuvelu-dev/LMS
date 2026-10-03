@@ -269,16 +269,15 @@ export default function LoginPage() {
 
   async function performOAuthRedirect() {
     const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-    let origin = "http://localhost:3000";
-    if (process.env.NEXT_PUBLIC_APP_URL) {
-      origin = process.env.NEXT_PUBLIC_APP_URL;
-    } else if (typeof window !== "undefined") {
-      origin = window.location.origin;
-    }
+    const origin = typeof window !== "undefined" && window.location.origin
+      ? window.location.origin
+      : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn-lms.vercel.app");
     const callbackUrl = new URL("/api/auth/callback", origin);
     if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
       callbackUrl.searchParams.set("next", nextUrl);
     }
+
+    console.log("[AUTH] Initiating Google OAuth with redirectTo:", callbackUrl.toString());
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",

@@ -24,17 +24,19 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
 
-  // Determine current origin safely (handles reverse proxy headers like Vercel / Railway / Cloudflare)
+  // Determine current origin safely from incoming request headers
   const forwardedHost = request.headers.get("x-forwarded-host");
   const host = forwardedHost || request.headers.get("host") || requestUrl.host;
-  const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  const origin = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
+  const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
+  const origin = host ? `${protocol}://${host}` : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn-lms.vercel.app");
+
+  console.log(`[AUTH] Callback reached: code present = ${Boolean(code)}, origin = ${origin}`);
 
   // Check if provider returned an error directly in query string
   const authError = requestUrl.searchParams.get("error");
   const errorDescription = requestUrl.searchParams.get("error_description");
   if (authError) {
-    console.error("OAuth provider returned error in callback:", authError, errorDescription);
+    console.error("[AUTH] OAuth provider returned error in callback:", authError, errorDescription);
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorDescription || authError)}`);
   }
 
@@ -97,12 +99,14 @@ export async function GET(request: Request) {
       : await supabase.auth.verifyOtp({ token_hash: token_hash!, type: otpType });
 
     if (error) {
-      console.error("Supabase exchangeCodeForSession failed:", error.message);
+      console.error("[AUTH] Code exchange failed:", error.message);
       return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`);
     }
 
     if (data?.user) {
       const user = data.user;
+      console.log(`[AUTH] Code exchange successful: user ID exists = ${Boolean(user.id)}, email exists = ${Boolean(user.email)}`);
+
       let userRole = "student";
       let userStatus = "active";
 
@@ -260,6 +264,7 @@ export async function GET(request: Request) {
         }
       }
 
+      console.log(`[AUTH] Callback completing redirect: role = ${userRole}, target = ${redirectPath}, cookies attached = ${cookiesToPersist.length}`);
       return response;
     }
   }

@@ -12,6 +12,8 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const supabase = await createClient();
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
+  console.log(`[AUTH] Student layout user exists = ${Boolean(user)}`);
+
   if (!user) {
     redirect("/login?error=session_expired&next=/student/dashboard");
   }
