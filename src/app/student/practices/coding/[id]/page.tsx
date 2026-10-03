@@ -24,7 +24,9 @@ import {
   Lock,
   AlertTriangle,
   ShieldCheck,
-  CheckCheck
+  CheckCheck,
+  History,
+  FileCode
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -118,6 +120,36 @@ console.log("Hello, World!");
   },
 ];
 
+function toDeterministicUUID(str: string): string {
+  if (!str) return "00000000-0000-0000-0000-000000000000";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
+    return str;
+  }
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex1 = Math.abs(hash).toString(16).padStart(8, "0");
+  const hex2 = Math.abs((hash * 31) | 0).toString(16).padStart(8, "0");
+  const hex3 = Math.abs((hash * 57) | 0).toString(16).padStart(8, "0");
+  const hex4 = Math.abs((hash * 93) | 0).toString(16).padStart(8, "0");
+  const full = (hex1 + hex2 + hex3 + hex4).slice(0, 32);
+  return `${full.slice(0, 8)}-${full.slice(8, 12)}-4${full.slice(13, 16)}-a${full.slice(17, 20)}-${full.slice(20, 32)}`;
+}
+
+function matchesProblemSubmission(s: any, pId: string, pSlug?: string): boolean {
+  if (!s || !pId) return false;
+  const subPid = String(s.problem_id || "");
+  const subSlug = String(s.problem_slug || "");
+  if (subPid === pId || (pSlug && subPid === pSlug)) return true;
+  if (subSlug && (subSlug === pSlug || subSlug === pId)) return true;
+  const pUUID = toDeterministicUUID(pId);
+  if (subPid === pUUID) return true;
+  if (pSlug && subPid === toDeterministicUUID(pSlug)) return true;
+  return false;
+}
+
 export default function StudentPracticeCodingRunnerPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -125,7 +157,8 @@ export default function StudentPracticeCodingRunnerPage() {
   const { toast } = useToast();
 
   const rawId = (params?.id as string) || "";
-  const trackId = searchParams.get("trackId") || "";
+  const trackId = searchParams?.get("trackId") || "";
+  const isReviewMode = searchParams?.get("mode") === "review";
 
   // Track & Module hierarchy state
   const [trackTitle, setTrackTitle] = useState<string>("Practice");
@@ -140,8 +173,17 @@ export default function StudentPracticeCodingRunnerPage() {
   const currentProblem = problems[currentIdx] || null;
 
   // Tabs
-  const [leftTab, setLeftTab] = useState<"description" | "solutions" | "discuss">("description");
+  const [leftTab, setLeftTab] = useState<"description" | "solutions" | "discuss" | "submissions">("description");
   const [bottomTab, setBottomTab] = useState<"testcase" | "testresult" | "console">("testcase");
+
+  // All student submissions for review & persistence
+  const [allSubmissions, setAllSubmissions] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isReviewMode) {
+      setLeftTab("submissions");
+    }
+  }, [isReviewMode]);
 
   // Code & Language state
   const [selectedLanguage, setSelectedLanguage] = useState<CodingLanguage>("java");
@@ -313,15 +355,21 @@ export default function StudentPracticeCodingRunnerPage() {
         const subRes = await fetch("/api/code/submissions");
         if (subRes.ok) {
           const subData = await subRes.json();
+          const subs = Array.isArray(subData.submissions) ? subData.submissions : [];
+          setAllSubmissions(subs);
+
           const solvedSet = new Set<string>();
           const inProgSet = new Set<string>();
-          (subData.submissions || []).forEach((s: any) => {
-            if (s.status === "accepted" || s.status === "passed") {
-              solvedSet.add(s.problem_id);
-            } else {
-              inProgSet.add(s.problem_id);
+
+          (codingProblemsList || []).forEach((prob: any) => {
+            const probSubs = subs.filter((s: any) => matchesProblemSubmission(s, prob.id, prob.slug));
+            if (probSubs.some((s: any) => s.status === "accepted" || s.status === "passed")) {
+              solvedSet.add(prob.id);
+            } else if (probSubs.length > 0) {
+              inProgSet.add(prob.id);
             }
           });
+
           setSolvedProblemIds(solvedSet);
           setInProgressProblemIds(inProgSet);
         }
@@ -387,6 +435,13 @@ export default function StudentPracticeCodingRunnerPage() {
     return SUPPORTED_LANGUAGES;
   }, [allowedLanguages]);
 
+  const currentSubmissions = useMemo(() => {
+    if (!currentProblem) return [];
+    return allSubmissions.filter((s: any) =>
+      matchesProblemSubmission(s, currentProblem.id, currentProblem.slug)
+    );
+  }, [allSubmissions, currentProblem]);
+
   useEffect(() => {
     if (!currentProblem) return;
 
@@ -404,12 +459,21 @@ export default function StudentPracticeCodingRunnerPage() {
 
     setSelectedLanguage(initialLang);
 
-    // Restore saved code from localStorage, or load starter template
+    const latestSub = allSubmissions.find((s: any) =>
+      matchesProblemSubmission(s, currentProblem.id, currentProblem.slug)
+    );
+
+    // Restore saved code from localStorage, or latest submitted code, or load starter template
     const key = getStorageKey(currentProblem.id, initialLang);
     const saved = typeof window !== "undefined" ? localStorage.getItem(key) : null;
 
     if (saved && saved.trim()) {
       setCode(saved);
+    } else if (latestSub && latestSub.code && latestSub.code.trim()) {
+      setCode(latestSub.code);
+      if (latestSub.language && availableLanguages.some((l) => l.id === latestSub.language)) {
+        setSelectedLanguage(latestSub.language as CodingLanguage);
+      }
     } else {
       // Find template from problem or starter_code
       const problemTemplates = currentProblem.templates || starter.templates || {};
@@ -420,12 +484,31 @@ export default function StudentPracticeCodingRunnerPage() {
       setCode(templateForLang);
     }
 
-    // Reset results on problem switch
-    setRunResults(null);
-    setCustomRunResult(null);
-    setConsoleOutput("");
-    setBottomTab("testcase");
-  }, [currentProblem?.id, getStorageKey, availableLanguages]);
+    // If there is a previous submission, populate test results for review!
+    if (latestSub && Array.isArray(latestSub.results) && latestSub.results.length > 0) {
+      setRunResults(latestSub.results);
+      setExecutionType("submit");
+      setConsoleOutput(
+        `Verdict: ${String(latestSub.status || "EVALUATED").toUpperCase()}\n` +
+          `Execution Time: ${latestSub.execution_time || "28ms"}\n` +
+          `Passed Test Cases: ${latestSub.passed_test_cases || 0}/${latestSub.total_test_cases || 0}\n`
+      );
+      setSubmissionMeta({
+        status: latestSub.status,
+        score: latestSub.passed_test_cases === latestSub.total_test_cases ? 100 : 0,
+        execution_time_ms: 28,
+        memory_used_kb: 512,
+      });
+      if (isReviewMode) {
+        setBottomTab("testresult");
+      }
+    } else {
+      setRunResults(null);
+      setCustomRunResult(null);
+      setConsoleOutput("");
+      setBottomTab("testcase");
+    }
+  }, [currentProblem?.id, getStorageKey, availableLanguages, allSubmissions, isReviewMode]);
 
   // Handle language switch
   const handleLanguageChange = (newLang: CodingLanguage) => {
@@ -797,6 +880,44 @@ export default function StudentPracticeCodingRunnerPage() {
         memory_used_kb: data.memory_used_kb || 512,
         score: data.score,
       });
+
+      // 1. Immediately record in local submissions list for instant Review
+      const newlyCreatedSub = {
+        id: data.id || `sub-${Date.now()}`,
+        problem_id: currentProblem.id,
+        problem_slug: currentProblem.slug,
+        language: selectedLanguage,
+        code,
+        status: data.status,
+        passed_test_cases: results.filter((r: any) => r.passed).length,
+        total_test_cases: results.length,
+        results,
+        created_at: new Date().toISOString(),
+      };
+      setAllSubmissions((prev) => [newlyCreatedSub, ...prev]);
+
+      // 2. Automatically sync attempt/progress to the practice track
+      if (trackId) {
+        try {
+          await fetch(`/api/student/practices/${trackId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              module_id: moduleId || rawId,
+              score: isAccepted ? 100 : 0,
+              total_marks: 100,
+              answers: {
+                [currentProblem.id]: {
+                  status: isAccepted ? "accepted" : "attempted",
+                  verdict: data.status,
+                },
+              },
+            }),
+          });
+        } catch (syncErr) {
+          console.warn("Failed to auto-sync attempt to track:", syncErr);
+        }
+      }
     } catch (err: any) {
       console.error("Submission error:", err);
       const errMsg = err.message || "Failed to submit code.";
@@ -1079,8 +1200,8 @@ export default function StudentPracticeCodingRunnerPage() {
       <div className="flex-1 flex overflow-hidden p-3 gap-3 min-h-0">
         {/* ─── COLUMN 1: LEFT PROBLEM DESCRIPTION PANEL ────────────────────── */}
         <div className="w-[30%] min-w-[280px] max-w-[420px] rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden">
-          {/* Left Panel Tabs: Description | Solutions | Discuss */}
-          <div className="h-10 border-b border-slate-200 px-3 flex items-center gap-6 shrink-0 bg-white">
+          {/* Left Panel Tabs: Description | Solutions | Submissions | Discuss */}
+          <div className="h-10 border-b border-slate-200 px-3 flex items-center gap-4 shrink-0 bg-white">
             <button
               type="button"
               onClick={() => setLeftTab("description")}
@@ -1104,6 +1225,23 @@ export default function StudentPracticeCodingRunnerPage() {
               )}
             >
               Solutions
+            </button>
+            <button
+              type="button"
+              onClick={() => setLeftTab("submissions")}
+              className={cn(
+                "h-full text-xs font-bold transition-all relative cursor-pointer flex items-center gap-1.5",
+                leftTab === "submissions"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+              )}
+            >
+              <span>Submissions</span>
+              {currentSubmissions.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                  {currentSubmissions.length}
+                </span>
+              )}
             </button>
             <button
               type="button"
@@ -1371,6 +1509,118 @@ export default function StudentPracticeCodingRunnerPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* TAB 4: SUBMISSIONS (REVIEW) */}
+            {leftTab === "submissions" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <History className="w-4 h-4 text-blue-600" />
+                    <span>My Submissions &amp; Review</span>
+                  </h2>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {currentSubmissions.length} {currentSubmissions.length === 1 ? "Attempt" : "Attempts"}
+                  </span>
+                </div>
+
+                {currentSubmissions.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                    <FileCode className="w-8 h-8 text-slate-400 mx-auto" />
+                    <h3 className="text-xs font-bold text-slate-800">No Submissions Yet</h3>
+                    <p className="text-[11px] text-slate-500">
+                      Submit your solution using the &quot;Submit&quot; button to record attempts and view test results.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {currentSubmissions.map((sub: any, idx: number) => {
+                      const isAcc = sub.status === "accepted" || sub.status === "passed";
+                      const dateStr = sub.created_at
+                        ? new Date(sub.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" })
+                        : "Recent";
+
+                      return (
+                        <div
+                          key={sub.id || idx}
+                          className={cn(
+                            "p-3.5 rounded-xl border transition-all space-y-2.5",
+                            isAcc
+                              ? "bg-emerald-50/40 border-emerald-200"
+                              : "bg-white border-slate-200 hover:border-slate-300"
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {isAcc ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              ) : (
+                                <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                              )}
+                              <span
+                                className={cn(
+                                  "text-xs font-bold uppercase",
+                                  isAcc ? "text-emerald-800" : "text-rose-800"
+                                )}
+                              >
+                                {sub.status ? sub.status.replace(/_/g, " ") : "Evaluated"}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-slate-400 font-medium">{dateStr}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-slate-600 pt-0.5 border-t border-slate-100">
+                            <span className="font-mono uppercase font-semibold text-slate-700">
+                              {sub.language || selectedLanguage}
+                            </span>
+                            <span>
+                              {sub.passed_test_cases || 0}/{sub.total_test_cases || (sub.results?.length || 1)} test cases
+                            </span>
+                            {sub.execution_time && <span>{sub.execution_time}</span>}
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                if (sub.results && sub.results.length > 0) {
+                                  setRunResults(sub.results);
+                                  setExecutionType("submit");
+                                  setBottomTab("testresult");
+                                  setIsBottomMinimized(false);
+                                  toast({ title: "Viewing Test Results", description: `Showing evaluation results for attempt ${currentSubmissions.length - idx}.` });
+                                }
+                              }}
+                              className="h-7 text-[11px] px-2.5 border-slate-200 text-slate-700 hover:bg-slate-100 rounded-md font-semibold cursor-pointer"
+                            >
+                              Review Output
+                            </Button>
+                            {sub.code && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setCode(sub.code);
+                                  if (sub.language && availableLanguages.some((l) => l.id === sub.language)) {
+                                    setSelectedLanguage(sub.language as CodingLanguage);
+                                  }
+                                  toast({ title: "Code Restored", description: "Loaded submission code into the editor." });
+                                }}
+                                className="h-7 text-[11px] px-2.5 border-blue-200 text-blue-700 bg-blue-50/60 hover:bg-blue-100 rounded-md font-semibold cursor-pointer"
+                              >
+                                Load into Editor
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

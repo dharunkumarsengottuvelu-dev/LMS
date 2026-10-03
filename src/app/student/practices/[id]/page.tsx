@@ -104,12 +104,13 @@ export default function StudentTrackDetailPage() {
     fetchTrackDetails(false);
   }, [fetchTrackDetails]);
 
-  const handleStartModule = (mod: StudentModule) => {
+  const handleStartModule = (mod: StudentModule, mode = "practice") => {
     const hasCoding = mod.type === "coding" || (Array.isArray(mod.codingQuestions) && mod.codingQuestions.length > 0);
+    const query = `trackId=${trackId}${mode === "review" ? "&mode=review" : ""}`;
     if (hasCoding) {
-      router.push(`/student/practices/coding/${mod.id}?trackId=${trackId}`);
+      router.push(`/student/practices/coding/${mod.id}?${query}`);
     } else {
-      router.push(`/student/assessments/${mod.id}?trackId=${trackId}`);
+      router.push(`/student/assessments/${mod.id}?${query}`);
     }
   };
 
@@ -322,10 +323,20 @@ export default function StudentTrackDetailPage() {
                             </div>
 
                             {/* Right: Action Button */}
-                            <div className="shrink-0 flex items-center self-end md:self-center">
+                            <div className="shrink-0 flex items-center gap-2 self-end md:self-center">
+                              {(isDone || inProg) && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => handleStartModule(m, "review")}
+                                  className="h-8.5 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-100 text-slate-700 dark:text-zinc-300 cursor-pointer transition-all shadow-2xs"
+                                >
+                                  Review
+                                </Button>
+                              )}
                               <Button
                                 type="button"
-                                onClick={() => handleStartModule(m)}
+                                onClick={() => handleStartModule(m, isDone ? "review" : "practice")}
                                 className={`h-8.5 px-4 text-xs font-semibold rounded-lg cursor-pointer transition-all shadow-2xs ${
                                   isDone
                                     ? "bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -335,7 +346,7 @@ export default function StudentTrackDetailPage() {
                                 }`}
                               >
                                 {isDone
-                                  ? "Review Submission"
+                                  ? "Practice Again"
                                   : inProg
                                   ? "Continue Practice"
                                   : "Start Practice"}

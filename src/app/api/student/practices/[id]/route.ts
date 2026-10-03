@@ -132,6 +132,24 @@ export async function GET(
       }
     }
 
+function toDeterministicUUID(str: string): string {
+  if (!str) return "00000000-0000-0000-0000-000000000000";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
+    return str;
+  }
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex1 = Math.abs(hash).toString(16).padStart(8, "0");
+  const hex2 = Math.abs((hash * 31) | 0).toString(16).padStart(8, "0");
+  const hex3 = Math.abs((hash * 57) | 0).toString(16).padStart(8, "0");
+  const hex4 = Math.abs((hash * 93) | 0).toString(16).padStart(8, "0");
+  const full = (hex1 + hex2 + hex3 + hex4).slice(0, 32);
+  return `${full.slice(0, 8)}-${full.slice(8, 12)}-4${full.slice(13, 16)}-a${full.slice(17, 20)}-${full.slice(20, 32)}`;
+}
+
     // Fetch student's submissions & attempts
     const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
 
@@ -141,11 +159,38 @@ export async function GET(
       .or(studentFilter) as any;
 
     const completedProblemsMap = new Map<string, any>();
+    const attemptedProblemsMap = new Map<string, any>();
     (submissions || []).forEach((sub: any) => {
+      attemptedProblemsMap.set(sub.problem_id, sub);
       if (sub.status === "accepted" || sub.status === "passed") {
         completedProblemsMap.set(sub.problem_id, sub);
       }
     });
+
+    const isProblemSolved = (p: any): boolean => {
+      if (!p || !p.id) return false;
+      const pUUID = toDeterministicUUID(p.id);
+      const pSlugUUID = p.slug ? toDeterministicUUID(p.slug) : null;
+      return (
+        completedProblemsMap.has(p.id) ||
+        completedProblemsMap.has(pUUID) ||
+        (p.slug && completedProblemsMap.has(p.slug)) ||
+        Boolean(pSlugUUID && completedProblemsMap.has(pSlugUUID))
+      );
+    };
+
+    const isProblemAttempted = (p: any): boolean => {
+      if (!p || !p.id) return false;
+      const pUUID = toDeterministicUUID(p.id);
+      const pSlugUUID = p.slug ? toDeterministicUUID(p.slug) : null;
+      return (
+        isProblemSolved(p) ||
+        attemptedProblemsMap.has(p.id) ||
+        attemptedProblemsMap.has(pUUID) ||
+        (p.slug && attemptedProblemsMap.has(p.slug)) ||
+        Boolean(pSlugUUID && attemptedProblemsMap.has(pSlugUUID))
+      );
+    };
 
     const { data: attempts } = await adminClient
       .from("assessment_attempts")
@@ -154,10 +199,28 @@ export async function GET(
 
     const attemptsMap = new Map<string, any>();
     (attempts || []).forEach((att: any) => {
-      if (att.status === "submitted" || att.status === "auto_submitted" || att.status === "passed") {
+      if (att.assessment_id) {
         attemptsMap.set(att.assessment_id, att);
+        attemptsMap.set(toDeterministicUUID(att.assessment_id), att);
       }
     });
+
+    // Also query student_practice_submissions
+    const practiceSubMap = new Map<string, any>();
+    try {
+      const { data: practiceSubs } = await adminClient
+        .from("student_practice_submissions")
+        .select("module_id, status, score, completed_at")
+        .eq("track_id", trackId)
+        .or(studentFilter) as any;
+
+      (practiceSubs || []).forEach((ps: any) => {
+        if (ps.module_id) {
+          practiceSubMap.set(ps.module_id, ps);
+          practiceSubMap.set(toDeterministicUUID(ps.module_id), ps);
+        }
+      });
+    } catch {}
 
     let totalQuestionsAcrossTrack = 0;
     let completedQuestionsAcrossTrack = 0;
@@ -210,11 +273,17 @@ export async function GET(
               modTotalQuestions = m.questionCount || m.question_count || 1;
             }
 
-            const attempt = attemptsMap.get(m.id);
+            const attempt = attemptsMap.get(m.id) || attemptsMap.get(toDeterministicUUID(m.id));
             const isAttemptCompleted = Boolean(
               attempt && (attempt.status === "submitted" || attempt.status === "auto_submitted" || attempt.status === "passed")
             );
-            const solvedCodingCount = combinedCoding.filter((p: any) => completedProblemsMap.has(p.id)).length;
+            const practiceSub = practiceSubMap.get(m.id) || practiceSubMap.get(toDeterministicUUID(m.id));
+            const isPracticeSubDone = Boolean(
+              practiceSub && (practiceSub.status === "completed" || practiceSub.status === "passed")
+            );
+
+            const solvedCodingCount = combinedCoding.filter((p: any) => isProblemSolved(p)).length;
+            const attemptedCodingCount = combinedCoding.filter((p: any) => isProblemAttempted(p)).length;
 
             let answeredInAttempt = 0;
             if (attempt && attempt.answers && typeof attempt.answers === "object") {
@@ -228,12 +297,15 @@ export async function GET(
             let isCompleted = false;
             let isInProgress = false;
 
-            if (isAttemptCompleted) {
-              modCompletedQuestions = Math.min(modTotalQuestions, answeredInAttempt);
+            if (isPracticeSubDone) {
+              isCompleted = true;
+              modCompletedQuestions = modTotalQuestions;
+            } else if (isAttemptCompleted) {
+              modCompletedQuestions = Math.min(modTotalQuestions, answeredInAttempt || modTotalQuestions);
               if (modCompletedQuestions >= modTotalQuestions && modTotalQuestions > 0) {
                 isCompleted = true;
               } else {
-                isInProgress = modCompletedQuestions > 0;
+                isInProgress = true;
               }
             } else if (solvedCodingCount > 0) {
               modCompletedQuestions = Math.min(modTotalQuestions, solvedCodingCount);
@@ -242,18 +314,24 @@ export async function GET(
               } else {
                 isInProgress = true;
               }
-            } else if (attempt && attempt.status === "in_progress") {
+            } else if (
+              attemptedCodingCount > 0 ||
+              (attempt && (attempt.status === "in_progress" || attempt.status === "started"))
+            ) {
               isInProgress = true;
-              modCompletedQuestions = Math.min(modTotalQuestions, answeredInAttempt);
+              modCompletedQuestions = solvedCodingCount;
             }
 
             totalQuestionsAcrossTrack += modTotalQuestions;
             completedQuestionsAcrossTrack += modCompletedQuestions;
 
-            const modulePercentage = calculateModuleProgress(modCompletedQuestions, modTotalQuestions);
+            const modulePercentage = isCompleted
+              ? 100
+              : calculateModuleProgress(modCompletedQuestions, modTotalQuestions);
+
             const status: "not_started" | "in_progress" | "completed" = isCompleted
               ? "completed"
-              : isInProgress || isAttemptCompleted
+              : isInProgress || attemptedCodingCount > 0
               ? "in_progress"
               : "not_started";
 
