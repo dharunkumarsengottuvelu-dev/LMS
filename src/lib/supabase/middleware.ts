@@ -2,8 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import type { Database } from "./database.types";
 
-const SUPABASE_URL = process.env["NEXT_PUBLIC_SUPABASE_URL"] || "https://placeholder-project.supabase.co";
-const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "placeholder-anon-key";
+const SUPABASE_URL = process.env["NEXT_PUBLIC_SUPABASE_URL"] || "https://vdpokcnbslgzyufybxey.supabase.co";
+const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcG9rY25ic2xnenl1ZnlieGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5MzU2NTIsImV4cCI6MjEwMTUxMTY1Mn0.TpGuQ61f7i1RYuB4uOfz3BQoVzCQsYqdfZNnYjDSTUE";
 
 /**
  * Removes duplicate, stale, and oversized cookies from the outgoing response.
@@ -42,19 +42,11 @@ export function sanitizeResponseCookies(request: NextRequest, response: NextResp
     }
 
     if (shouldExpire) {
-      const paths = ["/", "/api/auth/callback", "/student", "/admin", "/trainer", "/institution", "/api"];
-      const domains: (string | undefined)[] = isDomainWithDots ? [undefined, host, `.${host}`] : [undefined];
-
-      for (const p of paths) {
-        for (const d of domains) {
-          response.cookies.set(name, "", {
-            path: p,
-            domain: d,
-            maxAge: 0,
-            expires: new Date(0),
-          });
-        }
-      }
+      response.cookies.set(name, "", {
+        path: "/",
+        maxAge: 0,
+        expires: new Date(0),
+      });
     }
   }
 }

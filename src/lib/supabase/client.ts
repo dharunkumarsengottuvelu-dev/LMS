@@ -4,8 +4,8 @@ import type { Database } from "./database.types";
 // Singleton pattern for browser client
 let client: ReturnType<typeof createBrowserClient<Database>> | null = null;
 
-const SUPABASE_URL = process.env["NEXT_PUBLIC_SUPABASE_URL"] || "https://placeholder-project.supabase.co";
-const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "placeholder-anon-key";
+const SUPABASE_URL = process.env["NEXT_PUBLIC_SUPABASE_URL"] || "https://vdpokcnbslgzyufybxey.supabase.co";
+const SUPABASE_ANON_KEY = process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcG9rY25ic2xnenl1ZnlieGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5MzU2NTIsImV4cCI6MjEwMTUxMTY1Mn0.TpGuQ61f7i1RYuB4uOfz3BQoVzCQsYqdfZNnYjDSTUE";
 
 export function createClient() {
   if (client) return client;
@@ -68,20 +68,13 @@ export function createClient() {
           const paths = ["/", "/api/auth/callback", "/student", "/admin", "/trainer", "/institution", "/api"];
 
           cookiesToSet.forEach(({ name, value, options }) => {
-            // 1. Never store third-party Google OAuth provider tokens or obsolete chunks in client cookies
+            // 1. Never store third-party Google OAuth provider tokens in client cookies
             if (
               name.includes("provider-token") ||
               name.includes("provider-refresh-token") ||
-              name.includes("provider_token") ||
-              /\-auth\-token\.\d+$/.test(name)
+              name.includes("provider_token")
             ) {
-              paths.forEach((p) => {
-                document.cookie = `${name}=; path=${p}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
-                if (isDomainWithDots) {
-                  document.cookie = `${name}=; path=${p}; domain=${host}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
-                  document.cookie = `${name}=; path=${p}; domain=.${host}; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
-                }
-              });
+              document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
               return;
             }
 

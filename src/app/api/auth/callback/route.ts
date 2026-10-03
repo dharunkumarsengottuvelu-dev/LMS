@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/lib/supabase/database.types";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://vdpokcnbslgzyufybxey.supabase.co";
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcG9rY25ic2xnenl1ZnlieGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5MzU2NTIsImV4cCI6MjEwMTUxMTY1Mn0.TpGuQ61f7i1RYuB4uOfz3BQoVzCQsYqdfZNnYjDSTUE";
 
 interface BufferedCookie {
   name: string;
@@ -234,33 +234,20 @@ export async function GET(request: Request) {
         response.cookies.set(name, value, options);
       }
 
-      // 4. Evict obsolete/bloated provider tokens from the client across all scopes
+      // 4. Evict third-party provider tokens from the client to prevent header bloat
       const allCookies = cookieStore.getAll();
-      const host = requestUrl.hostname;
-      const isDomainWithDots = host.includes(".");
-      const paths = ["/", "/api/auth/callback", "/auth/callback", "/student", "/admin", "/trainer", "/institution", "/api"];
-      const domains: (string | undefined)[] = isDomainWithDots ? [undefined, host, `.${host}`] : [undefined];
-
       for (const cookie of allCookies) {
         const { name } = cookie;
         if (
           name.includes("provider-token") ||
           name.includes("provider-refresh-token") ||
-          name.includes("provider_token") ||
-          /\-auth\-token\.\d+$/.test(name) ||
-          name.startsWith("falcon_") ||
-          name.startsWith("g_state")
+          name.includes("provider_token")
         ) {
-          for (const p of paths) {
-            for (const d of domains) {
-              response.cookies.set(name, "", {
-                path: p,
-                domain: d,
-                maxAge: 0,
-                expires: new Date(0),
-              });
-            }
-          }
+          response.cookies.set(name, "", {
+            path: "/",
+            maxAge: 0,
+            expires: new Date(0),
+          });
         }
       }
 
