@@ -209,15 +209,20 @@ export async function proxy(request: NextRequest) {
   }
 
   // 1. Auto-route OAuth callback — MUST run before session/rate-limit checks.
-  //    Google redirects back to /login?code=xxx or /?code=xxx.
-  //    Always forward to /api/auth/callback so Supabase can exchange the code.
+  //    If Google or email confirmation redirects with a code parameter to /login, /register, or /,
+  //    forward directly to /api/auth/callback to exchange the authorization code for a session.
   const codeParam = request.nextUrl.searchParams.get("code");
-  if (codeParam && !pathname.startsWith("/api/auth/callback")) {
+  if (codeParam && !pathname.startsWith("/api/auth/callback") && !pathname.startsWith("/auth/callback")) {
     const callbackUrl = new URL("/api/auth/callback", request.url);
     callbackUrl.searchParams.set("code", codeParam);
     const nextParam = request.nextUrl.searchParams.get("next");
     if (nextParam) callbackUrl.searchParams.set("next", nextParam);
     return NextResponse.redirect(callbackUrl);
+  }
+
+  // Bypass middleware session checks for OAuth callback routes so route handlers can cleanly exchange codes
+  if (pathname.startsWith("/api/auth/callback") || pathname.startsWith("/auth/callback")) {
+    return NextResponse.next();
   }
 
   // 2. Rate Limiting Check (IP-based with route scoping)

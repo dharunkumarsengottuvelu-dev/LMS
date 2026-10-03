@@ -33,10 +33,8 @@ export function sanitizeResponseCookies(request: NextRequest, response: NextResp
       shouldExpire = true;
     }
 
-    // 3. Remove stale OAuth verifiers or legacy temporary state
+    // 3. Remove legacy temporary state (never touch active code-verifier or oauth_state during PKCE flow)
     if (
-      name.endsWith("-code-verifier") ||
-      name.includes("oauth_state") ||
       name.startsWith("falcon_") ||
       name.startsWith("g_state")
     ) {
@@ -92,7 +90,7 @@ export async function updateSession(request: NextRequest) {
         // FIX: In Next.js 14+, modifying request.cookies doesn't update the headers for Server Components.
         // We must manually serialize the cookies back to request.headers.
         const updatedCookies = request.cookies.getAll();
-        const cookieHeader = updatedCookies.map(c => `${c.name}=${encodeURIComponent(c.value)}`).join("; ");
+        const cookieHeader = updatedCookies.map(c => `${c.name}=${c.value}`).join("; ");
         request.headers.set("cookie", cookieHeader);
 
         supabaseResponse = NextResponse.next({ request });
