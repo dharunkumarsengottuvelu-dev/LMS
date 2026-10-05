@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
 import {
@@ -111,10 +112,10 @@ export default function AdminCompilerPage() {
           <Button
             onClick={handleRunHealthCheck}
             disabled={isCheckingHealth}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs h-9 px-4 flex items-center gap-2 shadow-sm"
+            aria-busy={isCheckingHealth}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs h-9 px-4 flex items-center gap-2 shadow-sm disabled:opacity-70"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isCheckingHealth ? "animate-spin" : ""}`} />
-            {isCheckingHealth ? "Running Smoke Tests..." : "Run Health Check"}
+            {isCheckingHealth ? "Running Tests..." : "Run Health Check"}
           </Button>
         </div>
       </div>
@@ -168,9 +169,31 @@ export default function AdminCompilerPage() {
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="text-sm text-muted-foreground text-center py-12 flex flex-col items-center gap-2">
-              <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
-              <span>Loading compiler configuration...</span>
+            <div className="overflow-x-auto" aria-busy="true" aria-label="Loading compiler configuration">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-muted/60 text-muted-foreground text-xs uppercase font-semibold border-b">
+                  <tr>
+                    <th className="px-5 py-3">Language</th>
+                    <th className="px-4 py-3">Identifier</th>
+                    <th className="px-4 py-3">Compiler / Runtime</th>
+                    <th className="px-4 py-3">Health Status</th>
+                    <th className="px-4 py-3">Speed</th>
+                    <th className="px-5 py-3 text-right">Student Access</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-5 py-3.5"><Skeleton className="h-4 w-28" /></td>
+                      <td className="px-4 py-3.5"><Skeleton className="h-4 w-20" /></td>
+                      <td className="px-4 py-3.5"><Skeleton className="h-5 w-20 rounded-md" /></td>
+                      <td className="px-4 py-3.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                      <td className="px-4 py-3.5"><Skeleton className="h-4 w-12" /></td>
+                      <td className="px-5 py-3.5 text-right"><Skeleton className="h-5 w-10 rounded-full ml-auto" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="overflow-x-auto">

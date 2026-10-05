@@ -22,6 +22,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   useStudentNotifications, 
@@ -190,9 +191,20 @@ export default function StudentNotificationsPage() {
       {/* Notifications List */}
       <div className="space-y-3">
         {isLoading ? (
-          <div className="py-20 text-center space-y-3 bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 shadow-xs">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Fetching notifications...</p>
+          <div className="space-y-3" aria-label="Loading notifications" aria-busy="true">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-5 flex items-start gap-4">
+                <Skeleton className="h-9 w-9 rounded-xl shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center justify-between gap-4">
+                    <Skeleton className="h-3.5 w-48" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredNotifications.length === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 shadow-xs space-y-3">

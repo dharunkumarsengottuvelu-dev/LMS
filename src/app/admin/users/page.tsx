@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useLMSStore } from "@/lib/store/lms-store";
 import { PageHeader } from "@/components/layouts/page-header";
@@ -67,6 +68,8 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("student");
   const [isLoading, setIsLoading] = useState(true);
+  const [isAddingUser, setIsAddingUser] = useState(false);
+  const [isEditingUser, setIsEditingUser] = useState(false);
 
   // Tab sync from query params (e.g. /admin/users?tab=institution)
   useEffect(() => {
@@ -250,8 +253,9 @@ export default function AdminUsersPage() {
   );
 
   const handleAddUser = async () => {
-    if (!newUserName || !newUserEmail) return;
+    if (!newUserName || !newUserEmail || isAddingUser) return;
 
+    setIsAddingUser(true);
     try {
       const selectedBatch = newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) : undefined;
       const res = await fetch("/api/admin/users", {
@@ -297,6 +301,8 @@ export default function AdminUsersPage() {
       });
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to create user", variant: "destructive" });
+    } finally {
+      setIsAddingUser(false);
     }
   };
 
@@ -323,6 +329,8 @@ export default function AdminUsersPage() {
   };
 
   const saveEditUser = async () => {
+    if (isEditingUser) return;
+    setIsEditingUser(true);
     try {
       const selectedBatch = newUserType === "student" ? (newUserBatch === "custom" ? customBatch : newUserBatch) || "Unassigned" : null;
       const res = await fetch("/api/admin/users", {
@@ -351,6 +359,8 @@ export default function AdminUsersPage() {
       toast({ title: "Profile Updated", description: "User details and batch assignment saved successfully." });
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to update profile", variant: "destructive" });
+    } finally {
+      setIsEditingUser(false);
     }
   };
 
@@ -692,9 +702,17 @@ export default function AdminUsersPage() {
             )}
 
             <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#E5E7EB] dark:border-[#27272A]">
-              <Button variant="outline" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }} className="h-10 px-6 rounded-xl font-bold text-xs">Cancel</Button>
-              <Button onClick={isEditOpen ? saveEditUser : handleAddUser} className={`h-10 px-8 text-white rounded-xl font-bold text-xs shadow-md ${newUserType === 'student' ? 'bg-[#2563EB] hover:bg-[#1D4ED8]' : 'bg-[#2563EB] hover:bg-[#1D4ED8]'}`}>
-                {isEditOpen ? "Save Changes" : "Provision Account"}
+              <Button variant="outline" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }} className="h-10 px-6 rounded-xl font-bold text-xs" disabled={isAddingUser || isEditingUser}>Cancel</Button>
+              <Button
+                onClick={isEditOpen ? saveEditUser : handleAddUser}
+                disabled={isAddingUser || isEditingUser}
+                aria-busy={isAddingUser || isEditingUser}
+                className={`h-10 px-8 text-white rounded-xl font-bold text-xs shadow-md bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-70`}
+              >
+                {isEditOpen
+                  ? (isEditingUser ? "Saving..." : "Save Changes")
+                  : (isAddingUser ? "Provisioning..." : "Provision Account")
+                }
               </Button>
             </div>
           </CardContent>
@@ -749,7 +767,17 @@ export default function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-                  {filtered.length === 0 ? (
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={`skel-${i}`}>
+                        <td className="p-4 pl-6"><div className="flex items-center gap-3"><Skeleton className="h-10 w-10 rounded-full" /><div className="space-y-1.5"><Skeleton className="h-3.5 w-32" /><Skeleton className="h-3 w-48" /></div></div></td>
+                        <td className="p-4"><Skeleton className="h-6 w-28 rounded-md" /></td>
+                        <td className="p-4"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                        <td className="p-4"><Skeleton className="h-3.5 w-24" /></td>
+                        <td className="p-4 pr-6 text-right"><div className="flex justify-end gap-2"><Skeleton className="h-8 w-8 rounded-lg" /><Skeleton className="h-8 w-8 rounded-lg" /></div></td>
+                      </tr>
+                    ))
+                  ) : filtered.length === 0 ? (
                     <tr><td colSpan={5} className="p-8 text-center text-[#6B7280] text-sm">No students found.</td></tr>
                   ) : (
                     filtered.map((user) => (
@@ -824,7 +852,17 @@ export default function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-                  {filtered.length === 0 ? (
+                  {isLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <tr key={`eskel-${i}`}>
+                        <td className="p-4 pl-6"><div className="flex items-center gap-3"><Skeleton className="h-10 w-10 rounded-full" /><div className="space-y-1.5"><Skeleton className="h-3.5 w-32" /><Skeleton className="h-3 w-48" /></div></div></td>
+                        <td className="p-4"><Skeleton className="h-3.5 w-28" /></td>
+                        <td className="p-4"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                        <td className="p-4"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                        <td className="p-4 pr-6 text-right"><div className="flex justify-end gap-2"><Skeleton className="h-8 w-8 rounded-lg" /><Skeleton className="h-8 w-8 rounded-lg" /></div></td>
+                      </tr>
+                    ))
+                  ) : filtered.length === 0 ? (
                     <tr><td colSpan={5} className="p-8 text-center text-[#6B7280] text-sm">No employees found.</td></tr>
                   ) : (
                     filtered.map((user) => (
@@ -901,7 +939,20 @@ export default function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-                  {filtered.length === 0 ? (
+                  {isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <tr key={`iskel-${i}`}>
+                        <td className="p-4 pl-6"><div className="flex items-center gap-3"><Skeleton className="h-10 w-10 rounded-xl" /><div className="space-y-1.5"><Skeleton className="h-3.5 w-36" /><Skeleton className="h-3 w-48" /></div></div></td>
+                        <td className="p-4"><Skeleton className="h-3.5 w-40" /></td>
+                        <td className="p-4"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                        <td className="p-4"><Skeleton className="h-5 w-16 rounded-md" /></td>
+                        <td className="p-4"><Skeleton className="h-3.5 w-24" /></td>
+                        <td className="p-4"><Skeleton className="h-5 w-14 rounded-full" /></td>
+                        <td className="p-4"><Skeleton className="h-3.5 w-20" /></td>
+                        <td className="p-4 pr-6 text-right"><div className="flex justify-end gap-2"><Skeleton className="h-8 w-16 rounded-lg" /><Skeleton className="h-8 w-14 rounded-lg" /><Skeleton className="h-8 w-8 rounded-lg" /></div></td>
+                      </tr>
+                    ))
+                  ) : filtered.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="p-10 text-center text-[#6B7280]">
                         <Building2 className="h-8 w-8 mx-auto mb-2 text-[#9CA3AF]" />

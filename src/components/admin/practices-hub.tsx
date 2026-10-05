@@ -24,7 +24,6 @@ import {
   Check, 
   AlertTriangle,
   ShieldAlert,
-  Loader2,
   Search,
   Eye,
   Code2,
@@ -3455,10 +3454,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   className="h-10 px-6 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center gap-2"
                 >
                   {isDeleting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Deleting...</span>
-                    </>
+                    <span>Deleting...</span>
                   ) : (
                     <>
                       <Trash2 className="w-4 h-4" />

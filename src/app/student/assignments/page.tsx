@@ -13,7 +13,11 @@ export default function StudentAssignmentsRedirectPage() {
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
       <div className="text-center space-y-2">
-        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="flex items-center justify-center gap-1.5">
+          <span className="loading-dot bg-blue-600" />
+          <span className="loading-dot bg-blue-600" />
+          <span className="loading-dot bg-blue-600" />
+        </div>
         <p className="text-xs text-slate-500">Redirecting to Live Classes...</p>
       </div>
     </div>

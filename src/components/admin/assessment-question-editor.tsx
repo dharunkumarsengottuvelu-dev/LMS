@@ -29,7 +29,6 @@ import {
   HelpCircle,
   Clock,
   Send,
-  Loader2,
   FileText,
   Lock,
   Globe,
@@ -50,8 +49,8 @@ import type { ScheduledTest, TestQuestion } from "@/components/admin/proctored-t
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-full bg-[#18181B] text-slate-400">
-      <Loader2 className="h-6 w-6 animate-spin text-[#2563EB]" />
+    <div className="flex items-center justify-center h-full bg-[#18181B] text-slate-400 text-xs font-mono">
+      Loading code editor...
     </div>
   ),
 });
@@ -653,8 +652,12 @@ export function AssessmentQuestionEditor({
             disabled={isSaving}
             className="h-9 text-xs font-bold border-slate-200 dark:border-zinc-700 gap-1.5"
           >
-            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            Save Draft
+            {isSaving ? "Saving Draft..." : (
+              <>
+                <Save className="h-3.5 w-3.5" />
+                Save Draft
+              </>
+            )}
           </Button>
 
           <Button
@@ -664,8 +667,12 @@ export function AssessmentQuestionEditor({
             disabled={isSaving}
             className="h-9 text-xs font-bold bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1.5 shadow-xs"
           >
-            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-            Save & Publish
+            {isSaving ? "Publishing..." : (
+              <>
+                <Check className="h-3.5 w-3.5" />
+                Save & Publish
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -982,12 +989,12 @@ export function AssessmentQuestionEditor({
                         disabled={isRunning}
                         className="h-8 px-3.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 rounded-lg shadow-xs"
                       >
-                        {isRunning ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Play className="h-3.5 w-3.5 fill-current" />
+                        {isRunning ? "Running Code..." : (
+                          <>
+                            <Play className="h-3.5 w-3.5 fill-current" />
+                            Run Code
+                          </>
                         )}
-                        Run Code
                       </Button>
                     </div>
                   </div>
@@ -1820,8 +1827,12 @@ export function AssessmentQuestionEditor({
                 disabled={isSaving}
                 className="h-9 px-4 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl gap-1.5"
               >
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Save Changes
+                {isSaving ? "Saving Changes..." : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
               </Button>
             )}
           </div>

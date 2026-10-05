@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { SensiLearnLiveClassroom } from "@/components/live-classroom/sensilearn-live-classroom";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function TrainerLiveClassRoomPage() {
@@ -95,9 +95,13 @@ export default function TrainerLiveClassRoomPage() {
 
   if (loading) {
     return (
-      <div className="h-screen w-full bg-[#0B0F19] flex flex-col items-center justify-center gap-3 text-white">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        <p className="text-xs font-semibold text-zinc-400">Starting Trainer Live Classroom Session...</p>
+      <div className="h-screen w-full bg-[#0B0F19] flex flex-col items-center justify-center gap-4 text-white">
+        <div className="flex gap-2 items-center">
+          <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
+          <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse [animation-delay:200ms]" />
+          <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse [animation-delay:400ms]" />
+        </div>
+        <p className="text-xs font-semibold text-zinc-400 tracking-wide">Starting Trainer Live Classroom Session...</p>
       </div>
     );
   }

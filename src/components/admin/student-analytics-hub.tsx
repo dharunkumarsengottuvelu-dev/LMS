@@ -7,9 +7,10 @@ import {
   Award, AlertTriangle, CheckCircle2, FileText, Code2, Clock, ShieldAlert,
   GraduationCap, ArrowUpRight, BarChart3, Lock, ShieldCheck, ArrowLeft, Sparkles, FolderKanban,
   Upload, Download, FileSpreadsheet, UploadCloud, FileUp, X, Calendar, CalendarDays, Check,
-  BookOpen, Dumbbell, ClipboardList, Inbox, Loader2, Layers, TrendingUp, Laptop, Copy, ExternalLink, FileCheck, Video, Boxes
+  BookOpen, Dumbbell, ClipboardList, Inbox, Layers, TrendingUp, Laptop, Copy, ExternalLink, FileCheck, Video, Boxes
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -1495,9 +1496,24 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
         </Card>
 
         {isLoadingAnalytics ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin text-[#2563EB]" />
-            <p className="text-sm font-medium">Loading candidate performance metrics & reports...</p>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <Card key={i} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 space-y-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-8 w-16" />
+                  <Skeleton className="h-3 w-32" />
+                </Card>
+              ))}
+            </div>
+            <Card className="p-6 space-y-4">
+              <Skeleton className="h-5 w-48" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Skeleton className="h-24 rounded-xl" />
+                <Skeleton className="h-24 rounded-xl" />
+                <Skeleton className="h-24 rounded-xl" />
+              </div>
+            </Card>
           </div>
         ) : (
           <>
@@ -2527,8 +2543,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                     disabled={isSavingReview}
                     className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl h-11 px-7 gap-2 shadow-lg shadow-[#2563EB]/25"
                   >
-                    {isSavingReview ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    Save Review & Grade
+                    {isSavingReview ? "Saving Grade..." : "Save Review & Grade"}
                   </Button>
                 </DialogFooter>
               </>
@@ -3177,14 +3192,17 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
               </thead>
               <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
                 {isLoadingReport ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-[#6B7280]">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <Loader2 className="h-6 w-6 animate-spin text-[#2563EB]" />
-                        <p className="text-xs font-semibold">Loading batch performance records...</p>
-                      </div>
-                    </td>
-                  </tr>
+                  [...Array(4)].map((_, idx) => (
+                    <tr key={idx}>
+                      <td className="p-3.5 pl-6"><Skeleton className="h-4 w-28" /></td>
+                      <td className="p-3.5"><Skeleton className="h-4 w-20" /></td>
+                      <td className="p-3.5"><Skeleton className="h-4 w-12" /></td>
+                      <td className="p-3.5"><Skeleton className="h-4 w-16" /></td>
+                      <td className="p-3.5"><Skeleton className="h-4 w-16" /></td>
+                      <td className="p-3.5"><Skeleton className="h-4 w-14" /></td>
+                      <td className="p-3.5 pr-6 text-right"><Skeleton className="h-8 w-24 ml-auto" /></td>
+                    </tr>
+                  ))
                 ) : reportBatches.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-14 text-center">
@@ -3445,14 +3463,22 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                 </thead>
                 <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
                   {isLoadingReport && displayReportStudents.length === 0 ? (
-                    <tr>
-                      <td colSpan={12} className="py-12 text-center text-[#6B7280]">
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <Loader2 className="h-6 w-6 animate-spin text-[#2563EB]" />
-                          <p className="text-xs font-semibold">Loading enterprise performance records...</p>
-                        </div>
-                      </td>
-                    </tr>
+                    [...Array(5)].map((_, idx) => (
+                      <tr key={idx}>
+                        <td className="p-3.5 pl-6"><Skeleton className="h-4 w-32" /></td>
+                        <td className="p-3.5"><Skeleton className="h-4 w-24" /></td>
+                        <td className="p-3.5"><Skeleton className="h-4 w-28" /></td>
+                        <td className="p-3.5"><Skeleton className="h-4 w-16" /></td>
+                        <td className="p-3.5"><Skeleton className="h-4 w-12" /></td>
+                        <td className="p-3.5"><Skeleton className="h-4 w-12" /></td>
+                        <td className="p-3.5"><Skeleton className="h-4 w-12" /></td>
+                        <td className="p-3.5"><Skeleton className="h-4 w-12" /></td>
+                        <td className="p-3.5"><Skeleton className="h-4 w-16" /></td>
+                        <td className="p-3.5"><Skeleton className="h-4 w-16" /></td>
+                        <td className="p-3.5"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                        <td className="p-3.5 pr-6 text-right"><Skeleton className="h-7 w-16 ml-auto" /></td>
+                      </tr>
+                    ))
                   ) : displayReportStudents.length === 0 ? (
                     <tr>
                       <td colSpan={12} className="py-12 text-center text-[#6B7280]">

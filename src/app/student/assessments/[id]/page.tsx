@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo } from "react";
 import { PracticeRunnerEngine, PracticeQuestion } from "@/components/quiz/practice-runner";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, AlertCircle, RefreshCw, CheckCircle2, RotateCcw, Check, X, Copy } from "lucide-react";
+import { ArrowLeft, AlertCircle, RefreshCw, CheckCircle2, RotateCcw, Check, X, Copy } from "lucide-react";
 import { Card, CardContent, CardTitle, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -674,8 +675,41 @@ export default function AssessmentTakePage() {
 
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-10 w-10 text-[#2563EB] animate-spin" />
+      <div className="w-full py-8 space-y-6 max-w-7xl mx-auto px-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-9 w-28 rounded-xl" />
+          <Skeleton className="h-9 w-32 rounded-xl" />
+        </div>
+        <Card className="p-6 space-y-4">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-1/3" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Skeleton className="h-6 w-24 rounded-full" />
+            <Skeleton className="h-6 w-24 rounded-full" />
+            <Skeleton className="h-6 w-24 rounded-full" />
+          </div>
+        </Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="p-6 md:col-span-2 space-y-4">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-20 w-full rounded-xl" />
+            <div className="space-y-3 pt-4">
+              <Skeleton className="h-12 w-full rounded-xl" />
+              <Skeleton className="h-12 w-full rounded-xl" />
+              <Skeleton className="h-12 w-full rounded-xl" />
+            </div>
+          </Card>
+          <Card className="p-6 space-y-3">
+            <Skeleton className="h-5 w-1/2" />
+            <div className="grid grid-cols-4 gap-2 pt-2">
+              {[...Array(12)].map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full rounded-lg" />
+              ))}
+            </div>
+          </Card>
+        </div>
       </div>
     );
   }

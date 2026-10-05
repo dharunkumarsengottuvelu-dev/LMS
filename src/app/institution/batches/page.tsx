@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Select,
@@ -615,9 +616,26 @@ export default function InstitutionBatchesPage() {
           </SheetHeader>
 
           {isLoadingDetails ? (
-            <div className="py-16 text-center space-y-3">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-xs text-muted-foreground">Loading learner telemetry...</p>
+            <div className="pt-5 space-y-4" aria-busy="true" aria-label="Loading learner dossier">
+              <Card className="bg-background border-border rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div className="space-y-1.5 flex-1">
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-3 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                </div>
+              </Card>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-3 w-8" />
+                  </div>
+                  <Skeleton className="h-2 w-full rounded-full" />
+                </div>
+              ))}
             </div>
           ) : detailedStudent ? (
             <div className="space-y-6 pt-5 text-xs">

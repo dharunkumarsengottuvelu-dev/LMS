@@ -20,8 +20,9 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { cn, getInitials } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Pencil, Calendar, Clock, AlertCircle, Loader2,
+  Pencil, Calendar, Clock, AlertCircle,
   CheckCircle2, Ban, Trash2, BookOpen, User,
   Video, Radio, Users, Download, Plus, RefreshCw,
   Search, X, FolderKanban, UserCheck, LayoutGrid, Table as TableIcon
@@ -1038,14 +1039,7 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
                 disabled={savingEdit}
                 className="h-10 px-5 text-xs font-bold rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer shadow-sm"
               >
-                {savingEdit ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                    Saving Changes...
-                  </>
-                ) : (
-                  "Save Changes"
-                )}
+                {savingEdit ? "Saving Changes..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>
@@ -1090,9 +1084,19 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
             </div>
 
             {isLoadingAttendance ? (
-              <div className="py-12 text-center text-[#6B7280]">
-                <Loader2 className="h-7 w-7 animate-spin mx-auto text-[#2563EB] mb-2" />
-                <p className="text-xs font-semibold">Loading attendance records...</p>
+              <div className="space-y-2 p-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="p-3 flex items-center justify-between border border-slate-100 dark:border-zinc-800 rounded-xl">
+                    <div className="flex items-center gap-2.5">
+                      <Skeleton className="h-7 w-7 rounded-full" />
+                      <div className="space-y-1">
+                        <Skeleton className="h-3.5 w-24" />
+                        <Skeleton className="h-2.5 w-32" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                ))}
               </div>
             ) : attendanceLogs.length === 0 ? (
               <div className="py-12 text-center text-[#6B7280] border border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl">

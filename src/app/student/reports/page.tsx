@@ -21,7 +21,6 @@ import {
   Code2,
   FileText,
   Search,
-  Loader2,
   Inbox,
   Dumbbell,
   ClipboardList,
@@ -34,6 +33,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
@@ -726,9 +726,28 @@ export default function StudentReportsPage() {
       </div>
 
       {isLoading ? (
-        <div className="py-20 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-          <Loader2 className="h-8 w-8 animate-spin text-[#2563EB]" />
-          <p className="text-sm font-medium">Loading real learning analytics...</p>
+        <div className="space-y-4" aria-busy="true" aria-label="Loading learning analytics">
+          {/* Tab skeleton */}
+          <div className="flex gap-2 mb-2">
+            {[1,2,3,4].map(i => <Skeleton key={i} className="h-9 w-28 rounded-xl" />)}
+          </div>
+          {/* Content card skeletons */}
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl overflow-hidden">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </div>
+                <Skeleton className="h-2 w-full rounded-full" />
+                <div className="flex gap-6">
+                  <Skeleton className="h-3.5 w-24" />
+                  <Skeleton className="h-3.5 w-24" />
+                  <Skeleton className="h-3.5 w-24" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       ) : (
         <>
