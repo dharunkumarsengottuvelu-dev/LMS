@@ -107,13 +107,12 @@ export default function StudentPracticesPage() {
       {/* ─── MAIN MODULES LIST ─────────────────────────────────────────── */}
       <div className="space-y-4">
         {isLoading ? (
-          <div className="py-20 flex items-center justify-center">
-            <Loading
-              text="Loading practice modules..."
-              subtext="Please wait while we prepare your challenges."
-              size="lg"
-            />
-          </div>
+          <Loading
+            fullScreen
+            text="Loading practice modules..."
+            subtext="Please wait while we prepare your challenges."
+            size="lg"
+          />
         ) : filteredTracks.length === 0 ? (
           <Card className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 p-12 text-center rounded-xl shadow-2xs">
             <div className="max-w-md mx-auto space-y-2">

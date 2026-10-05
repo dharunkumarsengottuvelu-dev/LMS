@@ -1,4 +1,7 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 export interface LoadingProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -61,16 +64,26 @@ export function Loading({
   className,
   ...props
 }: LoadingProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const config = sizeMap[size] || sizeMap.md;
 
-  return (
+  const content = (
     <div
       role="status"
       aria-live="polite"
       aria-label={text}
       className={cn(
         "flex flex-col items-center justify-center text-center select-none",
-        fullScreen ? "min-h-[60vh] w-full py-16 flex-1" : "py-8 w-full",
+        fullScreen
+          ? "fixed inset-0 z-[9999] h-screen h-[100dvh] w-screen w-[100dvw] bg-background/95 backdrop-blur-xs flex flex-col items-center justify-center m-0 p-4"
+          : size === "sm"
+          ? "w-full flex-1 flex flex-col items-center justify-center py-6"
+          : "w-full flex-1 min-h-[50vh] flex flex-col items-center justify-center py-12",
         config.gap,
         className
       )}
@@ -158,6 +171,12 @@ export function Loading({
       )}
     </div>
   );
+
+  if (fullScreen && mounted && typeof document !== "undefined") {
+    return createPortal(content, document.body);
+  }
+
+  return content;
 }
 
 export default Loading;

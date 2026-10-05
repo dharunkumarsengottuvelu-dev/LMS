@@ -1060,13 +1060,12 @@ export default function StudentPracticeCodingRunnerPage() {
   // Loading Screen
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background text-foreground font-sans">
-        <Loading
-          text="Loading coding challenge..."
-          subtext="Preparing problem statement and editor workspace."
-          size="lg"
-        />
-      </div>
+      <Loading
+        fullScreen
+        text="Loading coding challenge..."
+        subtext="Preparing problem statement and editor workspace."
+        size="lg"
+      />
     );
   }
 

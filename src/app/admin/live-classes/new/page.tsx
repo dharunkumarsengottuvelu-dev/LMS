@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Calendar, Clock, BookOpen, User, Sparkles, Loader2, AlertCircle, Zap } from "lucide-react";
+import { Loading } from "@/components/ui/loading";
 import { PageHeader } from "@/components/layouts/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -271,10 +272,12 @@ export default function AdminNewLiveClassPage() {
 
   if (loadingInitial) {
     return (
-      <div className="py-24 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <p className="text-xs font-semibold">Loading scheduling configuration...</p>
-      </div>
+      <Loading
+        fullScreen
+        size="lg"
+        text="Loading scheduling configuration..."
+        subtext="Fetching available courses, trainers, and cohort batches."
+      />
     );
   }
 

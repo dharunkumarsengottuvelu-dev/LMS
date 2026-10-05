@@ -675,13 +675,12 @@ export default function ProblemSolvingWorkspace() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background text-foreground font-sans">
-        <Loading
-          text="Loading coding problem..."
-          subtext="Preparing code lab problem and test cases."
-          size="lg"
-        />
-      </div>
+      <Loading
+        fullScreen
+        text="Loading coding problem..."
+        subtext="Preparing code lab problem and test cases."
+        size="lg"
+      />
     );
   }
 
