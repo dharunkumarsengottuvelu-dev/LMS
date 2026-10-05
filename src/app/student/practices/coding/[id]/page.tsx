@@ -172,6 +172,13 @@ export default function StudentPracticeCodingRunnerPage() {
   // Active coding problem
   const currentProblem = problems[currentIdx] || null;
 
+  useEffect(() => {
+    const title = currentProblem?.title || moduleTitle || trackTitle;
+    if (title) {
+      document.title = `SensilLearn | ${title}`;
+    }
+  }, [currentProblem?.title, moduleTitle, trackTitle]);
+
   // Tabs
   const [leftTab, setLeftTab] = useState<"description" | "solutions" | "discuss" | "submissions">("description");
   const [bottomTab, setBottomTab] = useState<"testcase" | "testresult" | "console">("testcase");

@@ -34,6 +34,12 @@ export default function StudentTestRunnerPage() {
   const [isExamSubmitted, setIsExamSubmitted] = useState<boolean>(false);
   const [submissionData, setSubmissionData] = useState<any>(null);
 
+  useEffect(() => {
+    if (testData?.title) {
+      document.title = `SensilLearn | ${testData.title}`;
+    }
+  }, [testData?.title]);
+
   // Unified Proctoring Violation State
   const [violationsCount, setViolationsCount] = useState<number>(0);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);

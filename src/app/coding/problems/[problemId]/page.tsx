@@ -125,6 +125,12 @@ export default function ProblemSolvingWorkspace() {
 
   const questionNumber = currentProblemIndex + 1;
 
+  useEffect(() => {
+    if (problem?.title) {
+      document.title = `SensilLearn | ${problem.title}`;
+    }
+  }, [problem?.title]);
+
   // Left Tab: Description, Solutions, Discuss
   const [leftTab, setLeftTab] = useState<"description" | "solutions" | "discuss">("description");
 

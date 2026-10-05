@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: { template: "%s | Enterprise Admin", default: "Enterprise Admin — SensiLearn" },
+  title: { template: "SensilLearn | %s", default: "SensilLearn | Admin Dashboard" },
 };
 
 export default async function AdminLayout({

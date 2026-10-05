@@ -5,10 +5,10 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | Institution Performance Portal",
-    default: "Institution Performance Portal — SensiLearn LMS",
+    template: "SensilLearn | %s",
+    default: "SensilLearn | Institution Dashboard",
   },
-  description: "Enterprise Academic & Learner Performance Portal for Partner Institutions.",
+  description: "Academic and learner performance portal for partner institutions.",
 };
 
 export default async function InstitutionLayout({

@@ -11,29 +11,27 @@ import { ActiveTimeProvider } from "@/components/providers/active-time-provider"
 
 export const metadata: Metadata = {
   title: {
-    default: "SensiLearn — Enterprise Learning Platform",
-    template: "%s | SensiLearn",
+    default: "SensilLearn",
+    template: "SensilLearn | %s",
   },
   description:
-    "SensiLearn is a next-generation learning and technology-driven training platform under SENSI Group. Focused. Adaptive. Learning. Curated. Organized. Next-Gen.",
+    "SensilLearn is an enterprise learning platform.",
   keywords: [
-    "SensiLearn",
-    "SensiLearn Learning Technologies",
-    "SENSI Group",
+    "SensilLearn",
     "LMS",
     "e-learning",
     "corporate training",
     "online courses",
     "coding assessment",
   ],
-  authors: [{ name: "SensiLearn Learning Technologies" }],
+  authors: [{ name: "SensilLearn" }],
   openGraph: {
     type: "website",
     locale: "en_US",
     url: process.env["NEXT_PUBLIC_APP_URL"],
-    title: "SensiLearn — Enterprise Learning Platform",
-    description: "Next-generation enterprise learning platform under SENSI Group.",
-    siteName: "SensiLearn",
+    title: "SensilLearn",
+    description: "Enterprise learning platform.",
+    siteName: "SensilLearn",
   },
   robots: {
     index: true,

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AdminDashboardClient } from "./dashboard-client";
 import { DashboardAnalyticsService } from "@/services/dashboard-analytics.service";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Admin Dashboard" };
 export const dynamic = "force-dynamic";
 
 async function getDashboardStats() {

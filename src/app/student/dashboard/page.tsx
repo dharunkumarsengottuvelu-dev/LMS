@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
 import { getTopicThumbnail } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Student Dashboard" };
 export const dynamic = "force-dynamic";
 
 async function getStudentData() {

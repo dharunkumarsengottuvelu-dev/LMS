@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Authentication — SensiLearn",
+  title: {
+    default: "SensilLearn",
+    template: "SensilLearn | %s",
+  },
 };
 
 export default function AuthLayout({

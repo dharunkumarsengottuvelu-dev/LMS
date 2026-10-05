@@ -412,6 +412,12 @@ export default function StudentCoursePlayerPage() {
   // Safe event-driven progress subscriber
   const progressVersion = useCourseProgressVersion();
 
+  useEffect(() => {
+    if (courseTitle) {
+      document.title = `SensilLearn | ${courseTitle}`;
+    }
+  }, [courseTitle]);
+
   // Authoritative dynamic course progress calculation
   const courseProgress = useMemo(() => {
     return computeCourseProgress(

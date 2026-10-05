@@ -134,6 +134,12 @@ export default function AssessmentTakePage() {
 
   const [completedRecord, setCompletedRecord] = useState<CompletedRecord | null>(null);
 
+  useEffect(() => {
+    if (currentSubModule?.title) {
+      document.title = `SensilLearn | ${currentSubModule.title}`;
+    }
+  }, [currentSubModule?.title]);
+
   const loadData = async () => {
     if (!subModuleId) {
       setLoading(false);

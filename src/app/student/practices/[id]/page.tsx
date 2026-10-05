@@ -67,6 +67,13 @@ export default function StudentTrackDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  useEffect(() => {
+    const title = track?.title || track?.name;
+    if (title) {
+      document.title = `SensilLearn | ${title}`;
+    }
+  }, [track?.title, track?.name]);
+
   const fetchTrackDetails = useCallback(async (isSilent = false) => {
     if (!trackId) return;
     if (!isSilent) {

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Code Playground | SensiLearn IDE",
-  description: "Practice coding in 14+ languages with real-time execution in SensiLearn",
+  title: {
+    template: "SensilLearn | %s",
+    default: "SensilLearn | Code Playground",
+  },
 };
 
 export default function IDELayout({ children }: { children: React.ReactNode }) {

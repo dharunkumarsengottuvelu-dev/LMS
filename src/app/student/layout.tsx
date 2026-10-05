@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { SessionTimeout } from "@/components/providers/session-timeout";
 
 export const metadata: Metadata = {
-  title: { template: "%s | SensiLearn", default: "Student Portal — SensiLearn" },
+  title: { template: "SensilLearn | %s", default: "SensilLearn | Student Dashboard" },
 };
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
