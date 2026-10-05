@@ -13,7 +13,6 @@ import { StudentTopNav } from "@/components/layouts/student-top-nav";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
 import type { CodingSubmission, CodingLanguage, TestCaseResult, CodingProblem, TestCase } from "@/types/coding";
-import { SAMPLE_CODING_PROBLEMS } from "@/services/coding-problems.service";
 
 type ProblemTab = "statement" | "solution";
 
@@ -35,7 +34,7 @@ export default function StudentCodingIDEPage() {
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
-  const [problems, setProblems] = useState<CodingProblem[]>(SAMPLE_CODING_PROBLEMS);
+  const [problems, setProblems] = useState<CodingProblem[]>([]);
   
   useEffect(() => {
     if (typeof window === "undefined") return;

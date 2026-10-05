@@ -46,20 +46,23 @@ export default function InstitutionOverviewPage() {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const [overviewRes, meRes] = await Promise.all([
-        fetch("/api/institution/overview"),
-        fetch("/api/institution/me"),
-      ]);
-
-      if (!overviewRes.ok || !meRes.ok) {
+      const overviewRes = await fetch("/api/institution/overview");
+      if (!overviewRes.ok) {
         throw new Error("Unable to load performance telemetry. Please try again.");
       }
 
       const ov = await overviewRes.json();
-      const me = await meRes.json();
-
       setData(ov.overview || null);
-      setInstitution(me.institution || null);
+
+      if (ov.institution) {
+        setInstitution(ov.institution);
+      } else {
+        const meRes = await fetch("/api/institution/me");
+        if (meRes.ok) {
+          const me = await meRes.json();
+          setInstitution(me.institution || null);
+        }
+      }
     } catch (err: any) {
       setErrorMsg(err.message || "Unable to load performance data. Please try again.");
     } finally {

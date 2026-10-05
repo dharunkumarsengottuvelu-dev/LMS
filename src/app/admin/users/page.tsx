@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, Search, Plus, UserCheck, Shield, Trash2, Edit, GraduationCap, Building2, Briefcase, Mail, Key, Upload, FileSpreadsheet, UploadCloud, X, ExternalLink, Phone, Boxes } from "lucide-react";
+import { Users, Search, Plus, UserCheck, Shield, Trash2, Edit, GraduationCap, Building2, Briefcase, Mail, Key, Upload, FileSpreadsheet, UploadCloud, X, ExternalLink, Phone, CheckCircle2, Layers, Eye, BookOpen, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,19 @@ import { safeParseSpreadsheet } from "@/lib/excel-security";
 type UserRole = "admin" | "manager" | "trainer" | "student" | "institution";
 type UserStatus = "active" | "pending" | "suspended";
 type UserType = "employee" | "student" | "institution";
+
+export interface AdminBatchDetail {
+  id: string;
+  name: string;
+  batchName: string;
+  code: string;
+  collegeName?: string;
+  course?: string;
+  trainer?: string;
+  startDate?: string;
+  status: string;
+  studentCount: number;
+}
 
 interface SystemUser {
   id: string;
@@ -42,10 +55,29 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
   const { batches: storeBatches } = useLMSStore();
   const [availableBatches, setAvailableBatches] = useState<{ id: string; name: string }[]>([]);
+  const [allBatches, setAllBatches] = useState<AdminBatchDetail[]>([]);
+  const [selectedInstForBatches, setSelectedInstForBatches] = useState<SystemUser | null>(null);
+  const [isManageBatchesOpen, setIsManageBatchesOpen] = useState(false);
+  const [batchModalFilter, setBatchModalFilter] = useState<"all" | "assigned" | "available">("all");
+  const [batchModalSearch, setBatchModalSearch] = useState("");
+  const [assigningBatchId, setAssigningBatchId] = useState<string | null>(null);
+  const [viewingBatchDetail, setViewingBatchDetail] = useState<AdminBatchDetail | null>(null);
+
   const [users, setUsers] = useState<SystemUser[]>(initialUsers);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("student");
   const [isLoading, setIsLoading] = useState(true);
+
+  // Tab sync from query params (e.g. /admin/users?tab=institution)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (tabParam === "institution" || tabParam === "employee" || tabParam === "student") {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
 
   // Fetch batches directly from API
   const fetchBatches = async () => {
@@ -54,6 +86,20 @@ export default function AdminUsersPage() {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.batches)) {
+          setAllBatches(
+            data.batches.map((b: any) => ({
+              id: String(b.id),
+              name: b.name || b.batchName || b.batch_name || `Batch #${b.id}`,
+              batchName: b.name || b.batchName || b.batch_name || `Batch #${b.id}`,
+              code: b.code || `BAT-${String(b.id).slice(0, 6).toUpperCase()}`,
+              collegeName: b.collegeName || "",
+              course: b.course || b.courseName || "",
+              trainer: b.trainer || b.trainerName || "",
+              startDate: b.startDate || "",
+              status: b.status || "active",
+              studentCount: b.studentCount || (Array.isArray(b.studentIds) ? b.studentIds.length : 0),
+            }))
+          );
           setAvailableBatches(
             data.batches.map((b: any) => ({
               id: String(b.id),
@@ -64,6 +110,72 @@ export default function AdminUsersPage() {
       }
     } catch (e) {
       console.warn("Could not fetch batches:", e);
+    }
+  };
+
+  // Assign or unassign existing batch to the selected institution
+  const handleAssignBatchToInstitution = async (batchId: string, targetCollege: string) => {
+    if (assigningBatchId) return;
+
+    const batch = allBatches.find((b) => b.id === batchId);
+    const existingCollege = (batch?.collegeName || "").trim().toLowerCase();
+    const newCollege = targetCollege.trim().toLowerCase();
+
+    // Prevent duplicate assignment if already assigned
+    if (newCollege && existingCollege === newCollege) {
+      toast({
+        title: "Already Assigned",
+        description: `Batch "${batch?.batchName || batchId}" is already assigned to ${targetCollege}.`,
+      });
+      return;
+    }
+
+    setAssigningBatchId(batchId);
+    try {
+      const res = await fetch(`/api/admin/batches/${batchId}/assign-institution`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collegeName: targetCollege,
+          institutionId: selectedInstForBatches?.id || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update batch assignment");
+      }
+
+      const resData = await res.json().catch(() => ({}));
+
+      // Optimistically update allBatches state
+      setAllBatches((prev) =>
+        prev.map((b) =>
+          b.id === batchId ? { ...b, collegeName: targetCollege } : b
+        )
+      );
+
+      // Re-fetch batches for database consistency
+      await fetchBatches();
+
+      toast({
+        title: targetCollege
+          ? resData.alreadyAssigned
+            ? "Already Assigned"
+            : "Batch Assigned to Institution"
+          : "Assignment Deleted",
+        description: targetCollege
+          ? `Batch "${batch?.batchName || batchId}" is now linked to ${targetCollege}. It will immediately sync to their institution performance portal.`
+          : `Batch "${batch?.batchName || batchId}" assignment has been deleted and is now available.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Assignment Failed",
+        description: err.message || "Failed to update institution assignment",
+        variant: "destructive",
+      });
+    } finally {
+      setAssigningBatchId(null);
     }
   };
 
@@ -781,16 +893,17 @@ export default function AdminUsersPage() {
                     <th className="p-4 pl-6">Institution & SPOC</th>
                     <th className="p-4">College / Organization</th>
                     <th className="p-4">Institution Code</th>
+                    <th className="p-4">Assigned Batches</th>
                     <th className="p-4">Contact Phone</th>
                     <th className="p-4">Status</th>
                     <th className="p-4">Onboarded</th>
-                    <th className="p-4 pr-6 text-right">Portal & Access</th>
+                    <th className="p-4 pr-6 text-right">Portal & Batches</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-10 text-center text-[#6B7280]">
+                      <td colSpan={8} className="p-10 text-center text-[#6B7280]">
                         <Building2 className="h-8 w-8 mx-auto mb-2 text-[#9CA3AF]" />
                         <p className="font-semibold text-sm text-[#111827] dark:text-[#FAFAFA]">No institution accounts found.</p>
                         <p className="text-xs text-[#6B7280] mt-1">Click &quot;Add New User&quot; and choose &quot;Partner Institution&quot; to create an institutional login.</p>
@@ -828,6 +941,39 @@ export default function AdminUsersPage() {
                             <span className="text-xs text-[#9CA3AF]">—</span>
                           )}
                         </td>
+                        <td className="p-4">
+                          {(() => {
+                            const collegeLower = (user.college || user.name || "").trim().toLowerCase();
+                            const instBatches = allBatches.filter(
+                              (b) => (b.collegeName || "").trim().toLowerCase() === collegeLower
+                            );
+                            const count = instBatches.length;
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedInstForBatches(user);
+                                  setBatchModalFilter("assigned");
+                                  setBatchModalSearch("");
+                                  setIsManageBatchesOpen(true);
+                                }}
+                                title="Click to view and manage assigned batches"
+                                className="group inline-flex items-center gap-1.5 focus:outline-none"
+                              >
+                                <Badge
+                                  variant="outline"
+                                  className={`font-semibold text-[11px] px-2.5 py-0.5 transition-all cursor-pointer group-hover:scale-105 ${
+                                    count > 0
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                                      : "bg-slate-50 text-slate-500 border-slate-200 dark:bg-zinc-900 dark:text-zinc-400 dark:border-zinc-800"
+                                  }`}
+                                >
+                                  <span>{count} {count === 1 ? "Batch" : "Batches"}</span>
+                                </Badge>
+                              </button>
+                            );
+                          })()}
+                        </td>
                         <td className="p-4 text-xs text-[#6B7280]">
                           {user.phone ? (
                             <span className="flex items-center gap-1 font-mono">
@@ -845,16 +991,30 @@ export default function AdminUsersPage() {
                           </Badge>
                         </td>
                         <td className="p-4 text-xs font-mono text-[#6B7280]">{user.joined}</td>
-                        <td className="p-4 pr-6 text-right space-x-2">
+                        <td className="p-4 pr-6 text-right space-x-2 whitespace-nowrap">
+                          <Button
+                            onClick={() => {
+                              setSelectedInstForBatches(user);
+                              setBatchModalFilter("all");
+                              setBatchModalSearch("");
+                              setIsManageBatchesOpen(true);
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 shadow-xs"
+                            title="Manage and assign existing batches for this institution"
+                          >
+                            Batches
+                          </Button>
                           <Button asChild variant="outline" size="sm" className="h-8 text-xs font-semibold gap-1 text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/10">
                             <Link href="/institution/overview" target="_blank" title="Open Institution Portal">
                               <ExternalLink className="h-3.5 w-3.5" /> Portal
                             </Link>
                           </Button>
-                          <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-sm">
+                          <Button onClick={() => handleEditUser(user.id)} variant="outline" size="icon" className="h-8 w-8 text-[#6B7280] border-[#E5E7EB] hover:bg-white shadow-sm" title="Edit Institution Details">
                             <Edit className="h-3.5 w-3.5" />
                           </Button>
-                          <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-sm">
+                          <Button onClick={() => handleDeleteUser(user.id, user.name)} variant="outline" size="icon" className="h-8 w-8 text-[#DC2626] border-[#DC2626]/20 hover:bg-[#DC2626]/10 shadow-sm" title="Delete Institution">
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </td>
@@ -990,6 +1150,383 @@ export default function AdminUsersPage() {
               {isBulkImporting ? "Importing..." : `Import ${bulkPreviewRows.filter((r: any) => r.isValid).length} Users`}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── MANAGE INSTITUTION EXISTING BATCHES FULL-SCREEN WORKSPACE ── */}
+      <Dialog open={isManageBatchesOpen} onOpenChange={setIsManageBatchesOpen}>
+        <DialogContent 
+          showCloseButton={false}
+          className="!w-[94vw] !max-w-[94vw] sm:!max-w-[94vw] lg:!max-w-[94vw] !h-[92vh] !max-h-[92vh] bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 p-6 sm:p-8 rounded-2xl shadow-2xl flex flex-col gap-0 overflow-hidden"
+        >
+          {/* Workspace Enterprise Header */}
+          <div className="pb-5 border-b border-slate-200 dark:border-zinc-800 shrink-0">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800/60">
+                    Institution
+                  </span>
+                  {selectedInstForBatches?.branch && (
+                    <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                      {selectedInstForBatches.branch}
+                    </span>
+                  )}
+                </div>
+                <DialogTitle className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                  {selectedInstForBatches?.college || selectedInstForBatches?.name || "Institution"}
+                </DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400">
+                  Manage and assign existing LMS batches for this academic partner institution.
+                </DialogDescription>
+              </div>
+
+              <div className="flex items-center justify-between lg:justify-end gap-6 shrink-0">
+                <div className="flex flex-col lg:items-end">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                    Institution SPOC
+                  </span>
+                  <span className="text-xs sm:text-sm font-mono font-medium text-slate-900 dark:text-zinc-200">
+                    {selectedInstForBatches?.email}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsManageBatchesOpen(false)}
+                  className="h-9 px-4 text-xs font-semibold rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors shadow-2xs"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Filter Buttons & Search */}
+          {(() => {
+            const instCollege = (selectedInstForBatches?.college || selectedInstForBatches?.name || "").trim().toLowerCase();
+            const assignedList = allBatches.filter(
+              (b) => (b.collegeName || "").trim().toLowerCase() === instCollege
+            );
+            const availableList = allBatches.filter(
+              (b) => (b.collegeName || "").trim().toLowerCase() !== instCollege
+            );
+            const filteredBatchesList = (
+              batchModalFilter === "assigned"
+                ? assignedList
+                : batchModalFilter === "available"
+                ? availableList
+                : allBatches
+            ).filter((b) => {
+              if (!batchModalSearch.trim()) return true;
+              const q = batchModalSearch.toLowerCase();
+              return (
+                b.name.toLowerCase().includes(q) ||
+                b.code.toLowerCase().includes(q) ||
+                (b.course && b.course.toLowerCase().includes(q)) ||
+                (b.trainer && b.trainer.toLowerCase().includes(q)) ||
+                (b.collegeName && b.collegeName.toLowerCase().includes(q))
+              );
+            });
+
+            return (
+              <>
+                <div className="py-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shrink-0">
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setBatchModalFilter("all")}
+                      className={`h-9 px-4 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer ${
+                        batchModalFilter === "all"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                          : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      All Existing Batches ({allBatches.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBatchModalFilter("assigned")}
+                      className={`h-9 px-4 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer ${
+                        batchModalFilter === "assigned"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                          : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      Assigned ({assignedList.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBatchModalFilter("available")}
+                      className={`h-9 px-4 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer ${
+                        batchModalFilter === "available"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                          : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      Available to Assign ({availableList.length})
+                    </button>
+                  </div>
+
+                  <div className="w-full md:w-80 shrink-0">
+                    <input
+                      type="text"
+                      placeholder="Search batch or code..."
+                      value={batchModalSearch}
+                      onChange={(e) => setBatchModalSearch(e.target.value)}
+                      className="h-9 w-full px-3.5 text-xs bg-white dark:bg-zinc-900 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 border border-slate-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Batches Workspace Table */}
+                <div className="flex-1 min-h-0 overflow-hidden flex flex-col border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950/40">
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-50 dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider sticky top-0 z-10">
+                        <tr>
+                          <th className="py-3 px-6 w-[28%]">Batch</th>
+                          <th className="py-3 px-4 w-[20%]">Lead Trainer</th>
+                          <th className="py-3 px-4 w-[14%]">Enrolled</th>
+                          <th className="py-3 px-4 w-[16%]">Status</th>
+                          <th className="py-3 px-6 w-[22%] text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/80 text-xs">
+                        {filteredBatchesList.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-20 text-center text-slate-500 dark:text-zinc-400">
+                              <p className="font-semibold text-sm text-slate-900 dark:text-white">
+                                {batchModalSearch ? "No matching batches found." : "No batches in this view."}
+                              </p>
+                              <p className="text-xs text-slate-400 dark:text-zinc-500 mt-1">
+                                {batchModalSearch ? "Try adjusting your search criteria." : "There are no batches currently matching this filter."}
+                              </p>
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredBatchesList.map((batch) => {
+                            const isAssigned = (batch.collegeName || "").trim().toLowerCase() === instCollege;
+                            const isAssignedOther = Boolean(batch.collegeName && !isAssigned);
+                            const isBusy = assigningBatchId === batch.id;
+
+                            return (
+                              <tr key={batch.id} className="hover:bg-slate-50/60 dark:hover:bg-zinc-900/40 transition-colors">
+                                <td className="py-3.5 px-6">
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="font-bold text-sm text-slate-900 dark:text-white">
+                                      {batch.batchName}
+                                    </span>
+                                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400">
+                                      <span className="font-mono text-[11px] font-semibold text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+                                        {batch.code}
+                                      </span>
+                                      {batch.course && (
+                                        <>
+                                          <span>·</span>
+                                          <span className="truncate max-w-[280px]">{batch.course}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  <span className="text-xs font-medium text-slate-700 dark:text-zinc-300">
+                                    {batch.trainer || "Unassigned"}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  <span className="font-mono text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                                    {batch.studentCount} {batch.studentCount === 1 ? "student" : "students"}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  {isAssigned ? (
+                                    <span className="inline-block text-[11px] font-semibold px-2.5 py-1 rounded border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
+                                      Assigned
+                                    </span>
+                                  ) : isAssignedOther ? (
+                                    <span 
+                                      className="inline-block text-[11px] font-semibold px-2.5 py-1 rounded border border-amber-300 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 max-w-[200px] truncate" 
+                                      title={`Assigned to ${batch.collegeName}`}
+                                    >
+                                      Linked: {batch.collegeName}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block text-[11px] font-semibold px-2.5 py-1 rounded border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50 text-slate-600 dark:text-zinc-400">
+                                      Available
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3.5 px-6 text-right">
+                                  <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => setViewingBatchDetail(batch)}
+                                      className="h-8 px-3 text-xs font-semibold rounded-md border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer transition-colors shadow-2xs"
+                                      title="View batch details"
+                                    >
+                                      View
+                                    </button>
+
+                                    {isAssigned ? (
+                                      <button
+                                        type="button"
+                                        disabled={isBusy}
+                                        onClick={() => handleAssignBatchToInstitution(batch.id, "")}
+                                        className="h-8 px-3.5 text-xs font-semibold rounded-md border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/40 cursor-pointer transition-colors disabled:opacity-50 shadow-2xs"
+                                        title="Delete batch assignment from this institution"
+                                      >
+                                        {isBusy ? "Deleting..." : "Delete"}
+                                      </button>
+                                    ) : isAssignedOther ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          disabled={isBusy}
+                                          onClick={() => {
+                                            const targetCollege = selectedInstForBatches?.college || selectedInstForBatches?.name || "";
+                                            handleAssignBatchToInstitution(batch.id, targetCollege);
+                                          }}
+                                          className="h-8 px-3.5 text-xs font-semibold rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
+                                          title={`Reassign from ${batch.collegeName} to this institution`}
+                                        >
+                                          {isBusy ? "Assigning..." : "Reassign"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={isBusy}
+                                          onClick={() => handleAssignBatchToInstitution(batch.id, "")}
+                                          className="h-8 px-3.5 text-xs font-semibold rounded-md border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/40 cursor-pointer transition-colors disabled:opacity-50 shadow-2xs"
+                                          title={`Delete assignment (unlink from ${batch.collegeName})`}
+                                        >
+                                          {isBusy ? "Deleting..." : "Delete"}
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        disabled={isBusy}
+                                        onClick={() => {
+                                          const targetCollege = selectedInstForBatches?.college || selectedInstForBatches?.name || "";
+                                          handleAssignBatchToInstitution(batch.id, targetCollege);
+                                        }}
+                                        className="h-8 px-4 text-xs font-semibold rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
+                                        title="Assign this existing batch to this institution"
+                                      >
+                                        {isBusy ? "Assigning..." : "Assign"}
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+
+          {/* Workspace Footer */}
+          <div className="pt-4 mt-4 border-t border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
+            <p className="text-xs text-slate-500 dark:text-zinc-400">
+              Any batch assigned here instantly syncs with the Institution&apos;s dashboard and performance portal.
+            </p>
+            <Button
+              type="button"
+              onClick={() => setIsManageBatchesOpen(false)}
+              className="h-9 px-6 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs self-end sm:self-auto"
+            >
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── BATCH DETAIL PREVIEW MODAL ── */}
+      <Dialog open={!!viewingBatchDetail} onOpenChange={(open) => { if (!open) setViewingBatchDetail(null); }}>
+        <DialogContent showCloseButton={false} className="max-w-md bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 p-6 rounded-xl shadow-xl">
+          <div className="pb-3 border-b border-slate-200 dark:border-zinc-800 flex items-start justify-between gap-2">
+            <div>
+              <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
+                {viewingBatchDetail?.batchName}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500 font-mono mt-0.5">
+                Code: {viewingBatchDetail?.code}
+              </DialogDescription>
+            </div>
+            <button
+              type="button"
+              onClick={() => setViewingBatchDetail(null)}
+              className="h-7 px-2.5 text-xs font-semibold rounded-md border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
+            >
+              Close
+            </button>
+          </div>
+
+          {viewingBatchDetail && (
+            <div className="py-3 space-y-2.5 text-xs">
+              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800">
+                <span className="text-slate-500 font-medium">Linked Institution:</span>
+                <span className="font-bold text-slate-800 dark:text-zinc-200">
+                  {viewingBatchDetail.collegeName || "None (Unassigned)"}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800">
+                <span className="text-slate-500 font-medium">Course Track:</span>
+                <span className="font-bold text-slate-800 dark:text-zinc-200">
+                  {viewingBatchDetail.course || "General Track"}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800">
+                <span className="text-slate-500 font-medium">Lead Trainer:</span>
+                <span className="font-bold text-slate-800 dark:text-zinc-200">
+                  {viewingBatchDetail.trainer || "Unassigned"}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800">
+                <span className="text-slate-500 font-medium">Enrolled Students:</span>
+                <span className="font-bold text-slate-800 dark:text-zinc-200 font-mono">
+                  {viewingBatchDetail.studentCount} students
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-zinc-800">
+                <span className="text-slate-500 font-medium">Batch Status:</span>
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${
+                  viewingBatchDetail.status === "active" 
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800" 
+                    : "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+                }`}>
+                  {viewingBatchDetail.status}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-slate-500 font-medium">Start Date:</span>
+                <span className="font-medium text-slate-800 dark:text-zinc-200">
+                  {viewingBatchDetail.startDate ? new Date(viewingBatchDetail.startDate).toLocaleDateString() : "Not specified"}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="pt-3 border-t border-slate-200 dark:border-zinc-800 flex justify-between items-center">
+            <Button asChild variant="outline" size="sm" className="text-xs font-semibold text-blue-600 border-blue-200 hover:bg-blue-50">
+              <Link href="/admin/batches">
+                Full Batch Hub
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setViewingBatchDetail(null)}
+              className="text-xs font-semibold rounded-lg"
+            >
+              Done
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

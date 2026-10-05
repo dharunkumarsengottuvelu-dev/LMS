@@ -331,10 +331,11 @@ export default function AdminBatchesPage() {
 
     setIsSavingInstitutionAssignment(true);
     try {
+      const matchedInst = institutions.find(i => i.college.toLowerCase() === targetCollege.toLowerCase());
       const res = await fetch(`/api/admin/batches/${assigningBatch.id}/assign-institution`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ collegeName: targetCollege }),
+        body: JSON.stringify({ collegeName: targetCollege, institutionId: matchedInst?.id || null }),
       });
 
       if (!res.ok) {

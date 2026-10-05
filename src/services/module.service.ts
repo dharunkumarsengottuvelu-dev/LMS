@@ -33,7 +33,7 @@ export class ModuleService {
           type: d.type === "quiz" ? "mcq" : d.type,
           sequenceOrder: d.order || 0,
           contentSummary: d.content || "",
-          assignedBatches: [], // Mocking for now
+          assignedBatches: [],
           assignedStudents: [],
           videoUrl: d.video_url
         }));

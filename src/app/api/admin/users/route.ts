@@ -7,24 +7,20 @@ export async function GET(request: NextRequest) {
     if (auth.errorResponse) return auth.errorResponse;
     const adminClient = auth.adminClient!;
 
-    // 1. Fetch all profiles from public.profiles
-    const { data: profiles, error: profError } = await adminClient
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
+    // 1 & 2. Concurrently fetch profiles and auth users to eliminate waterfall
+    const [profRes, authDataRes] = await Promise.all([
+      adminClient
+        .from("profiles")
+        .select("id, user_id, email, first_name, last_name, role, status, avatar_url, batch_id, batch, batch_name, created_at, updated_at")
+        .order("created_at", { ascending: false }),
+      adminClient.auth.admin.listUsers({ perPage: 1000 }).catch((e) => {
+        console.warn("Could not list auth users:", e);
+        return { data: { users: [] } };
+      }),
+    ]);
 
-    if (profError) {
-      console.error("Error fetching profiles:", profError);
-    }
-
-    // 2. Fetch all registered auth users from Supabase Auth
-    let authUsers: any[] = [];
-    try {
-      const { data: authData } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
-      authUsers = authData?.users || [];
-    } catch (e) {
-      console.warn("Could not list auth users:", e);
-    }
+    const profiles = profRes.data || [];
+    const authUsers = (authDataRes as any)?.data?.users || [];
 
     const profileUserIdSet = new Set((profiles || []).map((p: any) => p.user_id));
     const mergedUsers: any[] = [...(profiles || [])];

@@ -3,8 +3,6 @@ import { createClient } from "@/lib/supabase/client";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import axios from "axios";
 
-export const SAMPLE_CODING_PROBLEMS: (ExtendedCodingProblem | CodingProblem)[] = [];
-
 export class CodingProblemsService {
   private static cachedProblems: (ExtendedCodingProblem | CodingProblem)[] = [];
   private static isInitialized = false;

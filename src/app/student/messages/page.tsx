@@ -45,12 +45,20 @@ export default function StudentMessagesPage() {
     }
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchRecipients = useCallback(async () => {
     try {
-      const [convsRes, recipientsRes] = await Promise.all([
-        fetch("/api/messages"),
-        fetch("/api/messages/recipients"),
-      ]);
+      const res = await fetch("/api/messages/recipients");
+      if (res.ok) {
+        const d = await res.json();
+        setRecipients(d.recipients || []);
+      }
+    } catch {}
+  }, []);
+
+  const fetchConversations = useCallback(async () => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    try {
+      const convsRes = await fetch("/api/messages");
       if (convsRes.ok) {
         const d = await convsRes.json();
         const serverList = d.conversations || [];
@@ -66,10 +74,6 @@ export default function StudentMessagesPage() {
         setMyProfileId(d.myProfileId || "");
         if (d.myIds) setMyIds(d.myIds);
       }
-      if (recipientsRes.ok) {
-        const d = await recipientsRes.json();
-        setRecipients(d.recipients || []);
-      }
     } catch (e) {
       console.warn("Messages fetch error", e);
     } finally {
@@ -77,11 +81,14 @@ export default function StudentMessagesPage() {
     }
   }, []);
 
+  const fetchData = fetchConversations;
+
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 4000);
+    fetchRecipients();
+    fetchConversations();
+    const interval = setInterval(fetchConversations, 6000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchRecipients, fetchConversations]);
 
   const activeConversation = conversations.find((c) => c.conversation_id === activeConvId);
   const activeMessages = activeConversation?.messages || [];

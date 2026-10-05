@@ -25,9 +25,6 @@ export interface PracticeTrackItem {
   assignedStudents?: string[];
 }
 
-export const INITIAL_MOCK_ASSESSMENTS: Assessment[] = [];
-export const INITIAL_MOCK_PRACTICE_TRACKS: PracticeTrackItem[] = [];
-
 export class AssessmentService {
   /**
    * Fetches all assessments/tests from the database

@@ -17,14 +17,14 @@ export async function GET(request: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    // 1. Resolve student batch context
-    const batchContext = await getStudentBatchAccess(adminClient, user);
-
-    // 2. Fetch courses
-    const { data: coursesData, error } = await adminClient
-      .from("courses")
-      .select("*")
-      .order("created_at", { ascending: false });
+    // 1 & 2. Concurrently resolve student batch context and fetch courses
+    const [batchContext, { data: coursesData, error }] = await Promise.all([
+      getStudentBatchAccess(adminClient, user),
+      adminClient
+        .from("courses")
+        .select("id, slug, title, category, difficulty, thumbnail_url, description, tags, assigned_batches, is_common, status, created_at")
+        .order("created_at", { ascending: false }),
+    ]);
 
     if (error) {
       throw error;

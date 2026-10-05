@@ -1,7 +1,5 @@
 import type { Course, CreateCourseInput } from "@/types/course";
 
-export const INITIAL_MOCK_COURSES: Course[] = [];
-
 export class CourseService {
   /**
    * Fetches all courses from the authoritative backend API / Supabase DB

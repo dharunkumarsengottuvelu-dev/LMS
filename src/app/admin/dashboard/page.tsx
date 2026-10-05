@@ -38,7 +38,7 @@ async function getDashboardStats() {
     return Math.round((recent / previous) * 100);
   };
 
-  // Enrollment trend (last 7 days in parallel) & activities
+  // Enrollment trend (last 7 days from a single query) & activities
   const dayRanges = Array.from({ length: 7 }, (_, idx) => {
     const i = 6 - idx;
     const date = new Date();
@@ -52,16 +52,15 @@ async function getDashboardStats() {
     };
   });
 
-  const [trendCounts, activitiesRes, liveAnalytics] = await Promise.all([
-    Promise.all(
-      dayRanges.map((d) =>
-        supabase
-          .from("enrollments")
-          .select("id", { count: "exact", head: true })
-          .gte("enrolled_at", d.start)
-          .lte("enrolled_at", d.end)
-      )
-    ),
+  const rangeStart = dayRanges[0]?.start ?? "";
+  const rangeEnd = dayRanges[6]?.end ?? "";
+
+  const [enrollmentsInRangeRes, activitiesRes, liveAnalytics] = await Promise.all([
+    supabase
+      .from("enrollments")
+      .select("enrolled_at")
+      .gte("enrolled_at", rangeStart)
+      .lte("enrolled_at", rangeEnd),
     supabase
       .from("activity_logs")
       .select("id, action, entity_type, created_at, profiles!inner(first_name, last_name, avatar_url, role)")
@@ -70,10 +69,14 @@ async function getDashboardStats() {
     DashboardAnalyticsService.getAnalytics(),
   ]);
 
-  const trendData = dayRanges.map((d, idx) => ({
-    day: d.day,
-    enrollments: trendCounts[idx]?.count ?? 0,
-  }));
+  const rawEnrollments = enrollmentsInRangeRes.data || [];
+  const trendData = dayRanges.map((d) => {
+    const count = rawEnrollments.filter((e: any) => e.enrolled_at >= d.start && e.enrolled_at <= d.end).length;
+    return {
+      day: d.day,
+      enrollments: count,
+    };
+  });
   const activities = activitiesRes.data ?? [];
 
   return {

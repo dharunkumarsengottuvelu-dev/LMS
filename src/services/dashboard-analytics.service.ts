@@ -111,7 +111,14 @@ function formatStudyTime(seconds: number): string {
 }
 
 export class DashboardAnalyticsService {
+  private static cachedAnalytics: DashboardAnalyticsPayload | null = null;
+  private static cacheExpiresAt: number = 0;
+
   public static async getAnalytics(): Promise<DashboardAnalyticsPayload> {
+    if (this.cachedAnalytics && Date.now() < this.cacheExpiresAt) {
+      return this.cachedAnalytics;
+    }
+
     const admin = createAdminClient();
 
     const now = new Date();
@@ -720,7 +727,7 @@ export class DashboardAnalyticsService {
       };
     });
 
-    return {
+    const payload: DashboardAnalyticsPayload = {
       activityOverview: {
         activeStudentsToday,
         studentsOnlineNow,
@@ -751,5 +758,10 @@ export class DashboardAnalyticsService {
       },
       generatedAt: now.toISOString(),
     };
+
+    DashboardAnalyticsService.cachedAnalytics = payload;
+    DashboardAnalyticsService.cacheExpiresAt = Date.now() + 30000;
+
+    return payload;
   }
 }

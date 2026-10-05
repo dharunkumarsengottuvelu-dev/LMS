@@ -8,7 +8,6 @@ import type {
   SubmitCodeInput,
 } from "@/types/coding";
 import { CodingProblemsService } from "@/services/coding-problems.service";
-export { SAMPLE_CODING_PROBLEMS } from "@/services/coding-problems.service";
 
 const LOCAL_STORAGE_SUBMISSIONS_KEY = "lms_coding_submissions_v1";
 const LEGACY_LOCAL_STORAGE_SUBMISSIONS_KEY = "edunexus_coding_submissions_v1";

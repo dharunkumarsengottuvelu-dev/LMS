@@ -354,12 +354,14 @@ export async function proxy(request: NextRequest) {
   }
 
   try {
+    // Fast path: bypass Supabase auth roundtrip on public pages for unauthenticated visitors
+    const hasAuthCookie = request.cookies.getAll().some((c) => c.name.startsWith("sb-") || c.name.includes("auth-token"));
+    if (isPublicRoute(pathname) && !hasAuthCookie && pathname !== "/login" && pathname !== "/register" && !pathname.startsWith("/auth/")) {
+      return NextResponse.next();
+    }
+
     // 3. Update Supabase Session (single call — also runs cookie sanitization)
     const { supabase: _supabase, supabaseResponse, user } = await updateSession(request);
-
-    if (pathname.startsWith("/student") || pathname.startsWith("/login") || pathname.startsWith("/admin") || pathname.startsWith("/trainer")) {
-      console.log(`[AUTH] Middleware: path = ${pathname}, user exists = ${Boolean(user)}`);
-    }
 
     // 4. Redirect authenticated users away from auth pages
     //    Role is resolved purely from JWT metadata — NO extra DB query

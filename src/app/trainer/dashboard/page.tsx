@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/layouts/page-header";
+import { createClient } from "@/lib/supabase/client";
 
 export default function TrainerDashboardPage() {
   const [batches, setBatches] = useState<any[]>([]);
@@ -24,7 +25,6 @@ export default function TrainerDashboardPage() {
   React.useEffect(() => {
     async function loadData() {
       try {
-        const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
 
         // Concurrently fetch all trainer dashboard datasets
@@ -38,7 +38,7 @@ export default function TrainerDashboardPage() {
         ] = await Promise.all([
           supabase.from("batches").select("id, name, batch_name, course_id, status"),
           supabase.from("batch_members").select("batch_id, user_id"),
-          supabase.from("assessment_attempts").select("student_id, score, tab_switch_count, proctoring_flags"),
+          supabase.from("assessment_attempts").select("student_id, score, tab_switch_count, proctoring_flags").order("created_at", { ascending: false }).limit(300),
           supabase.from("profiles").select("id, user_id, first_name, last_name, email, batch_id, batch, batch_name, status").eq("role", "student"),
           supabase.from("assessments").select("id, title, status, duration_minutes, total_marks"),
           supabase.from("assignments").select("id, title, status, due_date"),

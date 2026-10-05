@@ -24,7 +24,7 @@ export async function getStudentBatchAccess(
   // 1. Get student profile
   const { data: profile } = await adminClient
     .from("profiles")
-    .select("*")
+    .select("id, user_id, email, first_name, last_name, role, status, batch_id, batch, batch_name")
     .or(`user_id.eq.${studentUserId},id.eq.${studentUserId}${user.email ? `,email.eq.${user.email}` : ""}`)
     .maybeSingle() as any;
 

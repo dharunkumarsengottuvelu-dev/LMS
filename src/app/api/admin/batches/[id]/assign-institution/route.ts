@@ -15,6 +15,7 @@ export async function POST(
     const { id } = await params;
     const body = await request.json();
     const collegeName = (body.collegeName || "").trim();
+    const institutionId = (body.institutionId || "").trim();
 
     // 1. Fetch current batch
     const { data: batch, error: bErr } = await adminClient
@@ -35,10 +36,40 @@ export async function POST(
       }
     } catch {}
 
+    const existingCollege = (meta.collegeName || meta.college_name || "").trim();
+    const existingInstId = (meta.institutionId || meta.institution_id || "").trim();
+
+    // Duplicate Assignment Prevention: If already assigned to this exact institution
+    if (
+      collegeName &&
+      existingCollege.toLowerCase() === collegeName.toLowerCase() &&
+      (!institutionId || !existingInstId || existingInstId === institutionId)
+    ) {
+      return NextResponse.json({
+        success: true,
+        alreadyAssigned: true,
+        message: `Batch "${batch.name || batch.batch_name || id}" is already assigned to ${collegeName}`,
+        batch: {
+          id: batch.id,
+          collegeName,
+          institutionId: existingInstId || institutionId || null,
+        },
+      });
+    }
+
     const updatedMeta = {
       ...meta,
       college_name: collegeName,
       collegeName: collegeName,
+      ...(collegeName
+        ? {
+            institution_id: institutionId || existingInstId || null,
+            institutionId: institutionId || existingInstId || null,
+          }
+        : {
+            institution_id: null,
+            institutionId: null,
+          }),
     };
 
     // 3. Update batch in database
@@ -55,12 +86,14 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
+      alreadyAssigned: false,
       message: collegeName
         ? `Batch successfully assigned to ${collegeName}`
         : "Batch unassigned from institution",
       batch: {
         id: updatedBatch.id,
         collegeName,
+        institutionId: updatedMeta.institutionId,
       },
     });
   } catch (error) {

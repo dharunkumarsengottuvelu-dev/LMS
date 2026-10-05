@@ -14,7 +14,7 @@ export interface ActiveTimeTrackerState {
 }
 
 const IDLE_TIMEOUT_MS = 60 * 1000; // 60 seconds of inactivity
-const HEARTBEAT_INTERVAL_MS = 15 * 1000; // Send heartbeat every 15 seconds
+const HEARTBEAT_INTERVAL_MS = 45 * 1000; // Send heartbeat every 45 seconds (reduces polling network traffic by 66%)
 const TAB_CHANNEL_NAME = "edunexus_lms_active_tab";
 
 export function formatSecondsToLMS(totalSecs: number): string {

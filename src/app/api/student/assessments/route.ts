@@ -17,20 +17,24 @@ export async function GET(request: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    // 1. Resolve student batch context
-    const batchContext = await getStudentBatchAccess(adminClient, user);
+    // 1. Concurrently resolve student batch context, assessments, and practice tracks
+    const [batchContext, { data: dbAssessments }, { data: dbTracks }] = await Promise.all([
+      getStudentBatchAccess(adminClient, user),
+      adminClient
+        .from("assessments")
+        .select("id, title, description, type, duration_minutes, total_marks, course_id, assigned_batches, is_common, tags, created_at")
+        .order("created_at", { ascending: false }) as any,
+      adminClient
+        .from("practice_tracks")
+        .select("id, title, tags, assigned_batches, assigned_students, is_common, sub_modules, created_at")
+        .order("created_at", { ascending: false }) as any,
+    ]);
 
-    // 2. Fetch all assessments from assessments table
-    const { data: dbAssessments } = await adminClient
-      .from("assessments")
-      .select("*")
-      .order("created_at", { ascending: false }) as any;
-
-    // Fetch attempts
+    // 2. Fetch attempts for student with specific columns
     const { data: attempts } = await adminClient
       .from("assessment_attempts")
-      .select("*")
-      .or(`student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId}`) as any;
+      .select("id, assessment_id, score, total_marks, percentage, status, created_at, tab_switch_count")
+      .or(`student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`) as any;
 
     const attemptsMap = new Map<string, any[]>();
     (attempts || []).forEach((att: any) => {
@@ -87,12 +91,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // 3. Also fetch from practice tracks sub-modules if authorized
-    const { data: dbTracks } = await adminClient
-      .from("practice_tracks")
-      .select("*")
-      .order("created_at", { ascending: false }) as any;
-
+    // 3. Process practice tracks sub-modules if authorized (already fetched concurrently above)
     (dbTracks || []).forEach((t: any) => {
       let meta: any = {};
       if (t.tags && t.tags[0]) {

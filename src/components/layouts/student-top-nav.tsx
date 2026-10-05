@@ -3,8 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, User, BookOpen } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { LogOut, Menu, User } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn, getInitials } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -56,18 +55,12 @@ export function StudentTopNav() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-background/80 backdrop-blur-md border-b border-border transition-colors duration-200">
       <div className="lms-page-container h-full flex items-center justify-between gap-4">
-        {/* Brand Logo & Strict Student Portal Badge */}
+        {/* Brand Logo */}
         <div className="flex items-center shrink-0">
           <Link href="/student/dashboard" suppressHydrationWarning className="flex items-center gap-2 shrink-0 group">
             <span className="font-extrabold text-xl tracking-tight text-foreground">
               SENSILEARN<span className="text-primary font-black">.</span>
             </span>
-            <Badge
-              variant="outline"
-              className="hidden sm:inline-flex bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0.5 tracking-wider"
-            >
-              STUDENT
-            </Badge>
           </Link>
         </div>
 
@@ -116,9 +109,6 @@ export function StudentTopNav() {
                   <span className="font-extrabold text-xl text-foreground">
                     SENSILEARN<span className="text-primary font-black">.</span>
                   </span>
-                  <Badge variant="outline" className="bg-primary/10 text-primary text-[9px] font-bold border-primary/20 tracking-wider">
-                    STUDENT
-                  </Badge>
                 </SheetTitle>
               </SheetHeader>
 
@@ -173,11 +163,6 @@ export function StudentTopNav() {
               <DropdownMenuItem className="cursor-pointer font-medium text-xs">
                 <Link href="/student/profile" className="flex items-center w-full text-foreground hover:text-primary transition-colors">
                   <User className="h-4 w-4 mr-2 text-primary" /> My Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer font-medium text-xs">
-                <Link href="/student/my-courses" className="flex items-center w-full text-foreground hover:text-primary transition-colors">
-                  <BookOpen className="h-4 w-4 mr-2 text-primary" /> My Learning
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-border" />

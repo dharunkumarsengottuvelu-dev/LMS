@@ -248,6 +248,9 @@ export class InstitutionPerformanceService {
           if (collegeLower && descCollege && (descCollege.includes(collegeLower) || collegeLower.includes(descCollege))) {
             return true;
           }
+          if (institutionInfo.institutionId && (parsed.institution_id === institutionInfo.institutionId || parsed.institutionId === institutionInfo.institutionId)) {
+            return true;
+          }
         } catch {
           // Not JSON, string check above handles it
         }

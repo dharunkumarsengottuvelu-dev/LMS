@@ -62,12 +62,27 @@ export default function TrainerMessagesPage() {
     }
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchRecipients = useCallback(async () => {
     try {
-      const [convsRes, recipientsRes] = await Promise.all([
-        fetch("/api/messages"),
-        fetch("/api/messages/recipients"),
-      ]);
+      const recipientsRes = await fetch("/api/messages/recipients");
+      if (recipientsRes.ok) {
+        const d = await recipientsRes.json();
+        const studentList = d.recipients || [];
+        setRecipients(studentList);
+
+        const dbBatches = d.batches || [];
+        setBatches(dbBatches);
+        if (dbBatches.length > 0 && (!broadcastBatchId || !dbBatches.some((b: any) => b.id === broadcastBatchId))) {
+          setBroadcastBatchId(dbBatches[0].id);
+        }
+      }
+    } catch {}
+  }, [broadcastBatchId]);
+
+  const fetchConversations = useCallback(async () => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    try {
+      const convsRes = await fetch("/api/messages");
       if (convsRes.ok) {
         const d = await convsRes.json();
         const serverList = d.conversations || [];
@@ -83,29 +98,21 @@ export default function TrainerMessagesPage() {
         setMyProfileId(d.myProfileId || "");
         if (d.myIds) setMyIds(d.myIds);
       }
-      if (recipientsRes.ok) {
-        const d = await recipientsRes.json();
-        const studentList = d.recipients || [];
-        setRecipients(studentList);
-
-        const dbBatches = d.batches || [];
-        setBatches(dbBatches);
-        if (dbBatches.length > 0 && (!broadcastBatchId || !dbBatches.some((b: any) => b.id === broadcastBatchId))) {
-          setBroadcastBatchId(dbBatches[0].id);
-        }
-      }
     } catch (e) {
       console.warn("Messages fetch error", e);
     } finally {
       setIsLoadingConvs(false);
     }
-  }, [broadcastBatchId]);
+  }, []);
+
+  const fetchData = fetchConversations;
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 4000);
+    fetchRecipients();
+    fetchConversations();
+    const interval = setInterval(fetchConversations, 6000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchRecipients, fetchConversations]);
 
   const activeConversation = conversations.find((c) => c.conversation_id === activeConvId);
   const activeMessages = activeConversation?.messages || [];

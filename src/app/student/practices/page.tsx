@@ -83,20 +83,17 @@ export default function StudentPracticesPage() {
       <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/90 dark:border-zinc-800 p-5 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/40">
-              PRACTICE &amp; CODING
-            </span>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Practice Hub &amp; Main Modules
+              Practice Hub
             </h1>
             <p className="text-xs text-slate-500 dark:text-zinc-400">
-              Select a Main Module to access topic-specific submodules and practice modules.
+              Select a module to access topic-specific submodules and practice exercises.
             </p>
           </div>
 
           <div className="w-full sm:w-72">
             <Input
-              placeholder="Search Main Modules..."
+              placeholder="Search practice modules..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-9 text-xs bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-700 rounded-lg"
@@ -184,7 +181,7 @@ export default function StudentPracticesPage() {
                       onClick={() => router.push(`/student/practices/${track.id}`)}
                       className="w-full h-8.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                     >
-                      Explore Main Module
+                      Explore Module
                     </Button>
                   </CardFooter>
                 </Card>
