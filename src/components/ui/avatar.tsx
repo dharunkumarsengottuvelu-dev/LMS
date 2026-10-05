@@ -25,10 +25,24 @@ function Avatar({
   )
 }
 
-function AvatarImage({ className, ...props }: AvatarPrimitive.Image.Props) {
+function AvatarImage({ className, src, ...props }: AvatarPrimitive.Image.Props) {
+  // Permanently block and discard any unavatar.io URLs (including legacy database records)
+  const isInvalidUrl = typeof src === "string" && (
+    src.toLowerCase().includes("unavatar.io") ||
+    src.trim() === "" ||
+    src === "null" ||
+    src === "undefined"
+  );
+  const safeSrc = isInvalidUrl ? undefined : src;
+
+  if (!safeSrc) {
+    return null;
+  }
+
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
+      src={safeSrc}
       className={cn(
         "aspect-square size-full rounded-full object-cover",
         className

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Loading } from "@/components/ui/loading";
 import { useToast } from "@/hooks/use-toast";
 
 interface StudentModule {
@@ -123,9 +124,12 @@ export default function StudentTrackDetailPage() {
 
   if (loading && !track) {
     return (
-      <div className="flex h-72 items-center justify-center font-sans">
-        <p className="text-xs font-semibold text-slate-500">Loading module hierarchy...</p>
-      </div>
+      <Loading
+        text="Loading practice track..."
+        subtext="Please wait while we prepare your modules."
+        fullScreen
+        size="lg"
+      />
     );
   }
 

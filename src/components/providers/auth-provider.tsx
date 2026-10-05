@@ -59,14 +59,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const dAny = data as any;
         const resolvedFirst = dAny.first_name || metaFirstName;
         const resolvedLast = dAny.last_name || metaLastName;
-        const resolvedAvatar =
-          dAny.avatar_url ||
-          meta.avatar_url ||
-          meta.picture ||
-          meta.photo_url ||
-          (userEmail ? `https://unavatar.io/${encodeURIComponent(userEmail)}?fallback=false` : null);
+        // Cleanse any legacy unavatar.io URL stored in the database
+        let dbAvatar = dAny.avatar_url;
+        if (typeof dbAvatar === "string" && dbAvatar.toLowerCase().includes("unavatar.io")) {
+          dbAvatar = null;
+          // Asynchronously clear corrupted field in database
+          (supabase.from("profiles") as any)
+            .update({ avatar_url: null })
+            .eq("id", dAny.id)
+            .then(() => {});
+        }
 
-        // If avatar wasn't saved in database but was discovered from email/OAuth, persist it in the background
+        let metaAvatar = meta.avatar_url || meta.picture || meta.photo_url || null;
+        if (typeof metaAvatar === "string" && metaAvatar.toLowerCase().includes("unavatar.io")) {
+          metaAvatar = null;
+        }
+
+        const resolvedAvatar = dbAvatar || metaAvatar || null;
+
+        // If avatar wasn't saved in database but was discovered from OAuth, persist it in the background
         if (!dAny.avatar_url && resolvedAvatar) {
           (supabase.from("profiles") as any)
             .update({ avatar_url: resolvedAvatar })
@@ -83,11 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           student_id: meta.student_id || dAny.student_id || undefined,
         } as UserProfile);
       } else {
-        const fallbackAvatar =
+        let fallbackAvatar =
           meta.avatar_url ||
           meta.picture ||
           meta.photo_url ||
-          (userEmail ? `https://unavatar.io/${encodeURIComponent(userEmail)}?fallback=false` : null);
+          null;
+        if (typeof fallbackAvatar === "string" && fallbackAvatar.toLowerCase().includes("unavatar.io")) {
+          fallbackAvatar = null;
+        }
 
         setProfile({
           id: userId,

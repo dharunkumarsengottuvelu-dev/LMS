@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Loading } from "@/components/ui/loading";
 import { cn, getInitials } from "@/lib/utils";
 
 function formatTime(dateStr: string) {
@@ -361,8 +362,8 @@ export default function StudentMessagesPage() {
             </div>
 
             {isLoadingConvs && sidebarStaff.length === 0 ? (
-              <div className="py-16 text-center text-xs text-slate-500 space-y-1">
-                <p className="font-medium">Loading faculty directory...</p>
+              <div className="py-12 text-center">
+                <Loading size="sm" text="Loading contacts..." ring={false} />
               </div>
             ) : sidebarStaff.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-400">

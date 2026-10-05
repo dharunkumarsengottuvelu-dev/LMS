@@ -142,7 +142,8 @@ export async function GET(request: Request) {
           const nameParts = fullName.split(" ");
           const firstName = meta.first_name || meta.given_name || nameParts[0] || user.email?.split("@")[0] || "User";
           const lastName = meta.last_name || meta.family_name || nameParts.slice(1).join(" ") || "";
-          const avatarUrl = meta.avatar_url || meta.picture || null;
+          const rawAvatar = meta.avatar_url || meta.picture || null;
+          const avatarUrl = (typeof rawAvatar === "string" && !rawAvatar.toLowerCase().includes("unavatar.io")) ? rawAvatar : null;
           const initialRole = (meta.role || user.app_metadata?.role || "student").toLowerCase();
 
           const { data: createdProfileData, error: insertError } = await (adminClient.from("profiles") as any)

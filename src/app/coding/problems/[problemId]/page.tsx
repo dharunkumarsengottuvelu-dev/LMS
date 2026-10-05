@@ -28,6 +28,7 @@ import {
   Maximize2,
   Minimize2
 } from "lucide-react";
+import { Loading } from "@/components/ui/loading";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -54,13 +55,12 @@ import type { CodingLanguage, CodingSubmission, TestCaseResult } from "@/types/c
 import { registerMonacoCompletions } from "@/lib/monaco-completions";
 import { cn } from "@/lib/utils";
 
-// Lazy load Monaco Editor with clean light theme spinner
+// Lazy load Monaco Editor with branded loading
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
   loading: () => (
-    <div className="flex flex-col items-center justify-center h-full bg-white text-slate-400 gap-2">
-      <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-      <span className="text-xs font-medium text-slate-500">Loading Code Editor...</span>
+    <div className="flex flex-col items-center justify-center h-full bg-white dark:bg-[#18181B] text-slate-400 gap-2">
+      <Loading size="sm" text="Loading editor..." ring={false} />
     </div>
   ),
 });
@@ -675,9 +675,12 @@ export default function ProblemSolvingWorkspace() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-white text-slate-500 font-sans">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mr-2" />
-        <span className="text-sm font-semibold">Loading Code Lab problem...</span>
+      <div className="flex h-screen items-center justify-center bg-background text-foreground font-sans">
+        <Loading
+          text="Loading coding problem..."
+          subtext="Preparing code lab problem and test cases."
+          size="lg"
+        />
       </div>
     );
   }

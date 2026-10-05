@@ -27,7 +27,7 @@ export function StudentSidebar() {
     profile?.avatar_url ||
     (user?.user_metadata as any)?.avatar_url ||
     (user?.user_metadata as any)?.picture ||
-    (userEmail ? `https://unavatar.io/${encodeURIComponent(userEmail)}?fallback=false` : undefined);
+    undefined;
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white dark:bg-[#18181B] border-r border-[#E5E7EB] dark:border-[#27272A]">

@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Clock, BookOpen, Sparkles, Loader2, AlertCircle, Zap } from "lucide-react";
+import { Calendar, Clock, BookOpen, Sparkles, AlertCircle, Zap } from "lucide-react";
 import { PageHeader } from "@/components/layouts/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Loading } from "@/components/ui/loading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -249,10 +250,12 @@ export default function TrainerNewLiveClassPage() {
 
   if (loadingInitial) {
     return (
-      <div className="py-24 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <p className="text-xs font-semibold">Loading scheduling configuration...</p>
-      </div>
+      <Loading
+        text="Loading schedule configuration..."
+        subtext="Fetching available courses and cohort batches."
+        fullScreen
+        size="lg"
+      />
     );
   }
 
@@ -537,7 +540,7 @@ export default function TrainerNewLiveClassPage() {
             className="h-10 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl gap-2 shadow-sm order-2 sm:order-1"
           >
             {startingNow ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /><span>Starting Class...</span></>
+              <span>Starting Class...</span>
             ) : (
               <><Zap className="h-4 w-4" /><span>Start Now</span></>
             )}
@@ -560,7 +563,7 @@ export default function TrainerNewLiveClassPage() {
               className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs rounded-xl gap-2 shadow-sm"
             >
               {submitting ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /><span>Scheduling...</span></>
+                <span>Scheduling...</span>
               ) : (
                 <><Sparkles className="h-4 w-4" /><span>Schedule Live Class</span></>
               )}

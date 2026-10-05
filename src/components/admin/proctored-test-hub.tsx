@@ -45,6 +45,7 @@ const UploadCloud = NoIcon;
 import { BulkUploadCard } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Loading } from "@/components/ui/loading";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -2949,9 +2950,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
           </div>
 
           {isLoadingSubmissions ? (
-            <div className="p-12 text-center text-xs text-[#6B7280] flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
-              Loading live candidate submissions...
+            <div className="p-8 text-center">
+              <Loading size="sm" text="Loading candidate submissions..." />
             </div>
           ) : candidateSubmissions.length === 0 ? (
             <div className="p-12 text-center bg-white dark:bg-[#18181B]">

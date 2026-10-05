@@ -374,12 +374,8 @@ export default function StudentProfilePage() {
     if (meta.avatar_url || meta.picture || meta.photo_url) {
       return meta.avatar_url || meta.picture || meta.photo_url;
     }
-    const emailToUse = email || user?.email || (profile as any)?.email;
-    if (emailToUse) {
-      return `https://unavatar.io/${encodeURIComponent(emailToUse)}?fallback=false`;
-    }
     return undefined;
-  }, [profile?.avatar_url, user, email, profile]);
+  }, [profile?.avatar_url, user]);
 
   const accountStatus = profile?.status || "active";
 

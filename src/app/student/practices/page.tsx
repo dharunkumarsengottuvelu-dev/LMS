@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loading } from "@/components/ui/loading";
 import { createClient } from "@/lib/supabase/client";
 
 interface PracticeMainModule {
@@ -106,29 +107,12 @@ export default function StudentPracticesPage() {
       {/* ─── MAIN MODULES LIST ─────────────────────────────────────────── */}
       <div className="space-y-4">
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full" aria-busy="true" aria-label="Loading practice modules">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Card key={i} className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden flex flex-col">
-                <CardHeader className="p-4 pb-2">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-3.5 w-1/2 mt-1.5" />
-                </CardHeader>
-                <CardContent className="px-4 pb-4 flex-1 space-y-3">
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-5/6" />
-                  <div className="pt-1 space-y-1.5">
-                    <div className="flex justify-between">
-                      <Skeleton className="h-3 w-16" />
-                      <Skeleton className="h-3 w-8" />
-                    </div>
-                    <Skeleton className="h-1.5 w-full rounded-full" />
-                  </div>
-                </CardContent>
-                <CardFooter className="px-4 pb-4 pt-0">
-                  <Skeleton className="h-8 w-full rounded-lg" />
-                </CardFooter>
-              </Card>
-            ))}
+          <div className="py-20 flex items-center justify-center">
+            <Loading
+              text="Loading practice modules..."
+              subtext="Please wait while we prepare your challenges."
+              size="lg"
+            />
           </div>
         ) : filteredTracks.length === 0 ? (
           <Card className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 p-12 text-center rounded-xl shadow-2xs">

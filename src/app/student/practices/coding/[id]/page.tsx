@@ -28,6 +28,7 @@ import {
   History,
   FileCode
 } from "lucide-react";
+import { Loading } from "@/components/ui/loading";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -53,9 +54,8 @@ import { registerMonacoCompletions } from "@/lib/monaco-completions";
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-full bg-white text-slate-400">
-      <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-2" />
-      <span className="text-xs font-semibold">Loading editor...</span>
+    <div className="flex items-center justify-center h-full bg-white dark:bg-[#18181B]">
+      <Loading size="sm" text="Loading editor..." ring={false} />
     </div>
   ),
 });
@@ -1060,9 +1060,12 @@ export default function StudentPracticeCodingRunnerPage() {
   // Loading Screen
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-white text-slate-500 font-sans">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mr-2" />
-        <span className="text-sm font-semibold">Loading practice challenge...</span>
+      <div className="flex h-screen items-center justify-center bg-background text-foreground font-sans">
+        <Loading
+          text="Loading coding challenge..."
+          subtext="Preparing problem statement and editor workspace."
+          size="lg"
+        />
       </div>
     );
   }

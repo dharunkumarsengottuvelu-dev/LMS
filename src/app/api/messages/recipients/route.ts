@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
             name: displayName,
             email: r.email || "",
             role: (r.role || "admin").toLowerCase(),
-            avatar_url: r.avatar_url || null,
+            avatar_url: (r.avatar_url && !r.avatar_url.includes("unavatar.io")) ? r.avatar_url : null,
           };
         }),
         ...authAdmins
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
               name: displayName,
               email: u.email || "",
               role,
-              avatar_url: meta.avatar_url || null,
+              avatar_url: (meta.avatar_url && !meta.avatar_url.includes("unavatar.io")) ? meta.avatar_url : null,
             };
           }),
       ];
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
           name: displayName,
           email: r.email || "",
           role: "student",
-          avatar_url: r.avatar_url || null,
+          avatar_url: (r.avatar_url && !r.avatar_url.includes("unavatar.io")) ? r.avatar_url : null,
           batch: resolvedBatchName,
           batch_id: resolvedBatchId,
         };

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Loading } from "@/components/ui/loading";
 import { cn, getInitials } from "@/lib/utils";
 
 function formatTime(dateStr: string) {
@@ -473,8 +474,8 @@ export default function TrainerMessagesPage() {
             </div>
 
             {isLoadingConvs && sidebarStudents.length === 0 ? (
-              <div className="py-16 text-center text-xs text-slate-500 space-y-1">
-                <p className="font-medium">Loading student list...</p>
+              <div className="py-12 text-center">
+                <Loading size="sm" text="Loading roster..." ring={false} />
               </div>
             ) : sidebarStudents.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-400">

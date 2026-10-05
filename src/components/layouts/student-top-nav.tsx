@@ -36,7 +36,7 @@ export function StudentTopNav() {
     profile?.avatar_url ||
     (user?.user_metadata as any)?.avatar_url ||
     (user?.user_metadata as any)?.picture ||
-    (emailStr ? `https://unavatar.io/${encodeURIComponent(emailStr)}?fallback=false` : undefined);
+    undefined;
 
   const studentId = useMemo(() => {
     const metaId = (user?.user_metadata as any)?.student_id;

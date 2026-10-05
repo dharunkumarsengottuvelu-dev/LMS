@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Loading } from "@/components/ui/loading";
 import { PageHeader } from "@/components/layouts/page-header";
 import { Search, Plus, UploadCloud } from "lucide-react";
 import {
@@ -267,11 +268,8 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
-                      <span>Loading live problems from database...</span>
-                    </div>
+                  <td colSpan={7} className="py-10 text-center">
+                    <Loading size="sm" text="Loading coding problems..." />
                   </td>
                 </tr>
               ) : filteredProblems.length === 0 ? (

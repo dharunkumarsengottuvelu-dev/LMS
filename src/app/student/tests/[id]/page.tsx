@@ -11,6 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Loading } from "@/components/ui/loading";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage, cn } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -812,10 +813,12 @@ export default function StudentTestRunnerPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <RefreshCw className="h-8 w-8 animate-spin text-[#2563EB]" />
-        <p className="text-sm font-semibold text-[#6B7280]">Loading Assessment Environment...</p>
-      </div>
+      <Loading
+        text="Loading assessment..."
+        subtext="Please wait while we prepare your environment."
+        fullScreen
+        size="lg"
+      />
     );
   }
 

@@ -532,3 +532,46 @@ p, span, div {
   50% { transform: scaleX(0.7); opacity: 1; }
   100% { transform: scaleX(1); opacity: 0; }
 }
+
+/* ── SensilLearn Enterprise Logo Loading Animation ── */
+@keyframes sensil-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: drop-shadow(0 0 0 rgba(37, 99, 235, 0));
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.88;
+    filter: drop-shadow(0 4px 16px rgba(37, 99, 235, 0.25));
+  }
+}
+
+@keyframes sensil-ring {
+  0%, 100% {
+    transform: scale(0.92);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.15;
+  }
+}
+
+.sensil-loading-logo {
+  animation: sensil-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  will-change: transform, opacity;
+}
+
+.sensil-loading-ring {
+  animation: sensil-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sensil-loading-logo,
+  .sensil-loading-ring {
+    animation: none !important;
+    transform: none !important;
+  }
+}
