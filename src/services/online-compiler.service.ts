@@ -98,6 +98,8 @@ function executeOnWandbox(
         headers: {
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(payload),
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+          "Accept": "application/json, text/plain, */*",
         },
         timeout: timeoutMs,
       },
@@ -114,7 +116,7 @@ function executeOnWandbox(
           } catch {
             resolve({
               stdout: "",
-              stderr: "Online compiler response parse error",
+              stderr: `Online compiler response parse error (HTTP ${res.statusCode}): ${data.slice(0, 300)}`,
               compile_output: "",
               message: "Execution Error",
               status: { id: 13, description: "Internal Error" },
@@ -210,6 +212,8 @@ function preprocessTypeScriptForNode(code: string): string {
  * 
  * It uses the free Wandbox.org API as the execution backend.
  */
+import { adaptCodeForExecution } from "@/lib/compiler/code-adapter";
+
 export class OnlineCompilerService {
   /**
    * Executes code online using Wandbox.
@@ -219,7 +223,7 @@ export class OnlineCompilerService {
     language: string,
     code: string,
     stdin: string = "",
-    timeoutMs: number = 10000
+    timeoutMs: number = 25000
   ): Promise<NormalizedExecutionResult> {
     const lang = (language || "").toLowerCase().trim();
     const compiler = WANDBOX_COMPILER_MAP[lang];
@@ -237,11 +241,13 @@ export class OnlineCompilerService {
       };
     }
 
-    let processedCode = code;
+    // Adapt user code so missing main/wrappers are cleanly handled
+    let processedCode = adaptCodeForExecution(lang, code);
+
     if (lang === "java") {
-      processedCode = preprocessJavaForSandbox(code);
+      processedCode = preprocessJavaForSandbox(processedCode);
     } else if (lang === "typescript" || lang === "ts") {
-      processedCode = preprocessTypeScriptForNode(code);
+      processedCode = preprocessTypeScriptForNode(processedCode);
     }
 
     const cleanStdin = (stdin || "")

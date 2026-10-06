@@ -62,61 +62,34 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
 
 export const SUPPORTED_LANGUAGES: { id: CodingLanguage; name: string; monacoLang: string; defaultTemplate: string }[] = [
   {
-    id: "java",
-    name: "Java",
-    monacoLang: "java",
-    defaultTemplate: `import java.util.*;
-
-public class Solution {
-    public static void main(String[] args) {
-        // Write your code here
-        System.out.println("Hello, World!");
-    }
-}
-`,
-  },
-  {
     id: "c",
     name: "C",
     monacoLang: "c",
-    defaultTemplate: `#include <stdio.h>
-
-int main() {
-    // Write your code here
-    printf("Hello, World!\\n");
-    return 0;
-}
-`,
+    defaultTemplate: "",
   },
   {
     id: "cpp",
     name: "C++",
     monacoLang: "cpp",
-    defaultTemplate: `#include <iostream>
-using namespace std;
-
-int main() {
-    // Write your code here
-    cout << "Hello, World!" << endl;
-    return 0;
-}
-`,
+    defaultTemplate: "",
   },
   {
     id: "python",
     name: "Python",
     monacoLang: "python",
-    defaultTemplate: `# Write your code here
-print("Hello, World!")
-`,
+    defaultTemplate: "",
+  },
+  {
+    id: "java",
+    name: "Java",
+    monacoLang: "java",
+    defaultTemplate: "",
   },
   {
     id: "javascript",
     name: "JavaScript",
     monacoLang: "javascript",
-    defaultTemplate: `// Write your code here
-console.log("Hello, World!");
-`,
+    defaultTemplate: "",
   },
 ];
 
@@ -473,10 +446,12 @@ export default function StudentPracticeCodingRunnerPage() {
     // Restore saved code from localStorage, or latest submitted code, or load starter template
     const key = getStorageKey(currentProblem.id, initialLang);
     const saved = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+    const isDummyBoilerplate = (c: string) =>
+      c.includes("void solve()") && (c.includes("// Write your code here") || c.includes("void solve() {"));
 
-    if (saved && saved.trim()) {
+    if (saved && saved.trim() && !isDummyBoilerplate(saved)) {
       setCode(saved);
-    } else if (latestSub && latestSub.code && latestSub.code.trim()) {
+    } else if (latestSub && latestSub.code && latestSub.code.trim() && !isDummyBoilerplate(latestSub.code)) {
       setCode(latestSub.code);
       if (latestSub.language && availableLanguages.some((l) => l.id === latestSub.language)) {
         setSelectedLanguage(latestSub.language as CodingLanguage);
@@ -484,10 +459,13 @@ export default function StudentPracticeCodingRunnerPage() {
     } else {
       // Find template from problem or starter_code
       const problemTemplates = currentProblem.templates || starter.templates || {};
-      const templateForLang =
-        problemTemplates[initialLang] ||
-        SUPPORTED_LANGUAGES.find((l) => l.id === initialLang)?.defaultTemplate ||
-        "// Write your solution here\n";
+      let templateForLang =
+        problemTemplates[initialLang] ??
+        SUPPORTED_LANGUAGES.find((l) => l.id === initialLang)?.defaultTemplate ??
+        "";
+      if (isDummyBoilerplate(templateForLang)) {
+        templateForLang = "";
+      }
       setCode(templateForLang);
     }
 
@@ -522,18 +500,24 @@ export default function StudentPracticeCodingRunnerPage() {
     if (!currentProblem) return;
     setSelectedLanguage(newLang);
 
+    const isDummyBoilerplate = (c: string) =>
+      c.includes("void solve()") && (c.includes("// Write your code here") || c.includes("void solve() {"));
+
     const key = getStorageKey(currentProblem.id, newLang);
     const saved = typeof window !== "undefined" ? localStorage.getItem(key) : null;
 
-    if (saved && saved.trim()) {
+    if (saved && saved.trim() && !isDummyBoilerplate(saved)) {
       setCode(saved);
     } else {
       const starter = currentProblem.starter_code || {};
       const problemTemplates = currentProblem.templates || starter.templates || {};
-      const templateForLang =
-        problemTemplates[newLang] ||
-        SUPPORTED_LANGUAGES.find((l) => l.id === newLang)?.defaultTemplate ||
-        "// Write your solution here\n";
+      let templateForLang =
+        problemTemplates[newLang] ??
+        SUPPORTED_LANGUAGES.find((l) => l.id === newLang)?.defaultTemplate ??
+        "";
+      if (isDummyBoilerplate(templateForLang)) {
+        templateForLang = "";
+      }
       setCode(templateForLang);
     }
   };
@@ -553,24 +537,17 @@ export default function StudentPracticeCodingRunnerPage() {
     }
   };
 
-  // Reset code to default starter
+  // Reset code to blank or default
   const handleResetCode = () => {
     if (!currentProblem) return;
-    const starter = currentProblem.starter_code || {};
-    const problemTemplates = currentProblem.templates || starter.templates || {};
-    const defaultSnippet =
-      problemTemplates[selectedLanguage] ||
-      SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage)?.defaultTemplate ||
-      "// Write your solution here\n";
-
-    setCode(defaultSnippet);
+    setCode("");
     const key = getStorageKey(currentProblem.id, selectedLanguage);
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem(key, defaultSnippet);
+        localStorage.removeItem(key);
       } catch {}
     }
-    toast({ title: "Code Reset", description: "Editor code restored to starter template." });
+    toast({ title: "Code Reset", description: "Editor code cleared to blank." });
   };
 
   // All Test Cases resolved from currentProblem or starter_code

@@ -7,6 +7,7 @@ import cp from "node:child_process";
 import { getLanguageDefinition, type SourceFileInfo } from "./language-registry";
 import { sanitizeCompilerOutput, type StandardExecutionStatus } from "./comparator";
 import { OnlineCompilerService } from "@/services/online-compiler.service";
+import { adaptCodeForExecution } from "./code-adapter";
 
 export interface UniversalExecutionResult {
   stdout: string;
@@ -54,9 +55,10 @@ export class UniversalExecutor {
     const langDef = getLanguageDefinition(language);
     const cleanStdin = cleanInputString(stdin);
     const effectiveTimeout = timeoutMs || langDef.defaultTimeoutMs;
+    const adaptedCode = adaptCodeForExecution(langDef.id, code);
 
     // 1. Resolve source filename dynamically
-    const sourceInfo: SourceFileInfo = langDef.sourceFilenameStrategy(code);
+    const sourceInfo: SourceFileInfo = langDef.sourceFilenameStrategy(adaptedCode);
 
     if (sourceInfo.error) {
       return {
@@ -75,7 +77,7 @@ export class UniversalExecutor {
 
     // 2. Serverless environment -> Online Sandbox
     if (isServerless()) {
-      return this.executeOnline(langDef.id, code, cleanStdin, effectiveTimeout, sourceInfo.filename);
+      return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename);
     }
 
     // 3. Create isolated temporary workspace
@@ -84,7 +86,7 @@ export class UniversalExecutor {
       const createdDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "lms_sandbox_"));
       tempDir = createdDir;
       const sourcePath = path.join(createdDir, sourceInfo.filename);
-      fs.writeFileSync(sourcePath, code, "utf8");
+      fs.writeFileSync(sourcePath, adaptedCode, "utf8");
 
       let result: UniversalExecutionResult;
 
@@ -129,17 +131,17 @@ export class UniversalExecutor {
           result = await this.executeBash(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
           break;
         default:
-          return this.executeOnline(langDef.id, code, cleanStdin, effectiveTimeout, sourceInfo.filename);
+          return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename);
       }
 
       // If local execution failed due to missing local compiler binary, seamlessly fallback to Online Sandbox
       if (result.outcome === 20 || result.status.id === 13) {
-        return this.executeOnline(langDef.id, code, cleanStdin, effectiveTimeout, sourceInfo.filename);
+        return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename);
       }
 
       return result;
     } catch {
-      return this.executeOnline(langDef.id, code, cleanStdin, effectiveTimeout, sourceInfo.filename);
+      return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename);
     } finally {
       if (tempDir) {
         try {

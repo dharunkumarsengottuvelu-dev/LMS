@@ -132,102 +132,43 @@ export const getMonacoLanguage = (lang: string) => {
 };
 
 const DEFAULT_STARTER_CODES: Record<string, string> = {
-  python: `class Solution:
-    def solve(self):
-        # Write your code here
-        pass
-`,
-  java: `class Solution {
-    public void solve() {
-        // Write your code here
-    }
-}
-`,
-  cpp: `#include <iostream>
-using namespace std;
-
-class Solution {
-public:
-    void solve() {
-        // Write your code here
-    }
+  python: "",
+  java: "",
+  cpp: "",
+  c: "",
+  csharp: "",
+  javascript: "",
+  typescript: "",
+  go: "",
+  rust: "",
+  kotlin: "",
+  php: "",
+  ruby: "",
+  swift: "",
+  scala: "",
+  dart: "",
+  sql: "",
+  bash: "",
 };
-`,
-  c: `#include <stdio.h>
-#include <stdlib.h>
 
-void solve() {
-    // Write your code here
-}
-`,
-  csharp: `using System;
-
-public class Solution {
-    public void Solve() {
-        // Write your code here
-    }
-}
-`,
-  javascript: `/**
- * @return {void}
- */
-var solve = function() {
-    // Write your code here
-};
-`,
-  typescript: `function solve(): void {
-    // Write your code here
-}
-`,
-  go: `package main
-
-import "fmt"
-
-func solve() {
-    // Write your code here
-}
-`,
-  rust: `fn solve() {
-    // Write your code here
-}
-`,
-  kotlin: `class Solution {
-    fun solve() {
-        // Write your code here
-    }
-}
-`,
-  php: `<?php
-function solve() {
-    // Write your code here
-}
-`,
-  ruby: `def solve()
-    # Write your code here
-end
-`,
-  swift: `class Solution {
-    func solve() {
-        // Write your code here
-    }
-}
-`,
-  scala: `object Solution {
-    def solve(): Unit = {
-        // Write your code here
-    }
-}
-`,
-  dart: `void solve() {
-    // Write your code here
-}
-`,
-  sql: `-- Write your SQL query here
-SELECT * FROM table_name;
-`,
-  bash: `#!/bin/bash
-# Write your code here
-`,
+const STANDARD_STARTER_TEMPLATES: Record<string, string> = {
+  c: `#include <stdio.h>\n\nint main() {\n    // Write your code here\n    return 0;\n}\n`,
+  cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your code here\n    return 0;\n}\n`,
+  python: `# Write your code here\n`,
+  java: `import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        // Write your code here\n    }\n}\n`,
+  javascript: `// Write your code here\n`,
+  typescript: `// Write your code here\n`,
+  csharp: `using System;\n\npublic class Program {\n    public static void Main(string[] args) {\n        // Write your code here\n    }\n}\n`,
+  go: `package main\n\nimport "fmt"\n\nfunc main() {\n    // Write your code here\n}\n`,
+  rust: `fn main() {\n    // Write your code here\n}\n`,
+  kotlin: `fun main() {\n    // Write your code here\n}\n`,
+  php: `<?php\n// Write your code here\n`,
+  ruby: `# Write your code here\n`,
+  swift: `// Write your code here\n`,
+  scala: `object Main extends App {\n    // Write your code here\n}\n`,
+  dart: `void main() {\n    // Write your code here\n}\n`,
+  sql: `-- Write your SQL query here\nSELECT * FROM table_name;\n`,
+  bash: `#!/bin/bash\n# Write your code here\n`,
 };
 
 export interface CodingProblemCreatorProps {
@@ -2010,19 +1951,35 @@ export function CodingProblemCreator({
             <span className="font-mono font-bold text-slate-700 uppercase">
               {activeCodeLang} Starter Code
             </span>
-            <button
-              type="button"
-              onClick={() => {
-                setTemplates({
-                  ...templates,
-                  [activeCodeLang]: DEFAULT_STARTER_CODES[activeCodeLang] || "",
-                });
-                toast.success(`Reset starter code for ${activeCodeLang}`);
-              }}
-              className="text-xs text-blue-600 hover:underline font-semibold"
-            >
-              Reset to Default
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setTemplates({
+                    ...templates,
+                    [activeCodeLang]: "",
+                  });
+                  toast.success(`Cleared starter code for ${activeCodeLang} (Blank)`);
+                }}
+                className="text-xs text-rose-600 hover:underline font-semibold"
+              >
+                Clear / Blank
+              </button>
+              <span className="text-slate-300">|</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setTemplates({
+                    ...templates,
+                    [activeCodeLang]: STANDARD_STARTER_TEMPLATES[activeCodeLang] || "",
+                  });
+                  toast.success(`Applied standard template for ${activeCodeLang}`);
+                }}
+                className="text-xs text-blue-600 hover:underline font-semibold"
+              >
+                Standard Template
+              </button>
+            </div>
           </div>
           <Editor
             height="220px"

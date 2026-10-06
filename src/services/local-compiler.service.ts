@@ -44,15 +44,18 @@ function cleanStdinStr(s: string): string {
     .replace(/\r\n/g, "\n");
 }
 
+import { adaptCodeForExecution } from "@/lib/compiler/code-adapter";
+
 export class LocalCompilerService {
   public static async execute(
     language: string,
-    code: string,
+    rawCode: string,
     stdin: string = "",
-    timeoutMs: number = 10000
+    timeoutMs: number = 15000
   ): Promise<NormalizedExecutionResult> {
     const lang = (language || "").toLowerCase().trim();
     const cleanStdin = cleanStdinStr(stdin);
+    const code = adaptCodeForExecution(lang, rawCode);
 
     // ── Client-side safe guard ──────────────────────────────────────────────
     if (!isNode) {

@@ -55,38 +55,61 @@ export async function POST(request: NextRequest) {
       datasetName = dbProblem.dataset_name ?? "university";
     }
 
-    // Evaluate each testcase concurrently in parallel
-    const testResults: TestCaseResult[] = await Promise.all(
-      testCases.map(async (tc: TestCase) => {
-        let passed = false;
-        let trimmedActual = "";
-        const expectedOutput = tc.expected_output || "";
-        let resError: string | undefined;
-        let execTime = 0.02;
+    // Evaluate test cases sequentially with caching for identical inputs to prevent Wandbox queueing/timeouts
+    const testResults: TestCaseResult[] = [];
+    const executionCache = new Map<string, {
+      trimmedActual: string;
+      execTime: number;
+      passed: boolean;
+      resError?: string;
+    }>();
+    let earlyCompileError: string | null = null;
 
-        if (language === "sql") {
-          const sqlEngine = body.sql_engine || problem?.sql_engine || "sqlite";
-          const schemaSql = body.schema_sql !== undefined ? body.schema_sql : (problem?.schema_sql || "");
-          const seedSql = body.seed_sql !== undefined ? body.seed_sql : (problem?.seed_sql || "");
-          const comparisonMode = body.comparison_mode || problem?.comparison_mode || "ORDER_SENSITIVE";
+    for (const tc of testCases) {
+      let passed = false;
+      let trimmedActual = "";
+      const expectedOutput = tc.expected_output || "";
+      let resError: string | undefined;
+      let execTime = 0.02;
 
-          const sqlRes = await SQLExecutionService.executeQuery(code, datasetName, {
-            engine: sqlEngine,
-            schemaSql,
-            seedSql,
-          });
+      if (earlyCompileError) {
+        passed = false;
+        resError = earlyCompileError;
+        trimmedActual = "";
+      } else if (language === "sql") {
+        const sqlEngine = body.sql_engine || problem?.sql_engine || "sqlite";
+        const schemaSql = body.schema_sql !== undefined ? body.schema_sql : (problem?.schema_sql || "");
+        const seedSql = body.seed_sql !== undefined ? body.seed_sql : (problem?.seed_sql || "");
+        const comparisonMode = body.comparison_mode || problem?.comparison_mode || "ORDER_SENSITIVE";
 
-          execTime = sqlRes.executionTimeMs / 1000;
-          if (sqlRes.error) {
-            passed = false;
-            resError = sqlRes.error;
-            trimmedActual = sqlRes.error;
-          } else {
-            trimmedActual = JSON.stringify(sqlRes.rows);
-            passed = SQLExecutionService.compareSQLResults(sqlRes, expectedOutput.trim(), comparisonMode);
+        const sqlRes = await SQLExecutionService.executeQuery(code, datasetName, {
+          engine: sqlEngine,
+          schemaSql,
+          seedSql,
+        });
+
+        execTime = sqlRes.executionTimeMs / 1000;
+        if (sqlRes.error) {
+          passed = false;
+          resError = sqlRes.error;
+          trimmedActual = sqlRes.error;
+        } else {
+          trimmedActual = JSON.stringify(sqlRes.rows);
+          passed = SQLExecutionService.compareSQLResults(sqlRes, expectedOutput.trim(), comparisonMode);
+        }
+      } else {
+        const cacheKey = `${language}:::${tc.input || ""}`;
+        if (executionCache.has(cacheKey)) {
+          const cached = executionCache.get(cacheKey)!;
+          trimmedActual = cached.trimmedActual;
+          execTime = cached.execTime;
+          const isSuccess = !cached.resError;
+          passed = isSuccess && compareOutput(trimmedActual, expectedOutput, "WHITESPACE_NORMALIZED");
+          if (!passed) {
+            resError = cached.resError || (isSuccess ? "Output mismatch" : "Execution Error");
           }
         } else {
-          const res = await UniversalExecutor.execute(language, code, tc.input);
+          const res = await UniversalExecutor.execute(language, code, tc.input, 25000);
           trimmedActual = (res.stdout || "").trim();
           execTime = parseFloat(res.time) || 0.02;
 
@@ -96,24 +119,35 @@ export async function POST(request: NextRequest) {
           if (!passed) {
             resError = res.compile_output || res.stderr || res.message || (isSuccess ? "Output mismatch" : "Execution Error");
           }
-        }
 
-        const isHidden = Boolean(tc.is_hidden);
-        return {
-          test_case_id: tc.id,
-          passed,
-          is_hidden: isHidden,
-          input: isHidden ? undefined : tc.input,
-          actual_output: isHidden
-            ? (passed ? "Match (Passed against hidden test case)" : (resError ? `Error: ${resError}` : "Mismatch (Hidden Test Case)"))
-            : trimmedActual,
-          expected_output: isHidden ? "[Hidden for evaluation]" : expectedOutput,
-          error: resError,
-          time_seconds: execTime,
-          memory_kb: 16000,
-        };
-      })
-    );
+          if (res.status?.id === 6 || res.outcome === 11 || (res.compile_output && res.compile_output.trim())) {
+            earlyCompileError = res.compile_output || res.stderr || "Compilation Error";
+          }
+
+          executionCache.set(cacheKey, {
+            trimmedActual,
+            execTime,
+            passed,
+            resError,
+          });
+        }
+      }
+
+      const isHidden = Boolean(tc.is_hidden);
+      testResults.push({
+        test_case_id: tc.id,
+        passed,
+        is_hidden: isHidden,
+        input: isHidden ? undefined : tc.input,
+        actual_output: isHidden
+          ? (passed ? "Match (Passed against hidden test case)" : (resError ? `Error: ${resError}` : "Mismatch (Hidden Test Case)"))
+          : trimmedActual,
+        expected_output: isHidden ? "[Hidden for evaluation]" : expectedOutput,
+        error: resError,
+        time_seconds: execTime,
+        memory_kb: 16000,
+      });
+    }
 
     const firstCompileError = testResults.find(
       (r) => r.error && (r.error.toLowerCase().includes("compilation") || r.error.toLowerCase().includes("error:") || r.error.toLowerCase().includes("syntaxerror"))
