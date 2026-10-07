@@ -473,15 +473,46 @@ export function CodingProblemCreator({
 
   // 7 & 8. TEST CASES (PUBLIC & HIDDEN)
   const [testCases, setTestCases] = useState<TestCase[]>(() => {
-    if (existing.test_cases && existing.test_cases.length > 0) {
-      return existing.test_cases;
+    const existingRawCases =
+      (Array.isArray(existing.test_cases) && existing.test_cases.length > 0 ? existing.test_cases : null) ||
+      (Array.isArray((existing as any).testCases) && (existing as any).testCases.length > 0 ? (existing as any).testCases : null) ||
+      (Array.isArray((existing as any).sample_test_cases) && (existing as any).sample_test_cases.length > 0 ? (existing as any).sample_test_cases : null) ||
+      (Array.isArray((existing as any).sampleTestCases) && (existing as any).sampleTestCases.length > 0 ? (existing as any).sampleTestCases : null) ||
+      (Array.isArray((existing as any).starter_code?.test_cases) && (existing as any).starter_code.test_cases.length > 0 ? (existing as any).starter_code.test_cases : null) ||
+      (Array.isArray((existing as any).starter_code?.sample_test_cases) && (existing as any).starter_code.sample_test_cases.length > 0 ? (existing as any).starter_code.sample_test_cases : null);
+
+    if (existingRawCases && existingRawCases.length > 0) {
+      return existingRawCases.map((tc: any, idx: number) => ({
+        id: tc.id || `tc-${idx + 1}`,
+        name: tc.name || `Test Case ${idx + 1}`,
+        input: tc.input !== undefined && tc.input !== null ? String(tc.input) : (tc.stdin !== undefined && tc.stdin !== null ? String(tc.stdin) : ""),
+        expected_output: tc.expected_output !== undefined && tc.expected_output !== null
+          ? String(tc.expected_output)
+          : (tc.expectedOutput !== undefined && tc.expectedOutput !== null
+            ? String(tc.expectedOutput)
+            : (tc.output !== undefined && tc.output !== null ? String(tc.output) : "")),
+        is_hidden: Boolean(tc.is_hidden || tc.isHidden || tc.hidden),
+        weight: tc.weight !== undefined ? Number(tc.weight) : 10,
+        is_enabled: tc.is_enabled !== false,
+      }));
     }
+
     const combined: TestCase[] = [];
-    if (initialPublicTestCases) {
-      combined.push(...initialPublicTestCases.map((tc) => ({ ...tc, is_hidden: false })));
+    if (initialPublicTestCases && initialPublicTestCases.length > 0) {
+      combined.push(...initialPublicTestCases.map((tc) => ({
+        ...tc,
+        input: tc.input !== undefined && tc.input !== null ? String(tc.input) : "",
+        expected_output: tc.expected_output !== undefined && tc.expected_output !== null ? String(tc.expected_output) : ((tc as any).expectedOutput || ""),
+        is_hidden: false,
+      })));
     }
-    if (initialHiddenTestCases) {
-      combined.push(...initialHiddenTestCases.map((tc) => ({ ...tc, is_hidden: true })));
+    if (initialHiddenTestCases && initialHiddenTestCases.length > 0) {
+      combined.push(...initialHiddenTestCases.map((tc) => ({
+        ...tc,
+        input: tc.input !== undefined && tc.input !== null ? String(tc.input) : "",
+        expected_output: tc.expected_output !== undefined && tc.expected_output !== null ? String(tc.expected_output) : ((tc as any).expectedOutput || ""),
+        is_hidden: true,
+      })));
     }
     if (combined.length > 0) return combined;
 
@@ -682,6 +713,30 @@ export function CodingProblemCreator({
       return;
     }
 
+    if (testCases.length === 0) {
+      toast.error("Please add at least one test case.");
+      return;
+    }
+
+    // Input is completely OPTIONAL. Expected Output is REQUIRED for automated verification.
+    const invalidTestCaseIndex = testCases.findIndex((tc) => {
+      const exp = (
+        tc.expected_output !== undefined && tc.expected_output !== null
+          ? String(tc.expected_output)
+          : (tc as any).expectedOutput !== undefined && (tc as any).expectedOutput !== null
+          ? String((tc as any).expectedOutput)
+          : (tc as any).output !== undefined && (tc as any).output !== null
+          ? String((tc as any).output)
+          : ""
+      ).trim();
+      return !exp;
+    });
+
+    if (invalidTestCaseIndex !== -1) {
+      toast.error(`Expected Output is required for Test Case ${invalidTestCaseIndex + 1}.`);
+      return;
+    }
+
     const autoSlug = slug.trim() || title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const cleanNumber = problemNumber.trim() || String(Date.now()).slice(-4);
 
@@ -703,6 +758,27 @@ export function CodingProblemCreator({
       ? Object.fromEntries(selectedMultiLanguages.map((l) => [l, templates[l] || DEFAULT_STARTER_CODES[l] || ""]))
       : templates;
 
+    // Clean test cases: keep input optional (default "") and expected_output cleanly preserved
+    const cleanTestCases: TestCase[] = testCases.map((tc, idx) => ({
+      ...tc,
+      id: tc.id || `tc_${idx + 1}`,
+      name: tc.name || `Test Case ${idx + 1}`,
+      input: tc.input !== undefined && tc.input !== null ? String(tc.input) : "",
+      expected_output: tc.expected_output !== undefined && tc.expected_output !== null
+        ? String(tc.expected_output)
+        : (tc as any).expectedOutput !== undefined && (tc as any).expectedOutput !== null
+        ? String((tc as any).expectedOutput)
+        : (tc as any).output !== undefined && (tc as any).output !== null
+        ? String((tc as any).output)
+        : "",
+      is_hidden: Boolean(tc.is_hidden),
+      weight: tc.weight !== undefined ? Number(tc.weight) : 10,
+      is_enabled: tc.is_enabled !== false,
+    }));
+
+    const sampleTestCases = cleanTestCases.filter((tc) => !tc.is_hidden);
+    const hiddenTestCases = cleanTestCases.filter((tc) => !!tc.is_hidden);
+
     const problemRecord: CodingProblem = {
       id: cleanNumber,
       problem_number: !isNaN(Number(cleanNumber)) ? Number(cleanNumber) : undefined,
@@ -723,7 +799,9 @@ export function CodingProblemCreator({
       allowedLanguages: finalAllowed,
       default_language: isSingle ? selectedSingleLanguage : undefined,
       function_signature: functionSignature,
-      test_cases: testCases,
+      test_cases: cleanTestCases,
+      sample_test_cases: sampleTestCases,
+      hidden_test_cases: hiddenTestCases,
       status: saveStatus,
       max_attempts: maxAttempts,
       time_limit_ms: timeLimitMs,
@@ -743,6 +821,14 @@ export function CodingProblemCreator({
 
     try {
       const saved = await CodingProblemsService.saveProblem(problemRecord);
+      const mergedSaved: CodingProblem = {
+        ...problemRecord,
+        ...(saved || {}),
+        test_cases: cleanTestCases,
+        sample_test_cases: sampleTestCases,
+        hidden_test_cases: hiddenTestCases,
+      };
+
       if (isNext) {
         toast.success(`Problem "${problemRecord.title}" saved. Ready for next question.`);
 
@@ -766,9 +852,9 @@ export function CodingProblemCreator({
         setProblemNumber((curr) => String((parseInt(curr, 10) || 0) + 1));
 
         if (onSaveAndNext) {
-          onSaveAndNext(saved || problemRecord);
+          onSaveAndNext(mergedSaved);
         } else {
-          if (onSave) onSave(saved || problemRecord);
+          if (onSave) onSave(mergedSaved);
         }
       } else {
         toast.success(
@@ -777,7 +863,7 @@ export function CodingProblemCreator({
             : `Problem draft saved.`
         );
         if (onSave) {
-          onSave(saved || problemRecord);
+          onSave(mergedSaved);
         }
       }
     } catch (err: any) {
@@ -2088,27 +2174,31 @@ export function CodingProblemCreator({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-700">Input:</label>
-                    <span className="text-[10px] text-slate-400">Auto-expands with content</span>
+                    <label className="text-xs font-semibold text-slate-700">
+                      Input <span className="text-slate-400 font-normal">(Optional)</span>:
+                    </label>
+                    <span className="text-[10px] text-slate-400">stdin for this testcase</span>
                   </div>
                   <Textarea
                     rows={Math.max(2, Math.min(12, (tc.input || "").split("\n").length))}
                     value={tc.input}
                     onChange={(e) => handleUpdateTestCase(idx, "input", e.target.value)}
-                    placeholder="Input data for this test case"
+                    placeholder="Input data for this test case (leave empty if no input is needed)"
                     className="min-h-[48px] text-xs bg-white border-slate-200 rounded-lg font-mono resize-y py-2 leading-relaxed"
                   />
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-700">Expected Output:</label>
-                    <span className="text-[10px] text-slate-400">Auto-expands with content</span>
+                    <label className="text-xs font-semibold text-slate-700">
+                      Expected Output <span className="text-rose-500 font-bold">*</span> <span className="text-slate-400 font-normal">(Required)</span>:
+                    </label>
+                    <span className="text-[10px] text-slate-400">stdout to verify</span>
                   </div>
                   <Textarea
                     rows={Math.max(2, Math.min(12, (tc.expected_output || "").split("\n").length))}
                     value={tc.expected_output}
                     onChange={(e) => handleUpdateTestCase(idx, "expected_output", e.target.value)}
-                    placeholder="Expected output result"
+                    placeholder="Expected output result (e.g. Hello, World!)"
                     className="min-h-[48px] text-xs bg-white border-slate-200 rounded-lg font-mono resize-y py-2 leading-relaxed"
                   />
                 </div>

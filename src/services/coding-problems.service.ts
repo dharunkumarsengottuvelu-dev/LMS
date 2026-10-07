@@ -45,17 +45,18 @@ export class CodingProblemsService {
     try {
       const res = await axios.post("/api/admin/coding", problem);
       const saved = res.data?.problem || problem;
+      const mergedProblem = { ...problem, ...saved };
 
       // Update in-memory cache
       const idx = this.cachedProblems.findIndex((p) => p.id === problem.id || p.id === saved.id);
       if (idx >= 0) {
-        this.cachedProblems[idx] = { ...problem, id: saved.id || problem.id };
+        this.cachedProblems[idx] = mergedProblem;
       } else {
         // Append newly created problem at the end so it gets the next sequential question number
-        this.cachedProblems.push({ ...problem, id: saved.id || problem.id });
+        this.cachedProblems.push(mergedProblem);
       }
 
-      return saved;
+      return mergedProblem;
     } catch (err) {
       console.error("Failed to save problem via /api/admin/coding:", err);
       throw err;

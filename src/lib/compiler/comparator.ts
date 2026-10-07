@@ -97,9 +97,15 @@ export function compareOutput(
   }
 
   // Default: WHITESPACE_NORMALIZED
-  const act = normalizeWhitespace(actual, true);
-  const exp = normalizeWhitespace(expected, true);
-  return act === exp;
+  // 1. First test line-level trailing whitespace and newline normalization
+  const actTrimmed = normalizeWhitespace(actual, false);
+  const expTrimmed = normalizeWhitespace(expected, false);
+  if (actTrimmed === expTrimmed) return true;
+
+  // 2. Next test collapsed internal spaces
+  const actCollapsed = normalizeWhitespace(actual, true);
+  const expCollapsed = normalizeWhitespace(expected, true);
+  return actCollapsed === expCollapsed;
 }
 
 /**
@@ -139,3 +145,161 @@ export function resolveStandardStatus(
 
   return passed ? "ACCEPTED" : "WRONG_ANSWER";
 }
+
+/**
+ * Shared normalization utilities for test cases across Admin, Trainer, and Student workflows.
+ * Ensures consistent handling of input, expected output, and public/hidden test case extraction.
+ */
+
+export function normalizeTestInput(val: any): string {
+  if (val === null || val === undefined) return "";
+  const str = String(val);
+  const trimmed = str.trim();
+  if (
+    trimmed === "No input" ||
+    trimmed === "(No input)" ||
+    trimmed === "(no input)" ||
+    trimmed === "None" ||
+    trimmed === "(None)" ||
+    trimmed === "(none)" ||
+    trimmed === "N/A" ||
+    trimmed === "n/a"
+  ) {
+    return "";
+  }
+  return str.replace(/\r\n/g, "\n");
+}
+
+export function normalizeExpectedOutput(tc: any): string {
+  if (tc === null || tc === undefined) return "";
+  if (typeof tc === "string") return tc.replace(/\r\n/g, "\n");
+  const raw =
+    tc.expected_output !== undefined && tc.expected_output !== null
+      ? tc.expected_output
+      : tc.expectedOutput !== undefined && tc.expectedOutput !== null
+      ? tc.expectedOutput
+      : tc.output !== undefined && tc.output !== null
+      ? tc.output
+      : tc.expected !== undefined && tc.expected !== null
+      ? tc.expected
+      : tc.target_output !== undefined && tc.target_output !== null
+      ? tc.target_output
+      : "";
+  return String(raw).replace(/\r\n/g, "\n");
+}
+
+export interface NormalizedTestCase {
+  id: string;
+  name?: string;
+  input: string;
+  expected_output: string;
+  is_hidden: boolean;
+}
+
+export function normalizeTestCase(tc: any, index: number = 0): NormalizedTestCase {
+  const isHidden = Boolean(tc?.is_hidden || tc?.isHidden || tc?.hidden);
+  const rawInput = tc?.input !== undefined && tc?.input !== null ? tc.input : (tc?.stdin !== undefined && tc?.stdin !== null ? tc.stdin : "");
+  return {
+    id: String(tc?.id || tc?.test_case_id || `tc_${index + 1}`),
+    name: tc?.name || `Test Case ${index + 1}`,
+    input: normalizeTestInput(rawInput),
+    expected_output: normalizeExpectedOutput(tc),
+    is_hidden: isHidden,
+  };
+}
+
+/**
+ * Extracts visible/sample test cases from any question format created by Admin or Trainer.
+ */
+export function extractSampleTestCases(problem: any): NormalizedTestCase[] {
+  if (!problem) return [];
+  const starter = (typeof problem.starter_code === "object" && problem.starter_code !== null)
+    ? problem.starter_code
+    : {};
+
+  // 1. Direct sample_test_cases
+  const directSample =
+    Array.isArray(problem.sample_test_cases) && problem.sample_test_cases.length > 0
+      ? problem.sample_test_cases
+      : Array.isArray(problem.sampleTestCases) && problem.sampleTestCases.length > 0
+      ? problem.sampleTestCases
+      : Array.isArray(problem.publicTestCases) && problem.publicTestCases.length > 0
+      ? problem.publicTestCases
+      : Array.isArray(starter.sample_test_cases) && starter.sample_test_cases.length > 0
+      ? starter.sample_test_cases
+      : Array.isArray(starter.sampleTestCases) && starter.sampleTestCases.length > 0
+      ? starter.sampleTestCases
+      : [];
+
+  if (directSample.length > 0) {
+    return directSample.map((tc: any, idx: number) => ({
+      ...normalizeTestCase(tc, idx),
+      is_hidden: false,
+    }));
+  }
+
+  // 2. Direct test_cases filtering for non-hidden
+  const allCases =
+    Array.isArray(problem.test_cases) && problem.test_cases.length > 0
+      ? problem.test_cases
+      : Array.isArray(problem.testCases) && problem.testCases.length > 0
+      ? problem.testCases
+      : Array.isArray(starter.test_cases) && starter.test_cases.length > 0
+      ? starter.test_cases
+      : [];
+
+  const publicCases = allCases.filter((tc: any) => !tc.is_hidden && !tc.isHidden && !tc.hidden);
+  if (publicCases.length > 0) {
+    return publicCases.map((tc: any, idx: number) => ({
+      ...normalizeTestCase(tc, idx),
+      is_hidden: false,
+    }));
+  }
+
+  // If all cases exist but none explicitly marked !is_hidden, use first case as visible sample
+  if (allCases.length > 0) {
+    return [
+      {
+        ...normalizeTestCase(allCases[0], 0),
+        is_hidden: false,
+      },
+    ];
+  }
+
+  // 3. Fallback to example cases ONLY if they contain actual expected output
+  const examples =
+    Array.isArray(problem.example_cases) && problem.example_cases.length > 0
+      ? problem.example_cases
+      : Array.isArray(problem.examples) && problem.examples.length > 0
+      ? problem.examples
+      : Array.isArray(starter.example_cases) && starter.example_cases.length > 0
+      ? starter.example_cases
+      : [];
+
+  const validExamples = examples.filter((eg: any) => {
+    const out = normalizeExpectedOutput(eg);
+    return out.trim().length > 0;
+  });
+
+  if (validExamples.length > 0) {
+    return validExamples.map((eg: any, idx: number) => ({
+      id: `sample_eg_${idx + 1}`,
+      name: `Sample Case ${idx + 1}`,
+      input: normalizeTestInput(eg.input),
+      expected_output: normalizeExpectedOutput(eg),
+      is_hidden: false,
+    }));
+  }
+
+  // 4. Default single case
+  return [
+    {
+      id: "tc_sample_1",
+      name: "Sample Case 1",
+      input: "",
+      expected_output: "",
+      is_hidden: false,
+    },
+  ];
+}
+

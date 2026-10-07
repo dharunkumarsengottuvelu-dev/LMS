@@ -112,13 +112,31 @@ export async function GET(request: NextRequest) {
 
     const { data: attempts } = await adminClient
       .from("assessment_attempts")
-      .select("assessment_id, status, score, total_marks, answers")
-      .or(studentFilter) as any;
+      .select("id, assessment_id, status, score, total_marks, answers, created_at")
+      .or(studentFilter)
+      .order("created_at", { ascending: true }) as any;
 
-    const attemptsMap = new Map<string, any>();
+    const moduleAttemptsMap = new Map<string, any[]>();
     (attempts || []).forEach((att: any) => {
-      attemptsMap.set(att.assessment_id, att);
+      if (att.assessment_id) {
+        const list = moduleAttemptsMap.get(att.assessment_id) || [];
+        list.push(att);
+        moduleAttemptsMap.set(att.assessment_id, list);
+      }
     });
+
+    const practiceSubmissionsSet = new Set<string>();
+    try {
+      const { data: practiceSubs } = await adminClient
+        .from("student_practice_submissions")
+        .select("module_id, status")
+        .or(studentFilter) as any;
+      (practiceSubs || []).forEach((ps: any) => {
+        if (ps.status === "completed" || ps.status === "passed") {
+          practiceSubmissionsSet.add(ps.module_id);
+        }
+      });
+    } catch {}
 
     // 5. Structure the dynamic 3-level hierarchy: Main Module -> Submodule -> Module
     const mappedTracks = authorizedTracks.map((track: any) => {
@@ -173,41 +191,36 @@ export async function GET(request: NextRequest) {
                 qCount = m.questionCount || m.question_count || 1;
               }
 
-              const attempt = attemptsMap.get(m.id);
-              const isAttemptCompleted = Boolean(
-                attempt && (attempt.status === "submitted" || attempt.status === "auto_submitted" || attempt.status === "passed")
+              const modAttempts = moduleAttemptsMap.get(m.id) || [];
+              const completedAttempts = modAttempts.filter((a: any) =>
+                a.status === "submitted" || a.status === "completed" || a.status === "passed" || a.status === "auto_submitted"
               );
+              const activeAttempt = modAttempts.find((a: any) => a.status === "in_progress");
+
+              const isPracticeSubDone = practiceSubmissionsSet.has(m.id);
+              const isAttemptCompleted = completedAttempts.length > 0;
+              const isCompleted = isPracticeSubDone || isAttemptCompleted;
+
+              let answeredInActiveAttempt = 0;
+              if (activeAttempt && activeAttempt.answers && typeof activeAttempt.answers === "object") {
+                answeredInActiveAttempt = calculateAnsweredQuestions(activeAttempt.answers, qCount);
+              }
+
               const codingProblemsList = m.codingQuestions || m.codingProblems || [];
               const solvedProblemsCount = codingProblemsList.filter((p: any) => completedProblemIds.has(p.id)).length;
-
-              let answeredInAttempt = 0;
-              if (attempt && attempt.answers && typeof attempt.answers === "object") {
-                answeredInAttempt = calculateAnsweredQuestions(attempt.answers, qCount);
-              }
               if (solvedProblemsCount > 0) {
-                answeredInAttempt = Math.max(answeredInAttempt, solvedProblemsCount);
+                answeredInActiveAttempt = Math.max(answeredInActiveAttempt, solvedProblemsCount);
               }
 
               let completedQuestionsInModule = 0;
-              let isCompleted = false;
               let modStatus: "not_started" | "in_progress" | "completed" = "not_started";
 
-              if (isAttemptCompleted) {
-                completedQuestionsInModule = Math.min(qCount, answeredInAttempt);
-                if (completedQuestionsInModule >= qCount && qCount > 0) {
-                  isCompleted = true;
-                  modStatus = "completed";
-                } else {
-                  modStatus = completedQuestionsInModule > 0 ? "in_progress" : "not_started";
-                }
-              } else if (solvedProblemsCount > 0) {
-                completedQuestionsInModule = Math.min(qCount, solvedProblemsCount);
-                if (completedQuestionsInModule >= qCount && qCount > 0) {
-                  isCompleted = true;
-                  modStatus = "completed";
-                } else {
-                  modStatus = "in_progress";
-                }
+              if (isCompleted) {
+                completedQuestionsInModule = qCount;
+                modStatus = "completed";
+              } else if (activeAttempt || answeredInActiveAttempt > 0) {
+                completedQuestionsInModule = Math.min(qCount, answeredInActiveAttempt);
+                modStatus = "in_progress";
               }
 
               totalQuestionsAcrossTrack += qCount;
@@ -217,7 +230,9 @@ export async function GET(request: NextRequest) {
                 completedModulesInTrack += 1;
               }
 
-              const modulePercentage = calculateModuleProgress(completedQuestionsInModule, qCount);
+              const modulePercentage = isCompleted
+                ? 100
+                : calculateModuleProgress(completedQuestionsInModule, qCount);
 
               return {
                 id: m.id,

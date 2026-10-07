@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
+import { extractSampleTestCases } from "@/lib/compiler/comparator";
 
 export async function GET(
   request: NextRequest,
@@ -31,9 +32,9 @@ export async function GET(
     // Fetch problem details (NEVER select hidden_test_cases or hidden test answers)
     const { data: problem, error: problemError } = await adminClient
       .from("coding_problems")
-      .select("id, title, slug, description, difficulty, tags, time_limit_ms, memory_limit_mb, starter_code, sample_test_cases, created_at")
+      .select("id, title, slug, description, difficulty, tags, time_limit_ms, memory_limit_mb, starter_code, sample_test_cases, test_cases, example_cases, constraints, input_format, output_format, points, templates, created_at")
       .eq("id", problemId)
-      .single() as any;
+      .maybeSingle() as any;
 
     if (problemError || !problem) {
       return NextResponse.json({ error: "Coding problem not found" }, { status: 404 });
@@ -41,12 +42,9 @@ export async function GET(
 
     const starter = typeof problem.starter_code === "object" && problem.starter_code !== null ? problem.starter_code : {};
 
-    // Filter public test cases only
-    let publicTestCases = Array.isArray(problem.sample_test_cases) ? problem.sample_test_cases : [];
-    if (publicTestCases.length === 0 && Array.isArray(starter.test_cases)) {
-      publicTestCases = starter.test_cases.filter((tc: any) => !tc.is_hidden);
-    }
-    if (publicTestCases.length === 0) {
+    // Filter public test cases safely
+    let publicTestCases = extractSampleTestCases(problem);
+    if (publicTestCases.length === 0 || (publicTestCases.length === 1 && !publicTestCases[0]?.expected_output)) {
       const { data: dbTc } = await adminClient
         .from("test_cases")
         .select("id, input, expected_output")
@@ -54,7 +52,13 @@ export async function GET(
         .eq("is_hidden", false)
         .order("order_index", { ascending: true });
       if (dbTc && dbTc.length > 0) {
-        publicTestCases = dbTc;
+        publicTestCases = dbTc.map((tc: any, i: number) => ({
+          id: tc.id || `tc_pub_${i + 1}`,
+          name: `Sample Case ${i + 1}`,
+          input: tc.input || "",
+          expected_output: tc.expected_output || "",
+          is_hidden: false,
+        }));
       }
     }
 
@@ -76,6 +80,11 @@ export async function GET(
         description: problem.description,
         difficulty: problem.difficulty || "medium",
         tags: problem.tags || [],
+        points: problem.points || 100,
+        constraints: problem.constraints || starter.constraints || "",
+        input_format: problem.input_format || starter.input_format || "",
+        output_format: problem.output_format || starter.output_format || "",
+        example_cases: problem.example_cases || starter.example_cases || [],
         timeLimitMs: problem.time_limit_ms || 2000,
         memoryLimitKb: (problem.memory_limit_mb ? problem.memory_limit_mb * 1024 : 262144),
         templates: starter.templates || problem.templates || {},
@@ -83,6 +92,7 @@ export async function GET(
         allowed_languages: starter.allowed_languages || starter.allowedLanguages || (starter.templates ? Object.keys(starter.templates) : undefined),
         defaultLanguage: starter.default_language || (starter.allowed_languages?.[0]) || "java",
         sampleTestCases: publicTestCases,
+        test_cases: publicTestCases,
       },
       latestSubmission: latestSubmission || null,
     }, { status: 200 });

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       const supabase = createAdminClient();
       const { data: problem } = await supabase
         .from("coding_problems")
-        .select("id, starter_code, sample_test_cases, hidden_test_cases")
+        .select("id, starter_code, sample_test_cases, hidden_test_cases, test_cases")
         .eq("id", problem_id)
         .maybeSingle();
 
@@ -62,10 +62,13 @@ export async function POST(request: NextRequest) {
         if (dbTc && dbTc.length > 0) {
           testCasesToRun = dbTc;
         } else {
-          // 2. Check sample_test_cases & hidden_test_cases JSON columns
+          // 2. Check test_cases, sample_test_cases & hidden_test_cases JSON columns
+          const directTc = Array.isArray(problem.test_cases) ? problem.test_cases : [];
           const sampleTc = Array.isArray(problem.sample_test_cases) ? problem.sample_test_cases : [];
           const hiddenTc = Array.isArray(problem.hidden_test_cases) ? problem.hidden_test_cases : [];
-          if (sampleTc.length > 0 || hiddenTc.length > 0) {
+          if (directTc.length > 0) {
+            testCasesToRun = directTc;
+          } else if (sampleTc.length > 0 || hiddenTc.length > 0) {
             testCasesToRun = [...sampleTc, ...hiddenTc];
           } else {
             // 3. Check starter_code.test_cases
@@ -78,19 +81,28 @@ export async function POST(request: NextRequest) {
       }
 
       if (testCasesToRun.length === 0) {
-        // Search in practice_tracks
+        // Search in practice_tracks (both flat submodules and nested modules)
         const { data: tracks } = await supabase.from("practice_tracks").select("tags");
         (tracks || []).forEach((t: any) => {
           if (t.tags && t.tags[0]) {
             try {
               const meta = JSON.parse(t.tags[0]);
               (meta.subModules || []).forEach((sm: any) => {
-                (sm.codingQuestions || []).forEach((cq: any) => {
+                const allQuestions = [
+                  ...(sm.codingQuestions || []),
+                  ...((sm.modules || []).flatMap((m: any) => m.codingQuestions || []))
+                ];
+                allQuestions.forEach((cq: any) => {
                   if (cq.id === problem_id || `${sm.id}_${cq.id}` === problem_id) {
-                    testCasesToRun = [
-                      ...(cq.publicTestCases || []),
-                      ...(cq.hiddenTestCases || [])
-                    ];
+                    const sample = cq.sample_test_cases || cq.sampleTestCases || cq.publicTestCases || [];
+                    const hidden = cq.hidden_test_cases || cq.hiddenTestCases || [];
+                    const direct = Array.isArray(cq.test_cases) ? cq.test_cases : [];
+
+                    if (direct.length > 0) {
+                      testCasesToRun = direct;
+                    } else if (sample.length > 0 || hidden.length > 0) {
+                      testCasesToRun = [...sample, ...hidden];
+                    }
                   }
                 });
               });

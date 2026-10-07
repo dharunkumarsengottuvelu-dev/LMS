@@ -27,6 +27,9 @@ interface SubModuleMeta {
     copyPasteRestricted: boolean;
   };
   allowReviewBeforeSubmit?: boolean;
+  reattemptEnabled?: boolean;
+  reviewEnabled?: boolean;
+  allowedAttempts?: number;
   mcqSectionTitle?: string;
   codingSectionTitle?: string;
 }
@@ -271,8 +274,11 @@ export default function AssessmentTakePage() {
         assignedBy: targetTrack?.assignedByName || targetTrack?.assigned_by_name || "Admin",
         durationMinutes: parsedDuration,
         totalMarks: targetSubModule.totalMarks || targetSubModule.total_marks || 100,
-        passingMarks: Math.floor((targetSubModule.totalMarks || targetSubModule.total_marks || 100) / 2),
-        maxAttempts: targetSubModule.maxAttempts ?? targetTrack?.maxAttempts ?? 0,
+        passingMarks: targetSubModule.passingMarks ?? targetSubModule.passing_marks ?? Math.floor((targetSubModule.totalMarks || targetSubModule.total_marks || 100) / 2),
+        maxAttempts: targetSubModule.allowedAttempts ?? targetSubModule.maxAttempts ?? targetSubModule.allowed_attempts ?? targetTrack?.maxAttempts ?? 0,
+        allowedAttempts: targetSubModule.allowedAttempts ?? targetSubModule.maxAttempts ?? targetSubModule.allowed_attempts ?? targetTrack?.maxAttempts ?? 0,
+        reattemptEnabled: targetSubModule.reattemptEnabled !== undefined ? targetSubModule.reattemptEnabled : (targetSubModule.reattempt_enabled !== undefined ? targetSubModule.reattempt_enabled : true),
+        reviewEnabled: targetSubModule.reviewEnabled !== undefined ? targetSubModule.reviewEnabled : (targetSubModule.review_enabled !== undefined ? targetSubModule.review_enabled : true),
         allowResume: targetSubModule.allowResume ?? targetTrack?.allowResume ?? true,
         scoreRetentionPolicy: targetSubModule.scoreRetentionPolicy ?? targetTrack?.scoreRetentionPolicy ?? "best",
         proctoring: {
@@ -792,14 +798,17 @@ export default function AssessmentTakePage() {
             </div>
 
             <div className="flex items-center gap-3 shrink-0 self-start lg:self-center pt-2 lg:pt-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRetake}
-                className="h-10 px-4 text-xs font-semibold gap-1.5 rounded-xl border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-2xs"
-              >
-                <RotateCcw className="h-3.5 w-3.5" /> Retake Practice
-              </Button>
+              {currentSubModule.reattemptEnabled !== false &&
+                (!currentSubModule.maxAttempts || currentSubModule.maxAttempts === 0 || (completedRecord.attemptsCount || 1) < currentSubModule.maxAttempts) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetake}
+                  className="h-10 px-4 text-xs font-semibold gap-1.5 rounded-xl border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800 shadow-2xs"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Reattempt
+                </Button>
+              )}
               <Button
                 size="sm"
                 onClick={() => {
@@ -849,6 +858,7 @@ export default function AssessmentTakePage() {
         </div>
 
         {/* Question Review Section Header & Filters */}
+        {currentSubModule.reviewEnabled !== false ? (
         <div className="space-y-4 pt-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
@@ -1114,6 +1124,11 @@ export default function AssessmentTakePage() {
             })}
           </div>
         </div>
+        ) : (
+          <div className="p-6 rounded-2xl bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 text-center">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 font-medium">Review of question details is disabled for this practice module.</p>
+          </div>
+        )}
       </div>
     );
   }

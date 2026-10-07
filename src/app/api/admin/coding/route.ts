@@ -164,6 +164,28 @@ export async function POST(request: NextRequest) {
       const baseSlug = problem.slug || problem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       const slug = problemId ? baseSlug : `${baseSlug}-${Date.now().toString(36)}`;
 
+      const rawTestCases = Array.isArray(problem.test_cases)
+        ? problem.test_cases
+        : Array.isArray((problem as any).testCases)
+        ? (problem as any).testCases
+        : [];
+
+      const allTestCases = rawTestCases.map((tc: any, idx: number) => ({
+        id: tc.id || `tc_${idx + 1}`,
+        name: tc.name || `Test Case ${idx + 1}`,
+        input: tc.input !== undefined && tc.input !== null ? String(tc.input) : (tc.stdin !== undefined && tc.stdin !== null ? String(tc.stdin) : ""),
+        expected_output: tc.expected_output !== undefined && tc.expected_output !== null
+          ? String(tc.expected_output)
+          : (tc.expectedOutput !== undefined && tc.expectedOutput !== null
+            ? String(tc.expectedOutput)
+            : (tc.output !== undefined && tc.output !== null ? String(tc.output) : "")),
+        is_hidden: Boolean(tc.is_hidden || tc.isHidden),
+        weight: tc.weight !== undefined ? Number(tc.weight) : 10,
+      }));
+
+      const sampleTestCases = allTestCases.filter((tc: any) => !tc.is_hidden);
+      const hiddenTestCases = allTestCases.filter((tc: any) => !!tc.is_hidden);
+
       const problemScope = (problem as any).scope || ((problem as any).module_id || (problem as any).assessment_id ? "practice" : "codelab");
       const starterCodePayload = {
         scope: problemScope,
@@ -189,14 +211,12 @@ export async function POST(request: NextRequest) {
         is_mandatory: !!problem.is_mandatory,
         acceptance_rate: problem.acceptance_rate || undefined,
         problem_number: (problem as any).problem_number ? Number((problem as any).problem_number) : undefined,
-        test_cases: problem.test_cases || [],
+        test_cases: allTestCases,
+        sample_test_cases: sampleTestCases,
+        hidden_test_cases: hiddenTestCases,
       };
 
       const solutionCodePayload = problem.solution_editorial || null;
-
-      const allTestCases = Array.isArray(problem.test_cases) ? problem.test_cases : [];
-      const sampleTestCases = allTestCases.filter((tc: any) => !tc.is_hidden);
-      const hiddenTestCases = allTestCases.filter((tc: any) => !!tc.is_hidden);
 
       let savedProblem: any = null;
 
@@ -216,6 +236,8 @@ export async function POST(request: NextRequest) {
               memory_limit_mb: problem.memory_limit_mb || 256,
               starter_code: starterCodePayload,
               solution_code: solutionCodePayload,
+              sample_test_cases: sampleTestCases,
+              test_cases: allTestCases,
               status: problem.status || "published",
               updated_at: new Date().toISOString(),
             },
@@ -243,6 +265,8 @@ export async function POST(request: NextRequest) {
               memory_limit_mb: problem.memory_limit_mb || 256,
               starter_code: starterCodePayload,
               solution_code: solutionCodePayload,
+              sample_test_cases: sampleTestCases,
+              test_cases: allTestCases,
               status: problem.status || "published",
             },
           ])
@@ -257,11 +281,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Synchronize test_cases table
-      if (savedProblem && savedProblem.id && problem.test_cases && problem.test_cases.length > 0) {
+      if (savedProblem && savedProblem.id && allTestCases.length > 0) {
         // Delete existing test cases for this problem
         await supabase.from("test_cases").delete().eq("problem_id", savedProblem.id);
 
-        const tcRows = problem.test_cases.map((tc, idx) => ({
+        const tcRows = allTestCases.map((tc: any, idx: number) => ({
           problem_id: savedProblem.id,
           input: tc.input || "",
           expected_output: tc.expected_output || "",
@@ -275,7 +299,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      savedResults.push(savedProblem);
+      savedResults.push({
+        ...savedProblem,
+        test_cases: allTestCases,
+        sample_test_cases: sampleTestCases,
+        hidden_test_cases: hiddenTestCases,
+      });
     }
 
     return NextResponse.json({

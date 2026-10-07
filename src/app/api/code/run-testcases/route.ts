@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UniversalExecutor } from "@/lib/compiler/universal-executor";
-import { compareOutput, sanitizeCompilerOutput } from "@/lib/compiler/comparator";
+import { compareOutput, sanitizeCompilerOutput, normalizeTestInput, normalizeExpectedOutput } from "@/lib/compiler/comparator";
 import { SQLExecutionService } from "@/services/sql-execution.service";
 import { getErrorMessage } from "@/lib/utils";
 import type { TestCaseResult, TestCase } from "@/types/coding";
@@ -37,25 +37,68 @@ export async function POST(request: NextRequest) {
 
     if (!testCases || testCases.length === 0) {
       const supabase = createAdminClient();
-      const { data: dbProblem, error: problemError } = await supabase
-        .from("coding_problems")
-        .select("test_cases, dataset_name, sql_engine, schema_sql, seed_sql, comparison_mode")
-        .eq("id", problem_id)
-        .single();
 
-      if (problemError || !dbProblem) {
-        return NextResponse.json({ error: "Problem not found in database" }, { status: 404 });
+      // 1. Check test_cases table directly
+      const { data: dbTc } = await supabase
+        .from("test_cases")
+        .select("id, input, expected_output, is_hidden")
+        .eq("problem_id", problem_id)
+        .order("order_index", { ascending: true });
+
+      if (dbTc && dbTc.length > 0) {
+        testCases = includeHidden ? dbTc : dbTc.filter(tc => !tc.is_hidden);
+        if (testCases.length === 0 && dbTc.length > 0) {
+          testCases = dbTc;
+        }
+      } else {
+        const { data: dbProblem } = await supabase
+          .from("coding_problems")
+          .select("test_cases, sample_test_cases, starter_code, dataset_name, sql_engine, schema_sql, seed_sql, comparison_mode")
+          .eq("id", problem_id)
+          .maybeSingle();
+
+        if (dbProblem) {
+          problem = dbProblem;
+          const starter = typeof dbProblem.starter_code === "object" && dbProblem.starter_code !== null ? dbProblem.starter_code : {};
+          const allDbCases = ((dbProblem.test_cases || dbProblem.sample_test_cases || starter.test_cases || starter.sample_test_cases) as TestCase[]) || [];
+          testCases = includeHidden ? allDbCases : allDbCases.filter(tc => !tc.is_hidden && !(tc as any).isHidden);
+          if (testCases.length === 0 && allDbCases.length > 0) {
+            testCases = allDbCases;
+          }
+          datasetName = dbProblem.dataset_name ?? "university";
+        }
       }
-      problem = dbProblem;
-      const allDbCases = (dbProblem.test_cases as TestCase[]) || [];
-      testCases = includeHidden ? allDbCases : allDbCases.filter(tc => !tc.is_hidden);
-      if (testCases.length === 0 && allDbCases.length > 0) {
-        testCases = allDbCases;
+
+      if (!testCases || testCases.length === 0) {
+        // Fallback: search in practice_tracks
+        const { data: tracks } = await supabase.from("practice_tracks").select("tags");
+        (tracks || []).forEach((t: any) => {
+          if (t.tags && t.tags[0]) {
+            try {
+              const meta = JSON.parse(t.tags[0]);
+              (meta.subModules || []).forEach((sm: any) => {
+                const candidates = [
+                  ...(sm.codingQuestions || []),
+                  ...((sm.modules || []).flatMap((m: any) => m.codingQuestions || []))
+                ];
+                candidates.forEach((cq: any) => {
+                  if (cq.id === problem_id || `${sm.id}_${cq.id}` === problem_id) {
+                    const rawCases = cq.sample_test_cases || cq.sampleTestCases || cq.publicTestCases || cq.test_cases || [];
+                    testCases = rawCases;
+                  }
+                });
+              });
+            } catch {}
+          }
+        });
       }
-      datasetName = dbProblem.dataset_name ?? "university";
+
+      if (!testCases || testCases.length === 0) {
+        return NextResponse.json({ error: "Problem test cases not found." }, { status: 404 });
+      }
     }
 
-    // Evaluate test cases sequentially with caching for identical inputs to prevent Wandbox queueing/timeouts
+    // Evaluate test cases sequentially with caching for identical inputs
     const testResults: TestCaseResult[] = [];
     const executionCache = new Map<string, {
       trimmedActual: string;
@@ -68,7 +111,9 @@ export async function POST(request: NextRequest) {
     for (const tc of testCases) {
       let passed = false;
       let trimmedActual = "";
-      const expectedOutput = tc.expected_output || "";
+      const rawInput = tc.input !== undefined ? tc.input : (tc.stdin !== undefined ? tc.stdin : "");
+      const cleanInput = normalizeTestInput(rawInput);
+      const expectedOutput = normalizeExpectedOutput(tc);
       let resError: string | undefined;
       let execTime = 0.02;
 
@@ -98,29 +143,33 @@ export async function POST(request: NextRequest) {
           passed = SQLExecutionService.compareSQLResults(sqlRes, expectedOutput.trim(), comparisonMode);
         }
       } else {
-        const cacheKey = `${language}:::${tc.input || ""}`;
+        const cacheKey = `${language}:::${cleanInput}`;
         if (executionCache.has(cacheKey)) {
           const cached = executionCache.get(cacheKey)!;
           trimmedActual = cached.trimmedActual;
           execTime = cached.execTime;
-          const isSuccess = !cached.resError;
+          const isSuccess = !cached.resError || cached.resError === "Output mismatch";
           passed = isSuccess && compareOutput(trimmedActual, expectedOutput, "WHITESPACE_NORMALIZED");
           if (!passed) {
-            resError = cached.resError || (isSuccess ? "Output mismatch" : "Execution Error");
+            resError = isSuccess ? "Output mismatch" : (cached.resError || "Execution Error");
           }
         } else {
-          const res = await UniversalExecutor.execute(language, code, tc.input, 25000);
+          const res = await UniversalExecutor.execute(language, code, cleanInput, 25000);
           trimmedActual = (res.stdout || "").trim();
           execTime = parseFloat(res.time) || 0.02;
 
-          const isSuccess = res.outcome === 15 || res.status?.id === 3;
+          const isSuccess = res.outcome === 15 || res.status?.id === 3 || res.outcome === 0;
           passed = isSuccess && compareOutput(trimmedActual, expectedOutput, "WHITESPACE_NORMALIZED");
 
           if (!passed) {
-            resError = res.compile_output || res.stderr || res.message || (isSuccess ? "Output mismatch" : "Execution Error");
+            if (!isSuccess) {
+              resError = res.compile_output || res.stderr || (res.message && res.message !== "Accepted" ? res.message : null) || "Execution Error";
+            } else {
+              resError = "Output mismatch";
+            }
           }
 
-          if (res.status?.id === 6 || res.outcome === 11 || (res.compile_output && res.compile_output.trim())) {
+          if (res.status?.id === 6 || res.outcome === 11 || (!isSuccess && res.compile_output && res.compile_output.trim())) {
             earlyCompileError = res.compile_output || res.stderr || "Compilation Error";
           }
 
@@ -128,17 +177,17 @@ export async function POST(request: NextRequest) {
             trimmedActual,
             execTime,
             passed,
-            resError,
+            resError: !isSuccess ? resError : undefined,
           });
         }
       }
 
-      const isHidden = Boolean(tc.is_hidden);
+      const isHidden = Boolean(tc.is_hidden || tc.isHidden || tc.hidden);
       testResults.push({
-        test_case_id: tc.id,
+        test_case_id: tc.id || `tc_${testResults.length + 1}`,
         passed,
         is_hidden: isHidden,
-        input: isHidden ? undefined : tc.input,
+        input: isHidden ? undefined : (rawInput !== undefined && rawInput !== null ? String(rawInput) : ""),
         actual_output: isHidden
           ? (passed ? "Match (Passed against hidden test case)" : (resError ? `Error: ${resError}` : "Mismatch (Hidden Test Case)"))
           : trimmedActual,

@@ -190,8 +190,9 @@ export interface CodingProblem {
   allowedLanguages?: string[];
   default_language?: string;
   function_signature?: string;
-  driver_code?: Record<string, string>;
   test_cases: TestCase[];
+  sample_test_cases?: TestCase[];
+  hidden_test_cases?: TestCase[];
   reveal_hidden_testcases?: boolean;
   dataset_name?: string;
   sql_engine?: SQLEngine;

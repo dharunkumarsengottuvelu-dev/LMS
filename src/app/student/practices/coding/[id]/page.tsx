@@ -17,6 +17,8 @@ import {
   RefreshCw,
   Send,
   MessageSquare,
+  ChevronLeft,
+  ChevronRight,
   ChevronDown,
   ChevronUp,
   Minimize2,
@@ -26,7 +28,10 @@ import {
   ShieldCheck,
   CheckCheck,
   History,
-  FileCode
+  FileCode,
+  LayoutGrid,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react";
 import { Loading } from "@/components/ui/loading";
 import { Button } from "@/components/ui/button";
@@ -49,6 +54,11 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { CodingLanguage } from "@/types/coding";
 import { registerMonacoCompletions } from "@/lib/monaco-completions";
+import {
+  normalizeTestInput,
+  normalizeExpectedOutput,
+  extractSampleTestCases,
+} from "@/lib/compiler/comparator";
 
 // Lazy load Monaco editor in Pure Light ("vs") theme
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
@@ -123,6 +133,48 @@ function matchesProblemSubmission(s: any, pId: string, pSlug?: string): boolean 
   return false;
 }
 
+function normalizeProblem(p: any, index: number) {
+  if (!p) return null;
+  const starter = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
+  const templates = p.templates || starter.templates || {};
+  const sampleCases = extractSampleTestCases(p);
+  const examples =
+    Array.isArray(p.example_cases) && p.example_cases.length > 0
+      ? p.example_cases
+      : Array.isArray(p.examples) && p.examples.length > 0
+      ? p.examples
+      : Array.isArray(starter.example_cases) && starter.example_cases.length > 0
+      ? starter.example_cases
+      : [];
+
+  const allDirectCases =
+    (Array.isArray(p.test_cases) && p.test_cases.length > 0 ? p.test_cases : null) ||
+    (Array.isArray(p.testCases) && p.testCases.length > 0 ? p.testCases : null) ||
+    (Array.isArray(starter.test_cases) && starter.test_cases.length > 0 ? starter.test_cases : null) ||
+    sampleCases;
+
+  return {
+    ...p,
+    id: String(p.id || `problem_${index + 1}`),
+    title: p.title || `Problem ${index + 1}`,
+    description: p.description || "",
+    difficulty: (p.difficulty || "medium").toLowerCase(),
+    points: Number(p.points) || 100,
+    constraints: p.constraints || starter.constraints || "",
+    input_format: p.input_format || starter.input_format || "",
+    output_format: p.output_format || starter.output_format || "",
+    example_cases: examples,
+    starter_code: {
+      ...starter,
+      templates,
+    },
+    templates,
+    sample_test_cases: sampleCases,
+    sampleTestCases: sampleCases,
+    test_cases: allDirectCases,
+  };
+}
+
 export default function StudentPracticeCodingRunnerPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -141,6 +193,14 @@ export default function StudentPracticeCodingRunnerPage() {
   const [currentIdx, setCurrentIdx] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Authoritative Attempt State (controlled by Admin Panel policy)
+  const [currentAttempt, setCurrentAttempt] = useState<any>(null);
+  const [currentAttemptNumber, setCurrentAttemptNumber] = useState<number>(1);
+
+  // Palette & Description panel visibility toggle states
+  const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(true);
+  const [isDescriptionOpen, setIsDescriptionOpen] = useState<boolean>(true);
 
   // Active coding problem
   const currentProblem = problems[currentIdx] || null;
@@ -208,13 +268,37 @@ export default function StudentPracticeCodingRunnerPage() {
     type?: "compilation" | "runtime" | "system";
   } | null>(null);
 
+  // Re-layout Monaco editor whenever panels expand, collapse, or minimize
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      editorRef.current?.layout();
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [isBottomMinimized, isDescriptionOpen, isPaletteOpen]);
+
   // Student progress per problem
   const [solvedProblemIds, setSolvedProblemIds] = useState<Set<string>>(new Set());
   const [inProgressProblemIds, setInProgressProblemIds] = useState<Set<string>>(new Set());
 
-  // Practice completion modal & state
-  const [showCompleteDialog, setShowCompleteDialog] = useState<boolean>(false);
-  const [isCompletingPractice, setIsCompletingPractice] = useState<boolean>(false);
+  // Practice Review & Submit modal & state
+  const [isReviewSubmitOpen, setIsReviewSubmitOpen] = useState<boolean>(false);
+  const [submitWarningDialogOpen, setSubmitWarningDialogOpen] = useState<boolean>(false);
+  const [isSubmittingFinal, setIsSubmittingFinal] = useState<boolean>(false);
+  const [finalSubmissionError, setFinalSubmissionError] = useState<string | null>(null);
+  const [isPracticeCompleted, setIsPracticeCompleted] = useState<boolean>(false);
+  const [completionResult, setCompletionResult] = useState<{
+    score: number;
+    solvedCount: number;
+    totalCount: number;
+    totalPoints: number;
+    earnedPoints: number;
+  } | null>(null);
+  const [viewFullCodeItem, setViewFullCodeItem] = useState<{
+    title: string;
+    code: string;
+    language: string;
+    index: number;
+  } | null>(null);
 
   // Execution tracking (Run vs Submit)
   const [executionType, setExecutionType] = useState<"run" | "submit" | null>(null);
@@ -327,8 +411,9 @@ export default function StudentPracticeCodingRunnerPage() {
         throw new Error("No coding challenges found for this practice module.");
       }
 
-      setProblems(codingProblemsList);
-      setCurrentIdx(foundIndex < codingProblemsList.length ? foundIndex : 0);
+      const normalizedProblems = codingProblemsList.map((p, i) => normalizeProblem(p, i));
+      setProblems(normalizedProblems);
+      setCurrentIdx(foundIndex < normalizedProblems.length ? foundIndex : 0);
 
       // Load student submissions to resolve solved/in-progress states
       try {
@@ -356,13 +441,92 @@ export default function StudentPracticeCodingRunnerPage() {
       } catch (subErr) {
         console.warn("Submissions fetch notice:", subErr);
       }
+
+      // ─── RESOLVE & ATTACH ATTEMPT ACCORDING TO ADMIN CONFIG ───────
+      try {
+        let resolvedAttempt: any = null;
+        const queryAttemptId = searchParams?.get("attemptId") || "";
+        const queryAction = searchParams?.get("action") || "";
+
+        if (targetModule) {
+          const modAttempts: any[] = targetModule.attempts || [];
+
+          if (isReviewMode) {
+            if (queryAttemptId) {
+              resolvedAttempt = modAttempts.find((a: any) => a.id === queryAttemptId);
+            }
+            if (!resolvedAttempt && targetModule.completedAttempts && targetModule.completedAttempts.length > 0) {
+              resolvedAttempt = targetModule.completedAttempts[targetModule.completedAttempts.length - 1];
+            }
+          } else {
+            if (queryAction === "reattempt") {
+              const startRes = await fetch(`/api/student/practices/${trackId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "start_attempt",
+                  module_id: targetModule.id || rawId,
+                }),
+              });
+              const startData = await startRes.json();
+              if (startRes.ok && startData.attempt) {
+                resolvedAttempt = startData.attempt;
+              } else if (startData.error) {
+                toast({ title: "Attempt Policy Notice", description: startData.error, variant: "destructive" });
+                if (startData.attempt) resolvedAttempt = startData.attempt;
+              }
+            } else {
+              // Priority 1: In-progress attempt resumes automatically
+              if (targetModule.activeAttempt) {
+                resolvedAttempt = targetModule.activeAttempt;
+              } else if (queryAttemptId) {
+                resolvedAttempt = modAttempts.find((a: any) => a.id === queryAttemptId);
+              } else {
+                // Initialize attempt 1 (or next valid attempt) via backend
+                const startRes = await fetch(`/api/student/practices/${trackId}`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "start_attempt",
+                    module_id: targetModule.id || rawId,
+                  }),
+                });
+                const startData = await startRes.json();
+                if (startRes.ok && startData.attempt) {
+                  resolvedAttempt = startData.attempt;
+                }
+              }
+            }
+          }
+        }
+
+        if (resolvedAttempt) {
+          setCurrentAttempt(resolvedAttempt);
+          setCurrentAttemptNumber(resolvedAttempt.attemptNumber || 1);
+
+          // Restore previously saved code from the attempt for each question
+          if (resolvedAttempt.answers && typeof resolvedAttempt.answers === "object") {
+            Object.entries(resolvedAttempt.answers).forEach(([pId, ans]: [string, any]) => {
+              if (ans && ans.code && typeof ans.code === "string" && ans.code.trim()) {
+                const lang = ans.language || "c";
+                const storageKey = `practice_saved_code_${trackId || "practice"}_${targetModule?.id || rawId}_${pId}_${lang}`;
+                if (typeof window !== "undefined") {
+                  try { localStorage.setItem(storageKey, ans.code); } catch {}
+                }
+              }
+            });
+          }
+        }
+      } catch (attErr) {
+        console.warn("Attempt initialization notice:", attErr);
+      }
     } catch (err: any) {
       console.error("Error loading practice module:", err);
       setErrorMsg(err.message || "Failed to load practice coding problems.");
     } finally {
       setLoading(false);
     }
-  }, [rawId, trackId]);
+  }, [rawId, trackId, isReviewMode, searchParams, toast]);
 
   useEffect(() => {
     loadPracticeData();
@@ -524,6 +688,7 @@ export default function StudentPracticeCodingRunnerPage() {
 
   // Handle code change + auto save
   const handleCodeChange = (newVal: string | undefined) => {
+    if (isReviewMode) return;
     const val = newVal ?? "";
     setCode(val);
     if (currentProblem) {
@@ -566,55 +731,14 @@ export default function StudentPracticeCodingRunnerPage() {
   // ─── 3. SYSTEM TEST CASES (READ-ONLY) ───────────────────────────────────────
   const systemTestCases = useMemo(() => {
     if (!currentProblem) return [];
-    const starter = currentProblem.starter_code || {};
-    const directSample =
-      Array.isArray(currentProblem.sample_test_cases) && currentProblem.sample_test_cases.length > 0
-        ? currentProblem.sample_test_cases
-        : Array.isArray(currentProblem.sampleTestCases) && currentProblem.sampleTestCases.length > 0
-        ? currentProblem.sampleTestCases
-        : Array.isArray(starter.sample_test_cases) && starter.sample_test_cases.length > 0
-        ? starter.sample_test_cases
-        : [];
-    if (directSample.length > 0) return directSample;
-
-    const publicCases = allTestCases.filter((tc: any) => !tc.is_hidden);
-    if (publicCases.length > 0) return publicCases;
-
-    const directExamples =
-      Array.isArray(currentProblem.example_cases) && currentProblem.example_cases.length > 0
-        ? currentProblem.example_cases
-        : Array.isArray(starter.example_cases) && starter.example_cases.length > 0
-        ? starter.example_cases
-        : [];
-    if (directExamples.length > 0) {
-      return directExamples.map((eg: any, idx: number) => ({
-        id: `sample_eg_${idx}`,
-        name: `Sample Case ${idx + 1}`,
-        input: eg.input === "No input" || eg.input === "(No input)" ? "" : (eg.input || ""),
-        expected_output: eg.output || "",
-        is_hidden: false,
-      }));
-    }
-
-    return [
-      {
-        id: "tc_sample_1",
-        name: "Sample Test Case 1",
-        input: "(No input)",
-        expected_output: "Hello, World!",
-        is_hidden: false,
-      },
-    ];
-  }, [currentProblem, allTestCases]);
-
-  // NOTE: hiddenTestCases must never be sent to the browser.
-  // We do NOT expose this variable in the Testcase tab UI.
-  // It is intentionally unused on the client — hidden tests are evaluated SERVER-SIDE on Submit.
+    return extractSampleTestCases(currentProblem);
+  }, [currentProblem]);
 
   // ─── 4. RUN CODE (AGAINST SAMPLE CASES ONLY — NO HIDDEN TESTS) ─────────────
   const handleRunCode = async () => {
     if (!currentProblem || isRunning || isSubmitting) return;
     setIsRunning(true);
+    setRunResults(null);
     setExecutionError(null);
     setCustomRunResult(null);
     setSubmissionMeta(null);
@@ -626,9 +750,9 @@ export default function StudentPracticeCodingRunnerPage() {
     try {
       // RUN only executes VISIBLE / SAMPLE test cases — NEVER hidden ones
       const sampleCases = systemTestCases.map((tc: any, i: number) => ({
-        id: tc.id || `tc_sample_${i}`,
-        input: tc.input === "(No input)" ? "" : (tc.input || ""),
-        expected_output: tc.expected_output || "",
+        id: tc.id || `tc_sample_${i + 1}`,
+        input: normalizeTestInput(tc.input),
+        expected_output: normalizeExpectedOutput(tc),
         is_hidden: false,
       }));
 
@@ -664,13 +788,31 @@ export default function StudentPracticeCodingRunnerPage() {
         });
       }
 
-      const results = data.results || [];
+      const rawResults = data.results || [];
+      const results = rawResults.map((r: any, idx: number) => ({
+        ...r,
+        input: r.input !== undefined && r.input !== null
+          ? r.input
+          : sampleCases[idx]?.input || "",
+        expected_output: r.expected_output !== undefined && r.expected_output !== null && r.expected_output !== ""
+          ? r.expected_output
+          : sampleCases[idx]?.expected_output || "",
+        actual_output: r.actual_output !== undefined && r.actual_output !== null
+          ? r.actual_output
+          : "",
+      }));
       setRunResults(results);
 
-      // Check if any failed test case has a compilation or runtime error
-      const firstFailedWithError = results.find((r: any) => !r.passed && r.error);
-      if (firstFailedWithError && !data.compilation_error) {
-        const errText = firstFailedWithError.error || "";
+      // Check if any failed test case has a genuine compilation or runtime error
+      const fatalError = results.find((r: any) =>
+        !r.passed &&
+        r.error &&
+        r.error !== "Output mismatch" &&
+        r.error !== "Accepted" &&
+        !r.error.toLowerCase().includes("mismatch")
+      );
+      if (fatalError && !data.compilation_error) {
+        const errText = fatalError.error || "";
         const isComp = errText.toLowerCase().includes("compil") || errText.toLowerCase().includes("syntax");
         const isRun = errText.toLowerCase().includes("traceback") || errText.toLowerCase().includes("exception") || errText.toLowerCase().includes("runtime");
         if (isComp || isRun) {
@@ -793,6 +935,12 @@ export default function StudentPracticeCodingRunnerPage() {
     setConsoleOutput("Submitting solution to practice evaluation engine...\n");
 
     try {
+      const submitCases = (allTestCases && allTestCases.length > 0)
+        ? allTestCases
+        : (Array.isArray(currentProblem.test_cases) && currentProblem.test_cases.length > 0)
+        ? currentProblem.test_cases
+        : systemTestCases;
+
       const res = await fetch("/api/code/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -801,6 +949,7 @@ export default function StudentPracticeCodingRunnerPage() {
           problem_title: currentProblem.title,
           language: selectedLanguage,
           code,
+          test_cases: submitCases,
           context: "practice",
           track_id: trackId,
           module_id: moduleId,
@@ -818,7 +967,22 @@ export default function StudentPracticeCodingRunnerPage() {
         throw new Error(errMsg);
       }
 
-      const results = data.test_results || data.results || [];
+      const rawResults = data.test_results || data.results || [];
+      const results = rawResults.map((r: any, idx: number) => {
+        const fallbackTc = systemTestCases[idx] || (allTestCases && allTestCases[idx]);
+        return {
+          ...r,
+          input: r.input !== undefined && r.input !== null
+            ? r.input
+            : (!r.is_hidden && fallbackTc ? (fallbackTc.input || "") : undefined),
+          expected_output: r.expected_output !== undefined && r.expected_output !== null && r.expected_output !== ""
+            ? r.expected_output
+            : (!r.is_hidden && fallbackTc ? normalizeExpectedOutput(fallbackTc) : "[Hidden for evaluation]"),
+          actual_output: r.actual_output !== undefined && r.actual_output !== null
+            ? r.actual_output
+            : "",
+        };
+      });
       setRunResults(results);
 
       // Check if status is compilation_error or runtime_error
@@ -881,17 +1045,20 @@ export default function StudentPracticeCodingRunnerPage() {
       setAllSubmissions((prev) => [newlyCreatedSub, ...prev]);
 
       // 2. Automatically sync attempt/progress to the practice track
-      if (trackId) {
+      if (trackId && currentAttempt?.id && !isReviewMode) {
         try {
           await fetch(`/api/student/practices/${trackId}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              action: "save_progress",
               module_id: moduleId || rawId,
-              score: isAccepted ? 100 : 0,
-              total_marks: 100,
+              attempt_id: currentAttempt.id,
               answers: {
                 [currentProblem.id]: {
+                  questionId: currentProblem.id,
+                  code,
+                  language: selectedLanguage,
                   status: isAccepted ? "accepted" : "attempted",
                   verdict: data.status,
                 },
@@ -921,7 +1088,41 @@ export default function StudentPracticeCodingRunnerPage() {
 
   // ─── 7. QUESTION NAVIGATION (PREVIOUS / NEXT / GRID SELECTION) ───────────────
   const handleSelectQuestion = (idx: number) => {
-    if (idx < 0 || idx >= problems.length) return;
+    if (idx < 0 || idx >= problems.length || idx === currentIdx) return;
+    // Auto-save current code before navigating
+    if (currentProblem && code) {
+      const key = getStorageKey(currentProblem.id, selectedLanguage);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(key, code);
+        } catch {}
+      }
+      if (trackId && currentAttempt?.id && !isReviewMode) {
+        fetch(`/api/student/practices/${trackId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "save_progress",
+            module_id: moduleId || rawId,
+            attempt_id: currentAttempt.id,
+            answers: {
+              [currentProblem.id]: {
+                questionId: currentProblem.id,
+                code,
+                language: selectedLanguage,
+                status: solvedProblemIds.has(currentProblem.id) ? "accepted" : "attempted",
+              },
+            },
+          }),
+        }).catch(() => {});
+      }
+    }
+    // Reset test execution results for the incoming question so stale results are never shown
+    setRunResults(null);
+    setCustomRunResult(null);
+    setExecutionError(null);
+    setConsoleOutput("");
+    setBottomTab("testcase");
     setCurrentIdx(idx);
   };
 
@@ -941,61 +1142,262 @@ export default function StudentPracticeCodingRunnerPage() {
     }
   };
 
-  // ─── 8. COMPLETE PRACTICE (Final Submission for entire Practice set) ─────────
-  const handleCompletePractice = async () => {
-    setIsCompletingPractice(true);
+  // ─── 8. GET LATEST STUDENT CODE FOR PROBLEM (Prevents stale code / data loss) ───
+  const getProblemCode = useCallback(
+    (prob: any): { code: string; language: CodingLanguage } => {
+      if (!prob) return { code: "", language: selectedLanguage };
+
+      // 1. If currently active question, use live in-memory code
+      if (currentProblem && prob.id === currentProblem.id) {
+        return { code: code || "", language: selectedLanguage };
+      }
+
+      // 2. Check localStorage across all possible languages
+      const possibleLangs: CodingLanguage[] = [
+        selectedLanguage,
+        ...(prob.allowed_languages || []),
+        ...(prob.allowedLanguages || []),
+        prob.default_language,
+        "c", "cpp", "java", "python", "javascript", "typescript", "sql"
+      ].filter(Boolean) as CodingLanguage[];
+
+      const uniqueLangs = Array.from(new Set(possibleLangs));
+
+      for (const lang of uniqueLangs) {
+        const key = getStorageKey(prob.id, lang);
+        if (typeof window !== "undefined") {
+          try {
+            const saved = localStorage.getItem(key);
+            if (saved && saved.trim()) {
+              return { code: saved, language: lang };
+            }
+          } catch {}
+        }
+      }
+
+      // 3. Check student submissions for this problem
+      const probSubs = allSubmissions.filter((s: any) =>
+        matchesProblemSubmission(s, prob.id, prob.slug)
+      );
+      if (probSubs.length > 0 && probSubs[0]?.code && probSubs[0].code.trim()) {
+        return {
+          code: probSubs[0].code,
+          language: (probSubs[0].language as CodingLanguage) || "c",
+        };
+      }
+
+      // 4. Default to starter template if available
+      const starter = prob.starter_code || {};
+      const templates = prob.templates || starter.templates || {};
+      const defLang = (prob.default_language || "c") as CodingLanguage;
+      const tpl = templates[defLang] || "";
+
+      return { code: tpl, language: defLang };
+    },
+    [currentProblem, code, selectedLanguage, getStorageKey, allSubmissions]
+  );
+
+  // ─── 9. DYNAMIC REVIEW ITEMS (Calculated per Question) ─────────────────────────
+  const reviewItems = useMemo(() => {
+    return problems.map((prob, idx) => {
+      const { code: pCode, language: pLang } = getProblemCode(prob);
+      const isSolved = solvedProblemIds.has(prob.id);
+      const probSubs = allSubmissions.filter((s: any) =>
+        matchesProblemSubmission(s, prob.id, prob.slug)
+      );
+      const latestSub = probSubs[0];
+
+      // Check if starter template matches code (untouched)
+      const starter = prob.starter_code || {};
+      const templates = prob.templates || starter.templates || {};
+      const isUntouchedStarter = Object.values(templates).some(
+        (t) => typeof t === "string" && t.trim().length > 0 && t.trim() === pCode.trim()
+      );
+
+      const hasStudentCode = Boolean(pCode && pCode.trim() && !isUntouchedStarter);
+
+      let status: "Answered" | "In Progress" | "Not Answered" = "Not Answered";
+      if (isSolved || (latestSub && (latestSub.status === "accepted" || latestSub.status === "passed"))) {
+        status = "Answered";
+      } else if (hasStudentCode) {
+        if (latestSub && latestSub.status !== "accepted") {
+          status = "In Progress";
+        } else if (inProgressProblemIds.has(prob.id)) {
+          status = "In Progress";
+        } else {
+          status = "Answered";
+        }
+      } else if (inProgressProblemIds.has(prob.id) || (pCode && pCode.trim())) {
+        status = "In Progress";
+      } else {
+        status = "Not Answered";
+      }
+
+      let lastRunResult: "Passed" | "Failed" | "Not Run" = "Not Run";
+      if (latestSub) {
+        if (latestSub.status === "accepted" || latestSub.status === "passed" || isSolved) {
+          lastRunResult = "Passed";
+        } else {
+          lastRunResult = "Failed";
+        }
+      } else if (currentProblem && prob.id === currentProblem.id && runResults && runResults.length > 0) {
+        const allPassed = runResults.every((r: any) => r.passed);
+        lastRunResult = allPassed ? "Passed" : "Failed";
+      }
+
+      const points = prob.points !== undefined ? Number(prob.points) : 100;
+
+      return {
+        problem: prob,
+        index: idx,
+        status,
+        code: hasStudentCode ? pCode : (pCode && pCode.trim() ? pCode : ""),
+        hasCode: hasStudentCode || Boolean(pCode && pCode.trim()),
+        language: pLang,
+        points,
+        lastRunResult,
+        isSolved,
+      };
+    });
+  }, [problems, getProblemCode, solvedProblemIds, inProgressProblemIds, allSubmissions, currentProblem, runResults]);
+
+  const answeredCount = useMemo(() => reviewItems.filter((i) => i.status === "Answered").length, [reviewItems]);
+  const inProgressCountReview = useMemo(() => reviewItems.filter((i) => i.status === "In Progress").length, [reviewItems]);
+  const notAnsweredCount = useMemo(() => reviewItems.filter((i) => i.status === "Not Answered").length, [reviewItems]);
+  const totalPoints = useMemo(() => reviewItems.reduce((acc, i) => acc + i.points, 0), [reviewItems]);
+  const attemptedPoints = useMemo(() => reviewItems.reduce((acc, i) => acc + (i.status === "Answered" || i.status === "In Progress" ? i.points : 0), 0), [reviewItems]);
+  const passedCount = useMemo(() => reviewItems.filter((i) => i.lastRunResult === "Passed").length, [reviewItems]);
+  const failedCount = useMemo(() => reviewItems.filter((i) => i.lastRunResult === "Failed").length, [reviewItems]);
+
+  // Open Review & Submit without losing any student state
+  const handleOpenReviewSubmit = () => {
+    if (currentProblem && code) {
+      const key = getStorageKey(currentProblem.id, selectedLanguage);
+      if (typeof window !== "undefined") {
+        try { localStorage.setItem(key, code); } catch {}
+      }
+    }
+    setFinalSubmissionError(null);
+    setIsReviewSubmitOpen(true);
+  };
+
+  // Navigate back to a specific question for editing
+  const handleEditQuestion = (targetIdx: number) => {
+    handleSelectQuestion(targetIdx);
+    setIsReviewSubmitOpen(false);
+  };
+
+  // ─── 10. CONFIRM & SUBMIT (Final Submission) ──────────────────────────────────
+  const handleConfirmAndSubmit = async (forceAnyway = false) => {
+    if (!forceAnyway && notAnsweredCount > 0) {
+      setSubmitWarningDialogOpen(true);
+      return;
+    }
+
+    setSubmitWarningDialogOpen(false);
+    setIsSubmittingFinal(true);
+    setFinalSubmissionError(null);
+
     try {
-      // Autosave current code
-      if (currentProblem) {
+      // 1. Ensure current question code is persisted
+      if (currentProblem && code) {
         const key = getStorageKey(currentProblem.id, selectedLanguage);
-        if (typeof window !== "undefined" && code.trim()) {
+        if (typeof window !== "undefined") {
           try { localStorage.setItem(key, code); } catch {}
         }
       }
 
-      const solvedCount = solvedProblemIds.size;
-      const score = Math.round((solvedCount / problems.length) * 100);
-
-      // Record completion to DB via track POST endpoint
-      if (trackId && moduleId) {
-        try {
-          await fetch(`/api/student/practices/${trackId}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              module_id: moduleId,
-              score,
-              total_marks: 100,
-              answers: Object.fromEntries(
-                Array.from(solvedProblemIds).map((id) => [id, { status: "solved" }])
-              ),
-            }),
-          });
-        } catch {}
+      // 2. Submit any question with code that hasn't been officially accepted yet
+      const updatedSolvedSet = new Set(solvedProblemIds);
+      for (const item of reviewItems) {
+        if (item.hasCode && !item.isSolved) {
+          try {
+            const subRes = await fetch("/api/code/submit", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                problem_id: item.problem.id,
+                language: item.language,
+                code: item.code,
+                test_cases: item.problem.test_cases,
+              }),
+            });
+            if (subRes.ok) {
+              const subData = await subRes.json();
+              if (subData.status === "accepted" || subData.status === "passed") {
+                updatedSolvedSet.add(item.problem.id);
+              }
+            }
+          } catch (singleErr) {
+            console.warn("Submitting question during final submit error:", singleErr);
+          }
+        }
       }
 
-      setShowCompleteDialog(false);
+      const solvedCount = updatedSolvedSet.size;
+      const score = problems.length > 0 ? Math.round((solvedCount / problems.length) * 100) : 0;
+      const earnedPoints = reviewItems.reduce(
+        (acc, i) => acc + (updatedSolvedSet.has(i.problem.id) ? i.points : 0),
+        0
+      );
+
+      // 3. Construct answers payload per existing schema
+      const answersPayload: Record<string, any> = {};
+      for (const item of reviewItems) {
+        const isItemSolved = updatedSolvedSet.has(item.problem.id);
+        answersPayload[item.problem.id] = {
+          questionId: item.problem.id,
+          status: isItemSolved ? "solved" : item.hasCode ? "attempted" : "not_attempted",
+          code: item.code || "",
+          language: item.language || "java",
+          score: isItemSolved ? item.points : 0,
+        };
+      }
+
+      // 4. Save to database via practice track endpoint
+      if (trackId) {
+        const res = await fetch(`/api/student/practices/${trackId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "submit",
+            module_id: moduleId || rawId,
+            attempt_id: currentAttempt?.id,
+            score,
+            total_marks: 100,
+            answers: answersPayload,
+          }),
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to record practice completion.");
+        }
+      }
+
+      setSolvedProblemIds(updatedSolvedSet);
+      setCompletionResult({
+        score,
+        solvedCount,
+        totalCount: problems.length,
+        totalPoints,
+        earnedPoints,
+      });
+      setIsPracticeCompleted(true);
       toast({
-        title: "Practice Completed! 🎉",
+        title: "Practice Completed Successfully",
         description: `You solved ${solvedCount} of ${problems.length} problems. Score: ${score}%.`,
       });
-
-      setTimeout(() => {
-        if (trackId) {
-          router.push(`/student/practices/${trackId}`);
-        } else {
-          router.push("/student/practices");
-        }
-      }, 1200);
     } catch (err: any) {
-      console.error("Complete practice error:", err);
+      console.error("Final submit error:", err);
+      const errMsg = err.message || "Submission failed. Please try again.";
+      setFinalSubmissionError(errMsg);
       toast({
-        title: "Completion Error",
-        description: err.message || "Could not record practice completion.",
+        title: "Submission Error",
+        description: errMsg,
         variant: "destructive",
       });
     } finally {
-      setIsCompletingPractice(false);
+      setIsSubmittingFinal(false);
     }
   };
 
@@ -1074,173 +1476,660 @@ export default function StudentPracticeCodingRunnerPage() {
       {/* ══════════════════════════════════════════════════════════════════════
           1. TOP ACTION HEADER (CLEAN PRACTICE HEADER — NO LMS/ASSESSMENT BLOAT)
       ══════════════════════════════════════════════════════════════════════ */}
-      <header className="h-14 bg-white border-b border-slate-200/90 px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-2xs z-20">
-        {/* Left: ← Back to Practice / #1. Print Hello World [Easy] */}
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-          <button
-            type="button"
-            onClick={handleBackToPractice}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors py-1 px-2 rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
-          >
-            <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
-            <span>Back to Practice</span>
-          </button>
+      <header className="min-h-14 py-2 sm:py-0 bg-white border-b border-slate-200/90 px-3 sm:px-6 flex flex-wrap items-center justify-between gap-2.5 shrink-0 shadow-2xs z-20">
+        {isReviewSubmitOpen ? (
+          <>
+            {/* Left: ← Back to Practice / Review & Submit */}
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 max-w-full">
+              <button
+                type="button"
+                onClick={() => setIsReviewSubmitOpen(false)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors py-1 px-2 rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">Back to Practice</span>
+                <span className="sm:hidden">Back</span>
+              </button>
 
-          <span className="text-slate-300 font-medium">/</span>
+              <span className="text-slate-300 font-medium">/</span>
 
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-              #{currentIdx + 1}. {currentProblem.title}
-            </span>
-
-            <span
-              className={cn(
-                "px-2 py-0.5 text-[11px] font-bold rounded-md capitalize shrink-0 border",
-                currentProblem.difficulty === "easy"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : currentProblem.difficulty === "hard"
-                  ? "bg-rose-50 text-rose-700 border-rose-200"
-                  : "bg-amber-50 text-amber-700 border-amber-200"
-              )}
-            >
-              {currentProblem.difficulty === "easy" ? "Easy" : currentProblem.difficulty === "hard" ? "Hard" : "Medium"}
-            </span>
-          </div>
-        </div>
-
-        {/* Right: [Language ▼] [Reset Code] [Run] [Submit] */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Language selector: Single Language (fixed/locked) vs Multi Language (filtered dropdown) */}
-          {availableLanguages.length === 1 ? (
-            <div className="h-8 px-3 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-800 flex items-center gap-1.5 shadow-2xs select-none">
-              <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" />
-              <span className="font-bold">{availableLanguages[0]?.name || "Language"}</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                  Review & Submit
+                </span>
+                <span className="text-xs font-medium text-slate-500 hidden md:inline truncate">
+                  • {trackTitle} {moduleTitle ? `(${moduleTitle})` : ""}
+                </span>
+              </div>
             </div>
-          ) : (
-            <Select
-              value={selectedLanguage}
-              onValueChange={(val: any) => handleLanguageChange(val as CodingLanguage)}
-            >
-              <SelectTrigger className="h-8 px-2.5 sm:px-3 text-xs font-semibold bg-white border-slate-200 rounded-lg min-w-[95px] text-slate-800 shadow-2xs cursor-pointer">
-                <SelectValue placeholder="Select Language" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border-slate-200 text-xs">
-                {availableLanguages.map((lang) => (
-                  <SelectItem key={lang.id} value={lang.id} className="text-xs font-medium cursor-pointer">
-                    {lang.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
 
-          {/* Reset Code */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleResetCode}
-            className="h-8 px-2.5 text-xs font-semibold gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg shadow-2xs cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-            <span className="hidden sm:inline">Reset Code</span>
-          </Button>
+            {/* Right: [Back to Practice] [Confirm & Submit] */}
+            <div className="flex items-center gap-2 shrink-0 ml-auto">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsReviewSubmitOpen(false)}
+                className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                Back to Practice
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleConfirmAndSubmit(false)}
+                disabled={isSubmittingFinal}
+                className="h-8 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              >
+                {isSubmittingFinal ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...</>
+                ) : (
+                  <><CheckCheck className="w-3.5 h-3.5" /> {notAnsweredCount > 0 ? "Submit Anyway" : "Confirm & Submit"}</>
+                )}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Left: ← Back to Practice / #1. Title [Easy] */}
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 max-w-full">
+              <button
+                type="button"
+                onClick={handleBackToPractice}
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors py-1 px-2 rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">Back to Practice</span>
+                <span className="sm:hidden">Back</span>
+              </button>
 
-          {/* Run Button */}
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleRunCode}
-            disabled={isRunning || isSubmitting}
-            className="h-8 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer"
-          >
-            {isRunning ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Play className="w-3.5 h-3.5 fill-current" />
-            )}
-            <span>Run</span>
-          </Button>
+              <span className="text-slate-300 font-medium">/</span>
 
-          {/* Submit Button */}
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleSubmitCode}
-            disabled={isSubmitting || isRunning}
-            className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold gap-1.5 shadow-2xs cursor-pointer"
-          >
-            {isSubmitting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-            )}
-            <span>Submit</span>
-          </Button>
-        </div>
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <span className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[130px] sm:max-w-[240px] md:max-w-[340px]">
+                  #{currentIdx + 1}. {currentProblem.title}
+                </span>
+
+                <span
+                  className={cn(
+                    "px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md capitalize shrink-0 border",
+                    currentProblem.difficulty === "easy"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : currentProblem.difficulty === "hard"
+                      ? "bg-rose-50 text-rose-700 border-rose-200"
+                      : "bg-amber-50 text-amber-700 border-amber-200"
+                  )}
+                >
+                  {currentProblem.difficulty === "easy" ? "Easy" : currentProblem.difficulty === "hard" ? "Hard" : "Medium"}
+                </span>
+              </div>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto">
+              {isReviewMode ? (
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                    Review Mode · Attempt {currentAttemptNumber} (Read Only)
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBackToPractice}
+                    className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  >
+                    Exit Review
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* Language selector: Single Language (fixed/locked) vs Multi Language (filtered dropdown) */}
+                  {availableLanguages.length === 1 ? (
+                    <div className="h-8 px-2.5 sm:px-3 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-800 flex items-center gap-1.5 shadow-2xs select-none">
+                      <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" />
+                      <span className="font-bold">{availableLanguages[0]?.name || "Language"}</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={selectedLanguage}
+                      onValueChange={(val: any) => handleLanguageChange(val as CodingLanguage)}
+                    >
+                      <SelectTrigger className="h-8 px-2 sm:px-3 text-xs font-semibold bg-white border-slate-200 rounded-lg min-w-[85px] sm:min-w-[95px] text-slate-800 shadow-2xs cursor-pointer">
+                        <SelectValue placeholder="Select Language" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-slate-200 text-xs">
+                        {availableLanguages.map((lang) => (
+                          <SelectItem key={lang.id} value={lang.id} className="text-xs font-medium cursor-pointer">
+                            {lang.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {/* Reset Code */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResetCode}
+                    className="h-8 px-2 sm:px-2.5 text-xs font-semibold gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg shadow-2xs cursor-pointer"
+                    title="Reset Code"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="hidden sm:inline">Reset Code</span>
+                  </Button>
+
+                  {/* Run Button */}
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleRunCode}
+                    disabled={isRunning || isSubmitting}
+                    className="h-8 px-3 sm:px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    {isRunning ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                    )}
+                    <span>Run</span>
+                  </Button>
+
+                  {/* Submit Button */}
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleSubmitCode}
+                    disabled={isSubmitting || isRunning}
+                    className="h-8 px-3.5 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                    )}
+                    <span>Submit</span>
+                  </Button>
+                </>
+              )}
+            </div>
+          </>
+        )}
       </header>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          2. MAIN THREE-COLUMN WORKSPACE
+          MOBILE QUESTION NAVIGATION BAR & COLLAPSIBLE PALETTE DRAWER (lg:hidden)
       ══════════════════════════════════════════════════════════════════════ */}
-      <div className="flex-1 flex overflow-hidden p-3 gap-3 min-h-0">
-        {/* ─── COLUMN 1: LEFT PROBLEM DESCRIPTION PANEL ────────────────────── */}
-        <div className="w-[30%] min-w-[280px] max-w-[420px] rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden">
-          {/* Left Panel Tabs: Description | Solutions | Submissions | Discuss */}
-          <div className="h-10 border-b border-slate-200 px-3 flex items-center gap-4 shrink-0 bg-white">
-            <button
+      {!isReviewSubmitOpen && (
+        <div className="lg:hidden bg-white border-b border-slate-200 px-3 py-2 shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            {/* Quick Prev / Next for Mobile */}
+            <Button
               type="button"
-              onClick={() => setLeftTab("description")}
-              className={cn(
-                "h-full text-xs font-bold transition-all relative cursor-pointer",
-                leftTab === "description"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
-              )}
+              variant="outline"
+              size="sm"
+              onClick={handlePrev}
+              disabled={currentIdx === 0}
+              className="h-7 px-2.5 text-xs font-semibold rounded-md border-slate-200 text-slate-700"
             >
-              Description
-            </button>
-            <button
+              <ArrowLeft className="w-3 h-3 mr-1" /> Prev
+            </Button>
+
+            <span className="text-xs font-bold text-slate-800">
+              {currentIdx + 1} / {problems.length}
+            </span>
+
+            <Button
               type="button"
-              onClick={() => setLeftTab("solutions")}
-              className={cn(
-                "h-full text-xs font-bold transition-all relative cursor-pointer",
-                leftTab === "solutions"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
-              )}
+              size="sm"
+              onClick={handleNext}
+              disabled={currentIdx >= problems.length - 1}
+              className="h-7 px-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold"
             >
-              Solutions
-            </button>
-            <button
+              Next <span className="ml-1">→</span>
+            </Button>
+
+            <Button
               type="button"
-              onClick={() => setLeftTab("submissions")}
-              className={cn(
-                "h-full text-xs font-bold transition-all relative cursor-pointer flex items-center gap-1.5",
-                leftTab === "submissions"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
-              )}
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsPaletteOpen((prev) => !prev)}
+              className="h-7 px-2 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-md flex items-center gap-1"
             >
-              <span>Submissions</span>
-              {currentSubmissions.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-50 text-blue-700 font-bold border border-blue-200">
-                  {currentSubmissions.length}
+              <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
+              <span>{isPaletteOpen ? "Hide Grid" : "Grid"}</span>
+            </Button>
+          </div>
+
+          {/* Collapsible Mobile Question Grid */}
+          {isPaletteOpen && (
+            <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-2">
+              <div className="flex items-center justify-between text-[11px] text-slate-600 px-1">
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Solved ({solvedCount})
                 </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> In-progress ({inProgressCount})
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-slate-300 inline-block" /> Pending ({notAttemptedCount})
+                </span>
+              </div>
+
+              <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 max-h-40 overflow-y-auto p-1">
+                {problems.map((p, idx) => {
+                  const isActive = idx === currentIdx;
+                  const isSolved = solvedProblemIds.has(p.id);
+                  const isInProgress = inProgressProblemIds.has(p.id) && !isSolved;
+
+                  return (
+                    <button
+                      key={p.id || idx}
+                      type="button"
+                      onClick={() => {
+                        handleSelectQuestion(idx);
+                        // On smaller screens, keep or toggle as convenient
+                      }}
+                      className={cn(
+                        "h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer border",
+                        isActive
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-300"
+                          : isSolved
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                          : isInProgress
+                          ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
+                          : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                      )}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Mobile Quick Review & Submit Link */}
+              <div className="pt-2 border-t border-slate-100">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleOpenReviewSubmit}
+                  className="w-full h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  <span>Review & Submit Practice</span>
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          2. MAIN WORKSPACE OR REVIEW & SUBMIT INTERFACE
+      ══════════════════════════════════════════════════════════════════════ */}
+      {isReviewSubmitOpen ? (
+        <div className="flex-1 overflow-y-auto min-h-0 bg-slate-50/70 p-3 sm:p-6 lg:p-8">
+          <div className="max-w-5xl mx-auto w-full space-y-6 pb-12">
+            {/* 1. Header Banner */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-2xs">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                  Review &amp; Submit
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  Review your answers before submitting the practice. You can go back and edit any question.
+                </p>
+              </div>
+              <div className="flex items-center gap-2.5 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsReviewSubmitOpen(false)}
+                  disabled={isSubmittingFinal}
+                  className="h-9 px-4 text-xs sm:text-sm font-semibold rounded-lg border-slate-300 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer"
+                >
+                  Back to Practice
+                </Button>
+              </div>
+            </div>
+
+            {/* 2. Practice Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+              <div className="bg-white border border-slate-200/90 rounded-xl p-3.5 shadow-2xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Total Questions</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5 block">{problems.length}</span>
+              </div>
+              <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-3.5 shadow-2xs">
+                <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider block">Answered</span>
+                <span className="text-xl sm:text-2xl font-bold text-emerald-700 mt-0.5 block">{answeredCount}</span>
+              </div>
+              <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3.5 shadow-2xs">
+                <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider block">In Progress</span>
+                <span className="text-xl sm:text-2xl font-bold text-amber-700 mt-0.5 block">{inProgressCountReview}</span>
+              </div>
+              <div className="bg-slate-100/70 border border-slate-200 rounded-xl p-3.5 shadow-2xs">
+                <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider block">Not Answered</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 mt-0.5 block">{notAnsweredCount}</span>
+              </div>
+              {totalPoints > 0 && (
+                <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-3.5 shadow-2xs col-span-2 sm:col-span-2 lg:col-span-2">
+                  <span className="text-[11px] font-semibold text-blue-700 uppercase tracking-wider block">Points Attempted / Total</span>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className="text-xl sm:text-2xl font-bold text-blue-700">{attemptedPoints}</span>
+                    <span className="text-xs text-blue-500 font-semibold">/ {totalPoints} pts</span>
+                  </div>
+                </div>
               )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setLeftTab("discuss")}
-              className={cn(
-                "h-full text-xs font-bold transition-all relative cursor-pointer",
-                leftTab === "discuss"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
-              )}
-            >
-              Discuss ({discussions.length})
-            </button>
+            </div>
+
+            {/* 3. Conditional Alerts: Error / Unanswered Warning / All Answered Notice */}
+            {finalSubmissionError && (
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-rose-800">
+                <div>
+                  <p className="text-sm font-bold">Submission failed</p>
+                  <p className="text-xs text-rose-700">{finalSubmissionError}</p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => handleConfirmAndSubmit(true)}
+                  disabled={isSubmittingFinal}
+                  className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold h-8 px-3 shrink-0 cursor-pointer"
+                >
+                  Retry Submission
+                </Button>
+              </div>
+            )}
+
+            {notAnsweredCount > 0 ? (
+              <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-4 sm:p-5 shadow-2xs">
+                <div>
+                  <h2 className="text-sm font-bold text-amber-950">
+                    You have {notAnsweredCount} unanswered question{notAnsweredCount > 1 ? "s" : ""}.
+                  </h2>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    Are you sure you want to submit? You can go back and answer them or proceed with your current answers below.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-xl p-4 sm:p-5 shadow-2xs">
+                <div>
+                  <h2 className="text-sm font-bold text-emerald-950">
+                    All questions have been answered.
+                  </h2>
+                  <p className="text-xs text-emerald-800 mt-0.5">
+                    Every question has submitted code or an attempted solution. You can now submit your practice below.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* 4. Question Review List */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                  Questions Review ({reviewItems.length})
+                </h2>
+                <span className="text-xs text-slate-500">
+                  Click &ldquo;Edit Answer&rdquo; to modify your code
+                </span>
+              </div>
+
+              {reviewItems.map((item) => {
+                const isAnswered = item.status === "Answered";
+                const isInProgress = item.status === "In Progress";
+
+                return (
+                  <div
+                    key={item.problem.id}
+                    className="bg-white border border-slate-200/90 rounded-xl p-4 sm:p-5 shadow-2xs hover:border-slate-300 transition-all space-y-3"
+                  >
+                    {/* Card Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-md">
+                          QUESTION {item.index + 1}
+                        </span>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                          {item.problem.title}
+                        </h3>
+                        {item.problem.difficulty && (
+                          <span
+                            className={cn(
+                              "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                              item.problem.difficulty.toLowerCase() === "easy"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : item.problem.difficulty.toLowerCase() === "medium"
+                                ? "bg-amber-50 text-amber-700 border-amber-200"
+                                : "bg-rose-50 text-rose-700 border-rose-200"
+                            )}
+                          >
+                            {item.problem.difficulty}
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-500 font-medium">
+                          {item.points} pts
+                        </span>
+                      </div>
+
+                      {/* Status Badges */}
+                      <div className="flex items-center gap-2 self-start sm:self-auto">
+                        <span
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-xs font-bold border",
+                            isAnswered
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : isInProgress
+                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : "bg-slate-100 text-slate-600 border-slate-200"
+                          )}
+                        >
+                          {item.status}
+                        </span>
+
+                        {item.lastRunResult !== "Not Run" && (
+                          <span
+                            className={cn(
+                              "text-[11px] font-semibold px-2 py-0.5 rounded-md border",
+                              item.lastRunResult === "Passed"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-rose-50 text-rose-700 border-rose-200"
+                            )}
+                          >
+                            Last Run: {item.lastRunResult}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Code Preview or Not Answered placeholder */}
+                    {item.hasCode ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                          <span className="font-semibold text-slate-700">
+                            Answer / Code Preview ({item.language.toUpperCase()}):
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyCode(`review-${item.problem.id}`, item.code)}
+                              className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-1.5 py-0.5 rounded hover:bg-slate-100 cursor-pointer transition-colors"
+                            >
+                              {copiedCodeKey === `review-${item.problem.id}` ? "Copied" : "Copy Code"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Formatted Code Block */}
+                        <div className="relative rounded-lg border border-slate-800 bg-slate-900 overflow-hidden shadow-inner">
+                          <pre className="p-3.5 font-mono text-xs text-slate-100 whitespace-pre overflow-y-auto max-h-52 leading-relaxed selection:bg-blue-600">
+                            <code>{item.code}</code>
+                          </pre>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setViewFullCodeItem({
+                                title: item.problem.title,
+                                code: item.code,
+                                language: item.language,
+                                index: item.index,
+                              })
+                            }
+                            className="h-7 px-3 text-xs font-semibold border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                          >
+                            View Full Code
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => handleEditQuestion(item.index)}
+                            className="h-7 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer"
+                          >
+                            Edit Answer
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/70 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <span className="text-xs font-bold text-slate-600 block">
+                            No code submitted
+                          </span>
+                          <span className="text-xs text-slate-400 block mt-0.5">
+                            This question hasn&apos;t been answered yet.
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditQuestion(item.index)}
+                          className="h-8 px-3.5 text-xs font-semibold border-blue-200 text-blue-600 hover:bg-blue-50 cursor-pointer self-start sm:self-auto"
+                        >
+                          Go to Question
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 5. Bottom Final Confirmation Box */}
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                  Ready to complete your practice?
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Once submitted, your final results and score will be calculated and saved.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsReviewSubmitOpen(false)}
+                  disabled={isSubmittingFinal}
+                  className="flex-1 sm:flex-initial h-10 px-4 text-xs sm:text-sm font-semibold border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                >
+                  Back to Practice
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => handleConfirmAndSubmit(false)}
+                  disabled={isSubmittingFinal}
+                  className="flex-1 sm:flex-initial h-10 px-5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-sm cursor-pointer"
+                >
+                  {isSubmittingFinal ? "Submitting..." : "Confirm & Submit"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden p-2.5 sm:p-3 gap-3 min-h-0">
+        {/* ─── COLUMN 1: PROBLEM DESCRIPTION PANEL ────────────────────── */}
+        {isDescriptionOpen ? (
+          <div className="w-full lg:w-[32%] lg:min-w-[300px] lg:max-w-[440px] rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden shrink-0 min-h-[380px] lg:min-h-0 lg:h-full">
+            {/* Left Panel Tabs: Description | Solutions | Submissions | Discuss + Chevron Hide Button (<) */}
+            <div className="h-10 border-b border-slate-200 px-3 flex items-center justify-between shrink-0 bg-white">
+              <div className="flex items-center gap-4 h-full">
+                <button
+                  type="button"
+                  onClick={() => setLeftTab("description")}
+                  className={cn(
+                    "h-full text-xs font-bold transition-all relative cursor-pointer",
+                    leftTab === "description"
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+                  )}
+                >
+                  Description
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLeftTab("solutions")}
+                  className={cn(
+                    "h-full text-xs font-bold transition-all relative cursor-pointer",
+                    leftTab === "solutions"
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+                  )}
+                >
+                  Solutions
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLeftTab("submissions")}
+                  className={cn(
+                    "h-full text-xs font-bold transition-all relative cursor-pointer flex items-center gap-1.5",
+                    leftTab === "submissions"
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+                  )}
+                >
+                  <span>Submissions</span>
+                  {currentSubmissions.length > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                      {currentSubmissions.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLeftTab("discuss")}
+                  className={cn(
+                    "h-full text-xs font-bold transition-all relative cursor-pointer",
+                    leftTab === "discuss"
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+                  )}
+                >
+                  Discuss ({discussions.length})
+                </button>
+              </div>
+
+              {/* Hide Description Panel Icon Button (<) */}
+              <button
+                type="button"
+                onClick={() => setIsDescriptionOpen(false)}
+                className="hidden lg:flex items-center justify-center w-7 h-7 rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Hide Description"
+                aria-label="Hide Description"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
           </div>
 
           {/* Panel Scrollable Content */}
@@ -1611,16 +2500,38 @@ export default function StudentPracticeCodingRunnerPage() {
             )}
           </div>
         </div>
+        ) : (
+          <div className="hidden lg:flex flex-col items-center py-3 px-1.5 bg-white border border-slate-200/90 rounded-xl shadow-2xs shrink-0 self-stretch">
+            <button
+              type="button"
+              onClick={() => setIsDescriptionOpen(true)}
+              className="w-7 h-7 flex items-center justify-center rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Show Description"
+              aria-label="Show Description"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+            <span
+              className="text-[11px] font-bold text-slate-500 tracking-wider mt-4 select-none cursor-pointer"
+              style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+              onClick={() => setIsDescriptionOpen(true)}
+            >
+              Description
+            </span>
+          </div>
+        )}
 
         {/* ─── COLUMN 2: CENTER LIGHT CODE EDITOR + TESTCASE / CONSOLE PANEL ── */}
-        <div className="flex-1 flex flex-col gap-3 overflow-hidden min-h-0">
+        <div className="w-full lg:flex-1 flex flex-col gap-3 min-h-0 lg:overflow-hidden shrink-0 lg:shrink">
           {/* Upper: Light Code Editor Card */}
           <div
             className={cn(
-              "rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden transition-all duration-150",
+              "rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden transition-all duration-150 min-h-0",
               isEditorFullscreen
                 ? "fixed inset-0 z-50 rounded-none border-none h-screen w-screen shadow-2xl"
-                : "flex-1 min-h-[280px]"
+                : isBottomMinimized
+                ? "h-[360px] sm:h-[420px] lg:h-auto lg:flex-1 min-h-[220px]"
+                : "h-[340px] sm:h-[380px] lg:h-auto lg:flex-1 lg:min-h-[160px]"
             )}
           >
             {/* Editor Header Bar: Blue Dot + Code Editor + Language Badge + Fullscreen Button */}
@@ -1635,7 +2546,7 @@ export default function StudentPracticeCodingRunnerPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {isEditorFullscreen && (
+                {isEditorFullscreen && !isReviewMode && (
                   <>
                     <Button
                       type="button"
@@ -1698,7 +2609,7 @@ export default function StudentPracticeCodingRunnerPage() {
             </div>
 
             {/* Monaco Editor in Pure Light ("vs") Theme */}
-            <div className="flex-1 relative bg-white overflow-hidden">
+            <div className="flex-1 min-h-0 relative bg-white overflow-hidden">
               <MonacoEditor
                 language={SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage)?.monacoLang || "java"}
                 value={code}
@@ -1710,6 +2621,7 @@ export default function StudentPracticeCodingRunnerPage() {
                   monaco.editor.setTheme("vs");
                 }}
                 options={{
+                  readOnly: Boolean(isReviewMode),
                   fontSize: 13,
                   lineHeight: 21,
                   fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace',
@@ -1729,13 +2641,15 @@ export default function StudentPracticeCodingRunnerPage() {
           {/* Lower: Testcase / Test Result / Console Panel */}
           <div
             className={cn(
-              "rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden shrink-0 transition-all duration-200",
-              isBottomMinimized ? "h-9.5" : "h-60 sm:h-64"
+              "rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden transition-all duration-200 min-h-0",
+              isBottomMinimized
+                ? "h-9.5 shrink-0"
+                : "h-[320px] sm:h-[350px] lg:h-[40%] xl:h-[42%] lg:max-h-[48%] lg:min-h-[180px] shrink-0"
             )}
           >
             {/* Bottom Panel Tabs: Testcase | Test Result | Console + Minimize/Expand Button */}
-            <div className="h-9.5 border-b border-slate-200 px-4 flex items-center justify-between shrink-0 bg-white select-none">
-              <div className="flex items-center gap-5 h-full">
+            <div className="h-9.5 border-b border-slate-200 px-3 sm:px-4 flex items-center justify-between shrink-0 bg-white select-none">
+              <div className="flex items-center gap-4 sm:gap-5 h-full">
                 <button
                   type="button"
                   onClick={() => {
@@ -1806,7 +2720,10 @@ export default function StudentPracticeCodingRunnerPage() {
 
             {/* Bottom Tab Content */}
             {!isBottomMinimized && (
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs select-text">
+              <div
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3.5 sm:p-4 pb-12 space-y-4 text-xs select-text scroll-smooth"
+                style={{ overscrollBehavior: "contain" }}
+              >
               {/* TAB 1: TESTCASE (CUSTOM INPUT + SYSTEM READ-ONLY CASES) */}
               {bottomTab === "testcase" && (
                 <div className="space-y-4">
@@ -1856,17 +2773,17 @@ export default function StudentPracticeCodingRunnerPage() {
                         </span>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1">
+                          <div className="space-y-1 min-w-0">
                             <span className="text-[11px] font-semibold text-slate-600">Input (stdin)</span>
-                            <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200 font-mono text-xs text-slate-800 min-h-[38px] whitespace-pre-wrap">
-                              {tc.input || "(No input)"}
+                            <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200 font-mono text-xs text-slate-800 min-h-[38px] whitespace-pre-wrap break-all">
+                              {tc.input && tc.input.trim() ? tc.input : "No input"}
                             </div>
                           </div>
 
-                          <div className="space-y-1">
+                          <div className="space-y-1 min-w-0">
                             <span className="text-[11px] font-semibold text-slate-600">Expected Output</span>
-                            <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200 font-mono text-xs text-slate-800 min-h-[38px] whitespace-pre-wrap">
-                              {tc.expected_output || "(No output)"}
+                            <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200 font-mono text-xs text-slate-800 min-h-[38px] whitespace-pre-wrap break-all">
+                              {tc.expected_output && tc.expected_output.trim() ? tc.expected_output : "(No output)"}
                             </div>
                           </div>
                         </div>
@@ -1968,7 +2885,7 @@ export default function StudentPracticeCodingRunnerPage() {
                           <div
                             key={idx}
                             className={cn(
-                              "p-3 rounded-xl border space-y-2 transition-colors",
+                              "p-3 sm:p-3.5 rounded-xl border space-y-2.5 transition-colors shadow-2xs",
                               r.passed
                                 ? "bg-emerald-50/40 border-emerald-200 text-emerald-900"
                                 : "bg-rose-50/40 border-rose-200 text-rose-900"
@@ -1978,9 +2895,9 @@ export default function StudentPracticeCodingRunnerPage() {
                               <div className="flex items-center gap-2">
                                 <span className="flex items-center gap-1.5">
                                   {r.passed ? (
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                                   ) : (
-                                    <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                                    <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
                                   )}
                                   Test Case {idx + 1}
                                 </span>
@@ -1988,32 +2905,55 @@ export default function StudentPracticeCodingRunnerPage() {
                                   Sample
                                 </span>
                               </div>
-                              <span className={cn("text-[11px] font-bold", r.passed ? "text-emerald-600" : "text-rose-600")}>
+                              <span className={cn(
+                                "text-[11px] font-bold px-2 py-0.5 rounded-md",
+                                r.passed ? "text-emerald-700 bg-emerald-100/60" : "text-rose-700 bg-rose-100/60"
+                              )}>
                                 {r.passed ? "PASSED" : "FAILED"}
                               </span>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
-                              <div>
-                                <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold">Expected Output:</span>
-                                <pre className="p-2 bg-white rounded border border-slate-200 text-slate-800 whitespace-pre-wrap min-h-[34px]">
-                                  {r.expected_output || "(No output)"}
-                                </pre>
+                            <div className="space-y-2 text-xs font-mono">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <div className="min-w-0">
+                                  <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold mb-1">
+                                    Input:
+                                  </span>
+                                  <pre className="p-2.5 bg-white rounded-lg border border-slate-200 text-slate-800 whitespace-pre-wrap break-all min-h-[38px] max-h-48 overflow-y-auto font-mono text-xs shadow-2xs leading-relaxed">
+                                    {r.input && r.input.trim() ? r.input : "No input"}
+                                  </pre>
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold mb-1">
+                                    Expected Output:
+                                  </span>
+                                  <pre className="p-2.5 bg-white rounded-lg border border-slate-200 text-slate-800 whitespace-pre-wrap break-all min-h-[38px] max-h-48 overflow-y-auto font-mono text-xs shadow-2xs leading-relaxed">
+                                    {r.expected_output && r.expected_output.trim() ? r.expected_output : "(No output)"}
+                                  </pre>
+                                </div>
                               </div>
-                              <div>
-                                <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold">Actual Output:</span>
-                                <pre className="p-2 bg-white rounded border border-slate-200 text-slate-800 whitespace-pre-wrap min-h-[34px]">
-                                  {r.actual_output || (r.passed ? "Match" : "(No output produced)")}
+                              <div className="min-w-0">
+                                <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold mb-1">
+                                  Actual Output:
+                                </span>
+                                <pre className={cn(
+                                  "p-2.5 bg-white rounded-lg border font-mono text-xs whitespace-pre-wrap break-all min-h-[38px] max-h-48 overflow-y-auto shadow-2xs leading-relaxed",
+                                  r.passed ? "border-slate-200 text-slate-800" : "border-rose-200 text-rose-900 bg-rose-50/20"
+                                )}>
+                                  {r.actual_output && r.actual_output.trim() ? r.actual_output : (r.passed ? "Match" : "(No output produced)")}
                                 </pre>
                               </div>
                             </div>
 
-                            {r.error && (
+                            {r.error &&
+                              r.error !== "Accepted" &&
+                              r.error !== "Output mismatch" &&
+                              !r.error.toLowerCase().includes("mismatch") && (
                               <div className="p-2.5 bg-rose-50/90 border border-rose-200 rounded-lg space-y-1">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block font-sans">
                                   Error / Diagnostic:
                                 </span>
-                                <pre className="text-xs text-rose-800 font-mono whitespace-pre-wrap">
+                                <pre className="text-xs text-rose-800 font-mono whitespace-pre-wrap break-all">
                                   {r.error}
                                 </pre>
                               </div>
@@ -2074,151 +3014,308 @@ export default function StudentPracticeCodingRunnerPage() {
           </div>
         </div>
 
-        {/* ─── COLUMN 3: RIGHT QUESTION NAVIGATOR PANEL ────────────────────── */}
-        <div className="w-[18%] min-w-[200px] max-w-[260px] rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col p-4 space-y-4 shrink-0 overflow-y-auto">
-          {/* Header */}
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-xs sm:text-sm font-bold text-slate-900">
-              Problems ({problems.length})
-            </h3>
-          </div>
-
-          {/* Stats Legend */}
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-              <span className="text-slate-700 font-medium">Solved ({solvedCount})</span>
+        {/* ─── COLUMN 3: RIGHT QUESTION NAVIGATOR PANEL (DESKTOP) ──────────────── */}
+        {isPaletteOpen ? (
+          <div className="hidden lg:flex w-[20%] min-w-[210px] max-w-[280px] rounded-xl border border-slate-200/90 bg-white shadow-2xs flex-col p-4 space-y-4 shrink-0 overflow-y-auto">
+            {/* Header */}
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                Problems ({problems.length})
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsPaletteOpen(false)}
+                className="w-7 h-7 flex items-center justify-center rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Hide Questions"
+                aria-label="Hide Questions"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
-              <span className="text-slate-700 font-medium">In-progress ({inProgressCount})</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0" />
-              <span className="text-slate-500 font-medium">Not Attempted ({notAttemptedCount})</span>
-            </div>
-          </div>
 
-          {/* Question Grid Buttons: [1] [2] [3]... */}
-          <div className="pt-2 border-t border-slate-100">
-            <div className="grid grid-cols-5 gap-2">
-              {problems.map((p, idx) => {
-                const isActive = idx === currentIdx;
-                const isSolved = solvedProblemIds.has(p.id);
-                const isInProgress = inProgressProblemIds.has(p.id) && !isSolved;
-
-                return (
-                  <button
-                    key={p.id || idx}
-                    type="button"
-                    onClick={() => handleSelectQuestion(idx)}
-                    className={cn(
-                      "h-9 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer border",
-                      isActive
-                        ? "bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-300"
-                        : isSolved
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
-                        : isInProgress
-                        ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
-                        : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
-                    )}
-                  >
-                    {idx + 1}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          3. BOTTOM NAVIGATION BAR: [ ← Previous ]   1 / 10   [ Next → ] [ Complete Practice ]
-      ══════════════════════════════════════════════════════════════════════ */}
-      <footer className="h-13 bg-white border-t border-slate-200/90 px-6 flex items-center justify-between shrink-0 shadow-2xs z-20">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handlePrev}
-          disabled={currentIdx === 0}
-          className="h-8 px-4 text-xs font-semibold rounded-lg border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer disabled:opacity-40"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Previous
-        </Button>
-
-        <span className="text-xs sm:text-sm font-bold text-slate-800">
-          {currentIdx + 1} / {problems.length}
-        </span>
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleNext}
-            disabled={currentIdx >= problems.length - 1}
-            className="h-8 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-40"
-          >
-            Next <span className="ml-1">→</span>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => setShowCompleteDialog(true)}
-            className="h-8 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1.5"
-          >
-            <CheckCheck className="w-3.5 h-3.5" />
-            Complete Practice
-          </Button>
-        </div>
-      </footer>
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          4. COMPLETE PRACTICE CONFIRMATION DIALOG
-      ══════════════════════════════════════════════════════════════════════ */}
-      <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
-        <DialogContent className="max-w-sm bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl" showCloseButton={false}>
-          <DialogHeader>
-            <div className="flex items-center justify-center mb-3">
-              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
-                <ShieldCheck className="w-6 h-6 text-emerald-600" />
+            {/* Stats Legend */}
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                <span className="text-slate-700 font-medium">Solved ({solvedCount})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                <span className="text-slate-700 font-medium">In-progress ({inProgressCount})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0" />
+                <span className="text-slate-500 font-medium">Not Attempted ({notAttemptedCount})</span>
               </div>
             </div>
+
+            {/* Question Grid Buttons: [1] [2] [3]... */}
+            <div className="pt-2 border-t border-slate-100">
+              <div className="grid grid-cols-5 gap-2">
+                {problems.map((p, idx) => {
+                  const isActive = idx === currentIdx;
+                  const isSolved = solvedProblemIds.has(p.id);
+                  const isInProgress = inProgressProblemIds.has(p.id) && !isSolved;
+
+                  return (
+                    <button
+                      key={p.id || idx}
+                      type="button"
+                      onClick={() => handleSelectQuestion(idx)}
+                      className={cn(
+                        "h-9 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer border",
+                        isActive
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-300"
+                          : isSolved
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                          : isInProgress
+                          ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
+                          : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                      )}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Review & Submit quick button in Problems Palette */}
+              <div className="pt-2.5 border-t border-slate-100 mt-2.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleOpenReviewSubmit}
+                  className="w-full text-xs font-semibold text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100/80 border-emerald-200 cursor-pointer flex items-center justify-center h-8"
+                >
+                  Review &amp; Submit
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="hidden lg:flex flex-col items-center py-3 px-1.5 bg-white border border-slate-200/90 rounded-xl shadow-2xs shrink-0 self-stretch">
+            <button
+              type="button"
+              onClick={() => setIsPaletteOpen(true)}
+              className="w-7 h-7 flex items-center justify-center rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Show Questions"
+              aria-label="Show Questions"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span
+              className="text-[11px] font-bold text-slate-500 tracking-wider mt-4 select-none cursor-pointer"
+              style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+              onClick={() => setIsPaletteOpen(true)}
+            >
+              Problems ({problems.length})
+            </span>
+          </div>
+        )}
+      </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          3. BOTTOM NAVIGATION BAR (Only for normal coding workspace)
+      ══════════════════════════════════════════════════════════════════════ */}
+      {!isReviewSubmitOpen && (
+        <footer className="min-h-13 py-2 sm:py-0 bg-white border-t border-slate-200/90 px-3 sm:px-6 flex flex-wrap items-center justify-between gap-2 shrink-0 shadow-2xs z-20 sticky bottom-0">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handlePrev}
+            disabled={currentIdx === 0}
+            className="h-8 px-3 sm:px-4 text-xs font-semibold rounded-lg border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer disabled:opacity-40"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 mr-1 sm:mr-1.5" /> Previous
+          </Button>
+
+          <span className="text-xs sm:text-sm font-bold text-slate-800">
+            {currentIdx + 1} / {problems.length}
+          </span>
+
+          <div className="flex items-center gap-2 ml-auto sm:ml-0">
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleNext}
+              disabled={currentIdx >= problems.length - 1}
+              className="h-8 px-3.5 sm:px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-40"
+            >
+              Next <span className="ml-1">→</span>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleOpenReviewSubmit}
+              className="h-8 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1.5"
+            >
+              <CheckCheck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Complete Practice</span>
+              <span className="sm:hidden">Complete</span>
+            </Button>
+          </div>
+        </footer>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          4. UNANSWERED QUESTIONS CONFIRMATION DIALOG
+      ══════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={submitWarningDialogOpen} onOpenChange={setSubmitWarningDialogOpen}>
+        <DialogContent className="max-w-md bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl" showCloseButton={false}>
+          <DialogHeader>
             <DialogTitle className="text-center text-base font-bold text-slate-900">
-              Complete Practice?
+              Unanswered Questions Warning
             </DialogTitle>
-            <DialogDescription className="text-center text-sm text-slate-500 mt-1">
-              You have completed{" "}
-              <span className="font-bold text-slate-800">{solvedProblemIds.size}</span> of{" "}
-              <span className="font-bold text-slate-800">{problems.length}</span> problems.
-              {solvedProblemIds.size < problems.length && (
-                <span className="block mt-1 text-amber-600 text-xs font-medium">
-                  You can still go back and attempt the remaining problems.
-                </span>
-              )}
+            <DialogDescription className="text-center text-sm text-slate-600 mt-1">
+              You have <strong className="text-amber-700 font-bold">{notAnsweredCount}</strong> unanswered question{notAnsweredCount > 1 ? "s" : ""}.
+              <span className="block mt-1 text-slate-500 text-xs">
+                Are you sure you want to submit? You can go back and review, or submit anyway.
+              </span>
             </DialogDescription>
           </DialogHeader>
           <div className="mt-5 flex flex-row gap-3">
             <Button
               type="button"
               variant="outline"
-              className="flex-1 h-9 rounded-xl border-slate-200 text-slate-700 text-sm font-semibold cursor-pointer"
-              onClick={() => setShowCompleteDialog(false)}
-              disabled={isCompletingPractice}
+              className="flex-1 h-9 rounded-xl border-slate-200 text-slate-700 text-xs sm:text-sm font-semibold cursor-pointer"
+              onClick={() => setSubmitWarningDialogOpen(false)}
+              disabled={isSubmittingFinal}
             >
-              Cancel
+              Go Back &amp; Review
             </Button>
             <Button
               type="button"
-              className="flex-1 h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold cursor-pointer"
-              onClick={handleCompletePractice}
-              disabled={isCompletingPractice}
+              className="flex-1 h-9 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-semibold cursor-pointer"
+              onClick={() => handleConfirmAndSubmit(true)}
+              disabled={isSubmittingFinal}
             >
-              {isCompletingPractice ? (
-                <><Loader2 className="w-4 h-4 animate-spin mr-1.5" /> Completing...</>
-              ) : (
-                <><CheckCheck className="w-4 h-4 mr-1.5" /> Complete Practice</>
-              )}
+              {isSubmittingFinal ? "Submitting..." : "Submit Anyway"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          5. FULL CODE PREVIEW DIALOG
+      ══════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={viewFullCodeItem !== null} onOpenChange={(open) => !open && setViewFullCodeItem(null)}>
+        <DialogContent className="max-w-2xl bg-white border border-slate-200 rounded-2xl p-5 shadow-2xl" showCloseButton={true}>
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center justify-between pr-6">
+              <span>{viewFullCodeItem?.title}</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+                {viewFullCodeItem?.language}
+              </span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Full source code preview for this question.
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewFullCodeItem && (
+            <div className="my-2 space-y-3">
+              <div className="relative rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-1.5 bg-slate-950/60 border-b border-slate-800 text-[11px] text-slate-400">
+                  <span>Language: {viewFullCodeItem.language}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyCode("full-preview", viewFullCodeItem.code)}
+                    className="hover:text-white transition-colors cursor-pointer text-xs"
+                  >
+                    {copiedCodeKey === "full-preview" ? "Copied" : "Copy Code"}
+                  </button>
+                </div>
+                <pre className="p-4 font-mono text-xs text-slate-100 whitespace-pre overflow-y-auto max-h-[55vh] leading-relaxed">
+                  <code>{viewFullCodeItem.code}</code>
+                </pre>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setViewFullCodeItem(null)}
+                  className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 text-slate-700 cursor-pointer"
+                >
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    const idx = viewFullCodeItem.index;
+                    setViewFullCodeItem(null);
+                    handleEditQuestion(idx);
+                  }}
+                  className="h-8 px-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer"
+                >
+                  Edit in Code Editor
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          6. PRACTICE COMPLETION RESULT DIALOG
+      ══════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={isPracticeCompleted} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="text-center text-lg font-bold text-slate-900 mt-2">
+              Practice Completed! 🎉
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm text-slate-500 mt-1">
+              Your practice submission has been successfully recorded.
+            </DialogDescription>
+          </DialogHeader>
+
+          {completionResult && (
+            <div className="my-4 grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+              <div>
+                <span className="text-[11px] text-slate-500 font-semibold block">Score</span>
+                <span className="text-lg font-bold text-slate-900">{completionResult.score}%</span>
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-500 font-semibold block">Solved</span>
+                <span className="text-lg font-bold text-emerald-600">
+                  {completionResult.solvedCount}/{completionResult.totalCount}
+                </span>
+              </div>
+              <div>
+                <span className="text-[11px] text-slate-500 font-semibold block">Points</span>
+                <span className="text-lg font-bold text-blue-600">
+                  {completionResult.earnedPoints}/{completionResult.totalPoints}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-2 flex flex-col sm:flex-row gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 h-9 rounded-xl border-slate-200 text-slate-700 text-xs sm:text-sm font-semibold cursor-pointer"
+              onClick={() => {
+                setIsPracticeCompleted(false);
+                setIsReviewSubmitOpen(true);
+              }}
+            >
+              Review Answers
+            </Button>
+            <Button
+              type="button"
+              className="flex-1 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold cursor-pointer"
+              onClick={() => {
+                router.push(trackId ? `/student/practices/${trackId}` : "/student/practices");
+              }}
+            >
+              Back to Practices
             </Button>
           </div>
         </DialogContent>

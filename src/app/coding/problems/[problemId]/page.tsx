@@ -54,6 +54,7 @@ import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import type { CodingLanguage, CodingSubmission, TestCaseResult } from "@/types/coding";
 import { registerMonacoCompletions } from "@/lib/monaco-completions";
 import { cn } from "@/lib/utils";
+import { normalizeTestInput, normalizeExpectedOutput, extractSampleTestCases } from "@/lib/compiler/comparator";
 
 // Lazy load Monaco Editor with branded loading
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
@@ -342,26 +343,7 @@ export default function ProblemSolvingWorkspace() {
   // System Sample Test Cases (Read-Only)
   const systemTestCases = useMemo(() => {
     if (!problem) return [];
-    const publicCases = (problem.test_cases || []).filter((tc) => !tc.is_hidden);
-    if (publicCases.length > 0) return publicCases;
-
-    if (problem.example_cases && problem.example_cases.length > 0) {
-      return problem.example_cases.map((eg, idx) => ({
-        id: `eg_${idx}`,
-        input: eg.input,
-        expected_output: eg.output,
-        is_hidden: false,
-      }));
-    }
-
-    return [
-      {
-        id: "sample_default",
-        input: problem.sample_input || "(No input)",
-        expected_output: problem.sample_output || "",
-        is_hidden: false,
-      },
-    ];
+    return extractSampleTestCases(problem);
   }, [problem]);
 
   // Hidden Test Cases (Evaluated on Run & Submit)
@@ -382,15 +364,15 @@ export default function ProblemSolvingWorkspace() {
     try {
       const sampleCases = systemTestCases.map((tc) => ({
         id: tc.id,
-        input: tc.input === "(No input)" ? "" : tc.input,
-        expected_output: tc.expected_output || "",
+        input: normalizeTestInput(tc.input),
+        expected_output: normalizeExpectedOutput(tc),
         is_hidden: false,
       }));
 
       const hiddenCases = hiddenTestCases.map((tc) => ({
         id: tc.id,
-        input: tc.input || "",
-        expected_output: tc.expected_output || "",
+        input: normalizeTestInput(tc.input),
+        expected_output: normalizeExpectedOutput(tc),
         is_hidden: true,
       }));
 
@@ -429,7 +411,17 @@ export default function ProblemSolvingWorkspace() {
         });
       }
 
-      const results: TestCaseResult[] = data.results || [];
+      const rawResults: TestCaseResult[] = data.results || [];
+      const results: TestCaseResult[] = rawResults.map((r, idx) => {
+        const correspondingCase = casesToRun[idx];
+        return {
+          ...r,
+          input: r.input !== undefined && r.input !== null ? r.input : correspondingCase?.input ?? "",
+          expected_output: r.expected_output !== undefined && r.expected_output !== null && r.expected_output !== ""
+            ? r.expected_output
+            : correspondingCase?.expected_output ?? "",
+        };
+      });
       setRunResults(results);
 
       // Check if any failed case has compilation or runtime diagnostic
@@ -553,6 +545,14 @@ export default function ProblemSolvingWorkspace() {
       (latestSubmission?.status === "accepted");
 
     try {
+      const rawCases = problem.test_cases || [];
+      const normalizedSubmissionCases = rawCases.map((tc: any) => ({
+        id: tc.id,
+        input: normalizeTestInput(tc.input),
+        expected_output: normalizeExpectedOutput(tc),
+        is_hidden: Boolean(tc.is_hidden),
+      }));
+
       const res = await fetch("/api/code/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -560,7 +560,7 @@ export default function ProblemSolvingWorkspace() {
           problem_id: problem.id,
           language: selectedLanguage,
           code,
-          test_cases: problem.test_cases,
+          test_cases: normalizedSubmissionCases.length > 0 ? normalizedSubmissionCases : undefined,
         }),
       });
 
@@ -577,7 +577,17 @@ export default function ProblemSolvingWorkspace() {
 
       const submission: CodingSubmission = await res.json();
       setLatestSubmission(submission);
-      setRunResults(submission.results || []);
+      const subResults = (submission.results || []).map((r: any, idx: number) => {
+        const correspondingCase = normalizedSubmissionCases[idx];
+        return {
+          ...r,
+          input: r.input !== undefined && r.input !== null ? r.input : correspondingCase?.input ?? "",
+          expected_output: r.expected_output !== undefined && r.expected_output !== null && r.expected_output !== ""
+            ? r.expected_output
+            : correspondingCase?.expected_output ?? "",
+        };
+      });
+      setRunResults(subResults);
       setShowVerdictModal(true);
 
       if (submission.status === "compilation_error" || submission.status === "runtime_error" || (submission as any).error_message) {
@@ -1410,14 +1420,14 @@ export default function ProblemSolvingWorkspace() {
                             <div className="space-y-1">
                               <span className="text-[11px] font-semibold text-slate-600">Input (stdin)</span>
                               <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200 font-mono text-xs text-slate-800 min-h-[38px] whitespace-pre-wrap">
-                                {tc.input || "(No input)"}
+                                {tc.input && tc.input.trim() ? tc.input : "No input"}
                               </div>
                             </div>
 
                             <div className="space-y-1">
                               <span className="text-[11px] font-semibold text-slate-600">Expected Output</span>
                               <div className="p-2.5 bg-slate-50/80 rounded-xl border border-slate-200 font-mono text-xs text-slate-800 min-h-[38px] whitespace-pre-wrap">
-                                {tc.expected_output || "(No output)"}
+                                {tc.expected_output && tc.expected_output.trim() ? tc.expected_output : "(No output)"}
                               </div>
                             </div>
                           </div>
@@ -1552,11 +1562,17 @@ export default function ProblemSolvingWorkspace() {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+                              <div>
+                                <span className="text-[10px] font-semibold text-slate-600 block uppercase font-sans">Input:</span>
+                                <pre className="p-2 bg-slate-50 rounded border border-slate-200 font-mono text-xs whitespace-pre-wrap min-h-[34px] text-slate-800">
+                                  {r.is_hidden ? "[Hidden for evaluation]" : (r.input && r.input.trim() ? r.input : "No input")}
+                                </pre>
+                              </div>
                               <div>
                                 <span className="text-[10px] font-semibold text-slate-600 block uppercase font-sans">Expected Output:</span>
                                 <pre className="p-2 bg-white rounded border border-slate-200 font-mono text-xs whitespace-pre-wrap min-h-[34px]">
-                                  {r.is_hidden ? "[Hidden for evaluation]" : (r.expected_output || "(No output)")}
+                                  {r.is_hidden ? "[Hidden for evaluation]" : (r.expected_output && r.expected_output.trim() ? r.expected_output : "(No output)")}
                                 </pre>
                               </div>
                               <div>

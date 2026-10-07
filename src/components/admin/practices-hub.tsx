@@ -64,6 +64,11 @@ export interface PracticeModule {
   durationMinutes: number;
   totalMarks: number;
   questionCount: number;
+  allowedAttempts?: number;
+  reattemptEnabled?: boolean;
+  reviewEnabled?: boolean;
+  passingMarks?: number;
+  completionRule?: "submit" | "pass";
   mcqSectionTitle?: string;
   codingSectionTitle?: string;
   mcqQuestions: MCQQuestion[];
@@ -294,6 +299,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [fModOrder, setFModOrder] = useState<number>(0);
   const [fModMcqSectionTitle, setFModMcqSectionTitle] = useState<string>("Section 1: MCQs");
   const [fModCodingSectionTitle, setFModCodingSectionTitle] = useState<string>("Section 2: Coding");
+  const [fModAllowedAttempts, setFModAllowedAttempts] = useState<number>(3);
+  const [fModReattemptEnabled, setFModReattemptEnabled] = useState<boolean>(true);
+  const [fModReviewEnabled, setFModReviewEnabled] = useState<boolean>(true);
+  const [fModPassingMarks, setFModPassingMarks] = useState<number>(40);
+  const [fModCompletionRule, setFModCompletionRule] = useState<"submit" | "pass">("submit");
 
   // Module Questions Editor State
   const [activeTab, setActiveTab] = useState<"mcq" | "coding">("mcq");
@@ -651,6 +661,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setFModOrder(currentSubmodule.modules.length + 1);
     setFModMcqSectionTitle("Section 1: MCQs");
     setFModCodingSectionTitle("Section 2: Coding");
+    setFModAllowedAttempts(3);
+    setFModReattemptEnabled(true);
+    setFModReviewEnabled(true);
+    setFModPassingMarks(40);
+    setFModCompletionRule("submit");
     setShowModuleModal(true);
   };
 
@@ -668,6 +683,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setFModOrder(m.display_order ?? 0);
     setFModMcqSectionTitle(m.mcqSectionTitle || "Section 1: MCQs");
     setFModCodingSectionTitle(m.codingSectionTitle || "Section 2: Coding");
+    setFModAllowedAttempts(typeof m.allowedAttempts === "number" ? m.allowedAttempts : 3);
+    setFModReattemptEnabled(typeof m.reattemptEnabled === "boolean" ? m.reattemptEnabled : true);
+    setFModReviewEnabled(typeof m.reviewEnabled === "boolean" ? m.reviewEnabled : true);
+    setFModPassingMarks(typeof m.passingMarks === "number" ? m.passingMarks : 40);
+    setFModCompletionRule(m.completionRule || "submit");
     setShowModuleModal(true);
   };
 
@@ -697,6 +717,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         display_order: Number(fModOrder) || 0,
         mcqSectionTitle: fModMcqSectionTitle.trim() || "Section 1: MCQs",
         codingSectionTitle: fModCodingSectionTitle.trim() || "Section 2: Coding",
+        allowedAttempts: Math.max(1, Number(fModAllowedAttempts) || 1),
+        reattemptEnabled: Boolean(fModReattemptEnabled),
+        reviewEnabled: Boolean(fModReviewEnabled),
+        passingMarks: Math.max(0, Number(fModPassingMarks) || 0),
+        completionRule: fModCompletionRule || "submit",
       };
 
       const res = await fetch("/api/admin/practices", {
@@ -2958,6 +2983,129 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     onChange={(e) => setFModOrder(parseInt(e.target.value) || 0)}
                     className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-purple-500/20"
                   />
+                </div>
+              </div>
+
+              {/* Assessment & Attempt Policy (Source of Truth) */}
+              <div className="p-4 bg-slate-100/70 dark:bg-zinc-900/80 rounded-xl border border-slate-200/90 dark:border-zinc-800 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                    Assessment &amp; Attempt Policy
+                  </span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                    Single Source of Truth
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Defines attempt limits, reattempt permissions, review access, and completion criteria for all students.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-zinc-300 text-[11px]">
+                      Allowed Attempts <span className="text-slate-400 font-normal">(Max Attempts)</span>
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={fModAllowedAttempts}
+                      onChange={(e) => setFModAllowedAttempts(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="h-9 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg"
+                      placeholder="e.g. 3"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-zinc-300 text-[11px]">
+                      Passing Marks
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={fModPassingMarks}
+                      onChange={(e) => setFModPassingMarks(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="h-9 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg"
+                      placeholder="e.g. 40"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-zinc-300 text-[11px]">
+                      Reattempt
+                    </label>
+                    <div className="flex rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setFModReattemptEnabled(true)}
+                        className={`flex-1 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer ${
+                          fModReattemptEnabled
+                            ? "bg-purple-600 text-white"
+                            : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
+                        }`}
+                      >
+                        Enabled
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFModReattemptEnabled(false)}
+                        className={`flex-1 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer ${
+                          !fModReattemptEnabled
+                            ? "bg-slate-700 text-white dark:bg-zinc-700"
+                            : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
+                        }`}
+                      >
+                        Disabled
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-zinc-300 text-[11px]">
+                      Review Answers
+                    </label>
+                    <div className="flex rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setFModReviewEnabled(true)}
+                        className={`flex-1 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer ${
+                          fModReviewEnabled
+                            ? "bg-purple-600 text-white"
+                            : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
+                        }`}
+                      >
+                        Enabled
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFModReviewEnabled(false)}
+                        className={`flex-1 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer ${
+                          !fModReviewEnabled
+                            ? "bg-slate-700 text-white dark:bg-zinc-700"
+                            : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
+                        }`}
+                      >
+                        Disabled
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700 dark:text-zinc-300 text-[11px]">
+                      Completion Rule
+                    </label>
+                    <MncSelect
+                      value={fModCompletionRule}
+                      onChange={(v: any) => setFModCompletionRule(v)}
+                      variant="purple"
+                      options={[
+                        { value: "submit", label: "Submit Attempt" },
+                        { value: "pass", label: "Passing Marks" },
+                      ]}
+                    />
+                  </div>
                 </div>
               </div>
 

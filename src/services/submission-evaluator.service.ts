@@ -6,7 +6,7 @@ import type {
   SubmitCodeInput,
 } from "@/types/coding";
 import { UniversalExecutor } from "@/lib/compiler/universal-executor";
-import { compareOutput } from "@/lib/compiler/comparator";
+import { compareOutput, normalizeTestInput, normalizeExpectedOutput } from "@/lib/compiler/comparator";
 import { SQLExecutionService } from "@/services/sql-execution.service";
 import { SubmissionService } from "@/services/submission.service";
 
@@ -48,7 +48,9 @@ export class SubmissionEvaluatorService {
       testCases.map(async (tc) => {
         let passed = false;
         let trimmedActual = "";
-        const expectedOutput = tc.expected_output || "";
+        const rawInput = tc.input !== undefined ? tc.input : ((tc as any).stdin !== undefined ? (tc as any).stdin : "");
+        const cleanInput = normalizeTestInput(rawInput);
+        const expectedOutput = normalizeExpectedOutput(tc);
         let resError: string | undefined;
         let executionTime = 0.02;
 
@@ -72,7 +74,7 @@ export class SubmissionEvaluatorService {
             );
           }
         } else {
-          const res = await UniversalExecutor.execute(input.language, input.code, tc.input);
+          const res = await UniversalExecutor.execute(input.language, input.code, cleanInput);
 
           trimmedActual = (res.stdout || "").trim();
           executionTime = res.time ? parseFloat(res.time) : 0.02;
@@ -81,18 +83,22 @@ export class SubmissionEvaluatorService {
           passed = isSuccessStatus && compareOutput(trimmedActual, expectedOutput, "WHITESPACE_NORMALIZED");
 
           if (!passed) {
-            resError = res.compile_output || res.stderr || res.message || (isSuccessStatus ? "Output mismatch" : "Execution Error");
+            if (!isSuccessStatus) {
+              resError = res.compile_output || res.stderr || (res.message && res.message !== "Accepted" ? res.message : null) || "Execution Error";
+            } else {
+              resError = "Output mismatch";
+            }
           }
         }
 
-        const isHidden = Boolean(tc.is_hidden);
+        const isHidden = Boolean(tc.is_hidden || (tc as any).isHidden || (tc as any).hidden);
         const shouldReveal = isHidden ? Boolean((problem as any)?.reveal_hidden_testcases === true) : true;
 
         return {
           test_case_id: tc.id,
           passed,
           is_hidden: isHidden,
-          input: shouldReveal ? tc.input : undefined,
+          input: shouldReveal ? (rawInput !== undefined && rawInput !== null ? String(rawInput) : "") : undefined,
           actual_output: shouldReveal ? trimmedActual : (passed ? "Match (Passed against hidden test case)" : "Mismatch (Hidden Test Case)"),
           expected_output: shouldReveal ? expectedOutput : "[Hidden for evaluation]",
           error: !passed ? (resError || (isHidden && !shouldReveal ? "Test case failed against hidden input" : "Output mismatch")) : undefined,
