@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { calculateEqualWeights } from "@/lib/practice-progress";
 
 interface SubModuleMeta {
   id: string;
@@ -164,6 +165,18 @@ export default function AssessmentTakePage() {
       let targetTrack: any = null;
       let targetSubModule: any = null;
 
+      const findInSubs = (subs: any[], targetId: string) => {
+        if (!Array.isArray(subs)) return null;
+        for (const s of subs) {
+          if (s.id === targetId) return s;
+          if (Array.isArray(s.modules)) {
+            const child = s.modules.find((m: any) => m.id === targetId);
+            if (child) return child;
+          }
+        }
+        return null;
+      };
+
       // 1. Direct Track Param check
       if (trackIdParam) {
         try {
@@ -173,7 +186,7 @@ export default function AssessmentTakePage() {
             if (data.track) {
               targetTrack = data.track;
               const subs = data.track.sub_modules || data.track.subModules || [];
-              targetSubModule = subs.find((s: any) => s.id === subModuleId) || (trackIdParam === subModuleId ? subs[0] : null);
+              targetSubModule = findInSubs(subs, subModuleId) || (trackIdParam === subModuleId ? subs[0] : null);
             }
           }
         } catch (e) {
@@ -190,7 +203,7 @@ export default function AssessmentTakePage() {
             if (data.track) {
               targetTrack = data.track;
               const subs = data.track.sub_modules || data.track.subModules || [];
-              targetSubModule = subs.find((s: any) => s.id === subModuleId) || subs[0] || data.track;
+              targetSubModule = findInSubs(subs, subModuleId) || subs[0] || data.track;
             }
           }
         } catch (e) {
@@ -207,14 +220,14 @@ export default function AssessmentTakePage() {
             const tracks = allData.tracks || [];
             for (const t of tracks) {
               const subs = t.sub_modules || t.subModules || [];
-              const found = subs.find((s: any) => s.id === subModuleId);
+              const found = findInSubs(subs, subModuleId);
               if (found || t.id === subModuleId) {
                 const detailRes = await fetch(`/api/student/practices/${t.id}`);
                 if (detailRes.ok) {
                   const detailData = await detailRes.json();
                   targetTrack = detailData.track;
                   const detailSubs = detailData.track?.sub_modules || detailData.track?.subModules || [];
-                  targetSubModule = detailSubs.find((s: any) => s.id === subModuleId) || detailSubs[0] || found || t;
+                  targetSubModule = findInSubs(detailSubs, subModuleId) || detailSubs[0] || found || t;
                 }
                 break;
               }
@@ -320,7 +333,7 @@ export default function AssessmentTakePage() {
         rawSections.forEach((s: any) => {
           totalCount += (s.mcqQuestions?.length || 0) + (s.codingQuestions?.length || 0);
         });
-        const perQuestionBaseMarks = totalCount > 0 ? Math.max(5, Math.floor(totalSubModuleMarks / totalCount)) : 10;
+        const equalWeights = calculateEqualWeights(totalSubModuleMarks, totalCount);
 
         let globalMcqIdx = 0;
         let globalCodingIdx = 0;
@@ -334,6 +347,7 @@ export default function AssessmentTakePage() {
             const normalizedOptions = normalizeAssessmentOptions(q.options, q);
             const correctCount = normalizedOptions.filter((o: any) => o.isCorrect).length;
             const isMulti = q.questionType === "multiple" || correctCount > 1;
+            const qWeight = q.marks !== undefined ? Number(q.marks) : (q.weight !== undefined ? Number(q.weight) : (q.points !== undefined ? Number(q.points) : (equalWeights[globalMcqIdx] || 10)));
             formattedQuestions.push({
               id: q.id || `mcq_${globalMcqIdx}`,
               type: isMulti ? "multiple_choice" : "single_choice",
@@ -342,7 +356,7 @@ export default function AssessmentTakePage() {
               sectionIndex: sIdx,
               title: q.title || `Question ${globalMcqIdx + 1}`,
               text: q.questionText || q.text || q.title || "Choose the correct option:",
-              marks: q.marks || perQuestionBaseMarks,
+              marks: qWeight,
               options: normalizedOptions,
               explanation: q.explanation || ""
             });
@@ -395,7 +409,7 @@ export default function AssessmentTakePage() {
               sectionIndex: sIdx,
               title: cq.title || `Coding Challenge ${globalCodingIdx + 1}`,
               text: cq.description || cq.problemDescription || "Implement the algorithm as specified.",
-              marks: cq.marks || cq.points || (perQuestionBaseMarks * 2),
+              marks: cq.marks !== undefined ? Number(cq.marks) : (cq.points !== undefined ? Number(cq.points) : (cq.weight !== undefined ? Number(cq.weight) : (equalWeights[globalCodingIdx] || 20))),
               difficulty: cq.difficulty || "medium",
               constraints: cq.constraints || "",
               inputFormat: cq.inputFormat || "",
@@ -420,12 +434,13 @@ export default function AssessmentTakePage() {
         const customCodingTitle = targetSubModule.codingSectionTitle || targetSubModule.coding_section_title || "Section 2: Coding";
 
         const totalQuestionCount = mcqs.length + (codingProbs.length > 0 ? codingProbs.length : (targetSubModule.type === "coding" || targetSubModule.problemDescription ? 1 : 0));
-        const perQuestionBaseMarks = totalQuestionCount > 0 ? Math.max(5, Math.floor(totalSubModuleMarks / totalQuestionCount)) : 10;
+        const equalWeights = calculateEqualWeights(totalSubModuleMarks, totalQuestionCount);
 
         mcqs.forEach((q: any, idx: number) => {
           const normalizedOptions = normalizeAssessmentOptions(q.options, q);
           const correctCount = normalizedOptions.filter((o: any) => o.isCorrect).length;
           const isMulti = q.questionType === "multiple" || correctCount > 1;
+          const qWeight = q.marks !== undefined ? Number(q.marks) : (q.weight !== undefined ? Number(q.weight) : (q.points !== undefined ? Number(q.points) : (equalWeights[idx] || 10)));
           formattedQuestions.push({
             id: q.id || `mcq_${idx}`,
             type: isMulti ? "multiple_choice" : "single_choice",
@@ -433,7 +448,7 @@ export default function AssessmentTakePage() {
             sectionTitle: customMcqTitle,
             title: `Question ${idx + 1}`,
             text: q.questionText || q.text || q.title || "Choose the correct option:",
-            marks: q.marks || perQuestionBaseMarks,
+            marks: qWeight,
             options: normalizedOptions,
             explanation: q.explanation || ""
           });
@@ -483,7 +498,7 @@ export default function AssessmentTakePage() {
               sectionTitle: customCodingTitle,
               title: cq.title || `Coding Challenge ${idx + 1}`,
               text: cq.description || cq.problemDescription || "Implement the algorithm as specified.",
-              marks: cq.marks || cq.points || (perQuestionBaseMarks * 2),
+              marks: cq.marks !== undefined ? Number(cq.marks) : (cq.points !== undefined ? Number(cq.points) : (cq.weight !== undefined ? Number(cq.weight) : (equalWeights[mcqs.length + idx] || 20))),
               difficulty: cq.difficulty || "medium",
               constraints: cq.constraints || "",
               inputFormat: cq.inputFormat || "",

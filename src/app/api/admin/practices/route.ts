@@ -3,6 +3,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 import { dispatchBatchNotification } from "@/lib/notifications/dispatcher";
 import { randomUUID } from "crypto";
+import {
+  validateModuleMarks,
+  calculateQuestionWeightsSum,
+  calculateSubmoduleTotalMarks,
+  calculateMainModuleTotalMarks,
+} from "@/lib/practice-progress";
 
 // Helper to normalize the 3-level hierarchy: Main Module -> Submodule -> Module
 function normalizeSubmodules(rawSubmodules: any[], mainModuleId: string): any[] {
@@ -97,6 +103,8 @@ function normalizeSubmodules(rawSubmodules: any[], mainModuleId: string): any[] 
     // Sort child modules by display_order
     childModules.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
 
+    const smTotalMarks = calculateSubmoduleTotalMarks({ modules: childModules });
+
     return {
       id: smId,
       main_module_id: mainModuleId,
@@ -107,6 +115,8 @@ function normalizeSubmodules(rawSubmodules: any[], mainModuleId: string): any[] 
       status: smStatus,
       display_order: smOrder,
       displayOrder: smOrder,
+      totalMarks: smTotalMarks,
+      total_marks: smTotalMarks,
       modules: childModules,
       created_at: sm.created_at || new Date().toISOString(),
       updated_at: sm.updated_at || new Date().toISOString(),
@@ -205,6 +215,7 @@ export async function GET() {
       normalizedHierarchy.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
 
       const status = t.status === "inactive" || t.status === "draft" ? "inactive" : "active";
+      const trackTotalMarks = calculateMainModuleTotalMarks({ submodules: normalizedHierarchy });
 
       return {
         id: t.id,
@@ -219,6 +230,8 @@ export async function GET() {
         assignedStudents,
         submodules: normalizedHierarchy,
         subModules: normalizedHierarchy,
+        totalMarks: trackTotalMarks,
+        total_marks: trackTotalMarks,
         isCommon,
         status,
         display_order: displayOrder,
@@ -720,6 +733,34 @@ export async function POST(request: NextRequest) {
       const codingQuestions = Array.isArray(body.codingQuestions) ? body.codingQuestions : [];
       const questionCount = mcqQuestions.length + codingQuestions.length || body.questionCount || 0;
 
+      const totalMarks = typeof body.totalMarks === "number" ? body.totalMarks : (typeof body.total_marks === "number" ? body.total_marks : 100);
+      if (isNaN(totalMarks) || totalMarks < 1) {
+        return NextResponse.json({ error: "Total marks must be a positive number of at least 1" }, { status: 400 });
+      }
+
+      const passingMarks = typeof body.passingMarks === "number" ? body.passingMarks : (typeof body.passing_marks === "number" ? body.passing_marks : 40);
+      if (isNaN(passingMarks) || passingMarks < 0 || passingMarks > totalMarks) {
+        return NextResponse.json({
+          error: `Passing marks (${passingMarks}) cannot be negative and cannot exceed total marks (${totalMarks})`,
+        }, { status: 400 });
+      }
+
+      const allowedAttempts = typeof body.allowedAttempts === "number" ? body.allowedAttempts : 3;
+      if (isNaN(allowedAttempts) || allowedAttempts < 1) {
+        return NextResponse.json({ error: "Allowed attempts must be at least 1" }, { status: 400 });
+      }
+
+      const allQuestions = [...mcqQuestions, ...codingQuestions];
+      if (allQuestions.length > 0) {
+        const markValidation = validateModuleMarks(totalMarks, allQuestions, status !== "active");
+        if (!markValidation.isValid) {
+          return NextResponse.json({
+            error: markValidation.errorMessage || "The sum of question marks must match the configured module total marks.",
+            details: markValidation,
+          }, { status: 400 });
+        }
+      }
+
       const newModule = {
         id: newModuleId,
         submodule_id: submoduleId,
@@ -734,12 +775,13 @@ export async function POST(request: NextRequest) {
         displayOrder,
         type: body.type || "mixed",
         durationMinutes: typeof body.durationMinutes === "number" ? body.durationMinutes : 60,
-        totalMarks: typeof body.totalMarks === "number" ? body.totalMarks : 100,
+        totalMarks,
+        total_marks: totalMarks,
         questionCount,
-        allowedAttempts: typeof body.allowedAttempts === "number" ? body.allowedAttempts : 3,
+        allowedAttempts,
         reattemptEnabled: typeof body.reattemptEnabled === "boolean" ? body.reattemptEnabled : true,
         reviewEnabled: typeof body.reviewEnabled === "boolean" ? body.reviewEnabled : true,
-        passingMarks: typeof body.passingMarks === "number" ? body.passingMarks : 40,
+        passingMarks,
         completionRule: body.completionRule || "submit",
         mcqSectionTitle: (body.mcqSectionTitle || body.mcq_section_title || "Section 1: MCQs").trim(),
         codingSectionTitle: (body.codingSectionTitle || body.coding_section_title || "Section 2: Coding").trim(),
@@ -842,6 +884,34 @@ export async function POST(request: NextRequest) {
       const codingQuestions = Array.isArray(body.codingQuestions) ? body.codingQuestions : existingMod.codingQuestions || [];
       const questionCount = mcqQuestions.length + codingQuestions.length || body.questionCount || existingMod.questionCount || 0;
 
+      const totalMarks = typeof body.totalMarks === "number" ? body.totalMarks : (typeof body.total_marks === "number" ? body.total_marks : (existingMod.totalMarks ?? 100));
+      if (isNaN(totalMarks) || totalMarks < 1) {
+        return NextResponse.json({ error: "Total marks must be a positive number of at least 1" }, { status: 400 });
+      }
+
+      const passingMarks = typeof body.passingMarks === "number" ? body.passingMarks : (typeof body.passing_marks === "number" ? body.passing_marks : (existingMod.passingMarks ?? 40));
+      if (isNaN(passingMarks) || passingMarks < 0 || passingMarks > totalMarks) {
+        return NextResponse.json({
+          error: `Passing marks (${passingMarks}) cannot be negative and cannot exceed total marks (${totalMarks})`,
+        }, { status: 400 });
+      }
+
+      const allowedAttempts = typeof body.allowedAttempts === "number" ? body.allowedAttempts : (existingMod.allowedAttempts ?? 3);
+      if (isNaN(allowedAttempts) || allowedAttempts < 1) {
+        return NextResponse.json({ error: "Allowed attempts must be at least 1" }, { status: 400 });
+      }
+
+      const allQuestions = [...mcqQuestions, ...codingQuestions];
+      if (allQuestions.length > 0) {
+        const markValidation = validateModuleMarks(totalMarks, allQuestions, status !== "active");
+        if (!markValidation.isValid) {
+          return NextResponse.json({
+            error: markValidation.errorMessage || "The sum of question marks must match the configured module total marks.",
+            details: markValidation,
+          }, { status: 400 });
+        }
+      }
+
       const updatedModule = {
         ...existingMod,
         name,
@@ -852,12 +922,13 @@ export async function POST(request: NextRequest) {
         displayOrder,
         type: body.type || existingMod.type || "mixed",
         durationMinutes: typeof body.durationMinutes === "number" ? body.durationMinutes : existingMod.durationMinutes,
-        totalMarks: typeof body.totalMarks === "number" ? body.totalMarks : existingMod.totalMarks,
+        totalMarks,
+        total_marks: totalMarks,
         questionCount,
-        allowedAttempts: typeof body.allowedAttempts === "number" ? body.allowedAttempts : (existingMod.allowedAttempts ?? 3),
+        allowedAttempts,
         reattemptEnabled: typeof body.reattemptEnabled === "boolean" ? body.reattemptEnabled : (existingMod.reattemptEnabled ?? true),
         reviewEnabled: typeof body.reviewEnabled === "boolean" ? body.reviewEnabled : (existingMod.reviewEnabled ?? true),
-        passingMarks: typeof body.passingMarks === "number" ? body.passingMarks : (existingMod.passingMarks ?? 40),
+        passingMarks,
         completionRule: body.completionRule || existingMod.completionRule || "submit",
         mcqSectionTitle: body.mcqSectionTitle !== undefined ? body.mcqSectionTitle.trim() : (existingMod.mcqSectionTitle || "Section 1: MCQs"),
         codingSectionTitle: body.codingSectionTitle !== undefined ? body.codingSectionTitle.trim() : (existingMod.codingSectionTitle || "Section 2: Coding"),

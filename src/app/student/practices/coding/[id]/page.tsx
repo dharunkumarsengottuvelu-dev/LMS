@@ -159,7 +159,7 @@ function normalizeProblem(p: any, index: number) {
     title: p.title || `Problem ${index + 1}`,
     description: p.description || "",
     difficulty: (p.difficulty || "medium").toLowerCase(),
-    points: Number(p.points) || 100,
+    points: Number(p.points ?? p.marks ?? p.weight) || 10,
     constraints: p.constraints || starter.constraints || "",
     input_format: p.input_format || starter.input_format || "",
     output_format: p.output_format || starter.output_format || "",
@@ -189,6 +189,7 @@ export default function StudentPracticeCodingRunnerPage() {
   const [trackTitle, setTrackTitle] = useState<string>("Practice");
   const [moduleTitle, setModuleTitle] = useState<string>("");
   const [moduleId, setModuleId] = useState<string>("");
+  const [moduleTotalMarks, setModuleTotalMarks] = useState<number | null>(null);
   const [problems, setProblems] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -392,6 +393,7 @@ export default function StudentPracticeCodingRunnerPage() {
         if (targetModule) {
           setModuleTitle(targetModule.name || targetModule.title || "Module");
           setModuleId(targetModule.id || rawId);
+          setModuleTotalMarks(typeof targetModule.totalMarks === "number" ? targetModule.totalMarks : (typeof targetModule.total_marks === "number" ? targetModule.total_marks : null));
           codingProblemsList = targetModule.codingQuestions || [];
         }
       }
@@ -1245,7 +1247,7 @@ export default function StudentPracticeCodingRunnerPage() {
         lastRunResult = allPassed ? "Passed" : "Failed";
       }
 
-      const points = prob.points !== undefined ? Number(prob.points) : 100;
+      const points = prob.points !== undefined ? Number(prob.points) : (prob.marks !== undefined ? Number(prob.marks) : (prob.weight !== undefined ? Number(prob.weight) : 10));
 
       return {
         problem: prob,
@@ -1335,11 +1337,12 @@ export default function StudentPracticeCodingRunnerPage() {
       }
 
       const solvedCount = updatedSolvedSet.size;
-      const score = problems.length > 0 ? Math.round((solvedCount / problems.length) * 100) : 0;
+      const totalMarksToUse = (typeof moduleTotalMarks === "number" && moduleTotalMarks > 0) ? moduleTotalMarks : totalPoints;
       const earnedPoints = reviewItems.reduce(
         (acc, i) => acc + (updatedSolvedSet.has(i.problem.id) ? i.points : 0),
         0
       );
+      const scorePercentage = totalMarksToUse > 0 ? Math.round((earnedPoints / totalMarksToUse) * 100) : 0;
 
       // 3. Construct answers payload per existing schema
       const answersPayload: Record<string, any> = {};
@@ -1363,8 +1366,8 @@ export default function StudentPracticeCodingRunnerPage() {
             action: "submit",
             module_id: moduleId || rawId,
             attempt_id: currentAttempt?.id,
-            score,
-            total_marks: 100,
+            score: earnedPoints,
+            total_marks: totalMarksToUse,
             answers: answersPayload,
           }),
         });
@@ -1376,16 +1379,16 @@ export default function StudentPracticeCodingRunnerPage() {
 
       setSolvedProblemIds(updatedSolvedSet);
       setCompletionResult({
-        score,
+        score: scorePercentage,
         solvedCount,
         totalCount: problems.length,
-        totalPoints,
+        totalPoints: totalMarksToUse,
         earnedPoints,
       });
       setIsPracticeCompleted(true);
       toast({
         title: "Practice Completed Successfully",
-        description: `You solved ${solvedCount} of ${problems.length} problems. Score: ${score}%.`,
+        description: `You solved ${solvedCount} of ${problems.length} problems. Score: ${earnedPoints} / ${totalMarksToUse} (${scorePercentage}%).`,
       });
     } catch (err: any) {
       console.error("Final submit error:", err);
@@ -3078,19 +3081,6 @@ export default function StudentPracticeCodingRunnerPage() {
                   );
                 })}
               </div>
-
-              {/* Review & Submit quick button in Problems Palette */}
-              <div className="pt-2.5 border-t border-slate-100 mt-2.5">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleOpenReviewSubmit}
-                  className="w-full text-xs font-semibold text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100/80 border-emerald-200 cursor-pointer flex items-center justify-center h-8"
-                >
-                  Review &amp; Submit
-                </Button>
-              </div>
             </div>
           </div>
         ) : (
@@ -3268,7 +3258,7 @@ export default function StudentPracticeCodingRunnerPage() {
         <DialogContent className="max-w-md bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle className="text-center text-lg font-bold text-slate-900 mt-2">
-              Practice Completed! 🎉
+              Practice Completed
             </DialogTitle>
             <DialogDescription className="text-center text-sm text-slate-500 mt-1">
               Your practice submission has been successfully recorded.

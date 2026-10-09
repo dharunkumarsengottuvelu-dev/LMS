@@ -8,6 +8,7 @@ import {
   calculateModuleProgress,
   calculateTrackProgressPercentage,
   calculateAnsweredQuestions,
+  evaluateStudentAnswers,
 } from "@/lib/practice-progress";
 
 function toDeterministicUUID(str: string): string {
@@ -673,7 +674,7 @@ export async function POST(
         student_id: studentProfileId,
         status: "in_progress",
         score: 0,
-        total_marks: typeof total_marks === "number" ? total_marks : (targetModule?.totalMarks || 100),
+        total_marks: targetModule?.totalMarks ?? (typeof total_marks === "number" ? total_marks : 100),
         answers: {
           _meta: {
             attemptNumber,
@@ -746,6 +747,35 @@ export async function POST(
     // Use target attempt specified by attempt_id, or active in_progress attempt
     const targetAttemptId = attempt_id || activeAttempt?.id;
 
+    const finalRawAnswers = answers || {};
+    const baseEvaluationAnswers = targetAttemptId
+      ? { ...((allAttempts.find((a: any) => a.id === targetAttemptId)?.answers) || {}), ...finalRawAnswers }
+      : finalRawAnswers;
+
+    // Authoritative Server-Side Evaluation
+    const evaluation = targetModule
+      ? evaluateStudentAnswers(targetModule, baseEvaluationAnswers)
+      : {
+          earnedMarks: typeof score === "number" ? score : 0,
+          maxMarks: typeof total_marks === "number" ? total_marks : 100,
+          percentage: typeof total_marks === "number" && total_marks > 0 ? Math.round(((score || 0) / total_marks) * 100) : 0,
+          passed: (score || 0) >= 40,
+          breakdown: [],
+        };
+
+    const finalAnswersWithMeta = {
+      ...baseEvaluationAnswers,
+      _meta: {
+        ...(baseEvaluationAnswers._meta || {}),
+        submittedAt: new Date().toISOString(),
+        evaluation,
+        earnedMarks: evaluation.earnedMarks,
+        maxMarks: evaluation.maxMarks,
+        percentage: evaluation.percentage,
+        passed: evaluation.passed,
+      },
+    };
+
     if (targetAttemptId) {
       // Verify attempt is not already completed
       const currentAttempt = allAttempts.find((a: any) => a.id === targetAttemptId);
@@ -756,21 +786,12 @@ export async function POST(
         );
       }
 
-      const finalAnswers = {
-        ...(currentAttempt?.answers || {}),
-        ...(answers || {}),
-        _meta: {
-          ...(currentAttempt?.answers?._meta || {}),
-          submittedAt: new Date().toISOString(),
-        },
-      };
-
       const { error: submitError } = await (adminClient.from("assessment_attempts") as any)
         .update({
           status: "submitted",
-          score: typeof score === "number" ? score : 0,
-          total_marks: typeof total_marks === "number" ? total_marks : 100,
-          answers: finalAnswers,
+          score: evaluation.earnedMarks,
+          total_marks: evaluation.maxMarks,
+          answers: finalAnswersWithMeta,
           submitted_at: new Date().toISOString(),
         })
         .eq("id", targetAttemptId);
@@ -792,9 +813,9 @@ export async function POST(
         assessment_id: moduleUUID,
         student_id: studentProfileId,
         status: "submitted",
-        score: typeof score === "number" ? score : 0,
-        total_marks: typeof total_marks === "number" ? total_marks : 100,
-        answers: answers || {},
+        score: evaluation.earnedMarks,
+        total_marks: evaluation.maxMarks,
+        answers: finalAnswersWithMeta,
         started_at: new Date().toISOString(),
         submitted_at: new Date().toISOString(),
         expires_at: new Date().toISOString(),
@@ -809,7 +830,7 @@ export async function POST(
       module_id: module_id,
       student_id: studentProfileId,
       status: "completed",
-      score: typeof score === "number" ? score : 0,
+      score: evaluation.earnedMarks,
       completed_at: new Date().toISOString(),
     };
 
@@ -823,7 +844,16 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { success: true, message: "Practice attempt submitted successfully." },
+      {
+        success: true,
+        message: "Practice attempt submitted successfully.",
+        evaluation: {
+          earnedMarks: evaluation.earnedMarks,
+          maxMarks: evaluation.maxMarks,
+          percentage: evaluation.percentage,
+          passed: evaluation.passed,
+        },
+      },
       { status: 200 }
     );
   } catch (error: unknown) {

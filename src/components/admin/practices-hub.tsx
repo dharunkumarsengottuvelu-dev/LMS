@@ -14,6 +14,14 @@ import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { CodingProblemsService } from "@/services/coding-problems.service";
 import { cn } from "@/lib/utils";
+import {
+  calculateEqualWeights,
+  calculateQuestionWeightsSum,
+  validateModuleMarks,
+  getQuestionWeight,
+  calculateSubmoduleTotalMarks,
+  calculateMainModuleTotalMarks,
+} from "@/lib/practice-progress";
 import { 
   FolderPlus, 
   Layers, 
@@ -698,6 +706,33 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       return;
     }
 
+    const totalMarks = Number(fModMarks) || 100;
+    if (totalMarks < 1) {
+      toast({ title: "Validation Error", description: "Total Marks must be a positive number of at least 1", variant: "destructive" });
+      return;
+    }
+    const passingMarks = Math.max(0, Number(fModPassingMarks) || 0);
+    if (passingMarks > totalMarks) {
+      toast({ title: "Validation Error", description: `Passing Marks (${passingMarks}) cannot exceed Total Marks (${totalMarks})`, variant: "destructive" });
+      return;
+    }
+    const allowedAttempts = Math.max(1, Number(fModAllowedAttempts) || 1);
+
+    if (editingModule && fModStatus === "active") {
+      const existingQuestions = [...(editingModule.mcqQuestions || []), ...(editingModule.codingQuestions || [])];
+      if (existingQuestions.length > 0) {
+        const markVal = validateModuleMarks(totalMarks, existingQuestions, false);
+        if (!markVal.isValid) {
+          toast({
+            title: "Cannot Activate Assessment",
+            description: markVal.errorMessage,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+
     try {
       const isEdit = Boolean(editingModule?.id);
       const action = isEdit ? "update_module" : "create_module";
@@ -712,15 +747,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         description: fModDesc.trim(),
         type: fModType,
         durationMinutes: finalDuration,
-        totalMarks: Number(fModMarks) || 100,
+        totalMarks,
         status: fModStatus,
         display_order: Number(fModOrder) || 0,
         mcqSectionTitle: fModMcqSectionTitle.trim() || "Section 1: MCQs",
         codingSectionTitle: fModCodingSectionTitle.trim() || "Section 2: Coding",
-        allowedAttempts: Math.max(1, Number(fModAllowedAttempts) || 1),
+        allowedAttempts,
         reattemptEnabled: Boolean(fModReattemptEnabled),
         reviewEnabled: Boolean(fModReviewEnabled),
-        passingMarks: Math.max(0, Number(fModPassingMarks) || 0),
+        passingMarks,
         completionRule: fModCompletionRule || "submit",
       };
 
@@ -745,6 +780,21 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     e.stopPropagation();
     if (!currentMainModule || !currentSubmodule) return;
     const newStatus = m.status === "active" ? "inactive" : "active";
+    if (newStatus === "active") {
+      const allQ = [...(m.mcqQuestions || []), ...(m.codingQuestions || [])];
+      if (allQ.length > 0) {
+        const markVal = validateModuleMarks(m.totalMarks ?? 100, allQ, false);
+        if (!markVal.isValid) {
+          toast({
+            title: "Cannot Activate Assessment",
+            description: markVal.errorMessage,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+
     try {
       const res = await fetch("/api/admin/practices", {
         method: "POST",
@@ -810,6 +860,19 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       return;
     }
 
+    const totalMarks = activeMod.totalMarks ?? 100;
+    const allQuestions = [...mcqList, ...codingList];
+    const isDraft = activeMod.status !== "active";
+    const markVal = validateModuleMarks(totalMarks, allQuestions, isDraft);
+    if (!markVal.isValid) {
+      toast({
+        title: "Validation Error",
+        description: markVal.errorMessage,
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const res = await fetch("/api/admin/practices", {
         method: "POST",
@@ -836,6 +899,38 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     } catch (err: any) {
       toast({ title: "Save Error", description: err.message, variant: "destructive" });
     }
+  };
+
+  const handleDistributeMarksEqually = () => {
+    const activeMod = currentModule || (selectedModuleId ? resolveHierarchyForModule(selectedModuleId).module : null);
+    const totalMarks = activeMod?.totalMarks ?? 100;
+    const totalCount = mcqList.length + codingList.length;
+    if (totalCount === 0) {
+      toast({ title: "No Questions", description: "Add questions first before distributing marks", variant: "destructive" });
+      return;
+    }
+
+    const weights = calculateEqualWeights(totalMarks, totalCount);
+
+    const updatedMcqs = mcqList.map((q, idx) => ({
+      ...q,
+      marks: weights[idx],
+    }));
+
+    const updatedCoding = codingList.map((cp, idx) => ({
+      ...cp,
+      points: weights[mcqList.length + idx],
+      marks: weights[mcqList.length + idx],
+      weight: weights[mcqList.length + idx],
+    }));
+
+    setMcqList(updatedMcqs);
+    setCodingList(updatedCoding);
+
+    toast({
+      title: "Marks Distributed Equally",
+      description: `Distributed ${totalMarks} total marks across ${totalCount} questions with exact remainder handling.`,
+    });
   };
 
   // Save current MCQ list to DB and immediately append a blank new question
@@ -1419,9 +1514,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           <span className="font-semibold text-slate-900 dark:text-zinc-200">{totalModCount}</span> Modules
                         </div>
                         <div>
-                          Order: <span className="font-semibold">{m.display_order ?? 0}</span>
+                          Total Marks: <span className="font-semibold text-slate-900 dark:text-zinc-200">{calculateMainModuleTotalMarks(m)}</span>
                         </div>
                         <div>
+                          Order: <span className="font-semibold">{m.display_order ?? 0}</span>
+                        </div>
+                        <div className="col-span-2">
                           Batch:{" "}
                           <span className="font-semibold">
                             {m.isCommon ? "All Batches" : `${m.assignedBatches?.length || 0} Assigned`}
@@ -1549,11 +1647,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         </p>
                       </div>
 
-                      <div className="pt-1 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between text-[11px] text-slate-600 dark:text-zinc-400">
+                      <div className="pt-1 border-t border-slate-100 dark:border-zinc-800/80 grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-zinc-400">
                         <div>
                           Modules: <span className="font-bold text-slate-900 dark:text-zinc-200">{modCount}</span>
                         </div>
                         <div>
+                          Total Marks: <span className="font-bold text-slate-900 dark:text-zinc-200">{calculateSubmoduleTotalMarks(sm)}</span>
+                        </div>
+                        <div className="col-span-2">
                           Order: <span className="font-bold text-slate-900 dark:text-zinc-200">{sm.display_order ?? 0}</span>
                         </div>
                       </div>
@@ -1699,9 +1800,31 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           Duration: <span className="font-bold">{mod.durationMinutes > 0 ? `${mod.durationMinutes}m` : "Untimed"}</span>
                         </div>
                         <div>
-                          Total Marks: <span className="font-bold">{mod.totalMarks}</span>
+                          Total Marks: <span className="font-bold text-slate-900 dark:text-zinc-200">{mod.totalMarks}</span>
+                        </div>
+                        <div>
+                          Passing: <span className="font-bold text-slate-900 dark:text-zinc-200">{mod.passingMarks ?? 40}</span>
+                        </div>
+                        <div>
+                          Attempts: <span className="font-bold text-slate-900 dark:text-zinc-200">{mod.allowedAttempts ?? 3}</span>
                         </div>
                       </div>
+                      {(() => {
+                        const allQ = [...(mod.mcqQuestions || []), ...(mod.codingQuestions || [])];
+                        if (allQ.length > 0) {
+                          const markVal = validateModuleMarks(mod.totalMarks ?? 100, allQ, mod.status !== "active");
+                          if (!markVal.isValid) {
+                            return (
+                              <div className="pt-1">
+                                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                                  Weights: {calculateQuestionWeightsSum(allQ)} / {mod.totalMarks} (Mismatch)
+                                </span>
+                              </div>
+                            );
+                          }
+                        }
+                        return null;
+                      })()}
                       {/* Display Section Names */}
                       {(mod.mcqSectionTitle || mod.codingSectionTitle) && (
                         <div className="pt-1.5 border-t border-slate-100 dark:border-zinc-800/60 flex items-center gap-1.5 flex-wrap text-[10px]">
@@ -1826,6 +1949,76 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               </div>
             )}
           </div>
+
+          {/* Live Marks & Weight Scoring Summary */}
+          {(() => {
+            const modTotal = currentModule.totalMarks ?? 100;
+            const qCount = mcqList.length + codingList.length;
+            const currentSum = calculateQuestionWeightsSum([...mcqList, ...codingList]);
+            const diff = modTotal - currentSum;
+
+            return (
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/60 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-3 flex-wrap text-xs">
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      Authoritative Total: {modTotal} marks
+                    </span>
+                    <span className="text-slate-400">|</span>
+                    <span className="text-slate-600 dark:text-zinc-300">
+                      Questions: <strong className="text-slate-900 dark:text-white">{qCount}</strong>
+                    </span>
+                    <span className="text-slate-400">|</span>
+                    <span className="text-slate-600 dark:text-zinc-300">
+                      Sum of Weights: <strong className={currentSum === modTotal ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>{currentSum} marks</strong>
+                    </span>
+                    <span className="text-slate-400">|</span>
+                    <span className="text-slate-600 dark:text-zinc-300">
+                      Passing Marks: <strong className="text-slate-900 dark:text-white">{currentModule.passingMarks ?? 40}</strong>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {qCount > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDistributeMarksEqually}
+                        className="h-7.5 px-3 text-xs font-semibold rounded-lg border-slate-300 dark:border-zinc-700 hover:bg-slate-100 cursor-pointer"
+                        title="Distribute module total marks equally across all questions with remainder handling"
+                      >
+                        Distribute Marks Equally
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-200/60 dark:border-zinc-800/60">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-600 dark:text-zinc-400">Validation Status:</span>
+                    {diff === 0 ? (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                        Valid: Sum of Question Weights Matches Total Marks ({modTotal})
+                      </span>
+                    ) : diff > 0 ? (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                        Incomplete: {diff} marks remaining to reach {modTotal}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800">
+                        Over Limit: {Math.abs(diff)} marks over configured total ({modTotal})
+                      </span>
+                    )}
+                  </div>
+
+                  <span className="text-[11px] text-slate-500 dark:text-zinc-400">
+                    {currentModule.status === "active" ? "Active Assessment (Sum must match to save/submit)" : "Draft Assessment"}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* MCQ TAB CONTENT: only if type is mcq or mixed */}
           {(currentModule.type === "mcq" || (currentModule.type === "mixed" && activeTab === "mcq")) && (
@@ -1967,13 +2160,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           </label>
 
                           <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-zinc-400">
-                            <span className="font-semibold">Marks:</span>
+                            <span className="font-semibold text-slate-700 dark:text-zinc-300">Weight / Score Points:</span>
                             <Input
                               type="number"
                               min={1}
                               value={q.marks ?? 10}
                               onChange={(e) => {
-                                const val = parseInt(e.target.value) || 1;
+                                const val = Math.max(1, parseInt(e.target.value) || 1);
                                 setMcqList(mcqList.map((item) => item.id === q.id ? { ...item, marks: val } : item));
                               }}
                               className="h-7 w-16 text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800"
@@ -2390,8 +2583,20 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                 {cp.difficulty || "Medium"}
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-3">
-                              <span>Points: <strong>{cp.points || 100}</strong></span>
+                            <div className="text-[11px] text-slate-500 dark:text-zinc-400 flex items-center gap-3 flex-wrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-slate-700 dark:text-zinc-300">Weight / Score Points:</span>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={cp.points ?? cp.marks ?? 10}
+                                  onChange={(e) => {
+                                    const val = Math.max(1, parseInt(e.target.value) || 1);
+                                    setCodingList(codingList.map((item, i) => i === idx ? { ...item, points: val, marks: val, weight: val } : item));
+                                  }}
+                                  className="h-6.5 w-16 text-xs bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800"
+                                />
+                              </div>
                               <span>Time Limit: <strong>{cp.time_limit_ms || 2000}ms</strong></span>
                               {tcCount > 0 && <span>Test Cases: <strong>{tcCount}</strong></span>}
                             </div>
@@ -2434,13 +2639,23 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             >
               Back to Modules
             </Button>
-            <Button
-              type="button"
-              onClick={handleSaveModuleQuestions}
-              className="h-9 px-5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
-            >
-              Save Questions &amp; Exit
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDistributeMarksEqually}
+                className="h-9 px-4 text-xs font-semibold rounded-lg cursor-pointer border-slate-300 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800"
+              >
+                Distribute Marks Equally
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveModuleQuestions}
+                className="h-9 px-5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
+              >
+                Save Questions &amp; Exit
+              </Button>
+            </div>
           </div>
         </Card>
       )}
@@ -3030,6 +3245,59 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     />
                   </div>
                 </div>
+
+                {/* Real-time Marks & Validation Summary */}
+                {(() => {
+                  const currentTotal = Number(fModMarks) || 100;
+                  const currentPassing = Number(fModPassingMarks) || 0;
+                  const passingPct = currentTotal > 0 ? Math.round((currentPassing / currentTotal) * 100) : 0;
+                  const hasPassingExceeded = currentPassing > currentTotal;
+                  const existingQuestions = editingModule
+                    ? [...(editingModule.mcqQuestions || []), ...(editingModule.codingQuestions || [])]
+                    : [];
+                  const qCount = existingQuestions.length;
+                  const sumOfQ = calculateQuestionWeightsSum(existingQuestions);
+                  const isMatch = sumOfQ === currentTotal;
+                  const diff = currentTotal - sumOfQ;
+
+                  return (
+                    <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-slate-200 dark:border-zinc-800 space-y-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-600 dark:text-zinc-400 font-medium">
+                          Passing Standard:
+                        </span>
+                        <span className={`font-semibold ${hasPassingExceeded ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-white"}`}>
+                          {currentPassing} / {currentTotal} marks ({passingPct}%)
+                        </span>
+                      </div>
+                      {hasPassingExceeded && (
+                        <div className="text-[11px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 p-2 rounded border border-red-200 dark:border-red-900 font-medium">
+                          Passing Marks cannot exceed Module Total Marks ({currentTotal}).
+                        </div>
+                      )}
+                      {editingModule && qCount > 0 && (
+                        <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-[11px]">
+                          <div>
+                            <span className="text-slate-500 dark:text-zinc-400 font-medium">Questions: </span>
+                            <span className="font-semibold text-slate-800 dark:text-zinc-200">{qCount}</span>
+                            <span className="text-slate-400 mx-1">·</span>
+                            <span className="text-slate-500 dark:text-zinc-400 font-medium">Sum of Weights: </span>
+                            <span className={`font-bold ${isMatch ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                              {sumOfQ} / {currentTotal}
+                            </span>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            isMatch
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                          }`}>
+                            {isMatch ? "Balanced" : diff > 0 ? `${diff} marks unallocated` : `${Math.abs(diff)} marks excess`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1.5">
