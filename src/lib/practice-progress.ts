@@ -861,13 +861,20 @@ export function evaluateStudentAnswers(
     finalMax > 0
       ? Math.min(100, Math.max(0, Math.round((totalEarned / finalMax) * 100)))
       : 0;
+  const passingMarksEnabled =
+    typeof module?.passingMarksEnabled === "boolean"
+      ? module.passingMarksEnabled
+      : typeof module?.passing_marks_enabled === "boolean"
+      ? module.passing_marks_enabled
+      : (typeof module?.passingMarks === "number" ? module.passingMarks > 0 : true);
+
   const passingMarks =
     typeof module?.passingMarks === "number"
       ? module.passingMarks
       : typeof module?.passing_marks === "number"
       ? module.passing_marks
       : 40;
-  const passed = totalEarned >= passingMarks;
+  const passed = !passingMarksEnabled || passingMarks <= 0 || totalEarned >= passingMarks;
 
   return {
     earnedMarks: totalEarned,

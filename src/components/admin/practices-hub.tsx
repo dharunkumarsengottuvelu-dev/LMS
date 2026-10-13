@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
+import { PageHeader } from "@/components/layouts/page-header";
 import { BulkUploadModal } from "@/components/admin/bulk-upload";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
@@ -40,7 +41,9 @@ import {
   Trash2,
   Edit3,
   Plus,
-  ChevronDown
+  ChevronDown,
+  ArrowLeft,
+  Infinity as InfinityIcon
 } from "lucide-react";
 
 // ─── TYPES FOR STRICT 3-LEVEL HIERARCHY ──────────────────────────────
@@ -57,6 +60,12 @@ export interface MCQQuestion {
   options: MCQOption[];
   explanation?: string;
   allowMultiple?: boolean;
+}
+
+export interface CustomSectionItem {
+  id?: string;
+  title: string;
+  type: "mcq" | "coding" | "mixed";
 }
 
 export interface PracticeModule {
@@ -76,9 +85,11 @@ export interface PracticeModule {
   reattemptEnabled?: boolean;
   reviewEnabled?: boolean;
   passingMarks?: number;
+  passingMarksEnabled?: boolean;
   completionRule?: "submit" | "pass";
   mcqSectionTitle?: string;
   codingSectionTitle?: string;
+  customSections?: (CustomSectionItem | string)[];
   mcqQuestions: MCQQuestion[];
   codingQuestions: any[];
   created_at?: string;
@@ -141,7 +152,7 @@ function MncSelect({
   options,
   placeholder = "Select...",
   className = "",
-  variant = "purple",
+  variant = "blue",
 }: MncSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -176,6 +187,34 @@ function MncSelect({
       ? "ring-2 ring-emerald-500/20 border-emerald-500 dark:border-emerald-500"
       : "ring-2 ring-purple-500/20 border-purple-500 dark:border-purple-500";
 
+  const hoverBorder =
+    variant === "blue"
+      ? "hover:border-blue-400 dark:hover:border-blue-500"
+      : variant === "emerald"
+      ? "hover:border-emerald-400 dark:hover:border-emerald-500"
+      : "hover:border-purple-400 dark:hover:border-purple-500";
+
+  const chevronActiveColor =
+    variant === "blue"
+      ? "text-blue-600 dark:text-blue-400"
+      : variant === "emerald"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : "text-purple-600 dark:text-purple-400";
+
+  const selectedBg =
+    variant === "blue"
+      ? "bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200"
+      : variant === "emerald"
+      ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200"
+      : "bg-purple-50 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200";
+
+  const checkColor =
+    variant === "blue"
+      ? "text-blue-600 dark:text-blue-400"
+      : variant === "emerald"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : "text-purple-600 dark:text-purple-400";
+
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
       <button
@@ -187,7 +226,8 @@ function MncSelect({
         className={cn(
           "w-full h-9.5 px-3 flex items-center justify-between gap-2 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none",
           "bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 shadow-2xs",
-          "hover:border-purple-400 dark:hover:border-purple-500 hover:bg-slate-50 dark:hover:bg-zinc-800/90",
+          hoverBorder,
+          "hover:bg-slate-50 dark:hover:bg-zinc-800/90",
           isOpen ? activeRing : ""
         )}
       >
@@ -208,7 +248,7 @@ function MncSelect({
         <ChevronDown
           className={cn(
             "w-4 h-4 text-slate-400 dark:text-zinc-500 shrink-0 transition-transform duration-200",
-            isOpen ? "rotate-180 text-purple-600 dark:text-purple-400" : ""
+            isOpen ? cn("rotate-180", chevronActiveColor) : ""
           )}
         />
       </button>
@@ -232,7 +272,7 @@ function MncSelect({
                 className={cn(
                   "w-full h-8.5 px-2.5 rounded-lg text-left flex items-center justify-between gap-2 text-xs font-semibold transition-all cursor-pointer select-none",
                   isSelected
-                    ? "bg-purple-50 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 font-bold"
+                    ? cn(selectedBg, "font-bold")
                     : "text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800"
                 )}
               >
@@ -241,7 +281,7 @@ function MncSelect({
                   {opt.dotColor && <span className={cn("w-2 h-2 rounded-full shrink-0", opt.dotColor)} />}
                   <span className="truncate">{opt.label}</span>
                 </div>
-                {isSelected && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />}
+                {isSelected && <Check className={cn("w-3.5 h-3.5 shrink-0", checkColor)} />}
               </button>
             );
           })}
@@ -307,11 +347,19 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [fModOrder, setFModOrder] = useState<number>(0);
   const [fModMcqSectionTitle, setFModMcqSectionTitle] = useState<string>("Section 1: MCQs");
   const [fModCodingSectionTitle, setFModCodingSectionTitle] = useState<string>("Section 2: Coding");
+  const [fModCustomSections, setFModCustomSections] = useState<CustomSectionItem[]>([]);
   const [fModAllowedAttempts, setFModAllowedAttempts] = useState<number>(3);
+  const [fModUnlimitedAttempts, setFModUnlimitedAttempts] = useState<boolean>(false);
   const [fModReattemptEnabled, setFModReattemptEnabled] = useState<boolean>(true);
   const [fModReviewEnabled, setFModReviewEnabled] = useState<boolean>(true);
+  const [fModPassingMarksEnabled, setFModPassingMarksEnabled] = useState<boolean>(true);
   const [fModPassingMarks, setFModPassingMarks] = useState<number>(40);
   const [fModCompletionRule, setFModCompletionRule] = useState<"submit" | "pass">("submit");
+
+  // Module Questions Editor Inline Passing Marks State
+  const [isEditingBannerPassingMarks, setIsEditingBannerPassingMarks] = useState<boolean>(false);
+  const [bannerPassingMarksInput, setBannerPassingMarksInput] = useState<string>("");
+  const [isSavingBannerPassingMarks, setIsSavingBannerPassingMarks] = useState<boolean>(false);
 
   // Module Questions Editor State
   const [activeTab, setActiveTab] = useState<"mcq" | "coding">("mcq");
@@ -669,9 +717,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setFModOrder(currentSubmodule.modules.length + 1);
     setFModMcqSectionTitle("Section 1: MCQs");
     setFModCodingSectionTitle("Section 2: Coding");
+    setFModCustomSections([]);
     setFModAllowedAttempts(3);
+    setFModUnlimitedAttempts(false);
     setFModReattemptEnabled(true);
     setFModReviewEnabled(true);
+    setFModPassingMarksEnabled(true);
     setFModPassingMarks(40);
     setFModCompletionRule("submit");
     setShowModuleModal(true);
@@ -691,10 +742,32 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setFModOrder(m.display_order ?? 0);
     setFModMcqSectionTitle(m.mcqSectionTitle || "Section 1: MCQs");
     setFModCodingSectionTitle(m.codingSectionTitle || "Section 2: Coding");
-    setFModAllowedAttempts(typeof m.allowedAttempts === "number" ? m.allowedAttempts : 3);
+    const rawCustom = Array.isArray((m as any).customSections) ? (m as any).customSections : [];
+    const normalizedCustom: CustomSectionItem[] = rawCustom.map((cs: any, idx: number) => {
+      if (typeof cs === "string") {
+        return {
+          id: `sec_${idx}_${Date.now()}`,
+          title: cs,
+          type: "mixed" as const,
+        };
+      }
+      return {
+        id: cs.id || `sec_${idx}_${Date.now()}`,
+        title: cs.title || cs.name || `Section ${idx + 1}`,
+        type: (cs.type === "mcq" || cs.type === "coding" || cs.type === "mixed") ? cs.type : ("mixed" as const),
+      };
+    });
+    setFModCustomSections(normalizedCustom);
+    const isUnlimited = m.allowedAttempts === 0;
+    setFModUnlimitedAttempts(isUnlimited);
+    setFModAllowedAttempts(typeof m.allowedAttempts === "number" ? (isUnlimited ? 0 : m.allowedAttempts) : 3);
     setFModReattemptEnabled(typeof m.reattemptEnabled === "boolean" ? m.reattemptEnabled : true);
     setFModReviewEnabled(typeof m.reviewEnabled === "boolean" ? m.reviewEnabled : true);
-    setFModPassingMarks(typeof m.passingMarks === "number" ? m.passingMarks : 40);
+    const hasPassing = typeof m.passingMarksEnabled === "boolean"
+      ? m.passingMarksEnabled
+      : (typeof m.passingMarks === "number" ? m.passingMarks > 0 : true);
+    setFModPassingMarksEnabled(hasPassing);
+    setFModPassingMarks(typeof m.passingMarks === "number" && m.passingMarks > 0 ? m.passingMarks : 40);
     setFModCompletionRule(m.completionRule || "submit");
     setShowModuleModal(true);
   };
@@ -711,12 +784,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       toast({ title: "Validation Error", description: "Total Marks must be a positive number of at least 1", variant: "destructive" });
       return;
     }
-    const passingMarks = Math.max(0, Number(fModPassingMarks) || 0);
-    if (passingMarks > totalMarks) {
+    const passingMarks = fModPassingMarksEnabled ? Math.max(0, Number(fModPassingMarks) || 0) : 0;
+    if (fModPassingMarksEnabled && passingMarks > totalMarks) {
       toast({ title: "Validation Error", description: `Passing Marks (${passingMarks}) cannot exceed Total Marks (${totalMarks})`, variant: "destructive" });
       return;
     }
-    const allowedAttempts = Math.max(1, Number(fModAllowedAttempts) || 1);
+    const allowedAttempts = fModUnlimitedAttempts ? 0 : Math.max(1, Number(fModAllowedAttempts) || 1);
 
     if (editingModule && fModStatus === "active") {
       const existingQuestions = [...(editingModule.mcqQuestions || []), ...(editingModule.codingQuestions || [])];
@@ -737,6 +810,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       const isEdit = Boolean(editingModule?.id);
       const action = isEdit ? "update_module" : "create_module";
       const finalDuration = fModDurationEnabled ? (Number(fModDuration) || 60) : 0;
+      const hasCoding = fModType === "coding" || fModType === "mixed" || fModCustomSections.some((s) => s.type === "coding" || s.type === "mixed");
+      const hasMcq = fModType === "mcq" || fModType === "mixed" || fModCustomSections.some((s) => s.type === "mcq" || s.type === "mixed");
+      const resolvedType = (hasCoding && hasMcq) ? "mixed" : hasCoding ? "coding" : "mcq";
+
       const payload: any = {
         action,
         main_module_id: currentMainModule.id,
@@ -745,17 +822,23 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         name: trimmedName,
         title: trimmedName,
         description: fModDesc.trim(),
-        type: fModType,
+        type: resolvedType,
         durationMinutes: finalDuration,
         totalMarks,
         status: fModStatus,
         display_order: Number(fModOrder) || 0,
         mcqSectionTitle: fModMcqSectionTitle.trim() || "Section 1: MCQs",
         codingSectionTitle: fModCodingSectionTitle.trim() || "Section 2: Coding",
+        customSections: fModCustomSections.map((s) => ({
+          id: s.id,
+          title: s.title.trim() || `Section: ${s.type.toUpperCase()}`,
+          type: s.type,
+        })),
         allowedAttempts,
         reattemptEnabled: Boolean(fModReattemptEnabled),
         reviewEnabled: Boolean(fModReviewEnabled),
         passingMarks,
+        passingMarksEnabled: fModPassingMarksEnabled,
         completionRule: fModCompletionRule || "submit",
       };
 
@@ -841,7 +924,103 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setActiveTab(m.type === "coding" ? "coding" : "mcq");
     setShowCodingCreator(false);
     setEditingCodingIndex(null);
+    setIsEditingBannerPassingMarks(false);
+    setBannerPassingMarksInput("");
     setActiveLevel("module_editor");
+  };
+
+  const handleToggleBannerPassingMarks = async (enabled: boolean) => {
+    const activeMod = currentModule || (selectedModuleId ? resolveHierarchyForModule(selectedModuleId).module : null);
+    if (!activeMod) return;
+
+    const resolvedHierarchy = resolveHierarchyForModule(activeMod.id);
+    const parentMainId = activeMod.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
+    const parentSubId = activeMod.submodule_id || currentSubmodule?.id || resolvedHierarchy.submodule?.id;
+    if (!parentMainId || !parentSubId) {
+      toast({ title: "Error", description: "Parent module hierarchy not found", variant: "destructive" });
+      return;
+    }
+
+    setIsSavingBannerPassingMarks(true);
+    const prevMarks = typeof activeMod.passingMarks === "number" && activeMod.passingMarks > 0 ? activeMod.passingMarks : 40;
+    const newPassingMarks = enabled ? prevMarks : 0;
+
+    try {
+      const res = await fetch("/api/admin/practices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_module",
+          main_module_id: parentMainId,
+          submodule_id: parentSubId,
+          id: activeMod.id,
+          name: activeMod.name || activeMod.title,
+          passingMarks: newPassingMarks,
+          passingMarksEnabled: enabled,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed to update passing marks");
+      toast({
+        title: "Passing Marks Updated",
+        description: enabled ? `Passing marks enabled (${newPassingMarks} marks)` : "Passing marks disabled (All submissions pass)",
+      });
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSavingBannerPassingMarks(false);
+    }
+  };
+
+  const handleSaveBannerPassingMarks = async () => {
+    const activeMod = currentModule || (selectedModuleId ? resolveHierarchyForModule(selectedModuleId).module : null);
+    if (!activeMod) return;
+
+    const num = parseInt(bannerPassingMarksInput);
+    if (isNaN(num) || num < 0) {
+      toast({ title: "Validation Error", description: "Passing marks must be 0 or greater", variant: "destructive" });
+      return;
+    }
+    const modTotal = activeMod.totalMarks ?? 100;
+    if (num > modTotal) {
+      toast({ title: "Validation Error", description: `Passing marks (${num}) cannot exceed total marks (${modTotal})`, variant: "destructive" });
+      return;
+    }
+
+    const resolvedHierarchy = resolveHierarchyForModule(activeMod.id);
+    const parentMainId = activeMod.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
+    const parentSubId = activeMod.submodule_id || currentSubmodule?.id || resolvedHierarchy.submodule?.id;
+    if (!parentMainId || !parentSubId) {
+      toast({ title: "Error", description: "Parent module hierarchy not found", variant: "destructive" });
+      return;
+    }
+
+    setIsSavingBannerPassingMarks(true);
+    try {
+      const res = await fetch("/api/admin/practices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_module",
+          main_module_id: parentMainId,
+          submodule_id: parentSubId,
+          id: activeMod.id,
+          name: activeMod.name || activeMod.title,
+          passingMarks: num,
+          passingMarksEnabled: num > 0,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed to update passing marks");
+      toast({ title: "Success", description: `Passing marks updated to ${num}` });
+      setIsEditingBannerPassingMarks(false);
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSavingBannerPassingMarks(false);
+    }
   };
 
   const handleSaveModuleQuestions = async () => {
@@ -1273,78 +1452,43 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   return (
     <div className="w-full space-y-6 pb-16 font-sans">
-      {/* ─── MNC PAGE HEADER (PURE TEXT, ZERO ICONS) ────────────────────── */}
+      {/* ─── ENTERPRISE PAGE HEADER (MATCHING ALL PAGES ACROSS LMS) ────── */}
       {!(activeLevel === "module_editor" && showCodingCreator) && (
-        <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/90 dark:border-zinc-800 p-5 shadow-2xs">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="space-y-1">
-              {/* Breadcrumb Hierarchy Navigation */}
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400 font-medium flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => {
+        <PageHeader
+          title={
+            activeLevel === "main_modules"
+              ? "Practice Main Modules"
+              : activeLevel === "submodules"
+              ? `Submodules: ${currentMainModule?.name || currentMainModule?.title || ""}`
+              : activeLevel === "modules"
+              ? `Modules: ${currentSubmodule?.name || currentSubmodule?.title || ""}`
+              : `Questions Editor: ${currentModule?.name || currentModule?.title || ""}`
+          }
+          backAction={
+            activeLevel === "submodules"
+              ? {
+                  label: "Back to Main Modules",
+                  onClick: () => {
                     setSelectedMainModuleId(null);
-                    setSelectedSubmoduleId(null);
-                    setSelectedModuleId(null);
                     setActiveLevel("main_modules");
-                  }}
-                  className="hover:text-blue-600 dark:hover:text-blue-400 underline-offset-2 hover:underline cursor-pointer"
-                >
-                  Practice Management
-                </button>
-
-                {currentMainModule && (
-                  <>
-                    <span className="text-slate-400">/</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedSubmoduleId(null);
-                        setSelectedModuleId(null);
-                        setActiveLevel("submodules");
-                      }}
-                      className="hover:text-blue-600 dark:hover:text-blue-400 underline-offset-2 hover:underline cursor-pointer font-semibold text-slate-800 dark:text-zinc-200"
-                    >
-                      {currentMainModule.name || currentMainModule.title}
-                    </button>
-                  </>
-                )}
-
-                {currentSubmodule && (
-                  <>
-                    <span className="text-slate-400">/</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedModuleId(null);
-                        setActiveLevel("modules");
-                      }}
-                      className="hover:text-blue-600 dark:hover:text-blue-400 underline-offset-2 hover:underline cursor-pointer font-semibold text-slate-800 dark:text-zinc-200"
-                    >
-                      {currentSubmodule.name || currentSubmodule.title}
-                    </button>
-                  </>
-                )}
-
-                {activeLevel === "module_editor" && currentModule && (
-                  <>
-                    <span className="text-slate-400">/</span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">
-                      Content Editor ({currentModule.name || currentModule.title})
-                    </span>
-                  </>
-                )}
-              </div>
-
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {activeLevel === "main_modules" && "Practice Main Modules"}
-                {activeLevel === "submodules" && `Submodules: ${currentMainModule?.name || currentMainModule?.title}`}
-                {activeLevel === "modules" && `Modules: ${currentSubmodule?.name || currentSubmodule?.title}`}
-                {activeLevel === "module_editor" && `Questions Editor: ${currentModule?.name || currentModule?.title}`}
-              </h1>
-            </div>
-
-            {/* Top Level Action Buttons */}
+                  },
+                }
+              : activeLevel === "modules"
+              ? {
+                  label: "Back to Submodules",
+                  onClick: () => {
+                    setSelectedSubmoduleId(null);
+                    setActiveLevel("submodules");
+                  },
+                }
+              : activeLevel === "module_editor"
+              ? {
+                  label: "Back to Modules",
+                  onClick: () => setActiveLevel("modules"),
+                }
+              : undefined
+          }
+          actions={
             <div className="flex items-center gap-2.5 flex-wrap">
               {activeLevel === "main_modules" && (
                 <Button
@@ -1357,73 +1501,37 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               )}
 
               {activeLevel === "submodules" && (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedMainModuleId(null);
-                      setActiveLevel("main_modules");
-                    }}
-                    className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
-                  >
-                    Back to Main Modules
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handleOpenAddSubmodule}
-                    className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
-                  >
-                    + Add Submodule
-                  </Button>
-                </>
+                <Button
+                  type="button"
+                  onClick={handleOpenAddSubmodule}
+                  className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                >
+                  + Add Submodule
+                </Button>
               )}
 
               {activeLevel === "modules" && (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedSubmoduleId(null);
-                      setActiveLevel("submodules");
-                    }}
-                    className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
-                  >
-                    Back to Submodules
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handleOpenAddModule}
-                    className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
-                  >
-                    + Add Module
-                  </Button>
-                </>
+                <Button
+                  type="button"
+                  onClick={handleOpenAddModule}
+                  className="h-9 px-4 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                >
+                  + Add Module
+                </Button>
               )}
 
               {activeLevel === "module_editor" && (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setActiveLevel("modules")}
-                    className="h-9 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
-                  >
-                    Back to Modules
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handleSaveModuleQuestions}
-                    className="h-9 px-4 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
-                  >
-                    Save Questions &amp; Exit
-                  </Button>
-                </>
+                <Button
+                  type="button"
+                  onClick={handleSaveModuleQuestions}
+                  className="h-9 px-4 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
+                >
+                  Save Questions &amp; Exit
+                </Button>
               )}
             </div>
-          </div>
-        </div>
+          }
+        />
       )}
 
       {/* ─── LEVEL 1: MAIN MODULES VIEW ─────────────────────────────────── */}
@@ -1467,7 +1575,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               </div>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-3">
               {filteredTracks.map((m) => {
                 const subCount = m.submodules?.length || 0;
                 const totalModCount = (m.submodules || []).reduce(
@@ -1475,14 +1583,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   0
                 );
                 const isActive = m.status === "active";
+                const totalMarks = calculateMainModuleTotalMarks(m);
 
                 return (
                   <Card
                     key={m.id}
-                    className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-4.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col justify-between"
+                    className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-4.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
                   >
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between gap-2">
+                    <div className="space-y-2 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/40">
                           LEVEL 1: MAIN MODULE
                         </span>
@@ -1495,74 +1604,71 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         >
                           {isActive ? "Active" : "Inactive"}
                         </span>
+                        <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+                          Order: <strong className="text-slate-800 dark:text-zinc-200">{m.display_order ?? 0}</strong>
+                        </span>
                       </div>
 
                       <div>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug line-clamp-1">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug truncate">
                           {m.name || m.title}
                         </h3>
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 mt-1 min-h-[32px]">
-                          {m.description || "No description provided."}
-                        </p>
+                        {m.description && (
+                          <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-1 mt-0.5">
+                            {m.description}
+                          </p>
+                        )}
                       </div>
 
-                      <div className="pt-1 border-t border-slate-100 dark:border-zinc-800/80 grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-zinc-400">
-                        <div>
-                          <span className="font-semibold text-slate-900 dark:text-zinc-200">{subCount}</span> Submodules
-                        </div>
-                        <div>
-                          <span className="font-semibold text-slate-900 dark:text-zinc-200">{totalModCount}</span> Modules
-                        </div>
-                        <div>
-                          Total Marks: <span className="font-semibold text-slate-900 dark:text-zinc-200">{calculateMainModuleTotalMarks(m)}</span>
-                        </div>
-                        <div>
-                          Order: <span className="font-semibold">{m.display_order ?? 0}</span>
-                        </div>
-                        <div className="col-span-2">
-                          Batch:{" "}
-                          <span className="font-semibold">
-                            {m.isCommon ? "All Batches" : `${m.assignedBatches?.length || 0} Assigned`}
-                          </span>
-                        </div>
+                      <div className="flex items-center gap-2.5 flex-wrap text-[11px] text-slate-600 dark:text-zinc-400 pt-0.5">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
+                          <strong className="text-slate-900 dark:text-white">{subCount}</strong> Submodules
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
+                          <strong className="text-slate-900 dark:text-white">{totalModCount}</strong> Modules
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
+                          Total Marks: <strong className="text-slate-900 dark:text-white">{totalMarks}</strong>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
+                          Batch: <strong className="text-slate-900 dark:text-white">{m.isCommon ? "All Batches" : `${m.assignedBatches?.length || 0} Assigned`}</strong>
+                        </span>
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-100 dark:border-zinc-800/80 space-y-2">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-zinc-800">
                       <Button
                         type="button"
                         onClick={() => {
                           setSelectedMainModuleId(m.id);
                           setActiveLevel("submodules");
                         }}
-                        className="w-full h-8 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                        className="h-8.5 px-3.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs whitespace-nowrap"
                       >
                         View Submodules ({subCount})
                       </Button>
 
-                      <div className="grid grid-cols-3 gap-1.5 text-[11px]">
-                        <button
-                          type="button"
-                          onClick={(e) => handleOpenEditMainModule(m, e)}
-                          className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleToggleMainModuleStatus(m, e)}
-                          className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
-                        >
-                          {isActive ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteMainModule(m, e)}
-                          className="h-7 rounded border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 font-semibold cursor-pointer"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenEditMainModule(m, e)}
+                        className="h-8.5 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleMainModuleStatus(m, e)}
+                        className="h-8.5 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        {isActive ? "Deactivate" : "Activate"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteMainModule(m, e)}
+                        className="h-8.5 px-3 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </Card>
                 );
@@ -1612,18 +1718,19 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               </div>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-3">
               {currentMainModule.submodules.map((sm) => {
                 const modCount = sm.modules?.length || 0;
                 const isActive = sm.status === "active";
+                const totalMarks = calculateSubmoduleTotalMarks(sm);
 
                 return (
                   <Card
                     key={sm.id}
-                    className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-4.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col justify-between"
+                    className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-4.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
                   >
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between gap-2">
+                    <div className="space-y-2 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/70 dark:border-indigo-800/40">
                           LEVEL 2: SUBMODULE
                         </span>
@@ -1636,65 +1743,65 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         >
                           {isActive ? "Active" : "Inactive"}
                         </span>
+                        <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+                          Order: <strong className="text-slate-800 dark:text-zinc-200">{sm.display_order ?? 0}</strong>
+                        </span>
                       </div>
 
                       <div>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug line-clamp-1">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug truncate">
                           {sm.name || sm.title}
                         </h3>
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 mt-1 min-h-[32px]">
-                          {sm.description || "No description provided."}
-                        </p>
+                        {sm.description && (
+                          <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-1 mt-0.5">
+                            {sm.description}
+                          </p>
+                        )}
                       </div>
 
-                      <div className="pt-1 border-t border-slate-100 dark:border-zinc-800/80 grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-zinc-400">
-                        <div>
-                          Modules: <span className="font-bold text-slate-900 dark:text-zinc-200">{modCount}</span>
-                        </div>
-                        <div>
-                          Total Marks: <span className="font-bold text-slate-900 dark:text-zinc-200">{calculateSubmoduleTotalMarks(sm)}</span>
-                        </div>
-                        <div className="col-span-2">
-                          Order: <span className="font-bold text-slate-900 dark:text-zinc-200">{sm.display_order ?? 0}</span>
-                        </div>
+                      <div className="flex items-center gap-2.5 flex-wrap text-[11px] text-slate-600 dark:text-zinc-400 pt-0.5">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
+                          Modules: <strong className="text-slate-900 dark:text-white">{modCount}</strong>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
+                          Total Marks: <strong className="text-slate-900 dark:text-white">{totalMarks}</strong>
+                        </span>
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-100 dark:border-zinc-800/80 space-y-2">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-zinc-800">
                       <Button
                         type="button"
                         onClick={() => {
                           setSelectedSubmoduleId(sm.id);
                           setActiveLevel("modules");
                         }}
-                        className="w-full h-8 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                        className="h-8.5 px-3.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs whitespace-nowrap"
                       >
                         View Modules ({modCount})
                       </Button>
 
-                      <div className="grid grid-cols-3 gap-1.5 text-[11px]">
-                        <button
-                          type="button"
-                          onClick={(e) => handleOpenEditSubmodule(sm, e)}
-                          className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleToggleSubmoduleStatus(sm, e)}
-                          className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
-                        >
-                          {isActive ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteSubmodule(sm, e)}
-                          className="h-7 rounded border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 font-semibold cursor-pointer"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenEditSubmodule(sm, e)}
+                        className="h-8.5 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleSubmoduleStatus(sm, e)}
+                        className="h-8.5 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        {isActive ? "Deactivate" : "Activate"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSubmodule(sm, e)}
+                        className="h-8.5 px-3 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </Card>
                 );
@@ -1754,7 +1861,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               </div>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-3">
               {currentSubmodule.modules.map((mod) => {
                 const isActive = mod.status === "active";
                 const qCount = (mod.mcqQuestions?.length || 0) + (mod.codingQuestions?.length || 0);
@@ -1762,11 +1869,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 return (
                   <Card
                     key={mod.id}
-                    className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-4.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col justify-between"
+                    className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-4.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
                   >
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/70 dark:border-purple-800/40">
+                    <div className="space-y-2 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/40">
                           LEVEL 3: MODULE
                         </span>
                         <span
@@ -1778,115 +1885,115 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         >
                           {isActive ? "Active" : "Inactive"}
                         </span>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+                          {mod.type}
+                        </span>
+                        <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+                          Order: <strong className="text-slate-800 dark:text-zinc-200">{mod.display_order ?? 0}</strong>
+                        </span>
                       </div>
 
                       <div>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug line-clamp-1">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug truncate">
                           {mod.name || mod.title}
                         </h3>
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 mt-1 min-h-[32px]">
-                          {mod.description || "Interactive practice module."}
-                        </p>
+                        {mod.description && (
+                          <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-1 mt-0.5">
+                            {mod.description}
+                          </p>
+                        )}
                       </div>
 
-                      <div className="pt-1 border-t border-slate-100 dark:border-zinc-800/80 grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-zinc-400">
-                        <div>
-                          Type: <span className="font-bold uppercase text-slate-900 dark:text-zinc-200">{mod.type}</span>
-                        </div>
-                        <div>
-                          Questions: <span className="font-bold text-slate-900 dark:text-zinc-200">{qCount}</span>
-                        </div>
-                        <div>
-                          Duration: <span className="font-bold">{mod.durationMinutes > 0 ? `${mod.durationMinutes}m` : "Untimed"}</span>
-                        </div>
-                        <div>
-                          Total Marks: <span className="font-bold text-slate-900 dark:text-zinc-200">{mod.totalMarks}</span>
-                        </div>
-                        <div>
-                          Passing: <span className="font-bold text-slate-900 dark:text-zinc-200">{mod.passingMarks ?? 40}</span>
-                        </div>
-                        <div>
-                          Attempts: <span className="font-bold text-slate-900 dark:text-zinc-200">{mod.allowedAttempts ?? 3}</span>
-                        </div>
+                      <div className="flex items-center gap-2.5 flex-wrap text-[11px] text-slate-600 dark:text-zinc-400 pt-0.5">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
+                          Questions: <strong className="text-slate-900 dark:text-white">{qCount}</strong>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
+                          Duration: <strong className="text-slate-900 dark:text-white">{mod.durationMinutes > 0 ? `${mod.durationMinutes}m` : "Untimed"}</strong>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
+                          Total Marks: <strong className="text-slate-900 dark:text-white">{mod.totalMarks}</strong>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
+                          Passing: <strong className="text-slate-900 dark:text-white">{mod.passingMarksEnabled === false || mod.passingMarks === 0 ? "None (OFF)" : mod.passingMarks ?? 40}</strong>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
+                          Attempts: <strong className="text-slate-900 dark:text-white">{mod.allowedAttempts === 0 ? "Unlimited" : (mod.allowedAttempts ?? 3)}</strong>
+                        </span>
                       </div>
-                      {(() => {
-                        const allQ = [...(mod.mcqQuestions || []), ...(mod.codingQuestions || [])];
-                        if (allQ.length > 0) {
-                          const markVal = validateModuleMarks(mod.totalMarks ?? 100, allQ, mod.status !== "active");
-                          if (!markVal.isValid) {
-                            return (
-                              <div className="pt-1">
-                                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-                                  Weights: {calculateQuestionWeightsSum(allQ)} / {mod.totalMarks} (Mismatch)
-                                </span>
-                              </div>
-                            );
-                          }
-                        }
-                        return null;
-                      })()}
+
                       {/* Display Section Names */}
-                      {(mod.mcqSectionTitle || mod.codingSectionTitle) && (
-                        <div className="pt-1.5 border-t border-slate-100 dark:border-zinc-800/60 flex items-center gap-1.5 flex-wrap text-[10px]">
+                      {(mod.mcqSectionTitle || mod.codingSectionTitle || (Array.isArray(mod.customSections) && mod.customSections.length > 0)) && (
+                        <div className="flex items-center gap-1.5 flex-wrap text-[10px] pt-1">
                           {mod.type !== "coding" && (
-                            <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 truncate max-w-[140px]" title={mod.mcqSectionTitle || "Section 1: MCQs"}>
+                            <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 truncate max-w-[150px]" title={mod.mcqSectionTitle || "Section 1: MCQs"}>
                               {mod.mcqSectionTitle || "Section 1: MCQs"}
                             </span>
                           )}
                           {mod.type !== "mcq" && (
-                            <span className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 truncate max-w-[140px]" title={mod.codingSectionTitle || "Section 2: Coding"}>
+                            <span className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 truncate max-w-[150px]" title={mod.codingSectionTitle || "Section 2: Coding"}>
                               {mod.codingSectionTitle || "Section 2: Coding"}
                             </span>
                           )}
+                          {Array.isArray(mod.customSections) && mod.customSections.map((cs: any, idx: number) => {
+                            const title = typeof cs === "string" ? cs : (cs.title || `Section ${idx + 1}`);
+                            const secType = typeof cs === "string" ? "mixed" : (cs.type || "mixed");
+                            const colorClass =
+                              secType === "coding"
+                                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                                : secType === "mcq"
+                                ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                                : "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800";
+
+                            return (
+                              <span key={idx} className={`px-2 py-0.5 rounded border truncate max-w-[150px] ${colorClass}`} title={`${title} (${secType.toUpperCase()})`}>
+                                {title}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
 
-                    <div className="pt-4 border-t border-slate-100 dark:border-zinc-800/80 space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          type="button"
-                          onClick={() => handleOpenViewQuestions(mod)}
-                          variant="outline"
-                          className="h-8 text-xs font-semibold rounded-lg border-blue-200 dark:border-blue-900/60 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View Questions ({qCount})</span>
-                        </Button>
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-zinc-800">
+                      <Button
+                        type="button"
+                        onClick={() => handleOpenViewQuestions(mod)}
+                        variant="outline"
+                        className="h-8.5 px-3 text-xs font-semibold rounded-lg border-blue-200 dark:border-blue-900/60 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer shadow-2xs whitespace-nowrap"
+                      >
+                        View Questions ({qCount})
+                      </Button>
 
-                        <Button
-                          type="button"
-                          onClick={() => handleOpenModuleEditor(mod)}
-                          className="h-8 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>+ Add Questions</span>
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        onClick={() => handleOpenModuleEditor(mod)}
+                        className="h-8.5 px-3 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs whitespace-nowrap"
+                      >
+                        + Add Questions
+                      </Button>
 
-                      <div className="grid grid-cols-3 gap-1.5 text-[11px]">
-                        <button
-                          type="button"
-                          onClick={(e) => handleOpenEditModule(mod, e)}
-                          className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleToggleModuleStatus(mod, e)}
-                          className="h-7 rounded border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold cursor-pointer"
-                        >
-                          {isActive ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteModule(mod, e)}
-                          className="h-7 rounded border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 font-semibold cursor-pointer"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenEditModule(mod, e)}
+                        className="h-8.5 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleModuleStatus(mod, e)}
+                        className="h-8.5 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        {isActive ? "Deactivate" : "Activate"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteModule(mod, e)}
+                        className="h-8.5 px-3 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-semibold cursor-pointer transition-colors"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </Card>
                 );
@@ -1956,6 +2063,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             const qCount = mcqList.length + codingList.length;
             const currentSum = calculateQuestionWeightsSum([...mcqList, ...codingList]);
             const diff = modTotal - currentSum;
+            const isPassingActive = typeof currentModule.passingMarksEnabled === "boolean"
+              ? currentModule.passingMarksEnabled
+              : (typeof currentModule.passingMarks === "number" ? currentModule.passingMarks > 0 : true);
+            const effectivePassingMarks = typeof currentModule.passingMarks === "number" && currentModule.passingMarks > 0
+              ? currentModule.passingMarks
+              : 40;
 
             return (
               <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/60 space-y-3">
@@ -1973,9 +2086,81 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       Sum of Weights: <strong className={currentSum === modTotal ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>{currentSum} marks</strong>
                     </span>
                     <span className="text-slate-400">|</span>
-                    <span className="text-slate-600 dark:text-zinc-300">
-                      Passing Marks: <strong className="text-slate-900 dark:text-white">{currentModule.passingMarks ?? 40}</strong>
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-600 dark:text-zinc-300">Passing Marks:</span>
+                      
+                      {/* ON/OFF Toggle Button */}
+                      <button
+                        type="button"
+                        disabled={isSavingBannerPassingMarks}
+                        onClick={() => handleToggleBannerPassingMarks(!isPassingActive)}
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border cursor-pointer transition-colors ${
+                          isPassingActive
+                            ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                            : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
+                        }`}
+                        title={isPassingActive ? "Click to toggle passing marks OFF (All scores pass)" : "Click to toggle passing marks ON"}
+                      >
+                        {isPassingActive ? "ON" : "OFF"}
+                      </button>
+
+                      {/* Display & Inline Edit Option */}
+                      {isPassingActive ? (
+                        isEditingBannerPassingMarks ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={modTotal}
+                              value={bannerPassingMarksInput}
+                              onChange={(e) => setBannerPassingMarksInput(e.target.value)}
+                              className="h-6.5 w-16 text-xs px-1.5 py-0 bg-white dark:bg-zinc-900 border-blue-300 dark:border-blue-700 rounded font-bold"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSaveBannerPassingMarks();
+                                if (e.key === "Escape") setIsEditingBannerPassingMarks(false);
+                              }}
+                            />
+                            <button
+                              type="button"
+                              disabled={isSavingBannerPassingMarks}
+                              onClick={handleSaveBannerPassingMarks}
+                              className="h-6.5 px-2 text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded cursor-pointer transition-colors"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsEditingBannerPassingMarks(false)}
+                              className="h-6.5 px-1.5 text-[10px] font-medium bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-700 dark:text-zinc-300 rounded cursor-pointer transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <strong className="text-slate-900 dark:text-white">
+                              {effectivePassingMarks}
+                            </strong>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setBannerPassingMarksInput(String(effectivePassingMarks));
+                                setIsEditingBannerPassingMarks(true);
+                              }}
+                              className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer ml-0.5"
+                              title="Click to edit passing marks"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        )
+                      ) : (
+                        <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium italic">
+                          No Minimum (All Pass)
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -2635,8 +2820,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               type="button"
               variant="outline"
               onClick={() => setActiveLevel("modules")}
-              className="h-9 px-4 text-xs font-semibold rounded-lg cursor-pointer"
+              className="h-9 px-4 text-xs font-semibold rounded-lg cursor-pointer inline-flex items-center"
             >
+              <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
               Back to Modules
             </Button>
             <div className="flex items-center gap-2">
@@ -2668,23 +2854,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
             {/* ── Header bar ── */}
             <div className="flex items-center justify-between px-6 py-4.5 bg-white dark:bg-[#18181B] border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-900/40 flex items-center justify-center text-[#2563EB] shrink-0 shadow-xs">
-                  <FolderPlus className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/70 text-[#2563EB] dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
-                      Level 1 · Main Module
-                    </span>
-                  </div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1">
-                    {editingMainModule ? "Edit Main Module" : "New Main Module"}
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
-                    Configure track metadata, status, and batch access rules.
-                  </p>
-                </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/70 text-[#2563EB] dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                  Level 1 · Main Module
+                </span>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1">
+                  {editingMainModule ? "Edit Main Module" : "New Main Module"}
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Configure track metadata, status, and batch access rules.
+                </p>
               </div>
               <button
                 type="button"
@@ -2744,12 +2923,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               {
                                 value: "active",
                                 label: "Active",
-                                dotColor: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]",
                               },
                               {
                                 value: "inactive",
                                 label: "Inactive",
-                                dotColor: "bg-slate-400",
                               },
                             ]}
                           />
@@ -2932,21 +3109,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           <div className="fixed inset-0 cursor-pointer" onClick={() => setShowSubmoduleModal(false)} />
           <div className="relative w-full max-w-lg bg-white dark:bg-[#0F172A] border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-5 z-10 animate-in zoom-in-95 duration-200 my-auto">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-900/40 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
-                  <Layers className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
-                    Level 2 · Submodule
-                  </span>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
-                    {editingSubmodule ? "Edit Submodule" : "Add Submodule"}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
-                    Parent: {currentMainModule.name || currentMainModule.title}
-                  </p>
-                </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+                  Level 2 · Submodule
+                </span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                  {editingSubmodule ? "Edit Submodule" : "Add Submodule"}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Parent: {currentMainModule.name || currentMainModule.title}
+                </p>
               </div>
               <button
                 type="button"
@@ -2988,17 +3160,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   <MncSelect
                     value={fSubStatus}
                     onChange={(v: any) => setFSubStatus(v)}
-                    variant="purple"
+                    variant="blue"
                     options={[
                       {
                         value: "active",
                         label: "Active",
-                        dotColor: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]",
                       },
                       {
                         value: "inactive",
                         label: "Inactive",
-                        dotColor: "bg-slate-400",
                       },
                     ]}
                   />
@@ -3044,21 +3214,16 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           <div className="fixed inset-0 cursor-pointer" onClick={() => setShowModuleModal(false)} />
           <div className="relative w-full max-w-xl max-h-[88vh] bg-white dark:bg-[#0F172A] border border-slate-200/80 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10 animate-in zoom-in-95 duration-200 my-auto">
             <div className="flex items-center justify-between px-6 py-4.5 bg-white dark:bg-[#18181B] border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200/60 dark:border-purple-900/40 flex items-center justify-center text-purple-600 shrink-0 shadow-xs">
-                  <BookOpen className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/70 text-purple-600 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
-                    Level 3 · Practice Module
-                  </span>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
-                    {editingModule ? "Edit Module" : "Add Module"}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
-                    Submodule: {currentSubmodule.name || currentSubmodule.title}
-                  </p>
-                </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                  Level 3 · Practice Module
+                </span>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                  {editingModule ? "Edit Module" : "Add Module"}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Submodule: {currentSubmodule.name || currentSubmodule.title}
+                </p>
               </div>
               <button
                 type="button"
@@ -3079,7 +3244,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   placeholder="e.g. Variables & Data Types, Binary Search..."
                   value={fModName}
                   onChange={(e) => setFModName(e.target.value)}
-                  className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-purple-500/20"
+                  className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-blue-500/20"
                 />
               </div>
 
@@ -3089,7 +3254,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   placeholder="Short description of this Module..."
                   value={fModDesc}
                   onChange={(e) => setFModDesc(e.target.value)}
-                  className="text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl resize-none focus-visible:ring-2 focus-visible:ring-purple-500/20"
+                  className="text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl resize-none focus-visible:ring-2 focus-visible:ring-blue-500/20"
                   rows={3}
                 />
               </div>
@@ -3100,22 +3265,19 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   <MncSelect
                     value={fModType}
                     onChange={(v: any) => setFModType(v)}
-                    variant="purple"
+                    variant="blue"
                     options={[
                       {
                         value: "mixed",
                         label: "Mixed",
-                        icon: <Layers className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />,
                       },
                       {
                         value: "coding",
                         label: "Code Only",
-                        icon: <Code2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />,
                       },
                       {
                         value: "mcq",
                         label: "MCQ Only",
-                        icon: <HelpCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />,
                       },
                     ]}
                   />
@@ -3141,14 +3303,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       type="number"
                       value={fModDuration}
                       onChange={(e) => setFModDuration(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-purple-500/20"
+                      className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-blue-500/20"
                       placeholder="e.g. 60"
                       min={1}
                     />
                   ) : (
                     <div
                       onClick={() => setFModDurationEnabled(true)}
-                      className="h-9.5 px-3 flex items-center justify-between bg-slate-100 dark:bg-zinc-800/80 rounded-xl border border-dashed border-slate-200 dark:border-zinc-700 text-[11px] text-slate-500 dark:text-zinc-400 font-semibold cursor-pointer hover:border-purple-400 transition-colors"
+                      className="h-9.5 px-3 flex items-center justify-between bg-slate-100 dark:bg-zinc-800/80 rounded-xl border border-dashed border-slate-200 dark:border-zinc-700 text-[11px] text-slate-500 dark:text-zinc-400 font-semibold cursor-pointer hover:border-blue-400 transition-colors"
                       title="Click to turn duration ON"
                     >
                       <span>No Time Limit</span>
@@ -3163,7 +3325,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     type="number"
                     value={fModMarks}
                     onChange={(e) => setFModMarks(parseInt(e.target.value) || 100)}
-                    className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-purple-500/20"
+                    className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-blue-500/20"
                   />
                 </div>
               </div>
@@ -3174,17 +3336,15 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   <MncSelect
                     value={fModStatus}
                     onChange={(v: any) => setFModStatus(v)}
-                    variant="purple"
+                    variant="blue"
                     options={[
                       {
                         value: "active",
                         label: "Active",
-                        dotColor: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]",
                       },
                       {
                         value: "inactive",
                         label: "Inactive",
-                        dotColor: "bg-slate-400",
                       },
                     ]}
                   />
@@ -3196,7 +3356,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     type="number"
                     value={fModOrder}
                     onChange={(e) => setFModOrder(parseInt(e.target.value) || 0)}
-                    className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-purple-500/20"
+                    className="h-9.5 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-xl focus-visible:ring-2 focus-visible:ring-blue-500/20"
                   />
                 </div>
               </div>
@@ -3207,7 +3367,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
                     Assessment &amp; Attempt Policy
                   </span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
                     Single Source of Truth
                   </span>
                 </div>
@@ -3215,34 +3375,99 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   Defines attempt limits, reattempt permissions, review access, and completion criteria for all students.
                 </p>
 
+                {/* Attempt Limits & Passing Marks (Aligned Row) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="space-y-1.5">
-                    <label className="font-semibold text-slate-700 dark:text-zinc-300 text-[11px]">
-                      Allowed Attempts <span className="text-slate-400 font-normal">(Max Attempts)</span>
-                    </label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={fModAllowedAttempts}
-                      onChange={(e) => setFModAllowedAttempts(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="h-9 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg"
-                      placeholder="e.g. 3"
-                    />
+                    <div className="flex items-center justify-between h-5">
+                      <label className="font-semibold text-slate-700 dark:text-zinc-300 text-[11px]">
+                        Allowed Attempts <span className="text-slate-400 font-normal">(Max Attempts)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !fModUnlimitedAttempts;
+                          setFModUnlimitedAttempts(next);
+                          if (next) {
+                            setFModAllowedAttempts(0);
+                          } else {
+                            setFModAllowedAttempts(3);
+                          }
+                        }}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border cursor-pointer transition-colors flex items-center gap-1.5 ${
+                          fModUnlimitedAttempts
+                            ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                            : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:text-slate-900"
+                        }`}
+                        title="Toggle unlimited attempts for students"
+                      >
+                        <span>Unlimited</span>
+                        <span className={`w-1.5 h-1.5 rounded-full ${fModUnlimitedAttempts ? "bg-blue-600" : "bg-slate-400"}`} />
+                      </button>
+                    </div>
+                    {fModUnlimitedAttempts ? (
+                      <div
+                        onClick={() => {
+                          setFModUnlimitedAttempts(false);
+                          setFModAllowedAttempts(3);
+                        }}
+                        className="h-9 px-3 flex items-center justify-between bg-white dark:bg-zinc-900 rounded-lg border border-dashed border-blue-300 dark:border-blue-700/60 text-[11px] text-blue-700 dark:text-blue-300 font-semibold cursor-pointer hover:border-blue-500 transition-colors"
+                        title="Click to set numerical attempt limit"
+                      >
+                        <span>Unlimited Attempts (No Limit)</span>
+                        <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">ACTIVE</span>
+                      </div>
+                    ) : (
+                      <Input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={fModAllowedAttempts || ""}
+                        onChange={(e) => setFModAllowedAttempts(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="h-9 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                        placeholder="e.g. 3"
+                      />
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="font-semibold text-slate-700 dark:text-zinc-300 text-[11px]">
-                      Passing Marks
-                    </label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={fModPassingMarks}
-                      onChange={(e) => setFModPassingMarks(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="h-9 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg"
-                      placeholder="e.g. 40"
-                    />
+                    <div className="flex items-center justify-between h-5">
+                      <label className="font-semibold text-slate-700 dark:text-zinc-300 text-[11px]">
+                        Passing Marks
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setFModPassingMarksEnabled(!fModPassingMarksEnabled)}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border cursor-pointer transition-colors flex items-center gap-1.5 ${
+                          fModPassingMarksEnabled
+                            ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                            : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:text-slate-900"
+                        }`}
+                        title="Toggle passing score requirement"
+                      >
+                        <span>{fModPassingMarksEnabled ? "ON" : "OFF"}</span>
+                        <span className={`w-1.5 h-1.5 rounded-full ${fModPassingMarksEnabled ? "bg-blue-600" : "bg-slate-400"}`} />
+                      </button>
+                    </div>
+                    {fModPassingMarksEnabled ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        max={fModMarks}
+                        value={fModPassingMarks}
+                        onChange={(e) => setFModPassingMarks(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="h-9 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                        placeholder="e.g. 40"
+                      />
+                    ) : (
+                      <div
+                        onClick={() => setFModPassingMarksEnabled(true)}
+                        className="h-9 px-3 flex items-center justify-between bg-white dark:bg-zinc-900 rounded-lg border border-dashed border-slate-200 dark:border-zinc-700 text-[11px] text-slate-500 dark:text-zinc-400 font-semibold cursor-pointer hover:border-blue-400 transition-colors"
+                        title="Click to turn passing marks ON"
+                      >
+                        <span>No Passing Mark (All Scores Pass)</span>
+                        <span className="text-[10px] uppercase font-bold text-slate-400">OFF</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -3251,7 +3476,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   const currentTotal = Number(fModMarks) || 100;
                   const currentPassing = Number(fModPassingMarks) || 0;
                   const passingPct = currentTotal > 0 ? Math.round((currentPassing / currentTotal) * 100) : 0;
-                  const hasPassingExceeded = currentPassing > currentTotal;
+                  const hasPassingExceeded = fModPassingMarksEnabled && currentPassing > currentTotal;
                   const existingQuestions = editingModule
                     ? [...(editingModule.mcqQuestions || []), ...(editingModule.codingQuestions || [])]
                     : [];
@@ -3267,7 +3492,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           Passing Standard:
                         </span>
                         <span className={`font-semibold ${hasPassingExceeded ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-white"}`}>
-                          {currentPassing} / {currentTotal} marks ({passingPct}%)
+                          {fModPassingMarksEnabled ? `${currentPassing} / ${currentTotal} marks (${passingPct}%)` : "Disabled (No Minimum Score Required)"}
                         </span>
                       </div>
                       {hasPassingExceeded && (
@@ -3310,7 +3535,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         onClick={() => setFModReattemptEnabled(true)}
                         className={`flex-1 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer ${
                           fModReattemptEnabled
-                            ? "bg-purple-600 text-white"
+                            ? "bg-blue-600 text-white shadow-xs"
                             : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
                         }`}
                       >
@@ -3340,7 +3565,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         onClick={() => setFModReviewEnabled(true)}
                         className={`flex-1 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer ${
                           fModReviewEnabled
-                            ? "bg-purple-600 text-white"
+                            ? "bg-blue-600 text-white shadow-xs"
                             : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
                         }`}
                       >
@@ -3367,7 +3592,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     <MncSelect
                       value={fModCompletionRule}
                       onChange={(v: any) => setFModCompletionRule(v)}
-                      variant="purple"
+                      variant="blue"
                       options={[
                         { value: "submit", label: "Submit Attempt" },
                         { value: "pass", label: "Passing Marks" },
@@ -3377,42 +3602,230 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 </div>
               </div>
 
-              {/* Custom Section Titles Configuration */}
-              <div className="p-3.5 bg-purple-50/60 dark:bg-purple-950/20 rounded-xl border border-purple-200/60 dark:border-purple-800/40 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
-                    Section Configuration (Custom Section Names)
-                  </span>
+              {/* Custom Section Titles Configuration with Add Code / Mixed / MCQ Section Options */}
+              <div className="p-4 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200/70 dark:border-blue-800/40 space-y-3.5">
+                <div className="flex items-center justify-between flex-wrap gap-2.5">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                      Section Configuration (Custom Section Names)
+                    </span>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                      Configure sections for this module (e.g. &quot;Core Java MCQs&quot;, &quot;Algorithmic Challenges&quot;).
+                    </p>
+                  </div>
+
+                  {/* Add Section Type Buttons */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const nextIdx = (fModType === "mixed" ? 2 : 1) + fModCustomSections.length + 1;
+                        setFModCustomSections([
+                          ...fModCustomSections,
+                          {
+                            id: `sec_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                            title: `Section ${nextIdx}: Coding Challenges`,
+                            type: "coding",
+                          },
+                        ]);
+                        if (fModType === "mcq") setFModType("mixed");
+                      }}
+                      className="h-7.5 px-3 text-[11px] font-bold rounded-lg border-emerald-300 dark:border-emerald-800 bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 cursor-pointer shadow-2xs"
+                    >
+                      + Add Code Section
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const nextIdx = (fModType === "mixed" ? 2 : 1) + fModCustomSections.length + 1;
+                        setFModCustomSections([
+                          ...fModCustomSections,
+                          {
+                            id: `sec_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                            title: `Section ${nextIdx}: MCQs`,
+                            type: "mcq",
+                          },
+                        ]);
+                        if (fModType === "coding") setFModType("mixed");
+                      }}
+                      className="h-7.5 px-3 text-[11px] font-bold rounded-lg border-blue-300 dark:border-blue-800 bg-white dark:bg-zinc-900 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 cursor-pointer shadow-2xs"
+                    >
+                      + Add MCQ Section
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const nextIdx = (fModType === "mixed" ? 2 : 1) + fModCustomSections.length + 1;
+                        setFModCustomSections([
+                          ...fModCustomSections,
+                          {
+                            id: `sec_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                            title: `Section ${nextIdx}: Mixed Assessment`,
+                            type: "mixed",
+                          },
+                        ]);
+                        setFModType("mixed");
+                      }}
+                      className="h-7.5 px-3 text-[11px] font-bold rounded-lg border-indigo-300 dark:border-indigo-800 bg-white dark:bg-zinc-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer shadow-2xs"
+                    >
+                      + Add Mixed Section
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  Set custom names for the sections in this module (e.g. &quot;Core Java MCQs&quot;, &quot;Algorithmic Challenges&quot;).
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {(fModType === "mixed" || fModType === "mcq") && (
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">
-                        MCQ Section Name
-                      </label>
-                      <Input
-                        placeholder="e.g. Section 1: MCQs"
-                        value={fModMcqSectionTitle}
-                        onChange={(e) => setFModMcqSectionTitle(e.target.value)}
-                        className="h-9 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg"
-                      />
-                    </div>
-                  )}
-                  {(fModType === "mixed" || fModType === "coding") && (
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300">
-                        Coding Section Name
-                      </label>
-                      <Input
-                        placeholder="e.g. Section 2: Coding"
-                        value={fModCodingSectionTitle}
-                        onChange={(e) => setFModCodingSectionTitle(e.target.value)}
-                        className="h-9 text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg"
-                      />
+
+                <div className="space-y-3">
+                  {/* Built-in Base Sections */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(fModType === "mixed" || fModType === "mcq") && (
+                      <div className="space-y-1 bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-700 dark:text-zinc-300">
+                            MCQ Section Name
+                          </label>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 uppercase">
+                            MCQ
+                          </span>
+                        </div>
+                        <Input
+                          placeholder="e.g. Section 1: MCQs"
+                          value={fModMcqSectionTitle}
+                          onChange={(e) => setFModMcqSectionTitle(e.target.value)}
+                          className="h-8.5 text-xs bg-slate-50/60 dark:bg-zinc-800/60 border-slate-200 dark:border-zinc-700 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                        />
+                      </div>
+                    )}
+
+                    {(fModType === "mixed" || fModType === "coding") && (
+                      <div className="space-y-1 bg-white dark:bg-zinc-900 p-2.5 rounded-lg border border-slate-200 dark:border-zinc-800">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-700 dark:text-zinc-300">
+                            Coding Section Name
+                          </label>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 uppercase">
+                            Code
+                          </span>
+                        </div>
+                        <Input
+                          placeholder="e.g. Section 2: Coding"
+                          value={fModCodingSectionTitle}
+                          onChange={(e) => setFModCodingSectionTitle(e.target.value)}
+                          className="h-8.5 text-xs bg-slate-50/60 dark:bg-zinc-800/60 border-slate-200 dark:border-zinc-700 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Additional Custom Sections (with Code / Mixed / MCQ toggles) */}
+                  {fModCustomSections.length > 0 && (
+                    <div className="space-y-2.5 pt-2 border-t border-blue-200/50 dark:border-blue-900/40">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                          Additional Custom Sections ({fModCustomSections.length})
+                        </span>
+                        <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                          Select type for each section: MCQ, Code, or Mixed
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {fModCustomSections.map((sec, idx) => (
+                          <div
+                            key={sec.id || idx}
+                            className="space-y-2 bg-white dark:bg-zinc-900 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-2xs transition-all"
+                          >
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className="text-[11px] font-bold text-slate-800 dark:text-zinc-200 truncate">
+                                Custom Section {idx + 1}
+                              </span>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {/* Type Selector Pills: MCQ | Code | Mixed */}
+                                <div className="flex items-center rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-100/80 dark:bg-zinc-800 p-0.5 text-[10px] font-bold">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFModCustomSections((prev) =>
+                                        prev.map((s, i) => (i === idx ? { ...s, type: "mcq" as const } : s))
+                                      );
+                                    }}
+                                    className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                                      sec.type === "mcq"
+                                        ? "bg-blue-600 text-white shadow-2xs"
+                                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
+                                    }`}
+                                    title="Set section type to MCQ"
+                                  >
+                                    MCQ
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFModCustomSections((prev) =>
+                                        prev.map((s, i) => (i === idx ? { ...s, type: "coding" as const } : s))
+                                      );
+                                    }}
+                                    className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                                      sec.type === "coding"
+                                        ? "bg-emerald-600 text-white shadow-2xs"
+                                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
+                                    }`}
+                                    title="Set section type to Code"
+                                  >
+                                    Code
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFModCustomSections((prev) =>
+                                        prev.map((s, i) => (i === idx ? { ...s, type: "mixed" as const } : s))
+                                      );
+                                    }}
+                                    className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                                      sec.type === "mixed"
+                                        ? "bg-indigo-600 text-white shadow-2xs"
+                                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200"
+                                    }`}
+                                    title="Set section type to Mixed"
+                                  >
+                                    Mixed
+                                  </button>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFModCustomSections((prev) => prev.filter((_, i) => i !== idx));
+                                  }}
+                                  className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 p-0.5 rounded cursor-pointer transition-colors"
+                                  title="Remove section"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <Input
+                              placeholder={`e.g. Section ${idx + 3}: ${sec.type === "coding" ? "Coding Challenges" : sec.type === "mcq" ? "MCQs" : "Mixed Practice"}`}
+                              value={sec.title}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setFModCustomSections((prev) =>
+                                  prev.map((s, i) => (i === idx ? { ...s, title: val } : s))
+                                );
+                              }}
+                              className="h-8.5 text-xs bg-slate-50/70 dark:bg-zinc-800/60 border-slate-200 dark:border-zinc-700 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -3431,7 +3844,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               <Button
                 type="button"
                 onClick={handleSaveModule}
-                className="h-9 px-5 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-700 text-white cursor-pointer shadow-sm transition-all"
+                className="h-9 px-5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-sm transition-all"
               >
                 {editingModule ? "Save Changes" : "Create Module"}
               </Button>
@@ -3448,23 +3861,18 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           <div className="relative w-full max-w-3xl max-h-[90vh] bg-white dark:bg-[#0F172A] border border-slate-200/80 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10 animate-in zoom-in-95 duration-200 my-auto">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4.5 bg-white dark:bg-[#18181B] border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-900/40 flex items-center justify-center text-blue-600 shrink-0 shadow-xs">
-                  <Eye className="w-5 h-5" />
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                    Level 3 · Questions List
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                    Total: {(viewingQuestionsModule.mcqQuestions?.length || 0) + (viewingQuestionsModule.codingQuestions?.length || 0)} questions
+                  </span>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
-                      Level 3 · Questions List
-                    </span>
-                    <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
-                      Total: {(viewingQuestionsModule.mcqQuestions?.length || 0) + (viewingQuestionsModule.codingQuestions?.length || 0)} questions
-                    </span>
-                  </div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
-                    {viewingQuestionsModule.name || viewingQuestionsModule.title}
-                  </h3>
-                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                  {viewingQuestionsModule.name || viewingQuestionsModule.title}
+                </h3>
               </div>
               <button
                 type="button"
@@ -3641,7 +4049,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     <div className="space-y-3">
                       <div className="flex items-center justify-between pb-1 border-b border-slate-200 dark:border-zinc-800">
                         <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wide flex items-center gap-1.5">
-                          <Layers className="w-3.5 h-3.5 text-purple-600" />
+                          <Layers className="w-3.5 h-3.5 text-blue-600" />
                           {viewingQuestionsModule.codingSectionTitle || "Section 2: Coding"} ({(viewingQuestionsModule.codingQuestions || []).length})
                         </span>
                       </div>
@@ -3683,7 +4091,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                     onClick={() => handleEditQuestionFromView(viewingQuestionsModule, "coding", cIdx)}
                                     className="h-7 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors"
                                   >
-                                    <Edit3 className="w-3 h-3 text-purple-600" />
+                                    <Edit3 className="w-3 h-3 text-blue-600" />
                                     <span>Edit</span>
                                   </button>
                                   <button

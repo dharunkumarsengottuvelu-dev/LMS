@@ -40,7 +40,7 @@ export function PageHeader({
                   {backAction.href ? (
                     <Link
                       href={backAction.href}
-                      className="inline-flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group py-0.5"
+                      className="inline-flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group py-0.5 cursor-pointer"
                     >
                       <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
                       <span>{backAction.label}</span>
@@ -49,7 +49,7 @@ export function PageHeader({
                     <button
                       type="button"
                       onClick={backAction.onClick}
-                      className="inline-flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group py-0.5"
+                      className="inline-flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group py-0.5 cursor-pointer"
                     >
                       <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
                       <span>{backAction.label}</span>

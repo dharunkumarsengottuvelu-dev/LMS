@@ -52,9 +52,11 @@ function normalizeSubmodules(rawSubmodules: any[], mainModuleId: string): any[] 
           reattemptEnabled: typeof m.reattemptEnabled === "boolean" ? m.reattemptEnabled : (typeof m.reattempt_enabled === "boolean" ? m.reattempt_enabled : true),
           reviewEnabled: typeof m.reviewEnabled === "boolean" ? m.reviewEnabled : (typeof m.review_enabled === "boolean" ? m.review_enabled : true),
           passingMarks: typeof m.passingMarks === "number" ? m.passingMarks : (typeof m.passing_marks === "number" ? m.passing_marks : 40),
+          passingMarksEnabled: typeof m.passingMarksEnabled === "boolean" ? m.passingMarksEnabled : (typeof m.passing_marks_enabled === "boolean" ? m.passing_marks_enabled : true),
           completionRule: m.completionRule || m.completion_rule || "submit",
           mcqSectionTitle: m.mcqSectionTitle || m.mcq_section_title || "Section 1: MCQs",
           codingSectionTitle: m.codingSectionTitle || m.coding_section_title || "Section 2: Coding",
+          customSections: Array.isArray(m.customSections) ? m.customSections : (Array.isArray(m.custom_sections) ? m.custom_sections : []),
           mcqQuestions: mcqs,
           codingQuestions: coding,
           created_at: m.created_at || new Date().toISOString(),
@@ -738,16 +740,32 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Total marks must be a positive number of at least 1" }, { status: 400 });
       }
 
-      const passingMarks = typeof body.passingMarks === "number" ? body.passingMarks : (typeof body.passing_marks === "number" ? body.passing_marks : 40);
-      if (isNaN(passingMarks) || passingMarks < 0 || passingMarks > totalMarks) {
+      const passingMarksEnabled =
+        typeof body.passingMarksEnabled === "boolean"
+          ? body.passingMarksEnabled
+          : typeof body.passing_marks_enabled === "boolean"
+          ? body.passing_marks_enabled
+          : typeof body.passingMarks === "number"
+          ? body.passingMarks > 0
+          : true;
+
+      const rawPassingMarks =
+        typeof body.passingMarks === "number"
+          ? body.passingMarks
+          : typeof body.passing_marks === "number"
+          ? body.passing_marks
+          : 40;
+
+      const passingMarks = passingMarksEnabled ? rawPassingMarks : 0;
+      if (isNaN(passingMarks) || passingMarks < 0 || (passingMarksEnabled && passingMarks > totalMarks)) {
         return NextResponse.json({
           error: `Passing marks (${passingMarks}) cannot be negative and cannot exceed total marks (${totalMarks})`,
         }, { status: 400 });
       }
 
       const allowedAttempts = typeof body.allowedAttempts === "number" ? body.allowedAttempts : 3;
-      if (isNaN(allowedAttempts) || allowedAttempts < 1) {
-        return NextResponse.json({ error: "Allowed attempts must be at least 1" }, { status: 400 });
+      if (isNaN(allowedAttempts) || allowedAttempts < 0) {
+        return NextResponse.json({ error: "Allowed attempts must be 0 (unlimited) or greater" }, { status: 400 });
       }
 
       const allQuestions = [...mcqQuestions, ...codingQuestions];
@@ -782,9 +800,11 @@ export async function POST(request: NextRequest) {
         reattemptEnabled: typeof body.reattemptEnabled === "boolean" ? body.reattemptEnabled : true,
         reviewEnabled: typeof body.reviewEnabled === "boolean" ? body.reviewEnabled : true,
         passingMarks,
+        passingMarksEnabled,
         completionRule: body.completionRule || "submit",
         mcqSectionTitle: (body.mcqSectionTitle || body.mcq_section_title || "Section 1: MCQs").trim(),
         codingSectionTitle: (body.codingSectionTitle || body.coding_section_title || "Section 2: Coding").trim(),
+        customSections: Array.isArray(body.customSections) ? body.customSections : [],
         mcqQuestions,
         codingQuestions,
         created_at: new Date().toISOString(),
@@ -889,16 +909,32 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Total marks must be a positive number of at least 1" }, { status: 400 });
       }
 
-      const passingMarks = typeof body.passingMarks === "number" ? body.passingMarks : (typeof body.passing_marks === "number" ? body.passing_marks : (existingMod.passingMarks ?? 40));
-      if (isNaN(passingMarks) || passingMarks < 0 || passingMarks > totalMarks) {
+      const passingMarksEnabled =
+        typeof body.passingMarksEnabled === "boolean"
+          ? body.passingMarksEnabled
+          : typeof body.passing_marks_enabled === "boolean"
+          ? body.passing_marks_enabled
+          : typeof body.passingMarks === "number"
+          ? body.passingMarks > 0
+          : existingMod.passingMarksEnabled ?? ((existingMod.passingMarks ?? 40) > 0);
+
+      const rawPassingMarks =
+        typeof body.passingMarks === "number"
+          ? body.passingMarks
+          : typeof body.passing_marks === "number"
+          ? body.passing_marks
+          : existingMod.passingMarks ?? 40;
+
+      const passingMarks = passingMarksEnabled ? rawPassingMarks : 0;
+      if (isNaN(passingMarks) || passingMarks < 0 || (passingMarksEnabled && passingMarks > totalMarks)) {
         return NextResponse.json({
           error: `Passing marks (${passingMarks}) cannot be negative and cannot exceed total marks (${totalMarks})`,
         }, { status: 400 });
       }
 
       const allowedAttempts = typeof body.allowedAttempts === "number" ? body.allowedAttempts : (existingMod.allowedAttempts ?? 3);
-      if (isNaN(allowedAttempts) || allowedAttempts < 1) {
-        return NextResponse.json({ error: "Allowed attempts must be at least 1" }, { status: 400 });
+      if (isNaN(allowedAttempts) || allowedAttempts < 0) {
+        return NextResponse.json({ error: "Allowed attempts must be 0 (unlimited) or greater" }, { status: 400 });
       }
 
       const allQuestions = [...mcqQuestions, ...codingQuestions];
@@ -929,9 +965,11 @@ export async function POST(request: NextRequest) {
         reattemptEnabled: typeof body.reattemptEnabled === "boolean" ? body.reattemptEnabled : (existingMod.reattemptEnabled ?? true),
         reviewEnabled: typeof body.reviewEnabled === "boolean" ? body.reviewEnabled : (existingMod.reviewEnabled ?? true),
         passingMarks,
+        passingMarksEnabled,
         completionRule: body.completionRule || existingMod.completionRule || "submit",
         mcqSectionTitle: body.mcqSectionTitle !== undefined ? body.mcqSectionTitle.trim() : (existingMod.mcqSectionTitle || "Section 1: MCQs"),
         codingSectionTitle: body.codingSectionTitle !== undefined ? body.codingSectionTitle.trim() : (existingMod.codingSectionTitle || "Section 2: Coding"),
+        customSections: Array.isArray(body.customSections) ? body.customSections : (existingMod.customSections || []),
         mcqQuestions,
         codingQuestions,
         updated_at: new Date().toISOString(),

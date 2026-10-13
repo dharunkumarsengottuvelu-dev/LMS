@@ -365,8 +365,9 @@ function toDeterministicUUID(str: string): string {
             const latestCompletedAttempt = completedAttempts.length > 0 ? completedAttempts[completedAttempts.length - 1] : null;
 
             // 3. Attempt counts
+            const isUnlimitedAttempts = allowedAttempts === 0;
             const attemptsUsed = formattedAttempts.length;
-            const attemptsRemaining = Math.max(0, allowedAttempts - attemptsUsed);
+            const attemptsRemaining = isUnlimitedAttempts ? 999999 : Math.max(0, allowedAttempts - attemptsUsed);
 
             // 4. Module completion status
             const practiceSub = practiceSubMap.get(m.id) || practiceSubMap.get(toDeterministicUUID(m.id));
@@ -385,7 +386,7 @@ function toDeterministicUUID(str: string): string {
 
             // 5. Action permissions
             const canContinue = Boolean(activeAttempt);
-            const canReattempt = Boolean(reattemptEnabled && attemptsRemaining > 0 && !activeAttempt);
+            const canReattempt = Boolean(reattemptEnabled && (isUnlimitedAttempts || attemptsRemaining > 0) && !activeAttempt);
             const canReview = Boolean(reviewEnabled && completedAttempts.length > 0);
 
             // 6. Recommended primary action
@@ -639,7 +640,7 @@ export async function POST(
       }
 
       // RULE 3 & 12: Enforce attempt limits configured by Admin
-      if (allAttempts.length >= allowedAttempts) {
+      if (allowedAttempts > 0 && allAttempts.length >= allowedAttempts) {
         return NextResponse.json(
           {
             error: `Maximum attempt limit reached. You have completed ${allAttempts.length} of ${allowedAttempts} allowed attempts.`,
@@ -800,7 +801,7 @@ export async function POST(
     } else {
       // Fallback: If no attempt was previously started, insert a completed attempt
       // respecting allowedAttempts
-      if (allAttempts.length >= allowedAttempts) {
+      if (allowedAttempts > 0 && allAttempts.length >= allowedAttempts) {
         return NextResponse.json(
           { error: `Cannot submit. Attempt limit of ${allowedAttempts} reached.` },
           { status: 400 }

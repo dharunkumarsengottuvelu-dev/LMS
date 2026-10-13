@@ -400,11 +400,11 @@ export default function StudentTrackDetailPage() {
                                       </span>
                                     ) : isDone && m.completedAttempts && m.completedAttempts.length > 0 ? (
                                       <span className="font-medium text-slate-600 dark:text-zinc-300">
-                                        Attempt {m.completedAttempts.length} of {m.allowedAttempts ?? 1} · Completed · Score: {m.score ?? 0}/{m.totalMarks || 100}
+                                        Attempt {m.completedAttempts.length} {m.allowedAttempts === 0 ? "(Unlimited Attempts)" : `of ${m.allowedAttempts ?? 1}`} · Completed · Score: {m.score ?? 0}/{m.totalMarks || 100}
                                       </span>
                                     ) : (
                                       <span className="text-slate-500 dark:text-zinc-400">
-                                        {m.questionCount} {m.questionCount === 1 ? "Question" : "Questions"} · {m.totalMarks} Marks · {m.durationMinutes > 0 ? `${m.durationMinutes}m` : "Untimed"} · Allowed Attempts: {m.allowedAttempts ?? 1}
+                                        {m.questionCount} {m.questionCount === 1 ? "Question" : "Questions"} · {m.totalMarks} Marks · {m.durationMinutes > 0 ? `${m.durationMinutes}m` : "Untimed"} · Allowed Attempts: {m.allowedAttempts === 0 ? "Unlimited" : (m.allowedAttempts ?? 1)}
                                       </span>
                                     )}
                                   </div>
@@ -472,10 +472,10 @@ export default function StudentTrackDetailPage() {
                                     onClick={() => toggleHistory(m.id)}
                                     className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer transition-colors"
                                   >
-                                    {isHistoryOpen ? "Hide Attempt History" : `View Attempt History (${allAttempts.length} of ${m.allowedAttempts || 3})`}
+                                    {isHistoryOpen ? "Hide Attempt History" : `View Attempt History (${allAttempts.length}${m.allowedAttempts === 0 ? " Attempts" : ` of ${m.allowedAttempts || 3}`})`}
                                   </button>
                                   <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
-                                    Attempts Remaining: {m.attemptsRemaining ?? Math.max(0, (m.allowedAttempts || 3) - allAttempts.length)}
+                                    Attempts Remaining: {m.allowedAttempts === 0 ? "Unlimited" : (m.attemptsRemaining ?? Math.max(0, (m.allowedAttempts || 3) - allAttempts.length))}
                                   </span>
                                 </div>
 
