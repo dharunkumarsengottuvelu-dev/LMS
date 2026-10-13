@@ -131,43 +131,43 @@ export async function GET(
 
     let codingProblemsMap: Record<string, any[]> = {};
     if (allModuleIds.length > 0) {
-      const { data: codingProblems } = await adminClient
+      const { data: codingProblems, error: cpErr } = await adminClient
         .from("coding_problems")
-        .select(
-          "id, title, slug, description, difficulty, assessment_id, time_limit_ms, memory_limit_kb, templates, starter_code, sample_test_cases, test_cases, example_cases, constraints, input_format, output_format, points, allowed_languages, default_language"
-        )
-        .in("assessment_id", allModuleIds) as any;
+        .select("*") as any;
 
-      if (codingProblems) {
+      if (codingProblems && !cpErr) {
         codingProblems.forEach((cp: any) => {
-          if (!codingProblemsMap[cp.assessment_id]) {
-            codingProblemsMap[cp.assessment_id] = [];
-          }
-          const list = codingProblemsMap[cp.assessment_id];
-          if (list) {
-            list.push(cp);
+          const extra = typeof cp.starter_code === "object" && cp.starter_code !== null ? cp.starter_code : {};
+          const modId = extra.assessment_id || extra.module_id;
+          if (modId && allModuleIds.includes(modId)) {
+            if (!codingProblemsMap[modId]) {
+              codingProblemsMap[modId] = [];
+            }
+            codingProblemsMap[modId].push({
+              id: cp.id,
+              title: cp.title,
+              slug: cp.slug,
+              description: cp.description,
+              difficulty: cp.difficulty,
+              assessment_id: modId,
+              time_limit_ms: cp.time_limit_ms || 2000,
+              memory_limit_kb: (cp.memory_limit_mb || 256) * 1024,
+              templates: extra.templates || {},
+              starter_code: cp.starter_code,
+              sample_test_cases: extra.sample_test_cases || [],
+              test_cases: extra.test_cases || [],
+              example_cases: extra.example_cases || [],
+              constraints: extra.constraints || "",
+              input_format: extra.input_format || "",
+              output_format: extra.output_format || "",
+              points: extra.points || 100,
+              allowed_languages: extra.allowed_languages || ["c", "python", "java", "cpp"],
+              default_language: extra.default_language || "c",
+            });
           }
         });
       }
     }
-
-function toDeterministicUUID(str: string): string {
-  if (!str) return "00000000-0000-0000-0000-000000000000";
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
-    return str;
-  }
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  const hex1 = Math.abs(hash).toString(16).padStart(8, "0");
-  const hex2 = Math.abs((hash * 31) | 0).toString(16).padStart(8, "0");
-  const hex3 = Math.abs((hash * 57) | 0).toString(16).padStart(8, "0");
-  const hex4 = Math.abs((hash * 93) | 0).toString(16).padStart(8, "0");
-  const full = (hex1 + hex2 + hex3 + hex4).slice(0, 32);
-  return `${full.slice(0, 8)}-${full.slice(8, 12)}-4${full.slice(13, 16)}-a${full.slice(17, 20)}-${full.slice(20, 32)}`;
-}
 
     // Fetch student's submissions & attempts
     const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
@@ -842,6 +842,64 @@ export async function POST(
       );
     } catch (err) {
       console.warn("Could not upsert into student_practice_submissions:", err);
+    }
+
+    // Auto-sync any coding problems solved in this practice attempt to coding_submissions
+    // so they are marked as Completed / Solved in Code Lab challenges
+    if (targetModule && Array.isArray(targetModule.codingQuestions)) {
+      for (const cq of targetModule.codingQuestions) {
+        const cqId = cq.id;
+        const ans = baseEvaluationAnswers[cqId] || baseEvaluationAnswers[`coding_${cqId}`];
+        const isSolvedInPractice = ans?.status === "solved" || (ans?.score && ans.score > 0) || Boolean(ans?.code && ans?.code.trim().length > 10);
+        if (isSolvedInPractice) {
+          try {
+            const problemUUID = toDeterministicUUID(cqId);
+            // Ensure problem exists in coding_problems table
+            const { data: existingProb } = await adminClient
+              .from("coding_problems")
+              .select("id")
+              .eq("id", problemUUID)
+              .maybeSingle();
+
+            if (!existingProb) {
+              await (adminClient.from("coding_problems") as any).insert({
+                id: problemUUID,
+                title: cq.title || `Problem ${cqId}`,
+                slug: `prob-${String(cq.title || cqId).toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
+                description: cq.description || "Practice problem",
+                created_by: studentProfileId,
+                status: "published",
+              });
+            }
+
+            // Upsert accepted submission into coding_submissions
+            const { data: existingSub } = await adminClient
+              .from("coding_submissions")
+              .select("id")
+              .eq("problem_id", problemUUID)
+              .or(`student_id.eq.${studentProfileId},student_id.eq.${user.id}`)
+              .eq("status", "accepted")
+              .maybeSingle();
+
+            if (!existingSub) {
+              await (adminClient.from("coding_submissions") as any).insert([
+                {
+                  problem_id: problemUUID,
+                  student_id: studentProfileId,
+                  language: ans.language || "c",
+                  source_code: ans.code || "// Completed in Practice module",
+                  status: "accepted",
+                  passed_test_cases: cq.test_cases?.length || 1,
+                  total_test_cases: cq.test_cases?.length || 1,
+                  created_at: new Date().toISOString(),
+                },
+              ]);
+            }
+          } catch (syncErr) {
+            console.warn("Sync practice coding submission to Code Lab notice:", syncErr);
+          }
+        }
+      }
     }
 
     return NextResponse.json(

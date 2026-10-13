@@ -5,6 +5,7 @@ import { dispatchBatchNotification } from "@/lib/notifications/dispatcher";
 import { randomUUID } from "crypto";
 import {
   validateModuleMarks,
+  calculateEqualWeights,
   calculateQuestionWeightsSum,
   calculateSubmoduleTotalMarks,
   calculateMainModuleTotalMarks,
@@ -771,11 +772,18 @@ export async function POST(request: NextRequest) {
       const allQuestions = [...mcqQuestions, ...codingQuestions];
       if (allQuestions.length > 0) {
         const markValidation = validateModuleMarks(totalMarks, allQuestions, status !== "active");
-        if (!markValidation.isValid) {
-          return NextResponse.json({
-            error: markValidation.errorMessage || "The sum of question marks must match the configured module total marks.",
-            details: markValidation,
-          }, { status: 400 });
+        if (!markValidation.isValid && status === "active") {
+          const equalWeights = calculateEqualWeights(totalMarks, allQuestions.length);
+          let wIdx = 0;
+          mcqQuestions.forEach((q: any) => {
+            q.marks = equalWeights[wIdx++];
+          });
+          codingQuestions.forEach((cq: any) => {
+            const w = equalWeights[wIdx++];
+            cq.points = w;
+            cq.marks = w;
+            cq.weight = w;
+          });
         }
       }
 
@@ -940,11 +948,18 @@ export async function POST(request: NextRequest) {
       const allQuestions = [...mcqQuestions, ...codingQuestions];
       if (allQuestions.length > 0) {
         const markValidation = validateModuleMarks(totalMarks, allQuestions, status !== "active");
-        if (!markValidation.isValid) {
-          return NextResponse.json({
-            error: markValidation.errorMessage || "The sum of question marks must match the configured module total marks.",
-            details: markValidation,
-          }, { status: 400 });
+        if (!markValidation.isValid && status === "active") {
+          const equalWeights = calculateEqualWeights(totalMarks, allQuestions.length);
+          let wIdx = 0;
+          mcqQuestions.forEach((q: any) => {
+            q.marks = equalWeights[wIdx++];
+          });
+          codingQuestions.forEach((cq: any) => {
+            const w = equalWeights[wIdx++];
+            cq.points = w;
+            cq.marks = w;
+            cq.weight = w;
+          });
         }
       }
 

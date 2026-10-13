@@ -6,7 +6,9 @@ import { siteConfig } from "@/config/site";
 // Define protected route patterns and their required roles (RBAC)
 const ROUTE_ROLE_MAP: Record<string, string[]> = {
   "/admin": ["super_admin", "admin"],
+  "/api/admin/coding": ["super_admin", "admin", "trainer", "student"],
   "/api/admin": ["super_admin", "admin"],
+  "/coding": ["student", "trainer", "super_admin", "admin"],
   "/trainer": ["super_admin", "admin", "trainer"],
   "/api/trainer": ["super_admin", "admin", "trainer"],
   "/recruiter": ["super_admin", "admin", "recruiter"],

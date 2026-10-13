@@ -382,6 +382,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   // View Module Questions Modal State
   const [viewingQuestionsModule, setViewingQuestionsModule] = useState<PracticeModule | null>(null);
   const [viewQuestionsFilter, setViewQuestionsFilter] = useState<"all" | "mcq" | "coding">("all");
+  const [togglingCodeLabId, setTogglingCodeLabId] = useState<string | null>(null);
 
   // Fetch actual data from backend
   const fetchData = useCallback(async () => {
@@ -1229,16 +1230,74 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         if (!parentMainId || !parentSubId) throw new Error("Parent module hierarchy not found.");
 
         const isCurrentActive = activeMod.id === currentModule?.id || activeMod.id === selectedModuleId;
-        const currentMcqs = isCurrentActive ? mcqList : (activeMod.mcqQuestions || []);
-        const currentCodings = isCurrentActive ? codingList : (activeMod.codingQuestions || []);
+        const currentMcqs = (activeMod.mcqQuestions && activeMod.mcqQuestions.length > 0)
+          ? [...activeMod.mcqQuestions]
+          : (isCurrentActive && mcqList.length > 0 ? [...mcqList] : []);
+        const currentCodings = (activeMod.codingQuestions && activeMod.codingQuestions.length > 0)
+          ? [...activeMod.codingQuestions]
+          : (isCurrentActive && codingList.length > 0 ? [...codingList] : []);
+
+        const targetDeletedProblem = questionType === "coding" ? currentCodings[index] : null;
 
         const updatedMcqs = questionType === "mcq" ? currentMcqs.filter((_, i) => i !== index) : currentMcqs;
         const updatedCodings = questionType === "coding" ? currentCodings.filter((_, i) => i !== index) : currentCodings;
+
+        // Auto balance remaining questions points so module totalMarks constraint is satisfied
+        const remainingTotalCount = updatedMcqs.length + updatedCodings.length;
+        const totalMarks = activeMod.totalMarks || 100;
+        if (remainingTotalCount > 0) {
+          const weights = calculateEqualWeights(totalMarks, remainingTotalCount);
+          let wIdx = 0;
+          updatedMcqs.forEach((q: any) => {
+            q.marks = weights[wIdx++];
+          });
+          updatedCodings.forEach((cq: any) => {
+            const w = weights[wIdx++];
+            cq.points = w;
+            cq.marks = w;
+            cq.weight = w;
+          });
+        }
 
         if (isCurrentActive) {
           if (questionType === "mcq") setMcqList(updatedMcqs);
           if (questionType === "coding") setCodingList(updatedCodings);
         }
+
+        // Optimistically update viewingQuestionsModule immediately so user sees deletion right away!
+        if (viewingQuestionsModule && viewingQuestionsModule.id === activeMod.id) {
+          setViewingQuestionsModule({
+            ...viewingQuestionsModule,
+            mcqQuestions: updatedMcqs,
+            codingQuestions: updatedCodings,
+            questionCount: remainingTotalCount,
+          });
+        }
+
+        // Optimistically update tracks in memory so tree reflects it immediately
+        setTracks((prevTracks) => {
+          return prevTracks.map((main) => {
+            if (main.id !== parentMainId) return main;
+            return {
+              ...main,
+              submodules: (main.submodules || []).map((sub) => {
+                if (sub.id !== parentSubId) return sub;
+                return {
+                  ...sub,
+                  modules: (sub.modules || []).map((mod) => {
+                    if (mod.id !== activeMod.id) return mod;
+                    return {
+                      ...mod,
+                      mcqQuestions: updatedMcqs,
+                      codingQuestions: updatedCodings,
+                      questionCount: remainingTotalCount,
+                    };
+                  }),
+                };
+              }),
+            };
+          });
+        });
 
         const res = await fetch("/api/admin/practices", {
           method: "POST",
@@ -1253,19 +1312,22 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             codingSectionTitle: activeMod.codingSectionTitle || "Section 2: Coding",
             mcqQuestions: updatedMcqs,
             codingQuestions: updatedCodings,
+            totalMarks,
           }),
         });
 
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.error || "Delete failed");
 
-        if (viewingQuestionsModule && viewingQuestionsModule.id === activeMod.id) {
-          setViewingQuestionsModule({
-            ...viewingQuestionsModule,
-            mcqQuestions: updatedMcqs,
-            codingQuestions: updatedCodings,
-            questionCount: updatedMcqs.length + updatedCodings.length,
-          });
+        // If it was a coding problem with an id, also clean up from coding_problems table
+        if (targetDeletedProblem?.id) {
+          try {
+            await fetch(`/api/admin/coding?id=${encodeURIComponent(targetDeletedProblem.id)}`, {
+              method: "DELETE",
+            });
+          } catch (e) {
+            console.warn("Could not delete from coding_problems table:", e);
+          }
         }
 
         toast({ title: "Deleted", description: `"${title}" has been deleted successfully.` });
@@ -1308,6 +1370,124 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       title,
       targetModule: m,
     });
+  };
+
+  // Toggle Coding Problem Scope (Practice Only <-> Code Lab)
+  const handleToggleCodeLabScope = async (m: PracticeModule, cp: any, index: number) => {
+    const isCurrentlyCodeLab = Boolean(
+      cp.is_codelab === true ||
+      cp.isCodeLab === true ||
+      cp.scope === "codelab" ||
+      cp.scope === "both" ||
+      (typeof cp.starter_code === "object" && (
+        cp.starter_code?.is_codelab === true ||
+        cp.starter_code?.scope === "codelab" ||
+        cp.starter_code?.scope === "both"
+      ))
+    );
+
+    const newScope = !isCurrentlyCodeLab;
+    const targetId = cp.id || `cp-${index}`;
+    setTogglingCodeLabId(targetId);
+
+    // 1. Optimistic update
+    const updatedQuestion = {
+      ...cp,
+      is_codelab: newScope,
+      isCodeLab: newScope,
+      scope: newScope ? "both" : "practice",
+      starter_code: {
+        ...(typeof cp.starter_code === "object" ? cp.starter_code : {}),
+        is_codelab: newScope,
+        scope: newScope ? "both" : "practice",
+      },
+    };
+
+    const currentCodings = [...(m.codingQuestions || [])];
+    currentCodings[index] = updatedQuestion;
+
+    if (viewingQuestionsModule && viewingQuestionsModule.id === m.id) {
+      setViewingQuestionsModule({
+        ...viewingQuestionsModule,
+        codingQuestions: currentCodings,
+      });
+    }
+
+    if (selectedModuleId === m.id) {
+      setCodingList(currentCodings);
+    }
+
+    // Also update in tracks state
+    setTracks((prevTracks) => {
+      return prevTracks.map((main) => ({
+        ...main,
+        submodules: (main.submodules || []).map((sub) => ({
+          ...sub,
+          modules: (sub.modules || []).map((mod) => {
+            if (mod.id !== m.id) return mod;
+            return {
+              ...mod,
+              codingQuestions: currentCodings,
+            };
+          }),
+        })),
+      }));
+    });
+
+    try {
+      // 2. Resolve hierarchy to persist in practice_tracks
+      const resolvedHierarchy = resolveHierarchyForModule(m.id);
+      const parentMainId = m.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
+      const parentSubId = m.submodule_id || currentSubmodule?.id || resolvedHierarchy.submodule?.id;
+
+      if (parentMainId && parentSubId) {
+        await fetch("/api/admin/practices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_module",
+            main_module_id: parentMainId,
+            submodule_id: parentSubId,
+            id: m.id,
+            name: m.name || m.title,
+            codingQuestions: currentCodings,
+            mcqQuestions: m.mcqQuestions || [],
+            totalMarks: m.totalMarks || 100,
+          }),
+        });
+      }
+
+      // 3. Sync to coding_problems table if problem has an ID
+      if (cp.id) {
+        await fetch("/api/admin/coding", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...cp,
+            id: cp.id,
+            scope: newScope ? "both" : "practice",
+            starter_code: {
+              ...(typeof cp.starter_code === "object" ? cp.starter_code : {}),
+              is_codelab: newScope,
+              scope: newScope ? "both" : "practice",
+            },
+          }),
+        });
+      }
+
+      toast({
+        title: newScope ? "Published to Code Lab" : "Removed from Code Lab",
+        description: `"${cp.title || "Problem"}" is ${newScope ? "now available in Code Lab challenges" : "restricted to practice module only"}.`,
+      });
+    } catch (err: any) {
+      console.error("Error toggling Code Lab scope:", err);
+      toast({
+        title: "Toggle Saved",
+        description: "Updated locally in current session.",
+      });
+    } finally {
+      setTogglingCodeLabId(null);
+    }
   };
 
   // 6. BULK IMPORT HANDLER (FOR CODING CHALLENGES & MCQS)
@@ -2786,7 +2966,50 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                               {tcCount > 0 && <span>Test Cases: <strong>{tcCount}</strong></span>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                            {/* Code Lab Scope Toggle in Editor */}
+                            {Boolean(currentModule || (selectedModuleId && resolveHierarchyForModule(selectedModuleId).module)) && (
+                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-2xs">
+                                <span className="text-[10px] font-semibold text-slate-700 dark:text-zinc-300">
+                                  Code Lab
+                                </span>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={Boolean(
+                                    cp.is_codelab === true ||
+                                    cp.isCodeLab === true ||
+                                    cp.scope === "codelab" ||
+                                    cp.scope === "both" ||
+                                    (typeof cp.starter_code === "object" && (
+                                      cp.starter_code?.is_codelab === true ||
+                                      cp.starter_code?.scope === "codelab" ||
+                                      cp.starter_code?.scope === "both"
+                                    ))
+                                  )}
+                                  onClick={() => {
+                                    const m = currentModule || (selectedModuleId ? resolveHierarchyForModule(selectedModuleId).module : null);
+                                    if (m) handleToggleCodeLabScope(m, cp, idx);
+                                  }}
+                                  className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                    (cp.is_codelab === true || cp.scope === "codelab" || cp.scope === "both" || (typeof cp.starter_code === "object" && (cp.starter_code?.is_codelab === true || cp.starter_code?.scope === "codelab" || cp.starter_code?.scope === "both")))
+                                      ? "bg-emerald-600"
+                                      : "bg-slate-300 dark:bg-zinc-700"
+                                  }`}
+                                  title="Toggle Code Lab Challenge visibility"
+                                >
+                                  <span
+                                    aria-hidden="true"
+                                    className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                                      (cp.is_codelab === true || cp.scope === "codelab" || cp.scope === "both" || (typeof cp.starter_code === "object" && (cp.starter_code?.is_codelab === true || cp.starter_code?.scope === "codelab" || cp.starter_code?.scope === "both")))
+                                        ? "translate-x-3.5"
+                                        : "translate-x-0"
+                                    }`}
+                                  />
+                                </button>
+                              </div>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => {
@@ -3855,7 +4078,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       )}
 
       {/* ─── MODAL 4: VIEW QUESTIONS (WITH DIRECT EDIT & DELETE) ─────────── */}
-      {mounted && typeof document !== "undefined" && viewingQuestionsModule && currentMainModule && currentSubmodule && createPortal(
+      {mounted && typeof document !== "undefined" && viewingQuestionsModule && createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
           <div className="fixed inset-0 cursor-pointer" onClick={() => setViewingQuestionsModule(null)} />
           <div className="relative w-full max-w-3xl max-h-[90vh] bg-white dark:bg-[#0F172A] border border-slate-200/80 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10 animate-in zoom-in-95 duration-200 my-auto">
@@ -3990,11 +4213,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                   {q.marks || 10} Marks
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 shrink-0">
                                 <button
                                   type="button"
                                   onClick={() => handleEditQuestionFromView(viewingQuestionsModule, "mcq", qIdx)}
-                                  className="h-7 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors"
+                                  className="h-7 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
                                 >
                                   <Edit3 className="w-3 h-3 text-blue-600" />
                                   <span>Edit</span>
@@ -4002,7 +4225,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteQuestionFromView(viewingQuestionsModule, "mcq", qIdx, `MCQ Question #${qIdx + 1}`)}
-                                  className="h-7 px-3 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors"
+                                  className="h-7 px-3 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
                                 >
                                   <Trash2 className="w-3 h-3" />
                                   <span>Delete</span>
@@ -4057,21 +4280,34 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         {(viewingQuestionsModule.codingQuestions || []).map((cp, cIdx) => {
                           const tcCount = (cp.test_cases?.length || 0) + (cp.sample_test_cases?.length || 0) + (cp.hidden_test_cases?.length || 0);
                           const diff = (cp.difficulty || "medium").toLowerCase();
+                          const isCodeLabActive = Boolean(
+                            cp.is_codelab === true ||
+                            cp.isCodeLab === true ||
+                            cp.scope === "codelab" ||
+                            cp.scope === "both" ||
+                            (typeof cp.starter_code === "object" && (
+                              cp.starter_code?.is_codelab === true ||
+                              cp.starter_code?.scope === "codelab" ||
+                              cp.starter_code?.scope === "both"
+                            ))
+                          );
+                          const isToggling = togglingCodeLabId === (cp.id || `cp-${cIdx}`);
+
                           return (
                             <div
                               key={cp.id || cIdx}
                               className="p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors"
                             >
                               <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-mono text-xs font-bold text-slate-700 dark:text-zinc-300">
+                                <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                                  <span className="font-mono text-xs font-bold text-slate-700 dark:text-zinc-300 shrink-0">
                                     #{cp.problem_number || cIdx + 1}.
                                   </span>
-                                  <strong className="text-xs font-bold text-slate-900 dark:text-white">
+                                  <strong className="text-xs font-bold text-slate-900 dark:text-white truncate">
                                     {cp.title || "Untitled Coding Problem"}
                                   </strong>
                                   <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${
                                       diff === "easy"
                                         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
                                         : diff === "hard"
@@ -4081,15 +4317,45 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                   >
                                     {cp.difficulty || "Medium"}
                                   </span>
-                                  <span className="text-xs text-slate-500 font-semibold">
+                                  <span className="text-xs text-slate-500 font-semibold shrink-0">
                                     {cp.points || 100} Points
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {/* Code Lab Scope Toggle */}
+                                  <div className="h-7 flex items-center gap-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 shadow-2xs">
+                                    <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300 select-none">
+                                      Code Lab
+                                    </span>
+                                    <button
+                                      type="button"
+                                      role="switch"
+                                      aria-checked={isCodeLabActive}
+                                      disabled={isToggling}
+                                      onClick={() => handleToggleCodeLabScope(viewingQuestionsModule, cp, cIdx)}
+                                      className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
+                                        isCodeLabActive ? "bg-emerald-600" : "bg-slate-300 dark:bg-zinc-700"
+                                      }`}
+                                      title={isCodeLabActive ? "Published to Code Lab (Click to disable)" : "Practice only (Click to publish to Code Lab)"}
+                                    >
+                                      <span
+                                        aria-hidden="true"
+                                        className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                                          isCodeLabActive ? "translate-x-3.5" : "translate-x-0"
+                                        }`}
+                                      />
+                                    </button>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                                      isCodeLabActive ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-zinc-500"
+                                    }`}>
+                                      {isToggling ? "..." : isCodeLabActive ? "Active" : "Off"}
+                                    </span>
+                                  </div>
+
                                   <button
                                     type="button"
                                     onClick={() => handleEditQuestionFromView(viewingQuestionsModule, "coding", cIdx)}
-                                    className="h-7 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors"
+                                    className="h-7 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
                                   >
                                     <Edit3 className="w-3 h-3 text-blue-600" />
                                     <span>Edit</span>
@@ -4097,7 +4363,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteQuestionFromView(viewingQuestionsModule, "coding", cIdx, cp.title || `Coding Problem #${cIdx + 1}`)}
-                                    className="h-7 px-3 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors"
+                                    className="h-7 px-3 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap"
                                   >
                                     <Trash2 className="w-3 h-3" />
                                     <span>Delete</span>
@@ -4154,7 +4420,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
       {/* ─── MNC-LEVEL ENTERPRISE DELETE CONFIRMATION MODAL ──────────────── */}
       {mounted && typeof document !== "undefined" && deleteTarget && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[10000] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
           <div 
             className="fixed inset-0 cursor-pointer" 
             onClick={() => { if (!isDeleting) setDeleteTarget(null); }} 

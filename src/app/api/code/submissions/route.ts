@@ -65,6 +65,50 @@ export async function GET(request: NextRequest) {
       created_at: r.created_at,
     }));
 
+    // Seamlessly include any coding problems solved in Practice tracks
+    try {
+      const { data: practiceAttempts } = await adminClient
+        .from("assessment_attempts")
+        .select("id, answers, submitted_at, created_at")
+        .or(`student_id.eq.${targetStudentId},student_id.eq.${user.id}`)
+        .not("answers", "is", null);
+
+      if (practiceAttempts && practiceAttempts.length > 0) {
+        for (const att of practiceAttempts) {
+          const ans = att.answers || {};
+          for (const [key, val] of Object.entries(ans)) {
+            if (key === "_meta") continue;
+            const item = val as any;
+            if (!item || typeof item !== "object") continue;
+            const isSolved = item.status === "solved" || (typeof item.score === "number" && item.score > 0);
+            if (isSolved) {
+              const pId = item.questionId || key;
+              const alreadyHas = formatted.some((s: any) => s.problem_id === pId && s.status === "accepted");
+              if (!alreadyHas) {
+                formatted.unshift({
+                  id: `practice-${att.id}-${pId}`,
+                  problem_id: pId,
+                  problem_title: item.title || `Problem ${pId}`,
+                  problem_slug: undefined,
+                  student_id: targetStudentId,
+                  language: item.language || "c",
+                  code: item.code || "// Completed in Practice",
+                  status: "accepted",
+                  passed_test_cases: 1,
+                  total_test_cases: 1,
+                  execution_time: undefined,
+                  results: [],
+                  created_at: att.submitted_at || att.created_at || new Date().toISOString(),
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (practiceSyncErr) {
+      console.warn("Notice syncing practice attempts for coding submissions:", practiceSyncErr);
+    }
+
     return NextResponse.json({
       success: true,
       submissions: formatted,

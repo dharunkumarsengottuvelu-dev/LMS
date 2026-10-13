@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const scopeParam = searchParams.get("scope") || searchParams.get("context") || "codelab";
 
-    // 1. Fetch practice tracks to isolate practice problems from Code Lab
+    // 1. Fetch practice tracks to identify practice problem associations
     const { data: dbTracks } = await supabase.from("practice_tracks").select("sub_modules, tags");
     const practiceProblemIds = new Set<string>();
     (dbTracks || []).forEach((t: any) => {
@@ -40,16 +40,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: pError.message }, { status: 500 });
     }
 
-    // 3. Filter by scope at API/Query level: Code Lab never receives Practice problems
+    // 3. Scope separation (Option 1 with toggle support):
+    // - "codelab": problems created for Code Lab + practice problems explicitly toggled on for Code Lab
+    // - "practice": problems created for Practice tracks
+    // - "all": all problems
     const dbProblems = (rawProblems || []).filter((p: any) => {
       const extra = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
+      const isExplicitCodeLab =
+        extra.is_codelab === true ||
+        extra.isCodeLab === true ||
+        extra.scope === "codelab" ||
+        extra.scope === "both" ||
+        (p as any).is_codelab === true ||
+        (p as any).isCodeLab === true ||
+        (p as any).scope === "codelab" ||
+        (p as any).scope === "both";
       const isPractice = extra.scope === "practice" || !!extra.module_id || practiceProblemIds.has(p.id);
 
       if (scopeParam === "practice") {
-        return isPractice;
+        return isPractice || extra.scope === "both";
       }
-      // "codelab": strictly exclude practice problems
-      return !isPractice;
+      if (scopeParam === "codelab") {
+        if (isExplicitCodeLab) return true;
+        return !isPractice && extra.scope !== "practice";
+      }
+      // "all": return all problems
+      return true;
     });
 
     if (!dbProblems || dbProblems.length === 0) {
@@ -236,8 +252,6 @@ export async function POST(request: NextRequest) {
               memory_limit_mb: problem.memory_limit_mb || 256,
               starter_code: starterCodePayload,
               solution_code: solutionCodePayload,
-              sample_test_cases: sampleTestCases,
-              test_cases: allTestCases,
               status: problem.status || "published",
               updated_at: new Date().toISOString(),
             },
@@ -265,8 +279,6 @@ export async function POST(request: NextRequest) {
               memory_limit_mb: problem.memory_limit_mb || 256,
               starter_code: starterCodePayload,
               solution_code: solutionCodePayload,
-              sample_test_cases: sampleTestCases,
-              test_cases: allTestCases,
               status: problem.status || "published",
             },
           ])

@@ -15,7 +15,7 @@ import { SubmissionService } from "@/services/submission.service";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import type { CodingSubmission } from "@/types/coding";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 
 export default function CodingDashboardPage() {
   const router = useRouter();
@@ -288,8 +288,9 @@ export default function CodingDashboardPage() {
                             {prob.difficulty}
                           </span>
                           {status === "solved" ? (
-                            <span className="text-[11px] font-medium text-emerald-700">
-                              Solved
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              Completed
                             </span>
                           ) : status === "in_progress" ? (
                             <span className="text-[11px] font-medium text-amber-700">
@@ -328,9 +329,13 @@ export default function CodingDashboardPage() {
                       <Link href={`/coding/problems/${prob.id}`}>
                         <Button
                           size="sm"
-                          className="h-7 px-3 rounded text-xs font-medium bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-700 transition-colors shadow-none"
+                          className={`h-7 px-3 rounded text-xs font-medium transition-colors shadow-none ${
+                            status === "solved"
+                              ? "bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200"
+                              : "bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-700"
+                          }`}
                         >
-                          Solve
+                          {status === "solved" ? "Completed" : status === "in_progress" ? "Continue" : "Solve"}
                         </Button>
                       </Link>
                     </div>
