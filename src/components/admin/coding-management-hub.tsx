@@ -256,13 +256,13 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
           <table className="w-full text-left text-sm border-collapse">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                <th className="py-2.5 px-4 w-14">#</th>
-                <th className="py-2.5 px-4">Problem Name</th>
-                <th className="py-2.5 px-4 w-28">Difficulty</th>
-                <th className="py-2.5 px-4 w-28">Type</th>
-                <th className="py-2.5 px-4 w-36">Test Cases</th>
-                <th className="py-2.5 px-4 w-24">Points</th>
-                <th className="py-2.5 px-4 text-right w-28">Actions</th>
+                <th className="py-2.5 px-4 w-12 text-left whitespace-nowrap">#</th>
+                <th className="py-2.5 px-4 min-w-[220px] text-left">Problem Name</th>
+                <th className="py-2.5 px-4 whitespace-nowrap text-left">Difficulty</th>
+                <th className="py-2.5 px-4 whitespace-nowrap text-left">Type</th>
+                <th className="py-2.5 px-4 whitespace-nowrap text-left">Test Cases</th>
+                <th className="py-2.5 px-4 whitespace-nowrap text-left">Points</th>
+                <th className="py-2.5 px-4 whitespace-nowrap text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -286,30 +286,26 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
                   const testCases = prob.test_cases || [];
                   const publicCount = testCases.filter((tc) => !tc.is_hidden).length;
                   const hiddenCount = testCases.filter((tc) => tc.is_hidden).length;
-                  const isSql = prob.category === "Databases" || !!prob.sql_engine;
+                  const isSql = prob.category === "Databases" || prob.category === "SQL" || (prob as any).type === "SQL" || !!prob.sql_engine;
+                  const rawType = (prob as any).type || prob.category || (isSql ? "SQL" : "Algorithm");
 
                   return (
                     <tr key={prob.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-400 whitespace-nowrap" title={prob.id}>
+                      <td className="py-3.5 px-4 font-mono text-xs font-semibold text-slate-400 whitespace-nowrap align-middle" title={prob.id}>
                         #{idx + 1}
                       </td>
 
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900 text-xs">
+                      <td className="py-3.5 px-4 align-middle">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-slate-900 text-xs whitespace-nowrap">
                             {prob.title}
                           </span>
-                          {prob.slug && (
-                            <span className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded">
-                              {prob.slug}
-                            </span>
-                          )}
                         </div>
                       </td>
 
-                      <td className="py-3 px-4">
+                      <td className="py-3.5 px-4 whitespace-nowrap align-middle">
                         <span
-                          className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold capitalize ${
+                          className={`inline-block px-2.5 py-0.5 rounded text-[11px] font-semibold capitalize ${
                             prob.difficulty === "easy"
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                               : prob.difficulty === "medium"
@@ -321,43 +317,45 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
                         </span>
                       </td>
 
-                      <td className="py-3 px-4">
-                        {isSql ? (
-                          <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
-                            SQL
-                          </span>
-                        ) : (
-                          <span className="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                            Algorithm
-                          </span>
-                        )}
+                      <td className="py-3.5 px-4 whitespace-nowrap align-middle">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded text-[11px] font-medium capitalize ${
+                            isSql || rawType.toLowerCase() === "sql"
+                              ? "bg-purple-50 text-purple-700 border border-purple-200"
+                              : "bg-blue-50 text-blue-700 border border-blue-200"
+                          }`}
+                        >
+                          {rawType}
+                        </span>
                       </td>
 
-                      <td className="py-3 px-4 text-xs">
-                        <div className="flex items-center gap-1.5 font-medium text-slate-600">
+                      <td className="py-3.5 px-4 text-xs whitespace-nowrap align-middle">
+                        <div className="inline-flex items-center gap-1.5 font-medium text-slate-600 whitespace-nowrap">
                           <span>{publicCount} public</span>
                           <span className="text-slate-300">•</span>
                           <span className="text-slate-400">{hiddenCount} hidden</span>
                         </div>
                       </td>
 
-                      <td className="py-3 px-4 text-xs font-semibold text-slate-700">
-                        {prob.points || 10} pts
+                      <td className="py-3.5 px-4 text-xs font-semibold text-slate-700 whitespace-nowrap align-middle">
+                        {prob.points || 100} pts
                       </td>
 
                       {/* Admin Actions: Edit & Delete only */}
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2 text-xs">
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap align-middle">
+                        <div className="inline-flex items-center justify-end gap-2 text-xs whitespace-nowrap">
                           <button
+                            type="button"
                             onClick={() => handleOpenEdit(prob)}
-                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                           >
                             Edit
                           </button>
                           <span className="text-slate-300">|</span>
                           <button
+                            type="button"
                             onClick={() => setProblemToDelete(prob as CodingProblem)}
-                            className="font-medium text-rose-600 hover:text-rose-800 hover:underline"
+                            className="font-medium text-rose-600 hover:text-rose-800 hover:underline cursor-pointer"
                           >
                             Delete
                           </button>

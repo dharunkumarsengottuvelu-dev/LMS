@@ -26,6 +26,7 @@ import {
   Lock,
   AlertTriangle,
   ShieldCheck,
+  ShieldAlert,
   CheckCheck,
   History,
   FileCode,
@@ -59,6 +60,7 @@ import {
   normalizeExpectedOutput,
   extractSampleTestCases,
 } from "@/lib/compiler/comparator";
+import { EditorialViewer } from "@/components/coding/editorial-viewer";
 
 // Lazy load Monaco editor in Pure Light ("vs") theme
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
@@ -251,6 +253,138 @@ export default function StudentPracticeCodingRunnerPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isEditorFullscreen]);
+
+  // ─── MNC ASSESSMENT PROCTORING & SECURITY CONTROLS ────────────────────────
+  const isEnforceFullscreen = Boolean(currentProblem?.enforce_fullscreen || currentProblem?.starter_code?.enforce_fullscreen);
+  const isRestrictCopyPaste = Boolean(currentProblem?.restrict_copy_paste || currentProblem?.starter_code?.restrict_copy_paste);
+  const isRestrictScreenshot = Boolean(currentProblem?.restrict_screenshot || currentProblem?.starter_code?.restrict_screenshot);
+
+  const [isFullscreenActive, setIsFullscreenActive] = useState<boolean>(false);
+  const [fullscreenWarningOpen, setFullscreenWarningOpen] = useState<boolean>(false);
+  const [proctoringViolationCount, setProctoringViolationCount] = useState<number>(0);
+  const [isScreenCaptureBlur, setIsScreenCaptureBlur] = useState<boolean>(false);
+
+  // Full Screen Lockdown Handler
+  useEffect(() => {
+    if (!isEnforceFullscreen) return;
+
+    const handleFullscreenChange = () => {
+      const isFs = !!document.fullscreenElement;
+      setIsFullscreenActive(isFs);
+      if (!isFs) {
+        setFullscreenWarningOpen(true);
+        setProctoringViolationCount((prev) => prev + 1);
+        toast({
+          title: "Full Screen Warning",
+          description: "Full screen mode exited. Please return to full screen to continue.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    if (!document.fullscreenElement) {
+      setFullscreenWarningOpen(true);
+    } else {
+      setIsFullscreenActive(true);
+    }
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, [isEnforceFullscreen]);
+
+  const handleEnterAssessmentFullscreen = async () => {
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+      setIsFullscreenActive(true);
+      setFullscreenWarningOpen(false);
+    } catch (err) {
+      console.warn("Fullscreen request error:", err);
+    }
+  };
+
+  // Restrict Copy & Paste Handler
+  useEffect(() => {
+    if (!isRestrictCopyPaste) return;
+
+    const handleCopyCutPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toast({
+        title: "Action Restricted",
+        description: "Copy and paste operations are restricted for this assessment.",
+        variant: "destructive",
+      });
+    };
+
+    window.addEventListener("copy", handleCopyCutPaste, true);
+    window.addEventListener("cut", handleCopyCutPaste, true);
+    window.addEventListener("paste", handleCopyCutPaste, true);
+
+    return () => {
+      window.removeEventListener("copy", handleCopyCutPaste, true);
+      window.removeEventListener("cut", handleCopyCutPaste, true);
+      window.removeEventListener("paste", handleCopyCutPaste, true);
+    };
+  }, [isRestrictCopyPaste]);
+
+  // Anti-Screenshot & Screen Capture Protection Handler
+  useEffect(() => {
+    if (!isRestrictScreenshot) return;
+
+    const handleAntiScreenshotKey = (e: KeyboardEvent) => {
+      if (
+        e.key === "PrintScreen" ||
+        (e.ctrlKey && e.key.toLowerCase() === "p") ||
+        (e.ctrlKey && e.shiftKey && ["s", "i", "c", "j"].includes(e.key.toLowerCase())) ||
+        e.key === "F12"
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          navigator.clipboard.writeText("");
+        } catch (_) {}
+        toast({
+          title: "Capture Restricted",
+          description: "Screen capture, printing, and developer inspection are restricted.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      toast({
+        title: "Action Restricted",
+        description: "Right-click context menu is disabled for this assessment.",
+        variant: "destructive",
+      });
+    };
+
+    const handleBlur = () => {
+      setIsScreenCaptureBlur(true);
+    };
+
+    const handleFocus = () => {
+      setIsScreenCaptureBlur(false);
+    };
+
+    window.addEventListener("keydown", handleAntiScreenshotKey, true);
+    window.addEventListener("contextmenu", handleContextMenu, true);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("keydown", handleAntiScreenshotKey, true);
+      window.removeEventListener("contextmenu", handleContextMenu, true);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [isRestrictScreenshot]);
 
   // Custom Input & Execution
   const [customInputText, setCustomInputText] = useState<string>("");
@@ -2312,44 +2446,13 @@ export default function StudentPracticeCodingRunnerPage() {
             {/* TAB 2: SOLUTIONS */}
             {leftTab === "solutions" && (
               <div className="space-y-4">
-                <h2 className="text-sm font-bold text-slate-900">Official Editorial Solutions</h2>
-                {currentProblem.solution_editorial ? (
-                  <div className="space-y-4">
-                    <p className="text-xs text-slate-600 leading-relaxed bg-blue-50/60 p-3 rounded-lg border border-blue-100">
-                      {currentProblem.solution_editorial.overview}
-                    </p>
-                    {currentProblem.solution_editorial.approaches?.map((app: any, idx: number) => (
-                      <div key={idx} className="p-3.5 rounded-xl border border-slate-200 space-y-2 bg-slate-50/50">
-                        <h3 className="font-bold text-xs text-slate-900">{app.name}</h3>
-                        <p className="text-xs text-slate-600 leading-relaxed">{app.explanation}</p>
-                        {Object.entries(app.code || {}).map(([lKey, snippet]: any) => (
-                          <div key={lKey} className="mt-2 rounded-lg border border-slate-200 overflow-hidden bg-white">
-                            <div className="bg-slate-100 px-3 py-1 flex items-center justify-between text-[11px] font-bold text-slate-600 uppercase">
-                              <span>{lKey}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleCopyCode(`${idx}-${lKey}`, snippet)}
-                                className="text-slate-500 hover:text-slate-900 cursor-pointer flex items-center gap-1"
-                              >
-                                {copiedCodeKey === `${idx}-${lKey}` ? (
-                                  <Check className="w-3 h-3 text-emerald-600" />
-                                ) : (
-                                  <Copy className="w-3 h-3" />
-                                )}
-                                <span>Copy</span>
-                              </button>
-                            </div>
-                            <pre className="p-3 text-xs font-mono text-slate-800 overflow-x-auto whitespace-pre">
-                              {snippet}
-                            </pre>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500">No editorial solutions available for this question.</p>
-                )}
+                <div className="pb-1 border-b border-slate-100">
+                  <h2 className="text-sm font-bold text-slate-900">Official Editorial Solutions</h2>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Structured algorithmic approach, reference implementation, and complexity analysis.
+                  </p>
+                </div>
+                <EditorialViewer editorial={currentProblem.solution_editorial} />
               </div>
             )}
 
@@ -2943,15 +3046,14 @@ export default function StudentPracticeCodingRunnerPage() {
                                   "p-2.5 bg-white rounded-lg border font-mono text-xs whitespace-pre-wrap break-all min-h-[38px] max-h-48 overflow-y-auto shadow-2xs leading-relaxed",
                                   r.passed ? "border-slate-200 text-slate-800" : "border-rose-200 text-rose-900 bg-rose-50/20"
                                 )}>
-                                  {r.actual_output && r.actual_output.trim() ? r.actual_output : (r.passed ? "Match" : "(No output produced)")}
+                                  {r.actual_output && r.actual_output.trim() && r.actual_output !== "Error: Output mismatch" && r.actual_output !== "Mismatch (Hidden Test Case)"
+                                    ? r.actual_output
+                                    : (r.passed ? "Match" : "(No output produced)")}
                                 </pre>
                               </div>
                             </div>
 
-                            {r.error &&
-                              r.error !== "Accepted" &&
-                              r.error !== "Output mismatch" &&
-                              !r.error.toLowerCase().includes("mismatch") && (
+                            {r.error && r.error !== "Accepted" && (
                               <div className="p-2.5 bg-rose-50/90 border border-rose-200 rounded-lg space-y-1">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block font-sans">
                                   Error / Diagnostic:
@@ -3310,6 +3412,66 @@ export default function StudentPracticeCodingRunnerPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Anti-Screen Capture Focus Blur Overlay */}
+      {isRestrictScreenshot && isScreenCaptureBlur && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white">
+          <div className="max-w-md p-6 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl space-y-3">
+            <div className="w-10 h-10 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto border border-rose-500/30">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-white">Assessment Protected</h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Window focus lost. In accordance with enterprise proctoring guidelines, workspace content is shielded until you return to the assessment window.
+            </p>
+            <Button
+              type="button"
+              onClick={() => setIsScreenCaptureBlur(false)}
+              className="h-9 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+            >
+              Resume Assessment
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Required Lockdown Dialog */}
+      {isEnforceFullscreen && fullscreenWarningOpen && (
+        <Dialog open={fullscreenWarningOpen} onOpenChange={() => {}}>
+          <DialogContent className="sm:max-w-md rounded-2xl p-6 bg-white border border-slate-200 shadow-xl [&>button]:hidden">
+            <DialogHeader className="space-y-2">
+              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-100">
+                <Maximize2 className="w-5 h-5" />
+              </div>
+              <DialogTitle className="text-center text-base font-bold text-slate-900">
+                Full Screen Required
+              </DialogTitle>
+              <DialogDescription className="text-center text-xs text-slate-500 leading-relaxed">
+                This assessment is running in lockdown mode. Full screen is mandatory to ensure testing integrity. Exiting full screen is logged.
+              </DialogDescription>
+            </DialogHeader>
+
+            {proctoringViolationCount > 0 && (
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-center">
+                <span className="text-xs font-semibold text-amber-800">
+                  Full screen exits recorded: {proctoringViolationCount}
+                </span>
+              </div>
+            )}
+
+            <div className="pt-3">
+              <Button
+                type="button"
+                onClick={handleEnterAssessmentFullscreen}
+                className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-2 shadow-sm cursor-pointer"
+              >
+                <Maximize2 className="w-4 h-4" />
+                <span>Enter Full Screen to Continue</span>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

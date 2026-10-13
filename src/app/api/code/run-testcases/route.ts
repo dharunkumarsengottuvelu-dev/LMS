@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
     let earlyCompileError: string | null = null;
 
     for (const tc of testCases) {
+      const isHidden = Boolean(tc.is_hidden || tc.isHidden || tc.hidden);
       let passed = false;
       let trimmedActual = "";
       const rawInput = tc.input !== undefined ? tc.input : (tc.stdin !== undefined ? tc.stdin : "");
@@ -141,6 +142,11 @@ export async function POST(request: NextRequest) {
         } else {
           trimmedActual = JSON.stringify(sqlRes.rows);
           passed = SQLExecutionService.compareSQLResults(sqlRes, expectedOutput.trim(), comparisonMode);
+          if (!passed) {
+            resError = isHidden
+              ? `Query output mismatch: Your query returned ${trimmedActual}, which does not match the expected dataset.`
+              : `Query output mismatch: Expected ${expectedOutput}, but received ${trimmedActual}`;
+          }
         }
       } else {
         const cacheKey = `${language}:::${cleanInput}`;
@@ -148,28 +154,48 @@ export async function POST(request: NextRequest) {
           const cached = executionCache.get(cacheKey)!;
           trimmedActual = cached.trimmedActual;
           execTime = cached.execTime;
-          const isSuccess = !cached.resError || cached.resError === "Output mismatch";
+          const isSuccess = !cached.resError || cached.resError.startsWith("Output mismatch");
           passed = isSuccess && compareOutput(trimmedActual, expectedOutput, "WHITESPACE_NORMALIZED");
           if (!passed) {
-            resError = isSuccess ? "Output mismatch" : (cached.resError || "Execution Error");
+            if (!isSuccess) {
+              resError = cached.resError || "Execution Error";
+            } else if (trimmedActual) {
+              resError = isHidden
+                ? `Output mismatch: Your code produced "${trimmedActual}", which does not match expected output.`
+                : `Output mismatch: Expected "${expectedOutput}", but received "${trimmedActual}".`;
+            } else {
+              resError = "Output mismatch: No output produced by your code (empty stdout). Please ensure your solution prints or returns the expected result.";
+            }
           }
         } else {
           const res = await UniversalExecutor.execute(language, code, cleanInput, 25000);
           trimmedActual = (res.stdout || "").trim();
           execTime = parseFloat(res.time) || 0.02;
 
-          const isSuccess = res.outcome === 15 || res.status?.id === 3 || res.outcome === 0;
+          const hasStderr = Boolean(res.stderr && res.stderr.trim());
+          const hasCompileError = Boolean(res.compile_output && res.compile_output.trim());
+          const isSuccess = (res.outcome === 15 || res.status?.id === 3 || res.outcome === 0) && !hasStderr && !hasCompileError;
           passed = isSuccess && compareOutput(trimmedActual, expectedOutput, "WHITESPACE_NORMALIZED");
 
           if (!passed) {
-            if (!isSuccess) {
-              resError = res.compile_output || res.stderr || (res.message && res.message !== "Accepted" ? res.message : null) || "Execution Error";
+            if (hasCompileError) {
+              resError = res.compile_output.trim();
+            } else if (hasStderr) {
+              resError = res.stderr.trim();
+            } else if (!isSuccess && res.message && res.message !== "Accepted") {
+              resError = res.message;
             } else {
-              resError = "Output mismatch";
+              if (trimmedActual) {
+                resError = isHidden
+                  ? `Output mismatch: Your code produced "${trimmedActual}", which does not match expected output.`
+                  : `Output mismatch: Expected "${expectedOutput}", but received "${trimmedActual}".`;
+              } else {
+                resError = "Output mismatch: No output produced by your code (empty stdout). Please ensure your solution prints or returns the expected result.";
+              }
             }
           }
 
-          if (res.status?.id === 6 || res.outcome === 11 || (!isSuccess && res.compile_output && res.compile_output.trim())) {
+          if (res.status?.id === 6 || res.outcome === 11 || (hasCompileError)) {
             earlyCompileError = res.compile_output || res.stderr || "Compilation Error";
           }
 
@@ -182,17 +208,16 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const isHidden = Boolean(tc.is_hidden || tc.isHidden || tc.hidden);
+      const displayActual = trimmedActual || (resError && !resError.startsWith("Output mismatch") ? resError : (passed ? (isHidden ? "Match" : expectedOutput) : "(No output produced)"));
+
       testResults.push({
         test_case_id: tc.id || `tc_${testResults.length + 1}`,
         passed,
         is_hidden: isHidden,
         input: isHidden ? undefined : (rawInput !== undefined && rawInput !== null ? String(rawInput) : ""),
-        actual_output: isHidden
-          ? (passed ? "Match (Passed against hidden test case)" : (resError ? `Error: ${resError}` : "Mismatch (Hidden Test Case)"))
-          : trimmedActual,
+        actual_output: displayActual,
         expected_output: isHidden ? "[Hidden for evaluation]" : expectedOutput,
-        error: resError,
+        error: !passed ? resError : undefined,
         time_seconds: execTime,
         memory_kb: 16000,
       });

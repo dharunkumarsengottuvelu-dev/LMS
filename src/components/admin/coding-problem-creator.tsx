@@ -24,6 +24,7 @@ import type {
   SolutionApproach,
 } from "@/types/coding";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
+import { EditorialViewer } from "@/components/coding/editorial-viewer";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -44,6 +45,9 @@ import {
   Globe,
   Lock,
   Check,
+  Maximize2,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 
 const Editor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
@@ -301,7 +305,7 @@ export function CodingProblemCreator({
   const [difficulty, setDifficulty] = useState<Difficulty>(
     existing.difficulty || initialDifficulty || "easy"
   );
-  const [category, setCategory] = useState<string>(existing.category || "");
+  const [category, setCategory] = useState<string>(existing.category || (existing as any).type || "");
   const [selectedTopics, setSelectedTopics] = useState<string[]>(
     (existing as ExtendedCodingProblem).topic_tags || []
   );
@@ -552,6 +556,11 @@ export function CodingProblemCreator({
   const [allowSubmit, setAllowSubmit] = useState<boolean>(existing.allow_submit !== false);
   const [isMandatory, setIsMandatory] = useState<boolean>(!!existing.is_mandatory);
 
+  // MNC Proctoring & Anti-Cheating Toggles
+  const [enforceFullscreen, setEnforceFullscreen] = useState<boolean>(!!existing.enforce_fullscreen);
+  const [restrictCopyPaste, setRestrictCopyPaste] = useState<boolean>(!!existing.restrict_copy_paste);
+  const [restrictScreenshot, setRestrictScreenshot] = useState<boolean>(!!existing.restrict_screenshot);
+
   // Live Preview Tabs & Interactive State
   const [previewLeftTab, setPreviewLeftTab] = useState<"description" | "solutions" | "submissions" | "discuss">("description");
   const [previewActiveTestTab, setPreviewActiveTestTab] = useState<number>(0);
@@ -649,10 +658,10 @@ export function CodingProblemCreator({
   };
 
   // Handlers for Test Cases
-  const handleAddTestCase = (isHidden: boolean = false) => {
+  const handleAddTestCase = (isHidden: boolean = false, insertAfterIndex?: number) => {
     const nextNum = testCases.length + 1;
     const newCase: TestCase = {
-      id: `tc-${Date.now()}`,
+      id: `tc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       name: `Test Case ${nextNum}`,
       input: "",
       expected_output: "",
@@ -660,7 +669,18 @@ export function CodingProblemCreator({
       weight: 10,
       is_enabled: true,
     };
-    setTestCases((prev) => [...prev, newCase]);
+    if (typeof insertAfterIndex === "number" && insertAfterIndex >= 0 && insertAfterIndex < testCases.length) {
+      setTestCases((prev) => {
+        const copy = [...prev];
+        copy.splice(insertAfterIndex + 1, 0, newCase);
+        return copy.map((tc, i) => ({
+          ...tc,
+          name: tc.name && /^Test Case \d+$/i.test(tc.name.trim()) ? `Test Case ${i + 1}` : (tc.name || `Test Case ${i + 1}`),
+        }));
+      });
+    } else {
+      setTestCases((prev) => [...prev, newCase]);
+    }
   };
 
   const handleUpdateTestCase = (index: number, field: keyof TestCase, value: any) => {
@@ -786,7 +806,8 @@ export function CodingProblemCreator({
       slug: autoSlug,
       description: description.trim(),
       difficulty,
-      category,
+      category: category.trim(),
+      type: category.trim(),
       topic_tags: selectedTopics,
       points,
       constraints,
@@ -811,6 +832,9 @@ export function CodingProblemCreator({
       allow_run: allowRun,
       allow_submit: allowSubmit,
       is_mandatory: isMandatory,
+      enforce_fullscreen: enforceFullscreen,
+      restrict_copy_paste: restrictCopyPaste,
+      restrict_screenshot: restrictScreenshot,
       acceptance_rate: isManualAcceptance && manualAcceptanceRate.trim()
         ? `${manualAcceptanceRate.trim().replace("%", "")}%`
         : (existing as any).acceptance_rate || undefined,
@@ -1073,47 +1097,20 @@ export function CodingProblemCreator({
                 )}
 
                 {previewLeftTab === "solutions" && (
-                  <div className="space-y-6">
-                    <div>
+                  <div className="space-y-4">
+                    <div className="pb-1 border-b border-slate-100">
                       <h3 className="text-base font-bold text-slate-900">Official Editorial Solution</h3>
                       <p className="text-xs text-slate-500 mt-0.5">
                         Algorithmic breakdown, complexity, and sample reference implementation.
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-200/60 text-xs text-slate-700 leading-relaxed">
-                      {editorialOverview || "Official editorial overview provided by course trainer."}
-                    </div>
-
-                    {approaches.map((app, idx) => (
-                      <div key={idx} className="space-y-3 p-4 rounded-xl border border-slate-200 bg-white text-xs">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-bold text-slate-900 text-sm">{app.name}</h4>
-                          <div className="flex items-center gap-2 text-xs font-mono">
-                            <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-bold">
-                              Time: {app.timeComplexity}
-                            </span>
-                            <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-bold">
-                              Space: {app.spaceComplexity}
-                            </span>
-                          </div>
-                        </div>
-
-                        <p className="text-slate-600 leading-relaxed">{app.explanation}</p>
-
-                        {app.code && Object.entries(app.code).map(([lang, snippet]) => (
-                          <div key={lang} className="mt-3 rounded-lg border border-slate-200 overflow-hidden">
-                            <div className="bg-slate-100 px-3 py-1.5 flex items-center justify-between text-xs font-semibold text-slate-600">
-                              <span className="uppercase font-mono">{lang}</span>
-                              <span className="text-slate-400">Reference Solution</span>
-                            </div>
-                            <pre className="p-3 bg-white text-xs font-mono text-slate-800 overflow-x-auto">
-                              {snippet}
-                            </pre>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
+                    <EditorialViewer
+                      editorial={{
+                        overview: editorialOverview,
+                        approaches: approaches,
+                      }}
+                    />
                   </div>
                 )}
 
@@ -1451,11 +1448,11 @@ export function CodingProblemCreator({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700">Category</label>
+            <label className="text-xs font-semibold text-slate-700">Type / Category</label>
             <Input
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Algorithms, Data Structures, SQL"
+              placeholder="e.g. Algorithm, Array, SQL, Data Structures"
               className="h-9 text-xs bg-slate-50/70 border-slate-200 rounded-xl"
             />
           </div>
@@ -2102,7 +2099,7 @@ export function CodingProblemCreator({
               type="button"
               size="sm"
               onClick={() => handleAddTestCase(false)}
-              className="h-8 px-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl gap-1.5 shadow-xs"
+              className="h-8 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-full gap-1.5 shadow-xs cursor-pointer whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Public Case</span>
@@ -2111,7 +2108,7 @@ export function CodingProblemCreator({
               type="button"
               size="sm"
               onClick={() => handleAddTestCase(true)}
-              className="h-8 px-3 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl gap-1.5 shadow-xs"
+              className="h-8 px-4 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-full gap-1.5 shadow-xs cursor-pointer whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Hidden Case</span>
@@ -2164,7 +2161,7 @@ export function CodingProblemCreator({
                   <button
                     type="button"
                     onClick={() => handleDeleteTestCase(idx)}
-                    className="text-xs text-rose-600 hover:text-rose-800 font-semibold"
+                    className="text-xs text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
                   >
                     Delete
                   </button>
@@ -2203,8 +2200,59 @@ export function CodingProblemCreator({
                   />
                 </div>
               </div>
+
+              {/* Action Buttons on each and every test case card */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200/80">
+                <span className="text-[11px] font-medium text-slate-400">
+                  Add another test case:
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleAddTestCase(false, idx)}
+                    className="h-8 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-full gap-1.5 shadow-xs cursor-pointer whitespace-nowrap"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Public Case</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleAddTestCase(true, idx)}
+                    className="h-8 px-4 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-full gap-1.5 shadow-xs cursor-pointer whitespace-nowrap"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Hidden Case</span>
+                  </Button>
+                </div>
+              </div>
             </div>
           ))}
+
+          {/* Bottom container quick-add buttons */}
+          {testCases.length > 1 && (
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleAddTestCase(false)}
+                className="h-8 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-full gap-1.5 shadow-xs cursor-pointer whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Public Case</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleAddTestCase(true)}
+                className="h-8 px-4 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-full gap-1.5 shadow-xs cursor-pointer whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Hidden Case</span>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -2410,6 +2458,87 @@ export function CodingProblemCreator({
             <Switch checked={isMandatory} onCheckedChange={setIsMandatory} />
           </div>
         </div>
+
+        {/* MNC Assessment Proctoring & Anti-Cheating Suite */}
+        <div className="pt-4 border-t border-slate-200/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200">
+                <ShieldCheck className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  MNC Assessment Proctoring & Anti-Cheating Controls
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Enterprise security suite for technical evaluations, recruitment screening, and proctored contests.
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+              Enterprise Grade
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            {/* Toggle 1: Enforce Full Screen */}
+            <div className={`p-4 rounded-xl border transition-all ${enforceFullscreen ? "bg-blue-50/40 border-blue-200 shadow-2xs" : "bg-slate-50/70 border-slate-200"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-md ${enforceFullscreen ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-600"}`}>
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Enforce Full Screen</span>
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Lockdown Mode</span>
+                  </div>
+                </div>
+                <Switch checked={enforceFullscreen} onCheckedChange={setEnforceFullscreen} />
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed mt-2.5">
+                Requires candidates to remain in full screen. Logs window blur, flags tab switching, and prompts return warnings on exit.
+              </p>
+            </div>
+
+            {/* Toggle 2: Restrict Copy / Paste */}
+            <div className={`p-4 rounded-xl border transition-all ${restrictCopyPaste ? "bg-amber-50/40 border-amber-200 shadow-2xs" : "bg-slate-50/70 border-slate-200"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-md ${restrictCopyPaste ? "bg-amber-600 text-white" : "bg-slate-200 text-slate-600"}`}>
+                    <Copy className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Disable Copy & Paste</span>
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Clipboard Shield</span>
+                  </div>
+                </div>
+                <Switch checked={restrictCopyPaste} onCheckedChange={setRestrictCopyPaste} />
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed mt-2.5">
+                Restricts clipboard copying from problem statements and blocks pasting external code into the editor.
+              </p>
+            </div>
+
+            {/* Toggle 3: Restrict Screen Capture / Screenshot */}
+            <div className={`p-4 rounded-xl border transition-all ${restrictScreenshot ? "bg-rose-50/40 border-rose-200 shadow-2xs" : "bg-slate-50/70 border-slate-200"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-md ${restrictScreenshot ? "bg-rose-600 text-white" : "bg-slate-200 text-slate-600"}`}>
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Anti-Screenshot Shield</span>
+                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Screen Capture Guard</span>
+                  </div>
+                </div>
+                <Switch checked={restrictScreenshot} onCheckedChange={setRestrictScreenshot} />
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed mt-2.5">
+                Blocks PrintScreen, Snip shortcuts, and print dialogs. Blurs problem content whenever screen capture is active.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════
@@ -2437,16 +2566,6 @@ export function CodingProblemCreator({
             className="h-[42px] px-5 text-xs font-semibold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs"
           >
             Save Draft
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setActiveView("live_preview")}
-            className="h-[42px] px-5 text-xs font-semibold rounded-xl border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/10 gap-2 shadow-xs"
-          >
-            <Eye className="w-4 h-4" />
-            <span>Preview Problem</span>
           </Button>
 
           <Button

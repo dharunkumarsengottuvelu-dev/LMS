@@ -174,6 +174,7 @@ export interface CodingProblem {
   description: string;
   difficulty: Difficulty;
   category?: string;
+  type?: string;
   topic_tags?: string[];
   points?: number;
   acceptance_rate?: string;
@@ -211,6 +212,9 @@ export interface CodingProblem {
   allow_run?: boolean;
   allow_submit?: boolean;
   is_mandatory?: boolean;
+  enforce_fullscreen?: boolean;
+  restrict_copy_paste?: boolean;
+  restrict_screenshot?: boolean;
   scope?: "codelab" | "practice" | "assessment";
   created_at: string;
   updated_at: string;

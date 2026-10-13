@@ -46,6 +46,8 @@ export class SubmissionEvaluatorService {
     // Evaluate all test cases concurrently in parallel
     const testResults: TestCaseResult[] = await Promise.all(
       testCases.map(async (tc) => {
+        const isHidden = Boolean(tc.is_hidden || (tc as any).isHidden || (tc as any).hidden);
+        const shouldReveal = isHidden ? Boolean((problem as any)?.reveal_hidden_testcases === true) : true;
         let passed = false;
         let trimmedActual = "";
         const rawInput = tc.input !== undefined ? tc.input : ((tc as any).stdin !== undefined ? (tc as any).stdin : "");
@@ -72,6 +74,11 @@ export class SubmissionEvaluatorService {
               expectedOutput.trim(),
               input.comparison_mode || (problem as any)?.comparison_mode || "ORDER_SENSITIVE"
             );
+            if (!passed) {
+              resError = isHidden
+                ? `Query output mismatch: Your query returned ${trimmedActual}, which does not match expected dataset.`
+                : `Query output mismatch: Expected ${expectedOutput}, but received ${trimmedActual}`;
+            }
           }
         } else {
           const res = await UniversalExecutor.execute(input.language, input.code, cleanInput);
@@ -79,29 +86,40 @@ export class SubmissionEvaluatorService {
           trimmedActual = (res.stdout || "").trim();
           executionTime = res.time ? parseFloat(res.time) : 0.02;
 
-          const isSuccessStatus = res.status?.id === 3 || res.outcome === 15 || res.outcome === 0;
+          const hasStderr = Boolean(res.stderr && res.stderr.trim());
+          const hasCompileError = Boolean(res.compile_output && res.compile_output.trim());
+          const isSuccessStatus = (res.status?.id === 3 || res.outcome === 15 || res.outcome === 0) && !hasStderr && !hasCompileError;
           passed = isSuccessStatus && compareOutput(trimmedActual, expectedOutput, "WHITESPACE_NORMALIZED");
 
           if (!passed) {
-            if (!isSuccessStatus) {
-              resError = res.compile_output || res.stderr || (res.message && res.message !== "Accepted" ? res.message : null) || "Execution Error";
+            if (hasCompileError) {
+              resError = res.compile_output.trim();
+            } else if (hasStderr) {
+              resError = res.stderr.trim();
+            } else if (!isSuccessStatus && res.message && res.message !== "Accepted") {
+              resError = res.message;
             } else {
-              resError = "Output mismatch";
+              if (trimmedActual) {
+                resError = isHidden
+                  ? `Output mismatch: Your code produced "${trimmedActual}", which does not match expected output.`
+                  : `Output mismatch: Expected "${expectedOutput}", but received "${trimmedActual}".`;
+              } else {
+                resError = "Output mismatch: No output produced by your code (empty stdout). Please ensure your solution prints or returns the expected result.";
+              }
             }
           }
         }
 
-        const isHidden = Boolean(tc.is_hidden || (tc as any).isHidden || (tc as any).hidden);
-        const shouldReveal = isHidden ? Boolean((problem as any)?.reveal_hidden_testcases === true) : true;
+        const displayActual = trimmedActual || (resError && !resError.startsWith("Output mismatch") ? resError : (passed ? (shouldReveal ? expectedOutput : "Match") : "(No output produced)"));
 
         return {
           test_case_id: tc.id,
           passed,
           is_hidden: isHidden,
           input: shouldReveal ? (rawInput !== undefined && rawInput !== null ? String(rawInput) : "") : undefined,
-          actual_output: shouldReveal ? trimmedActual : (passed ? "Match (Passed against hidden test case)" : "Mismatch (Hidden Test Case)"),
+          actual_output: displayActual,
           expected_output: shouldReveal ? expectedOutput : "[Hidden for evaluation]",
-          error: !passed ? (resError || (isHidden && !shouldReveal ? "Test case failed against hidden input" : "Output mismatch")) : undefined,
+          error: !passed ? resError : undefined,
           time_seconds: executionTime,
           memory_kb: 16000,
         };

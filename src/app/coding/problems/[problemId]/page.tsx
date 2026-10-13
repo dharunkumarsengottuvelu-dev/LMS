@@ -26,7 +26,9 @@ import {
   Lock,
   AlertTriangle,
   Maximize2,
-  Minimize2
+  Minimize2,
+  ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 import { Loading } from "@/components/ui/loading";
 import { Button } from "@/components/ui/button";
@@ -55,6 +57,7 @@ import type { CodingLanguage, CodingSubmission, TestCaseResult } from "@/types/c
 import { registerMonacoCompletions } from "@/lib/monaco-completions";
 import { cn } from "@/lib/utils";
 import { normalizeTestInput, normalizeExpectedOutput, extractSampleTestCases } from "@/lib/compiler/comparator";
+import { EditorialViewer } from "@/components/coding/editorial-viewer";
 
 // Lazy load Monaco Editor with branded loading
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
@@ -157,6 +160,8 @@ export default function ProblemSolvingWorkspace() {
   const [consoleLogs, setConsoleLogs] = useState<string>("");
   const [latestSubmission, setLatestSubmission] = useState<CodingSubmission | null>(null);
   const [showVerdictModal, setShowVerdictModal] = useState(false);
+  const [showFinalSubmitDialog, setShowFinalSubmitDialog] = useState(false);
+  const [isFinalSubmitting, setIsFinalSubmitting] = useState(false);
   const [isBottomMinimized, setIsBottomMinimized] = useState<boolean>(false);
   const [executionError, setExecutionError] = useState<{
     title: string;
@@ -192,6 +197,122 @@ export default function ProblemSolvingWorkspace() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isEditorFullscreen]);
+
+  // ─── MNC ASSESSMENT PROCTORING & SECURITY CONTROLS ────────────────────────
+  const isEnforceFullscreen = Boolean(problem?.enforce_fullscreen || (problem as any)?.starter_code?.enforce_fullscreen);
+  const isRestrictCopyPaste = Boolean(problem?.restrict_copy_paste || (problem as any)?.starter_code?.restrict_copy_paste);
+  const isRestrictScreenshot = Boolean(problem?.restrict_screenshot || (problem as any)?.starter_code?.restrict_screenshot);
+
+  const [isFullscreenActive, setIsFullscreenActive] = useState<boolean>(false);
+  const [fullscreenWarningOpen, setFullscreenWarningOpen] = useState<boolean>(false);
+  const [proctoringViolationCount, setProctoringViolationCount] = useState<number>(0);
+  const [isScreenCaptureBlur, setIsScreenCaptureBlur] = useState<boolean>(false);
+
+  // Full Screen Lockdown Handler
+  useEffect(() => {
+    if (!isEnforceFullscreen) return;
+
+    const handleFullscreenChange = () => {
+      const isFs = !!document.fullscreenElement;
+      setIsFullscreenActive(isFs);
+      if (!isFs) {
+        setFullscreenWarningOpen(true);
+        setProctoringViolationCount((prev) => prev + 1);
+        toast.warning("Full screen mode exited. Please return to full screen to continue.");
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    if (!document.fullscreenElement) {
+      setFullscreenWarningOpen(true);
+    } else {
+      setIsFullscreenActive(true);
+    }
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, [isEnforceFullscreen]);
+
+  const handleEnterAssessmentFullscreen = async () => {
+    try {
+      if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+      setIsFullscreenActive(true);
+      setFullscreenWarningOpen(false);
+    } catch (err) {
+      console.warn("Fullscreen request error:", err);
+    }
+  };
+
+  // Restrict Copy & Paste Handler
+  useEffect(() => {
+    if (!isRestrictCopyPaste) return;
+
+    const handleCopyCutPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toast.error("Copy and paste operations are restricted for this assessment.");
+    };
+
+    window.addEventListener("copy", handleCopyCutPaste, true);
+    window.addEventListener("cut", handleCopyCutPaste, true);
+    window.addEventListener("paste", handleCopyCutPaste, true);
+
+    return () => {
+      window.removeEventListener("copy", handleCopyCutPaste, true);
+      window.removeEventListener("cut", handleCopyCutPaste, true);
+      window.removeEventListener("paste", handleCopyCutPaste, true);
+    };
+  }, [isRestrictCopyPaste]);
+
+  // Anti-Screenshot & Screen Capture Protection Handler
+  useEffect(() => {
+    if (!isRestrictScreenshot) return;
+
+    const handleAntiScreenshotKey = (e: KeyboardEvent) => {
+      if (
+        e.key === "PrintScreen" ||
+        (e.ctrlKey && e.key.toLowerCase() === "p") ||
+        (e.ctrlKey && e.shiftKey && ["s", "i", "c", "j"].includes(e.key.toLowerCase())) ||
+        e.key === "F12"
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          navigator.clipboard.writeText("");
+        } catch (_) {}
+        toast.error("Screen capture, printing, and developer inspection are restricted.");
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      toast.error("Right-click context menu is disabled for this assessment.");
+    };
+
+    const handleBlur = () => {
+      setIsScreenCaptureBlur(true);
+    };
+
+    const handleFocus = () => {
+      setIsScreenCaptureBlur(false);
+    };
+
+    window.addEventListener("keydown", handleAntiScreenshotKey, true);
+    window.addEventListener("contextmenu", handleContextMenu, true);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("keydown", handleAntiScreenshotKey, true);
+      window.removeEventListener("contextmenu", handleContextMenu, true);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [isRestrictScreenshot]);
 
   // ─── LANGUAGE RESTRICTIONS: SINGLE vs MULTI vs ALL ─────────────────────────
   const allowedLanguages: string[] = useMemo(() => {
@@ -638,6 +759,81 @@ export default function ProblemSolvingWorkspace() {
     }
   };
 
+  // FINAL SUBMISSION HANDLER
+  const handleConfirmFinalSubmit = async () => {
+    if (!problem) return;
+    setIsFinalSubmitting(true);
+    try {
+      let submission = latestSubmission;
+      // If no submission yet or not accepted, evaluate test cases first
+      if (!submission || submission.status !== "accepted") {
+        const rawCases = problem.test_cases || [];
+        const normalizedSubmissionCases = rawCases.map((tc: any) => ({
+          id: tc.id,
+          input: normalizeTestInput(tc.input),
+          expected_output: normalizeExpectedOutput(tc),
+          is_hidden: Boolean(tc.is_hidden),
+        }));
+
+        const res = await fetch("/api/code/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            problem_id: problem.id,
+            language: selectedLanguage,
+            code,
+            test_cases: normalizedSubmissionCases.length > 0 ? normalizedSubmissionCases : undefined,
+          }),
+        });
+
+        if (res.ok) {
+          submission = await res.json();
+          setLatestSubmission(submission);
+        }
+      }
+
+      // Mark problem officially completed in progress service & storage
+      CodingProgressService.markAttempted(
+        problem.id,
+        selectedLanguage,
+        code,
+        submission || ({
+          id: `sub-${Date.now()}`,
+          problem_id: problem.id,
+          language: selectedLanguage,
+          code,
+          status: "accepted",
+          passed_test_cases: (problem.test_cases || []).length,
+          total_test_cases: (problem.test_cases || []).length,
+          created_at: new Date().toISOString(),
+        } as any),
+        true
+      );
+
+      if (typeof window !== "undefined") {
+        try {
+          window.dispatchEvent(new CustomEvent("student-activity-updated", { detail: submission }));
+        } catch {}
+      }
+
+      toast.success("Final submission successful! Marked as Completed.", {
+        description: `Problem #${questionNumber}: ${problem.title}`,
+      });
+
+      setShowFinalSubmitDialog(false);
+      setShowVerdictModal(false);
+
+      // Redirect back to Code Lab where Completed badge is displayed
+      setTimeout(() => {
+        router.push("/coding");
+      }, 700);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to finalize submission");
+    } finally {
+      setIsFinalSubmitting(false);
+    }
+  };
+
   // Discussion helper
   const handleAddComment = async () => {
     if (!newCommentText.trim() || !problem) return;
@@ -716,22 +912,19 @@ export default function ProblemSolvingWorkspace() {
   return (
     <div className="flex flex-col h-screen min-h-[100dvh] bg-[#F8FAFC] text-slate-900 font-sans antialiased overflow-hidden select-none">
       {/* ─── 1. TOP HEADER & ACTION BAR (CLEAN, NO GLOBAL LMS NAVBAR) ─── */}
+      {/* ─── 1. TOP HEADER & ACTION BAR (CLEAN, NO GLOBAL LMS NAVBAR) ─── */}
       <header className="h-14 bg-white border-b border-slate-200/90 px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-2xs z-20">
-        {/* Left: ← Back to Practice / #1. Title [Difficulty] */}
+        {/* Left: ← Back to Code Lab / #1. Title [Difficulty] */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             type="button"
             onClick={() => {
-              if (typeof window !== "undefined" && window.history.length > 1) {
-                router.back();
-              } else {
-                router.push("/coding");
-              }
+              router.push("/coding");
             }}
             className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors py-1 px-2 rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
-            <span>Back to Practice</span>
+            <span>Back to Code Lab</span>
           </button>
 
           <span className="text-slate-300 font-medium">/</span>
@@ -753,10 +946,42 @@ export default function ProblemSolvingWorkspace() {
             >
               {problem.difficulty === "easy" ? "Easy" : problem.difficulty === "hard" ? "Hard" : "Medium"}
             </span>
+
+            {allProblems.length > 1 && (
+              <div className="hidden md:flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 border border-slate-200 shrink-0">
+                <button
+                  type="button"
+                  disabled={currentProblemIndex <= 0}
+                  onClick={() => {
+                    const prevProb = allProblems[currentProblemIndex - 1];
+                    if (currentProblemIndex > 0 && prevProb) handleNavigateProblem(prevProb.id);
+                  }}
+                  className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  title="Previous Problem"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[11px] font-bold text-slate-700 px-1 font-mono">
+                  {questionNumber}/{allProblems.length}
+                </span>
+                <button
+                  type="button"
+                  disabled={currentProblemIndex >= allProblems.length - 1}
+                  onClick={() => {
+                    const nextProb = allProblems[currentProblemIndex + 1];
+                    if (currentProblemIndex < allProblems.length - 1 && nextProb) handleNavigateProblem(nextProb.id);
+                  }}
+                  className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer transition-colors"
+                  title="Next Problem"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Action Bar: [Language ▼] [Reset Code] [Run] [Submit] */}
+        {/* Right Action Bar: [Language ▼] [Reset Code] [Run] [Submit] [Final Submit] */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           {/* Language selector: Single Language (fixed/locked) vs Multi Language (filtered dropdown) */}
           {availableLanguages.length === 1 ? (
@@ -816,7 +1041,7 @@ export default function ProblemSolvingWorkspace() {
             size="sm"
             onClick={handleSubmitCode}
             disabled={isSubmitting || isRunning || isRunningCustomInput}
-            className="h-8.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs gap-1.5 shadow-xs cursor-pointer transition-all"
+            className="h-8.5 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs gap-1.5 shadow-xs cursor-pointer transition-all"
           >
             {isSubmitting ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -825,6 +1050,39 @@ export default function ProblemSolvingWorkspace() {
             )}
             <span>Submit</span>
           </Button>
+
+          {/* Final Submit Button */}
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => setShowFinalSubmitDialog(true)}
+            disabled={isSubmitting || isRunning || isFinalSubmitting}
+            className="h-8.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-xs gap-1.5 shadow-xs cursor-pointer transition-all whitespace-nowrap"
+          >
+            {isFinalSubmitting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
+            )}
+            <span>Final Submit</span>
+          </Button>
+
+          {/* MNC Proctoring Status Badge */}
+          {(isEnforceFullscreen || isRestrictCopyPaste || isRestrictScreenshot) && (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-md text-[11px] font-semibold">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+              <span>Proctored Session</span>
+              {isEnforceFullscreen && !isFullscreenActive && (
+                <button
+                  type="button"
+                  onClick={handleEnterAssessmentFullscreen}
+                  className="ml-1 text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
+                >
+                  Enter Fullscreen
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
@@ -850,21 +1108,11 @@ export default function ProblemSolvingWorkspace() {
         >
           Code &amp; Test
         </button>
-        <button
-          type="button"
-          onClick={() => setMobileTab("questions")}
-          className={cn(
-            "flex-1 py-1 text-xs font-semibold rounded-md transition-all",
-            mobileTab === "questions" ? "bg-white text-blue-600 shadow-2xs" : "text-slate-600"
-          )}
-        >
-          Problems ({allProblems.length})
-        </button>
       </div>
 
-      {/* ─── 2. MAIN 3-COLUMN WORKSPACE: LEFT (PROBLEM) | CENTER (EDITOR & TEST) | RIGHT (PROBLEMS) ─── */}
+      {/* ─── 2. MAIN 2-COLUMN WORKSPACE: LEFT (PROBLEM) | RIGHT (EDITOR & TEST) ─── */}
       <main className="flex-1 p-3 sm:p-4 overflow-hidden min-h-0">
-        <div className="h-full w-full grid grid-cols-1 lg:grid-cols-[30%_minmax(0,1fr)_20%] xl:grid-cols-[29%_minmax(0,1fr)_19%] gap-3.5 overflow-hidden">
+        <div className="h-full w-full grid grid-cols-1 lg:grid-cols-[42%_minmax(0,1fr)] xl:grid-cols-[40%_minmax(0,1fr)] gap-3.5 overflow-hidden">
           {/* ══════════════════════════════════════════════════════════════════
               LEFT COLUMN: PROBLEM DESCRIPTION PANEL
           ══════════════════════════════════════════════════════════════════ */}
@@ -1077,44 +1325,13 @@ export default function ProblemSolvingWorkspace() {
               {/* TAB 2: SOLUTIONS */}
               {leftTab === "solutions" && (
                 <div className="space-y-4">
-                  <h2 className="text-sm font-bold text-slate-900">Official Editorial Solutions</h2>
-                  {problem.solution_editorial ? (
-                    <div className="space-y-4">
-                      <p className="text-xs text-slate-600 leading-relaxed bg-blue-50/60 p-3 rounded-lg border border-blue-100">
-                        {problem.solution_editorial.overview}
-                      </p>
-                      {problem.solution_editorial.approaches.map((app, idx) => (
-                        <div key={idx} className="p-3.5 rounded-xl border border-slate-200 space-y-2 bg-slate-50/50">
-                          <h3 className="font-bold text-xs text-slate-900">{app.name}</h3>
-                          <p className="text-xs text-slate-600 leading-relaxed">{app.explanation}</p>
-                          {Object.entries(app.code).map(([lKey, snippet]) => (
-                            <div key={lKey} className="mt-2 rounded-lg border border-slate-200 overflow-hidden bg-white">
-                              <div className="bg-slate-100 px-3 py-1 flex items-center justify-between text-[11px] font-bold text-slate-600 uppercase">
-                                <span>{lKey}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopyCode(`${idx}-${lKey}`, snippet)}
-                                  className="text-slate-500 hover:text-slate-900 cursor-pointer flex items-center gap-1"
-                                >
-                                  {copiedCodeKey === `${idx}-${lKey}` ? (
-                                    <Check className="w-3 h-3 text-emerald-600" />
-                                  ) : (
-                                    <Copy className="w-3 h-3" />
-                                  )}
-                                  <span>Copy</span>
-                                </button>
-                              </div>
-                              <pre className="p-3 text-xs font-mono text-slate-800 overflow-x-auto whitespace-pre">
-                                {snippet}
-                              </pre>
-                            </div>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-500">No editorial solutions available for this question.</p>
-                  )}
+                  <div className="pb-1 border-b border-slate-100">
+                    <h2 className="text-sm font-bold text-slate-900">Official Editorial Solutions</h2>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Structured algorithmic approach, reference implementation, and complexity analysis.
+                    </p>
+                  </div>
+                  <EditorialViewer editorial={problem.solution_editorial} />
                 </div>
               )}
 
@@ -1450,10 +1667,16 @@ export default function ProblemSolvingWorkspace() {
                             {hiddenTestCases.map((tc: any, hIdx: number) => (
                               <div
                                 key={tc.id || hIdx}
-                                className="p-2.5 bg-slate-50/70 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs"
+                                className="px-3.5 py-2.5 bg-white border border-slate-200/90 rounded-xl flex items-center justify-between text-xs shadow-2xs hover:border-slate-300 transition-colors"
                               >
-                                <span className="font-medium text-slate-700">Hidden Test Case {hIdx + 1}</span>
-                                <span className="text-[11px] text-slate-400 font-mono">🔒 [Hidden]</span>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                  <span className="font-semibold text-slate-700">Hidden Test Case {hIdx + 1}</span>
+                                </div>
+                                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-[11px] font-semibold text-slate-500">
+                                  <Lock className="w-3 h-3 text-slate-400" />
+                                  <span>Hidden</span>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -1578,7 +1801,9 @@ export default function ProblemSolvingWorkspace() {
                               <div>
                                 <span className="text-[10px] font-semibold text-slate-600 block uppercase font-sans">Actual Output:</span>
                                 <pre className="p-2 bg-white rounded border border-slate-200 font-mono text-xs whitespace-pre-wrap min-h-[34px]">
-                                  {r.actual_output || (r.passed ? "Match" : "(No output produced)")}
+                                  {r.actual_output && r.actual_output !== "Error: Output mismatch" && r.actual_output !== "Mismatch (Hidden Test Case)"
+                                    ? r.actual_output
+                                    : (r.passed ? "Match" : "(No output produced)")}
                                 </pre>
                               </div>
                             </div>
@@ -1617,117 +1842,10 @@ export default function ProblemSolvingWorkspace() {
               )}
             </div>
           </div>
-
-          {/* ══════════════════════════════════════════════════════════════════
-              RIGHT COLUMN: PROBLEMS QUESTION NAVIGATION PANEL
-          ══════════════════════════════════════════════════════════════════ */}
-          <div
-            className={cn(
-              "h-full rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden",
-              mobileTab === "questions" ? "flex" : "hidden lg:flex"
-            )}
-          >
-            <div className="p-4 space-y-4">
-              {/* Header */}
-              <div className="pb-2 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-900">
-                  Problems ({allProblems.length})
-                </h3>
-              </div>
-
-              {/* Status Legend (No Emojis) */}
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-slate-600 font-medium">Solved</span>
-                  <span className="font-bold text-slate-900 ml-auto">({solvedCount})</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
-                  <span className="text-slate-600 font-medium">In-progress</span>
-                  <span className="font-bold text-slate-900 ml-auto">({inProgressCount})</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0" />
-                  <span className="text-slate-600 font-medium">Not Attempted</span>
-                  <span className="font-bold text-slate-900 ml-auto">({notAttemptedCount})</span>
-                </div>
-              </div>
-
-              {/* Questions Grid Numbers: [ 1 ] [ 2 ] [ 3 ] [ 4 ] [ 5 ] ... */}
-              <div className="grid grid-cols-5 gap-2 pt-2">
-                {allProblems.map((p, idx) => {
-                  const qNum = idx + 1;
-                  const isCurrent = p.id === problem.id || p.slug === problem.slug;
-                  const isSolved = CodingProgressService.isProblemSolved(p.id, p.slug);
-                  const isProg =
-                    !isSolved &&
-                    (CodingProgressService.getProblemStatus(p.id) === "in_progress" ||
-                      CodingProgressService.getProblemStatus(p.id) === "attempted");
-
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => handleNavigateProblem(p.id)}
-                      className={cn(
-                        "h-9 w-full rounded-lg text-xs font-semibold flex items-center justify-center transition-all cursor-pointer shadow-2xs",
-                        isCurrent
-                          ? "bg-blue-600 text-white font-bold ring-2 ring-blue-600/30"
-                          : isSolved
-                          ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-200/80 font-bold"
-                          : isProg
-                          ? "bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200/80 font-bold"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60"
-                      )}
-                    >
-                      {qNum}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
         </div>
       </main>
 
-      {/* ─── 3. BOTTOM PREVIOUS / NEXT BAR ─── */}
-      <footer className="h-14 bg-white border-t border-slate-200/90 px-4 sm:px-8 flex items-center justify-between shrink-0 shadow-2xs z-20">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={currentProblemIndex <= 0}
-          onClick={() => {
-            const prevProb = allProblems[currentProblemIndex - 1];
-            if (currentProblemIndex > 0 && prevProb) {
-              handleNavigateProblem(prevProb.id);
-            }
-          }}
-          className="h-8.5 px-4 text-xs font-semibold text-slate-700 border-slate-200 rounded-lg gap-1.5 disabled:opacity-40 cursor-pointer hover:bg-slate-50 shadow-2xs"
-        >
-          <ChevronLeft className="w-3.5 h-3.5" /> Previous
-        </Button>
 
-        <span className="text-xs font-bold text-slate-700 tracking-wide font-mono">
-          {questionNumber} / {allProblems.length}
-        </span>
-
-        <Button
-          type="button"
-          size="sm"
-          disabled={currentProblemIndex >= allProblems.length - 1}
-          onClick={() => {
-            const nextProb = allProblems[currentProblemIndex + 1];
-            if (currentProblemIndex < allProblems.length - 1 && nextProb) {
-              handleNavigateProblem(nextProb.id);
-            }
-          }}
-          className="h-8.5 px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg gap-1.5 disabled:opacity-40 cursor-pointer shadow-xs transition-all"
-        >
-          Next <ChevronRight className="w-3.5 h-3.5" />
-        </Button>
-      </footer>
 
       {/* Submission Verdict Dialog */}
       <Dialog open={showVerdictModal} onOpenChange={setShowVerdictModal}>
@@ -1766,16 +1884,143 @@ export default function ProblemSolvingWorkspace() {
               </div>
             </div>
 
-            <Button
-              type="button"
-              onClick={() => setShowVerdictModal(false)}
-              className="w-full h-8.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl cursor-pointer"
-            >
-              Continue Practice
-            </Button>
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowVerdictModal(false)}
+                className="flex-1 h-9 border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-xs rounded-xl cursor-pointer"
+              >
+                Continue Coding
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setShowVerdictModal(false);
+                  setShowFinalSubmitDialog(true);
+                }}
+                className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl cursor-pointer gap-1.5 shadow-xs"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Final Submit
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Final Submission Confirmation Dialog */}
+      <Dialog open={showFinalSubmitDialog} onOpenChange={setShowFinalSubmitDialog}>
+        <DialogContent className="sm:max-w-md bg-white border-slate-200 p-6 rounded-2xl shadow-xl">
+          <DialogHeader className="space-y-2 text-center items-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-1">
+              <CheckCircle2 className="w-7 h-7" />
+            </div>
+            <DialogTitle className="text-lg font-bold text-slate-900">
+              Confirm Final Submission
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 max-w-xs">
+              Are you sure you want to finalize your submission for <strong>#{questionNumber}. {problem.title}</strong>? Your solution will be officially completed in Code Lab.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-3">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-slate-500 block text-[11px]">Language</span>
+                <span className="font-bold text-slate-800 uppercase">{selectedLanguage}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">Status</span>
+                <span className="font-bold text-emerald-600">
+                  {latestSubmission?.status === "accepted" ? "Accepted" : "Ready to Finalize"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isFinalSubmitting}
+                onClick={() => setShowFinalSubmitDialog(false)}
+                className="flex-1 h-9 rounded-xl text-xs font-semibold cursor-pointer border-slate-200"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirmFinalSubmit}
+                disabled={isFinalSubmitting}
+                className="flex-1 h-9 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer gap-1.5 shadow-xs"
+              >
+                {isFinalSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Confirm Final Submit
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Anti-Screen Capture Focus Blur Overlay */}
+      {isRestrictScreenshot && isScreenCaptureBlur && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white">
+          <div className="max-w-md p-6 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl space-y-3">
+            <div className="w-10 h-10 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto border border-rose-500/30">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-white">Assessment Protected</h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Window focus lost. In accordance with enterprise proctoring guidelines, workspace content is shielded until you return to the assessment window.
+            </p>
+            <Button
+              type="button"
+              onClick={() => setIsScreenCaptureBlur(false)}
+              className="h-9 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+            >
+              Resume Assessment
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Required Lockdown Dialog */}
+      {isEnforceFullscreen && fullscreenWarningOpen && (
+        <Dialog open={fullscreenWarningOpen} onOpenChange={() => {}}>
+          <DialogContent className="sm:max-w-md rounded-2xl p-6 bg-white border border-slate-200 shadow-xl [&>button]:hidden">
+            <DialogHeader className="space-y-2">
+              <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-100">
+                <Maximize2 className="w-5 h-5" />
+              </div>
+              <DialogTitle className="text-center text-base font-bold text-slate-900">
+                Full Screen Required
+              </DialogTitle>
+              <DialogDescription className="text-center text-xs text-slate-500 leading-relaxed">
+                This assessment is running in lockdown mode. Full screen is mandatory to ensure testing integrity. Exiting full screen is logged.
+              </DialogDescription>
+            </DialogHeader>
+
+            {proctoringViolationCount > 0 && (
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-center">
+                <span className="text-xs font-semibold text-amber-800">
+                  Full screen exits recorded: {proctoringViolationCount}
+                </span>
+              </div>
+            )}
+
+            <div className="pt-3">
+              <Button
+                type="button"
+                onClick={handleEnterAssessmentFullscreen}
+                className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-2 shadow-sm cursor-pointer"
+              >
+                <Maximize2 className="w-4 h-4" />
+                <span>Enter Full Screen to Continue</span>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
