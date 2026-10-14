@@ -23,6 +23,7 @@ import {
   calculateSubmoduleTotalMarks,
   calculateMainModuleTotalMarks,
 } from "@/lib/practice-progress";
+import { parseCsv } from "@/lib/excel-security";
 import { 
   FolderPlus, 
   Layers, 
@@ -43,7 +44,14 @@ import {
   Plus,
   ChevronDown,
   ArrowLeft,
-  Infinity as InfinityIcon
+  Infinity as InfinityIcon,
+  UploadCloud,
+  FileSpreadsheet,
+  Download,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  FileText
 } from "lucide-react";
 
 // ─── TYPES FOR STRICT 3-LEVEL HIERARCHY ──────────────────────────────
@@ -60,6 +68,7 @@ export interface MCQQuestion {
   options: MCQOption[];
   explanation?: string;
   allowMultiple?: boolean;
+  difficulty?: string;
 }
 
 export interface CustomSectionItem {
@@ -368,7 +377,49 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [showCodingCreator, setShowCodingCreator] = useState<boolean>(false);
   const [editingCodingIndex, setEditingCodingIndex] = useState<number | null>(null);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState<boolean>(false);
-  const [bulkUploadModuleType, setBulkUploadModuleType] = useState<"coding_problem" | "assessment_questions">("coding_problem");
+  const [bulkUploadModuleType, setBulkUploadModuleType] = useState<string>("coding_problem");
+  const [targetQuestionUploadModule, setTargetQuestionUploadModule] = useState<PracticeModule | null>(null);
+
+  // ─── BULK MODULE CREATION STATE (LEVEL 3) ──────────────────────────
+  const [showBulkModuleModal, setShowBulkModuleModal] = useState<boolean>(false);
+  const [bulkModuleActiveTab, setBulkModuleActiveTab] = useState<"manual" | "csv">("manual");
+  const [bulkModuleStep, setBulkModuleStep] = useState<"edit" | "preview">("edit");
+  const [bulkAutoOrder, setBulkAutoOrder] = useState<boolean>(true);
+  const [bulkManualRows, setBulkManualRows] = useState<
+    Array<{
+      id: string;
+      name: string;
+      description: string;
+      type: "mixed" | "coding" | "mcq";
+      durationEnabled: boolean;
+      durationMinutes: number;
+      totalMarks: number;
+      passingMarks: number;
+      status: "active" | "inactive";
+      displayOrder: number;
+    }>
+  >([]);
+  const [bulkCsvFile, setBulkCsvFile] = useState<File | null>(null);
+  const [bulkCsvRows, setBulkCsvRows] = useState<
+    Array<{
+      rowNumber: number;
+      name: string;
+      description: string;
+      type: "mixed" | "coding" | "mcq";
+      durationMinutes: number;
+      totalMarks: number;
+      passingMarks: number;
+      status: "active" | "inactive";
+      displayOrder: number;
+      errors: string[];
+      isValid: boolean;
+    }>
+  >([]);
+  const [isBulkSubmitting, setIsBulkSubmitting] = useState<boolean>(false);
+  const [bulkErrorMessage, setBulkErrorMessage] = useState<string | null>(null);
+  const [bulkCsvFilter, setBulkCsvFilter] = useState<"all" | "valid" | "invalid">("all");
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
+
   // MNC-Level Delete Confirmation State
   const [deleteTarget, setDeleteTarget] = useState<
     | { type: "main_module"; item: PracticeMainModule; title: string; subCount: number }
@@ -910,6 +961,546 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       title: m.name || m.title || "Practice Module",
       questionCount: qCount,
     });
+  };
+
+  // ─── 3.5. BULK MODULE ACTIONS (LEVEL 3) ───────────────────────────
+  const handleOpenBulkAddModules = () => {
+    if (!currentMainModule || !currentSubmodule) {
+      toast({
+        title: "Context Missing",
+        description: "Please select a Submodule before adding bulk modules.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const maxOrder = (currentSubmodule.modules && currentSubmodule.modules.length > 0)
+      ? currentSubmodule.modules.reduce((max, m) => Math.max(max, m.display_order ?? 0), 0)
+      : 0;
+
+    const initialRows = [
+      {
+        id: `brow_${Date.now()}_1`,
+        name: "",
+        description: "",
+        type: "mixed" as const,
+        durationEnabled: true,
+        durationMinutes: 60,
+        totalMarks: 100,
+        passingMarks: 40,
+        status: "active" as const,
+        displayOrder: maxOrder + 1,
+      },
+      {
+        id: `brow_${Date.now()}_2`,
+        name: "",
+        description: "",
+        type: "mixed" as const,
+        durationEnabled: true,
+        durationMinutes: 60,
+        totalMarks: 100,
+        passingMarks: 40,
+        status: "active" as const,
+        displayOrder: maxOrder + 2,
+      },
+      {
+        id: `brow_${Date.now()}_3`,
+        name: "",
+        description: "",
+        type: "mixed" as const,
+        durationEnabled: true,
+        durationMinutes: 60,
+        totalMarks: 100,
+        passingMarks: 40,
+        status: "active" as const,
+        displayOrder: maxOrder + 3,
+      },
+    ];
+
+    setBulkManualRows(initialRows);
+    setBulkCsvFile(null);
+    setBulkCsvRows([]);
+    setBulkAutoOrder(true);
+    setBulkModuleActiveTab("manual");
+    setBulkModuleStep("edit");
+    setBulkErrorMessage(null);
+    setBulkCsvFilter("all");
+    setShowBulkModuleModal(true);
+  };
+
+  const handleBulkAddRow = () => {
+    const maxOrder = bulkManualRows.length > 0
+      ? Math.max(...bulkManualRows.map((r) => r.displayOrder))
+      : (currentSubmodule?.modules?.length || 0);
+
+    setBulkManualRows((prev) => [
+      ...prev,
+      {
+        id: `brow_${Date.now()}_${prev.length + 1}`,
+        name: "",
+        description: "",
+        type: "mixed" as const,
+        durationEnabled: true,
+        durationMinutes: 60,
+        totalMarks: 100,
+        passingMarks: 40,
+        status: "active" as const,
+        displayOrder: maxOrder + 1,
+      },
+    ]);
+  };
+
+  const handleBulkRemoveRow = (rowId: string) => {
+    if (bulkManualRows.length <= 1) {
+      toast({
+        title: "Row Required",
+        description: "At least one module row is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setBulkManualRows((prev) => prev.filter((r) => r.id !== rowId));
+    if (bulkErrorMessage) setBulkErrorMessage(null);
+  };
+
+  const handleBulkRowChange = (rowId: string, field: string, value: any) => {
+    setBulkManualRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== rowId) return r;
+        return { ...r, [field]: value };
+      })
+    );
+    if (bulkErrorMessage) setBulkErrorMessage(null);
+  };
+
+  const handleDownloadCsvTemplate = () => {
+    const headers = [
+      "Module Name",
+      "Description",
+      "Type",
+      "Duration (Minutes)",
+      "Total Marks",
+      "Passing Marks",
+      "Status",
+      "Display Order",
+    ];
+
+    const sampleRows = [
+      ["C Basics", "Learn C syntax, structure, compilation, and basic output", "Mixed", "30", "100", "40", "Active", "1"],
+      ["Variables and Data Types", "Learn int, float, char, sizes, and memory allocation", "Coding", "45", "100", "40", "Active", "2"],
+      ["Operators and Expressions", "Arithmetic, relational, bitwise, and logical operators", "MCQ", "20", "50", "20", "Active", "3"],
+      ["Input and Output", "printf, scanf, format specifiers and escape sequences", "Coding", "30", "100", "40", "Active", "4"],
+    ];
+
+    const csvContent =
+      "\uFEFF" +
+      [
+        headers.join(","),
+        ...sampleRows.map((r) =>
+          r
+            .map((val) =>
+              val.includes(",") || val.includes('"') || val.includes("\n")
+                ? `"${val.replace(/"/g, '""')}"`
+                : val
+            )
+            .join(",")
+        ),
+      ].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    const subTitle = (currentSubmodule?.name || currentSubmodule?.title || "submodule")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_");
+    link.setAttribute("download", `sensilearn_practice_modules_${subTitle}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBulkCsvFileSelected = async (file: File) => {
+    if (!file) return;
+    const nameLower = file.name.toLowerCase();
+    if (!nameLower.endsWith(".csv")) {
+      toast({
+        title: "Invalid File Type",
+        description: "Only standard .csv files are supported. Please download the template if needed.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "File size exceeds maximum allowed limit of 5 MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setBulkCsvFile(file);
+    setBulkErrorMessage(null);
+
+    try {
+      const text = await file.text();
+      const rawRows = parseCsv(text);
+
+      if (rawRows.length < 2 || !rawRows[0]) {
+        throw new Error("CSV file must contain a header row and at least 1 data row.");
+      }
+
+      const headerRow = rawRows[0] || [];
+      const headers = headerRow.map((h) => (h || "").toLowerCase().replace(/[\s\-_*()\[\]/\\:]+/g, ""));
+      const nameIdx = headers.findIndex((h) => ["modulename", "name", "title", "module"].includes(h));
+      const descIdx = headers.findIndex((h) => ["description", "desc", "summary", "notes"].includes(h));
+      const typeIdx = headers.findIndex((h) => ["type", "deliverytype", "format"].includes(h));
+      const durIdx = headers.findIndex((h) => ["durationminutes", "duration", "time", "timeminutes"].includes(h));
+      const marksIdx = headers.findIndex((h) => ["totalmarks", "marks", "points", "score"].includes(h));
+      const passIdx = headers.findIndex((h) => ["passingmarks", "passing_marks", "passmarks"].includes(h));
+      const statusIdx = headers.findIndex((h) => ["status", "state"].includes(h));
+      const orderIdx = headers.findIndex((h) => ["displayorder", "order", "sequence", "index"].includes(h));
+
+      if (nameIdx === -1) {
+        throw new Error("Could not find required header 'Module Name' or 'Title' in CSV.");
+      }
+
+      const existingNamesMap = new Set(
+        (currentSubmodule?.modules || []).map((m) => (m.name || m.title || "").trim().toLowerCase())
+      );
+
+      const maxOrder = (currentSubmodule?.modules && currentSubmodule.modules.length > 0)
+        ? currentSubmodule.modules.reduce((max, m) => Math.max(max, m.display_order ?? 0), 0)
+        : 0;
+
+      const seenNames = new Set<string>();
+      const parsedResults: any[] = [];
+
+      for (let i = 1; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        if (!row || row.every((c) => !c || !c.trim())) continue;
+
+        const rowNumber = i + 1;
+        const rowErrors: string[] = [];
+
+        const rawName = (nameIdx !== -1 && row[nameIdx] ? row[nameIdx]! : "").trim();
+        if (!rawName) {
+          rowErrors.push("Module Name is required.");
+        }
+
+        const lowerName = rawName.toLowerCase();
+        if (rawName) {
+          if (seenNames.has(lowerName)) {
+            rowErrors.push(`Duplicate module name "${rawName}" found in CSV.`);
+          } else {
+            seenNames.add(lowerName);
+          }
+
+          if (existingNamesMap.has(lowerName)) {
+            rowErrors.push(`Module "${rawName}" already exists in this Submodule.`);
+          }
+        }
+
+        const rawType = (typeIdx !== -1 && row[typeIdx] ? row[typeIdx]! : "").toLowerCase().trim();
+        let finalType: "mixed" | "coding" | "mcq" = "mixed";
+        if (rawType) {
+          if (["coding", "code", "code only"].includes(rawType)) {
+            finalType = "coding";
+          } else if (["mcq", "mcq only", "quiz"].includes(rawType)) {
+            finalType = "mcq";
+          } else if (["mixed"].includes(rawType)) {
+            finalType = "mixed";
+          } else {
+            rowErrors.push(`Invalid type "${rawType}". Allowed: Mixed, Coding, MCQ.`);
+          }
+        }
+
+        const rawDur = durIdx !== -1 && row[durIdx] ? parseInt(row[durIdx]!) : 60;
+        const durationMinutes = isNaN(rawDur) ? 60 : Math.max(0, rawDur);
+
+        const rawMarks = marksIdx !== -1 && row[marksIdx] ? parseInt(row[marksIdx]!) : 100;
+        const totalMarks = isNaN(rawMarks) ? 100 : rawMarks;
+        if (totalMarks < 1) {
+          rowErrors.push("Total marks must be a positive number of at least 1.");
+        }
+
+        const rawPass = passIdx !== -1 && row[passIdx] ? parseInt(row[passIdx]!) : 40;
+        const passingMarks = isNaN(rawPass) ? 40 : rawPass;
+        if (passingMarks < 0 || passingMarks > totalMarks) {
+          rowErrors.push(`Passing marks (${passingMarks}) cannot exceed total marks (${totalMarks}).`);
+        }
+
+        const rawStatus = (statusIdx !== -1 && row[statusIdx] ? row[statusIdx]! : "").toLowerCase().trim();
+        let status: "active" | "inactive" = "active";
+        if (rawStatus) {
+          if (["active", "enabled", "published"].includes(rawStatus)) {
+            status = "active";
+          } else if (["inactive", "disabled", "draft"].includes(rawStatus)) {
+            status = "inactive";
+          } else {
+            rowErrors.push(`Invalid status "${rawStatus}". Allowed: Active, Inactive.`);
+          }
+        }
+
+        let displayOrder = maxOrder + parsedResults.length + 1;
+        if (orderIdx !== -1 && row[orderIdx]) {
+          const ord = parseInt(row[orderIdx]!);
+          if (!isNaN(ord) && ord > 0) {
+            displayOrder = ord;
+          }
+        }
+
+        const description = descIdx !== -1 && row[descIdx] ? row[descIdx]!.trim() : "";
+
+        parsedResults.push({
+          rowNumber,
+          name: rawName,
+          description,
+          type: finalType,
+          durationMinutes,
+          totalMarks,
+          passingMarks,
+          status,
+          displayOrder,
+          errors: rowErrors,
+          isValid: rowErrors.length === 0,
+        });
+      }
+
+      if (parsedResults.length === 0) {
+        throw new Error("No valid data rows found in the CSV file.");
+      }
+
+      setBulkCsvRows(parsedResults);
+      toast({
+        title: "CSV Parsed",
+        description: `${parsedResults.length} rows loaded (${parsedResults.filter((r) => r.isValid).length} valid).`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "CSV Parsing Failed",
+        description: err.message || "Failed to parse CSV file. Ensure valid headers and structure.",
+        variant: "destructive",
+      });
+      setBulkErrorMessage(err.message || "Failed to parse CSV file.");
+      setBulkCsvFile(null);
+      setBulkCsvRows([]);
+    }
+  };
+
+  const handleValidateAndProceedToPreview = () => {
+    setBulkErrorMessage(null);
+
+    if (bulkModuleActiveTab === "manual") {
+      if (bulkManualRows.length === 0) {
+        setBulkErrorMessage("Please add at least one module row.");
+        return;
+      }
+
+      const existingNamesMap = new Set(
+        (currentSubmodule?.modules || []).map((m) => (m.name || m.title || "").trim().toLowerCase())
+      );
+
+      const seenNames = new Set<string>();
+
+      for (let i = 0; i < bulkManualRows.length; i++) {
+        const r = bulkManualRows[i];
+        if (!r) continue;
+        const trimmed = r.name.trim();
+
+        if (!trimmed) {
+          const msg = `Module #${i + 1}: Module Name is required.`;
+          setBulkErrorMessage(msg);
+          toast({ title: "Validation Error", description: msg, variant: "destructive" });
+          return;
+        }
+
+        const lower = trimmed.toLowerCase();
+        if (seenNames.has(lower)) {
+          const msg = `Module #${i + 1}: Duplicate module name "${trimmed}" detected in form.`;
+          setBulkErrorMessage(msg);
+          toast({ title: "Duplicate Detected", description: msg, variant: "destructive" });
+          return;
+        }
+        seenNames.add(lower);
+
+        if (existingNamesMap.has(lower)) {
+          const msg = `Module #${i + 1}: Module "${trimmed}" already exists in this Submodule.`;
+          setBulkErrorMessage(msg);
+          toast({ title: "Module Exists", description: msg, variant: "destructive" });
+          return;
+        }
+
+        if (r.totalMarks < 1) {
+          const msg = `Module #${i + 1}: Total Marks must be at least 1.`;
+          setBulkErrorMessage(msg);
+          toast({ title: "Validation Error", description: msg, variant: "destructive" });
+          return;
+        }
+
+        if (r.passingMarks < 0 || r.passingMarks > r.totalMarks) {
+          const msg = `Module #${i + 1}: Passing Marks (${r.passingMarks}) cannot exceed Total Marks (${r.totalMarks}).`;
+          setBulkErrorMessage(msg);
+          toast({ title: "Validation Error", description: msg, variant: "destructive" });
+          return;
+        }
+      }
+
+      setBulkModuleStep("preview");
+    } else {
+      // CSV tab
+      if (!bulkCsvFile || bulkCsvRows.length === 0) {
+        const msg = "Please upload a valid CSV file first.";
+        setBulkErrorMessage(msg);
+        toast({ title: "No File Uploaded", description: msg, variant: "destructive" });
+        return;
+      }
+
+      const invalidRows = bulkCsvRows.filter((r) => !r.isValid);
+      if (invalidRows.length > 0) {
+        const firstInvalid = invalidRows[0];
+        const firstErr = firstInvalid?.errors?.[0] || "Invalid data found";
+        const rowNum = firstInvalid?.rowNumber || 1;
+        const msg = `Row #${rowNum}: ${firstErr}. Please resolve all CSV errors before previewing.`;
+        setBulkErrorMessage(msg);
+        toast({ title: "CSV Has Errors", description: msg, variant: "destructive" });
+        return;
+      }
+
+      setBulkModuleStep("preview");
+    }
+  };
+
+  const handleConfirmBulkSubmit = async () => {
+    if (!currentMainModule || !currentSubmodule) {
+      toast({ title: "Error", description: "Missing submodule context.", variant: "destructive" });
+      return;
+    }
+
+    let modulesToCreate: Array<{
+      name: string;
+      description: string;
+      type: "mixed" | "coding" | "mcq";
+      durationMinutes: number;
+      totalMarks: number;
+      passingMarks: number;
+      status: "active" | "inactive";
+      displayOrder?: number;
+    }> = [];
+
+    const maxOrder = (currentSubmodule.modules && currentSubmodule.modules.length > 0)
+      ? currentSubmodule.modules.reduce((max, m) => Math.max(max, m.display_order ?? 0), 0)
+      : 0;
+
+    if (bulkModuleActiveTab === "manual") {
+      modulesToCreate = bulkManualRows.map((r, idx) => ({
+        name: r.name.trim(),
+        description: r.description.trim(),
+        type: r.type,
+        durationMinutes: r.durationEnabled ? Math.max(1, r.durationMinutes) : 0,
+        totalMarks: Math.max(1, r.totalMarks),
+        passingMarks: Math.max(0, r.passingMarks),
+        status: r.status,
+        displayOrder: bulkAutoOrder ? maxOrder + 1 + idx : r.displayOrder,
+      }));
+    } else {
+      modulesToCreate = bulkCsvRows.map((r, idx) => ({
+        name: r.name.trim(),
+        description: r.description.trim(),
+        type: r.type,
+        durationMinutes: r.durationMinutes,
+        totalMarks: r.totalMarks,
+        passingMarks: r.passingMarks,
+        status: r.status,
+        displayOrder: bulkAutoOrder ? maxOrder + 1 + idx : r.displayOrder,
+      }));
+    }
+
+    if (modulesToCreate.length === 0) {
+      toast({ title: "Error", description: "No modules to create.", variant: "destructive" });
+      return;
+    }
+
+    setIsBulkSubmitting(true);
+    setBulkErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/admin/practices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "bulk_create_modules",
+          main_module_id: currentMainModule.id,
+          submodule_id: currentSubmodule.id,
+          auto_order: bulkAutoOrder,
+          modules: modulesToCreate,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Unable to save modules right now. No changes were applied.");
+      }
+
+      toast({
+        title: "Success",
+        description: `${data.count || modulesToCreate.length} modules created successfully.`,
+      });
+
+      setShowBulkModuleModal(false);
+      await fetchData();
+    } catch (err: any) {
+      console.error("Bulk module creation error:", err);
+      const safeMsg = err.message || "Unable to save modules right now. No changes were applied. Please try again.";
+      setBulkErrorMessage(safeMsg);
+      toast({
+        title: "Creation Failed",
+        description: safeMsg,
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkSubmitting(false);
+    }
+  };
+
+  const handleCloseBulkModal = () => {
+    if (isBulkSubmitting) return;
+    const hasUnsavedManual = bulkManualRows.some((r) => r.name.trim() !== "" || r.description.trim() !== "");
+    const hasUnsavedCsv = bulkCsvRows.length > 0;
+    if (hasUnsavedManual || hasUnsavedCsv) {
+      if (window.confirm("Discard unsaved modules? Any changes will be lost.")) {
+        setShowBulkModuleModal(false);
+      }
+    } else {
+      setShowBulkModuleModal(false);
+    }
+  };
+
+  // 3.8. OPEN QUESTION BULK UPLOAD MODAL (OPTIONS: MIXED | CODE ONLY | MCQ ONLY)
+  const handleOpenQuestionBulkUpload = (m?: PracticeModule | null) => {
+    const target = m || currentModule || (selectedModuleId ? resolveHierarchyForModule(selectedModuleId).module : null);
+    if (!target) {
+      toast({ title: "Module Context Missing", description: "Please select a Module before uploading questions.", variant: "destructive" });
+      return;
+    }
+
+    const hierarchy = resolveHierarchyForModule(target.id);
+    const mainId = target.main_module_id || hierarchy.mainModule?.id;
+    const subId = target.submodule_id || hierarchy.submodule?.id;
+    if (mainId) setSelectedMainModuleId(mainId);
+    if (subId) setSelectedSubmoduleId(subId);
+    setSelectedModuleId(target.id);
+    setMcqList(target.mcqQuestions || []);
+    setCodingList(target.codingQuestions || []);
+    setTargetQuestionUploadModule(target);
+
+    // Initial default format based on module type
+    const defaultType = target.type === "mcq" ? "quiz" : target.type === "mixed" ? "mixed_questions" : "coding_problem";
+    setBulkUploadModuleType(defaultType);
+    setIsBulkUploadOpen(true);
   };
 
   // 4. OPEN MODULE QUESTIONS EDITOR
@@ -1490,131 +2081,154 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     }
   };
 
-  // 6. BULK IMPORT HANDLER (FOR CODING CHALLENGES & MCQS)
+  // 6. BULK IMPORT HANDLER (FOR MIXED, CODING CHALLENGES & MCQS)
   const handleBulkImport = async (importedItems: any[]) => {
     if (!importedItems || importedItems.length === 0) return;
 
-    if (bulkUploadModuleType === "coding_problem") {
-      const newCodingProblems = importedItems.map((p, i) => {
-        const starterCode = p.starter_code || p.templates || {};
-        const testCases = Array.isArray(p.test_cases) ? p.test_cases : [];
-        const sampleCases = testCases.filter((tc: any) => !tc.is_hidden);
-        const hiddenCases = testCases.filter((tc: any) => tc.is_hidden);
+    const activeMod = targetQuestionUploadModule || currentModule || (selectedModuleId ? resolveHierarchyForModule(selectedModuleId).module : null);
+    if (!activeMod) {
+      toast({ title: "Error", description: "Target module not found for bulk questions import.", variant: "destructive" });
+      return;
+    }
 
-        return {
-          id: p.id || `cp-${Date.now()}-${i}`,
-          title: p.title || `Coding Challenge ${i + 1}`,
-          slug: p.slug || `prob-${Date.now()}-${i}`,
-          description: p.description || "",
-          difficulty: (p.difficulty || "medium").toLowerCase(),
-          category: p.category || "Algorithms",
-          tags: p.topic_tags || p.tags || [],
-          points: Number(p.points) || 100,
-          time_limit_ms: Number(p.time_limit_ms) || 2000,
-          memory_limit_mb: Number(p.memory_limit_mb) || 256,
+    const resolvedHierarchy = resolveHierarchyForModule(activeMod.id);
+    const parentMainId = activeMod.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
+    const parentSubId = activeMod.submodule_id || currentSubmodule?.id || resolvedHierarchy.submodule?.id;
+
+    if (!parentMainId || !parentSubId) {
+      toast({ title: "Error", description: "Parent module hierarchy not found.", variant: "destructive" });
+      return;
+    }
+
+    let addedMcqCount = 0;
+    let addedCodingCount = 0;
+    const updatedMcqs: MCQQuestion[] = [...(activeMod.mcqQuestions || mcqList)];
+    const updatedCodings: any[] = [...(activeMod.codingQuestions || codingList)];
+    const newlyCreatedCodingProblems: any[] = [];
+
+    importedItems.forEach((item, idx) => {
+      // Determine if item is MCQ or Coding
+      const isMcq =
+        item.questionCategory === "mcq" ||
+        (item.options && Array.isArray(item.options) && item.options.length > 0 && !item.test_cases && !item.testCases && !item.starter_code && !item.starterCode);
+
+      if (isMcq) {
+        let opts = item.options;
+        const rawCorrect = String(item.correctOption || item.correctAnswer || "A").trim().toUpperCase();
+        const correctParts = rawCorrect.split(/[\s,+/]+/).map((s) => s.trim()).filter(Boolean);
+        let isMultiple = Boolean(item.allowMultiple) || correctParts.length > 1 || String(item.questionType || "").toLowerCase().includes("multi");
+
+        if (!Array.isArray(opts) || opts.length === 0) {
+          const opt1 = { id: `opt_${Date.now()}_1_${idx}`, text: item.optionA || item.option_1 || "Option A", isCorrect: false };
+          const opt2 = { id: `opt_${Date.now()}_2_${idx}`, text: item.optionB || item.option_2 || "Option B", isCorrect: false };
+          const opt3 = { id: `opt_${Date.now()}_3_${idx}`, text: item.optionC || item.option_3 || "Option C", isCorrect: false };
+          const opt4 = { id: `opt_${Date.now()}_4_${idx}`, text: item.optionD || item.option_4 || "Option D", isCorrect: false };
+
+          if (correctParts.includes("A") || correctParts.includes("1")) opt1.isCorrect = true;
+          if (correctParts.includes("B") || correctParts.includes("2")) opt2.isCorrect = true;
+          if (correctParts.includes("C") || correctParts.includes("3")) opt3.isCorrect = true;
+          if (correctParts.includes("D") || correctParts.includes("4")) opt4.isCorrect = true;
+
+          // Default fallback to Option A if none matched
+          if (!opt1.isCorrect && !opt2.isCorrect && !opt3.isCorrect && !opt4.isCorrect) {
+            opt1.isCorrect = true;
+          }
+          opts = [opt1, opt2, opt3, opt4];
+        } else {
+          const correctCount = opts.filter((o: any) => o.isCorrect).length;
+          if (correctCount > 1) {
+            isMultiple = true;
+          }
+        }
+
+        const newMcq: MCQQuestion = {
+          id: item.id || `mcq_${Date.now()}_${idx}`,
+          questionText: String(item.questionText || item.question || item.title || `Question ${idx + 1}`).trim(),
+          marks: Number(item.marks || item.points || item.totalMarks) || 10,
+          options: opts,
+          explanation: String(item.explanation || "").trim(),
+          difficulty: item.difficulty || "Easy",
+          allowMultiple: isMultiple,
+        };
+        updatedMcqs.push(newMcq);
+        addedMcqCount++;
+      } else {
+        // Coding Problem
+        const starterCode = item.starter_code || item.starterCode || item.templates || {};
+        const testCases = Array.isArray(item.test_cases) ? item.test_cases : (Array.isArray(item.testCases) ? item.testCases : []);
+        const sampleCases = item.sample_test_cases || testCases.filter((tc: any) => !tc.is_hidden && !tc.isHidden);
+        const hiddenCases = item.hidden_test_cases || testCases.filter((tc: any) => tc.is_hidden || tc.isHidden);
+
+        const newProblem = {
+          id: item.id || `cp-${Date.now()}-${idx}`,
+          title: item.title || `Coding Challenge ${idx + 1}`,
+          slug: item.slug || `prob-${Date.now()}-${idx}`,
+          description: item.description || item.title || "",
+          difficulty: (item.difficulty || "medium").toLowerCase(),
+          category: item.category || "Algorithms",
+          tags: item.topic_tags || item.tags || [],
+          points: Number(item.points || item.marks) || 10,
+          marks: Number(item.points || item.marks) || 10,
+          time_limit_ms: Number(item.time_limit_ms) || 2000,
+          memory_limit_mb: Number(item.memory_limit_mb) || 256,
           starter_code: starterCode,
           test_cases: testCases,
           sample_test_cases: sampleCases,
           hidden_test_cases: hiddenCases,
           status: "published",
           scope: "practice",
-          assessment_id: currentModule?.id,
-          module_id: currentModule?.id,
+          assessment_id: activeMod.id,
+          module_id: activeMod.id,
         };
-      });
+        updatedCodings.push(newProblem);
+        newlyCreatedCodingProblems.push(newProblem);
+        addedCodingCount++;
+      }
+    });
 
-      const updated = [...codingList, ...newCodingProblems];
-      setCodingList(updated);
-      setIsBulkUploadOpen(false);
+    setMcqList(updatedMcqs);
+    setCodingList(updatedCodings);
+    setIsBulkUploadOpen(false);
 
-      // Persist imported coding problems directly to Supabase coding_problems table
-      CodingProblemsService.saveProblems(newCodingProblems as any).catch((err) => {
+    // Save coding problems to coding_problems table if any
+    if (newlyCreatedCodingProblems.length > 0) {
+      CodingProblemsService.saveProblems(newlyCreatedCodingProblems as any).catch((err) => {
         console.warn("Direct DB bulk coding persistence notice:", err);
       });
+    }
 
-      if (currentMainModule && currentSubmodule && currentModule) {
-        try {
-          await fetch("/api/admin/practices", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "update_module",
-              main_module_id: currentMainModule.id,
-              submodule_id: currentSubmodule.id,
-              id: currentModule.id,
-              name: currentModule.name,
-              mcqQuestions: mcqList,
-              codingQuestions: updated,
-            }),
-          });
-          await fetchData();
-          toast({
-            title: "Bulk Upload Complete",
-            description: `Imported and saved ${newCodingProblems.length} coding challenges to database.`,
-          });
-        } catch (err: any) {
-          toast({
-            title: "Save Required",
-            description: "Click 'Save Questions & Exit' to persist changes to database.",
-          });
-        }
-      }
-    } else {
-      // MCQ Import
-      const newMCQs: MCQQuestion[] = importedItems.map((item, idx) => {
-        const opt1 = { id: `opt_${Date.now()}_1_${idx}`, text: item.option_1 || item.option1 || item.optionA || "Option A", isCorrect: false };
-        const opt2 = { id: `opt_${Date.now()}_2_${idx}`, text: item.option_2 || item.option2 || item.optionB || "Option B", isCorrect: false };
-        const opt3 = { id: `opt_${Date.now()}_3_${idx}`, text: item.option_3 || item.option3 || item.optionC || "Option C", isCorrect: false };
-        const opt4 = { id: `opt_${Date.now()}_4_${idx}`, text: item.option_4 || item.option4 || item.optionD || "Option D", isCorrect: false };
-
-        const correctStr = String(item.correctAnswer || item.correct_answer || "A").trim().toUpperCase();
-        if (correctStr.includes("B") || correctStr === "2") opt2.isCorrect = true;
-        else if (correctStr.includes("C") || correctStr === "3") opt3.isCorrect = true;
-        else if (correctStr.includes("D") || correctStr === "4") opt4.isCorrect = true;
-        else opt1.isCorrect = true;
-
-        const rawOptions = [opt1, opt2, opt3, opt4];
-
-        return {
-          id: item.id || `mcq_${Date.now()}_${idx}`,
-          questionText: String(item.question || item.questionText || item.title || `Question ${idx + 1}`).trim(),
-          marks: Number(item.marks || item.totalMarks) || 10,
-          options: rawOptions,
-          explanation: String(item.explanation || "").trim(),
-        };
+    // Persist to database
+    try {
+      const res = await fetch("/api/admin/practices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_module",
+          main_module_id: parentMainId,
+          submodule_id: parentSubId,
+          id: activeMod.id,
+          name: activeMod.name || activeMod.title,
+          mcqQuestions: updatedMcqs,
+          codingQuestions: updatedCodings,
+        }),
       });
 
-      const updated = [...mcqList, ...newMCQs];
-      setMcqList(updated);
-      setIsBulkUploadOpen(false);
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Save failed");
 
-      if (currentMainModule && currentSubmodule && currentModule) {
-        try {
-          await fetch("/api/admin/practices", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "update_module",
-              main_module_id: currentMainModule.id,
-              submodule_id: currentSubmodule.id,
-              id: currentModule.id,
-              name: currentModule.name,
-              mcqQuestions: updated,
-              codingQuestions: codingList,
-            }),
-          });
-          await fetchData();
-          toast({
-            title: "Bulk Upload Complete",
-            description: `Imported and saved ${newMCQs.length} MCQ questions to database.`,
-          });
-        } catch (err: any) {
-          toast({
-            title: "Save Required",
-            description: "Click 'Save Questions & Exit' to persist changes to database.",
-          });
-        }
-      }
+      await fetchData();
+      const summaryMsg = [];
+      if (addedMcqCount > 0) summaryMsg.push(`${addedMcqCount} MCQ questions`);
+      if (addedCodingCount > 0) summaryMsg.push(`${addedCodingCount} Coding challenges`);
+      toast({
+        title: "Bulk Questions Added Successfully",
+        description: `Imported and saved ${summaryMsg.join(" and ") || "questions"} to "${activeMod.name || activeMod.title}".`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Import Loaded",
+        description: "Click 'Save Questions & Exit' to persist changes to database.",
+      });
     }
   };
 
@@ -1701,13 +2315,22 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               )}
 
               {activeLevel === "module_editor" && (
-                <Button
-                  type="button"
-                  onClick={handleSaveModuleQuestions}
-                  className="h-9 px-4 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
-                >
-                  Save Questions &amp; Exit
-                </Button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQuestionBulkUpload(currentModule)}
+                    className="h-9 px-4 text-xs font-semibold rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 bg-white dark:bg-[#18181B] cursor-pointer shadow-2xs transition-colors whitespace-nowrap"
+                  >
+                    Bulk Upload Questions
+                  </button>
+                  <Button
+                    type="button"
+                    onClick={handleSaveModuleQuestions}
+                    className="h-9 px-4 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-2xs"
+                  >
+                    Save Questions &amp; Exit
+                  </Button>
+                </div>
               )}
             </div>
           }
@@ -2010,9 +2633,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               <span className="text-slate-500 dark:text-zinc-400 font-medium">
                 Modules Count: {currentSubmodule.modules.length}
               </span>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold hidden md:inline">
-                Click &quot;+ Add / Manage Questions&quot; on any module below
-              </span>
             </div>
           </div>
 
@@ -2029,13 +2649,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">
                   Inside this Submodule, create Modules containing MCQs or Coding Challenges.
                 </p>
-                <div className="pt-2">
+                <div className="pt-2 flex items-center justify-center gap-2.5 flex-wrap">
                   <Button
                     type="button"
                     onClick={handleOpenAddModule}
                     className="h-9 px-5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
                   >
-                    Add Module
+                    + Add Module
                   </Button>
                 </div>
               </div>
@@ -2155,6 +2775,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
                       <button
                         type="button"
+                        onClick={() => handleOpenQuestionBulkUpload(mod)}
+                        className="h-8.5 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap"
+                      >
+                        Bulk Upload Questions
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={(e) => handleOpenEditModule(mod, e)}
                         className="h-8.5 px-3 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 text-xs font-semibold cursor-pointer transition-colors"
                       >
@@ -2200,41 +2828,52 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               </p>
             </div>
 
-            {/* Tab switch / Type indicator */}
-            {currentModule.type === "mixed" ? (
-              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("mcq")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
-                    activeTab === "mcq"
-                      ? "bg-white dark:bg-zinc-900 text-blue-600 shadow-2xs"
-                      : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
-                  }`}
-                >
-                  MCQs ({mcqList.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("coding")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
-                    activeTab === "coding"
-                      ? "bg-white dark:bg-zinc-900 text-blue-600 shadow-2xs"
-                      : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
-                  }`}
-                >
+            {/* Actions & Tab switch */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => handleOpenQuestionBulkUpload(currentModule)}
+                className="h-8.5 px-3 text-xs font-semibold rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 bg-white dark:bg-[#18181B] cursor-pointer shadow-2xs whitespace-nowrap transition-colors"
+              >
+                Bulk Upload Questions
+              </button>
+
+              {/* Tab switch / Type indicator */}
+              {currentModule.type === "mixed" ? (
+                <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800 p-1 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("mcq")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                      activeTab === "mcq"
+                        ? "bg-white dark:bg-zinc-900 text-blue-600 shadow-2xs"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
+                    }`}
+                  >
+                    MCQs ({mcqList.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("coding")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                      activeTab === "coding"
+                        ? "bg-white dark:bg-zinc-900 text-blue-600 shadow-2xs"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900"
+                    }`}
+                  >
+                    Coding Problems ({codingList.length})
+                  </button>
+                </div>
+              ) : currentModule.type === "coding" ? (
+                <div className="px-3.5 py-1.5 text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs">
                   Coding Problems ({codingList.length})
-                </button>
-              </div>
-            ) : currentModule.type === "coding" ? (
-              <div className="px-3.5 py-1.5 text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs">
-                Coding Problems ({codingList.length})
-              </div>
-            ) : (
-              <div className="px-3.5 py-1.5 text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs">
-                MCQ Questions ({mcqList.length})
-              </div>
-            )}
+                </div>
+              ) : (
+                <div className="px-3.5 py-1.5 text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs">
+                  MCQ Questions ({mcqList.length})
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Live Marks & Weight Scoring Summary */}
@@ -4077,6 +4716,765 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         document.body
       )}
 
+      {/* ─── MODAL 3.5: BULK ADD MODULES (LEVEL 3) ─────────────────────────── */}
+      {mounted && typeof document !== "undefined" && showBulkModuleModal && currentMainModule && currentSubmodule && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+          <div className="fixed inset-0 cursor-pointer" onClick={handleCloseBulkModal} />
+          <div className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-[#0F172A] border border-slate-200/80 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10 animate-in zoom-in-95 duration-200 my-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4.5 bg-white dark:bg-[#18181B] border-b border-slate-200/80 dark:border-zinc-800 shrink-0">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                    Level 3 · Bulk Module Creation
+                  </span>
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">
+                    Create multiple modules at once
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Bulk Add Modules
+                </h3>
+                <div className="flex items-center gap-2 flex-wrap pt-0.5 text-[11px] text-slate-500 dark:text-zinc-400">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium">
+                    <span className="text-slate-400 dark:text-zinc-500 font-normal">Main Module:</span>{" "}
+                    <strong className="text-slate-700 dark:text-zinc-200">{currentMainModule.name || currentMainModule.title}</strong>
+                  </span>
+                  <span className="text-slate-300 dark:text-zinc-700">/</span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium">
+                    <span className="text-slate-400 dark:text-zinc-500 font-normal">Submodule:</span>{" "}
+                    <strong className="text-slate-700 dark:text-zinc-200">{currentSubmodule.name || currentSubmodule.title}</strong>
+                  </span>
+                  <span className="text-slate-300 dark:text-zinc-700">·</span>
+                  <span className="text-slate-500 dark:text-zinc-400">
+                    Existing Modules: <strong>{currentSubmodule.modules?.length || 0}</strong>
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseBulkModal}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Navigation & Controls Bar */}
+            <div className="px-6 py-3 bg-slate-50/90 dark:bg-zinc-900/80 border-b border-slate-200/80 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
+              {/* Tab Switcher (Visible in Edit step) */}
+              {bulkModuleStep === "edit" ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkModuleActiveTab("manual");
+                      setBulkErrorMessage(null);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      bulkModuleActiveTab === "manual"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 hover:text-slate-900"
+                    }`}
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    MANUAL ENTRY ({bulkManualRows.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkModuleActiveTab("csv");
+                      setBulkErrorMessage(null);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      bulkModuleActiveTab === "csv"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 hover:text-slate-900"
+                    }`}
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    CSV IMPORT {bulkCsvRows.length > 0 ? `(${bulkCsvRows.length})` : ""}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    Step 2: Review &amp; Confirm Modules
+                  </span>
+                </div>
+              )}
+
+              {/* Auto Display Order Option */}
+              <div className="flex items-center gap-2 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700 dark:text-zinc-300 select-none">
+                  <input
+                    type="checkbox"
+                    checked={bulkAutoOrder}
+                    onChange={(e) => setBulkAutoOrder(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 dark:border-zinc-700 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span>Auto assign display order</span>
+                </label>
+                <span className="text-[11px] text-slate-400 dark:text-zinc-500 hidden md:inline">
+                  (Starts at #{(currentSubmodule.modules && currentSubmodule.modules.length > 0 ? currentSubmodule.modules.reduce((max, m) => Math.max(max, m.display_order ?? 0), 0) : 0) + 1})
+                </span>
+              </div>
+            </div>
+
+            {/* Scrollable Content Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs bg-slate-50/50 dark:bg-zinc-950/40">
+              {/* ─── VIEW 1: MANUAL BULK ENTRY ─── */}
+              {bulkModuleStep === "edit" && bulkModuleActiveTab === "manual" && (
+                <div className="space-y-4">
+                  {bulkManualRows.map((row, idx) => {
+                    const rowNumber = idx + 1;
+                    return (
+                      <Card
+                        key={row.id}
+                        className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-4.5 shadow-2xs space-y-3.5 transition-all hover:border-slate-300 dark:hover:border-zinc-700"
+                      >
+                        {/* Row Header */}
+                        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-zinc-800/80">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60">
+                              Module {rowNumber}
+                            </span>
+                            <span className="text-[11px] text-slate-400 dark:text-zinc-500">
+                              Display Order: {bulkAutoOrder ? `#${((currentSubmodule.modules && currentSubmodule.modules.length > 0 ? currentSubmodule.modules.reduce((max, m) => Math.max(max, m.display_order ?? 0), 0) : 0) + rowNumber)}` : `#${row.displayOrder}`}
+                            </span>
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleBulkRemoveRow(row.id)}
+                            disabled={bulkManualRows.length <= 1}
+                            className="h-7 px-2.5 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg cursor-pointer transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1" />
+                            Remove
+                          </Button>
+                        </div>
+
+                        {/* Module Name (Required) */}
+                        <div className="space-y-1">
+                          <label className="font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1">
+                            Module Name <span className="text-red-500">*</span>
+                          </label>
+                          <Input
+                            placeholder="e.g. C Basics, Variables and Data Types, Loops..."
+                            value={row.name}
+                            onChange={(e) => handleBulkRowChange(row.id, "name", e.target.value)}
+                            className="h-9 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                          />
+                        </div>
+
+                        {/* Fields Grid: Type, Duration, Total Marks, Passing Marks */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                          {/* Type */}
+                          <div className="space-y-1">
+                            <label className="font-semibold text-slate-700 dark:text-zinc-300">Type</label>
+                            <MncSelect
+                              value={row.type}
+                              onChange={(v: any) => handleBulkRowChange(row.id, "type", v)}
+                              variant="blue"
+                              options={[
+                                { value: "mixed", label: "Mixed" },
+                                { value: "coding", label: "Code Only" },
+                                { value: "mcq", label: "MCQ Only" },
+                              ]}
+                            />
+                          </div>
+
+                          {/* Duration */}
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="font-semibold text-slate-700 dark:text-zinc-300">Duration (m)</label>
+                              <button
+                                type="button"
+                                onClick={() => handleBulkRowChange(row.id, "durationEnabled", !row.durationEnabled)}
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${
+                                  row.durationEnabled
+                                    ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                                    : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700"
+                                }`}
+                              >
+                                {row.durationEnabled ? "ON" : "OFF"}
+                              </button>
+                            </div>
+                            {row.durationEnabled ? (
+                              <Input
+                                type="number"
+                                value={row.durationMinutes}
+                                onChange={(e) => handleBulkRowChange(row.id, "durationMinutes", Math.max(1, parseInt(e.target.value) || 1))}
+                                className="h-9 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                                min={1}
+                              />
+                            ) : (
+                              <div
+                                onClick={() => handleBulkRowChange(row.id, "durationEnabled", true)}
+                                className="h-9 px-3 flex items-center justify-between bg-slate-100 dark:bg-zinc-800/80 rounded-lg border border-dashed border-slate-200 dark:border-zinc-700 text-[11px] text-slate-500 dark:text-zinc-400 font-semibold cursor-pointer"
+                              >
+                                <span>No Limit</span>
+                                <span className="text-[10px] uppercase font-bold text-slate-400">OFF</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Total Marks */}
+                          <div className="space-y-1">
+                            <label className="font-semibold text-slate-700 dark:text-zinc-300">Total Marks</label>
+                            <Input
+                              type="number"
+                              value={row.totalMarks}
+                              onChange={(e) => handleBulkRowChange(row.id, "totalMarks", Math.max(1, parseInt(e.target.value) || 1))}
+                              className="h-9 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                              min={1}
+                            />
+                          </div>
+
+                          {/* Passing Marks */}
+                          <div className="space-y-1">
+                            <label className="font-semibold text-slate-700 dark:text-zinc-300">Passing Marks</label>
+                            <Input
+                              type="number"
+                              value={row.passingMarks}
+                              onChange={(e) => handleBulkRowChange(row.id, "passingMarks", Math.max(0, parseInt(e.target.value) || 0))}
+                              className="h-9 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                              min={0}
+                              max={row.totalMarks}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Fields Grid: Status & Display Order */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Status */}
+                          <div className="space-y-1">
+                            <label className="font-semibold text-slate-700 dark:text-zinc-300">Status</label>
+                            <MncSelect
+                              value={row.status}
+                              onChange={(v: any) => handleBulkRowChange(row.id, "status", v)}
+                              variant="blue"
+                              options={[
+                                { value: "active", label: "Active" },
+                                { value: "inactive", label: "Inactive" },
+                              ]}
+                            />
+                          </div>
+
+                          {/* Display Order */}
+                          <div className="space-y-1">
+                            <label className="font-semibold text-slate-700 dark:text-zinc-300">Display Order</label>
+                            <Input
+                              type="number"
+                              value={row.displayOrder}
+                              disabled={bulkAutoOrder}
+                              onChange={(e) => handleBulkRowChange(row.id, "displayOrder", parseInt(e.target.value) || 0)}
+                              className={`h-9 text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500/20 ${
+                                bulkAutoOrder ? "opacity-60 cursor-not-allowed" : ""
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Description */}
+                        <div className="space-y-1">
+                          <label className="font-semibold text-slate-700 dark:text-zinc-300">Description</label>
+                          <Textarea
+                            placeholder="Brief description of this Module's learning objectives..."
+                            value={row.description}
+                            onChange={(e) => handleBulkRowChange(row.id, "description", e.target.value)}
+                            className="text-xs bg-slate-50/70 dark:bg-zinc-900 border-slate-200 dark:border-zinc-700 rounded-lg resize-none focus-visible:ring-2 focus-visible:ring-blue-500/20"
+                            rows={2}
+                          />
+                        </div>
+                      </Card>
+                    );
+                  })}
+
+                  {/* Add Row Button */}
+                  <div className="pt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleBulkAddRow}
+                      className="w-full h-10 border-dashed border-2 border-slate-300 dark:border-zinc-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                      + Add Another Module
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── VIEW 2: CSV IMPORT ─── */}
+              {bulkModuleStep === "edit" && bulkModuleActiveTab === "csv" && (
+                <div className="space-y-4">
+                  {/* CSV Template Download Banner */}
+                  <Card className="bg-gradient-to-r from-blue-50/60 to-indigo-50/60 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200/70 dark:border-blue-900/40 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-xs">
+                        <FileSpreadsheet className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        Standardized CSV Template
+                      </div>
+                      <p className="text-[11px] text-slate-600 dark:text-zinc-400">
+                        Contains columns: Module Name, Description, Type, Duration, Total Marks, Passing Marks, Status, Display Order.
+                      </p>
+                    </div>
+
+                    <Button
+                      type="button"
+                      onClick={handleDownloadCsvTemplate}
+                      className="h-8.5 px-3.5 text-xs font-bold rounded-lg bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 shadow-2xs shrink-0 cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download CSV Template
+                    </Button>
+                  </Card>
+
+                  {/* Hidden File Input */}
+                  <input
+                    type="file"
+                    ref={bulkFileInputRef}
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleBulkCsvFileSelected(e.target.files[0]);
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+
+                  {/* Upload Dropzone */}
+                  {!bulkCsvFile ? (
+                    <div
+                      onClick={() => bulkFileInputRef.current?.click()}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                          handleBulkCsvFileSelected(e.dataTransfer.files[0]);
+                        }
+                      }}
+                      className="border-2 border-dashed border-slate-300 dark:border-zinc-700 hover:border-blue-500 dark:hover:border-blue-400 rounded-xl p-8 text-center cursor-pointer transition-all bg-white dark:bg-[#18181B] group shadow-2xs"
+                    >
+                      <div className="max-w-md mx-auto space-y-2.5">
+                        <div className="w-12 h-12 mx-auto rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <UploadCloud className="w-6 h-6" />
+                        </div>
+                        <h4 className="font-bold text-sm text-slate-800 dark:text-zinc-200">
+                          Click to upload or drag &amp; drop CSV
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                          Supports UTF-8 encoded .csv files up to 5 MB
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Uploaded File Summary & Validation Breakdown */
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3.5 bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl shadow-2xs">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                            <FileSpreadsheet className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900 dark:text-white text-xs">
+                              {bulkCsvFile.name}
+                            </div>
+                            <div className="text-[11px] text-slate-400 dark:text-zinc-500">
+                              {(bulkCsvFile.size / 1024).toFixed(1)} KB · {bulkCsvRows.length} modules detected
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => bulkFileInputRef.current?.click()}
+                            className="h-8 px-3 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 cursor-pointer"
+                          >
+                            Replace File
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Stats & Filter Bar */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-600 dark:text-zinc-400">
+                            {bulkCsvRows.length} rows detected:
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            {bulkCsvRows.filter((r) => r.isValid).length} valid
+                          </span>
+                          {bulkCsvRows.filter((r) => !r.isValid).length > 0 && (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+                              {bulkCsvRows.filter((r) => !r.isValid).length} invalid
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setBulkCsvFilter("all")}
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                              bulkCsvFilter === "all"
+                                ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900"
+                                : "bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700"
+                            }`}
+                          >
+                            All ({bulkCsvRows.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBulkCsvFilter("valid")}
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                              bulkCsvFilter === "valid"
+                                ? "bg-emerald-600 text-white"
+                                : "bg-white dark:bg-zinc-800 text-emerald-600 dark:text-emerald-400 border border-slate-200 dark:border-zinc-700"
+                            }`}
+                          >
+                            Valid ({bulkCsvRows.filter((r) => r.isValid).length})
+                          </button>
+                          {bulkCsvRows.filter((r) => !r.isValid).length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setBulkCsvFilter("invalid")}
+                              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                                bulkCsvFilter === "invalid"
+                                  ? "bg-red-600 text-white"
+                                  : "bg-white dark:bg-zinc-800 text-red-600 dark:text-red-400 border border-slate-200 dark:border-zinc-700"
+                              }`}
+                            >
+                              Errors ({bulkCsvRows.filter((r) => !r.isValid).length})
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Error List Alert if any */}
+                      {bulkCsvRows.filter((r) => !r.isValid).length > 0 && (
+                        <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 rounded-xl space-y-1.5 text-xs text-red-800 dark:text-red-300">
+                          <div className="font-bold flex items-center gap-1.5">
+                            <AlertCircle className="w-4 h-4 text-red-600" />
+                            <span>Action Required: Please fix the following errors in your CSV:</span>
+                          </div>
+                          <ul className="list-disc list-inside space-y-1 pl-1 text-[11px] text-red-700 dark:text-red-300">
+                            {bulkCsvRows
+                              .filter((r) => !r.isValid)
+                              .slice(0, 5)
+                              .map((r) => (
+                                <li key={r.rowNumber}>
+                                  <strong>Row #{r.rowNumber}:</strong> {r.errors.join(", ")}
+                                </li>
+                              ))}
+                            {bulkCsvRows.filter((r) => !r.isValid).length > 5 && (
+                              <li className="font-semibold">
+                                + {bulkCsvRows.filter((r) => !r.isValid).length - 5} more invalid row(s)...
+                              </li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* CSV Preview Table */}
+                      <div className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-[#18181B] shadow-2xs">
+                        <div className="overflow-x-auto max-h-[300px]">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50 dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 font-bold sticky top-0 z-10">
+                              <tr>
+                                <th className="p-2.5 pl-3">Row</th>
+                                <th className="p-2.5">Module Name</th>
+                                <th className="p-2.5">Type</th>
+                                <th className="p-2.5">Duration</th>
+                                <th className="p-2.5">Marks</th>
+                                <th className="p-2.5">Status</th>
+                                <th className="p-2.5">Order</th>
+                                <th className="p-2.5 pr-3 text-right">Validation</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                              {bulkCsvRows
+                                .filter((r) => {
+                                  if (bulkCsvFilter === "valid") return r.isValid;
+                                  if (bulkCsvFilter === "invalid") return !r.isValid;
+                                  return true;
+                                })
+                                .map((r) => (
+                                  <tr
+                                    key={r.rowNumber}
+                                    className={r.isValid ? "hover:bg-slate-50/50 dark:hover:bg-zinc-900/40" : "bg-red-50/30 dark:bg-red-950/20"}
+                                  >
+                                    <td className="p-2.5 pl-3 font-semibold text-slate-500">#{r.rowNumber}</td>
+                                    <td className="p-2.5 font-bold text-slate-900 dark:text-white max-w-[200px] truncate" title={r.name}>
+                                      {r.name || <span className="text-red-500 italic">Missing name</span>}
+                                    </td>
+                                    <td className="p-2.5">
+                                      <span className="uppercase text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60">
+                                        {r.type}
+                                      </span>
+                                    </td>
+                                    <td className="p-2.5 text-slate-600 dark:text-zinc-400">
+                                      {r.durationMinutes > 0 ? `${r.durationMinutes}m` : "Untimed"}
+                                    </td>
+                                    <td className="p-2.5 font-medium text-slate-700 dark:text-zinc-300">{r.totalMarks}</td>
+                                    <td className="p-2.5">
+                                      <span
+                                        className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                          r.status === "active"
+                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                            : "bg-slate-100 text-slate-600 border border-slate-200"
+                                        }`}
+                                      >
+                                        {r.status}
+                                      </span>
+                                    </td>
+                                    <td className="p-2.5 text-slate-600 dark:text-zinc-400">#{r.displayOrder}</td>
+                                    <td className="p-2.5 pr-3 text-right">
+                                      {r.isValid ? (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                          <CheckCircle className="w-3.5 h-3.5" /> Valid
+                                        </span>
+                                      ) : (
+                                        <span
+                                          className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400 cursor-help"
+                                          title={r.errors.join("; ")}
+                                        >
+                                          <AlertCircle className="w-3.5 h-3.5" /> Error
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ─── VIEW 3: PREVIEW STAGE ("Review Modules") ─── */}
+              {bulkModuleStep === "preview" && (
+                <div className="space-y-4">
+                  {/* Summary Metric Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <Card className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 p-3.5 rounded-xl shadow-2xs">
+                      <div className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500">
+                        Total Modules
+                      </div>
+                      <div className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                        {bulkModuleActiveTab === "manual" ? bulkManualRows.length : bulkCsvRows.length}
+                      </div>
+                    </Card>
+
+                    <Card className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 p-3.5 rounded-xl shadow-2xs">
+                      <div className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500">
+                        Total Marks
+                      </div>
+                      <div className="text-xl font-black text-blue-600 dark:text-blue-400 mt-1">
+                        {bulkModuleActiveTab === "manual"
+                          ? bulkManualRows.reduce((sum, r) => sum + r.totalMarks, 0)
+                          : bulkCsvRows.reduce((sum, r) => sum + r.totalMarks, 0)}
+                      </div>
+                    </Card>
+
+                    <Card className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 p-3.5 rounded-xl shadow-2xs">
+                      <div className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500">
+                        Active / Inactive
+                      </div>
+                      <div className="text-sm font-bold text-slate-800 dark:text-zinc-200 mt-1">
+                        {bulkModuleActiveTab === "manual"
+                          ? `${bulkManualRows.filter((r) => r.status === "active").length} / ${bulkManualRows.filter((r) => r.status === "inactive").length}`
+                          : `${bulkCsvRows.filter((r) => r.status === "active").length} / ${bulkCsvRows.filter((r) => r.status === "inactive").length}`}
+                      </div>
+                    </Card>
+
+                    <Card className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 p-3.5 rounded-xl shadow-2xs">
+                      <div className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500">
+                        Order Sequence
+                      </div>
+                      <div className="text-sm font-bold text-slate-800 dark:text-zinc-200 mt-1">
+                        {bulkAutoOrder ? "Auto-Sequential" : "Custom Order"}
+                      </div>
+                    </Card>
+                  </div>
+
+                  {/* Review Table */}
+                  <div className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-[#18181B] shadow-2xs">
+                    <div className="p-3 bg-slate-50/80 dark:bg-zinc-900/70 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-800 dark:text-zinc-200">
+                        Review Modules to be Created
+                      </span>
+                      <span className="text-[11px] text-slate-500 dark:text-zinc-400">
+                        Submodule: <strong>{currentSubmodule.name || currentSubmodule.title}</strong>
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[380px]">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 font-bold sticky top-0 z-10">
+                          <tr>
+                            <th className="p-2.5 pl-3">#</th>
+                            <th className="p-2.5">Module Name</th>
+                            <th className="p-2.5">Type</th>
+                            <th className="p-2.5">Duration</th>
+                            <th className="p-2.5">Marks</th>
+                            <th className="p-2.5">Pass</th>
+                            <th className="p-2.5">Status</th>
+                            <th className="p-2.5">Order</th>
+                            <th className="p-2.5 pr-3 text-right">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                          {(bulkModuleActiveTab === "manual" ? bulkManualRows : bulkCsvRows).map((mod: any, idx: number) => {
+                            const maxOrder = (currentSubmodule.modules && currentSubmodule.modules.length > 0)
+                              ? currentSubmodule.modules.reduce((max, m) => Math.max(max, m.display_order ?? 0), 0)
+                              : 0;
+                            const finalOrder = bulkAutoOrder ? maxOrder + 1 + idx : mod.displayOrder;
+                            const dur = bulkModuleActiveTab === "manual"
+                              ? (mod.durationEnabled ? `${mod.durationMinutes}m` : "Untimed")
+                              : (mod.durationMinutes > 0 ? `${mod.durationMinutes}m` : "Untimed");
+
+                            return (
+                              <tr key={mod.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-900/40">
+                                <td className="p-2.5 pl-3 font-semibold text-slate-500">{idx + 1}</td>
+                                <td className="p-2.5">
+                                  <div className="font-bold text-slate-900 dark:text-white">{mod.name}</div>
+                                  {mod.description && (
+                                    <div className="text-[11px] text-slate-400 dark:text-zinc-500 truncate max-w-[280px]">
+                                      {mod.description}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="p-2.5">
+                                  <span className="uppercase text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60">
+                                    {mod.type}
+                                  </span>
+                                </td>
+                                <td className="p-2.5 text-slate-600 dark:text-zinc-400">{dur}</td>
+                                <td className="p-2.5 font-semibold text-slate-800 dark:text-zinc-200">{mod.totalMarks}</td>
+                                <td className="p-2.5 text-slate-600 dark:text-zinc-400">{mod.passingMarks}</td>
+                                <td className="p-2.5">
+                                  <span
+                                    className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${
+                                      mod.status === "active"
+                                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200"
+                                        : "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200"
+                                    }`}
+                                  >
+                                    {mod.status}
+                                  </span>
+                                </td>
+                                <td className="p-2.5 font-bold text-slate-700 dark:text-zinc-300">#{finalOrder}</td>
+                                <td className="p-2.5 pr-3 text-right">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                    <CheckCircle className="w-3.5 h-3.5" /> Valid
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Sticky Modal Footer */}
+            <div className="bg-white dark:bg-[#18181B] border-t border-slate-200/80 dark:border-zinc-800 p-4 space-y-3 shrink-0">
+              {/* Error Callout inside footer */}
+              {bulkErrorMessage && (
+                <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span className="flex-1 font-medium">{bulkErrorMessage}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-3">
+                {bulkModuleStep === "preview" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setBulkModuleStep("edit")}
+                    disabled={isBulkSubmitting}
+                    className="h-9 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 cursor-pointer flex items-center gap-1.5"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Back to Edit
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCloseBulkModal}
+                    disabled={isBulkSubmitting}
+                    className="h-9 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                )}
+
+                <div className="flex items-center gap-2.5">
+                  {bulkModuleStep === "edit" ? (
+                    <Button
+                      type="button"
+                      onClick={handleValidateAndProceedToPreview}
+                      className="h-9 px-5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-sm transition-all"
+                    >
+                      Review Modules ({bulkModuleActiveTab === "manual" ? bulkManualRows.length : bulkCsvRows.length})
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={handleConfirmBulkSubmit}
+                      disabled={isBulkSubmitting || (bulkModuleActiveTab === "csv" && bulkCsvRows.some((r) => !r.isValid))}
+                      className="h-9.5 px-6 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isBulkSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Creating Modules...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>
+                            Create All Modules (
+                            {bulkModuleActiveTab === "manual"
+                              ? bulkManualRows.length
+                              : bulkCsvRows.filter((r) => r.isValid).length}
+                            )
+                          </span>
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* ─── MODAL 4: VIEW QUESTIONS (WITH DIRECT EDIT & DELETE) ─────────── */}
       {mounted && typeof document !== "undefined" && viewingQuestionsModule && createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
@@ -4559,12 +5957,23 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         document.body
       )}
 
-      {/* ─── BULK UPLOAD MODAL (FOR CODING CHALLENGES & MCQS) ───────────────── */}
+
+      {/* ─── BULK UPLOAD MODAL (FOR CODING CHALLENGES, MCQS & MIXED) ─────────── */}
       <BulkUploadModal
         isOpen={isBulkUploadOpen}
         onClose={() => setIsBulkUploadOpen(false)}
         moduleType={bulkUploadModuleType}
-        moduleTitle={currentModule?.name ? `${currentModule.name} (${bulkUploadModuleType === "coding_problem" ? "Coding Challenges" : "MCQ Questions"})` : "Practice Module"}
+        moduleTitle={
+          targetQuestionUploadModule?.name || currentModule?.name
+            ? `${targetQuestionUploadModule?.name || currentModule?.name} — Questions (${
+                bulkUploadModuleType === "quiz" || bulkUploadModuleType === "mcq"
+                  ? "MCQ & Multi-Select"
+                  : bulkUploadModuleType === "mixed_questions" || bulkUploadModuleType === "mixed"
+                  ? "Mixed: MCQ + Coding"
+                  : "Coding Challenges"
+              })`
+            : "Practice Module Questions"
+        }
         onImport={handleBulkImport}
       />
     </div>

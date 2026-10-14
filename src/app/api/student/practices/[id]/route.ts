@@ -306,7 +306,7 @@ export async function GET(
             const codingCount = combinedCoding.length;
             let modTotalQuestions = mcqsCount + codingCount;
             if (modTotalQuestions === 0) {
-              modTotalQuestions = m.questionCount || m.question_count || 1;
+              modTotalQuestions = m.questionCount || m.question_count || 0;
             }
 
             // ─── ADMIN CONFIGURATION AS THE SINGLE SOURCE OF TRUTH ─────
@@ -331,7 +331,7 @@ export async function GET(
             const completionRule = m.completionRule || m.completion_rule || "submit";
             const durationMinutes = typeof m.durationMinutes === "number"
               ? m.durationMinutes
-              : (typeof m.duration_minutes === "number" ? m.duration_minutes : 60);
+              : (typeof m.duration_minutes === "number" ? m.duration_minutes : 0);
 
             // ─── ATTEMPT EXTRACTION & STRUCTURING ──────────────────────
             const rawModAttempts = moduleAttemptsMap.get(m.id) || moduleAttemptsMap.get(toDeterministicUUID(m.id)) || [];
@@ -458,6 +458,7 @@ export async function GET(
               reattemptEnabled,
               reviewEnabled,
               passingMarks,
+              passingMarksEnabled: typeof m.passingMarksEnabled === "boolean" ? m.passingMarksEnabled : (typeof m.passing_marks_enabled === "boolean" ? m.passing_marks_enabled : false),
               completionRule,
 
               // Attempt Tracking

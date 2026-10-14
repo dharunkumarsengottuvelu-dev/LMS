@@ -1184,11 +1184,20 @@ export function SqlProblemCreator({
                     <span>Weight:</span>
                     <Input
                       type="number"
-                      value={tc.weight}
+                      min={0}
+                      value={tc.weight ?? ""}
                       onChange={(e) => {
                         const next = [...testCases];
-                        next[idx]!.weight = parseInt(e.target.value, 10) || 0;
+                        const val = e.target.value;
+                        next[idx]!.weight = val === "" ? ("" as any) : Number(val);
                         setTestCases(next);
+                      }}
+                      onBlur={() => {
+                        const next = [...testCases];
+                        if (next[idx]!.weight === undefined || String(next[idx]!.weight).trim() === "" || isNaN(Number(next[idx]!.weight))) {
+                          next[idx]!.weight = 0;
+                          setTestCases(next);
+                        }
                       }}
                       className="h-7 w-16 text-xs text-center bg-white dark:bg-[#18181B]"
                     />

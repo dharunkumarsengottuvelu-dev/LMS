@@ -309,7 +309,7 @@ export function CodingProblemCreator({
   const [selectedTopics, setSelectedTopics] = useState<string[]>(
     (existing as ExtendedCodingProblem).topic_tags || []
   );
-  const [points, setPoints] = useState<number>(existing.points || 100);
+  const [points, setPoints] = useState<number | string>(existing.points || 100);
   const [customTagInput, setCustomTagInput] = useState<string>("");
 
   // Acceptance Rate (Auto from submissions vs Manual override)
@@ -441,8 +441,8 @@ export function CodingProblemCreator({
   const [driverCode, setDriverCode] = useState<string>(
     (existing as any).driver_code?.[activeCodeLang] || ""
   );
-  const [timeLimitMs, setTimeLimitMs] = useState<number>(existing.time_limit_ms || 2000);
-  const [memoryLimitMb, setMemoryLimitMb] = useState<number>(existing.memory_limit_mb || 256);
+  const [timeLimitMs, setTimeLimitMs] = useState<number | string>(existing.time_limit_ms || 2000);
+  const [memoryLimitMb, setMemoryLimitMb] = useState<number | string>(existing.memory_limit_mb || 256);
 
   const handleSelectLanguageMode = (mode: "all" | "multi" | "single") => {
     setLanguageMode(mode);
@@ -546,7 +546,7 @@ export function CodingProblemCreator({
   });
 
   // 10. PROBLEM SETTINGS
-  const [maxAttempts, setMaxAttempts] = useState<number>(existing.max_attempts || 0);
+  const [maxAttempts, setMaxAttempts] = useState<number | string>(existing.max_attempts || 0);
   const [startDate, setStartDate] = useState<string>(existing.start_date || "");
   const [dueDate, setDueDate] = useState<string>(existing.due_date || "");
   const [status, setStatus] = useState<"draft" | "published">(
@@ -792,7 +792,7 @@ export function CodingProblemCreator({
         ? String((tc as any).output)
         : "",
       is_hidden: Boolean(tc.is_hidden),
-      weight: tc.weight !== undefined ? Number(tc.weight) : 10,
+      weight: tc.weight !== undefined && String(tc.weight).trim() !== "" && !isNaN(Number(tc.weight)) ? Number(tc.weight) : 10,
       is_enabled: tc.is_enabled !== false,
     }));
 
@@ -809,7 +809,7 @@ export function CodingProblemCreator({
       category: category.trim(),
       type: category.trim(),
       topic_tags: selectedTopics,
-      points,
+      points: Number(points) || 100,
       constraints,
       input_format: inputFormat,
       output_format: outputFormat,
@@ -824,9 +824,9 @@ export function CodingProblemCreator({
       sample_test_cases: sampleTestCases,
       hidden_test_cases: hiddenTestCases,
       status: saveStatus,
-      max_attempts: maxAttempts,
-      time_limit_ms: timeLimitMs,
-      memory_limit_mb: memoryLimitMb,
+      max_attempts: Number(maxAttempts) || 0,
+      time_limit_ms: Number(timeLimitMs) || 2000,
+      memory_limit_mb: Number(memoryLimitMb) || 256,
       start_date: startDate,
       due_date: dueDate,
       allow_run: allowRun,
@@ -1298,22 +1298,34 @@ export function CodingProblemCreator({
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleSave("draft")}
-            className="h-[40px] px-4 text-xs font-semibold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs"
-          >
-            Save Draft
-          </Button>
+          {existing.id ? (
+            <Button
+              type="button"
+              onClick={() => handleSave(status || "published", false)}
+              className="h-[40px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-sm cursor-pointer"
+            >
+              Save &amp; Exit
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleSave("draft")}
+                className="h-[40px] px-4 text-xs font-semibold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs"
+              >
+                Save Draft
+              </Button>
 
-          <Button
-            type="button"
-            onClick={() => handleSave("published")}
-            className="h-[40px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-sm"
-          >
-            Publish Problem
-          </Button>
+              <Button
+                type="button"
+                onClick={() => handleSave("published")}
+                className="h-[40px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-sm"
+              >
+                Publish Problem
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1461,8 +1473,17 @@ export function CodingProblemCreator({
             <label className="text-xs font-semibold text-slate-700">Score / Points</label>
             <Input
               type="number"
+              min={0}
               value={points}
-              onChange={(e) => setPoints(Number(e.target.value))}
+              onChange={(e) => {
+                const val = e.target.value;
+                setPoints(val === "" ? "" : Number(val));
+              }}
+              onBlur={() => {
+                if (points === "" || isNaN(Number(points))) {
+                  setPoints(100);
+                }
+              }}
               className="h-9 text-xs bg-slate-50/70 border-slate-200 rounded-xl font-bold"
             />
           </div>
@@ -2011,8 +2032,17 @@ export function CodingProblemCreator({
               <label className="text-xs font-semibold text-slate-700">Time Limit (ms)</label>
               <Input
                 type="number"
+                min={100}
                 value={timeLimitMs}
-                onChange={(e) => setTimeLimitMs(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setTimeLimitMs(val === "" ? "" : Number(val));
+                }}
+                onBlur={() => {
+                  if (timeLimitMs === "" || isNaN(Number(timeLimitMs))) {
+                    setTimeLimitMs(2000);
+                  }
+                }}
                 className="h-9 text-xs bg-slate-50/70 border-slate-200 rounded-xl font-bold"
               />
             </div>
@@ -2020,8 +2050,17 @@ export function CodingProblemCreator({
               <label className="text-xs font-semibold text-slate-700">Memory Limit (MB)</label>
               <Input
                 type="number"
+                min={16}
                 value={memoryLimitMb}
-                onChange={(e) => setMemoryLimitMb(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setMemoryLimitMb(val === "" ? "" : Number(val));
+                }}
+                onBlur={() => {
+                  if (memoryLimitMb === "" || isNaN(Number(memoryLimitMb))) {
+                    setMemoryLimitMb(256);
+                  }
+                }}
                 className="h-9 text-xs bg-slate-50/70 border-slate-200 rounded-xl font-bold"
               />
             </div>
@@ -2129,7 +2168,8 @@ export function CodingProblemCreator({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Input
-                    value={tc.name || `Test Case ${idx + 1}`}
+                    value={tc.name ?? ""}
+                    placeholder={`Test Case ${idx + 1}`}
                     onChange={(e) => handleUpdateTestCase(idx, "name", e.target.value)}
                     className="h-8 w-44 text-xs font-bold bg-white border-slate-200 rounded-lg"
                   />
@@ -2151,8 +2191,17 @@ export function CodingProblemCreator({
                     <span>Weight:</span>
                     <Input
                       type="number"
-                      value={tc.weight || 10}
-                      onChange={(e) => handleUpdateTestCase(idx, "weight", Number(e.target.value))}
+                      min={0}
+                      value={tc.weight ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        handleUpdateTestCase(idx, "weight", val === "" ? "" : Number(val));
+                      }}
+                      onBlur={() => {
+                        if (tc.weight === undefined || String(tc.weight).trim() === "" || isNaN(Number(tc.weight))) {
+                          handleUpdateTestCase(idx, "weight", 10);
+                        }
+                      }}
                       className="h-8 w-16 text-xs font-bold text-center bg-white border-slate-200 rounded-lg"
                     />
                     <span>pts</span>
@@ -2376,8 +2425,12 @@ export function CodingProblemCreator({
             <label className="text-xs font-semibold text-slate-700">Maximum Attempts</label>
             <Input
               type="number"
+              min={0}
               value={maxAttempts}
-              onChange={(e) => setMaxAttempts(Number(e.target.value))}
+              onChange={(e) => {
+                const val = e.target.value;
+                setMaxAttempts(val === "" ? "" : Number(val));
+              }}
               placeholder="0 (Unlimited)"
               className="h-9 text-xs bg-slate-50 border-slate-200 rounded-xl"
             />
@@ -2559,30 +2612,42 @@ export function CodingProblemCreator({
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleSave("draft")}
-            className="h-[42px] px-5 text-xs font-semibold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs"
-          >
-            Save Draft
-          </Button>
+          {existing.id ? (
+            <Button
+              type="button"
+              onClick={() => handleSave(status || "published", false)}
+              className="h-[42px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-sm cursor-pointer"
+            >
+              Save &amp; Exit
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleSave("draft")}
+                className="h-[42px] px-5 text-xs font-semibold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs"
+              >
+                Save Draft
+              </Button>
 
-          <Button
-            type="button"
-            onClick={() => handleSave("published", true)}
-            className="h-[42px] px-5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
-          >
-            + Save &amp; Add Next Question
-          </Button>
+              <Button
+                type="button"
+                onClick={() => handleSave("published", true)}
+                className="h-[42px] px-5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+              >
+                + Save &amp; Add Next Question
+              </Button>
 
-          <Button
-            type="button"
-            onClick={() => handleSave("published", false)}
-            className="h-[42px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-sm cursor-pointer"
-          >
-            Publish Problem
-          </Button>
+              <Button
+                type="button"
+                onClick={() => handleSave("published", false)}
+                className="h-[42px] px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl shadow-sm cursor-pointer"
+              >
+                Publish Problem
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

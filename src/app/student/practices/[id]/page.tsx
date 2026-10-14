@@ -48,6 +48,7 @@ interface StudentModule {
   reattemptEnabled?: boolean;
   reviewEnabled?: boolean;
   passingMarks?: number;
+  passingMarksEnabled?: boolean;
   completionRule?: string;
   attempts?: FormattedAttempt[];
   activeAttempt?: FormattedAttempt | null;
@@ -404,7 +405,21 @@ export default function StudentTrackDetailPage() {
                                       </span>
                                     ) : (
                                       <span className="text-slate-500 dark:text-zinc-400">
-                                        {m.questionCount} {m.questionCount === 1 ? "Question" : "Questions"} · {m.totalMarks} Marks · {m.durationMinutes > 0 ? `${m.durationMinutes}m` : "Untimed"} · Allowed Attempts: {m.allowedAttempts === 0 ? "Unlimited" : (m.allowedAttempts ?? 1)}
+                                        {[
+                                          typeof m.questionCount === "number" && m.questionCount > 0
+                                            ? `${m.questionCount} ${m.questionCount === 1 ? "Question" : "Questions"}`
+                                            : null,
+                                          m.totalMarks && m.totalMarks > 0 ? `${m.totalMarks} Marks` : null,
+                                          m.durationMinutes && m.durationMinutes > 0 ? `${m.durationMinutes}m` : null,
+                                          m.passingMarksEnabled && m.passingMarks && m.passingMarks > 0
+                                            ? `Pass: ${m.passingMarks}`
+                                            : null,
+                                          typeof m.allowedAttempts === "number"
+                                            ? (m.allowedAttempts === 0 ? "Unlimited Attempts" : `Allowed Attempts: ${m.allowedAttempts}`)
+                                            : null,
+                                        ]
+                                          .filter(Boolean)
+                                          .join(" · ")}
                                       </span>
                                     )}
                                   </div>

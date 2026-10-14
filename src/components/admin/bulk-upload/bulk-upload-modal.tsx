@@ -50,7 +50,13 @@ export function BulkUploadComponent({
   onImport,
 }: BulkUploadProps) {
   const { toast } = useToast();
-  const config: ModuleTemplateConfig = getTemplateConfig(moduleType);
+  const [currentModuleType, setCurrentModuleType] = useState(moduleType);
+
+  useEffect(() => {
+    setCurrentModuleType(moduleType);
+  }, [moduleType]);
+
+  const config: ModuleTemplateConfig = getTemplateConfig(currentModuleType);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Column Customizer State
@@ -68,6 +74,14 @@ export function BulkUploadComponent({
     config.groupByField ? "modules" : "table"
   );
   const [expandedModuleKeys, setExpandedModuleKeys] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setSelectedColumnKeys(config.columns.map((c) => c.key));
+    setParsedRows([]);
+    setUploadedFile(null);
+    setCurrentStep("upload");
+    setPreviewViewMode(config.groupByField ? "modules" : "table");
+  }, [currentModuleType]);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -253,6 +267,7 @@ export function BulkUploadComponent({
 
       const HEADER_ALIASES: Record<string, string[]> = {
         title: ["title", "name", "lessonname", "lesson", "questionname", "problemtitle", "itemtitle", "problemstatement", "statement"],
+        questionText: ["questiontext", "question", "prompt", "questiontitle", "problemstatement"],
         subModuleName: ["submodulename", "submodule", "modulename", "module", "chapter", "unit", "section", "topic"],
         sectionName: ["sectionname", "section", "part", "category", "examsection", "testsection"],
         assessmentTitle: ["assessmenttitle", "assessmentname", "examtitle", "examname", "testtitle", "testname"],
@@ -276,8 +291,22 @@ export function BulkUploadComponent({
         testcase_1_output: ["testcase1output", "testcase1expectedoutput", "testcase1expected", "tc1output"],
         testcase_2_input: ["testcase2input", "testcase2", "tc2input"],
         testcase_2_output: ["testcase2output", "testcase2expectedoutput", "tc2output"],
-        hidden_testcase_input: ["hiddentestcaseinput", "hiddentestcase1input", "hiddeninput"],
-        hidden_testcase_output: ["hiddentestcaseoutput", "hiddentestcase1output", "hiddenoutput"],
+        testcase_3_input: ["testcase3input", "testcase3", "tc3input"],
+        testcase_3_output: ["testcase3output", "testcase3expectedoutput", "tc3output"],
+        testcase_4_input: ["testcase4input", "testcase4", "tc4input"],
+        testcase_4_output: ["testcase4output", "testcase4expectedoutput", "tc4output"],
+        testcase_5_input: ["testcase5input", "testcase5", "tc5input"],
+        testcase_5_output: ["testcase5output", "testcase5expectedoutput", "tc5output"],
+        hidden_testcase_input: ["hiddentestcaseinput", "hiddentestcase1input", "hiddeninput", "h1input", "hiddentestcase1"],
+        hidden_testcase_output: ["hiddentestcaseoutput", "hiddentestcase1output", "hiddenoutput", "h1output", "hiddentestcase1output"],
+        hidden_testcase_2_input: ["hiddentestcase2input", "hiddeninput2", "h2input", "hiddentestcase2"],
+        hidden_testcase_2_output: ["hiddentestcase2output", "hiddenoutput2", "h2output", "hiddentestcase2expectedoutput"],
+        hidden_testcase_3_input: ["hiddentestcase3input", "hiddeninput3", "h3input", "hiddentestcase3"],
+        hidden_testcase_3_output: ["hiddentestcase3output", "hiddenoutput3", "h3output", "hiddentestcase3expectedoutput"],
+        hidden_testcase_4_input: ["hiddentestcase4input", "hiddeninput4", "h4input", "hiddentestcase4"],
+        hidden_testcase_4_output: ["hiddentestcase4output", "hiddenoutput4", "h4output", "hiddentestcase4expectedoutput"],
+        hidden_testcase_5_input: ["hiddentestcase5input", "hiddeninput5", "h5input", "hiddentestcase5"],
+        hidden_testcase_5_output: ["hiddentestcase5output", "hiddenoutput5", "h5output", "hiddentestcase5expectedoutput"],
         starterCode: ["startercode", "startercodeboilerplate", "boilerplate", "template", "starter"],
       };
 
@@ -505,6 +534,91 @@ export function BulkUploadComponent({
               </p>
             </div>
           </div>
+
+          {/* QUESTION FORMAT SELECTOR: MIXED | CODE ONLY | MCQ ONLY */}
+          {(() => {
+            const isQMode = [
+              "mixed_questions",
+              "mixed",
+              "coding_problem",
+              "coding",
+              "quiz",
+              "mcq",
+              "mcq_questions",
+              "assessment_questions",
+              "practice",
+              "practice_questions",
+            ].includes(currentModuleType.toLowerCase()) || Boolean(moduleTitle?.toLowerCase().includes("question"));
+
+            if (!isQMode) return null;
+
+            const normalizedMode =
+              currentModuleType === "coding_problem" || currentModuleType === "coding"
+                ? "coding"
+                : currentModuleType === "mixed_questions" || currentModuleType === "mixed" || currentModuleType === "practice_questions" || currentModuleType === "practice"
+                ? "mixed"
+                : "mcq";
+
+            return (
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Question Upload Option:</span>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
+                      {normalizedMode === "coding"
+                        ? "Code Only"
+                        : normalizedMode === "mixed"
+                        ? "Mixed Questions"
+                        : "MCQ & Multi-Select"}
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                    {normalizedMode === "coding"
+                      ? "Download or upload pure Coding challenges with starter code, constraints, and test cases."
+                      : normalizedMode === "mixed"
+                      ? "Download or upload a combined template containing both Multiple Choice Questions and interactive Coding challenges."
+                      : "Download or upload Multiple Choice Questions with single or multiple correct answers, options, and explanations."}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentModuleType("coding_problem")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      normalizedMode === "coding"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    Code Only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentModuleType("quiz")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      normalizedMode === "mcq"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    MCQ &amp; Multi-Select
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentModuleType("mixed_questions")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      normalizedMode === "mixed"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    Mixed (MCQ + Code)
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#18181B] space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

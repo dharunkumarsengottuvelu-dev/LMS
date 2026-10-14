@@ -29,33 +29,21 @@ function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parent
   const publicTestCases: any[] = [];
   const hiddenTestCases: any[] = [];
 
-  // 1. Explicit Public Test Cases
-  const tc1In = row.testcase_1_input ?? row.testcase1_input ?? row.test_case_1_input;
-  const tc1Out = row.testcase_1_output ?? row.testcase1_output ?? row.test_case_1_output;
-  if (tc1In !== undefined || tc1Out !== undefined) {
-    publicTestCases.push({
-      id: `tc_${Date.now()}_1_${qIdx}`,
-      name: "Test Case 1",
-      input: String(tc1In ?? "").trim(),
-      expected_output: String(tc1Out ?? "").trim(),
-      expectedOutput: String(tc1Out ?? "").trim(),
-      is_hidden: false,
-      isSample: true,
-    });
-  }
-
-  const tc2In = row.testcase_2_input ?? row.testcase2_input ?? row.test_case_2_input;
-  const tc2Out = row.testcase_2_output ?? row.testcase2_output ?? row.test_case_2_output;
-  if (tc2In !== undefined || tc2Out !== undefined) {
-    publicTestCases.push({
-      id: `tc_${Date.now()}_2_${qIdx}`,
-      name: "Test Case 2",
-      input: String(tc2In ?? "").trim(),
-      expected_output: String(tc2Out ?? "").trim(),
-      expectedOutput: String(tc2Out ?? "").trim(),
-      is_hidden: false,
-      isSample: false,
-    });
+  // 1. Explicit Public Test Cases (1 to 10)
+  for (let i = 1; i <= 10; i++) {
+    const tcIn = row[`testcase_${i}_input`] ?? row[`testcase${i}_input`] ?? row[`test_case_${i}_input`] ?? (i === 1 ? row.testcase_input : undefined);
+    const tcOut = row[`testcase_${i}_output`] ?? row[`testcase${i}_output`] ?? row[`test_case_${i}_output`] ?? (i === 1 ? row.testcase_output : undefined);
+    if ((tcIn !== undefined && String(tcIn).trim() !== "") || (tcOut !== undefined && String(tcOut).trim() !== "")) {
+      publicTestCases.push({
+        id: `tc_${Date.now()}_${i}_${qIdx}`,
+        name: `Test Case ${i}`,
+        input: String(tcIn ?? "").trim(),
+        expected_output: String(tcOut ?? "").trim(),
+        expectedOutput: String(tcOut ?? "").trim(),
+        is_hidden: false,
+        isSample: i === 1,
+      });
+    }
   }
 
   // Sample fallback as public test case if no test cases provided
@@ -72,31 +60,24 @@ function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parent
     });
   }
 
-  // 2. Hidden Test Cases
-  const h1In = row.hidden_testcase_input ?? row.hidden_testcase_1_input ?? row.hidden_input ?? row.hiddenInput;
-  const h1Out = row.hidden_testcase_output ?? row.hidden_testcase_1_output ?? row.hidden_output ?? row.hiddenOutput;
-  if (h1In !== undefined || h1Out !== undefined) {
-    hiddenTestCases.push({
-      id: `tc_hid_${Date.now()}_1_${qIdx}`,
-      name: "Hidden Test Case 1",
-      input: String(h1In ?? "").trim(),
-      expected_output: String(h1Out ?? "").trim(),
-      expectedOutput: String(h1Out ?? "").trim(),
-      is_hidden: true,
-    });
-  }
-
-  const h2In = row.hidden_testcase_2_input ?? row.hidden_input_2 ?? row.hidden2Input;
-  const h2Out = row.hidden_testcase_2_output ?? row.hidden_output_2 ?? row.hidden2Output;
-  if (h2In !== undefined || h2Out !== undefined) {
-    hiddenTestCases.push({
-      id: `tc_hid_${Date.now()}_2_${qIdx}`,
-      name: "Hidden Test Case 2",
-      input: String(h2In ?? "").trim(),
-      expected_output: String(h2Out ?? "").trim(),
-      expectedOutput: String(h2Out ?? "").trim(),
-      is_hidden: true,
-    });
+  // 2. Hidden Test Cases (1 to 10)
+  for (let h = 1; h <= 10; h++) {
+    const hIn = h === 1
+      ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input ?? row.hidden_input ?? row.hiddenInput)
+      : (row[`hidden_testcase_${h}_input`] ?? row[`hidden_input_${h}`] ?? row[`hidden${h}Input`]);
+    const hOut = h === 1
+      ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output ?? row.hidden_output ?? row.hiddenOutput)
+      : (row[`hidden_testcase_${h}_output`] ?? row[`hidden_output_${h}`] ?? row[`hidden${h}Output`]);
+    if ((hIn !== undefined && String(hIn).trim() !== "") || (hOut !== undefined && String(hOut).trim() !== "")) {
+      hiddenTestCases.push({
+        id: `tc_hid_${Date.now()}_${h}_${qIdx}`,
+        name: `Hidden Test Case ${h}`,
+        input: String(hIn ?? "").trim(),
+        expected_output: String(hOut ?? "").trim(),
+        expectedOutput: String(hOut ?? "").trim(),
+        is_hidden: true,
+      });
+    }
   }
 
   const problemStatement = String(row.description || row.problemStatement || row.problem_statement || "").trim();
@@ -462,6 +443,54 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         sampleValue: "10",
       },
       {
+        key: "testcase_3_input",
+        label: "Test Case 3 Input",
+        type: "string",
+        required: false,
+        description: "Third public testcase input",
+        sampleValue: "15",
+      },
+      {
+        key: "testcase_3_output",
+        label: "Test Case 3 Expected Output",
+        type: "string",
+        required: false,
+        description: "Third public testcase expected output",
+        sampleValue: "15",
+      },
+      {
+        key: "testcase_4_input",
+        label: "Test Case 4 Input",
+        type: "string",
+        required: false,
+        description: "Fourth public testcase input",
+        sampleValue: "20",
+      },
+      {
+        key: "testcase_4_output",
+        label: "Test Case 4 Expected Output",
+        type: "string",
+        required: false,
+        description: "Fourth public testcase expected output",
+        sampleValue: "20",
+      },
+      {
+        key: "testcase_5_input",
+        label: "Test Case 5 Input",
+        type: "string",
+        required: false,
+        description: "Fifth public testcase input",
+        sampleValue: "25",
+      },
+      {
+        key: "testcase_5_output",
+        label: "Test Case 5 Expected Output",
+        type: "string",
+        required: false,
+        description: "Fifth public testcase expected output",
+        sampleValue: "25",
+      },
+      {
         key: "hidden_testcase_input",
         label: "Hidden Test Case 1 Input",
         type: "string",
@@ -492,6 +521,54 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         required: false,
         description: "Expected output for hidden test case 2",
         sampleValue: "500",
+      },
+      {
+        key: "hidden_testcase_3_input",
+        label: "Hidden Test Case 3 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden test case 3 evaluated during Submit",
+        sampleValue: "1000",
+      },
+      {
+        key: "hidden_testcase_3_output",
+        label: "Hidden Test Case 3 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden test case 3",
+        sampleValue: "1000",
+      },
+      {
+        key: "hidden_testcase_4_input",
+        label: "Hidden Test Case 4 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden test case 4 evaluated during Submit",
+        sampleValue: "2500",
+      },
+      {
+        key: "hidden_testcase_4_output",
+        label: "Hidden Test Case 4 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden test case 4",
+        sampleValue: "2500",
+      },
+      {
+        key: "hidden_testcase_5_input",
+        label: "Hidden Test Case 5 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden test case 5 evaluated during Submit",
+        sampleValue: "5000",
+      },
+      {
+        key: "hidden_testcase_5_output",
+        label: "Hidden Test Case 5 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden test case 5",
+        sampleValue: "5000",
       },
       {
         key: "starterCode",
@@ -1002,20 +1079,132 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         sampleValue: "6",
       },
       {
-        key: "hidden_testcase_input",
-        label: "Hidden Test Case Input",
+        key: "testcase_3_input",
+        label: "Test Case 3 Input",
         type: "string",
         required: false,
-        description: "Hidden evaluation testcase input to prevent hardcoding",
+        description: "Third public testcase input",
+        sampleValue: "4",
+      },
+      {
+        key: "testcase_3_output",
+        label: "Test Case 3 Expected Output",
+        type: "string",
+        required: false,
+        description: "Third public testcase expected output",
+        sampleValue: "24",
+      },
+      {
+        key: "testcase_4_input",
+        label: "Test Case 4 Input",
+        type: "string",
+        required: false,
+        description: "Fourth public testcase input",
+        sampleValue: "2",
+      },
+      {
+        key: "testcase_4_output",
+        label: "Test Case 4 Expected Output",
+        type: "string",
+        required: false,
+        description: "Fourth public testcase expected output",
+        sampleValue: "2",
+      },
+      {
+        key: "testcase_5_input",
+        label: "Test Case 5 Input",
+        type: "string",
+        required: false,
+        description: "Fifth public testcase input",
+        sampleValue: "1",
+      },
+      {
+        key: "testcase_5_output",
+        label: "Test Case 5 Expected Output",
+        type: "string",
+        required: false,
+        description: "Fifth public testcase expected output",
+        sampleValue: "1",
+      },
+      {
+        key: "hidden_testcase_input",
+        label: "Hidden Test Case 1 Input",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 1 to prevent hardcoding",
         sampleValue: "7",
       },
       {
         key: "hidden_testcase_output",
-        label: "Hidden Test Case Expected Output",
+        label: "Hidden Test Case 1 Expected Output",
         type: "string",
         required: false,
-        description: "Hidden evaluation expected output",
+        description: "Hidden evaluation 1 expected output",
         sampleValue: "5040",
+      },
+      {
+        key: "hidden_testcase_2_input",
+        label: "Hidden Test Case 2 Input",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 2",
+        sampleValue: "8",
+      },
+      {
+        key: "hidden_testcase_2_output",
+        label: "Hidden Test Case 2 Expected Output",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation 2 expected output",
+        sampleValue: "40320",
+      },
+      {
+        key: "hidden_testcase_3_input",
+        label: "Hidden Test Case 3 Input",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 3",
+        sampleValue: "9",
+      },
+      {
+        key: "hidden_testcase_3_output",
+        label: "Hidden Test Case 3 Expected Output",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation 3 expected output",
+        sampleValue: "362880",
+      },
+      {
+        key: "hidden_testcase_4_input",
+        label: "Hidden Test Case 4 Input",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 4",
+        sampleValue: "10",
+      },
+      {
+        key: "hidden_testcase_4_output",
+        label: "Hidden Test Case 4 Expected Output",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation 4 expected output",
+        sampleValue: "3628800",
+      },
+      {
+        key: "hidden_testcase_5_input",
+        label: "Hidden Test Case 5 Input",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation testcase 5",
+        sampleValue: "0",
+      },
+      {
+        key: "hidden_testcase_5_output",
+        label: "Hidden Test Case 5 Expected Output",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation 5 expected output",
+        sampleValue: "1",
       },
       {
         key: "starterCode",
@@ -1185,29 +1374,33 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
       ];
 
       const testCases: any[] = [];
-      if (row.testcase_1_input !== undefined || row.testcase_1_output !== undefined) {
-        testCases.push({
-          id: 1,
-          input: String(row.testcase_1_input || "").trim(),
-          output: String(row.testcase_1_output || "").trim(),
-          isHidden: false,
-        });
+      for (let i = 1; i <= 10; i++) {
+        const inp = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`];
+        const out = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`];
+        if (inp !== undefined || out !== undefined) {
+          testCases.push({
+            id: testCases.length + 1,
+            input: String(inp || "").trim(),
+            output: String(out || "").trim(),
+            isHidden: false,
+          });
+        }
       }
-      if (row.testcase_2_input !== undefined || row.testcase_2_output !== undefined) {
-        testCases.push({
-          id: 2,
-          input: String(row.testcase_2_input || "").trim(),
-          output: String(row.testcase_2_output || "").trim(),
-          isHidden: false,
-        });
-      }
-      if (row.hidden_testcase_input !== undefined || row.hidden_testcase_output !== undefined) {
-        testCases.push({
-          id: 3,
-          input: String(row.hidden_testcase_input || "").trim(),
-          output: String(row.hidden_testcase_output || "").trim(),
-          isHidden: true,
-        });
+      for (let h = 1; h <= 10; h++) {
+        const hIn = h === 1
+          ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input)
+          : row[`hidden_testcase_${h}_input`];
+        const hOut = h === 1
+          ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output)
+          : row[`hidden_testcase_${h}_output`];
+        if (hIn !== undefined || hOut !== undefined) {
+          testCases.push({
+            id: testCases.length + 1,
+            input: String(hIn || "").trim(),
+            output: String(hOut || "").trim(),
+            isHidden: true,
+          });
+        }
       }
 
       return {
@@ -1246,29 +1439,33 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
           ];
 
           const testCases: any[] = [];
-          if (r.testcase_1_input !== undefined || r.testcase_1_output !== undefined) {
-            testCases.push({
-              id: 1,
-              input: String(r.testcase_1_input || "").trim(),
-              output: String(r.testcase_1_output || "").trim(),
-              isHidden: false,
-            });
+          for (let i = 1; i <= 10; i++) {
+            const inp = r[`testcase_${i}_input`] ?? r[`test_case_${i}_input`];
+            const out = r[`testcase_${i}_output`] ?? r[`test_case_${i}_output`];
+            if (inp !== undefined || out !== undefined) {
+              testCases.push({
+                id: testCases.length + 1,
+                input: String(inp || "").trim(),
+                output: String(out || "").trim(),
+                isHidden: false,
+              });
+            }
           }
-          if (r.testcase_2_input !== undefined || r.testcase_2_output !== undefined) {
-            testCases.push({
-              id: 2,
-              input: String(r.testcase_2_input || "").trim(),
-              output: String(r.testcase_2_output || "").trim(),
-              isHidden: false,
-            });
-          }
-          if (r.hidden_testcase_input !== undefined || r.hidden_testcase_output !== undefined) {
-            testCases.push({
-              id: 3,
-              input: String(r.hidden_testcase_input || "").trim(),
-              output: String(r.hidden_testcase_output || "").trim(),
-              isHidden: true,
-            });
+          for (let h = 1; h <= 10; h++) {
+            const hIn = h === 1
+              ? (r.hidden_testcase_input ?? r.hidden_testcase_1_input)
+              : r[`hidden_testcase_${h}_input`];
+            const hOut = h === 1
+              ? (r.hidden_testcase_output ?? r.hidden_testcase_1_output)
+              : r[`hidden_testcase_${h}_output`];
+            if (hIn !== undefined || hOut !== undefined) {
+              testCases.push({
+                id: testCases.length + 1,
+                input: String(hIn || "").trim(),
+                output: String(hOut || "").trim(),
+                isHidden: true,
+              });
+            }
           }
 
           return {
@@ -1352,29 +1549,38 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
       },
       {
         key: "correctOption",
-        label: "Correct Option (A/B/C/D)",
-        type: "enum",
+        label: "Correct Option(s) (e.g. A or A,C)",
+        type: "string",
         required: true,
-        options: ["A", "B", "C", "D"],
-        description: "The correct answer key (A, B, C, or D)",
-        sampleValue: "C",
+        description: "The correct answer key. For single choice enter 'A', 'B', 'C', or 'D'. For multiple choice enter comma-separated letters e.g. 'A,C' or 'B,D'.",
+        sampleValue: "B",
+      },
+      {
+        key: "questionType",
+        label: "Question Format",
+        type: "enum",
+        required: false,
+        options: ["Single Choice", "Multiple Choice"],
+        defaultValue: "Single Choice",
+        description: "Specify whether this question has a single correct answer or multiple correct answers",
+        sampleValue: "Single Choice",
       },
       {
         key: "explanation",
         label: "Explanation",
         type: "string",
         required: false,
-        description: "Explanation shown after submission or review",
-        sampleValue: "JavaScript numbers are all double-precision 64-bit binary format (Number type); Float is not a separate primitive.",
+        description: "Detailed solution explanation shown after submission or review",
+        sampleValue: "In a balanced BST, tree height is log(n), making search O(log n).",
       },
       {
         key: "points",
         label: "Marks / Points",
         type: "number",
         required: false,
-        defaultValue: 1,
+        defaultValue: 10,
         description: "Points awarded for answering correctly",
-        sampleValue: 1,
+        sampleValue: 10,
       }
     ],
     sampleRows: [
@@ -1385,8 +1591,20 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         optionC: "O(n)",
         optionD: "O(n log n)",
         correctOption: "B",
+        questionType: "Single Choice",
         explanation: "In a balanced BST, tree height is log(n), making search O(log n).",
-        points: 2
+        points: 10
+      },
+      {
+        questionText: "Which of the following are checked exceptions in Java? (Multiple Choice)",
+        optionA: "IOException",
+        optionB: "SQLException",
+        optionC: "NullPointerException",
+        optionD: "ArithmeticException",
+        correctOption: "A,B",
+        questionType: "Multiple Choice",
+        explanation: "IOException and SQLException are checked exceptions; NullPointerException and ArithmeticException are unchecked runtime exceptions.",
+        points: 10
       },
       {
         questionText: "Which HTTP status code signifies 'Unauthorized'?",
@@ -1395,34 +1613,60 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         optionC: "403",
         optionD: "404",
         correctOption: "B",
-        explanation: "401 represents Unauthorized (missing/invalid credentials).",
-        points: 1
+        questionType: "Single Choice",
+        explanation: "401 represents Unauthorized (missing or invalid authentication credentials).",
+        points: 10
+      },
+      {
+        questionText: "Which of the following are valid Java primitive types? (Multiple Choice)",
+        optionA: "int",
+        optionB: "boolean",
+        optionC: "String",
+        optionD: "char",
+        correctOption: "A,B,D",
+        questionType: "Multiple Choice",
+        explanation: "int, boolean, and char are primitive types in Java. String is a reference class object.",
+        points: 10
       }
     ],
     mapToPayload: (row, idx) => {
-      const correctOpt = String(row.correctOption || "A").trim().toUpperCase();
-      const correctIdx = correctOpt === "B" ? 1 : correctOpt === "C" ? 2 : correctOpt === "D" ? 3 : 0;
-      const qText = String(row.questionText || "").trim();
+      const rawCorrect = String(row.correctOption || row.correctAnswer || "A").trim().toUpperCase();
+      const correctParts = rawCorrect.split(/[\s,+/]+/).map((s) => s.trim());
+      const isMultiple = correctParts.length > 1 || String(row.questionType || "").toLowerCase().includes("multi");
+
+      const isACorrect = correctParts.includes("A") || correctParts.includes("1");
+      const isBCorrect = correctParts.includes("B") || correctParts.includes("2");
+      const isCCorrect = correctParts.includes("C") || correctParts.includes("3");
+      const isDCorrect = correctParts.includes("D") || correctParts.includes("4");
+
+      const qText = String(row.questionText || row.question || row.title || `Question ${idx + 1}`).trim();
+
       return {
         id: `quiz_q_${Date.now()}_${idx}`,
         questionText: qText,
         question: qText,
         title: `Question ${idx + 1}`,
         text: qText,
-        type: "single",
+        allowMultiple: isMultiple,
+        type: isMultiple ? "multiple" : "single",
         options: [
-          { id: `opt_a_${idx}`, text: String(row.optionA || "").trim(), isCorrect: correctOpt === "A" },
-          { id: `opt_b_${idx}`, text: String(row.optionB || "").trim(), isCorrect: correctOpt === "B" },
-          { id: `opt_c_${idx}`, text: String(row.optionC || "").trim(), isCorrect: correctOpt === "C" },
-          { id: `opt_d_${idx}`, text: String(row.optionD || "").trim(), isCorrect: correctOpt === "D" }
+          { id: `opt_a_${idx}`, text: String(row.optionA || "").trim(), isCorrect: isACorrect },
+          { id: `opt_b_${idx}`, text: String(row.optionB || "").trim(), isCorrect: isBCorrect },
+          { id: `opt_c_${idx}`, text: String(row.optionC || "").trim(), isCorrect: isCCorrect },
+          { id: `opt_d_${idx}`, text: String(row.optionD || "").trim(), isCorrect: isDCorrect }
         ],
-        correctOption: correctOpt,
-        correctIndex: correctIdx,
-        correctIndexes: [correctIdx],
-        answer: correctOpt,
+        correctOption: rawCorrect,
+        correctIndex: isBCorrect ? 1 : isCCorrect ? 2 : isDCorrect ? 3 : 0,
+        correctIndexes: [
+          ...(isACorrect ? [0] : []),
+          ...(isBCorrect ? [1] : []),
+          ...(isCCorrect ? [2] : []),
+          ...(isDCorrect ? [3] : []),
+        ],
+        answer: rawCorrect,
         explanation: String(row.explanation || "").trim(),
-        points: Number(row.points) || 1,
-        marks: Number(row.points) || 1,
+        points: Number(row.points || row.marks) || 10,
+        marks: Number(row.points || row.marks) || 10,
       };
     }
   },
@@ -1911,19 +2155,131 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         sampleValue: "1 2",
       },
       {
-        key: "hidden_testcase_input",
-        label: "Hidden Test Case Input",
+        key: "testcase_3_input",
+        label: "Test Case 3 Input",
         type: "string",
         required: false,
-        description: "Private/Hidden test case to prevent hardcoding",
+        description: "Third public testcase input",
+        sampleValue: "3 3\n6",
+      },
+      {
+        key: "testcase_3_output",
+        label: "Test Case 3 Expected Output",
+        type: "string",
+        required: false,
+        description: "Third public testcase expected output",
+        sampleValue: "0 1",
+      },
+      {
+        key: "testcase_4_input",
+        label: "Test Case 4 Input",
+        type: "string",
+        required: false,
+        description: "Fourth public testcase input",
+        sampleValue: "1 5\n6",
+      },
+      {
+        key: "testcase_4_output",
+        label: "Test Case 4 Expected Output",
+        type: "string",
+        required: false,
+        description: "Fourth public testcase expected output",
+        sampleValue: "0 1",
+      },
+      {
+        key: "testcase_5_input",
+        label: "Test Case 5 Input",
+        type: "string",
+        required: false,
+        description: "Fifth public testcase input",
+        sampleValue: "4 8\n12",
+      },
+      {
+        key: "testcase_5_output",
+        label: "Test Case 5 Expected Output",
+        type: "string",
+        required: false,
+        description: "Fifth public testcase expected output",
+        sampleValue: "0 1",
+      },
+      {
+        key: "hidden_testcase_input",
+        label: "Hidden Test Case 1 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden test case 1 to prevent hardcoding",
         sampleValue: "3 3\n6",
       },
       {
         key: "hidden_testcase_output",
-        label: "Hidden Test Case Expected Output",
+        label: "Hidden Test Case 1 Expected Output",
         type: "string",
         required: false,
-        description: "Expected output for hidden test case",
+        description: "Expected output for hidden test case 1",
+        sampleValue: "0 1",
+      },
+      {
+        key: "hidden_testcase_2_input",
+        label: "Hidden Test Case 2 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden testcase 2 evaluated during submit",
+        sampleValue: "10 20 30\n50",
+      },
+      {
+        key: "hidden_testcase_2_output",
+        label: "Hidden Test Case 2 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden testcase 2",
+        sampleValue: "1 2",
+      },
+      {
+        key: "hidden_testcase_3_input",
+        label: "Hidden Test Case 3 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden testcase 3 evaluated during submit",
+        sampleValue: "100 200\n300",
+      },
+      {
+        key: "hidden_testcase_3_output",
+        label: "Hidden Test Case 3 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden testcase 3",
+        sampleValue: "0 1",
+      },
+      {
+        key: "hidden_testcase_4_input",
+        label: "Hidden Test Case 4 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden testcase 4 evaluated during submit",
+        sampleValue: "-1 -2\n-3",
+      },
+      {
+        key: "hidden_testcase_4_output",
+        label: "Hidden Test Case 4 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden testcase 4",
+        sampleValue: "0 1",
+      },
+      {
+        key: "hidden_testcase_5_input",
+        label: "Hidden Test Case 5 Input",
+        type: "string",
+        required: false,
+        description: "Private/Hidden testcase 5 evaluated during submit",
+        sampleValue: "0 0\n0",
+      },
+      {
+        key: "hidden_testcase_5_output",
+        label: "Hidden Test Case 5 Expected Output",
+        type: "string",
+        required: false,
+        description: "Expected output for hidden testcase 5",
         sampleValue: "0 1",
       },
       {
@@ -2066,11 +2422,11 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
       // 3. Hidden Test Cases (Hidden 1, Hidden 2, etc.)
       for (let h = 1; h <= 10; h++) {
         const hInp = h === 1
-          ? (row.hidden_testcase_input ?? row.hidden_input ?? row.hidden_test_case_1_input)
-          : (row[`hidden_testcase_${h}_input`] ?? row[`hidden_input_${h}`]);
+          ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input ?? row.hidden_input ?? row.hidden_test_case_1_input)
+          : (row[`hidden_testcase_${h}_input`] ?? row[`hidden_testcase_${h}`] ?? row[`hidden_input_${h}`] ?? row[`hidden_${h}_input`]);
         const hOut = h === 1
-          ? (row.hidden_testcase_output ?? row.hidden_output ?? row.hidden_test_case_1_output)
-          : (row[`hidden_testcase_${h}_output`] ?? row[`hidden_output_${h}`]);
+          ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output ?? row.hidden_output ?? row.hidden_test_case_1_output)
+          : (row[`hidden_testcase_${h}_output`] ?? row[`hidden_testcase_${h}`] ?? row[`hidden_output_${h}`] ?? row[`hidden_${h}_output`]);
 
         if ((hInp !== undefined && String(hInp).trim() !== "") || (hOut !== undefined && String(hOut).trim() !== "")) {
           testCases.push({
@@ -2128,7 +2484,504 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         updated_at: new Date().toISOString(),
       };
     }
-  }
+  },
+  practice_module: {
+    moduleType: "practice_module",
+    displayName: "Level-3 Practice Module",
+    description: "Template for creating multiple Level-3 Practice Modules in bulk under a Submodule.",
+    templateFileName: "sensilearn_practice_modules_template.csv",
+    columns: [
+      {
+        key: "name",
+        label: "Module Name",
+        type: "string",
+        required: true,
+        description: "Name of the Level-3 Module (e.g. 'C Basics', 'Loops', 'Binary Trees')",
+        sampleValue: "C Basics",
+      },
+      {
+        key: "description",
+        label: "Description",
+        type: "string",
+        required: false,
+        description: "Detailed description and learning outcomes for this module",
+        sampleValue: "Learn syntax, structure, compilation steps, and basic output statements.",
+      },
+      {
+        key: "type",
+        label: "Type",
+        type: "enum",
+        required: true,
+        options: ["Mixed", "Coding", "MCQ"],
+        defaultValue: "Mixed",
+        description: "Assessment delivery type: Mixed, Coding, or MCQ",
+        sampleValue: "Mixed",
+      },
+      {
+        key: "durationMinutes",
+        label: "Duration (Minutes)",
+        type: "number",
+        required: false,
+        defaultValue: 60,
+        description: "Time limit in minutes (use 0 or leave blank for untimed / no limit)",
+        sampleValue: 30,
+      },
+      {
+        key: "totalMarks",
+        label: "Total Marks",
+        type: "number",
+        required: false,
+        defaultValue: 100,
+        description: "Total maximum score for this practice assessment",
+        sampleValue: 100,
+      },
+      {
+        key: "passingMarks",
+        label: "Passing Marks",
+        type: "number",
+        required: false,
+        defaultValue: 40,
+        description: "Minimum marks required to pass or achieve benchmark",
+        sampleValue: 40,
+      },
+      {
+        key: "status",
+        label: "Status",
+        type: "enum",
+        required: false,
+        options: ["Active", "Inactive"],
+        defaultValue: "Active",
+        description: "Initial status: Active or Inactive",
+        sampleValue: "Active",
+      },
+      {
+        key: "displayOrder",
+        label: "Display Order",
+        type: "number",
+        required: false,
+        description: "Display ordering sequence (leave blank to auto-assign)",
+        sampleValue: 1,
+      },
+    ],
+    sampleRows: [
+      {
+        name: "C Basics",
+        description: "Learn C syntax, structure and fundamentals",
+        type: "Mixed",
+        durationMinutes: 30,
+        totalMarks: 100,
+        passingMarks: 40,
+        status: "Active",
+        displayOrder: 1,
+      },
+      {
+        name: "Variables and Data Types",
+        description: "Learn int, float, char, memory allocation and limits",
+        type: "Coding",
+        durationMinutes: 45,
+        totalMarks: 100,
+        passingMarks: 40,
+        status: "Active",
+        displayOrder: 2,
+      },
+      {
+        name: "Operators and Expressions",
+        description: "Master arithmetic, logical, and bitwise operators",
+        type: "MCQ",
+        durationMinutes: 20,
+        totalMarks: 50,
+        passingMarks: 20,
+        status: "Active",
+        displayOrder: 3,
+      },
+      {
+        name: "Input and Output",
+        description: "Master scanf and printf format specifiers",
+        type: "Coding",
+        durationMinutes: 30,
+        totalMarks: 100,
+        passingMarks: 40,
+        status: "Active",
+        displayOrder: 4,
+      },
+    ],
+    mapToPayload: (row: Record<string, any>, idx: number) => {
+      const rawType = String(row.type || "mixed").toLowerCase().trim();
+      const type = (rawType === "coding" || rawType === "code") ? "coding" : (rawType === "mcq" ? "mcq" : "mixed");
+      const rawStatus = String(row.status || "active").toLowerCase().trim();
+      const status = rawStatus === "inactive" ? "inactive" : "active";
+
+      return {
+        name: String(row.name || row.title || "").trim(),
+        title: String(row.name || row.title || "").trim(),
+        description: String(row.description || "").trim(),
+        type,
+        durationMinutes: Number(row.durationMinutes ?? row.duration ?? 60),
+        totalMarks: Number(row.totalMarks ?? row.marks ?? 100),
+        passingMarks: Number(row.passingMarks ?? 40),
+        status,
+        displayOrder: row.displayOrder !== undefined && row.displayOrder !== "" ? Number(row.displayOrder) : idx + 1,
+      };
+    },
+  },
+
+  // ─── 11. MIXED QUESTIONS (MCQ + CODING) TEMPLATE FOR PRACTICE MODULES ────
+  mixed_questions: {
+    moduleType: "mixed_questions",
+    displayName: "Mixed Questions (MCQ + Coding) Template",
+    description: "Template for bulk uploading both Multiple Choice Questions and interactive Coding challenges into a single module.",
+    templateFileName: "module_mixed_questions_template.csv",
+    columns: [
+      {
+        key: "type",
+        label: "Question Type",
+        type: "enum",
+        required: true,
+        options: ["MCQ", "Coding"],
+        defaultValue: "MCQ",
+        description: "Specify whether this row is an 'MCQ' or 'Coding' challenge",
+        sampleValue: "MCQ",
+      },
+      {
+        key: "title",
+        label: "Question Title / Prompt",
+        type: "string",
+        required: true,
+        description: "Question prompt for MCQ, or challenge title for Coding problems",
+        sampleValue: "Which keyword prevents method overriding in Java?",
+      },
+      {
+        key: "difficulty",
+        label: "Difficulty",
+        type: "enum",
+        required: false,
+        options: ["Easy", "Medium", "Hard"],
+        defaultValue: "Easy",
+        description: "Difficulty level: Easy, Medium, or Hard",
+        sampleValue: "Easy",
+      },
+      {
+        key: "marks",
+        label: "Marks / Points",
+        type: "number",
+        required: false,
+        defaultValue: 10,
+        description: "Score marks awarded for this question",
+        sampleValue: 10,
+      },
+      // MCQ-specific columns
+      {
+        key: "optionA",
+        label: "Option A (MCQ)",
+        type: "string",
+        required: false,
+        description: "Option A choice text (MCQ only)",
+        sampleValue: "static",
+      },
+      {
+        key: "optionB",
+        label: "Option B (MCQ)",
+        type: "string",
+        required: false,
+        description: "Option B choice text (MCQ only)",
+        sampleValue: "final",
+      },
+      {
+        key: "optionC",
+        label: "Option C (MCQ)",
+        type: "string",
+        required: false,
+        description: "Option C choice text (MCQ only)",
+        sampleValue: "abstract",
+      },
+      {
+        key: "optionD",
+        label: "Option D (MCQ)",
+        type: "string",
+        required: false,
+        description: "Option D choice text (MCQ only)",
+        sampleValue: "synchronized",
+      },
+      {
+        key: "correctOption",
+        label: "Correct Option (A, B, C, or D)",
+        type: "string",
+        required: false,
+        description: "Correct answer choice: A, B, C, or D (MCQ only)",
+        sampleValue: "B",
+      },
+      {
+        key: "explanation",
+        label: "Explanation (MCQ)",
+        type: "string",
+        required: false,
+        description: "Detailed solution explanation (MCQ only)",
+        sampleValue: "Marking a method with 'final' in Java forbids subclasses from overriding it.",
+      },
+      // Coding-specific columns
+      {
+        key: "description",
+        label: "Problem Description (Coding)",
+        type: "string",
+        required: false,
+        description: "Problem statement and instructions for Coding problems",
+        sampleValue: "Given an array of integers nums and an integer target, return indices of the two numbers that add up to target.",
+      },
+      {
+        key: "constraints",
+        label: "Constraints (Coding)",
+        type: "string",
+        required: false,
+        description: "Input range and constraints (Coding only)",
+        sampleValue: "2 <= nums.length <= 10^4",
+      },
+      {
+        key: "input_format",
+        label: "Input Format (Coding)",
+        type: "string",
+        required: false,
+        description: "Input format received via stdin (Coding only)",
+        sampleValue: "Line 1: space-separated integers for nums. Line 2: target integer.",
+      },
+      {
+        key: "output_format",
+        label: "Output Format (Coding)",
+        type: "string",
+        required: false,
+        description: "Expected stdout structure (Coding only)",
+        sampleValue: "Print two 0-indexed positions separated by a space.",
+      },
+      {
+        key: "starterCode",
+        label: "Starter Code (Coding)",
+        type: "string",
+        required: false,
+        description: "Starter boilerplate code for learners (Coding only)",
+        sampleValue: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n    }\n}",
+      },
+      {
+        key: "testcase_1_input",
+        label: "Test Case 1 Input (Coding)",
+        type: "string",
+        required: false,
+        description: "Public testcase 1 input (Coding only)",
+        sampleValue: "2 7 11 15\n9",
+      },
+      {
+        key: "testcase_1_output",
+        label: "Test Case 1 Expected Output (Coding)",
+        type: "string",
+        required: false,
+        description: "Public testcase 1 expected output (Coding only)",
+        sampleValue: "0 1",
+      },
+      {
+        key: "testcase_2_input",
+        label: "Test Case 2 Input (Coding)",
+        type: "string",
+        required: false,
+        description: "Public testcase 2 input (Coding only)",
+        sampleValue: "3 2 4\n6",
+      },
+      {
+        key: "testcase_2_output",
+        label: "Test Case 2 Expected Output (Coding)",
+        type: "string",
+        required: false,
+        description: "Public testcase 2 expected output (Coding only)",
+        sampleValue: "1 2",
+      },
+      {
+        key: "hidden_testcase_input",
+        label: "Hidden Test Case 1 Input (Coding)",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation input (Coding only)",
+        sampleValue: "3 3\n6",
+      },
+      {
+        key: "hidden_testcase_output",
+        label: "Hidden Test Case 1 Expected Output (Coding)",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation expected output (Coding only)",
+        sampleValue: "0 1",
+      },
+    ],
+    sampleRows: [
+      {
+        type: "MCQ",
+        title: "Which keyword prevents method overriding in Java?",
+        difficulty: "Easy",
+        marks: 10,
+        optionA: "static",
+        optionB: "final",
+        optionC: "abstract",
+        optionD: "synchronized",
+        correctOption: "B",
+        explanation: "Marking a method with 'final' in Java forbids subclasses from overriding it.",
+        description: "",
+        constraints: "",
+        input_format: "",
+        output_format: "",
+        starterCode: "",
+        testcase_1_input: "",
+        testcase_1_output: "",
+        testcase_2_input: "",
+        testcase_2_output: "",
+        hidden_testcase_input: "",
+        hidden_testcase_output: "",
+      },
+      {
+        type: "MCQ",
+        title: "What is the average time complexity of lookup in a HashMap in Java?",
+        difficulty: "Medium",
+        marks: 10,
+        optionA: "O(1)",
+        optionB: "O(log n)",
+        optionC: "O(n)",
+        optionD: "O(n log n)",
+        correctOption: "A",
+        explanation: "Assuming a proper hash distribution, HashMap provides O(1) average lookup time.",
+        description: "",
+        constraints: "",
+        input_format: "",
+        output_format: "",
+        starterCode: "",
+        testcase_1_input: "",
+        testcase_1_output: "",
+        testcase_2_input: "",
+        testcase_2_output: "",
+        hidden_testcase_input: "",
+        hidden_testcase_output: "",
+      },
+      {
+        type: "Coding",
+        title: "Two Sum Problem",
+        difficulty: "Easy",
+        marks: 10,
+        optionA: "",
+        optionB: "",
+        optionC: "",
+        optionD: "",
+        correctOption: "",
+        explanation: "",
+        description: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+        constraints: "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9",
+        input_format: "Line 1: space separated integers for nums\nLine 2: target integer",
+        output_format: "Print two 0-based indices separated by space",
+        starterCode: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write solution here\n    }\n}",
+        testcase_1_input: "2 7 11 15\n9",
+        testcase_1_output: "0 1",
+        testcase_2_input: "3 2 4\n6",
+        testcase_2_output: "1 2",
+        hidden_testcase_input: "3 3\n6",
+        hidden_testcase_output: "0 1",
+      },
+      {
+        type: "Coding",
+        title: "Check Even or Odd",
+        difficulty: "Easy",
+        marks: 10,
+        optionA: "",
+        optionB: "",
+        optionC: "",
+        optionD: "",
+        correctOption: "",
+        explanation: "",
+        description: "Given an integer n, print 'Even' if it is divisible by 2, otherwise print 'Odd'.",
+        constraints: "-10^9 <= n <= 10^9",
+        input_format: "A single integer n",
+        output_format: "Print 'Even' or 'Odd'",
+        starterCode: "/* Write C code here */\n#include <stdio.h>\n\nint main() {\n    return 0;\n}",
+        testcase_1_input: "4",
+        testcase_1_output: "Even",
+        testcase_2_input: "7",
+        testcase_2_output: "Odd",
+        hidden_testcase_input: "12",
+        hidden_testcase_output: "Even",
+      },
+    ],
+    mapToPayload: (row: Record<string, any>, idx: number) => {
+      const rawType = String(row.type || "").toLowerCase().trim();
+      const hasMcqOptions = Boolean(row.optionA || row.optionB || row.option_1 || row.correctOption);
+      const isMcq = rawType === "mcq" || (rawType !== "coding" && hasMcqOptions);
+
+      if (isMcq) {
+        const correctOpt = String(row.correctOption || row.correctAnswer || "A").trim().toUpperCase();
+        return {
+          questionCategory: "mcq",
+          id: `mcq_bulk_${Date.now()}_${idx}`,
+          questionText: String(row.title || row.questionText || row.question || `Question ${idx + 1}`).trim(),
+          marks: Number(row.marks) || 10,
+          difficulty: row.difficulty || "Easy",
+          explanation: String(row.explanation || "").trim(),
+          options: [
+            { id: `opt_${Date.now()}_1_${idx}`, text: String(row.optionA || row.option_1 || "Option A").trim(), isCorrect: correctOpt === "A" || correctOpt === "1" },
+            { id: `opt_${Date.now()}_2_${idx}`, text: String(row.optionB || row.option_2 || "Option B").trim(), isCorrect: correctOpt === "B" || correctOpt === "2" },
+            { id: `opt_${Date.now()}_3_${idx}`, text: String(row.optionC || row.option_3 || "Option C").trim(), isCorrect: correctOpt === "C" || correctOpt === "3" },
+            { id: `opt_${Date.now()}_4_${idx}`, text: String(row.optionD || row.option_4 || "Option D").trim(), isCorrect: correctOpt === "D" || correctOpt === "4" },
+          ],
+        };
+      }
+
+      // Coding Problem
+      const testCases: any[] = [];
+      for (let i = 1; i <= 5; i++) {
+        const tcIn = row[`testcase_${i}_input`] ?? row[`testcase${i}_input`];
+        const tcOut = row[`testcase_${i}_output`] ?? row[`testcase${i}_output`];
+        if (tcIn !== undefined || tcOut !== undefined) {
+          testCases.push({
+            id: `tc_${Date.now()}_${i}_${idx}`,
+            input: String(tcIn || "").trim(),
+            output: String(tcOut || "").trim(),
+            expected_output: String(tcOut || "").trim(),
+            expectedOutput: String(tcOut || "").trim(),
+            is_hidden: false,
+          });
+        }
+      }
+      for (let h = 1; h <= 5; h++) {
+        const hIn = h === 1 ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input) : row[`hidden_testcase_${h}_input`];
+        const hOut = h === 1 ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output) : row[`hidden_testcase_${h}_output`];
+        if (hIn !== undefined || hOut !== undefined) {
+          testCases.push({
+            id: `tc_h_${Date.now()}_${h}_${idx}`,
+            input: String(hIn || "").trim(),
+            output: String(hOut || "").trim(),
+            expected_output: String(hOut || "").trim(),
+            expectedOutput: String(hOut || "").trim(),
+            is_hidden: true,
+          });
+        }
+      }
+
+      const rawTitle = String(row.title || `Coding Challenge ${idx + 1}`).trim();
+      const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `prob-${Date.now()}-${idx}`;
+
+      return {
+        questionCategory: "coding",
+        id: `cp_${slug}_${Date.now()}_${idx}`,
+        title: rawTitle,
+        slug,
+        description: String(row.description || row.title || "").trim(),
+        difficulty: (row.difficulty || "Easy").toLowerCase(),
+        category: "Algorithms",
+        points: Number(row.marks || row.points) || 10,
+        marks: Number(row.marks || row.points) || 10,
+        constraints: String(row.constraints || "").trim(),
+        input_format: String(row.input_format || "").trim(),
+        output_format: String(row.output_format || "").trim(),
+        starter_code: String(row.starterCode || "").trim(),
+        starterCode: String(row.starterCode || "").trim(),
+        test_cases: testCases,
+        sample_test_cases: testCases.filter((tc) => !tc.is_hidden),
+        hidden_test_cases: testCases.filter((tc) => tc.is_hidden),
+        status: "published",
+        scope: "practice",
+      };
+    },
+  },
 };
 
 /**
@@ -2148,16 +3001,25 @@ export function getTemplateConfig(moduleType: string): ModuleTemplateConfig {
     return TEMPLATE_CONFIGS[normalized] as ModuleTemplateConfig;
   }
   // Aliases
+  if (normalized === "mixed" || normalized === "mixed_questions" || normalized === "mixed_question" || normalized === "practice_mixed" || normalized === "practice_questions") {
+    return (TEMPLATE_CONFIGS.mixed_questions || TEMPLATE_CONFIGS.quiz) as ModuleTemplateConfig;
+  }
+  if (normalized === "mcq" || normalized === "mcq_only" || normalized === "mcqs" || normalized === "mcq_questions") {
+    return (TEMPLATE_CONFIGS.quiz || TEMPLATE_CONFIGS.assessment_questions) as ModuleTemplateConfig;
+  }
+  if (normalized === "coding" || normalized === "code_only" || normalized === "coding_only" || normalized === "coding_problem" || normalized === "coding_problems" || normalized === "code_lab" || normalized === "codelab") {
+    return (TEMPLATE_CONFIGS.coding_problem || Object.values(TEMPLATE_CONFIGS)[0]) as ModuleTemplateConfig;
+  }
   if (normalized === "courses" || normalized === "course_batch") return (TEMPLATE_CONFIGS.course_batch || TEMPLATE_CONFIGS.course) as ModuleTemplateConfig;
   if (normalized === "practices" || normalized === "practice_track" || normalized === "tracks") return (TEMPLATE_CONFIGS.practice_track || TEMPLATE_CONFIGS.practice) as ModuleTemplateConfig;
+  if (normalized === "practice_module" || normalized === "practice_modules" || normalized === "module" || normalized === "modules" || normalized === "level3_module") {
+    return (TEMPLATE_CONFIGS.practice_module || TEMPLATE_CONFIGS.practice) as ModuleTemplateConfig;
+  }
   if (normalized === "assessment_questions" || normalized === "assessment_question" || normalized === "test_questions" || normalized === "exam_questions") {
     return (TEMPLATE_CONFIGS.assessment_questions || TEMPLATE_CONFIGS.assessment) as ModuleTemplateConfig;
   }
   if (normalized === "assessments" || normalized === "assessment_track" || normalized === "tests") return (TEMPLATE_CONFIGS.assessment_track || TEMPLATE_CONFIGS.assessment) as ModuleTemplateConfig;
   if (normalized === "main_modules" || normalized === "units") return (TEMPLATE_CONFIGS.main_module || TEMPLATE_CONFIGS.course) as ModuleTemplateConfig;
-  if (normalized === "coding" || normalized === "coding_problem" || normalized === "coding_problems" || normalized === "code_lab" || normalized === "codelab") {
-    return (TEMPLATE_CONFIGS.coding_problem || Object.values(TEMPLATE_CONFIGS)[0]) as ModuleTemplateConfig;
-  }
   
   return (TEMPLATE_CONFIGS.course || Object.values(TEMPLATE_CONFIGS)[0]) as ModuleTemplateConfig;
 }

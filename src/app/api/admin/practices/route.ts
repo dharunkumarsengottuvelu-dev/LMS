@@ -861,6 +861,241 @@ export async function POST(request: NextRequest) {
     }
 
     // ─────────────────────────────────────────────────────────
+    // ACTION 6.5: BULK CREATE MODULES (Level 3)
+    // ─────────────────────────────────────────────────────────
+    if (action === "bulk_create_modules") {
+      const mainModuleId = body.main_module_id || body.mainModuleId;
+      const submoduleId = body.submodule_id || body.submoduleId;
+      const rawModules = Array.isArray(body.modules) ? body.modules : [];
+
+      if (!mainModuleId || !submoduleId) {
+        return NextResponse.json({ error: "Parent Main Module and Submodule IDs are required" }, { status: 400 });
+      }
+
+      if (rawModules.length === 0) {
+        return NextResponse.json({ error: "At least one module is required for bulk creation" }, { status: 400 });
+      }
+
+      if (rawModules.length > 100) {
+        return NextResponse.json({ error: "Maximum 100 modules can be created in a single batch" }, { status: 400 });
+      }
+
+      // Fetch parent track
+      const { data: mainTrack, error: mainError } = await adminClient
+        .from("practice_tracks")
+        .select("*")
+        .eq("id", mainModuleId)
+        .maybeSingle();
+
+      if (mainError || !mainTrack) {
+        return NextResponse.json({ error: "Parent Main Module not found" }, { status: 404 });
+      }
+
+      let meta: any = {};
+      if (mainTrack.tags && mainTrack.tags[0]) {
+        try { meta = JSON.parse(mainTrack.tags[0]); } catch {}
+      }
+
+      const currentSubmodules = normalizeSubmodules(meta.subModules || mainTrack.sub_modules || [], mainTrack.id);
+      const subIdx = currentSubmodules.findIndex((s) => s.id === submoduleId);
+
+      if (subIdx === -1) {
+        return NextResponse.json({ error: "Parent Submodule not found in this Main Module" }, { status: 404 });
+      }
+
+      const targetSub = currentSubmodules[subIdx];
+      if (!Array.isArray(targetSub.modules)) {
+        targetSub.modules = [];
+      }
+
+      // Existing module names for duplicate detection (case-insensitive)
+      const existingNamesMap = new Set<string>();
+      targetSub.modules.forEach((m: any) => {
+        const n = (m.name || m.title || "").trim().toLowerCase();
+        if (n) existingNamesMap.add(n);
+      });
+
+      // Calculate max existing display order
+      let maxExistingOrder = 0;
+      targetSub.modules.forEach((m: any) => {
+        const ord = typeof m.display_order === "number" ? m.display_order : (typeof m.displayOrder === "number" ? m.displayOrder : 0);
+        if (ord > maxExistingOrder) maxExistingOrder = ord;
+      });
+
+      const seenInBatch = new Set<string>();
+      const newModules: any[] = [];
+      const dbModulesToInsert: any[] = [];
+
+      for (let i = 0; i < rawModules.length; i++) {
+        const row = rawModules[i];
+        const rowNum = i + 1;
+        const name = (row.name || row.title || "").trim();
+
+        if (!name) {
+          return NextResponse.json({ error: `Module name is required (Row #${rowNum})` }, { status: 400 });
+        }
+
+        const lowerName = name.toLowerCase();
+
+        // Check duplicate within the incoming batch
+        if (seenInBatch.has(lowerName)) {
+          return NextResponse.json({
+            error: `Duplicate module name "${name}" detected in row #${rowNum}. Each module in this Submodule must have a unique name.`,
+          }, { status: 400 });
+        }
+        seenInBatch.add(lowerName);
+
+        // Check duplicate against existing DB modules under this submodule
+        if (existingNamesMap.has(lowerName)) {
+          return NextResponse.json({
+            error: `Module "${name}" already exists in this Submodule (Row #${rowNum}). Please use a unique module name.`,
+          }, { status: 400 });
+        }
+
+        const rawType = (row.type || "mixed").toLowerCase().trim();
+        const type = (rawType === "coding" || rawType === "code" || rawType === "code only")
+          ? "coding"
+          : (rawType === "mcq" || rawType === "mcq only")
+          ? "mcq"
+          : "mixed";
+
+        const rawStatus = (row.status || "active").toLowerCase().trim();
+        const status = rawStatus === "inactive" ? "inactive" : "active";
+
+        const durationMinutes = typeof row.durationMinutes === "number"
+          ? row.durationMinutes
+          : typeof row.duration_minutes === "number"
+          ? row.duration_minutes
+          : typeof row.duration === "number"
+          ? row.duration
+          : (parseInt(row.durationMinutes || row.duration_minutes || row.duration) || 60);
+
+        const totalMarks = typeof row.totalMarks === "number"
+          ? row.totalMarks
+          : typeof row.total_marks === "number"
+          ? row.total_marks
+          : typeof row.marks === "number"
+          ? row.marks
+          : (parseInt(row.totalMarks || row.total_marks || row.marks) || 100);
+
+        if (isNaN(totalMarks) || totalMarks < 1) {
+          return NextResponse.json({ error: `Total marks must be at least 1 (Row #${rowNum}: "${name}")` }, { status: 400 });
+        }
+
+        const passingMarksEnabled = row.passingMarksEnabled !== undefined ? Boolean(row.passingMarksEnabled) : true;
+        const rawPassingMarks = typeof row.passingMarks === "number"
+          ? row.passingMarks
+          : typeof row.passing_marks === "number"
+          ? row.passing_marks
+          : (parseInt(row.passingMarks || row.passing_marks) || 40);
+
+        const passingMarks = passingMarksEnabled ? rawPassingMarks : 0;
+        if (passingMarksEnabled && (passingMarks < 0 || passingMarks > totalMarks)) {
+          return NextResponse.json({
+            error: `Passing marks (${passingMarks}) cannot exceed total marks (${totalMarks}) in Row #${rowNum} ("${name}")`,
+          }, { status: 400 });
+        }
+
+        // Display order: auto order or manually specified
+        let displayOrder: number;
+        if (body.auto_order !== false && row.display_order === undefined && row.displayOrder === undefined) {
+          displayOrder = maxExistingOrder + 1 + i;
+        } else {
+          const parsedOrd = parseInt(row.display_order ?? row.displayOrder);
+          displayOrder = !isNaN(parsedOrd) && parsedOrd > 0 ? parsedOrd : maxExistingOrder + 1 + i;
+        }
+
+        const allowedAttempts = typeof row.allowedAttempts === "number" ? row.allowedAttempts : 3;
+        const newModuleId = randomUUID();
+
+        const createdMod = {
+          id: newModuleId,
+          submodule_id: submoduleId,
+          submoduleId: submoduleId,
+          main_module_id: mainModuleId,
+          mainModuleId: mainModuleId,
+          name,
+          title: name,
+          description: (row.description || "").trim(),
+          status,
+          display_order: displayOrder,
+          displayOrder,
+          type,
+          durationMinutes: Math.max(0, durationMinutes),
+          totalMarks,
+          total_marks: totalMarks,
+          questionCount: 0,
+          allowedAttempts,
+          reattemptEnabled: row.reattemptEnabled !== undefined ? Boolean(row.reattemptEnabled) : true,
+          reviewEnabled: row.reviewEnabled !== undefined ? Boolean(row.reviewEnabled) : true,
+          passingMarks,
+          passingMarksEnabled,
+          completionRule: row.completionRule || "submit",
+          mcqSectionTitle: (row.mcqSectionTitle || "Section 1: MCQs").trim(),
+          codingSectionTitle: (row.codingSectionTitle || "Section 2: Coding").trim(),
+          customSections: [],
+          mcqQuestions: [],
+          codingQuestions: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        newModules.push(createdMod);
+        dbModulesToInsert.push({
+          id: newModuleId,
+          submodule_id: submoduleId,
+          name,
+          description: createdMod.description,
+          status,
+          display_order: displayOrder,
+          type,
+          duration_minutes: createdMod.durationMinutes,
+          total_marks: totalMarks,
+          question_count: 0,
+          mcq_questions: [],
+          coding_questions: [],
+        });
+      }
+
+      // Add all new modules to target submodule
+      targetSub.modules.push(...newModules);
+      targetSub.modules.sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
+      targetSub.updated_at = new Date().toISOString();
+
+      meta.subModules = currentSubmodules;
+
+      // Update parent track atomically
+      const { error: updateError } = await adminClient
+        .from("practice_tracks")
+        .update({
+          sub_modules: currentSubmodules,
+          tags: [JSON.stringify(meta)],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", mainModuleId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Sync batch insert into practice_modules table
+      if (dbModulesToInsert.length > 0) {
+        try {
+          await adminClient.from("practice_modules").insert(dbModulesToInsert);
+        } catch (e) {
+          console.warn("practice_modules batch sync notice:", e);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `${newModules.length} modules created successfully`,
+        count: newModules.length,
+        modules: newModules,
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────
     // ACTION 7: UPDATE MODULE (Level 3)
     // ─────────────────────────────────────────────────────────
     if (action === "update_module") {
