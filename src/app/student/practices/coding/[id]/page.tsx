@@ -232,6 +232,14 @@ export default function StudentPracticeCodingRunnerPage() {
   const [selectedLanguage, setSelectedLanguage] = useState<CodingLanguage>("java");
   const [code, setCode] = useState<string>("");
   const editorRef = useRef<any>(null);
+  const [cursorPos, setCursorPos] = useState({ line: 1, column: 1 });
+  const [tabSize, setTabSize] = useState<number>(2);
+
+  useEffect(() => {
+    const size = selectedLanguage === "python" ? 4 : 2;
+    setTabSize(size);
+    editorRef.current?.getModel()?.updateOptions({ tabSize: size, indentSize: size });
+  }, [selectedLanguage]);
 
   // Fullscreen state
   const [isEditorFullscreen, setIsEditorFullscreen] = useState<boolean>(false);
@@ -396,7 +404,7 @@ export default function StudentPracticeCodingRunnerPage() {
   const [runResults, setRunResults] = useState<any[] | null>(null);
   const [customRunResult, setCustomRunResult] = useState<any | null>(null);
   const [consoleOutput, setConsoleOutput] = useState<string>("");
-  const [isBottomMinimized, setIsBottomMinimized] = useState<boolean>(false);
+  const [isBottomMinimized, setIsBottomMinimized] = useState<boolean>(true);
   const [executionError, setExecutionError] = useState<{
     title: string;
     message: string;
@@ -2714,33 +2722,99 @@ export default function StudentPracticeCodingRunnerPage() {
               </div>
             </div>
 
-            {/* Monaco Editor in Pure Light ("vs") Theme */}
-            <div className="flex-1 min-h-0 relative bg-white overflow-hidden">
-              <MonacoEditor
-                language={SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage)?.monacoLang || "java"}
-                value={code}
-                theme="vs"
-                onChange={handleCodeChange}
-                beforeMount={(monaco) => registerMonacoCompletions(monaco)}
-                onMount={(editor, monaco) => {
-                  editorRef.current = editor;
-                  monaco.editor.setTheme("vs");
-                }}
-                options={{
-                  readOnly: Boolean(isReviewMode),
-                  fontSize: 13,
-                  lineHeight: 21,
-                  fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace',
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  smoothScrolling: true,
-                  cursorBlinking: "smooth",
-                  automaticLayout: true,
-                  tabSize: selectedLanguage === "python" ? 4 : 2,
-                  lineNumbers: "on",
-                  renderLineHighlight: "all",
-                }}
-              />
+            {/* Monaco Editor in Pure Light ("vs") Theme with VS Code Status Bar */}
+            <div className="flex-1 min-h-0 relative bg-white overflow-hidden flex flex-col">
+              <div className="flex-1 relative overflow-hidden">
+                <MonacoEditor
+                  language={SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage)?.monacoLang || "java"}
+                  value={code}
+                  theme="vs"
+                  onChange={handleCodeChange}
+                  beforeMount={(monaco) => registerMonacoCompletions(monaco)}
+                  onMount={(editor, monaco) => {
+                    editorRef.current = editor;
+                    monaco.editor.setTheme("vs");
+                    editor.onDidChangeCursorPosition((e: any) => {
+                      if (e?.position) {
+                        setCursorPos({
+                          line: e.position.lineNumber,
+                          column: e.position.column,
+                        });
+                      }
+                    });
+                  }}
+                  options={{
+                    readOnly: Boolean(isReviewMode),
+                    fontSize: 13,
+                    lineHeight: 22,
+                    fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace',
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    smoothScrolling: true,
+                    cursorBlinking: "smooth",
+                    automaticLayout: true,
+                    tabSize: selectedLanguage === "python" ? 4 : 2,
+                    lineNumbers: "on",
+                    lineNumbersMinChars: 3,
+                    lineDecorationsWidth: 6,
+                    glyphMargin: false,
+                    folding: false,
+                    padding: { top: 14, bottom: 14 },
+                    renderLineHighlight: "all",
+                  }}
+                />
+              </div>
+
+              {/* VS Code IDE Status Bar (Light Theme) */}
+              <div className="h-6 bg-slate-50 border-t border-slate-200/90 text-slate-600 px-3 flex items-center justify-between text-[11px] font-mono select-none shrink-0">
+                <div className="flex items-center gap-2">
+                  {isRunning || isSubmitting || isRunningCustomInput ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+                      <span className="text-[10px] text-blue-600 uppercase tracking-wider font-bold">
+                        {isSubmitting ? "Evaluating..." : "Running..."}
+                      </span>
+                    </>
+                  ) : executionError ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                      <span className="text-[10px] text-rose-600 uppercase tracking-wider font-bold">Error</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Ready</span>
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 sm:gap-4 text-slate-600">
+                  <span className="hover:text-slate-900 transition-colors cursor-default" title="Cursor Position">
+                    Ln {cursorPos.line}, Col {cursorPos.column}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextSize = tabSize === 2 ? 4 : 2;
+                      setTabSize(nextSize);
+                      editorRef.current?.getModel()?.updateOptions({ tabSize: nextSize, indentSize: nextSize });
+                    }}
+                    className="hover:text-blue-600 px-1 py-0.5 rounded transition-all cursor-pointer font-medium"
+                    title="Click to toggle indentation (2 / 4 spaces)"
+                  >
+                    Spaces: {tabSize}
+                  </button>
+                  <span className="hover:text-slate-900 transition-colors cursor-default" title="Encoding">
+                    UTF-8
+                  </span>
+                  <span className="hover:text-slate-900 transition-colors cursor-default" title="Line Endings">
+                    LF
+                  </span>
+                  <span className="hover:text-slate-900 transition-colors cursor-default flex items-center gap-1 font-semibold text-slate-700" title="Selected Language">
+                    <span className="text-slate-400 font-bold">&#123;&#125;</span>
+                    <span>{SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage)?.name || "Plain Text"}</span>
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 

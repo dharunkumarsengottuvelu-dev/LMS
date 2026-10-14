@@ -1103,27 +1103,34 @@ export function CodeEditor({
           )}
         </div>
 
-        {/* ── Editor Status Bar ── */}
-        <div className="h-8 px-4 bg-white border-t border-gray-100 flex items-center text-xs select-none shrink-0 z-10 font-mono">
-          <div className="flex items-center gap-4 text-[12px] text-slate-600">
-            <span title="Cursor Position" className="hover:text-slate-900 transition-colors">
+        {/* ── VS Code IDE Style Status Bar (Light Theme) ── */}
+        <div className="h-6 px-3 bg-slate-50 border-t border-slate-200/90 flex items-center justify-between text-[11px] font-mono select-none shrink-0 z-10 text-slate-600">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Ready</span>
+            {selectedCharsCount > 0 && <span className="text-slate-400 font-sans ml-1 text-[10px]">({selectedCharsCount} selected)</span>}
+          </div>
+          <div className="flex items-center gap-3 sm:gap-4 text-slate-600">
+            <span title="Cursor Position" className="hover:text-slate-900 transition-colors cursor-default">
               Ln {cursorPos.line}, Col {cursorPos.col}
-              {selectedCharsCount > 0 && <span className="text-slate-400 font-sans ml-1 text-[11px]">({selectedCharsCount} selected)</span>}
             </span>
-            <span className="text-slate-300">|</span>
             <button
               type="button"
               onClick={toggleTabSize}
               title="Click to toggle tab indentation (2 / 4 spaces)"
-              className="hover:text-blue-600 hover:bg-slate-100 px-1 py-0.5 rounded transition-all cursor-pointer font-medium"
+              className="hover:text-slate-900 px-1 py-0.5 rounded transition-all cursor-pointer font-medium"
             >
               Spaces: {tabSize}
             </button>
-            <span className="text-slate-300">|</span>
-            <span title="File Encoding: UTF-8" className="text-slate-600">UTF-8</span>
-            <span className="text-slate-300">|</span>
-            <span title="Active Language" className="font-semibold text-slate-800">
-              {getCleanLanguageName(dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language)}
+            <span title="File Encoding: UTF-8" className="hover:text-slate-900 transition-colors cursor-default">
+              UTF-8
+            </span>
+            <span title="End of Line Sequence: LF" className="hover:text-slate-900 transition-colors cursor-default">
+              LF
+            </span>
+            <span title="Active Language" className="hover:text-slate-900 transition-colors cursor-default flex items-center gap-1 font-semibold text-slate-700">
+              <span className="text-slate-400 font-bold">&#123;&#125;</span>
+              <span>{getCleanLanguageName(dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language)}</span>
             </span>
           </div>
         </div>

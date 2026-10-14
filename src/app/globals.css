@@ -575,3 +575,46 @@ p, span, div {
     transform: none !important;
   }
 }
+
+/* ============================================================
+   MNC-GRADE CODE EDITOR GUTTER (Notebook Margin Vertical Line)
+   Adds a crisp notebook-style divider between line numbers and code
+   ============================================================ */
+.monaco-editor .margin {
+  background-color: #FAFAFC !important;
+  border-right: 1px solid #E2E8F0 !important;
+}
+
+.monaco-editor .line-numbers {
+  color: #94A3B8 !important;
+  font-family: var(--font-mono, "JetBrains Mono", monospace) !important;
+  font-size: 12px !important;
+  padding-right: 8px !important;
+  letter-spacing: -0.2px;
+}
+
+.monaco-editor .line-numbers.active-line-number {
+  color: #2563EB !important;
+  font-weight: 700 !important;
+}
+
+.monaco-editor .current-line {
+  border-left: 2px solid #2563EB !important;
+}
+
+.dark .monaco-editor .margin {
+  background-color: #141417 !important;
+  border-right: 1px solid #27272A !important;
+}
+
+.dark .monaco-editor .line-numbers {
+  color: #64748B !important;
+}
+
+.dark .monaco-editor .line-numbers.active-line-number {
+  color: #60A5FA !important;
+}
+
+.dark .monaco-editor .current-line {
+  border-left: 2px solid #3B82F6 !important;
+}

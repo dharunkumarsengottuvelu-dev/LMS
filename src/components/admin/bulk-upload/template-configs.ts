@@ -2382,6 +2382,13 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         ? String(row.topic_tags).split(",").map((s) => s.trim()).filter(Boolean)
         : ["Algorithms"];
 
+      const cleanCsvVal = (v: any) =>
+        String(v ?? "")
+          .replace(/\\r\\n/g, "\n")
+          .replace(/\\n/g, "\n")
+          .replace(/\r\n/g, "\n")
+          .trim();
+
       const testCases: any[] = [];
       const testCaseKeysSeen = new Set<string>();
 
@@ -2395,8 +2402,8 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
           testCases.push({
             id: `tc-${Date.now()}-${i}-${idx}`,
             name: `Test Case ${i}`,
-            input: String(inpVal ?? "").trim(),
-            expected_output: String(outVal ?? "").trim(),
+            input: cleanCsvVal(inpVal),
+            expected_output: cleanCsvVal(outVal),
             is_hidden: false,
             is_enabled: true,
             weight: 10,
@@ -2410,8 +2417,8 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         testCases.push({
           id: `tc-${Date.now()}-1-${idx}`,
           name: "Test Case 1 (Sample)",
-          input: String(row.sample_input ?? "").trim(),
-          expected_output: String(row.sample_output ?? "").trim(),
+          input: cleanCsvVal(row.sample_input),
+          expected_output: cleanCsvVal(row.sample_output),
           is_hidden: false,
           is_enabled: true,
           weight: 10,
@@ -2432,8 +2439,8 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
           testCases.push({
             id: `tc-${Date.now()}-h${h}-${idx}`,
             name: `Hidden Case ${h}`,
-            input: String(hInp ?? "").trim(),
-            expected_output: String(hOut ?? "").trim(),
+            input: cleanCsvVal(hInp),
+            expected_output: cleanCsvVal(hOut),
             is_hidden: true,
             is_enabled: true,
             weight: 20,
@@ -2443,13 +2450,25 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
       }
 
       const exampleCases: any[] = [];
-      if (row.sample_input || row.sample_output) {
-        exampleCases.push({
-          id: `example-${idx + 1}`,
-          input: String(row.sample_input || ""),
-          output: String(row.sample_output || ""),
-          explanation: String(row.sample_explanation || ""),
-        });
+      for (let e = 1; e <= 5; e++) {
+        const eInp = e === 1 
+          ? (row.sample_input ?? row.example_1_input ?? row.sample_input_1 ?? row.example_input)
+          : (row[`sample_input_${e}`] ?? row[`example_${e}_input`] ?? row[`example_input_${e}`]);
+        const eOut = e === 1 
+          ? (row.sample_output ?? row.example_1_output ?? row.sample_output_1 ?? row.example_output)
+          : (row[`sample_output_${e}`] ?? row[`example_${e}_output`] ?? row[`example_output_${e}`]);
+        const eExp = e === 1 
+          ? (row.sample_explanation ?? row.example_1_explanation ?? row.sample_explanation_1 ?? row.example_explanation)
+          : (row[`sample_explanation_${e}`] ?? row[`example_${e}_explanation`] ?? row[`example_explanation_${e}`]);
+
+        if ((eInp !== undefined && String(eInp).trim() !== "") || (eOut !== undefined && String(eOut).trim() !== "")) {
+          exampleCases.push({
+            id: `example-${e}`,
+            input: String(eInp || "").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").trim(),
+            output: String(eOut || "").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").trim(),
+            explanation: String(eExp || "").trim(),
+          });
+        }
       }
 
       const templates = {
