@@ -95,6 +95,14 @@ export default function CodingDashboardPage() {
     });
   }, [problems, searchQuery, selectedDifficulty]);
 
+  const getProblemNumber = (prob: ExtendedCodingProblem) => {
+    if ((prob as any).problem_number) {
+      return Number((prob as any).problem_number);
+    }
+    const originalIdx = problems.findIndex((p) => p.id === prob.id);
+    return originalIdx !== -1 ? originalIdx + 1 : 1;
+  };
+
   const handleUpvote = (postId: string) => {
     CodingDiscussService.upvotePost(postId);
     setDiscussPosts([...CodingDiscussService.getPosts()]);
@@ -102,88 +110,76 @@ export default function CodingDashboardPage() {
   };
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* Top Banner & Quick Stats */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 lg:p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
-          <div className="space-y-2">
-            <div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof window !== "undefined" && window.history.length > 1) {
-                    router.back();
-                  } else {
-                    router.push("/student/dashboard");
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors group py-0.5 cursor-pointer"
-              >
-                <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-slate-400 group-hover:text-blue-600" />
-                <span>Back</span>
-              </button>
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-5 space-y-5">
+      {/* MNC Compact Header & Key Metrics Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs px-5 py-3.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Left: Navigation & Workspace Title */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push("/student/dashboard");
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 text-slate-500" />
+              <span>Back</span>
+            </button>
+            <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                Coding Workspace
+              </h1>
+              {stats.streakDays > 0 && (
+                <span className="text-[11px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  {stats.streakDays}d Streak
+                </span>
+              )}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 rounded">
-                Practice Workspace
+          </div>
+
+          {/* Right: Sleek Corporate Metrics Strip */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+              <span className="text-slate-500 font-medium">Solved</span>
+              <span className="font-bold text-slate-900">
+                {stats.solvedCount}
+                <span className="text-slate-400 font-normal">/{stats.totalProblems}</span>
               </span>
-              <span className="text-xs font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                {stats.streakDays} Day Streak
+              <span className="text-[11px] text-slate-400 font-medium pl-1.5 border-l border-slate-200 flex items-center gap-1.5">
+                <span className="text-emerald-700 font-semibold">{stats.easySolved}E</span>
+                <span className="text-amber-700 font-semibold">{stats.mediumSolved}M</span>
+                <span className="text-rose-700 font-semibold">{stats.hardSolved}H</span>
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-              SensiLearn Coding Workspace
-            </h1>
-          </div>
-        </div>
 
-        {/* 4 Clean Metric Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6">
-          <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80">
-            <div className="text-xs font-medium text-slate-500 mb-1">Solved Problems</div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold text-slate-900">{stats.solvedCount}</span>
-              <span className="text-xs text-slate-400">/ {stats.totalProblems}</span>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+              <span className="text-slate-500 font-medium">In Progress</span>
+              <span className="font-bold text-slate-900">{inProgressItems.length}</span>
             </div>
-            <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-600 font-medium">
-              <span className="text-emerald-700">{stats.easySolved} Easy</span>
-              <span>•</span>
-              <span className="text-amber-700">{stats.mediumSolved} Med</span>
-              <span>•</span>
-              <span className="text-rose-700">{stats.hardSolved} Hard</span>
+
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+              <span className="text-slate-500 font-medium">Acceptance</span>
+              <span className="font-bold text-slate-900">
+                {submissions.length > 0 ? stats.acceptanceRate : "—"}
+              </span>
             </div>
-          </div>
 
-          <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80">
-            <div className="text-xs font-medium text-slate-500 mb-1">In Progress</div>
-            <div className="text-2xl font-bold text-slate-900">{inProgressItems.length}</div>
-            <p className="text-[11px] text-slate-500 mt-1">Saved drafts</p>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80">
-            <div className="text-xs font-medium text-slate-500 mb-1">Acceptance Rate</div>
-            <div className="text-2xl font-bold text-slate-900">
-              {submissions.length > 0 ? stats.acceptanceRate : "—"}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+              <span className="text-slate-500 font-medium">Points</span>
+              <span className="font-bold text-slate-900">{stats.totalPoints}</span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              {submissions.length > 0 ? "Across all submissions" : "No submissions yet"}
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80">
-            <div className="text-xs font-medium text-slate-500 mb-1">Points Earned</div>
-            <div className="text-2xl font-bold text-slate-900">{stats.totalPoints}</div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              {stats.solvedCount > 0
-                ? `Rank #${leaderboard.find((l) => l.isCurrentUser)?.rank || 1} in Cohort`
-                : "Unranked (Solve problems to rank)"}
-            </p>
           </div>
         </div>
       </div>
 
       {/* Main 7 Dashboard Navigation Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
         <div className="border-b border-slate-200 bg-white rounded-xl p-1 shadow-xs">
           <TabsList className="bg-transparent h-auto p-0 flex flex-wrap gap-1">
             <TabsTrigger
@@ -232,9 +228,10 @@ export default function CodingDashboardPage() {
         </div>
 
         {/* 1. PROBLEMS TAB */}
-        <TabsContent value="problems" className="space-y-6 m-0">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <TabsContent value="problems" className="space-y-4 m-0">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 space-y-4">
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="w-full sm:w-80">
                 <Input
                   placeholder="Search problems or tags..."
@@ -249,9 +246,9 @@ export default function CodingDashboardPage() {
                   <button
                     key={diff}
                     onClick={() => setSelectedDifficulty(diff)}
-                    className={`px-3 py-1 rounded-md text-xs font-medium capitalize transition-all ${
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize transition-all cursor-pointer ${
                       selectedDifficulty === diff
-                        ? "bg-slate-900 text-white"
+                        ? "bg-slate-900 text-white shadow-xs"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
@@ -261,88 +258,110 @@ export default function CodingDashboardPage() {
               </div>
             </div>
 
-            {/* Problem Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {filteredProblems.map((prob, idx) => {
-                const status = CodingProgressService.getProblemStatus(prob.id);
-                return (
-                  <div
-                    key={prob.id}
-                    className="p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-all flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="text-xs font-mono font-semibold text-slate-400 whitespace-nowrap" title={prob.id}>
-                          #{idx + 1}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={`px-2 py-0.5 text-[10px] font-semibold rounded capitalize ${
-                              prob.difficulty === "easy"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : prob.difficulty === "medium"
-                                ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                : "bg-rose-50 text-rose-700 border border-rose-200"
-                            }`}
+            {/* Linear Problem List Table */}
+            {filteredProblems.length === 0 ? (
+              <div className="text-center py-12 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                <p className="text-xs font-semibold text-slate-700">No problems found</p>
+                <p className="text-xs text-slate-400 mt-1">Try adjusting your search query or difficulty filter.</p>
+              </div>
+            ) : (
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                        <th className="py-3 px-3 text-center w-12">Status</th>
+                        <th className="py-3 px-3 w-14">#</th>
+                        <th className="py-3 px-4">Title & Topics</th>
+                        <th className="py-3 px-3 text-center w-28">Difficulty</th>
+                        <th className="py-3 px-3 text-center w-24">Acceptance</th>
+                        <th className="py-3 px-4 text-right w-24">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredProblems.map((prob) => {
+                        const problemNumber = getProblemNumber(prob);
+                        const status = CodingProgressService.getProblemStatus(prob.id);
+
+                        return (
+                          <tr
+                            key={prob.id}
+                            className="hover:bg-slate-50/70 transition-colors group"
                           >
-                            {prob.difficulty}
-                          </span>
-                          {status === "solved" ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              Completed
-                            </span>
-                          ) : status === "in_progress" ? (
-                            <span className="text-[11px] font-medium text-amber-700">
-                              In Progress
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <Link href={`/coding/problems/${prob.id}`}>
-                        <h3 className="font-semibold text-slate-900 hover:text-blue-600 transition-colors text-xs line-clamp-1">
-                          {prob.title}
-                        </h3>
-                      </Link>
-
-                      <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                        {prob.description}
-                      </p>
-
-                      <div className="flex flex-wrap gap-1 mt-2.5">
-                        {(prob.topic_tags || []).slice(0, 3).map((tag: string) => (
-                          <span
-                            key={tag}
-                            className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-[10px] font-medium"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">
-                        {prob.acceptance_rate || "55%"} acceptance
-                      </span>
-                      <Link href={`/coding/problems/${prob.id}`}>
-                        <Button
-                          size="sm"
-                          className={`h-7 px-3 rounded text-xs font-medium transition-colors shadow-none ${
-                            status === "solved"
-                              ? "bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200"
-                              : "bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-700"
-                          }`}
-                        >
-                          {status === "solved" ? "Completed" : status === "in_progress" ? "Continue" : "Solve"}
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                            <td className="py-3 px-3 text-center">
+                              {status === "solved" ? (
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 mx-auto" title="Solved">
+                                  <Check className="w-3 h-3 stroke-[2.5]" />
+                                </span>
+                              ) : status === "in_progress" ? (
+                                <span className="inline-flex items-center justify-center w-2 h-2 rounded-full bg-amber-500 mx-auto" title="In Progress" />
+                              ) : (
+                                <span className="text-slate-300 font-mono text-xs select-none">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3 font-mono font-semibold text-slate-500 text-xs">
+                              #{problemNumber}
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="space-y-1">
+                                <Link
+                                  href={`/coding/problems/${prob.id}`}
+                                  className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors text-xs sm:text-sm line-clamp-1"
+                                >
+                                  {prob.title}
+                                </Link>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {(prob.topic_tags || []).slice(0, 4).map((tag: string) => (
+                                    <span
+                                      key={tag}
+                                      className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-[10px] font-medium"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <span
+                                className={`inline-block px-2.5 py-0.5 text-[11px] font-semibold rounded capitalize ${
+                                  prob.difficulty === "easy"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : prob.difficulty === "medium"
+                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                    : "bg-rose-50 text-rose-700 border border-rose-200"
+                                }`}
+                              >
+                                {prob.difficulty}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-center text-xs text-slate-500 font-medium">
+                              {prob.acceptance_rate || "55%"}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <Link href={`/coding/problems/${prob.id}`}>
+                                <Button
+                                  size="sm"
+                                  className={`h-7 px-3 text-xs font-medium rounded transition-colors shadow-none cursor-pointer ${
+                                    status === "solved"
+                                      ? "bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 border border-slate-200"
+                                      : status === "in_progress"
+                                      ? "bg-amber-500 hover:bg-amber-600 text-white"
+                                      : "bg-slate-900 hover:bg-slate-800 text-white"
+                                  }`}
+                                >
+                                  {status === "solved" ? "Review" : status === "in_progress" ? "Continue" : "Solve"}
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 
@@ -428,7 +447,7 @@ export default function CodingDashboardPage() {
                   >
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-mono font-semibold text-slate-400" title={problem.id}>#{idx + 1}</span>
+                        <span className="text-xs font-mono font-semibold text-slate-400" title={problem.id}>#{getProblemNumber(problem)}</span>
                         <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-medium">
                           In Progress
                         </span>
@@ -484,7 +503,7 @@ export default function CodingDashboardPage() {
                   <div key={problem.id} className="py-3 flex items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-semibold text-slate-400" title={problem.id}>#{idx + 1}</span>
+                        <span className="text-xs font-mono font-semibold text-slate-400" title={problem.id}>#{getProblemNumber(problem)}</span>
                         <h4 className="font-semibold text-slate-900 text-xs sm:text-sm">{problem.title}</h4>
                         <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded capitalize bg-slate-100 text-slate-700">
                           {problem.difficulty}

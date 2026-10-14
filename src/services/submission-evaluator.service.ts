@@ -81,7 +81,7 @@ export class SubmissionEvaluatorService {
             }
           }
         } else {
-          const res = await UniversalExecutor.execute(input.language, input.code, cleanInput);
+          const res = await UniversalExecutor.execute(input.language, input.code, cleanInput, undefined, input.version);
 
           trimmedActual = (res.stdout || "").trim();
           executionTime = res.time ? parseFloat(res.time) : 0.02;

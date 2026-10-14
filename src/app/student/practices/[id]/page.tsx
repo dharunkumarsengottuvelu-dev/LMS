@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Loading } from "@/components/ui/loading";
 import { useToast } from "@/hooks/use-toast";
+import { ChevronDown } from "lucide-react";
 
 interface FormattedAttempt {
   id: string;
@@ -99,6 +100,19 @@ export default function StudentTrackDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [expandedHistoryModIds, setExpandedHistoryModIds] = useState<Set<string>>(new Set());
+  const [collapsedSubmoduleIds, setCollapsedSubmoduleIds] = useState<Set<string>>(new Set());
+
+  const toggleSubmoduleCollapse = (submoduleId: string) => {
+    setCollapsedSubmoduleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(submoduleId)) {
+        next.delete(submoduleId);
+      } else {
+        next.add(submoduleId);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const title = track?.title || track?.name;
@@ -293,12 +307,30 @@ export default function StudentTrackDetailPage() {
       {/* ─── HIERARCHY: SUBMODULES & LINEAR MODULE LIST ─────────────────── */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-            Curriculum &amp; Modules
-          </h2>
-          <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">
-            {submodules.length} {submodules.length === 1 ? "Section" : "Sections"}
-          </span>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+              Curriculum &amp; Modules
+            </h2>
+            <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">
+              ({submodules.length} {submodules.length === 1 ? "Section" : "Sections"})
+            </span>
+          </div>
+
+          {submodules.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (collapsedSubmoduleIds.size === submodules.length) {
+                  setCollapsedSubmoduleIds(new Set());
+                } else {
+                  setCollapsedSubmoduleIds(new Set(submodules.map((sm) => sm.id)));
+                }
+              }}
+              className="text-xs font-semibold text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+            >
+              <span>{collapsedSubmoduleIds.size === submodules.length ? "Expand All" : "Minimize All"}</span>
+            </button>
+          )}
         </div>
 
         {submodules.length === 0 ? (
@@ -313,248 +345,265 @@ export default function StudentTrackDetailPage() {
             </div>
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-3">
             {submodules.map((sm, smIdx) => {
               const modules = sm.modules || [];
+              const isCollapsed = collapsedSubmoduleIds.has(sm.id);
 
               return (
                 <div
                   key={sm.id}
-                  className="bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/90 dark:border-zinc-800 p-5 sm:p-6 shadow-2xs space-y-4"
+                  className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/90 dark:border-zinc-800 p-3 sm:p-4 shadow-2xs space-y-2.5 transition-all"
                 >
                   {/* Submodule Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-3.5">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-xs flex items-center justify-center">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-2.5">
+                    <div className="space-y-0.5 flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-[11px] flex items-center justify-center shrink-0">
                           {smIdx + 1}
                         </span>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                           {sm.name || sm.title}
                         </h3>
                       </div>
                       {sm.description && (
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 pl-8.5">
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 pl-7 line-clamp-1 sm:line-clamp-2">
                           {sm.description}
                         </p>
                       )}
                     </div>
-                    <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400 shrink-0 pl-8.5 sm:pl-0">
-                      {modules.length} {modules.length === 1 ? "Module" : "Modules"}
-                    </span>
+
+                    <div className="flex items-center gap-2 pl-7 sm:pl-0 shrink-0">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">
+                        {modules.length} {modules.length === 1 ? "Module" : "Modules"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleSubmoduleCollapse(sm.id)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 cursor-pointer transition-colors"
+                      >
+                        <span>{isCollapsed ? "Expand" : "Minimize"}</span>
+                        <ChevronDown
+                          className={`w-3 h-3 transition-transform duration-200 ${
+                            isCollapsed ? "-rotate-90" : ""
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Linear Modules List */}
-                  {modules.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-slate-500 dark:text-zinc-400 bg-slate-50/50 dark:bg-zinc-900/50 rounded-xl border border-slate-200/60 dark:border-zinc-800">
-                      No modules available in this section.
-                    </div>
-                  ) : (
-                    <div className="space-y-3 pt-1">
-                      {modules.map((m, mIdx) => {
-                        const isDone = Boolean(m.isCompleted);
-                        const hasActive = Boolean(m.canContinue && m.activeAttempt);
-                        const allAttempts = m.attempts || [];
-                        const isHistoryOpen = expandedHistoryModIds.has(m.id);
+                  {/* Linear Modules List (Collapsible) */}
+                  {!isCollapsed && (
+                    <>
+                      {modules.length === 0 ? (
+                        <div className="py-5 text-center text-xs text-slate-500 dark:text-zinc-400 bg-slate-50/50 dark:bg-zinc-900/50 rounded-lg border border-slate-200/60 dark:border-zinc-800">
+                          No modules available in this section.
+                        </div>
+                      ) : (
+                        <div className="space-y-2 pt-0.5">
+                          {modules.map((m, mIdx) => {
+                            const isDone = Boolean(m.isCompleted);
+                            const hasActive = Boolean(m.canContinue && m.activeAttempt);
+                            const allAttempts = m.attempts || [];
+                            const isHistoryOpen = expandedHistoryModIds.has(m.id);
 
-                        return (
-                          <div
-                            key={m.id}
-                            className="p-4 rounded-xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-900 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-2xs transition-all space-y-3"
-                          >
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                              {/* Left: Module Details */}
-                              <div className="flex items-start sm:items-center gap-3.5 flex-1 min-w-0">
-                                <div className="w-8 h-8 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 sm:mt-0 shadow-2xs">
-                                  {mIdx + 1}
-                                </div>
+                            return (
+                              <div
+                                key={m.id}
+                                className="p-2.5 sm:p-3 rounded-lg border border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-900 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-2xs transition-all space-y-2"
+                              >
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                  {/* Left: Module Details */}
+                                  <div className="flex items-start sm:items-center gap-2.5 flex-1 min-w-0">
+                                    <div className="w-6 h-6 rounded-md bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5 sm:mt-0 shadow-2xs">
+                                      {mIdx + 1}
+                                    </div>
 
-                                <div className="space-y-1 flex-1 min-w-0">
-                                  <div className="flex items-center gap-2.5 flex-wrap">
-                                    <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-snug">
-                                      {m.name || m.title}
-                                    </h4>
-                                    <span
-                                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
-                                        isDone
-                                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
-                                          : hasActive
-                                          ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
-                                          : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700"
-                                      }`}
-                                    >
-                                      {isDone ? "Completed" : hasActive ? "In Progress" : "Not Started"}
-                                    </span>
-                                  </div>
-
-                                  {m.description && (
-                                    <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-1">
-                                      {m.description}
-                                    </p>
-                                  )}
-
-                                  {/* Current Attempt Progress / Configuration Status */}
-                                  <div className="text-[11px] pt-0.5">
-                                    {hasActive && m.activeAttempt ? (
-                                      <span className="font-semibold text-blue-600 dark:text-blue-400">
-                                        Attempt {m.activeAttempt.attemptNumber} · {m.activeAttempt.answeredQuestionsCount} of {m.questionCount} Questions Answered · In Progress
-                                      </span>
-                                    ) : isDone && m.completedAttempts && m.completedAttempts.length > 0 ? (
-                                      <span className="font-medium text-slate-600 dark:text-zinc-300">
-                                        Attempt {m.completedAttempts.length} {m.allowedAttempts === 0 ? "(Unlimited Attempts)" : `of ${m.allowedAttempts ?? 1}`} · Completed · Score: {m.score ?? 0}/{m.totalMarks || 100}
-                                      </span>
-                                    ) : (
-                                      <span className="text-slate-500 dark:text-zinc-400">
-                                        {[
-                                          typeof m.questionCount === "number" && m.questionCount > 0
-                                            ? `${m.questionCount} ${m.questionCount === 1 ? "Question" : "Questions"}`
-                                            : null,
-                                          m.totalMarks && m.totalMarks > 0 ? `${m.totalMarks} Marks` : null,
-                                          m.durationMinutes && m.durationMinutes > 0 ? `${m.durationMinutes}m` : null,
-                                          m.passingMarksEnabled && m.passingMarks && m.passingMarks > 0
-                                            ? `Pass: ${m.passingMarks}`
-                                            : null,
-                                          typeof m.allowedAttempts === "number"
-                                            ? (m.allowedAttempts === 0 ? "Unlimited Attempts" : `Allowed Attempts: ${m.allowedAttempts}`)
-                                            : null,
-                                        ]
-                                          .filter(Boolean)
-                                          .join(" · ")}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Right: Action Buttons (Controlled by Admin Policy) */}
-                              <div className="shrink-0 flex items-center gap-2 self-end md:self-center">
-                                {/* RULE 21: Priority 1 - In-Progress Attempt -> Continue */}
-                                {m.canContinue ? (
-                                  <Button
-                                    type="button"
-                                    onClick={() => handleStartModule(m, "continue")}
-                                    className="h-8.5 px-4 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer transition-all shadow-2xs"
-                                  >
-                                    Continue
-                                  </Button>
-                                ) : m.completedAttempts && m.completedAttempts.length > 0 ? (
-                                  /* Priority 2 & 3 - Completed Attempt -> Review / Reattempt */
-                                  <>
-                                    {m.canReview && (
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => handleStartModule(m, "review")}
-                                        className="h-8.5 px-3.5 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 cursor-pointer transition-all shadow-2xs"
-                                      >
-                                        Review
-                                      </Button>
-                                    )}
-                                    {m.canReattempt && (
-                                      <Button
-                                        type="button"
-                                        onClick={() => handleStartModule(m, "reattempt")}
-                                        className="h-8.5 px-4 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer transition-all shadow-2xs"
-                                      >
-                                        Reattempt
-                                      </Button>
-                                    )}
-                                    {!m.canReview && !m.canReattempt && (
-                                      <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400 px-3 py-1 bg-slate-100 dark:bg-zinc-800 rounded-lg">
-                                        Completed
-                                      </span>
-                                    )}
-                                  </>
-                                ) : (
-                                  /* Priority 4 - No Attempt -> Start Practice */
-                                  <Button
-                                    type="button"
-                                    onClick={() => handleStartModule(m, "start")}
-                                    className="h-8.5 px-4 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 cursor-pointer transition-all shadow-2xs"
-                                  >
-                                    Start Practice
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Attempt History Toggle & List */}
-                            {allAttempts.length > 0 && (
-                              <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-800/80">
-                                <div className="flex items-center justify-between">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleHistory(m.id)}
-                                    className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer transition-colors"
-                                  >
-                                    {isHistoryOpen ? "Hide Attempt History" : `View Attempt History (${allAttempts.length}${m.allowedAttempts === 0 ? " Attempts" : ` of ${m.allowedAttempts || 3}`})`}
-                                  </button>
-                                  <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
-                                    Attempts Remaining: {m.allowedAttempts === 0 ? "Unlimited" : (m.attemptsRemaining ?? Math.max(0, (m.allowedAttempts || 3) - allAttempts.length))}
-                                  </span>
-                                </div>
-
-                                {isHistoryOpen && (
-                                  <div className="mt-2.5 space-y-2 pl-2 border-l-2 border-slate-200 dark:border-zinc-700">
-                                    {allAttempts.map((att) => (
-                                      <div
-                                        key={att.id}
-                                        className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-white dark:bg-zinc-800/60 border border-slate-200/70 dark:border-zinc-700/60"
-                                      >
-                                        <div className="space-y-0.5">
-                                          <div className="flex items-center gap-2">
-                                            <span className="font-bold text-slate-800 dark:text-zinc-200">
-                                              Attempt {att.attemptNumber}
-                                            </span>
-                                            <span
-                                              className={`text-[9px] uppercase font-bold px-1.5 py-0.2 rounded ${
-                                                att.status === "completed"
-                                                  ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
-                                                  : "bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300"
-                                              }`}
-                                            >
-                                              {att.status === "completed" ? "Completed" : "In Progress"}
-                                            </span>
-                                          </div>
-                                          <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                                            {att.status === "completed"
-                                              ? `Score: ${att.score}/${att.totalMarks}${att.submittedAt ? ` · Submitted: ${new Date(att.submittedAt).toLocaleDateString()}` : ""}`
-                                              : `${att.answeredQuestionsCount} of ${att.totalQuestions} Questions Answered`}
-                                          </p>
-                                        </div>
-
-                                        <div>
-                                          {att.status === "in_progress" ? (
-                                            <Button
-                                              type="button"
-                                              size="sm"
-                                              onClick={() => handleStartModule(m, "continue", att.id)}
-                                              className="h-7 px-2.5 text-[11px] font-semibold rounded bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
-                                            >
-                                              Continue
-                                            </Button>
-                                          ) : m.canReview ? (
-                                            <Button
-                                              type="button"
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={() => handleStartModule(m, "review", att.id)}
-                                              className="h-7 px-2.5 text-[11px] font-semibold rounded border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 cursor-pointer"
-                                            >
-                                              Review
-                                            </Button>
-                                          ) : null}
-                                        </div>
+                                    <div className="space-y-0.5 flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <h4 className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-white leading-snug truncate">
+                                          {m.name || m.title}
+                                        </h4>
+                                        <span
+                                          className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded border ${
+                                            isDone
+                                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                                              : hasActive
+                                              ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                                              : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700"
+                                          }`}
+                                        >
+                                          {isDone ? "Completed" : hasActive ? "In Progress" : "Not Started"}
+                                        </span>
                                       </div>
-                                    ))}
+
+                                      {m.description && (
+                                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1">
+                                          {m.description}
+                                        </p>
+                                      )}
+
+                                      {/* Current Attempt Progress / Configuration Status */}
+                                      <div className="text-[10px] sm:text-[10.5px] pt-0.5">
+                                        {hasActive && m.activeAttempt ? (
+                                          <span className="font-semibold text-blue-600 dark:text-blue-400">
+                                            Attempt {m.activeAttempt.attemptNumber} · {m.activeAttempt.answeredQuestionsCount} of {m.questionCount} Questions Answered · In Progress
+                                          </span>
+                                        ) : isDone && m.completedAttempts && m.completedAttempts.length > 0 ? (
+                                          <span className="font-medium text-slate-600 dark:text-zinc-300">
+                                            Attempt {m.completedAttempts.length} {m.allowedAttempts === 0 ? "(Unlimited Attempts)" : `of ${m.allowedAttempts ?? 1}`} · Completed · Score: {m.score ?? 0}/{m.totalMarks || 100}
+                                          </span>
+                                        ) : (
+                                          <span className="text-slate-500 dark:text-zinc-400">
+                                            {[
+                                              typeof m.questionCount === "number" && m.questionCount > 0
+                                                ? `${m.questionCount} ${m.questionCount === 1 ? "Question" : "Questions"}`
+                                                : null,
+                                              m.totalMarks && m.totalMarks > 0 ? `${m.totalMarks} Marks` : null,
+                                              m.durationMinutes && m.durationMinutes > 0 ? `${m.durationMinutes}m` : null,
+                                              m.passingMarksEnabled && m.passingMarks && m.passingMarks > 0
+                                                ? `Pass: ${m.passingMarks}`
+                                                : null,
+                                              typeof m.allowedAttempts === "number"
+                                                ? (m.allowedAttempts === 0 ? "Unlimited Attempts" : `Allowed Attempts: ${m.allowedAttempts}`)
+                                                : null,
+                                            ]
+                                              .filter(Boolean)
+                                              .join(" · ")}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Right: Action Buttons */}
+                                  <div className="shrink-0 flex items-center gap-1.5 self-end sm:self-center">
+                                    {m.canContinue ? (
+                                      <Button
+                                        type="button"
+                                        onClick={() => handleStartModule(m, "continue")}
+                                        className="h-7 px-3 text-[11px] font-semibold rounded-md bg-blue-600 hover:bg-blue-700 text-white cursor-pointer transition-all shadow-2xs"
+                                      >
+                                        Continue
+                                      </Button>
+                                    ) : m.completedAttempts && m.completedAttempts.length > 0 ? (
+                                      <>
+                                        {m.canReview && (
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => handleStartModule(m, "review")}
+                                            className="h-7 px-2.5 text-[11px] font-semibold rounded-md border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 cursor-pointer transition-all shadow-2xs"
+                                          >
+                                            Review
+                                          </Button>
+                                        )}
+                                        {m.canReattempt && (
+                                          <Button
+                                            type="button"
+                                            onClick={() => handleStartModule(m, "reattempt")}
+                                            className="h-7 px-3 text-[11px] font-semibold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer transition-all shadow-2xs"
+                                          >
+                                            Reattempt
+                                          </Button>
+                                        )}
+                                        {!m.canReview && !m.canReattempt && (
+                                          <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 px-2 py-0.5 bg-slate-100 dark:bg-zinc-800 rounded-md">
+                                            Completed
+                                          </span>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <Button
+                                        type="button"
+                                        onClick={() => handleStartModule(m, "start")}
+                                        className="h-7 px-3 text-[11px] font-semibold rounded-md bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 cursor-pointer transition-all shadow-2xs"
+                                      >
+                                        Start Practice
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Attempt History Toggle & List */}
+                                {allAttempts.length > 0 && (
+                                  <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-800/80">
+                                    <div className="flex items-center justify-between">
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleHistory(m.id)}
+                                        className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 cursor-pointer transition-colors"
+                                      >
+                                        {isHistoryOpen ? "Hide Attempt History" : `View Attempt History (${allAttempts.length}${m.allowedAttempts === 0 ? " Attempts" : ` of ${m.allowedAttempts || 3}`})`}
+                                      </button>
+                                      <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
+                                        Attempts Remaining: {m.allowedAttempts === 0 ? "Unlimited" : (m.attemptsRemaining ?? Math.max(0, (m.allowedAttempts || 3) - allAttempts.length))}
+                                      </span>
+                                    </div>
+
+                                    {isHistoryOpen && (
+                                      <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-slate-200 dark:border-zinc-700">
+                                        {allAttempts.map((att) => (
+                                          <div
+                                            key={att.id}
+                                            className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-white dark:bg-zinc-800/60 border border-slate-200/70 dark:border-zinc-700/60"
+                                          >
+                                            <div className="space-y-0.5">
+                                              <div className="flex items-center gap-2">
+                                                <span className="font-bold text-slate-800 dark:text-zinc-200">
+                                                  Attempt {att.attemptNumber}
+                                                </span>
+                                                <span
+                                                  className={`text-[9px] uppercase font-bold px-1.5 py-0.2 rounded ${
+                                                    att.status === "completed"
+                                                      ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+                                                      : "bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300"
+                                                  }`}
+                                                >
+                                                  {att.status === "completed" ? "Completed" : "In Progress"}
+                                                </span>
+                                              </div>
+                                              <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+                                                {att.status === "completed"
+                                                  ? `Score: ${att.score}/${att.totalMarks}${att.submittedAt ? ` · Submitted: ${new Date(att.submittedAt).toLocaleDateString()}` : ""}`
+                                                  : `${att.answeredQuestionsCount} of ${att.totalQuestions} Questions Answered`}
+                                              </p>
+                                            </div>
+
+                                            <div>
+                                              {att.status === "in_progress" ? (
+                                                <Button
+                                                  type="button"
+                                                  size="sm"
+                                                  onClick={() => handleStartModule(m, "continue", att.id)}
+                                                  className="h-7 px-2.5 text-[11px] font-semibold rounded bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                                                >
+                                                  Continue
+                                                </Button>
+                                              ) : m.canReview ? (
+                                                <Button
+                                                  type="button"
+                                                  size="sm"
+                                                  variant="outline"
+                                                  onClick={() => handleStartModule(m, "review", att.id)}
+                                                  className="h-7 px-2.5 text-[11px] font-semibold rounded border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 cursor-pointer"
+                                                >
+                                                  Review
+                                                </Button>
+                                              ) : null}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );

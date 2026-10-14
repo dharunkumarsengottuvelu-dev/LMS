@@ -69,13 +69,182 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ),
 });
 
-const SUPPORTED_LANGUAGES: { id: CodingLanguage; name: string; monacoLang: string; label: string }[] = [
-  { id: "java", name: "Java 21", monacoLang: "java", label: "Java" },
-  { id: "python", name: "Python 3", monacoLang: "python", label: "Python" },
-  { id: "cpp", name: "C++ (GCC 11)", monacoLang: "cpp", label: "C++" },
-  { id: "c", name: "C (GCC 11)", monacoLang: "c", label: "C" },
-  { id: "javascript", name: "JavaScript (Node.js)", monacoLang: "javascript", label: "JavaScript" },
-  { id: "typescript", name: "TypeScript", monacoLang: "typescript", label: "TypeScript" },
+interface SupportedLanguageItem {
+  id: CodingLanguage;
+  name: string;
+  monacoLang: string;
+  label: string;
+  version: string;
+  supportedVersions?: { id: string; name: string; label: string; isDefault?: boolean }[];
+}
+
+const SUPPORTED_LANGUAGES: SupportedLanguageItem[] = [
+  {
+    id: "java",
+    name: "Java",
+    monacoLang: "java",
+    label: "Java",
+    version: "Java 25 LTS",
+    supportedVersions: [
+      { id: "25", name: "Java 25 (LTS)", label: "Java 25", isDefault: true },
+      { id: "21", name: "Java 21 (LTS)", label: "Java 21" },
+      { id: "17", name: "Java 17 (LTS)", label: "Java 17" },
+    ],
+  },
+  {
+    id: "python",
+    name: "Python",
+    monacoLang: "python",
+    label: "Python",
+    version: "Python 3.14+",
+    supportedVersions: [
+      { id: "3.14", name: "Python 3.14+", label: "Python 3.14", isDefault: true },
+      { id: "3.11", name: "Python 3.11", label: "Python 3.11" },
+    ],
+  },
+  {
+    id: "cpp",
+    name: "C++",
+    monacoLang: "cpp",
+    label: "C++",
+    version: "C++20 / GCC 13+",
+    supportedVersions: [
+      { id: "c++20", name: "C++20", label: "C++20", isDefault: true },
+      { id: "c++17", name: "C++17", label: "C++17" },
+      { id: "c++23", name: "C++23", label: "C++23" },
+    ],
+  },
+  {
+    id: "c",
+    name: "C",
+    monacoLang: "c",
+    label: "C",
+    version: "C17 / GCC 13+",
+    supportedVersions: [
+      { id: "c17", name: "C17 (GCC 13+)", label: "C17", isDefault: true },
+    ],
+  },
+  {
+    id: "javascript",
+    name: "JavaScript",
+    monacoLang: "javascript",
+    label: "JavaScript",
+    version: "Node.js 24 LTS",
+    supportedVersions: [
+      { id: "node24", name: "Node.js 24 LTS", label: "Node.js 24", isDefault: true },
+      { id: "node20", name: "Node.js 20 LTS", label: "Node.js 20" },
+    ],
+  },
+  {
+    id: "typescript",
+    name: "TypeScript",
+    monacoLang: "typescript",
+    label: "TypeScript",
+    version: "TypeScript 5.6+",
+    supportedVersions: [
+      { id: "ts5", name: "TypeScript 5.6+", label: "TypeScript 5.6", isDefault: true },
+    ],
+  },
+  {
+    id: "go",
+    name: "Go",
+    monacoLang: "go",
+    label: "Go",
+    version: "Go 1.23+",
+    supportedVersions: [
+      { id: "1.23", name: "Go 1.23+", label: "Go 1.23", isDefault: true },
+    ],
+  },
+  {
+    id: "rust",
+    name: "Rust",
+    monacoLang: "rust",
+    label: "Rust",
+    version: "Rust 1.82+",
+    supportedVersions: [
+      { id: "1.82", name: "Rust 1.82+", label: "Rust 1.82", isDefault: true },
+    ],
+  },
+  {
+    id: "csharp",
+    name: "C#",
+    monacoLang: "csharp",
+    label: "C#",
+    version: "C# 10 / Mono 6.12",
+    supportedVersions: [
+      { id: "mono6", name: "C# 10 / Mono 6.12", label: "C# 10", isDefault: true },
+    ],
+  },
+  {
+    id: "php",
+    name: "PHP",
+    monacoLang: "php",
+    label: "PHP",
+    version: "PHP 8.3+",
+    supportedVersions: [
+      { id: "8.3", name: "PHP 8.3+", label: "PHP 8.3", isDefault: true },
+    ],
+  },
+  {
+    id: "ruby",
+    name: "Ruby",
+    monacoLang: "ruby",
+    label: "Ruby",
+    version: "Ruby 3.3+",
+    supportedVersions: [
+      { id: "3.3", name: "Ruby 3.3+", label: "Ruby 3.3", isDefault: true },
+    ],
+  },
+  {
+    id: "bash",
+    name: "Bash",
+    monacoLang: "shell",
+    label: "Bash",
+    version: "GNU Bash 5+",
+    supportedVersions: [
+      { id: "5", name: "GNU Bash 5+", label: "Bash 5", isDefault: true },
+    ],
+  },
+  {
+    id: "sql",
+    name: "SQL",
+    monacoLang: "sql",
+    label: "SQL",
+    version: "SQLite 3",
+    supportedVersions: [
+      { id: "sqlite3", name: "SQLite 3 Sandbox", label: "SQLite 3", isDefault: true },
+    ],
+  },
+  {
+    id: "r",
+    name: "R",
+    monacoLang: "r",
+    label: "R",
+    version: "R 4.4+",
+    supportedVersions: [
+      { id: "4.4", name: "R 4.4+", label: "R 4.4", isDefault: true },
+    ],
+  },
+  {
+    id: "lua",
+    name: "Lua",
+    monacoLang: "lua",
+    label: "Lua",
+    version: "Lua 5.4+",
+    supportedVersions: [
+      { id: "5.4", name: "Lua 5.4+", label: "Lua 5.4", isDefault: true },
+    ],
+  },
+  {
+    id: "perl",
+    name: "Perl",
+    monacoLang: "perl",
+    label: "Perl",
+    version: "Perl 5.40+",
+    supportedVersions: [
+      { id: "5.40", name: "Perl 5.40+", label: "Perl 5.40", isDefault: true },
+    ],
+  },
 ];
 
 export default function ProblemSolvingWorkspace() {
@@ -146,6 +315,7 @@ export default function ProblemSolvingWorkspace() {
 
   // Selected Language & Code State per Problem
   const [selectedLanguage, setSelectedLanguage] = useState<CodingLanguage>("java");
+  const [selectedVersion, setSelectedVersion] = useState<string>("25");
   const [code, setCode] = useState<string>("");
 
   // Custom Input text (temporary, not saved as system test case)
@@ -374,6 +544,8 @@ export default function ProblemSolvingWorkspace() {
     ) as CodingLanguage;
 
     setSelectedLanguage(lang);
+    const defVer = SUPPORTED_LANGUAGES.find((l) => l.id === lang)?.supportedVersions?.find((v) => v.isDefault)?.id || "";
+    setSelectedVersion(defVer);
 
     const initialCode =
       saved?.code ||
@@ -402,6 +574,8 @@ export default function ProblemSolvingWorkspace() {
   // Handle Language Change
   const handleLanguageChange = (newLang: CodingLanguage) => {
     setSelectedLanguage(newLang);
+    const defVer = SUPPORTED_LANGUAGES.find((l) => l.id === newLang)?.supportedVersions?.find((v) => v.isDefault)?.id || "";
+    setSelectedVersion(defVer);
     if (!problem) return;
 
     // Check saved draft in localStorage for this language
@@ -505,6 +679,7 @@ export default function ProblemSolvingWorkspace() {
         body: JSON.stringify({
           problem_id: problem.id,
           language: selectedLanguage,
+          version: selectedVersion,
           code,
           test_cases: casesToRun,
           include_hidden: true,
@@ -611,6 +786,7 @@ export default function ProblemSolvingWorkspace() {
         body: JSON.stringify({
           problem_id: problem.id,
           language: selectedLanguage,
+          version: selectedVersion,
           code,
           test_cases: [
             {
@@ -680,6 +856,7 @@ export default function ProblemSolvingWorkspace() {
         body: JSON.stringify({
           problem_id: problem.id,
           language: selectedLanguage,
+          version: selectedVersion,
           code,
           test_cases: normalizedSubmissionCases.length > 0 ? normalizedSubmissionCases : undefined,
         }),
@@ -1006,6 +1183,39 @@ export default function ProblemSolvingWorkspace() {
               </SelectContent>
             </Select>
           )}
+
+          {/* Version Selector: Display supported versions (e.g. Java 25, 21, 17; C++20, 17, 23) or version badge */}
+          {(() => {
+            const curLang = SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage);
+            const versions = curLang?.supportedVersions || [];
+            if (versions.length > 1) {
+              return (
+                <Select
+                  value={selectedVersion}
+                  onValueChange={(val) => setSelectedVersion(val || "")}
+                >
+                  <SelectTrigger className="h-8.5 text-xs font-semibold bg-white border-slate-200 w-24 sm:w-28 rounded-lg text-slate-700 shadow-2xs cursor-pointer">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-slate-200 shadow-md z-50">
+                    {versions.map((v) => (
+                      <SelectItem key={v.id} value={v.id} className="text-xs font-medium cursor-pointer">
+                        {v.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              );
+            }
+            if (versions.length === 1 && versions[0]) {
+              return (
+                <div className="hidden sm:flex h-8.5 px-2.5 text-[11px] font-semibold bg-slate-100 border border-slate-200 rounded-lg text-slate-700 items-center shadow-2xs select-none">
+                  {versions[0].label}
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {/* Reset Code */}
           <Button
@@ -1441,7 +1651,7 @@ export default function ProblemSolvingWorkspace() {
                   )}
                   <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
                     <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-semibold uppercase">
-                      {selectedLanguage}
+                      {selectedLanguage} {selectedVersion ? `(${selectedVersion})` : ""}
                     </span>
                   </div>
                   <Button

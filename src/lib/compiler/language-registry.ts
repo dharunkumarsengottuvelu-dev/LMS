@@ -15,6 +15,14 @@ export interface SourceFileInfo {
   error?: string;
 }
 
+export interface LanguageVersion {
+  id: string;
+  name: string;
+  label: string;
+  compilerFlag?: string;
+  isDefault?: boolean;
+}
+
 export interface LanguageDefinition {
   id: CodingLanguage;
   name: string;
@@ -25,6 +33,7 @@ export interface LanguageDefinition {
   category: ExecutionCategory;
   compilationRequired: boolean;
   version: string;
+  supportedVersions?: LanguageVersion[];
   sourceFilenameStrategy: (code: string) => SourceFileInfo;
   starterTemplate: string;
   defaultTimeoutMs: number;
@@ -90,7 +99,12 @@ export const UNIVERSAL_LANGUAGES: Record<CodingLanguage, LanguageDefinition> = {
     defaultExtension: ".java",
     category: "compiled",
     compilationRequired: true,
-    version: "21 LTS",
+    version: "Java 25 LTS",
+    supportedVersions: [
+      { id: "25", name: "Java 25 (LTS)", label: "Java 25", isDefault: true },
+      { id: "21", name: "Java 21 (LTS)", label: "Java 21" },
+      { id: "17", name: "Java 17 (LTS)", label: "Java 17" },
+    ],
     sourceFilenameStrategy: resolveJavaSourceFile,
     starterTemplate: `import java.util.*;
 
@@ -110,11 +124,15 @@ public class Main {
     name: "Python",
     monacoLanguage: "python",
     jobeLanguage: "python3",
-    wandboxCompiler: "cpython-3.11.10",
+    wandboxCompiler: "cpython-3.14.0",
     defaultExtension: ".py",
     category: "interpreted",
     compilationRequired: false,
-    version: "3.10+",
+    version: "Python 3.14+",
+    supportedVersions: [
+      { id: "3.14", name: "Python 3.14+", label: "Python 3.14", isDefault: true },
+      { id: "3.11", name: "Python 3.11", label: "Python 3.11" },
+    ],
     sourceFilenameStrategy: () => ({ filename: "main.py" }),
     starterTemplate: `# Write your code here
 import sys
@@ -137,7 +155,12 @@ if __name__ == "__main__":
     defaultExtension: ".cpp",
     category: "compiled",
     compilationRequired: true,
-    version: "C++17 / GCC 13+",
+    version: "C++20 / GCC 13+",
+    supportedVersions: [
+      { id: "c++20", name: "C++20 (GCC 13+)", label: "C++20", compilerFlag: "-std=c++20", isDefault: true },
+      { id: "c++17", name: "C++17 (GCC 13+)", label: "C++17", compilerFlag: "-std=c++17" },
+      { id: "c++23", name: "C++23 (GCC 13+)", label: "C++23", compilerFlag: "-std=c++23" },
+    ],
     sourceFilenameStrategy: () => ({
       filename: "main.cpp",
       executableName: process.platform === "win32" ? "program.exe" : "program",
@@ -171,6 +194,9 @@ int main() {
     category: "compiled",
     compilationRequired: true,
     version: "C17 / GCC 13+",
+    supportedVersions: [
+      { id: "c17", name: "C17 (GCC 13+)", label: "C17", compilerFlag: "-std=c17", isDefault: true },
+    ],
     sourceFilenameStrategy: () => ({
       filename: "main.c",
       executableName: process.platform === "win32" ? "program.exe" : "program",
@@ -197,7 +223,11 @@ int main() {
     defaultExtension: ".js",
     category: "interpreted",
     compilationRequired: false,
-    version: "Node.js 20 LTS",
+    version: "Node.js 24 LTS",
+    supportedVersions: [
+      { id: "node24", name: "Node.js 24 LTS", label: "Node.js 24", isDefault: true },
+      { id: "node20", name: "Node.js 20 LTS", label: "Node.js 20" },
+    ],
     sourceFilenameStrategy: () => ({ filename: "main.js" }),
     starterTemplate: `const fs = require("fs");
 
@@ -216,11 +246,14 @@ main();`,
     name: "TypeScript",
     monacoLanguage: "typescript",
     jobeLanguage: "nodejs",
-    wandboxCompiler: "nodejs-20.17.0",
+    wandboxCompiler: "typescript-5.6.2",
     defaultExtension: ".ts",
     category: "interpreted",
     compilationRequired: false,
-    version: "TypeScript 5+",
+    version: "TypeScript 5.6+",
+    supportedVersions: [
+      { id: "ts5", name: "TypeScript 5.6+", label: "TypeScript 5.6", isDefault: true },
+    ],
     sourceFilenameStrategy: () => ({ filename: "main.ts" }),
     starterTemplate: `import * as fs from "fs";
 
@@ -520,12 +553,81 @@ export default function App() {
     category: "interpreted",
     compilationRequired: false,
     version: "GNU Bash 5+",
+    supportedVersions: [
+      { id: "5", name: "GNU Bash 5+", label: "Bash 5", isDefault: true },
+    ],
     sourceFilenameStrategy: () => ({ filename: "main.sh" }),
     starterTemplate: `#!/bin/bash
 # Write your script here
 `,
     defaultTimeoutMs: 6000,
     defaultMemoryMb: 64,
+  },
+
+  r: {
+    id: "r",
+    name: "R",
+    monacoLanguage: "r",
+    jobeLanguage: "r",
+    wandboxCompiler: "r-4.4.1",
+    defaultExtension: ".r",
+    category: "interpreted",
+    compilationRequired: false,
+    version: "R 4.4+",
+    supportedVersions: [
+      { id: "4.4", name: "R 4.4+", label: "R 4.4", isDefault: true },
+    ],
+    sourceFilenameStrategy: () => ({ filename: "main.r" }),
+    starterTemplate: `# Write your R script here
+stdin <- file("stdin")
+open(stdin)
+`,
+    defaultTimeoutMs: 8000,
+    defaultMemoryMb: 128,
+  },
+
+  lua: {
+    id: "lua",
+    name: "Lua",
+    monacoLanguage: "lua",
+    jobeLanguage: "lua",
+    wandboxCompiler: "lua-5.4.7",
+    defaultExtension: ".lua",
+    category: "interpreted",
+    compilationRequired: false,
+    version: "Lua 5.4+",
+    supportedVersions: [
+      { id: "5.4", name: "Lua 5.4+", label: "Lua 5.4", isDefault: true },
+    ],
+    sourceFilenameStrategy: () => ({ filename: "main.lua" }),
+    starterTemplate: `-- Write your Lua script here
+local input = io.read("*a")
+`,
+    defaultTimeoutMs: 6000,
+    defaultMemoryMb: 128,
+  },
+
+  perl: {
+    id: "perl",
+    name: "Perl",
+    monacoLanguage: "perl",
+    jobeLanguage: "perl",
+    wandboxCompiler: "perl-5.40.0",
+    defaultExtension: ".pl",
+    category: "interpreted",
+    compilationRequired: false,
+    version: "Perl 5.40+",
+    supportedVersions: [
+      { id: "5.40", name: "Perl 5.40+", label: "Perl 5.40", isDefault: true },
+    ],
+    sourceFilenameStrategy: () => ({ filename: "main.pl" }),
+    starterTemplate: `#!/usr/bin/perl
+use strict;
+use warnings;
+# Write your Perl code here
+`,
+    defaultTimeoutMs: 8000,
+    defaultMemoryMb: 128,
   },
 };
 
@@ -536,11 +638,23 @@ export function getLanguageDefinition(language: string): LanguageDefinition {
   }
 
   // Alias maps
-  if (norm === ("py" as any) || norm === ("python3" as any)) return UNIVERSAL_LANGUAGES.python;
-  if (norm === ("js" as any) || norm === ("nodejs" as any)) return UNIVERSAL_LANGUAGES.javascript;
+  if (norm === ("py" as any) || norm === ("python3" as any) || norm === ("py3" as any)) return UNIVERSAL_LANGUAGES.python;
+  if (norm === ("js" as any) || norm === ("nodejs" as any) || norm === ("node" as any)) return UNIVERSAL_LANGUAGES.javascript;
   if (norm === ("ts" as any)) return UNIVERSAL_LANGUAGES.typescript;
-  if (norm === ("c++" as any) || norm === ("cpp17" as any)) return UNIVERSAL_LANGUAGES.cpp;
-  if (norm === ("cs" as any)) return UNIVERSAL_LANGUAGES.csharp;
+  if (
+    norm === ("c++" as any) ||
+    norm === ("cpp17" as any) ||
+    norm === ("cpp20" as any) ||
+    norm === ("cpp23" as any) ||
+    norm === ("c++17" as any) ||
+    norm === ("c++20" as any) ||
+    norm === ("c++23" as any)
+  ) return UNIVERSAL_LANGUAGES.cpp;
+  if (norm === ("cs" as any) || norm === ("csharp10" as any)) return UNIVERSAL_LANGUAGES.csharp;
+  if (norm === ("c17" as any) || norm === ("c11" as any)) return UNIVERSAL_LANGUAGES.c;
+  if (norm === ("java17" as any) || norm === ("java21" as any) || norm === ("java25" as any)) return UNIVERSAL_LANGUAGES.java;
+  if (norm === ("sh" as any) || norm === ("shell" as any)) return UNIVERSAL_LANGUAGES.bash;
+  if (norm === ("pl" as any)) return UNIVERSAL_LANGUAGES.perl;
 
   // Fallback default
   return UNIVERSAL_LANGUAGES.python;

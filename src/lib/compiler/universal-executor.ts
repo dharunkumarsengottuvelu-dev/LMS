@@ -50,7 +50,8 @@ export class UniversalExecutor {
     language: string,
     code: string,
     stdin: string = "",
-    timeoutMs?: number
+    timeoutMs?: number,
+    version?: string
   ): Promise<UniversalExecutionResult> {
     const langDef = getLanguageDefinition(language);
     const cleanStdin = cleanInputString(stdin);
@@ -77,7 +78,7 @@ export class UniversalExecutor {
 
     // 2. Serverless environment -> Online Sandbox
     if (isServerless()) {
-      return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename);
+      return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
     }
 
     // 3. Create isolated temporary workspace
@@ -92,16 +93,16 @@ export class UniversalExecutor {
 
       switch (langDef.id) {
         case "java":
-          result = await this.executeJava(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+          result = await this.executeJava(sourceInfo, createdDir, cleanStdin, effectiveTimeout, version);
           break;
         case "python":
           result = await this.executePython(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
           break;
         case "cpp":
-          result = await this.executeCpp(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+          result = await this.executeCpp(sourceInfo, createdDir, cleanStdin, effectiveTimeout, version);
           break;
         case "c":
-          result = await this.executeC(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+          result = await this.executeC(sourceInfo, createdDir, cleanStdin, effectiveTimeout, version);
           break;
         case "javascript":
           result = await this.executeJavaScript(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
@@ -130,18 +131,21 @@ export class UniversalExecutor {
         case "bash":
           result = await this.executeBash(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
           break;
+        case "r":
+        case "lua":
+        case "perl":
         default:
-          return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename);
+          return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
       }
 
       // If local execution failed due to missing local compiler binary, seamlessly fallback to Online Sandbox
       if (result.outcome === 20 || result.status.id === 13) {
-        return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename);
+        return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
       }
 
       return result;
     } catch {
-      return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename);
+      return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
     } finally {
       if (tempDir) {
         try {
@@ -153,17 +157,44 @@ export class UniversalExecutor {
 
   // ── Language Runners ────────────────────────────────────────────────────────
 
+  private static resolvePythonCommand(): string {
+    if (process.platform === "win32") {
+      const candidates = [
+        path.join(process.env.LOCALAPPDATA || "", "Python", "bin", "python.exe"),
+        path.join(process.env.USERPROFILE || "", "AppData", "Local", "Python", "bin", "python.exe"),
+        path.join(process.env.LOCALAPPDATA || "", "Programs", "Python", "Python314", "python.exe"),
+        path.join(process.env.LOCALAPPDATA || "", "Programs", "Python", "Python313", "python.exe"),
+        path.join(process.env.LOCALAPPDATA || "", "Programs", "Python", "Python312", "python.exe"),
+        path.join(process.env.LOCALAPPDATA || "", "Programs", "Python", "Python311", "python.exe"),
+        "C:\\Users\\KaaviyaDharun\\AppData\\Local\\Python\\bin\\python.exe",
+      ];
+      for (const c of candidates) {
+        if (fs.existsSync(c)) return c;
+      }
+    }
+    return "python3";
+  }
+
   private static executeJava(
     sourceInfo: SourceFileInfo,
     tempDir: string,
     stdin: string,
-    timeoutMs: number
+    timeoutMs: number,
+    version?: string
   ): Promise<UniversalExecutionResult> {
     return new Promise((resolve) => {
       const startTime = Date.now();
       const className = sourceInfo.entryClass || "Main";
 
-      const javac = cp.spawn("javac", [sourceInfo.filename], { cwd: tempDir });
+      const javacArgs = [sourceInfo.filename];
+      const v = (version || "").toLowerCase().trim();
+      if (v === "17" || v === "java17") {
+        javacArgs.unshift("--release", "17");
+      } else if (v === "21" || v === "java21") {
+        javacArgs.unshift("--release", "21");
+      }
+
+      const javac = cp.spawn("javac", javacArgs, { cwd: tempDir });
       let compileErr = "";
 
       javac.stderr?.on("data", (d: any) => { compileErr += d.toString(); });
@@ -235,13 +266,19 @@ export class UniversalExecutor {
     });
   }
 
-  private static executePython(
+  private static async executePython(
     sourceInfo: SourceFileInfo,
     tempDir: string,
     stdin: string,
     timeoutMs: number
   ): Promise<UniversalExecutionResult> {
-    return this.executeProcessRunner("python", [sourceInfo.filename], tempDir, stdin, timeoutMs, sourceInfo.filename, "python", 18000);
+    const pyCmd = this.resolvePythonCommand();
+    const res = await this.executeProcessRunner(pyCmd, [sourceInfo.filename], tempDir, stdin, timeoutMs, sourceInfo.filename, "python", 18000);
+    // If windows app execution alias stub failed with "Python was not found", mark for online fallback
+    if (res.stderr && res.stderr.includes("Python was not found")) {
+      return { ...res, outcome: 20 };
+    }
+    return res;
   }
 
   private static executeJavaScript(
@@ -266,11 +303,17 @@ export class UniversalExecutor {
     sourceInfo: SourceFileInfo,
     tempDir: string,
     stdin: string,
-    timeoutMs: number
+    timeoutMs: number,
+    version?: string
   ): Promise<UniversalExecutionResult> {
+    let stdFlag = "-std=c++20";
+    const v = (version || "").toLowerCase().trim();
+    if (v === "c++23" || v === "23") stdFlag = "-std=c++23";
+    else if (v === "c++17" || v === "17") stdFlag = "-std=c++17";
+
     return this.compileAndExecuteRunner(
       "g++",
-      ["-std=c++17", "-O2", sourceInfo.filename, "-o", "program"],
+      [stdFlag, "-O2", sourceInfo.filename, "-o", "program"],
       process.platform === "win32" ? "program.exe" : "./program",
       tempDir,
       stdin,
@@ -285,11 +328,17 @@ export class UniversalExecutor {
     sourceInfo: SourceFileInfo,
     tempDir: string,
     stdin: string,
-    timeoutMs: number
+    timeoutMs: number,
+    version?: string
   ): Promise<UniversalExecutionResult> {
+    let stdFlag = "-std=c17";
+    const v = (version || "").toLowerCase().trim();
+    if (v === "c23" || v === "23") stdFlag = "-std=c23";
+    else if (v === "c11" || v === "11") stdFlag = "-std=c11";
+
     return this.compileAndExecuteRunner(
       "gcc",
-      ["-std=c17", "-O2", sourceInfo.filename, "-o", "program"],
+      [stdFlag, "-O2", sourceInfo.filename, "-o", "program"],
       process.platform === "win32" ? "program.exe" : "./program",
       tempDir,
       stdin,
@@ -532,9 +581,10 @@ export class UniversalExecutor {
     code: string,
     stdin: string,
     timeoutMs: number,
-    filename: string
+    filename: string,
+    version?: string
   ): Promise<UniversalExecutionResult> {
-    const raw = await OnlineCompilerService.execute(language, code, stdin, timeoutMs);
+    const raw = await OnlineCompilerService.execute(language, code, stdin, timeoutMs, version);
     const sanitizedErr = sanitizeCompilerOutput(raw.stderr || "", filename);
     const sanitizedComp = sanitizeCompilerOutput(raw.compile_output || "", filename);
     const isOk = raw.outcome === 15 || raw.status?.id === 3;

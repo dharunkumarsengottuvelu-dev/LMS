@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { problem_id, language, code, test_cases } = body;
+    const version = body.version || body.language_version;
 
     if (!problem_id || !language || !code) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
@@ -149,7 +150,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } else {
-        const cacheKey = `${language}:::${cleanInput}`;
+        const cacheKey = `${language}:::${version || "default"}:::${cleanInput}`;
         if (executionCache.has(cacheKey)) {
           const cached = executionCache.get(cacheKey)!;
           trimmedActual = cached.trimmedActual;
@@ -168,7 +169,7 @@ export async function POST(request: NextRequest) {
             }
           }
         } else {
-          const res = await UniversalExecutor.execute(language, code, cleanInput, 25000);
+          const res = await UniversalExecutor.execute(language, code, cleanInput, 25000, version);
           trimmedActual = (res.stdout || "").trim();
           execTime = parseFloat(res.time) || 0.02;
 

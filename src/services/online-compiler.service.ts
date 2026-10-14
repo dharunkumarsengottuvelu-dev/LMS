@@ -7,15 +7,15 @@ import type { NormalizedExecutionResult } from "./jobe/types";
  * https://wandbox.org/api/list.json for full compiler list.
  */
 const WANDBOX_COMPILER_MAP: Record<string, string> = {
-  python: "cpython-3.11.10",
-  python3: "cpython-3.11.10",
-  py: "cpython-3.11.10",
+  python: "cpython-3.14.0",
+  python3: "cpython-3.14.0",
+  py: "cpython-3.14.0",
   java: "openjdk-jdk-22+36",
   javascript: "nodejs-20.17.0",
   nodejs: "nodejs-20.17.0",
   js: "nodejs-20.17.0",
-  typescript: "nodejs-20.17.0", // transpiled to JS before sending
-  ts: "nodejs-20.17.0",
+  typescript: "typescript-5.6.2",
+  ts: "typescript-5.6.2",
   c: "gcc-13.2.0-c",
   cpp: "gcc-13.2.0",
   "c++": "gcc-13.2.0",
@@ -24,10 +24,14 @@ const WANDBOX_COMPILER_MAP: Record<string, string> = {
   ruby: "ruby-3.3.11",
   php: "php-8.3.12",
   scala: "scala-3.5.1",
-  kotlin: "openjdk-jdk-22+36", // Kotlin not on Wandbox; use JVM stub
+  kotlin: "openjdk-jdk-22+36",
   swift: "swift-6.0.1",
   csharp: "mono-6.12.0.199",
   cs: "mono-6.12.0.199",
+  bash: "bash",
+  r: "r-4.4.1",
+  lua: "lua-5.4.7",
+  perl: "perl-5.40.0",
 };
 
 /**
@@ -80,15 +84,20 @@ function executeOnWandbox(
   compiler: string,
   code: string,
   stdin: string,
-  timeoutMs: number
+  timeoutMs: number,
+  compilerOptionRaw?: string
 ): Promise<NormalizedExecutionResult> {
   return new Promise((resolve) => {
     const startTime = Date.now();
-    const payload = JSON.stringify({
+    const payloadObj: Record<string, any> = {
       compiler,
       code,
       stdin: stdin || "",
-    });
+    };
+    if (compilerOptionRaw) {
+      payloadObj.compiler_option_raw = compilerOptionRaw;
+    }
+    const payload = JSON.stringify(payloadObj);
 
     const req = https.request(
       {
@@ -223,7 +232,8 @@ export class OnlineCompilerService {
     language: string,
     code: string,
     stdin: string = "",
-    timeoutMs: number = 25000
+    timeoutMs: number = 25000,
+    version?: string
   ): Promise<NormalizedExecutionResult> {
     const lang = (language || "").toLowerCase().trim();
     const compiler = WANDBOX_COMPILER_MAP[lang];
@@ -241,13 +251,33 @@ export class OnlineCompilerService {
       };
     }
 
+    // Determine compiler options for C / C++ standards
+    let compilerOptionRaw: string | undefined;
+    if (lang === "cpp" || lang === "c++") {
+      const v = (version || "").toLowerCase().trim();
+      if (v === "c++23" || v === "23") {
+        compilerOptionRaw = "-std=c++23";
+      } else if (v === "c++17" || v === "17") {
+        compilerOptionRaw = "-std=c++17";
+      } else {
+        compilerOptionRaw = "-std=c++20";
+      }
+    } else if (lang === "c") {
+      const v = (version || "").toLowerCase().trim();
+      if (v === "c23" || v === "23") {
+        compilerOptionRaw = "-std=c23";
+      } else if (v === "c11" || v === "11") {
+        compilerOptionRaw = "-std=c11";
+      } else {
+        compilerOptionRaw = "-std=c17";
+      }
+    }
+
     // Adapt user code so missing main/wrappers are cleanly handled
     let processedCode = adaptCodeForExecution(lang, code);
 
     if (lang === "java") {
       processedCode = preprocessJavaForSandbox(processedCode);
-    } else if (lang === "typescript" || lang === "ts") {
-      processedCode = preprocessTypeScriptForNode(processedCode);
     }
 
     const cleanStdin = (stdin || "")
@@ -255,6 +285,6 @@ export class OnlineCompilerService {
       .replace(/\\n/g, "\n")
       .replace(/\r\n/g, "\n");
 
-    return executeOnWandbox(compiler, processedCode, cleanStdin, timeoutMs);
+    return executeOnWandbox(compiler, processedCode, cleanStdin, timeoutMs, compilerOptionRaw);
   }
 }

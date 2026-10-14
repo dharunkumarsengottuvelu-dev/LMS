@@ -18,7 +18,10 @@ export type CodingLanguage =
   | "html"
   | "css"
   | "react"
-  | "bash";
+  | "bash"
+  | "r"
+  | "lua"
+  | "perl";
 
 export type ExecutionCategory = "general" | "web" | "sql";
 
@@ -80,6 +83,14 @@ export interface SQLQueryResult {
   engine?: SQLEngine;
 }
 
+export interface LanguageVersionConfig {
+  id: string;
+  name: string;
+  label: string;
+  compilerFlag?: string;
+  isDefault?: boolean;
+}
+
 export interface LanguageConfig {
   id: CodingLanguage;
   name: string;
@@ -89,29 +100,279 @@ export interface LanguageConfig {
   category: ExecutionCategory;
   compilationRequired: boolean;
   version: string;
+  supportedVersions?: LanguageVersionConfig[];
 }
 
 export const LANGUAGE_REGISTRY: Record<CodingLanguage, LanguageConfig> = {
-  javascript: { id: "javascript", name: "JavaScript", monacoLanguage: "javascript", jobeLanguage: "nodejs", extension: ".js", category: "general", compilationRequired: false, version: "v18+" },
-  typescript: { id: "typescript", name: "TypeScript", monacoLanguage: "typescript", jobeLanguage: "nodejs", extension: ".ts", category: "general", compilationRequired: false, version: "v5+" },
-  python: { id: "python", name: "Python", monacoLanguage: "python", jobeLanguage: "python3", extension: ".py", category: "general", compilationRequired: false, version: "v3.10+" },
-  java: { id: "java", name: "Java", monacoLanguage: "java", jobeLanguage: "java", extension: ".java", category: "general", compilationRequired: true, version: "v17" },
-  cpp: { id: "cpp", name: "C++", monacoLanguage: "cpp", jobeLanguage: "cpp", extension: ".cpp", category: "general", compilationRequired: true, version: "GCC 11+" },
-  c: { id: "c", name: "C", monacoLanguage: "c", jobeLanguage: "c", extension: ".c", category: "general", compilationRequired: true, version: "GCC 11+" },
-  csharp: { id: "csharp", name: "C#", monacoLanguage: "csharp", jobeLanguage: "cs", extension: ".cs", category: "general", compilationRequired: true, version: ".NET 8" },
-  go: { id: "go", name: "Go", monacoLanguage: "go", jobeLanguage: "go", extension: ".go", category: "general", compilationRequired: true, version: "v1.20+" },
-  rust: { id: "rust", name: "Rust", monacoLanguage: "rust", jobeLanguage: "rust", extension: ".rs", category: "general", compilationRequired: true, version: "v1.70+" },
-  kotlin: { id: "kotlin", name: "Kotlin", monacoLanguage: "kotlin", jobeLanguage: "kotlin", extension: ".kt", category: "general", compilationRequired: true, version: "v1.9+" },
-  swift: { id: "swift", name: "Swift", monacoLanguage: "swift", jobeLanguage: "swift", extension: ".swift", category: "general", compilationRequired: true, version: "v5.9" },
-  php: { id: "php", name: "PHP", monacoLanguage: "php", jobeLanguage: "php", extension: ".php", category: "general", compilationRequired: false, version: "v8.2" },
-  ruby: { id: "ruby", name: "Ruby", monacoLanguage: "ruby", jobeLanguage: "ruby", extension: ".rb", category: "general", compilationRequired: false, version: "v3.2" },
-  scala: { id: "scala", name: "Scala", monacoLanguage: "scala", jobeLanguage: "scala", extension: ".scala", category: "general", compilationRequired: true, version: "v3.3" },
-  dart: { id: "dart", name: "Dart", monacoLanguage: "dart", jobeLanguage: "dart", extension: ".dart", category: "general", compilationRequired: false, version: "v3.0" },
-  sql: { id: "sql", name: "SQL", monacoLanguage: "sql", jobeLanguage: "sql", extension: ".sql", category: "sql", compilationRequired: false, version: "MySQL 8.0" },
+  javascript: {
+    id: "javascript",
+    name: "JavaScript",
+    monacoLanguage: "javascript",
+    jobeLanguage: "nodejs",
+    extension: ".js",
+    category: "general",
+    compilationRequired: false,
+    version: "Node.js 24 LTS",
+    supportedVersions: [
+      { id: "node24", name: "Node.js 24 LTS", label: "Node.js 24", isDefault: true },
+      { id: "node20", name: "Node.js 20 LTS", label: "Node.js 20" },
+    ],
+  },
+  typescript: {
+    id: "typescript",
+    name: "TypeScript",
+    monacoLanguage: "typescript",
+    jobeLanguage: "nodejs",
+    extension: ".ts",
+    category: "general",
+    compilationRequired: false,
+    version: "TypeScript 5.6+",
+    supportedVersions: [
+      { id: "ts5", name: "TypeScript 5.6+", label: "TypeScript 5.6", isDefault: true },
+    ],
+  },
+  python: {
+    id: "python",
+    name: "Python",
+    monacoLanguage: "python",
+    jobeLanguage: "python3",
+    extension: ".py",
+    category: "general",
+    compilationRequired: false,
+    version: "Python 3.14+",
+    supportedVersions: [
+      { id: "3.14", name: "Python 3.14+", label: "Python 3.14", isDefault: true },
+      { id: "3.11", name: "Python 3.11", label: "Python 3.11" },
+    ],
+  },
+  java: {
+    id: "java",
+    name: "Java",
+    monacoLanguage: "java",
+    jobeLanguage: "java",
+    extension: ".java",
+    category: "general",
+    compilationRequired: true,
+    version: "Java 25 LTS",
+    supportedVersions: [
+      { id: "25", name: "Java 25 (LTS)", label: "Java 25", isDefault: true },
+      { id: "21", name: "Java 21 (LTS)", label: "Java 21" },
+      { id: "17", name: "Java 17 (LTS)", label: "Java 17" },
+    ],
+  },
+  cpp: {
+    id: "cpp",
+    name: "C++",
+    monacoLanguage: "cpp",
+    jobeLanguage: "cpp",
+    extension: ".cpp",
+    category: "general",
+    compilationRequired: true,
+    version: "C++20 / GCC 13+",
+    supportedVersions: [
+      { id: "c++20", name: "C++20 (GCC 13+)", label: "C++20", compilerFlag: "-std=c++20", isDefault: true },
+      { id: "c++17", name: "C++17 (GCC 13+)", label: "C++17", compilerFlag: "-std=c++17" },
+      { id: "c++23", name: "C++23 (GCC 13+)", label: "C++23", compilerFlag: "-std=c++23" },
+    ],
+  },
+  c: {
+    id: "c",
+    name: "C",
+    monacoLanguage: "c",
+    jobeLanguage: "c",
+    extension: ".c",
+    category: "general",
+    compilationRequired: true,
+    version: "C17 / GCC 13+",
+    supportedVersions: [
+      { id: "c17", name: "C17 (GCC 13+)", label: "C17", compilerFlag: "-std=c17", isDefault: true },
+    ],
+  },
+  csharp: {
+    id: "csharp",
+    name: "C#",
+    monacoLanguage: "csharp",
+    jobeLanguage: "cs",
+    extension: ".cs",
+    category: "general",
+    compilationRequired: true,
+    version: "C# 10 / Mono 6.12",
+    supportedVersions: [
+      { id: "mono6", name: "C# 10 / Mono 6.12", label: "C# 10", isDefault: true },
+    ],
+  },
+  go: {
+    id: "go",
+    name: "Go",
+    monacoLanguage: "go",
+    jobeLanguage: "go",
+    extension: ".go",
+    category: "general",
+    compilationRequired: true,
+    version: "Go 1.23+",
+    supportedVersions: [
+      { id: "1.23", name: "Go 1.23+", label: "Go 1.23", isDefault: true },
+    ],
+  },
+  rust: {
+    id: "rust",
+    name: "Rust",
+    monacoLanguage: "rust",
+    jobeLanguage: "rust",
+    extension: ".rs",
+    category: "general",
+    compilationRequired: true,
+    version: "Rust 1.82+",
+    supportedVersions: [
+      { id: "1.82", name: "Rust 1.82+", label: "Rust 1.82", isDefault: true },
+    ],
+  },
+  kotlin: {
+    id: "kotlin",
+    name: "Kotlin",
+    monacoLanguage: "kotlin",
+    jobeLanguage: "kotlin",
+    extension: ".kt",
+    category: "general",
+    compilationRequired: true,
+    version: "Kotlin 1.9+",
+    supportedVersions: [
+      { id: "1.9", name: "Kotlin 1.9+", label: "Kotlin 1.9", isDefault: true },
+    ],
+  },
+  swift: {
+    id: "swift",
+    name: "Swift",
+    monacoLanguage: "swift",
+    jobeLanguage: "swift",
+    extension: ".swift",
+    category: "general",
+    compilationRequired: true,
+    version: "Swift 6.0",
+    supportedVersions: [
+      { id: "6.0", name: "Swift 6.0", label: "Swift 6.0", isDefault: true },
+    ],
+  },
+  php: {
+    id: "php",
+    name: "PHP",
+    monacoLanguage: "php",
+    jobeLanguage: "php",
+    extension: ".php",
+    category: "general",
+    compilationRequired: false,
+    version: "PHP 8.3+",
+    supportedVersions: [
+      { id: "8.3", name: "PHP 8.3+", label: "PHP 8.3", isDefault: true },
+    ],
+  },
+  ruby: {
+    id: "ruby",
+    name: "Ruby",
+    monacoLanguage: "ruby",
+    jobeLanguage: "ruby",
+    extension: ".rb",
+    category: "general",
+    compilationRequired: false,
+    version: "Ruby 3.3+",
+    supportedVersions: [
+      { id: "3.3", name: "Ruby 3.3+", label: "Ruby 3.3", isDefault: true },
+    ],
+  },
+  scala: {
+    id: "scala",
+    name: "Scala",
+    monacoLanguage: "scala",
+    jobeLanguage: "scala",
+    extension: ".scala",
+    category: "general",
+    compilationRequired: true,
+    version: "Scala 3.5",
+    supportedVersions: [
+      { id: "3.5", name: "Scala 3.5", label: "Scala 3.5", isDefault: true },
+    ],
+  },
+  dart: {
+    id: "dart",
+    name: "Dart",
+    monacoLanguage: "dart",
+    jobeLanguage: "dart",
+    extension: ".dart",
+    category: "general",
+    compilationRequired: false,
+    version: "Dart 3.0+",
+    supportedVersions: [
+      { id: "3.0", name: "Dart 3.0+", label: "Dart 3.0", isDefault: true },
+    ],
+  },
+  sql: {
+    id: "sql",
+    name: "SQL",
+    monacoLanguage: "sql",
+    jobeLanguage: "sql",
+    extension: ".sql",
+    category: "sql",
+    compilationRequired: false,
+    version: "SQLite 3 / Postgres",
+    supportedVersions: [
+      { id: "sqlite3", name: "SQLite 3 Sandbox", label: "SQLite 3", isDefault: true },
+    ],
+  },
   html: { id: "html", name: "HTML", monacoLanguage: "html", jobeLanguage: "html", extension: ".html", category: "web", compilationRequired: false, version: "HTML5" },
   css: { id: "css", name: "CSS", monacoLanguage: "css", jobeLanguage: "css", extension: ".css", category: "web", compilationRequired: false, version: "CSS3" },
   react: { id: "react", name: "React", monacoLanguage: "typescript", jobeLanguage: "react", extension: ".tsx", category: "web", compilationRequired: false, version: "React 18" },
-  bash: { id: "bash", name: "Bash", monacoLanguage: "shell", jobeLanguage: "bash", extension: ".sh", category: "general", compilationRequired: false, version: "GNU Bash 5+" },
+  bash: {
+    id: "bash",
+    name: "Bash",
+    monacoLanguage: "shell",
+    jobeLanguage: "bash",
+    extension: ".sh",
+    category: "general",
+    compilationRequired: false,
+    version: "GNU Bash 5+",
+    supportedVersions: [
+      { id: "5", name: "GNU Bash 5+", label: "Bash 5", isDefault: true },
+    ],
+  },
+  r: {
+    id: "r",
+    name: "R",
+    monacoLanguage: "r",
+    jobeLanguage: "r",
+    extension: ".r",
+    category: "general",
+    compilationRequired: false,
+    version: "R 4.4+",
+    supportedVersions: [
+      { id: "4.4", name: "R 4.4+", label: "R 4.4", isDefault: true },
+    ],
+  },
+  lua: {
+    id: "lua",
+    name: "Lua",
+    monacoLanguage: "lua",
+    jobeLanguage: "lua",
+    extension: ".lua",
+    category: "general",
+    compilationRequired: false,
+    version: "Lua 5.4+",
+    supportedVersions: [
+      { id: "5.4", name: "Lua 5.4+", label: "Lua 5.4", isDefault: true },
+    ],
+  },
+  perl: {
+    id: "perl",
+    name: "Perl",
+    monacoLanguage: "perl",
+    jobeLanguage: "perl",
+    extension: ".pl",
+    category: "general",
+    compilationRequired: false,
+    version: "Perl 5.40+",
+    supportedVersions: [
+      { id: "5.40", name: "Perl 5.40+", label: "Perl 5.40", isDefault: true },
+    ],
+  },
 };
 
 export type Difficulty = "easy" | "medium" | "hard";
@@ -237,6 +498,7 @@ export interface CodingSubmission {
 
 export interface ExecuteCodeInput {
   language: CodingLanguage;
+  version?: string;
   code: string;
   files?: CodeFile[];
   stdin?: string;
@@ -269,6 +531,7 @@ export interface ExecuteCodeResult {
 export interface SubmitCodeInput {
   problem_id: string;
   language: CodingLanguage;
+  version?: string;
   code: string;
   files?: CodeFile[];
   test_cases?: TestCase[];
@@ -319,6 +582,10 @@ export const JOBE_LANGUAGE_MAP: Record<CodingLanguage, string> = {
   html: "html",
   css: "css",
   react: "react",
+  bash: "bash",
+  r: "r",
+  lua: "lua",
+  perl: "perl",
 } as unknown as Record<CodingLanguage, string>;
 
 // Backward compatibility map for legacy references
@@ -337,6 +604,15 @@ export const JUDGE0_LANGUAGE_MAP: Record<CodingLanguage, number> = {
   php: 68,
   ruby: 72,
   scala: 81,
+  dart: 90,
+  sql: 82,
+  html: 95,
+  css: 96,
+  react: 97,
+  bash: 46,
+  r: 80,
+  lua: 64,
+  perl: 85,
 } as unknown as Record<CodingLanguage, number>;
 
 export const LANGUAGE_DISPLAY_NAMES: Record<CodingLanguage, string> = Object.fromEntries(

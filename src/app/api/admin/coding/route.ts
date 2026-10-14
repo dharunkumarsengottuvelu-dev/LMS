@@ -178,11 +178,24 @@ export async function POST(request: NextRequest) {
       // Only treat as existing record if it's a real UUID (36-char standard format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
       // Bulk-generated IDs like "problem-two-sum-1234-0" are NOT real UUIDs and must be inserted as new
       const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const isRealUUID = problem.id && UUID_REGEX.test(problem.id);
-      const problemId = isRealUUID ? problem.id : undefined;
-      // Generate a clean, unique slug (append short timestamp suffix to avoid UNIQUE constraint violations on bulk)
+      const isRealUUID = Boolean(problem.id && UUID_REGEX.test(problem.id));
+      let problemId = isRealUUID ? problem.id : undefined;
+
+      // If problemId is not directly a UUID, check if this problem already exists in DB by slug so we UPDATE it instead of creating a duplicate
+      if (!problemId && problem.slug) {
+        const { data: matchSlug } = await supabase
+          .from("coding_problems")
+          .select("id")
+          .eq("slug", problem.slug)
+          .maybeSingle();
+        if (matchSlug?.id) {
+          problemId = matchSlug.id;
+        }
+      }
+
+      // Generate a clean slug: preserve exact slug for existing problems, only append timestamp for new inserts
       const baseSlug = problem.slug || problem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const slug = problemId ? baseSlug : `${baseSlug}-${Date.now().toString(36)}`;
+      const slug = problemId ? (problem.slug || baseSlug) : `${baseSlug}-${Date.now().toString(36)}`;
 
       const rawTestCases = Array.isArray(problem.test_cases)
         ? problem.test_cases

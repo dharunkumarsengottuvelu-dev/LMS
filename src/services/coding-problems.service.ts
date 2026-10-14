@@ -48,7 +48,12 @@ export class CodingProblemsService {
       const mergedProblem = { ...problem, ...saved };
 
       // Update in-memory cache
-      const idx = this.cachedProblems.findIndex((p) => p.id === problem.id || p.id === saved.id);
+      const idx = this.cachedProblems.findIndex((p) =>
+        (problem.id && p.id === problem.id) ||
+        (saved.id && p.id === saved.id) ||
+        (problem.slug && p.slug === problem.slug) ||
+        (saved.slug && p.slug === saved.slug)
+      );
       if (idx >= 0) {
         this.cachedProblems[idx] = mergedProblem;
       } else {

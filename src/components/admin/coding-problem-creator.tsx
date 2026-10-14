@@ -757,8 +757,12 @@ export function CodingProblemCreator({
       return;
     }
 
-    const autoSlug = slug.trim() || title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const autoSlug = slug.trim() || existing.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const cleanNumber = problemNumber.trim() || String(Date.now()).slice(-4);
+    const finalId = existing.id || cleanNumber;
+    const finalProblemNumber = !isNaN(Number(cleanNumber))
+      ? Number(cleanNumber)
+      : ((existing as any).problem_number !== undefined ? Number((existing as any).problem_number) : undefined);
 
     const editorial: SolutionEditorial = {
       overview: editorialOverview,
@@ -800,8 +804,8 @@ export function CodingProblemCreator({
     const hiddenTestCases = cleanTestCases.filter((tc) => !!tc.is_hidden);
 
     const problemRecord: CodingProblem = {
-      id: cleanNumber,
-      problem_number: !isNaN(Number(cleanNumber)) ? Number(cleanNumber) : undefined,
+      id: finalId,
+      problem_number: finalProblemNumber,
       title: title.trim(),
       slug: autoSlug,
       description: description.trim(),
@@ -848,6 +852,7 @@ export function CodingProblemCreator({
       const mergedSaved: CodingProblem = {
         ...problemRecord,
         ...(saved || {}),
+        id: finalId,
         test_cases: cleanTestCases,
         sample_test_cases: sampleTestCases,
         hidden_test_cases: hiddenTestCases,
