@@ -315,7 +315,6 @@ export default function ProblemSolvingWorkspace() {
 
   // Selected Language & Code State per Problem
   const [selectedLanguage, setSelectedLanguage] = useState<CodingLanguage>("java");
-  const [selectedVersion, setSelectedVersion] = useState<string>("25");
   const [code, setCode] = useState<string>("");
 
   // Custom Input text (temporary, not saved as system test case)
@@ -333,6 +332,7 @@ export default function ProblemSolvingWorkspace() {
   const [showFinalSubmitDialog, setShowFinalSubmitDialog] = useState(false);
   const [isFinalSubmitting, setIsFinalSubmitting] = useState(false);
   const [isBottomMinimized, setIsBottomMinimized] = useState<boolean>(true);
+  const [isBottomMaximized, setIsBottomMaximized] = useState<boolean>(false);
   const [executionError, setExecutionError] = useState<{
     title: string;
     message: string;
@@ -552,8 +552,6 @@ export default function ProblemSolvingWorkspace() {
     ) as CodingLanguage;
 
     setSelectedLanguage(lang);
-    const defVer = SUPPORTED_LANGUAGES.find((l) => l.id === lang)?.supportedVersions?.find((v) => v.isDefault)?.id || "";
-    setSelectedVersion(defVer);
 
     const initialCode =
       saved?.code ||
@@ -582,8 +580,6 @@ export default function ProblemSolvingWorkspace() {
   // Handle Language Change
   const handleLanguageChange = (newLang: CodingLanguage) => {
     setSelectedLanguage(newLang);
-    const defVer = SUPPORTED_LANGUAGES.find((l) => l.id === newLang)?.supportedVersions?.find((v) => v.isDefault)?.id || "";
-    setSelectedVersion(defVer);
     if (!problem) return;
 
     // Check saved draft in localStorage for this language
@@ -672,14 +668,8 @@ export default function ProblemSolvingWorkspace() {
         is_hidden: false,
       }));
 
-      const hiddenCases = hiddenTestCases.map((tc) => ({
-        id: tc.id,
-        input: normalizeTestInput(tc.input),
-        expected_output: normalizeExpectedOutput(tc),
-        is_hidden: true,
-      }));
-
-      const casesToRun = [...sampleCases, ...hiddenCases];
+      // On Run: ONLY evaluate public (sample) test cases as requested
+      const casesToRun = sampleCases;
 
       const res = await fetch("/api/code/run-testcases", {
         method: "POST",
@@ -687,10 +677,9 @@ export default function ProblemSolvingWorkspace() {
         body: JSON.stringify({
           problem_id: problem.id,
           language: selectedLanguage,
-          version: selectedVersion,
           code,
           test_cases: casesToRun,
-          include_hidden: true,
+          include_hidden: false,
         }),
       });
 
@@ -794,7 +783,6 @@ export default function ProblemSolvingWorkspace() {
         body: JSON.stringify({
           problem_id: problem.id,
           language: selectedLanguage,
-          version: selectedVersion,
           code,
           test_cases: [
             {
@@ -850,13 +838,30 @@ export default function ProblemSolvingWorkspace() {
       (latestSubmission?.status === "accepted");
 
     try {
-      const rawCases = problem.test_cases || [];
-      const normalizedSubmissionCases = rawCases.map((tc: any) => ({
+      const sampleCases = systemTestCases.map((tc) => ({
         id: tc.id,
         input: normalizeTestInput(tc.input),
         expected_output: normalizeExpectedOutput(tc),
-        is_hidden: Boolean(tc.is_hidden),
+        is_hidden: false,
       }));
+
+      const hiddenCases = hiddenTestCases.map((tc) => ({
+        id: tc.id,
+        input: normalizeTestInput(tc.input),
+        expected_output: normalizeExpectedOutput(tc),
+        is_hidden: true,
+      }));
+
+      // On Submit: Evaluate BOTH public and hidden test cases
+      const allSubmissionCases = [...sampleCases, ...hiddenCases];
+      const normalizedSubmissionCases = allSubmissionCases.length > 0
+        ? allSubmissionCases
+        : (problem.test_cases || []).map((tc: any) => ({
+            id: tc.id,
+            input: normalizeTestInput(tc.input),
+            expected_output: normalizeExpectedOutput(tc),
+            is_hidden: Boolean(tc.is_hidden),
+          }));
 
       const res = await fetch("/api/code/submit", {
         method: "POST",
@@ -864,7 +869,6 @@ export default function ProblemSolvingWorkspace() {
         body: JSON.stringify({
           problem_id: problem.id,
           language: selectedLanguage,
-          version: selectedVersion,
           code,
           test_cases: normalizedSubmissionCases.length > 0 ? normalizedSubmissionCases : undefined,
         }),
@@ -894,6 +898,8 @@ export default function ProblemSolvingWorkspace() {
         };
       });
       setRunResults(subResults);
+      setBottomTab("testresult");
+      setIsBottomMinimized(false);
       setShowVerdictModal(true);
 
       if (submission.status === "compilation_error" || submission.status === "runtime_error" || (submission as any).error_message) {
@@ -1191,39 +1197,6 @@ export default function ProblemSolvingWorkspace() {
               </SelectContent>
             </Select>
           )}
-
-          {/* Version Selector: Display supported versions (e.g. Java 25, 21, 17; C++20, 17, 23) or version badge */}
-          {(() => {
-            const curLang = SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage);
-            const versions = curLang?.supportedVersions || [];
-            if (versions.length > 1) {
-              return (
-                <Select
-                  value={selectedVersion}
-                  onValueChange={(val) => setSelectedVersion(val || "")}
-                >
-                  <SelectTrigger className="h-8.5 text-xs font-semibold bg-white border-slate-200 w-24 sm:w-28 rounded-lg text-slate-700 shadow-2xs cursor-pointer">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-slate-200 shadow-md z-50">
-                    {versions.map((v) => (
-                      <SelectItem key={v.id} value={v.id} className="text-xs font-medium cursor-pointer">
-                        {v.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              );
-            }
-            if (versions.length === 1 && versions[0]) {
-              return (
-                <div className="hidden sm:flex h-8.5 px-2.5 text-[11px] font-semibold bg-slate-100 border border-slate-200 rounded-lg text-slate-700 items-center shadow-2xs select-none">
-                  {versions[0].label}
-                </div>
-              );
-            }
-            return null;
-          })()}
 
           {/* Reset Code */}
           <Button
@@ -1608,7 +1581,9 @@ export default function ProblemSolvingWorkspace() {
                 "rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden transition-all duration-150",
                 isEditorFullscreen
                   ? "fixed inset-0 z-50 rounded-none border-none h-screen w-screen shadow-2xl"
-                  : "flex-1 min-h-[280px]"
+                  : isBottomMaximized
+                  ? "h-24 sm:h-28 shrink-0 overflow-hidden"
+                  : "flex-1 min-h-[140px]"
               )}
             >
               {/* Editor Header Bar: Blue Dot + Code Editor + Language Badge + Fullscreen Button */}
@@ -1659,7 +1634,7 @@ export default function ProblemSolvingWorkspace() {
                   )}
                   <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
                     <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-semibold uppercase">
-                      {selectedLanguage} {selectedVersion ? `(${selectedVersion})` : ""}
+                      {selectedLanguage}
                     </span>
                   </div>
                   <Button
@@ -1784,7 +1759,11 @@ export default function ProblemSolvingWorkspace() {
             <div
               className={cn(
                 "rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden shrink-0 transition-all duration-200",
-                isBottomMinimized ? "h-9.5" : "h-60 sm:h-64"
+                isBottomMinimized
+                  ? "h-9.5 shrink-0"
+                  : isBottomMaximized
+                  ? "flex-1 min-h-0"
+                  : "h-64 sm:h-72 md:h-80 max-h-[48%] shrink-0"
               )}
             >
               {/* Bottom Panel Tabs: Testcase | Test Result | Console + Minimize/Expand Button */}
@@ -1837,30 +1816,57 @@ export default function ProblemSolvingWorkspace() {
                   </button>
                 </div>
 
-                {/* Minimize / Expand Toggle Button */}
-                <button
-                  type="button"
-                  onClick={() => setIsBottomMinimized((prev) => !prev)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 py-1 px-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                  title={isBottomMinimized ? "Expand testcase panel" : "Minimize testcase panel"}
-                >
-                  {isBottomMinimized ? (
-                    <>
-                      <ChevronUp className="w-3.5 h-3.5 text-blue-600" />
-                      <span className="text-blue-600 font-semibold text-[11px]">Expand</span>
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="w-3.5 h-3.5" />
-                      <span className="text-slate-600 text-[11px]">Minimize</span>
-                    </>
+                {/* Right controls: Maximize/Restore + Minimize/Expand */}
+                <div className="flex items-center gap-1">
+                  {!isBottomMinimized && (
+                    <button
+                      type="button"
+                      onClick={() => setIsBottomMaximized((prev) => !prev)}
+                      className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-900 py-1 px-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                      title={isBottomMaximized ? "Restore standard size" : "Maximize testcase panel"}
+                    >
+                      {isBottomMaximized ? (
+                        <>
+                          <Minimize2 className="w-3 h-3 text-slate-600" />
+                          <span className="text-slate-600 text-[11px]">Restore</span>
+                        </>
+                      ) : (
+                        <>
+                          <Maximize2 className="w-3 h-3 text-slate-600" />
+                          <span className="text-slate-600 text-[11px]">Expand</span>
+                        </>
+                      )}
+                    </button>
                   )}
-                </button>
+
+                  {/* Minimize / Expand Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsBottomMinimized((prev) => !prev);
+                      if (!isBottomMinimized) setIsBottomMaximized(false);
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 py-1 px-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                    title={isBottomMinimized ? "Open testcase panel" : "Minimize testcase panel"}
+                  >
+                    {isBottomMinimized ? (
+                      <>
+                        <ChevronUp className="w-3.5 h-3.5 text-blue-600" />
+                        <span className="text-blue-600 font-semibold text-[11px]">Open</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                        <span className="text-slate-600 text-[11px]">Minimize</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
-              {/* Bottom Tab Content */}
+              {/* Bottom Tab Content: clean, tight layout without unwanted bottom spacing */}
               {!isBottomMinimized && (
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs select-text">
+                <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-4 pb-3 space-y-3 text-xs select-text">
                 {/* ─── TAB 1: TESTCASE (CUSTOM INPUT + SYSTEM TEST CASES) ─── */}
                 {bottomTab === "testcase" && (
                   <div className="space-y-4">
@@ -1944,7 +1950,7 @@ export default function ProblemSolvingWorkspace() {
                               <span>Hidden Test Cases ({hiddenTestCases.length})</span>
                             </div>
                             <span className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-md">
-                              Evaluated on Run & Submit
+                              Evaluated on Submit
                             </span>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1970,12 +1976,12 @@ export default function ProblemSolvingWorkspace() {
                   </div>
                 )}
 
-                {/* ─── TAB 2: TEST RESULT ─── */}
+                {/* ─── TAB 2: TEST RESULT (LEETCODE / MNC LEVEL CASE TABS) ─── */}
                 {bottomTab === "testresult" && (
                   <div className="space-y-3">
                     {/* Compilation / Runtime Error Banner */}
                     {executionError && (
-                      <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50/70 space-y-2">
+                      <div className="p-3 rounded-xl border border-rose-200 bg-rose-50/70 space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -1985,7 +1991,7 @@ export default function ProblemSolvingWorkspace() {
                             {executionError.type || "Error"}
                           </span>
                         </div>
-                        <pre className="p-2.5 bg-white border border-rose-200 text-rose-800 rounded-lg font-mono text-xs whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed shadow-2xs">
+                        <pre className="p-2.5 bg-white border border-rose-200 text-rose-800 rounded-lg font-mono text-xs whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed shadow-2xs">
                           {executionError.message}
                         </pre>
                       </div>
@@ -2014,7 +2020,7 @@ export default function ProblemSolvingWorkspace() {
                       </div>
                     )}
 
-                    {/* Standard & Hidden Test Run Results */}
+                    {/* Standard & Hidden Test Run Results (Previous Card List Format) */}
                     {runResults && runResults.length > 0 ? (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between pb-1 border-b border-slate-100">

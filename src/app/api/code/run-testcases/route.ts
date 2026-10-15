@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     const includeHidden = body.include_hidden === true;
     let testCases = Array.isArray(test_cases)
-      ? (includeHidden ? test_cases : test_cases)
+      ? (includeHidden ? test_cases : test_cases.filter((tc: any) => !tc.is_hidden && !(tc as any).isHidden))
       : null;
     let datasetName = body.dataset_name || "university";
     let problem: any = null;

@@ -186,36 +186,9 @@ export class UniversalExecutor {
       const startTime = Date.now();
       const className = sourceInfo.entryClass || "Main";
 
-      const javacArgs = [sourceInfo.filename];
-      const v = (version || "").toLowerCase().trim();
-      if (v === "17" || v === "java17") {
-        javacArgs.unshift("--release", "17");
-      } else if (v === "21" || v === "java21") {
-        javacArgs.unshift("--release", "21");
-      }
-
-      const javac = cp.spawn("javac", javacArgs, { cwd: tempDir });
-      let compileErr = "";
-
-      javac.stderr?.on("data", (d: any) => { compileErr += d.toString(); });
-      javac.on("close", (cc: number | null) => {
-        if (cc !== 0) {
-          const sanitizedErr = sanitizeCompilerOutput(compileErr, sourceInfo.filename);
-          return resolve({
-            stdout: "",
-            stderr: sanitizedErr,
-            compile_output: sanitizedErr,
-            message: "Compilation Error",
-            status: { id: 6, description: "COMPILE_ERROR" },
-            outcome: 11,
-            time: "0.00",
-            memory: 0,
-            filename: sourceInfo.filename,
-            language: "java",
-          });
-        }
-
-        const javaProc = cp.spawn("java", ["-cp", ".", className], { cwd: tempDir });
+      // Runs the compiled Java class
+      const runJavaProcess = (extraArgs: string[] = []) => {
+        const javaProc = cp.spawn("java", [...extraArgs, "-cp", ".", className], { cwd: tempDir });
         let stdout = "";
         let stderr = "";
         let timedOut = false;
@@ -258,11 +231,52 @@ export class UniversalExecutor {
           clearTimeout(timer);
           resolve(this.createInternalError(err.message, sourceInfo.filename, "java"));
         });
-      });
+      };
 
-      javac.on("error", (err: Error) => {
-        resolve(this.createInternalError(`javac: ${err.message}`, sourceInfo.filename, "java"));
-      });
+      // Compiles code with javac; auto-retries with unrestricted or preview flags if necessary
+      const compileWithJavac = (args: string[], isRetry: boolean = false) => {
+        const javac = cp.spawn("javac", args, { cwd: tempDir });
+        let compileErr = "";
+
+        javac.stderr?.on("data", (d: any) => { compileErr += d.toString(); });
+        javac.on("close", (cc: number | null) => {
+          if (cc === 0) {
+            const hasPreview = args.includes("--enable-preview");
+            return runJavaProcess(hasPreview ? ["--enable-preview"] : []);
+          }
+
+          // If restricted release flag was passed and failed on newer syntax, retry unrestricted
+          if (!isRetry && args.includes("--release")) {
+            return compileWithJavac([sourceInfo.filename], true);
+          }
+
+          // If modern preview features were detected, retry with --enable-preview --release 25
+          if (!isRetry && (compileErr.includes("preview feature") || compileErr.includes("--enable-preview"))) {
+            return compileWithJavac(["--enable-preview", "--release", "25", sourceInfo.filename], true);
+          }
+
+          const sanitizedErr = sanitizeCompilerOutput(compileErr, sourceInfo.filename);
+          return resolve({
+            stdout: "",
+            stderr: sanitizedErr,
+            compile_output: sanitizedErr,
+            message: "Compilation Error",
+            status: { id: 6, description: "COMPILE_ERROR" },
+            outcome: 11,
+            time: "0.00",
+            memory: 0,
+            filename: sourceInfo.filename,
+            language: "java",
+          });
+        });
+
+        javac.on("error", (err: Error) => {
+          resolve(this.createInternalError(`javac: ${err.message}`, sourceInfo.filename, "java"));
+        });
+      };
+
+      // By default compile unconstrained so user code in any Java version (8 to 25) compiles naturally
+      compileWithJavac([sourceInfo.filename]);
     });
   }
 

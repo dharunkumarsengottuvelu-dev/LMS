@@ -239,7 +239,7 @@ function adaptJavaCode(code: string): string {
     src = `import java.util.*;\nimport java.io.*;\n${src}`;
   }
 
-  const hasMain = /\bpublic\s+static\s+void\s+main\s*\(\s*String\s*\[\s*\]\s*[A-Za-z0-9_]+\s*\)/.test(src);
+  const hasMain = /\b(?:public\s+)?(?:static\s+)?void\s+main\s*\([^)]*\)/.test(src);
   const hasClass = /\bclass\s+([A-Za-z0-9_]+)/.test(src);
 
   // If no class exists at all (just loose code)
