@@ -556,16 +556,54 @@ export function CodeEditor({
   }, [submissionResult, scrollToConsole]);
 
   const allowedLanguages = useMemo(() => {
-    const starter = (problem as any)?.starter_code || {};
+    const starter = typeof (problem as any)?.starter_code === "object" && (problem as any)?.starter_code !== null
+      ? (problem as any).starter_code
+      : (typeof (problem as any)?.starter_code === "string" ? (() => { try { return JSON.parse((problem as any).starter_code); } catch { return {}; } })() : {});
+
     const raw =
       (problem as any)?.allowed_languages ||
       (problem as any)?.allowedLanguages ||
       starter.allowed_languages ||
       starter.allowedLanguages;
 
-    if (Array.isArray(raw) && raw.length > 0) {
-      return raw as CodingLanguage[];
+    let parsed: string[] = [];
+    if (Array.isArray(raw)) {
+      parsed = raw.map((l: any) => String(l).toLowerCase().trim()).filter(Boolean);
+    } else if (typeof raw === "string" && raw.trim()) {
+      try {
+        const jsonArr = JSON.parse(raw);
+        if (Array.isArray(jsonArr)) {
+          parsed = jsonArr.map((l: any) => String(l).toLowerCase().trim()).filter(Boolean);
+        } else {
+          parsed = raw.split(/[,|;\s]+/).map(s => s.toLowerCase().trim()).filter(Boolean);
+        }
+      } catch {
+        parsed = raw.split(/[,|;\s]+/).map(s => s.toLowerCase().trim()).filter(Boolean);
+      }
     }
+
+    if (parsed.length > 0) {
+      return Array.from(new Set(parsed)) as CodingLanguage[];
+    }
+
+    const defLang =
+      (problem as any)?.default_language ||
+      (problem as any)?.defaultLanguage ||
+      starter.default_language ||
+      starter.defaultLanguage ||
+      (problem as any)?.language ||
+      starter.language;
+
+    if (
+      defLang &&
+      ((problem as any)?.language_mode === "single" ||
+        starter.language_mode === "single" ||
+        (problem as any)?.language ||
+        starter.language)
+    ) {
+      return [String(defLang).toLowerCase().trim()] as CodingLanguage[];
+    }
+
     if (problem?.templates && Object.keys(problem.templates).length > 0) {
       return Object.keys(problem.templates) as CodingLanguage[];
     }

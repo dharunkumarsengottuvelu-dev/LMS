@@ -99,13 +99,48 @@ export async function GET(request: NextRequest) {
 
     // 3. Map DB rows to CodingProblem domain models
     const problems: CodingProblem[] = dbProblems.map((p: any, idx: number) => {
-      const extra = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
-      const sol = typeof p.solution_code === "object" && p.solution_code !== null ? p.solution_code : {};
+      let extra = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
+      if (typeof p.starter_code === "string") {
+        try {
+          extra = JSON.parse(p.starter_code);
+        } catch {
+          extra = {};
+        }
+      }
+      let sol = typeof p.solution_code === "object" && p.solution_code !== null ? p.solution_code : {};
+      if (typeof p.solution_code === "string") {
+        try {
+          sol = JSON.parse(p.solution_code);
+        } catch {
+          sol = {};
+        }
+      }
       const dbTc = testCasesByProblem.get(p.id);
       const sampleTc = Array.isArray(extra.sample_test_cases) ? extra.sample_test_cases : [];
       const hiddenTc = Array.isArray(extra.hidden_test_cases) ? extra.hidden_test_cases : [];
       const combinedTc = [...sampleTc, ...hiddenTc];
       const tcList = (dbTc && dbTc.length > 0) ? dbTc : (combinedTc.length > 0 ? combinedTc : (extra.test_cases || []));
+
+      const rawAllowed = extra.allowed_languages || extra.allowedLanguages;
+      let finalAllowed: string[] | undefined = undefined;
+      if (Array.isArray(rawAllowed)) {
+        finalAllowed = rawAllowed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+      } else if (typeof rawAllowed === "string" && rawAllowed.trim()) {
+        try {
+          const parsed = JSON.parse(rawAllowed);
+          if (Array.isArray(parsed)) {
+            finalAllowed = parsed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+          } else {
+            finalAllowed = rawAllowed.split(/[,|;\s]+/).map(s => s.toLowerCase().trim()).filter(Boolean);
+          }
+        } catch {
+          finalAllowed = rawAllowed.split(/[,|;\s]+/).map(s => s.toLowerCase().trim()).filter(Boolean);
+        }
+      } else if (extra.templates && Object.keys(extra.templates).length > 0) {
+        finalAllowed = Object.keys(extra.templates);
+      }
+
+      const defaultLang = extra.default_language || (finalAllowed?.[0]) || undefined;
 
       return {
         id: p.id,
@@ -124,9 +159,9 @@ export async function GET(request: NextRequest) {
         example_cases: extra.example_cases || [],
         solution_editorial: sol.overview ? sol : extra.solution_editorial,
         templates: extra.templates || {},
-        allowed_languages: extra.allowed_languages || extra.allowedLanguages || (extra.templates ? Object.keys(extra.templates) : undefined),
-        allowedLanguages: extra.allowedLanguages || extra.allowed_languages || (extra.templates ? Object.keys(extra.templates) : undefined),
-        default_language: extra.default_language || undefined,
+        allowed_languages: finalAllowed,
+        allowedLanguages: finalAllowed,
+        default_language: defaultLang,
         function_signature: extra.function_signature || "",
         test_cases: tcList,
         status: p.status || "published",

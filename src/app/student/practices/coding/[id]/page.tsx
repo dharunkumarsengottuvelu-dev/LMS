@@ -72,37 +72,51 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ),
 });
 
+export function normalizeLanguageId(raw: string): string {
+  if (!raw) return "";
+  const cleaned = raw.toLowerCase().trim();
+  switch (cleaned) {
+    case "c++":
+      return "cpp";
+    case "c#":
+    case "c sharp":
+      return "csharp";
+    case "js":
+      return "javascript";
+    case "ts":
+      return "typescript";
+    case "py":
+    case "py3":
+    case "python3":
+      return "python";
+    case "golang":
+      return "go";
+    case "shell":
+    case "sh":
+      return "bash";
+    default:
+      return cleaned;
+  }
+}
+
 export const SUPPORTED_LANGUAGES: { id: CodingLanguage; name: string; monacoLang: string; defaultTemplate: string }[] = [
-  {
-    id: "c",
-    name: "C",
-    monacoLang: "c",
-    defaultTemplate: "",
-  },
-  {
-    id: "cpp",
-    name: "C++",
-    monacoLang: "cpp",
-    defaultTemplate: "",
-  },
-  {
-    id: "python",
-    name: "Python",
-    monacoLang: "python",
-    defaultTemplate: "",
-  },
-  {
-    id: "java",
-    name: "Java",
-    monacoLang: "java",
-    defaultTemplate: "",
-  },
-  {
-    id: "javascript",
-    name: "JavaScript",
-    monacoLang: "javascript",
-    defaultTemplate: "",
-  },
+  { id: "java", name: "Java", monacoLang: "java", defaultTemplate: "" },
+  { id: "python", name: "Python", monacoLang: "python", defaultTemplate: "" },
+  { id: "cpp", name: "C++", monacoLang: "cpp", defaultTemplate: "" },
+  { id: "c", name: "C", monacoLang: "c", defaultTemplate: "" },
+  { id: "javascript", name: "JavaScript", monacoLang: "javascript", defaultTemplate: "" },
+  { id: "typescript", name: "TypeScript", monacoLang: "typescript", defaultTemplate: "" },
+  { id: "csharp", name: "C#", monacoLang: "csharp", defaultTemplate: "" },
+  { id: "sql", name: "SQL", monacoLang: "sql", defaultTemplate: "" },
+  { id: "go", name: "Go", monacoLang: "go", defaultTemplate: "" },
+  { id: "rust", name: "Rust", monacoLang: "rust", defaultTemplate: "" },
+  { id: "kotlin", name: "Kotlin", monacoLang: "kotlin", defaultTemplate: "" },
+  { id: "php", name: "PHP", monacoLang: "php", defaultTemplate: "" },
+  { id: "ruby", name: "Ruby", monacoLang: "ruby", defaultTemplate: "" },
+  { id: "swift", name: "Swift", monacoLang: "swift", defaultTemplate: "" },
+  { id: "scala", name: "Scala", monacoLang: "scala", defaultTemplate: "" },
+  { id: "dart", name: "Dart", monacoLang: "dart", defaultTemplate: "" },
+  { id: "bash", name: "Bash", monacoLang: "shell", defaultTemplate: "" },
 ];
 
 function toDeterministicUUID(str: string): string {
@@ -137,7 +151,14 @@ function matchesProblemSubmission(s: any, pId: string, pSlug?: string): boolean 
 
 function normalizeProblem(p: any, index: number) {
   if (!p) return null;
-  const starter = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
+  let starter = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
+  if (typeof p.starter_code === "string") {
+    try {
+      starter = JSON.parse(p.starter_code);
+    } catch {
+      starter = {};
+    }
+  }
   const templates = p.templates || starter.templates || {};
   const sampleCases = extractSampleTestCases(p);
   const examples =
@@ -155,6 +176,24 @@ function normalizeProblem(p: any, index: number) {
     (Array.isArray(starter.test_cases) && starter.test_cases.length > 0 ? starter.test_cases : null) ||
     sampleCases;
 
+  const rawAllowed = p.allowed_languages || p.allowedLanguages || starter.allowed_languages || starter.allowedLanguages;
+  let parsedAllowed: string[] | undefined = undefined;
+  if (Array.isArray(rawAllowed)) {
+    parsedAllowed = rawAllowed.map((l: any) => normalizeLanguageId(String(l))).filter(Boolean);
+  } else if (typeof rawAllowed === "string" && rawAllowed.trim()) {
+    try {
+      const arr = JSON.parse(rawAllowed);
+      if (Array.isArray(arr)) parsedAllowed = arr.map((l: any) => normalizeLanguageId(String(l))).filter(Boolean);
+      else parsedAllowed = rawAllowed.split(/[,|;\s]+/).map(normalizeLanguageId).filter(Boolean);
+    } catch {
+      parsedAllowed = rawAllowed.split(/[,|;\s]+/).map(normalizeLanguageId).filter(Boolean);
+    }
+  } else if (templates && Object.keys(templates).length > 0) {
+    parsedAllowed = Object.keys(templates).map(normalizeLanguageId).filter(Boolean);
+  }
+
+  const defLang = p.default_language || p.defaultLanguage || starter.default_language || starter.defaultLanguage || p.language || starter.language || parsedAllowed?.[0] || "java";
+
   return {
     ...p,
     id: String(p.id || `problem_${index + 1}`),
@@ -169,8 +208,14 @@ function normalizeProblem(p: any, index: number) {
     starter_code: {
       ...starter,
       templates,
+      allowed_languages: parsedAllowed,
+      default_language: defLang,
     },
     templates,
+    allowed_languages: parsedAllowed,
+    allowedLanguages: parsedAllowed,
+    default_language: defLang,
+    defaultLanguage: defLang,
     sample_test_cases: sampleCases,
     sampleTestCases: sampleCases,
     test_cases: allDirectCases,
@@ -689,27 +734,65 @@ export default function StudentPracticeCodingRunnerPage() {
   // ─── LANGUAGE RESTRICTIONS: SINGLE vs MULTI vs ALL ─────────────────────────
   const allowedLanguages: string[] = useMemo(() => {
     if (!currentProblem) return [];
-    const starter = currentProblem.starter_code || {};
+    const starter = typeof currentProblem.starter_code === "object" && currentProblem.starter_code !== null
+      ? currentProblem.starter_code
+      : (typeof currentProblem.starter_code === "string" ? (() => { try { return JSON.parse(currentProblem.starter_code); } catch { return {}; } })() : {});
+
     const raw =
       currentProblem.allowed_languages ||
       currentProblem.allowedLanguages ||
       starter.allowed_languages ||
-      starter.allowedLanguages ||
-      (currentProblem.templates ? Object.keys(currentProblem.templates) : null) ||
-      (starter.templates ? Object.keys(starter.templates) : null);
+      starter.allowedLanguages;
 
-    if (Array.isArray(raw) && raw.length > 0) {
-      return raw.map((l: string) => String(l).toLowerCase().trim());
+    let parsed: string[] = [];
+    if (Array.isArray(raw)) {
+      parsed = raw.map((l: any) => normalizeLanguageId(String(l))).filter(Boolean);
+    } else if (typeof raw === "string" && raw.trim()) {
+      try {
+        const jsonArr = JSON.parse(raw);
+        if (Array.isArray(jsonArr)) {
+          parsed = jsonArr.map((l: any) => normalizeLanguageId(String(l))).filter(Boolean);
+        } else {
+          parsed = raw.split(/[,|;\s]+/).map(normalizeLanguageId).filter(Boolean);
+        }
+      } catch {
+        parsed = raw.split(/[,|;\s]+/).map(normalizeLanguageId).filter(Boolean);
+      }
+    }
+
+    if (parsed.length > 0) {
+      return Array.from(new Set(parsed));
     }
 
     const defLang =
       currentProblem.default_language ||
       currentProblem.defaultLanguage ||
       starter.default_language ||
-      starter.defaultLanguage;
+      starter.defaultLanguage ||
+      currentProblem.language ||
+      starter.language;
 
-    if (defLang && (currentProblem.language_mode === "single" || starter.language_mode === "single")) {
-      return [String(defLang).toLowerCase().trim()];
+    if (
+      defLang &&
+      (currentProblem.language_mode === "single" ||
+        starter.language_mode === "single" ||
+        currentProblem.language ||
+        starter.language)
+    ) {
+      return [normalizeLanguageId(String(defLang))];
+    }
+
+    // Check if templates has restricted keys (e.g. only 1 or 2 specific languages provided)
+    const probTemplates = currentProblem.templates || starter.templates;
+    if (probTemplates && typeof probTemplates === "object" && Object.keys(probTemplates).length > 0) {
+      const keys = Object.keys(probTemplates).map(normalizeLanguageId).filter(Boolean);
+      if (keys.length > 0) {
+        return Array.from(new Set(keys));
+      }
+    }
+
+    if (defLang) {
+      return [normalizeLanguageId(String(defLang))];
     }
 
     return [];
@@ -717,8 +800,21 @@ export default function StudentPracticeCodingRunnerPage() {
 
   const availableLanguages = useMemo(() => {
     if (allowedLanguages.length > 0) {
-      const filtered = SUPPORTED_LANGUAGES.filter((l) => allowedLanguages.includes(l.id.toLowerCase()));
+      const allowedSet = new Set(allowedLanguages.map(normalizeLanguageId));
+      const filtered = SUPPORTED_LANGUAGES.filter((l) => allowedSet.has(normalizeLanguageId(l.id)));
       if (filtered.length > 0) return filtered;
+
+      // Dynamic fallback for any custom language not in predefined list
+      return allowedLanguages.map((id) => {
+        const norm = normalizeLanguageId(id);
+        const match = SUPPORTED_LANGUAGES.find((l) => normalizeLanguageId(l.id) === norm);
+        return match || {
+          id: norm as CodingLanguage,
+          name: norm.toUpperCase(),
+          monacoLang: norm === "sql" ? "sql" : norm === "bash" ? "shell" : norm,
+          defaultTemplate: "",
+        };
+      });
     }
     return SUPPORTED_LANGUAGES;
   }, [allowedLanguages]);
@@ -734,16 +830,21 @@ export default function StudentPracticeCodingRunnerPage() {
     if (!currentProblem) return;
 
     // Resolve default language honoring single/multi allowed languages
-    const starter = currentProblem.starter_code || {};
+    const starter = typeof currentProblem.starter_code === "object" && currentProblem.starter_code !== null
+      ? currentProblem.starter_code
+      : {};
     const configuredDefault =
       currentProblem.default_language ||
       currentProblem.defaultLanguage ||
       starter.default_language ||
-      starter.defaultLanguage;
+      starter.defaultLanguage ||
+      currentProblem.language ||
+      starter.language;
 
-    let initialLang: CodingLanguage = (configuredDefault && availableLanguages.some((l) => l.id === configuredDefault)
-      ? configuredDefault
-      : availableLanguages[0]?.id || "c") as CodingLanguage;
+    const normDef = configuredDefault ? normalizeLanguageId(String(configuredDefault)) : null;
+    let initialLang: CodingLanguage = (normDef && availableLanguages.some((l) => normalizeLanguageId(l.id) === normDef)
+      ? (availableLanguages.find((l) => normalizeLanguageId(l.id) === normDef)?.id || availableLanguages[0]?.id || "java")
+      : availableLanguages[0]?.id || "java") as CodingLanguage;
 
     setSelectedLanguage(initialLang);
 
@@ -1729,29 +1830,22 @@ export default function StudentPracticeCodingRunnerPage() {
                 </div>
               ) : (
                 <>
-                  {/* Language selector: Single Language (fixed/locked) vs Multi Language (filtered dropdown) */}
-                  {availableLanguages.length === 1 ? (
-                    <div className="h-8 px-2.5 sm:px-3 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-800 flex items-center gap-1.5 shadow-2xs select-none">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" />
-                      <span className="font-bold">{availableLanguages[0]?.name || "Language"}</span>
-                    </div>
-                  ) : (
-                    <Select
-                      value={selectedLanguage}
-                      onValueChange={(val: any) => handleLanguageChange(val as CodingLanguage)}
-                    >
-                      <SelectTrigger className="h-8 px-2 sm:px-3 text-xs font-semibold bg-white border-slate-200 rounded-lg min-w-[85px] sm:min-w-[95px] text-slate-800 shadow-2xs cursor-pointer">
-                        <SelectValue placeholder="Select Language" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border-slate-200 text-xs">
-                        {availableLanguages.map((lang) => (
-                          <SelectItem key={lang.id} value={lang.id} className="text-xs font-medium cursor-pointer">
-                            {lang.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  {/* Language selector: strictly restricted to admin-specified allowed languages */}
+                  <Select
+                    value={selectedLanguage}
+                    onValueChange={(val: any) => handleLanguageChange(val as CodingLanguage)}
+                  >
+                    <SelectTrigger className="h-8 px-2 sm:px-3 text-xs font-semibold bg-white border-slate-200 rounded-lg min-w-[85px] sm:min-w-[95px] text-slate-800 shadow-2xs cursor-pointer">
+                      <SelectValue placeholder="Select Language" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-slate-200 text-xs">
+                      {availableLanguages.map((lang) => (
+                        <SelectItem key={lang.id} value={lang.id} className="text-xs font-medium cursor-pointer">
+                          {lang.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
                   {/* Reset Code */}
                   <Button

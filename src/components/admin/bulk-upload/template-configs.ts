@@ -881,7 +881,7 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
     }
 
     // Determine Language Scope & Templates
-    const templates: Record<string, string> = {};
+    let templates: Record<string, string> = {};
 
     // 1. Check for language-specific starter code columns (e.g. python_starter_code, java_starter_code, etc.)
     CODING_LANGUAGES.forEach(l => {
@@ -916,11 +916,25 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
     // 4. Allowed Languages resolution
     let allowed_languages: string[] | undefined = undefined;
     if (row.allowed_languages) {
-      allowed_languages = String(row.allowed_languages).split(/[,|\s]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+      allowed_languages = String(row.allowed_languages)
+        .split(/[,|;\s]+/)
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
     } else if (mode === "single") {
       allowed_languages = [singleLang];
-    } else if (mode === "multi") {
-      allowed_languages = multiLangs && multiLangs.length > 0 ? multiLangs : (Object.keys(templates).length > 0 ? Object.keys(templates) : ["python", "java", "cpp"]);
+    } else if (mode === "multi" && multiLangs && multiLangs.length > 0) {
+      allowed_languages = multiLangs;
+    } else if (matchedLang) {
+      allowed_languages = [matchedLang];
+    }
+
+    // Retain only templates for allowed languages if restricted
+    if (allowed_languages && allowed_languages.length > 0) {
+      const prunedTemplates: Record<string, string> = {};
+      allowed_languages.forEach(lId => {
+        prunedTemplates[lId] = templates[lId] || CODING_LANGUAGE_STARTERS[lId] || "";
+      });
+      templates = prunedTemplates;
     }
 
     // 5. Default Language resolution

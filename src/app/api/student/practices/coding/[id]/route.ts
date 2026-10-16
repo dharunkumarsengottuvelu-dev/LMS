@@ -40,7 +40,14 @@ export async function GET(
       return NextResponse.json({ error: "Coding problem not found" }, { status: 404 });
     }
 
-    const starter = typeof problem.starter_code === "object" && problem.starter_code !== null ? problem.starter_code : {};
+    let starter = typeof problem.starter_code === "object" && problem.starter_code !== null ? problem.starter_code : {};
+    if (typeof problem.starter_code === "string") {
+      try {
+        starter = JSON.parse(problem.starter_code);
+      } catch {
+        starter = {};
+      }
+    }
 
     // Filter public test cases safely
     let publicTestCases = extractSampleTestCases(problem);
@@ -61,6 +68,32 @@ export async function GET(
         }));
       }
     }
+
+    // Strictly resolve allowed languages
+    const rawAllowed = starter.allowed_languages || starter.allowedLanguages || problem.allowed_languages || (problem as any).allowedLanguages;
+    let finalAllowed: string[] | undefined = undefined;
+    if (Array.isArray(rawAllowed)) {
+      finalAllowed = rawAllowed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+    } else if (typeof rawAllowed === "string" && rawAllowed.trim()) {
+      try {
+        const parsed = JSON.parse(rawAllowed);
+        if (Array.isArray(parsed)) {
+          finalAllowed = parsed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+        } else {
+          finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
+        }
+      } catch {
+        finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
+      }
+    } else if (starter.templates && Object.keys(starter.templates).length > 0) {
+      finalAllowed = Object.keys(starter.templates);
+    } else if (problem.templates && Object.keys(problem.templates).length > 0) {
+      finalAllowed = Object.keys(problem.templates);
+    } else if (starter.default_language) {
+      finalAllowed = [starter.default_language.toLowerCase().trim()];
+    }
+
+    const defaultLang = starter.default_language || (finalAllowed?.[0]) || (problem as any).default_language || "java";
 
     // Fetch student's latest submission for this problem
     const { data: latestSubmission } = await adminClient
@@ -88,9 +121,10 @@ export async function GET(
         timeLimitMs: problem.time_limit_ms || 2000,
         memoryLimitKb: (problem.memory_limit_mb ? problem.memory_limit_mb * 1024 : 262144),
         templates: starter.templates || problem.templates || {},
-        allowedLanguages: starter.allowed_languages || starter.allowedLanguages || (starter.templates ? Object.keys(starter.templates) : undefined),
-        allowed_languages: starter.allowed_languages || starter.allowedLanguages || (starter.templates ? Object.keys(starter.templates) : undefined),
-        defaultLanguage: starter.default_language || (starter.allowed_languages?.[0]) || "java",
+        allowedLanguages: finalAllowed,
+        allowed_languages: finalAllowed,
+        defaultLanguage: defaultLang,
+        default_language: defaultLang,
         sampleTestCases: publicTestCases,
         test_cases: publicTestCases,
       },

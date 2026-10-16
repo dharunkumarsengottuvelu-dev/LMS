@@ -137,12 +137,43 @@ export async function GET(
 
       if (codingProblems && !cpErr) {
         codingProblems.forEach((cp: any) => {
-          const extra = typeof cp.starter_code === "object" && cp.starter_code !== null ? cp.starter_code : {};
+          let extra = typeof cp.starter_code === "object" && cp.starter_code !== null ? cp.starter_code : {};
+          if (typeof cp.starter_code === "string") {
+            try {
+              extra = JSON.parse(cp.starter_code);
+            } catch {
+              extra = {};
+            }
+          }
           const modId = extra.assessment_id || extra.module_id;
           if (modId && allModuleIds.includes(modId)) {
             if (!codingProblemsMap[modId]) {
               codingProblemsMap[modId] = [];
             }
+
+            const rawAllowed = extra.allowed_languages || extra.allowedLanguages || cp.allowed_languages || (cp as any).allowedLanguages;
+            let finalAllowed: string[] | undefined = undefined;
+            if (Array.isArray(rawAllowed)) {
+              finalAllowed = rawAllowed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+            } else if (typeof rawAllowed === "string" && rawAllowed.trim()) {
+              try {
+                const parsed = JSON.parse(rawAllowed);
+                if (Array.isArray(parsed)) {
+                  finalAllowed = parsed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+                } else {
+                  finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
+                }
+              } catch {
+                finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
+              }
+            } else if (extra.templates && Object.keys(extra.templates).length > 0) {
+              finalAllowed = Object.keys(extra.templates);
+            } else if (extra.default_language) {
+              finalAllowed = [extra.default_language.toLowerCase().trim()];
+            }
+
+            const defaultLang = extra.default_language || (finalAllowed?.[0]) || "java";
+
             codingProblemsMap[modId].push({
               id: cp.id,
               title: cp.title,
@@ -161,8 +192,10 @@ export async function GET(
               input_format: extra.input_format || "",
               output_format: extra.output_format || "",
               points: extra.points || 100,
-              allowed_languages: extra.allowed_languages || ["c", "python", "java", "cpp"],
-              default_language: extra.default_language || "c",
+              allowed_languages: finalAllowed,
+              allowedLanguages: finalAllowed,
+              default_language: defaultLang,
+              defaultLanguage: defaultLang,
             });
           }
         });

@@ -700,8 +700,22 @@ export function PracticeRunnerEngine({
 
     const sampleTc = testCases.find(tc => !tc.is_hidden) || testCases[0];
 
-    const effectiveAllowed = (currentQuestion as any).allowedLanguages ||
-      (currentQuestion as any).allowed_languages ||
+    const qAllowed = (currentQuestion as any).allowedLanguages || (currentQuestion as any).allowed_languages;
+    let parsedQAllowed: string[] | undefined = undefined;
+    if (Array.isArray(qAllowed)) {
+      parsedQAllowed = qAllowed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+    } else if (typeof qAllowed === "string" && qAllowed.trim()) {
+      try {
+        const arr = JSON.parse(qAllowed);
+        if (Array.isArray(arr)) parsedQAllowed = arr.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+        else parsedQAllowed = qAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
+      } catch {
+        parsedQAllowed = qAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
+      }
+    }
+
+    const effectiveAllowed = (parsedQAllowed && parsedQAllowed.length > 0 ? parsedQAllowed : undefined) ||
+      ((currentQuestion as any).language ? [String((currentQuestion as any).language).toLowerCase().trim()] : undefined) ||
       module?.allowedLanguages ||
       (module?.languageMode === "single" && module?.defaultLanguage ? [module.defaultLanguage] : undefined);
 

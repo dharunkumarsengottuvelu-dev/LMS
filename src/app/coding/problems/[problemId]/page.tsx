@@ -247,6 +247,33 @@ const SUPPORTED_LANGUAGES: SupportedLanguageItem[] = [
   },
 ];
 
+function normalizeLanguageId(raw: string): string {
+  if (!raw) return "";
+  const cleaned = raw.toLowerCase().trim();
+  switch (cleaned) {
+    case "c++":
+      return "cpp";
+    case "c#":
+    case "c sharp":
+      return "csharp";
+    case "js":
+      return "javascript";
+    case "ts":
+      return "typescript";
+    case "py":
+    case "py3":
+    case "python3":
+      return "python";
+    case "golang":
+      return "go";
+    case "shell":
+    case "sh":
+      return "bash";
+    default:
+      return cleaned;
+  }
+}
+
 export default function ProblemSolvingWorkspace() {
   const params = useParams();
   const router = useRouter();
@@ -495,27 +522,64 @@ export default function ProblemSolvingWorkspace() {
   // ─── LANGUAGE RESTRICTIONS: SINGLE vs MULTI vs ALL ─────────────────────────
   const allowedLanguages: string[] = useMemo(() => {
     if (!problem) return [];
-    const starter = (problem as any).starter_code || {};
+    const starter = typeof (problem as any).starter_code === "object" && (problem as any).starter_code !== null
+      ? (problem as any).starter_code
+      : (typeof (problem as any).starter_code === "string" ? (() => { try { return JSON.parse((problem as any).starter_code); } catch { return {}; } })() : {});
+
     const raw =
       (problem as any).allowed_languages ||
       (problem as any).allowedLanguages ||
       starter.allowed_languages ||
-      starter.allowedLanguages ||
-      (problem.templates ? Object.keys(problem.templates) : null) ||
-      (starter.templates ? Object.keys(starter.templates) : null);
+      starter.allowedLanguages;
 
-    if (Array.isArray(raw) && raw.length > 0) {
-      return raw.map((l: string) => String(l).toLowerCase().trim());
+    let parsed: string[] = [];
+    if (Array.isArray(raw)) {
+      parsed = raw.map((l: any) => normalizeLanguageId(String(l))).filter(Boolean);
+    } else if (typeof raw === "string" && raw.trim()) {
+      try {
+        const jsonArr = JSON.parse(raw);
+        if (Array.isArray(jsonArr)) {
+          parsed = jsonArr.map((l: any) => normalizeLanguageId(String(l))).filter(Boolean);
+        } else {
+          parsed = raw.split(/[,|;\s]+/).map(normalizeLanguageId).filter(Boolean);
+        }
+      } catch {
+        parsed = raw.split(/[,|;\s]+/).map(normalizeLanguageId).filter(Boolean);
+      }
+    }
+
+    if (parsed.length > 0) {
+      return Array.from(new Set(parsed));
     }
 
     const defLang =
       (problem as any).default_language ||
       (problem as any).defaultLanguage ||
       starter.default_language ||
-      starter.defaultLanguage;
+      starter.defaultLanguage ||
+      (problem as any).language ||
+      starter.language;
 
-    if (defLang && ((problem as any).language_mode === "single" || starter.language_mode === "single")) {
-      return [String(defLang).toLowerCase().trim()];
+    if (
+      defLang &&
+      ((problem as any).language_mode === "single" ||
+        starter.language_mode === "single" ||
+        (problem as any).language ||
+        starter.language)
+    ) {
+      return [normalizeLanguageId(String(defLang))];
+    }
+
+    const probTemplates = problem.templates || starter.templates;
+    if (probTemplates && typeof probTemplates === "object" && Object.keys(probTemplates).length > 0) {
+      const keys = Object.keys(probTemplates).map(normalizeLanguageId).filter(Boolean);
+      if (keys.length > 0) {
+        return Array.from(new Set(keys));
+      }
+    }
+
+    if (defLang) {
+      return [normalizeLanguageId(String(defLang))];
     }
 
     return [];
@@ -523,8 +587,22 @@ export default function ProblemSolvingWorkspace() {
 
   const availableLanguages = useMemo(() => {
     if (allowedLanguages.length > 0) {
-      const filtered = SUPPORTED_LANGUAGES.filter((l) => allowedLanguages.includes(l.id.toLowerCase()));
+      const allowedSet = new Set(allowedLanguages.map(normalizeLanguageId));
+      const filtered = SUPPORTED_LANGUAGES.filter((l) => allowedSet.has(normalizeLanguageId(l.id)));
       if (filtered.length > 0) return filtered;
+
+      return allowedLanguages.map((id) => {
+        const norm = normalizeLanguageId(id);
+        const match = SUPPORTED_LANGUAGES.find((l) => normalizeLanguageId(l.id) === norm);
+        return match || {
+          id: norm as CodingLanguage,
+          name: norm.toUpperCase(),
+          monacoLang: norm === "sql" ? "sql" : norm === "bash" ? "shell" : norm,
+          label: norm.toUpperCase(),
+          version: "",
+          supportedVersions: [],
+        };
+      });
     }
     return SUPPORTED_LANGUAGES;
   }, [allowedLanguages]);
@@ -533,21 +611,26 @@ export default function ProblemSolvingWorkspace() {
   useEffect(() => {
     if (!problem) return;
 
-    const starter = (problem as any).starter_code || {};
+    const starter = typeof (problem as any).starter_code === "object" && (problem as any).starter_code !== null
+      ? (problem as any).starter_code
+      : {};
     const configuredDefault =
       (problem as any).default_language ||
       (problem as any).defaultLanguage ||
       starter.default_language ||
-      starter.defaultLanguage;
+      starter.defaultLanguage ||
+      (problem as any).language ||
+      starter.language;
 
+    const normDef = configuredDefault ? normalizeLanguageId(String(configuredDefault)) : null;
     const saved = CodingProgressService.getProblemState(problem.id);
-    const targetSavedLang = saved?.language;
+    const targetSavedLang = saved?.language ? normalizeLanguageId(saved.language) : null;
 
     const lang: CodingLanguage = (
-      targetSavedLang && availableLanguages.some((l) => l.id === targetSavedLang)
-        ? targetSavedLang
-        : (configuredDefault && availableLanguages.some((l) => l.id === configuredDefault))
-        ? configuredDefault
+      targetSavedLang && availableLanguages.some((l) => normalizeLanguageId(l.id) === targetSavedLang)
+        ? (availableLanguages.find((l) => normalizeLanguageId(l.id) === targetSavedLang)?.id || availableLanguages[0]?.id || "java")
+        : (normDef && availableLanguages.some((l) => normalizeLanguageId(l.id) === normDef))
+        ? (availableLanguages.find((l) => normalizeLanguageId(l.id) === normDef)?.id || availableLanguages[0]?.id || "java")
         : availableLanguages[0]?.id || "java"
     ) as CodingLanguage;
 
