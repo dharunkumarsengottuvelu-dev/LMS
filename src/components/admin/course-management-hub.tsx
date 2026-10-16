@@ -312,6 +312,7 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   // Multi-Step Wizard State
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
 
   // Step 1: Course Metadata
   const [fTitle, setFTitle]           = useState("");
@@ -951,6 +952,27 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
       // Fallback local removal
       setCourses((prev) => prev.filter((c) => c.id !== id));
       toast({ title: "Course Removed", description: title });
+    }
+  };
+
+  const handleBulkDeleteCourses = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    if (!confirm(`Are you sure you want to permanently delete ${ids.length} selected course${ids.length > 1 ? "s" : ""}?`)) return;
+
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/admin/courses?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null)
+        )
+      );
+      setCourses((prev) => prev.filter((c) => !ids.includes(c.id)));
+      setSelectedCourseIds([]);
+      toast({ title: "Courses Deleted", description: `Successfully removed ${ids.length} course${ids.length > 1 ? "s" : ""}.` });
+    } catch (err) {
+      console.error("Bulk delete courses error", err);
+      setCourses((prev) => prev.filter((c) => !ids.includes(c.id)));
+      setSelectedCourseIds([]);
+      toast({ title: "Courses Removed", description: `Removed ${ids.length} course${ids.length > 1 ? "s" : ""}.` });
     }
   };
 
@@ -2384,13 +2406,60 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
         </div>
       </div>
 
+      {/* Bulk Delete Toolbar for Courses */}
+      {selectedCourseIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl px-4 py-3 shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-md bg-red-600 text-white text-xs font-bold flex items-center justify-center">
+              {selectedCourseIds.length}
+            </span>
+            <span className="text-xs font-bold text-red-800 dark:text-red-300">
+              {selectedCourseIds.length === 1 ? "1 course selected" : `${selectedCourseIds.length} courses selected`}
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedCourseIds([])}
+              className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-zinc-400 underline cursor-pointer ml-1"
+            >
+              Clear selection
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => handleBulkDeleteCourses(selectedCourseIds)}
+              className="h-8 px-3.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete Selected ({selectedCourseIds.length})</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Course Linear Table */}
       <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-[#27272A] shadow-xs rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-[#27272A] bg-slate-50/70 dark:bg-[#09090B] text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                <th className="py-2.5 px-4 w-12">#</th>
+                <th className="py-2.5 px-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && filtered.every((c) => selectedCourseIds.includes(c.id))}
+                    onChange={() => {
+                      if (filtered.every((c) => selectedCourseIds.includes(c.id))) {
+                        setSelectedCourseIds([]);
+                      } else {
+                        setSelectedCourseIds(filtered.map((c) => c.id));
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                    title="Select all courses"
+                  />
+                </th>
+                <th className="py-2.5 px-2 w-10">#</th>
                 <th className="py-2.5 px-4">Course Title</th>
                 <th className="py-2.5 px-4 w-28">Category</th>
                 <th className="py-2.5 px-4 w-32">Instructor</th>
@@ -2403,8 +2472,25 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-[#27272A]">
               {filtered.map((course, idx) => (
-                <tr key={course.id} className="hover:bg-slate-50/70 dark:hover:bg-[#27272A]/40 transition-colors">
-                  <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-400">
+                <tr
+                  key={course.id}
+                  className={`hover:bg-slate-50/70 dark:hover:bg-[#27272A]/40 transition-colors ${
+                    selectedCourseIds.includes(course.id) ? "bg-blue-50/40 dark:bg-blue-950/20" : ""
+                  }`}
+                >
+                  <td className="py-3 px-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedCourseIds.includes(course.id)}
+                      onChange={() => {
+                        setSelectedCourseIds((prev) =>
+                          prev.includes(course.id) ? prev.filter((id) => id !== course.id) : [...prev, course.id]
+                        );
+                      }}
+                      className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                    />
+                  </td>
+                  <td className="py-3 px-2 font-mono text-xs font-semibold text-slate-400">
                     #{idx + 1}
                   </td>
 

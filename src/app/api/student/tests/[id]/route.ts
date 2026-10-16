@@ -96,40 +96,91 @@ export async function GET(
         };
       });
 
+      const rawType = String(q.type || "").toLowerCase().replace(/[\s_-]+/g, "");
+      const isExplicitCoding = rawType === "coding" || rawType === "code" || rawType === "programming";
+      const isExplicitMsq = rawType === "msq" || rawType === "multipleselect" || rawType === "multiselect" || rawType === "multiple";
+      const isExplicitMcq = rawType === "mcq" || rawType === "singlechoice" || rawType === "choice";
+
+      // If question has options text, it is an MCQ or MSQ
+      const hasOptions = optionsArray.length > 0 && optionsArray.some((opt: string) => opt.trim() !== "");
+      const validTestCases = sanitizedTestCases.filter((tc: any) => String(tc.input || "").trim() !== "" || String(tc.output || "").trim() !== "");
+
+      let resolvedType: "coding" | "mcq" | "msq" = "mcq";
+      if (isExplicitCoding) {
+        resolvedType = "coding";
+      } else if (isExplicitMsq) {
+        resolvedType = "msq";
+      } else if (isExplicitMcq) {
+        resolvedType = "mcq";
+      } else if (hasOptions) {
+        resolvedType = (q.options || []).filter((o: any) => o.isCorrect).length > 1 ? "msq" : "mcq";
+      } else if (validTestCases.length > 0 || String(q.id || "").startsWith("cp_")) {
+        resolvedType = "coding";
+      } else {
+        resolvedType = "mcq";
+      }
+
+      let resolvedSection = (q.section || "").trim();
+      if (resolvedType === "coding") {
+        if (!resolvedSection || (!resolvedSection.toLowerCase().includes("code") && !resolvedSection.toLowerCase().includes("programming"))) {
+          resolvedSection = "Coding Challenges";
+        }
+      } else {
+        if (resolvedSection.toLowerCase().includes("code") || resolvedSection.toLowerCase().includes("programming") || !resolvedSection) {
+          resolvedSection = "Multiple Choice Questions";
+        }
+      }
+
       return {
         id: index + 1,
         questionId: q.id || `q_${index + 1}`,
-        type: q.type || "mcq",
+        type: resolvedType,
         question: q.title || `Question ${index + 1}`,
         problemStatement: q.problemStatement || q.description || q.title || "",
-        marks: Number(q.marks) || 1,
-        section: q.section || "General Assessment",
+        marks: Number(q.marks) || (resolvedType === "coding" ? 10 : 1),
+        section: resolvedSection,
         difficulty: q.difficulty || "medium",
-        language: q.language || (typeof q.starterCode === "object" ? Object.keys(q.starterCode)[0] : "java"),
-        inputFormat: q.inputFormat || "",
-        outputFormat: q.outputFormat || "",
-        constraints: q.constraints || "",
+        language: resolvedType === "coding" ? (q.language || (typeof q.starterCode === "object" ? Object.keys(q.starterCode)[0] : "java")) : undefined,
+        inputFormat: resolvedType === "coding" ? (q.inputFormat || q.input_format || "") : undefined,
+        outputFormat: resolvedType === "coding" ? (q.outputFormat || q.output_format || "") : undefined,
+        constraints: resolvedType === "coding" ? (q.constraints || "") : undefined,
         explanation: q.explanation || "",
-        options: optionsArray.length > 0 ? optionsArray : ["Option A", "Option B", "Option C", "Option D"],
-        optionsList: q.options || [],
+        options: resolvedType === "coding"
+          ? []
+          : (optionsArray.length > 0 ? optionsArray : ["Option A", "Option B", "Option C", "Option D"]),
+        optionsList: resolvedType === "coding" ? [] : (q.options || []),
         correctOption: correctIndex >= 0 ? correctIndex : 0,
-        testCases: sanitizedTestCases,
-        starterCode: q.starterCode || q.templates || {
-          python: "# Write your Python solution here\n",
-          javascript: "// Write your JavaScript solution here\n",
-          java: "public class Main {\n    public static void main(String[] args) {\n        // Write your Java solution here\n    }\n}",
-          cpp: "#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}",
-          c: "#include <stdio.h>\n\nint main() {\n    return 0;\n}"
-        },
+        testCases: resolvedType === "coding"
+          ? (validTestCases.length > 0
+              ? validTestCases
+              : [{ id: "tc_1", input: "1", output: "1", expected_output: "1", isHidden: false, is_hidden: false }])
+          : [],
+        starterCode: resolvedType === "coding"
+          ? (q.starterCode || q.starter_code || q.templates || {
+              python: "# Write your Python solution here\n",
+              javascript: "// Write your JavaScript solution here\n",
+              java: "public class Main {\n    public static void main(String[] args) {\n        // Write your Java solution here\n    }\n}",
+              cpp: "#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}",
+              c: "#include <stdio.h>\n\nint main() {\n    return 0;\n}"
+            })
+          : undefined,
       };
     });
 
     const duration = assessment.duration_minutes || assessment.duration || meta.duration || 60;
     const maxMarks = assessment.total_marks || meta.maxMarks || (mappedQuestions.reduce((acc, q) => acc + q.marks, 0) || 100);
 
+    const hasCoding = mappedQuestions.some((q) => q.type === "coding");
+    const hasMcq = mappedQuestions.some((q) => q.type === "mcq" || q.type === "msq");
+    const dynamicAssessmentType = hasCoding && hasMcq ? "mixed" : hasCoding ? "coding" : "mcq";
+    const derivedSections = Array.from(new Set(mappedQuestions.map((q) => q.section).filter(Boolean)));
+    const dynamicSections = derivedSections.length > 0 ? derivedSections : (meta.sections || ["General Assessment"]);
+
     const testInfo = {
       id: assessment.id,
       title: assessment.title,
+      type: assessment.type || meta.type || dynamicAssessmentType,
+      sections: dynamicSections.length > 0 ? dynamicSections : ["General Assessment"],
       description: assessment.description || meta.instructions || "",
       duration: duration,
       maxMarks: maxMarks,

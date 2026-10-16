@@ -29,9 +29,9 @@ export function PageHeader({
   const isAdminOrTrainer = pathname.startsWith('/admin') || pathname.startsWith('/trainer');
   return (
     <div className={cn("w-full bg-white dark:bg-[#18181B] rounded-2xl border border-slate-200/80 dark:border-zinc-800 p-5 sm:p-7 shadow-xs mb-6 overflow-visible", className)}>
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 sm:gap-5">
         {/* Left Column: Breadcrumb / Back Navigation + Title + Description */}
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="min-w-0 max-w-full xl:max-w-xl space-y-2">
           {/* Breadcrumb / Back Row */}
           {(breadcrumbs || backAction) && (
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-zinc-400">
@@ -79,7 +79,7 @@ export function PageHeader({
 
           {/* Title Row with optional Badge */}
           <div className="flex items-center gap-3 flex-wrap py-0.5">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-normal">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
               {title}
             </h1>
             {badge}
@@ -95,7 +95,7 @@ export function PageHeader({
 
         {/* Right Column: Actions */}
         {actions && (
-          <div className="flex items-center gap-3 shrink-0 self-start lg:self-center pt-2 lg:pt-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 max-w-full justify-start xl:justify-end self-start xl:self-center min-w-0 pt-1 xl:pt-0">
             {actions}
           </div>
         )}

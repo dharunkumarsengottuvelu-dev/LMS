@@ -16,6 +16,7 @@ export interface BulkUploadProps {
   onClose?: () => void;
   moduleType: string; // "course" | "practice" | "assignment" | "assessment" | "assessment_questions" | "quiz" | "project"
   moduleTitle?: string;
+  targetSection?: string | null;
   onImport: (importedItems: any[]) => void;
 }
 
@@ -38,7 +39,8 @@ export function BulkUploadModal(props: BulkUploadProps) {
 }
 
 export function BulkUploadCard(props: BulkUploadProps) {
-  return <BulkUploadComponent {...props} inline={true} />;
+  if (!props.isOpen) return null;
+  return <BulkUploadComponent {...props} inline={props.inline ?? false} />;
 }
 
 export function BulkUploadComponent({
@@ -47,6 +49,7 @@ export function BulkUploadComponent({
   onClose,
   moduleType,
   moduleTitle,
+  targetSection,
   onImport,
 }: BulkUploadProps) {
   const { toast } = useToast();
@@ -93,8 +96,17 @@ export function BulkUploadComponent({
     if (!isOpen || inline) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleModalClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
       document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, inline]);
 
@@ -113,12 +125,30 @@ export function BulkUploadComponent({
     >();
 
     parsedRows.forEach((r) => {
+      const explicitSection = String(r.rawRow.sectionName || r.rawRow.section || "").trim();
       const rawVal =
-        r.rawRow.sectionName ??
+        (targetSection ? targetSection.trim() : null) ??
+        (explicitSection ? explicitSection : null) ??
         r.rawRow.subModuleName ??
         r.rawRow[groupKeyName] ??
         r.rawRow.moduleName;
-      const key = String(rawVal ?? "").trim() || "General Section";
+      let key = String(rawVal ?? "").trim() || (targetSection ? targetSection.trim() : "General Section");
+
+      // Auto-separate coding questions into their own section ONLY if no explicit sectionName or targetSection was provided
+      if (!explicitSection && !targetSection) {
+        const rawType = String(r.rawRow.type || r.rawRow.questionType || "").toLowerCase().trim().replace(/[\s_-]+/g, "");
+        const isCoding = rawType === "coding" || rawType === "code" || rawType === "programming";
+        if (isCoding) {
+          if (!key.toLowerCase().includes("code") && !key.toLowerCase().includes("programming")) {
+            key = "Coding Challenges";
+          }
+        } else {
+          if (key.toLowerCase().includes("code") || key.toLowerCase().includes("programming")) {
+            key = "Multiple Choice Questions";
+          }
+        }
+      }
+
       if (!map.has(key)) {
         map.set(key, { groupKey: key, validRows: [], allRows: [], duplicateTitles: [] });
       }
@@ -205,6 +235,9 @@ export function BulkUploadComponent({
       const headerRow = activeColumns.map((col) => col.label);
       const sampleDataRows = config.sampleRows.map((sample) => {
         return activeColumns.map((col) => {
+          if (targetSection && (col.key === "sectionName" || col.key === "section")) {
+            return targetSection;
+          }
           const val = sample[col.key];
           return val !== undefined ? val : col.sampleValue !== undefined ? col.sampleValue : "";
         });
@@ -345,6 +378,10 @@ export function BulkUploadComponent({
         if (mappedRow.sectionName && !mappedRow.section) {
           mappedRow.section = mappedRow.sectionName;
         }
+        if (targetSection) {
+          if (!mappedRow.sectionName) mappedRow.sectionName = targetSection;
+          if (!mappedRow.section) mappedRow.section = targetSection;
+        }
 
         config.columns.forEach((col) => {
           const val = mappedRow[col.key];
@@ -361,9 +398,64 @@ export function BulkUploadComponent({
 
           if (!isBlank) {
             if (col.type === "enum" && col.options) {
-              const matchedOption = col.options.find(
-                (opt) => opt.toLowerCase() === String(val).trim().toLowerCase()
+              const strVal = String(val).trim();
+              const cleanVal = strVal.toLowerCase().replace(/[\s_-]+/g, "");
+
+              // 1. Direct case-insensitive match
+              let matchedOption = col.options.find(
+                (opt) => opt.toLowerCase() === strVal.toLowerCase()
               );
+
+              // 2. Intelligent Alias Mapping for Question Type / Delivery Type / Problem Type
+              if (!matchedOption && (
+                col.key === "type" || 
+                col.key === "questionType" || 
+                col.label.toLowerCase().includes("type")
+              )) {
+                // Multiple Choice / Single Choice / Objective -> MCQ / Multiple Choice
+                if (
+                  cleanVal === "multiplechoice" ||
+                  cleanVal === "multiplechoicequestion" ||
+                  cleanVal === "singlechoice" ||
+                  cleanVal === "singlechoicequestion" ||
+                  cleanVal === "mcq" ||
+                  cleanVal === "choice" ||
+                  cleanVal === "quiz" ||
+                  cleanVal === "objective"
+                ) {
+                  matchedOption = 
+                    col.options.find((opt) => opt.toLowerCase() === "mcq") ||
+                    col.options.find((opt) => opt.toLowerCase() === "multiple choice") ||
+                    col.options.find((opt) => opt.toLowerCase() === "quiz") ||
+                    col.options.find((opt) => opt.toLowerCase() === "choice");
+                }
+                // Multiple Select / MSQ / Multi-Answer -> MSQ
+                else if (
+                  cleanVal === "multipleselect" ||
+                  cleanVal === "multipleselectquestion" ||
+                  cleanVal === "multiselect" ||
+                  cleanVal === "msq" ||
+                  cleanVal === "checkbox"
+                ) {
+                  matchedOption = 
+                    col.options.find((opt) => opt.toLowerCase() === "msq") ||
+                    col.options.find((opt) => opt.toLowerCase() === "mcq") ||
+                    col.options.find((opt) => opt.toLowerCase() === "multiple choice");
+                }
+                // Coding / Programming / Code -> Coding
+                else if (
+                  cleanVal === "coding" ||
+                  cleanVal === "code" ||
+                  cleanVal === "programming" ||
+                  cleanVal === "challenge" ||
+                  cleanVal === "problem"
+                ) {
+                  matchedOption = 
+                    col.options.find((opt) => opt.toLowerCase() === "coding") ||
+                    col.options.find((opt) => opt.toLowerCase() === "code");
+                }
+              }
+
               if (!matchedOption) {
                 errors.push({
                   fieldKey: col.key,
@@ -532,6 +624,14 @@ export function BulkUploadComponent({
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                 Download the customized template below. Fill in the data while maintaining parent-child groupings, then upload your completed spreadsheet.
               </p>
+              {targetSection && (
+                <div className="pt-1.5 flex items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Target Section:</span>
+                  <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 uppercase tracking-wider">
+                    {targetSection}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -546,18 +646,29 @@ export function BulkUploadComponent({
               "mcq",
               "mcq_questions",
               "assessment_questions",
+              "assessment_mcq",
+              "assessment_coding",
               "practice",
               "practice_questions",
             ].includes(currentModuleType.toLowerCase()) || Boolean(moduleTitle?.toLowerCase().includes("question"));
 
             if (!isQMode) return null;
 
+            const isAssessment =
+              moduleType.toLowerCase().startsWith("assessment") ||
+              currentModuleType.toLowerCase().startsWith("assessment") ||
+              Boolean(moduleTitle?.toLowerCase().includes("assessment"));
+
             const normalizedMode =
-              currentModuleType === "coding_problem" || currentModuleType === "coding"
+              currentModuleType === "coding_problem" ||
+              currentModuleType === "coding" ||
+              currentModuleType === "assessment_coding"
                 ? "coding"
-                : currentModuleType === "mixed_questions" || currentModuleType === "mixed" || currentModuleType === "practice_questions" || currentModuleType === "practice"
-                ? "mixed"
-                : "mcq";
+                : currentModuleType === "quiz" ||
+                  currentModuleType === "mcq" ||
+                  currentModuleType === "assessment_mcq"
+                ? "mcq"
+                : "mixed";
 
             return (
               <div className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -568,23 +679,23 @@ export function BulkUploadComponent({
                       {normalizedMode === "coding"
                         ? "Code Only"
                         : normalizedMode === "mixed"
-                        ? "Mixed Questions"
+                        ? "Mixed (MCQ + Code)"
                         : "MCQ & Multi-Select"}
                     </span>
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
                     {normalizedMode === "coding"
-                      ? "Download or upload pure Coding challenges with starter code, constraints, and test cases."
+                      ? "Download or upload pure Coding challenges with starter code, constraints, test cases, and custom section names."
                       : normalizedMode === "mixed"
-                      ? "Download or upload a combined template containing both Multiple Choice Questions and interactive Coding challenges."
-                      : "Download or upload Multiple Choice Questions with single or multiple correct answers, options, and explanations."}
+                      ? "Download or upload a combined template containing MCQ, Multi-Select, and interactive Coding challenges across multiple sections."
+                      : "Download or upload Multiple Choice Questions with single or multiple correct answers, options, and custom section names."}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 shrink-0">
                   <button
                     type="button"
-                    onClick={() => setCurrentModuleType("coding_problem")}
+                    onClick={() => setCurrentModuleType(isAssessment ? "assessment_coding" : "coding_problem")}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                       normalizedMode === "coding"
                         ? "bg-blue-600 text-white shadow-xs"
@@ -595,7 +706,7 @@ export function BulkUploadComponent({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCurrentModuleType("quiz")}
+                    onClick={() => setCurrentModuleType(isAssessment ? "assessment_mcq" : "quiz")}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                       normalizedMode === "mcq"
                         ? "bg-blue-600 text-white shadow-xs"
@@ -606,7 +717,7 @@ export function BulkUploadComponent({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCurrentModuleType("mixed_questions")}
+                    onClick={() => setCurrentModuleType(isAssessment ? "assessment_questions" : "mixed_questions")}
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                       normalizedMode === "mixed"
                         ? "bg-blue-600 text-white shadow-xs"
@@ -1226,8 +1337,13 @@ export function BulkUploadComponent({
 
   // ─── 2. MODAL DIALOG MODE (PORTAL) ─────────────────────────────────────────
   const modalContent = (
-    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-hidden">
-      <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-4xl h-[88vh] max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleModalClose();
+      }}
+      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-hidden animate-in fade-in-0 duration-200"
+    >
+      <div className="bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-4xl h-[88vh] max-h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         <div className="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 shrink-0 bg-slate-50/90 dark:bg-zinc-900/80 flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2.5 flex-wrap">

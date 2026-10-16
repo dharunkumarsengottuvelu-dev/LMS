@@ -3,46 +3,61 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-// MNC Pure Text-Only Enterprise UI (No Lucide icons or decorative emojis)
-const NoIcon: React.FC<any> = () => null;
-const ClipboardList = NoIcon;
-const Plus = NoIcon;
-const Search = NoIcon;
-const ShieldAlert = NoIcon;
-const ShieldCheck = NoIcon;
-const Clock = NoIcon;
-const Users = NoIcon;
-const Award = NoIcon;
-const Eye = NoIcon;
-const Trash2 = NoIcon;
-const Play = NoIcon;
-const ArrowLeft = NoIcon;
-const Sparkles = NoIcon;
-const Lock = NoIcon;
-const FileText = NoIcon;
-const CheckSquare = NoIcon;
-const Settings = NoIcon;
-const CheckCircle2 = NoIcon;
-const AlertCircle = NoIcon;
-const Send = NoIcon;
-const Check = NoIcon;
-const Code2 = NoIcon;
-const Edit = NoIcon;
-const Download = NoIcon;
-const Calendar = NoIcon;
-const CalendarDays = NoIcon;
-const CalendarRange = NoIcon;
-const X = NoIcon;
-const RotateCcw = NoIcon;
-const Zap = NoIcon;
-const Globe = NoIcon;
-const Timer = NoIcon;
-const Info = NoIcon;
-const Copy = NoIcon;
-const RefreshCw = NoIcon;
-const FileSpreadsheet = NoIcon;
-const UploadCloud = NoIcon;
-import { BulkUploadCard } from "@/components/admin/bulk-upload";
+import {
+  ClipboardList,
+  Plus,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  Clock,
+  Users,
+  Award,
+  Eye,
+  Trash2,
+  Play,
+  ArrowLeft,
+  Sparkles,
+  Lock,
+  FileText,
+  CheckSquare,
+  Settings,
+  CheckCircle2,
+  AlertCircle,
+  Send,
+  Check,
+  Code2,
+  Edit,
+  Download,
+  Calendar,
+  CalendarDays,
+  CalendarRange,
+  X,
+  RotateCcw,
+  Zap,
+  Globe,
+  Timer,
+  Info,
+  Copy,
+  RefreshCw,
+  FileSpreadsheet,
+  UploadCloud,
+  MoreHorizontal,
+  MoreVertical,
+  ChevronDown,
+  ChevronUp,
+  Pencil,
+  FolderPlus,
+  Terminal,
+  BookOpen,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { BulkUploadCard, BulkUploadModal } from "@/components/admin/bulk-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/ui/loading";
@@ -56,6 +71,33 @@ import { PageHeader } from "@/components/layouts/page-header";
 import { VisibilitySelector } from "@/components/admin/visibility-selector";
 import { AutoSaveBadge } from "@/components/ui/auto-save-badge";
 import { AssessmentQuestionEditor } from "@/components/admin/assessment-question-editor";
+import { cn } from "@/lib/utils";
+
+const DEFAULT_STARTER_CODES: Record<string, string> = {
+  java: `public class Main {
+    public static void main(String[] args) {
+        // Write your solution here
+    }
+}`,
+  python: `# Write your solution here
+def main():
+    pass
+
+if __name__ == "__main__":
+    main()`,
+  cpp: `#include <iostream>
+using namespace std;
+
+int main() {
+    // Write your solution here
+    return 0;
+}`,
+  javascript: `// Write your solution here
+function main() {
+}
+
+main();`,
+};
 
 export interface ScheduledTest {
   id: string;
@@ -226,6 +268,51 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   // Section Management State
   const [isAddingSection, setIsAddingSection] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState("");
+  const [editingSection, setEditingSection] = useState<{ oldName: string; currentName: string } | null>(null);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  const toggleSectionCollapse = (sectionName: string) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [sectionName]: !prev[sectionName],
+    }));
+  };
+
+  // Bulk Selection States for Questions & Tests
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
+
+  const toggleSelectQuestion = (qId: string) => {
+    setSelectedQuestionIds((prev) =>
+      prev.includes(qId) ? prev.filter((id) => id !== qId) : [...prev, qId]
+    );
+  };
+
+  const toggleSelectAllQuestionsInSection = (sectionQuestions: { id: string }[]) => {
+    const sectionIds = sectionQuestions.map((q) => q.id);
+    const allSelected = sectionIds.length > 0 && sectionIds.every((id) => selectedQuestionIds.includes(id));
+    if (allSelected) {
+      setSelectedQuestionIds((prev) => prev.filter((id) => !sectionIds.includes(id)));
+    } else {
+      setSelectedQuestionIds((prev) => Array.from(new Set([...prev, ...sectionIds])));
+    }
+  };
+
+  const toggleSelectTest = (testId: string) => {
+    setSelectedTestIds((prev) =>
+      prev.includes(testId) ? prev.filter((id) => id !== testId) : [...prev, testId]
+    );
+  };
+
+  const toggleSelectAllTests = (testsList: ScheduledTest[]) => {
+    const allIds = testsList.map((t) => t.id);
+    const allSelected = allIds.length > 0 && allIds.every((id) => selectedTestIds.includes(id));
+    if (allSelected) {
+      setSelectedTestIds([]);
+    } else {
+      setSelectedTestIds(allIds);
+    }
+  };
 
   // Auto-save test wizard draft
   const [lastSavedExamDraft, setLastSavedExamDraft] = useState<string | null>(null);
@@ -558,15 +645,19 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   const openCreateQuestion = (section?: string) => {
     const targetSection = section || selectedTest?.sections?.[0] || "General Assessment";
+    const secLower = targetSection.toLowerCase();
+    const defaultType =
+      secLower.includes("code") || secLower.includes("programming") || secLower.includes("algo")
+        ? "coding"
+        : secLower.includes("msq") || secLower.includes("multi")
+        ? "msq"
+        : selectedTest?.allowedQuestionTypes === "coding"
+        ? "coding"
+        : "mcq";
+
     setEditingQuestionId(null);
     setManualQuestionTitle("");
-    setManualQuestionType(
-      selectedTest?.allowedQuestionTypes === "coding"
-        ? "coding"
-        : selectedTest?.allowedQuestionTypes === "mcq"
-        ? "mcq"
-        : "mcq"
-    );
+    setManualQuestionType(defaultType);
     setManualQuestionMarks(10);
     setManualQuestionSection(targetSection);
     setCustomSectionName("");
@@ -740,16 +831,53 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
     setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
     setSelectedTest(updatedTest);
+    setSelectedQuestionIds((prev) => prev.filter((id) => id !== qId));
     toast({ title: "Question Deleted", description: "Question removed from test pool.", variant: "destructive" });
+  };
+
+  const handleBulkDeleteQuestions = (questionIds: string[]) => {
+    if (!selectedTest || questionIds.length === 0) return;
+    const count = questionIds.length;
+    if (!confirm(`Are you sure you want to delete ${count} selected question(s)?`)) return;
+
+    const idsSet = new Set(questionIds);
+    const remainingQuestions = (selectedTest.questions || []).filter((q) => !idsSet.has(q.id));
+    const newMaxMarks = remainingQuestions.reduce((acc, q) => acc + (q.marks || 0), 0);
+    const updatedTest = {
+      ...selectedTest,
+      totalQuestions: remainingQuestions.length,
+      maxMarks: newMaxMarks,
+      questions: remainingQuestions,
+    };
+
+    fetch("/api/admin/tests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ test: updatedTest }),
+    }).catch((err) => console.error("Failed to bulk delete questions", err));
+
+    setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
+    setSelectedTest(updatedTest);
+    setSelectedQuestionIds((prev) => prev.filter((id) => !idsSet.has(id)));
+    toast({
+      title: "Questions Deleted",
+      description: `${count} question(s) removed from test pool.`,
+      variant: "destructive",
+    });
   };
 
   const handleDeleteSection = (sectionName: string) => {
     if (!selectedTest) return;
-    const remainingSections = (selectedTest.sections || []).filter((s) => s !== sectionName);
-    const remainingQuestions = (selectedTest.questions || []).filter((q) => q.section !== sectionName);
+    if (typeof window !== "undefined" && !window.confirm(`Are you sure you want to delete section "${sectionName}" and all its questions?`)) {
+      return;
+    }
+    const targetNorm = sectionName.trim().toLowerCase();
+    const remainingSections = (selectedTest.sections || []).filter((s) => s.trim().toLowerCase() !== targetNorm);
+    const remainingQuestions = (selectedTest.questions || []).filter((q) => (q.section || "").trim().toLowerCase() !== targetNorm);
+    const finalSections = remainingSections;
     const updatedTest = {
       ...selectedTest,
-      sections: remainingSections,
+      sections: finalSections,
       totalQuestions: remainingQuestions.length,
       maxMarks: remainingQuestions.reduce((acc, q) => acc + (q.marks || 0), 0),
       questions: remainingQuestions,
@@ -765,6 +893,44 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     setSelectedTest(updatedTest);
     toast({ title: "Section Removed", description: `Section "${sectionName}" and its questions were removed.`, variant: "destructive" });
   };
+
+  const handleCreateNewSection = async () => {
+    if (!selectedTest) return;
+    const name = newSectionTitle.trim();
+    if (!name) {
+      toast({ title: "Section Name Required", description: "Please enter or pick a name for the new section.", variant: "destructive" });
+      return;
+    }
+
+    const currentSections = selectedTest.sections || [];
+    if (currentSections.some((s) => s.trim().toLowerCase() === name.toLowerCase())) {
+      toast({ title: "Section Exists", description: `A section named "${name}" already exists in this assessment.`, variant: "destructive" });
+      return;
+    }
+
+    const updatedSections = [...currentSections, name];
+    const updatedTest = {
+      ...selectedTest,
+      sections: updatedSections,
+    };
+
+    try {
+      await fetch("/api/admin/tests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test: updatedTest }),
+      });
+      setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
+      setSelectedTest(updatedTest);
+      setIsAddingSection(false);
+      setNewSectionTitle("");
+      toast({ title: "Section Created", description: `Section "${name}" created successfully. You can now add questions or bulk upload into it.` });
+    } catch (err) {
+      console.error("Failed to add section", err);
+      toast({ title: "Creation Failed", description: "Failed to persist new section.", variant: "destructive" });
+    }
+  };
+  const handleAddSection = handleCreateNewSection;
 
   const handleAddQuestion = (e?: React.FormEvent, continueAdding: boolean = false) => {
     if (e) e.preventDefault();
@@ -868,19 +1034,39 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     }
   };
   
-  const handleAddSection = () => {
-    if (!newSectionTitle.trim() || !selectedTest) return;
-    
-    const currentSections = selectedTest.sections || [];
-    if (!currentSections.includes(newSectionTitle.trim())) {
-      const updatedTest = { ...selectedTest, sections: [...currentSections, newSectionTitle.trim()] };
-      setTests(tests.map(t => t.id === selectedTest.id ? updatedTest : t));
-      setSelectedTest(updatedTest);
+  const handleRenameSection = (oldName: string, newName: string) => {
+    if (!selectedTest) return;
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) {
+      setEditingSection(null);
+      return;
     }
-    
-    setNewSectionTitle("");
-    setIsAddingSection(false);
-    toast({ title: "Section Created", description: `Added section: ${newSectionTitle.trim()}` });
+    const currentSections = selectedTest.sections || [];
+    if (currentSections.some((s) => s.toLowerCase() === trimmed.toLowerCase() && s.toLowerCase() !== oldName.toLowerCase())) {
+      toast({
+        title: "Section Already Exists",
+        description: `A section named "${trimmed}" already exists in this assessment.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    const updatedSections = currentSections.map((s) => (s.trim().toLowerCase() === oldName.trim().toLowerCase() ? trimmed : s));
+    const updatedQuestions = (selectedTest.questions || []).map((q) => {
+      if ((q.section || "").trim().toLowerCase() === oldName.trim().toLowerCase()) {
+        return { ...q, section: trimmed };
+      }
+      return q;
+    });
+    const updatedTest = { ...selectedTest, sections: updatedSections, questions: updatedQuestions };
+    fetch("/api/admin/tests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ test: updatedTest }),
+    }).catch((err) => console.error("Failed to rename section", err));
+    setTests(tests.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
+    setSelectedTest(updatedTest);
+    setEditingSection(null);
+    toast({ title: "Section Renamed", description: `Renamed "${oldName}" to "${trimmed}".` });
   };
 
   const downloadAssessmentReportCsv = (test: ScheduledTest) => {
@@ -942,6 +1128,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
 
   const handleDeleteTest = async (id: string, title: string) => {
     setTests((prev) => prev.filter((t) => t.id !== id));
+    setSelectedTestIds((prev) => prev.filter((tId) => tId !== id));
     try {
       await fetch(`/api/admin/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" });
     } catch (err) {
@@ -950,6 +1137,29 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     toast({
       title: "Exam Cancelled",
       description: `${title} removed from schedule.`,
+      variant: "destructive",
+    });
+  };
+
+  const handleBulkDeleteTests = async (testIds: string[]) => {
+    if (testIds.length === 0) return;
+    const count = testIds.length;
+    if (!confirm(`Are you sure you want to delete ${count} selected assessment(s)? This action cannot be undone.`)) return;
+
+    setTests((prev) => prev.filter((t) => !testIds.includes(t.id)));
+    setSelectedTestIds([]);
+    try {
+      await Promise.all(
+        testIds.map((id) =>
+          fetch(`/api/admin/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" })
+        )
+      );
+    } catch (err) {
+      console.error("Failed to bulk delete tests", err);
+    }
+    toast({
+      title: "Assessments Deleted",
+      description: `${count} assessment(s) removed from schedule.`,
       variant: "destructive",
     });
   };
@@ -1122,10 +1332,12 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-2">
-                  Reassign Test & Allow Retakes
+                  {reassigningTest.assignedBatches && reassigningTest.assignedBatches.length > 0
+                    ? "Reassign Assessment & Manage Retakes"
+                    : "Assign Assessment Batches"}
                 </h2>
                 <p className="text-xs text-[#6B7280]">
-                  Reassign &quot;{reassigningTest.title}&quot; to all students or specific batches
+                  Configure batch visibility and retake permissions for &quot;{reassigningTest.title}&quot;
                 </p>
               </div>
             </div>
@@ -2030,7 +2242,7 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               </div>
               <div>
                 <h2 className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">Edit Exam Settings & MNC Schedule</h2>
-                <p className="text-xs text-[#6B7280]">Update timing window, duration, question types, and security controls.</p>
+                <p className="text-xs text-[#6B7280]">Update timing window, question types, status, and security controls.</p>
               </div>
             </div>
             <Button
@@ -2056,20 +2268,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               />
             </div>
 
-            {/* Duration, Status, Question Types */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Duration (Mins)</label>
-                <Input
-                  type="number"
-                  min={5}
-                  max={600}
-                  value={editExamForm.duration || 60}
-                  onChange={(e) => setEditExamForm({ ...editExamForm, duration: Number(e.target.value) })}
-                  className="h-10 text-xs rounded-xl"
-                />
-              </div>
-
+            {/* Status & Question Types */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA]">Allowed Types</label>
                 <Select
@@ -2592,332 +2792,940 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     );
   };
 
+  const renderAddSectionModal = () => {
+    if (!isAddingSection || !selectedTest) return null;
+
+    const presetTemplates = [
+      { name: "Coding Challenges", icon: Code2, desc: "Interactive programming challenges with test cases" },
+      { name: "Logical & Technical MSQ", icon: CheckSquare, desc: "Multiple-select questions with several correct answers" },
+      { name: "Aptitude & Logical Reasoning", icon: Sparkles, desc: "Single-choice aptitude and logical questions" },
+      { name: "Data Structures & Algorithms", icon: Terminal, desc: "Arrays, Trees, Graphs, and Algorithmic problems" },
+      { name: "Core Technical MCQs", icon: FileText, desc: "Domain concepts and core programming principles" },
+      { name: "Verbal Ability & English", icon: BookOpen, desc: "Comprehension, grammar, and communication" },
+    ];
+
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <Card className="w-full max-w-lg bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 shadow-2xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <FolderPlus className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Add Assessment Section
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Organize questions by topic, question format, or difficulty
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setIsAddingSection(false);
+                setNewSectionTitle("");
+              }}
+              className="h-8 w-8 text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white rounded-lg"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 block mb-1.5">
+                Section Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Coding Challenges, Aptitude, Technical Core..."
+                value={newSectionTitle}
+                onChange={(e) => setNewSectionTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleCreateNewSection();
+                  }
+                }}
+                className="w-full h-10 px-3.5 text-sm rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 focus:bg-white dark:focus:bg-zinc-950 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 dark:text-white"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-2">
+                Quick Template Presets
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {presetTemplates.map((p) => {
+                  const isSelected = newSectionTitle.trim().toLowerCase() === p.name.toLowerCase();
+                  return (
+                    <button
+                      key={p.name}
+                      type="button"
+                      onClick={() => setNewSectionTitle(p.name)}
+                      className={cn(
+                        "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2",
+                        isSelected
+                          ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 shadow-xs"
+                          : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-900"
+                      )}
+                    >
+                      <p.icon className={cn("w-4 h-4 mt-0.5 shrink-0", isSelected ? "text-blue-600" : "text-slate-400")} />
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold truncate text-slate-800 dark:text-zinc-200">{p.name}</p>
+                        <p className="text-[10px] text-slate-400 dark:text-zinc-500 line-clamp-1">{p.desc}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 p-4 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/30">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddingSection(false);
+                setNewSectionTitle("");
+              }}
+              className="h-9 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateNewSection}
+              disabled={!newSectionTitle.trim()}
+              className="h-9 px-5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs disabled:opacity-50 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" />
+              <span>Create Section</span>
+            </Button>
+          </div>
+        </Card>
+      </div>,
+      document.body
+    );
+  };
+
+  const renderEditSectionModal = () => {
+    if (!editingSection || !selectedTest) return null;
+
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <Card className="w-full max-w-md bg-white dark:bg-[#18181B] border border-slate-200 dark:border-zinc-800 shadow-2xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <Pencil className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Rename Section
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Update section title and all its associated questions
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setEditingSection(null)}
+              className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="p-5 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                Section Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                value={editingSection.currentName}
+                onChange={(e) => setEditingSection({ ...editingSection, currentName: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleRenameSection(editingSection.oldName, editingSection.currentName);
+                  } else if (e.key === "Escape") {
+                    setEditingSection(null);
+                  }
+                }}
+                placeholder="e.g. Multiple Choice Questions, Coding Challenges..."
+                autoFocus
+                className="h-10 text-xs rounded-xl bg-slate-50 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 p-4 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/30 dark:bg-zinc-900/30">
+            <Button
+              variant="outline"
+              onClick={() => setEditingSection(null)}
+              className="h-9 px-4 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-800"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!editingSection.currentName.trim()}
+              onClick={() => handleRenameSection(editingSection.oldName, editingSection.currentName)}
+              className="h-9 px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
+            >
+              Save Changes
+            </Button>
+          </div>
+        </Card>
+      </div>,
+      document.body
+    );
+  };
+
   if (viewState === "exam-dashboard" && selectedTest) {
+    const totalQuestionsCount = selectedTest.questions?.length || 0;
+    const calculatedMaxMarks = (selectedTest.questions || []).reduce((acc, q) => acc + (q.marks || 0), 0) || selectedTest.maxMarks || 0;
+    const durationMinutes = selectedTest.duration || 60;
+    const assessmentType = (selectedTest as any).type || "Technical Assessment";
+    const isLiveOrActive = selectedTest.scheduleMode === "open" || (!selectedTest.date && !selectedTest.startDate);
+    const statusLabel = isLiveOrActive ? "Active" : selectedTest.scheduleMode === "window" ? "Scheduled" : "Active";
+
+    const allSections = [...(selectedTest.sections || [])];
+    (selectedTest.questions || []).forEach((q) => {
+      const qSec = (q.section || "").trim();
+      if (qSec && !allSections.some((s) => s.trim().toLowerCase() === qSec.toLowerCase())) {
+        allSections.push(qSec);
+      }
+    });
+    const displaySections = allSections;
+
     return (
-      <div className="space-y-6 w-full">
-        <PageHeader
-          title={selectedTest.title}
-          backAction={{ label: "Back", onClick: () => setViewState("list") }}
-          actions={
-            <div className="flex items-center gap-2">
+      <div className="space-y-6 w-full max-w-[1600px] mx-auto">
+        {/* LEVEL 1 — ASSESSMENT HEADER */}
+        <div className="bg-white dark:bg-[#121214] border border-slate-200/80 dark:border-zinc-800 rounded-xl p-5 shadow-xs">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            {/* Left: Back + Title + Status + Secondary Meta */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setViewState("list")}
+                  className="h-7 px-2 -ml-2 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 gap-1.5 rounded-lg transition-colors"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back</span>
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-zinc-100">
+                  {selectedTest.title}
+                </h1>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs font-semibold px-2.5 py-0.5 rounded-full border",
+                    isLiveOrActive
+                      ? "border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400"
+                      : "border-blue-200 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400"
+                  )}
+                >
+                  <span className={cn(
+                    "w-1.5 h-1.5 rounded-full mr-1.5",
+                    isLiveOrActive ? "bg-emerald-500 animate-pulse" : "bg-blue-500"
+                  )} />
+                  {statusLabel}
+                </Badge>
+              </div>
+
+              {/* Secondary Information Bar */}
+              <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-slate-500 dark:text-zinc-400 pt-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 dark:text-zinc-500 font-medium">Total Questions:</span>
+                  <span className="font-semibold text-slate-800 dark:text-zinc-200">{totalQuestionsCount}</span>
+                </div>
+                <span className="text-slate-300 dark:text-zinc-700">•</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 dark:text-zinc-500 font-medium">Maximum Marks:</span>
+                  <span className="font-semibold text-slate-800 dark:text-zinc-200">{calculatedMaxMarks}</span>
+                </div>
+                <span className="text-slate-300 dark:text-zinc-700">•</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 dark:text-zinc-500 font-medium">Duration:</span>
+                  <span className="font-semibold text-slate-800 dark:text-zinc-200">{durationMinutes} min</span>
+                </div>
+                <span className="text-slate-300 dark:text-zinc-700">•</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 dark:text-zinc-500 font-medium">Assessment Type:</span>
+                  <span className="font-semibold text-slate-800 dark:text-zinc-200">{assessmentType}</span>
+                </div>
+                {selectedTest.batch && (
+                  <>
+                    <span className="text-slate-300 dark:text-zinc-700">•</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-400 dark:text-zinc-500 font-medium">Batch:</span>
+                      <span className="font-semibold text-slate-800 dark:text-zinc-200">{selectedTest.batch}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Clean Action Hierarchy */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {/* Primary Action */}
               <Button
-                className="h-9 font-bold text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-2 shadow-xs"
+                className="h-9 px-4 font-semibold text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-xs gap-1.5 rounded-lg transition-colors cursor-pointer"
                 onClick={() => setViewState("add-question")}
               >
-                <Code2 className="h-4 w-4" /> Manage Questions
+                <Code2 className="h-3.5 w-3.5" />
+                <span>Manage Questions</span>
               </Button>
+
+              {/* Secondary Actions */}
               <Button
                 variant="outline"
-                className="h-9 font-bold text-xs bg-white dark:bg-[#18181B] border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/5"
+                className="h-9 px-3.5 font-semibold text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg transition-colors gap-1.5 cursor-pointer"
                 onClick={() => {
                   setBulkUploadTargetSection(null);
                   setShowAssessmentBulkUpload(true);
                 }}
               >
-                Bulk Upload Questions
+                <UploadCloud className="h-3.5 w-3.5 text-slate-500" />
+                <span>Bulk Upload</span>
               </Button>
+
               <Button
                 variant="outline"
-                className="h-9 font-bold text-xs bg-white dark:bg-[#18181B]"
+                className="h-9 px-3.5 font-semibold text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg transition-colors gap-1.5 cursor-pointer"
                 onClick={() => openEditExamModal(selectedTest)}
               >
-                Edit Settings & Schedule
+                <Settings className="h-3.5 w-3.5 text-slate-500" />
+                <span>Settings & Schedule</span>
               </Button>
-              <Button 
-                onClick={() => downloadAssessmentReportCsv(selectedTest)}
-                className="h-9 font-bold text-xs bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-2 shadow-xs"
-              >
-                Download Candidate Report (CSV)
-              </Button>
-              <Button variant="outline" className="h-9 font-bold text-xs bg-white dark:bg-[#18181B]" onClick={() => openAssignModal(selectedTest)}>
-                Assign to Batches
-              </Button>
+
               <Button
                 variant="outline"
-                className="h-9 font-bold text-xs bg-white dark:bg-[#18181B] border-amber-500/30 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                onClick={() => openReassignModal(selectedTest)}
+                className="h-9 px-3.5 font-semibold text-xs bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg transition-colors gap-1.5 cursor-pointer"
+                onClick={() => openAssignModal(selectedTest)}
               >
-                Reassign Test
+                <Users className="h-3.5 w-3.5 text-slate-500" />
+                <span>Assign Batches</span>
+              </Button>
+
+              {/* Tertiary / More Actions Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="h-9 w-9 flex items-center justify-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg cursor-pointer transition-colors outline-none"
+                  title="More actions"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem
+                    onClick={() => downloadAssessmentReportCsv(selectedTest)}
+                    className="text-xs font-semibold cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5 mr-2 text-slate-500" />
+                    <span>Download Report (CSV)</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => openReassignModal(selectedTest)}
+                    className="text-xs font-semibold cursor-pointer text-amber-600 dark:text-amber-400"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-2" />
+                    <span>Reassign Test</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+
+        {/* MAIN CONTENT LAYOUT: 70% LEFT / 30% RIGHT */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT: 70% PRIMARY WORKSPACE (8 cols) */}
+          <div className="lg:col-span-8 space-y-4">
+            <div className="flex items-center justify-between pb-1">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  Assigned Questions & Sections
+                </h2>
+                <Badge variant="outline" className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800">
+                  {displaySections.length} {displaySections.length === 1 ? "Section" : "Sections"}
+                </Badge>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setNewSectionTitle("");
+                  setIsAddingSection(true);
+                }}
+                className="h-8 px-3 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add Section</span>
               </Button>
             </div>
-          }
-        />
 
-        <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-2 space-y-4">
-            <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Assigned Questions & Sections</h3>
-            <div className="p-6 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl space-y-6">
-              
-              {/* Existing Sections */}
-              {(selectedTest.sections || []).length === 0 && (!selectedTest.questions || selectedTest.questions.length === 0) ? (
-                <div className="p-8 border-2 border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-2xl text-center bg-[#F9FAFB] dark:bg-[#09090B]">
-                  <ClipboardList className="h-8 w-8 text-[#9CA3AF] mx-auto mb-3" />
-                  <h4 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">No sections yet</h4>
-                  <p className="text-xs text-[#6B7280] mt-1 mb-4">Start building your exam by adding a section below.</p>
+            {/* Global Bulk Delete Toolbar for Questions */}
+            {selectedQuestionIds.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl px-4 py-2.5 shadow-xs transition-all">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-md bg-red-600 text-white text-xs font-bold flex items-center justify-center">
+                    {selectedQuestionIds.length}
+                  </span>
+                  <span className="text-xs font-bold text-red-800 dark:text-red-300">
+                    {selectedQuestionIds.length === 1 ? "1 question selected" : `${selectedQuestionIds.length} questions selected`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedQuestionIds([])}
+                    className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-zinc-400 underline cursor-pointer ml-1"
+                  >
+                    Clear selection
+                  </button>
                 </div>
-              ) : (
-                (selectedTest.sections || []).map((section) => {
-                  const sectionQuestions = selectedTest.questions?.map((q, idx) => ({ ...q, originalIndex: idx })).filter(q => q.section === section) || [];
-                  return (
-                    <div key={section} className="mb-6 last:mb-0 p-5 rounded-2xl border border-[#E5E7EB] dark:border-[#27272A] bg-[#F9FAFB]/50 dark:bg-[#09090B]/50 space-y-4">
-                      <div className="flex items-center justify-between border-b border-[#E5E7EB] dark:border-[#27272A] pb-3">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] uppercase tracking-wider">{section}</h4>
-                          <Badge variant="outline" className="text-[10px] font-bold text-[#2563EB] border-[#2563EB]/30 bg-[#2563EB]/5">
-                            {sectionQuestions.length} {sectionQuestions.length === 1 ? "Question" : "Questions"}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-7 text-[11px] font-bold text-[#2563EB] hover:bg-[#2563EB]/10"
-                            onClick={() => openCreateQuestion(section)}
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleBulkDeleteQuestions(selectedQuestionIds)}
+                    className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete Selected ({selectedQuestionIds.length})</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {displaySections.map((section) => {
+              const sectionQuestions = (selectedTest.questions || [])
+                .map((q, idx) => ({ ...q, originalIndex: idx }))
+                .filter((q) => (q.section || "").trim().toLowerCase() === section.trim().toLowerCase());
+              const isCollapsed = Boolean(collapsedSections[section]);
+              const sectionSelectedIds = sectionQuestions
+                .map((q) => q.id)
+                .filter((id) => selectedQuestionIds.includes(id));
+              const allSectionSelected =
+                sectionQuestions.length > 0 && sectionSelectedIds.length === sectionQuestions.length;
+
+              return (
+                <div
+                  key={section}
+                  className="bg-white dark:bg-[#121214] border border-slate-200/80 dark:border-zinc-800 rounded-xl overflow-hidden shadow-xs transition-all"
+                >
+                  {/* Section Header */}
+                  <div className="p-4 sm:p-4.5 border-b border-slate-100 dark:border-zinc-800/80 bg-slate-50/60 dark:bg-zinc-900/40">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleSectionCollapse(section)}
+                          className="w-7 h-7 rounded-lg border border-slate-200/90 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all cursor-pointer shadow-2xs shrink-0"
+                          title={isCollapsed ? "Expand section questions" : "Minimize section"}
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "h-4 w-4 text-slate-600 dark:text-zinc-300 transition-transform duration-200",
+                              isCollapsed ? "-rotate-90" : "rotate-0"
+                            )}
+                          />
+                        </button>
+                        <div className="flex items-center gap-1.5 group">
+                          <h3
+                            onClick={() => toggleSectionCollapse(section)}
+                            className="text-sm font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wide cursor-pointer hover:text-blue-600 transition-colors select-none"
                           >
-                            Add Question to {section}
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-7 text-[11px] font-bold text-[#2563EB] hover:bg-[#2563EB]/10"
-                            onClick={() => {
-                              setBulkUploadTargetSection(section);
-                              setShowAssessmentBulkUpload(true);
+                            {section}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingSection({ oldName: section, currentName: section });
                             }}
+                            className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+                            title="Edit section name"
                           >
-                            Bulk Upload to {section}
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/30"
+                        >
+                          {sectionQuestions.length} {sectionQuestions.length === 1 ? "Question" : "Questions"}
+                        </Badge>
+                        {isCollapsed && (
+                          <span className="text-[11px] font-medium text-slate-400 dark:text-zinc-500 italic hidden sm:inline">
+                            (Minimized)
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Section Action Controls */}
+                      <div className="flex items-center gap-2">
+                        {sectionSelectedIds.length > 0 && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-8 px-2.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 cursor-pointer shadow-2xs animate-in fade-in duration-200"
+                            onClick={() => handleBulkDeleteQuestions(sectionSelectedIds)}
+                            title={`Delete ${sectionSelectedIds.length} selected questions in this section`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Delete ({sectionSelectedIds.length})</span>
                           </Button>
-                          {(selectedTest.sections || []).length > 1 && (
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2.5 text-xs font-semibold border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg gap-1.5 cursor-pointer shadow-2xs"
+                          onClick={() => openCreateQuestion(section)}
+                        >
+                          <Plus className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Add Question</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2.5 text-xs font-semibold border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg gap-1.5 cursor-pointer shadow-2xs"
+                          onClick={() => {
+                            setBulkUploadTargetSection(section);
+                            setShowAssessmentBulkUpload(true);
+                          }}
+                        >
+                          <UploadCloud className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Bulk Upload</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 px-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white rounded-lg gap-1 cursor-pointer"
+                          onClick={() => toggleSectionCollapse(section)}
+                          title={isCollapsed ? "Expand questions list" : "Minimize questions list"}
+                        >
+                          {isCollapsed ? (
+                            <>
+                              <ChevronDown className="h-3.5 w-3.5 -rotate-90 text-slate-500" />
+                              <span className="hidden sm:inline">Expand</span>
+                            </>
+                          ) : (
+                            <>
+                              <ChevronUp className="h-3.5 w-3.5 text-slate-500" />
+                              <span className="hidden sm:inline">Minimize</span>
+                            </>
+                          )}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 px-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg gap-1 cursor-pointer"
+                          onClick={() => handleDeleteSection(section)}
+                          title={`Delete section "${section}"`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                          <span className="hidden sm:inline">Delete</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Integrated Compact Question Number Navigation (Only when expanded) */}
+                    {!isCollapsed && sectionQuestions.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-3 mt-3 border-t border-slate-100 dark:border-zinc-800/60">
+                        <span className="text-[11px] font-semibold text-slate-400 dark:text-zinc-500 mr-1.5">
+                          Questions:
+                        </span>
+                        {sectionQuestions.map((q) => {
+                          const isQSelected = selectedQuestionIds.includes(q.id);
+                          return (
+                            <button
+                              key={q.id}
+                              onClick={() => openEditQuestion(q)}
+                              className={cn(
+                                "w-7 h-7 rounded-md border text-xs font-semibold font-mono flex items-center justify-center transition-all cursor-pointer shadow-2xs",
+                                isQSelected
+                                  ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                                  : "border-slate-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/30"
+                              )}
+                              title={`Question ${q.originalIndex + 1}: ${q.title} (${q.marks} Marks)`}
+                            >
+                              {q.originalIndex + 1}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section Content: Question List or Empty State (Only when expanded) */}
+                  {!isCollapsed && (
+                    <>
+                      {sectionQuestions.length === 0 ? (
+                        <div className="p-7 text-center bg-white dark:bg-[#121214]">
+                          <p className="text-xs text-slate-500 dark:text-zinc-400 mb-3">
+                            No questions have been added to this section yet.
+                          </p>
+                          <div className="flex items-center justify-center gap-2">
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="h-7 text-[11px] font-bold text-[#DC2626] hover:bg-[#DC2626]/10"
-                              onClick={() => handleDeleteSection(section)}
+                              variant="outline"
+                              className="h-8 px-3 text-xs font-semibold text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg gap-1.5 cursor-pointer"
+                              onClick={() => openCreateQuestion(section)}
                             >
-                              Delete Section
+                              <Plus className="h-3.5 w-3.5" />
+                              <span>Add Question</span>
                             </Button>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {sectionQuestions.length === 0 ? (
-                        <div className="text-center py-6 border border-dashed border-[#E5E7EB] dark:border-[#27272A] rounded-xl">
-                          <p className="text-xs text-[#6B7280]">No questions in this section yet.</p>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="mt-2 h-7 text-xs font-bold text-[#2563EB] border-[#2563EB]/30"
-                            onClick={() => openCreateQuestion(section)}
-                          >
-                            <Plus className="h-3 w-3 mr-1" /> Add First Question
-                          </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-3 text-xs font-semibold text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg gap-1.5 cursor-pointer"
+                              onClick={() => {
+                                setBulkUploadTargetSection(section);
+                                setShowAssessmentBulkUpload(true);
+                              }}
+                            >
+                              <UploadCloud className="h-3.5 w-3.5" />
+                              <span>Bulk Upload</span>
+                            </Button>
+                          </div>
                         </div>
                       ) : (
-                        <div className="space-y-3">
-                          {/* Numbered Quick Navigation Bar */}
-                          <div className="flex flex-wrap items-center gap-2 pb-2">
-                            <span className="text-[11px] font-bold text-[#6B7280] mr-1">Questions:</span>
-                            {sectionQuestions.map((q) => (
-                              <button 
-                                key={q.id} 
-                                onClick={() => openEditQuestion(q)}
-                                className="w-9 h-9 border border-[#2563EB]/30 bg-white dark:bg-[#18181B] text-[#2563EB] hover:bg-[#2563EB] hover:text-white rounded-lg flex items-center justify-center text-xs font-bold transition-all shadow-xs cursor-pointer group"
-                                title={`Question ${q.originalIndex + 1}: ${q.title} (${q.marks} Marks) - Click to Edit`}
-                              >
-                                {q.originalIndex + 1}
-                              </button>
-                            ))}
+                        <div className="divide-y divide-slate-100 dark:divide-zinc-800/80">
+                          {/* MNC-grade Table Header with Select-All Checkbox (Strict 12 Cols: 1 + 6 + 2 + 1 + 2 = 12) */}
+                          <div className="grid grid-cols-12 gap-3 px-4 py-2.5 bg-slate-50/80 dark:bg-zinc-900/60 border-b border-slate-100 dark:border-zinc-800/80 text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider items-center select-none">
+                            <div className="col-span-1 flex items-center justify-center gap-1.5">
+                              <input
+                                type="checkbox"
+                                checked={allSectionSelected}
+                                onChange={() => toggleSelectAllQuestionsInSection(sectionQuestions)}
+                                className="h-3.5 w-3.5 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                                title={allSectionSelected ? "Deselect all questions in this section" : "Select all questions in this section"}
+                              />
+                              <span className="text-[10px]">#</span>
+                            </div>
+                            <div className="col-span-6">Question</div>
+                            <div className="col-span-2 text-center">Type</div>
+                            <div className="col-span-1 text-right">Marks</div>
+                            <div className="col-span-2 text-right pr-2">Actions</div>
                           </div>
 
-                          {/* Detailed Question Cards */}
-                          <div className="space-y-2">
-                            {sectionQuestions.map((q) => (
+                          {/* Question Table Rows with Row Checkbox */}
+                          {sectionQuestions.map((q) => {
+                            const questionNumber = String(q.originalIndex + 1).padStart(2, "0");
+                            const isSelected = selectedQuestionIds.includes(q.id);
+
+                            return (
                               <div
                                 key={q.id}
-                                className="flex items-center justify-between p-3.5 bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl shadow-2xs hover:border-[#2563EB]/50 transition-colors"
+                                className={cn(
+                                  "grid grid-cols-12 gap-3 px-4 py-2.5 items-center transition-colors group",
+                                  isSelected
+                                    ? "bg-blue-50/70 dark:bg-blue-950/25 border-l-2 border-blue-600"
+                                    : "hover:bg-slate-50/80 dark:hover:bg-zinc-800/40"
+                                )}
                               >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <span className="w-7 h-7 rounded-lg bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center text-xs font-bold shrink-0">
-                                    {q.originalIndex + 1}
+                                {/* Checkbox + # Badge */}
+                                <div className="col-span-1 flex items-center justify-center gap-1.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleSelectQuestion(q.id)}
+                                    className="h-3.5 w-3.5 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                                    title={`Select Question ${questionNumber}`}
+                                  />
+                                  <span className="w-6 h-6 rounded-md bg-slate-100 dark:bg-zinc-800 border border-slate-200/80 dark:border-zinc-700/80 text-slate-700 dark:text-zinc-300 font-mono text-[11px] font-bold flex items-center justify-center">
+                                    {questionNumber}
                                   </span>
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-bold text-[#111827] dark:text-[#FAFAFA] truncate">
-                                      {q.title}
-                                    </p>
-                                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                                      <Badge variant="outline" className="text-[9px] uppercase font-bold text-[#6B7280] border-[#E5E7EB] dark:border-[#27272A]">
-                                        {q.type}
-                                      </Badge>
-                                      <span className="text-[10px] font-bold text-[#2563EB]">
-                                        {q.marks} Marks
+                                </div>
+
+                                {/* Question Title & Meta */}
+                                <div className="col-span-6 min-w-0 pr-2">
+                                  <p className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                    {q.title}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[11px] text-slate-500 dark:text-zinc-400">
+                                    {q.type === "coding" ? (
+                                      <span>
+                                        {q.testCases?.length || 0} Test Cases ({q.testCases?.filter((t) => !t.isHidden).length || 0} Public)
                                       </span>
-                                      {q.options && q.options.length > 0 && (
-                                        <span className="text-[10px] text-[#16A34A] font-semibold flex items-center gap-1">
-                                          • {q.options.length} Options {q.options.some(o => o.isCorrect) && "(Answer Selected)"}
-                                        </span>
-                                      )}
-                                    </div>
+                                    ) : (
+                                      <span>
+                                        {q.options?.length || 0} Options {q.options?.some((o) => o.isCorrect) && "• Answer Configured"}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0 ml-3">
+                                {/* Type Semantic Label */}
+                                <div className="col-span-2 flex justify-center">
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border",
+                                      q.type === "coding"
+                                        ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800"
+                                        : q.type === "msq"
+                                        ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800"
+                                        : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                                    )}
+                                  >
+                                    {q.type === "coding" ? "Coding" : q.type === "msq" ? "MSQ" : "MCQ"}
+                                  </Badge>
+                                </div>
+
+                                {/* Marks */}
+                                <div className="col-span-1 text-right">
+                                  <span className="text-xs font-bold text-slate-800 dark:text-zinc-200">
+                                    {q.marks} {q.marks === 1 ? "Mark" : "Marks"}
+                                  </span>
+                                </div>
+
+                                {/* Actions - MNC Aligned on Right */}
+                                <div className="col-span-2 flex items-center justify-end gap-1.5 pr-2">
                                   <Button
                                     size="sm"
                                     variant="outline"
+                                    className="h-7 px-2.5 text-xs font-semibold text-slate-700 dark:text-zinc-200 border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/60 dark:hover:bg-blue-950/30 rounded-lg gap-1 transition-all shadow-2xs cursor-pointer"
                                     onClick={() => openEditQuestion(q)}
-                                    className="h-7 px-2.5 text-[11px] font-bold border-[#2563EB]/30 text-[#2563EB] hover:bg-[#2563EB]/10 rounded-lg"
+                                    title="Edit Question"
                                   >
-                                    Edit
+                                    <Pencil className="h-3 w-3 text-slate-400 group-hover:text-blue-500" />
+                                    <span>Edit</span>
                                   </Button>
                                   <Button
                                     size="sm"
-                                    variant="ghost"
+                                    variant="outline"
+                                    className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 dark:hover:text-red-400 border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-red-300 hover:bg-red-50/60 dark:hover:bg-red-950/30 rounded-lg transition-all shadow-2xs cursor-pointer"
                                     onClick={() => handleDeleteQuestion(q.id)}
-                                    className="h-7 px-2.5 text-[11px] font-bold text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg"
+                                    title="Delete Question"
                                   >
-                                    Delete
+                                    <Trash2 className="h-3.5 w-3.5" />
                                   </Button>
                                 </div>
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
                       )}
-                    </div>
-                  );
-                })
-              )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
 
-              {/* Add New Section UI */}
-              <div className="pt-4 border-t border-[#E5E7EB] dark:border-[#27272A]">
-                {isAddingSection ? (
-                  <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-center gap-2">
-                      <Input 
-                        placeholder="Type new section title (e.g. Quantitative Ability)..." 
-                        value={newSectionTitle} 
-                        onChange={(e) => setNewSectionTitle(e.target.value)}
-                        className="h-9 text-xs"
-                        autoFocus
-                      />
-                      <Button className="h-9 text-xs font-bold bg-[#16A34A] hover:bg-[#15803D]" onClick={handleAddSection}>
-                        Save Section
-                      </Button>
-                      <Button variant="ghost" className="h-9 text-xs text-[#6B7280]" onClick={() => setIsAddingSection(false)}>
-                        Cancel
-                      </Button>
-                    </div>
+            {/* Add New Section UI */}
+            <div className="pt-1">
+              {isAddingSection ? (
+                <div className="p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl space-y-3 shadow-xs">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-zinc-100">
+                    Create New Section
                   </div>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    className="w-full h-10 border-dashed border-[#2563EB]/40 text-[#2563EB] hover:bg-[#2563EB]/5 font-bold text-xs"
-                    onClick={() => setIsAddingSection(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" /> Add New Section
-                  </Button>
-                )}
-              </div>
-
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Type section title (e.g. Quantitative Ability, Verbal Reasoning)..."
+                      value={newSectionTitle}
+                      onChange={(e) => setNewSectionTitle(e.target.value)}
+                      className="h-9 text-xs"
+                      autoFocus
+                    />
+                    <Button
+                      className="h-9 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 cursor-pointer"
+                      onClick={handleAddSection}
+                    >
+                      Save Section
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="h-9 px-3 text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 shrink-0 cursor-pointer"
+                      onClick={() => setIsAddingSection(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="w-full h-10 border-dashed border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-300 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/30 dark:hover:bg-zinc-800 font-semibold text-xs rounded-xl transition-all cursor-pointer"
+                  onClick={() => setIsAddingSection(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Add New Section
+                </Button>
+              )}
             </div>
           </div>
-          
-          <div className="space-y-6">
-            {/* Schedule & Availability Details Card */}
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
-              <CardContent className="p-5 space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1.5">
-                    <CalendarDays className="h-4 w-4 text-[#2563EB]" /> Schedule & Timing
-                  </h3>
+
+          {/* RIGHT: 30% SUPPORTING INFORMATION SIDEBAR (4 cols) */}
+          <div className="lg:col-span-4 space-y-4">
+            {/* 1. ASSESSMENT OVERVIEW */}
+            <Card className="bg-white dark:bg-[#121214] border border-slate-200/80 dark:border-zinc-800 rounded-xl shadow-xs overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-900/40">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+                  Assessment Overview
+                </h3>
+              </div>
+              <CardContent className="p-4 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-zinc-800/60">
+                  <span className="text-slate-500 dark:text-zinc-400">Status</span>
                   <Badge
                     variant="outline"
-                    className={`text-[10px] font-bold ${
-                      selectedTest.scheduleMode === "open" || (!selectedTest.date && !selectedTest.startDate)
-                        ? "bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/30"
-                        : selectedTest.scheduleMode === "window"
-                        ? "bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30"
-                        : "bg-[#7C3AED]/10 text-[#7C3AED] border-[#7C3AED]/30"
-                    }`}
+                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400"
                   >
-                    {selectedTest.scheduleMode === "open" || (!selectedTest.date && !selectedTest.startDate)
-                      ? "On-Demand"
-                      : selectedTest.scheduleMode === "window"
-                      ? "Validity Window"
-                      : "Strict Slot"}
+                    {statusLabel}
                   </Badge>
                 </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-zinc-800/60">
+                  <span className="text-slate-500 dark:text-zinc-400">Questions</span>
+                  <span className="font-semibold text-slate-900 dark:text-zinc-100">{totalQuestionsCount}</span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-zinc-800/60">
+                  <span className="text-slate-500 dark:text-zinc-400">Maximum Marks</span>
+                  <span className="font-semibold text-slate-900 dark:text-zinc-100">{calculatedMaxMarks}</span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-zinc-800/60">
+                  <span className="text-slate-500 dark:text-zinc-400">Duration</span>
+                  <span className="font-semibold text-slate-900 dark:text-zinc-100">{durationMinutes} min</span>
+                </div>
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-slate-500 dark:text-zinc-400">Assessment Type</span>
+                  <span className="font-semibold text-slate-900 dark:text-zinc-100">{assessmentType}</span>
+                </div>
+              </CardContent>
+            </Card>
 
-                <div className="p-3.5 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A] space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#6B7280]">Test Timer:</span>
-                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA] flex items-center gap-1">
-                      <Timer className="h-3.5 w-3.5 text-[#2563EB]" /> {selectedTest?.duration || 60} Minutes
-                    </span>
+            {/* 2. SCHEDULE & TIMING */}
+            <Card className="bg-white dark:bg-[#121214] border border-slate-200/80 dark:border-zinc-800 rounded-xl shadow-xs overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-900/40 flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Schedule & Timing</span>
+                </h3>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/30"
+                >
+                  {selectedTest.scheduleMode === "open" || (!selectedTest.date && !selectedTest.startDate)
+                    ? "On-Demand"
+                    : selectedTest.scheduleMode === "window"
+                    ? "Validity Window"
+                    : "Strict Slot"}
+                </Badge>
+              </div>
+              <CardContent className="p-4 space-y-3 text-xs">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-zinc-800/60">
+                    <span className="text-slate-500 dark:text-zinc-400">Duration</span>
+                    <span className="font-semibold text-slate-900 dark:text-zinc-100">{durationMinutes} Minutes</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#6B7280]">Access Window:</span>
-                    <span className="font-bold text-[#111827] dark:text-[#FAFAFA] text-right">
+                  <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-zinc-800/60">
+                    <span className="text-slate-500 dark:text-zinc-400">Access</span>
+                    <span className="font-semibold text-slate-900 dark:text-zinc-100 text-right">
                       {selectedTest?.scheduleMode === "window" && (selectedTest?.startDate || selectedTest?.endDate)
                         ? `${selectedTest?.startDate || "Any"} to ${selectedTest?.endDate || "Open"}`
                         : selectedTest?.date
                         ? `${selectedTest?.date} ${selectedTest?.startTime ? `(${selectedTest.startTime} - ${selectedTest?.endTime || "..."})` : ""}`
-                        : "Available 24/7 (On-Demand)"}
+                        : "Available 24/7"}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-[#6B7280]">Timezone:</span>
-                    <span className="font-mono text-[#6B7280]">{selectedTest?.timezone || "Asia/Kolkata (IST)"}</span>
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-slate-500 dark:text-zinc-400">Timezone</span>
+                    <span className="font-mono text-slate-600 dark:text-zinc-400 text-[11px]">{selectedTest?.timezone || "Asia/Kolkata"}</span>
                   </div>
                 </div>
-
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => openEditExamModal(selectedTest)}
-                  className="w-full h-9 text-xs font-bold border-[#2563EB]/30 text-[#2563EB] hover:bg-[#2563EB]/10 gap-1.5"
+                  className="w-full h-8 text-xs font-semibold border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg gap-1.5 cursor-pointer"
                 >
-                  <Settings className="h-3.5 w-3.5" /> Modify Timing or Clear Schedule
+                  <Settings className="h-3.5 w-3.5 text-slate-500" />
+                  <span>Modify Schedule</span>
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
-              <CardContent className="p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Candidate Submissions</h3>
-                  <Badge variant="outline" className="text-[10px] font-bold text-[#16A34A] border-[#16A34A]/30">
-                    Live
-                  </Badge>
+            {/* 3. CANDIDATE SUBMISSIONS */}
+            <Card className="bg-white dark:bg-[#121214] border border-slate-200/80 dark:border-zinc-800 rounded-xl shadow-xs overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-900/40 flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
+                  Candidate Submissions
+                </h3>
+                <Badge variant="outline" className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40">
+                  Live
+                </Badge>
+              </div>
+              <CardContent className="p-4 space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 dark:bg-zinc-900/60 rounded-lg border border-slate-100 dark:border-zinc-800">
+                  <div>
+                    <div className="text-[11px] text-slate-400 dark:text-zinc-500">Completed</div>
+                    <div className="text-xl font-bold text-slate-900 dark:text-zinc-100">
+                      {candidateSubmissions.filter(c => c.status === "Submitted" || c.status === "Auto-Submitted").length}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-slate-400 dark:text-zinc-500">Submitted</div>
+                    <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                      {candidateSubmissions.length}
+                    </div>
+                  </div>
                 </div>
-                <div className="p-4 bg-[#F9FAFB] dark:bg-[#09090B] rounded-xl border border-[#E5E7EB] dark:border-[#27272A]">
-                  <div className="text-3xl font-black text-[#2563EB]">{candidateSubmissions.length}</div>
-                  <div className="text-xs font-bold text-[#6B7280] uppercase tracking-wider mt-1">Candidates Completed / Enrolled: {candidateSubmissions.length} Submitted</div>
-                </div>
-                <Button 
-                  onClick={() => downloadAssessmentReportCsv(selectedTest)}
-                  disabled={candidateSubmissions.length === 0}
-                  className="w-full h-10 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 text-white font-bold text-xs gap-2 shadow-xs"
-                >
-                  <Download className="h-4 w-4" /> Download Candidate Report
-                </Button>
-                <Link href={`/admin/tests/inspect/${selectedTest.id}`} className="block w-full">
-                  <Button variant="outline" className="w-full h-10 border-[#E5E7EB] dark:border-[#27272A] font-bold text-xs gap-2">
-                    <Play className="h-4 w-4 text-[#2563EB]" /> Live Anti-Cheating Monitor
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => downloadAssessmentReportCsv(selectedTest)}
+                    disabled={candidateSubmissions.length === 0}
+                    size="sm"
+                    className="w-full h-8 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 text-white font-semibold text-xs gap-1.5 rounded-lg cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Download Candidate Report</span>
                   </Button>
-                </Link>
+                  <Link href={`/admin/tests/inspect/${selectedTest.id}`} className="block w-full">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-8 border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 font-semibold text-xs gap-1.5 rounded-lg cursor-pointer"
+                    >
+                      <Play className="h-3.5 w-3.5 text-blue-600" />
+                      <span>Live Anti-Cheating Monitor</span>
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-sm">
-              <CardContent className="p-5 space-y-4">
-                <h3 className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">Security & Anti-Cheating</h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedTest.proctoringFlags.map(flag => (
-                    <Badge key={flag} variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 text-[10px] font-bold">
-                      <ShieldCheck className="h-3 w-3 mr-1" /> {flag}
-                    </Badge>
-                  ))}
-                </div>
+            {/* 4. SECURITY & ANTI-CHEATING */}
+            <Card className="bg-white dark:bg-[#121214] border border-slate-200/80 dark:border-zinc-800 rounded-xl shadow-xs overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-900/40">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Security & Anti-Cheating</span>
+                </h3>
+              </div>
+              <CardContent className="p-4">
+                {selectedTest.proctoringFlags && selectedTest.proctoringFlags.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedTest.proctoringFlags.map((flag) => (
+                      <div key={flag} className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-300">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="font-medium">{flag}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-500 dark:text-zinc-400">
+                    Standard security measures active (No strict proctoring flags).
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -3041,9 +3849,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         {renderAssignmentModal()}
         {renderReassignModal()}
         {renderEditExamSettingsModal()}
+        {renderAddSectionModal()}
+        {renderEditSectionModal()}
 
         {showAssessmentBulkUpload && selectedTest && (
-          <BulkUploadCard
+          <BulkUploadModal
             isOpen={true}
             inline={false}
             onClose={() => {
@@ -3051,73 +3861,247 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               setBulkUploadTargetSection(null);
             }}
             moduleType="assessment_questions"
-            moduleTitle={selectedTest.title}
+            moduleTitle={
+              bulkUploadTargetSection
+                ? `${selectedTest.title} - ${bulkUploadTargetSection}`
+                : selectedTest.title
+            }
+            targetSection={bulkUploadTargetSection}
             onImport={async (importedData) => {
               if (!selectedTest) return;
               const incomingQuestions: TestQuestion[] = [];
-              const incomingSections = new Set<string>();
+              const targetSec = bulkUploadTargetSection ? bulkUploadTargetSection.trim() : null;
+
+              // Helper for normalizing question type
+              const normalizeQType = (raw: any, opts?: any[], tcs?: any[], rawItem?: any, sec?: string): "coding" | "mcq" | "msq" | "both" => {
+                const clean = String(raw || "").toLowerCase().replace(/[\s_-]+/g, "");
+                if (clean === "coding" || clean === "code" || clean === "programming") return "coding";
+                if (clean === "msq" || clean === "multipleselect" || clean === "multiselect" || clean === "multiple") return "msq";
+                if (clean === "both" || clean === "mixed") return "both";
+                if (clean === "mcq" || clean === "multiplechoice" || clean === "singlechoice" || clean === "choice") return "mcq";
+                
+                // If question has MCQ options, it is an MCQ/MSQ
+                if (opts && Array.isArray(opts) && opts.length > 0 && opts.some((o: any) => String(o.text || "").trim() !== "")) {
+                  const correctCount = opts.filter((o: any) => Boolean(o.isCorrect)).length;
+                  return correctCount > 1 ? "msq" : "mcq";
+                }
+
+                // Contextual coding detection: ID prefix, category, test cases with non-empty content
+                const validTcs = (tcs || []).filter((tc: any) => String(tc.input || "").trim() !== "" || String(tc.output || tc.expected_output || tc.expectedOutput || "").trim() !== "");
+                if (
+                  rawItem?.questionCategory === "coding" ||
+                  String(rawItem?.id || "").startsWith("cp_") ||
+                  validTcs.length > 0
+                ) {
+                  return "coding";
+                }
+
+                return "mcq";
+              };
+
+              const mapSingleQuestion = (rawQ: any, fallbackSec: string, index: number): TestQuestion => {
+                // Build MCQ/MSQ options if raw row contains option columns
+                let structuredOptions = rawQ.options;
+                if (!structuredOptions || !Array.isArray(structuredOptions) || structuredOptions.length === 0) {
+                  const rawCorrect = String(rawQ.correctOption || rawQ.correct_option || rawQ.correctAnswer || rawQ.correct_answer || rawQ.answer || "A").trim().toUpperCase();
+                  const correctParts = rawCorrect.split(/[,;\s]+/).map((s: string) => s.trim());
+                  
+                  const optA = rawQ.optionA ?? rawQ.option_a ?? rawQ.option1 ?? rawQ.choiceA ?? rawQ.choice_a;
+                  const optB = rawQ.optionB ?? rawQ.option_b ?? rawQ.option2 ?? rawQ.choiceB ?? rawQ.choice_b;
+                  const optC = rawQ.optionC ?? rawQ.option_c ?? rawQ.option3 ?? rawQ.choiceC ?? rawQ.choice_c;
+                  const optD = rawQ.optionD ?? rawQ.option_d ?? rawQ.option4 ?? rawQ.choiceD ?? rawQ.choice_d;
+
+                  if (optA !== undefined || optB !== undefined || optC !== undefined || optD !== undefined) {
+                    structuredOptions = [
+                      { id: 1, text: String(optA || "").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") || rawCorrect === "A" },
+                      { id: 2, text: String(optB || "").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") || rawCorrect === "B" },
+                      { id: 3, text: String(optC || "").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") || rawCorrect === "C" },
+                      { id: 4, text: String(optD || "").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") || rawCorrect === "D" },
+                    ].filter((o: any) => o.text !== "");
+                  }
+                }
+
+                const rawTcs = rawQ.testCases || rawQ.test_cases || [];
+                const validTcs = (rawTcs || []).filter((tc: any) => String(tc.input || "").trim() !== "" || String(tc.output || tc.expected_output || tc.expectedOutput || "").trim() !== "");
+                const qType = normalizeQType(rawQ.type || rawQ.questionType, structuredOptions, validTcs, rawQ, rawQ.section);
+
+                // Smart section resolution: Don't force MCQs into a coding section and coding into MCQ section
+                let assignedSec = (rawQ.section ? String(rawQ.section).trim() : null);
+                if (qType === "coding") {
+                  if (!assignedSec || (!assignedSec.toLowerCase().includes("code") && !assignedSec.toLowerCase().includes("programming"))) {
+                    assignedSec = "Coding Challenges";
+                  }
+                } else {
+                  if (assignedSec && (assignedSec.toLowerCase().includes("code") || assignedSec.toLowerCase().includes("programming"))) {
+                    assignedSec = (targetSec && !targetSec.toLowerCase().includes("code") && !targetSec.toLowerCase().includes("programming"))
+                      ? targetSec
+                      : (fallbackSec && !fallbackSec.toLowerCase().includes("code") && !fallbackSec.toLowerCase().includes("programming")
+                          ? fallbackSec
+                          : "Multiple Choice Questions");
+                  } else if (!assignedSec) {
+                    assignedSec = (targetSec && !targetSec.toLowerCase().includes("code") && !targetSec.toLowerCase().includes("programming"))
+                      ? targetSec
+                      : (fallbackSec && !fallbackSec.toLowerCase().includes("code") && !fallbackSec.toLowerCase().includes("programming")
+                          ? fallbackSec
+                          : "Multiple Choice Questions");
+                  }
+                }
+
+                const marks = Number(rawQ.marks) || (qType === "coding" ? 10 : 2);
+                const title = (rawQ.title || rawQ.questionTitle || rawQ.questionText || rawQ.prompt || `Question ${incomingQuestions.length + index + 1}`).trim();
+                const problemStatement = (rawQ.problemStatement || rawQ.description || rawQ.prompt || title).trim();
+
+                const formattedTestCases = validTcs.map((tc: any, tcIdx: number) => ({
+                  id: tc.id || `tc_${tcIdx + 1}`,
+                  input: tc.input || "",
+                  output: tc.output || tc.expected_output || tc.expectedOutput || "",
+                  expected_output: tc.output || tc.expected_output || tc.expectedOutput || "",
+                  isHidden: Boolean(tc.isHidden ?? tc.is_hidden),
+                  is_hidden: Boolean(tc.isHidden ?? tc.is_hidden),
+                }));
+
+                return {
+                  id: rawQ.id || (qType === "coding" ? `cp_bulk_${Date.now()}_${index}` : `q_bulk_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`),
+                  title,
+                  type: qType,
+                  marks,
+                  section: assignedSec,
+                  difficulty: rawQ.difficulty || "Easy",
+                  language: rawQ.language || (qType === "coding" ? "java" : undefined),
+                  problemStatement,
+                  description: (rawQ.description || problemStatement).trim(),
+                  inputFormat: qType === "coding" ? (rawQ.inputFormat || rawQ.input_format || "").trim() : undefined,
+                  outputFormat: qType === "coding" ? (rawQ.outputFormat || rawQ.output_format || "").trim() : undefined,
+                  constraints: qType === "coding" ? (rawQ.constraints || "").trim() : undefined,
+                  explanation: (rawQ.explanation || "").trim(),
+                  starterCode: qType === "coding" ? (rawQ.starterCode || rawQ.starter_code || { java: DEFAULT_STARTER_CODES.java || "// Java" }) : undefined,
+                  referenceCode: qType === "coding" ? (rawQ.referenceCode || { java: "" }) : undefined,
+                  options: qType !== "coding" ? (structuredOptions || []) : undefined,
+                  testCases: qType === "coding"
+                    ? (formattedTestCases.length > 0
+                        ? formattedTestCases
+                        : [{ id: "tc_1", input: "1", output: "1", expected_output: "1", isHidden: false, is_hidden: false }])
+                    : undefined,
+                };
+              };
 
               if (Array.isArray(importedData)) {
-                importedData.forEach((item: any) => {
-                  if (item.sections && Array.isArray(item.sections)) {
-                    item.sections.forEach((sec: any) => {
-                      const secName = (sec.title || bulkUploadTargetSection || "General").trim();
-                      incomingSections.add(secName);
-                      (sec.questions || []).forEach((q: any) => {
-                        incomingQuestions.push({
-                          id: q.id || `q_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-                          title: q.title || q.questionTitle || "Untitled Question",
-                          type: (q.type || q.questionType || "mcq").toLowerCase() as any,
-                          marks: Number(q.marks) || 10,
-                          section: secName,
-                          options: q.options || [],
-                          testCases: q.testCases || [],
-                        });
+                importedData.forEach((item: any, itemIdx: number) => {
+                  // Shape 1: Grouped section object { sectionName/title, questions: [...] }
+                  if (item.questions && Array.isArray(item.questions)) {
+                    const fallbackSec = targetSec || (item.sectionName || item.title || item.section || "General Assessment").trim();
+                    item.questions.forEach((q: any, qIdx: number) => {
+                      incomingQuestions.push(mapSingleQuestion(q, fallbackSec, itemIdx * 100 + qIdx));
+                    });
+                  }
+                  // Shape 2: Object with sections array { sections: [ { title, questions: [...] } ] }
+                  else if (item.sections && Array.isArray(item.sections)) {
+                    item.sections.forEach((sec: any, sIdx: number) => {
+                      const fallbackSec = targetSec || (sec.title || sec.sectionName || "General Assessment").trim();
+                      (sec.questions || []).forEach((q: any, qIdx: number) => {
+                        incomingQuestions.push(mapSingleQuestion(q, fallbackSec, sIdx * 100 + qIdx));
                       });
                     });
-                  } else if (item.questionTitle || item.title) {
-                    const secName = (item.sectionName || item.section || bulkUploadTargetSection || "General").trim();
-                    incomingSections.add(secName);
-                    incomingQuestions.push({
-                      id: item.id || `q_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-                      title: item.questionTitle || item.title || "Untitled Question",
-                      type: (item.questionType || item.type || "mcq").toLowerCase() as any,
-                      marks: Number(item.marks) || 10,
-                      section: secName,
-                      options: item.options || [],
-                      testCases: item.testCases || [],
-                    });
+                  }
+                  // Shape 3: Flat question row
+                  else if (item.questionTitle || item.title || item.questionText || item.prompt) {
+                    const fallbackSec = targetSec || (item.sectionName || item.section || selectedTest.sections?.[0] || "General Assessment").trim();
+                    incomingQuestions.push(mapSingleQuestion(item, fallbackSec, itemIdx));
                   }
                 });
               }
 
-              const existingSections = selectedTest.sections && selectedTest.sections.length > 0 ? selectedTest.sections : ["General"];
-              const mergedSections = Array.from(new Set([...existingSections, ...Array.from(incomingSections)]));
+              if (incomingQuestions.length === 0) {
+                toast({
+                  title: "No Questions Found",
+                  description: "Could not find any valid questions to import from the uploaded file.",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              // Canonicalize sections
+              const existingSections = selectedTest.sections && selectedTest.sections.length > 0
+                ? [...selectedTest.sections]
+                : ["General Assessment"];
               const existingQuestions = selectedTest.questions || [];
 
+              const canonicalSection = (rawSec: string): string => {
+                const trimmed = rawSec.trim();
+                const matched = existingSections.find((s) => s.trim().toLowerCase() === trimmed.toLowerCase());
+                return matched || trimmed;
+              };
+
+              // Re-align all questions to match canonical section casing
+              incomingQuestions.forEach((q) => {
+                q.section = canonicalSection(q.section);
+              });
+
+              // Decide final sections list - remove empty placeholder sections if real questions exist
+              const usedExistingSections = new Set((selectedTest.questions || []).map((q) => (q.section || "").trim().toLowerCase()));
+              let finalSections = existingSections.filter((s) => usedExistingSections.has(s.trim().toLowerCase()));
+              const incomingSectionSet = new Set(incomingQuestions.map((q) => q.section));
+
+              incomingSectionSet.forEach((sec) => {
+                if (!finalSections.some((s) => s.trim().toLowerCase() === sec.trim().toLowerCase())) {
+                  finalSections.push(sec);
+                }
+              });
+
+              if (finalSections.length === 0) {
+                finalSections = Array.from(incomingSectionSet).length > 0 ? Array.from(incomingSectionSet) : ["General Assessment"];
+              }
+
+              // Duplicate detection: section + title (case-insensitive)
               const existingKeys = new Set(
                 existingQuestions.map((q) => `${(q.section || "").trim().toLowerCase()}:::${(q.title || "").trim().toLowerCase()}`)
               );
-              const newQuestionsToAdd = incomingQuestions.filter(
-                (q) => !existingKeys.has(`${(q.section || "").trim().toLowerCase()}:::${(q.title || "").trim().toLowerCase()}`)
-              );
+
+              const newQuestionsToAdd: TestQuestion[] = [];
+              const skippedDuplicates: TestQuestion[] = [];
+
+              incomingQuestions.forEach((q) => {
+                const key = `${(q.section || "").trim().toLowerCase()}:::${(q.title || "").trim().toLowerCase()}`;
+                if (existingKeys.has(key)) {
+                  skippedDuplicates.push(q);
+                } else {
+                  existingKeys.add(key);
+                  newQuestionsToAdd.push(q);
+                }
+              });
+
+              if (newQuestionsToAdd.length === 0) {
+                toast({
+                  title: "All Questions Already Exist",
+                  description: `Skipped ${skippedDuplicates.length} duplicate question(s) that already exist in this assessment.`,
+                  variant: "destructive",
+                });
+                setShowAssessmentBulkUpload(false);
+                setBulkUploadTargetSection(null);
+                return;
+              }
+
               const updatedQuestions = [...existingQuestions, ...newQuestionsToAdd];
               const totalMarks = updatedQuestions.reduce((acc, q) => acc + (Number(q.marks) || 0), 0);
 
               const updatedTest: ScheduledTest = {
                 ...selectedTest,
-                sections: mergedSections,
+                sections: finalSections,
                 totalQuestions: updatedQuestions.length,
                 maxMarks: totalMarks,
                 questions: updatedQuestions,
               };
 
               try {
-                await fetch("/api/admin/tests", {
+                const res = await fetch("/api/admin/tests", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ test: updatedTest }),
                 });
+                if (!res.ok) {
+                  const errData = await res.json().catch(() => ({}));
+                  throw new Error(errData.error || "Failed to persist questions to database");
+                }
               } catch (err) {
                 console.error("Failed to update test with imported questions", err);
               }
@@ -3126,9 +4110,18 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               setSelectedTest(updatedTest);
               setShowAssessmentBulkUpload(false);
               setBulkUploadTargetSection(null);
+
+              const sectionDisplay = targetSec
+                ? `to ${targetSec}`
+                : finalSections.length === 1
+                ? `to ${finalSections[0]}`
+                : `across ${incomingSectionSet.size} section(s)`;
+
               toast({
-                title: "Assessment Questions Imported",
-                description: `Added ${newQuestionsToAdd.length} question(s) across ${incomingSections.size || 1} section(s). Total questions: ${updatedQuestions.length}.`,
+                title: "Bulk Upload Completed",
+                description: skippedDuplicates.length > 0
+                  ? `${newQuestionsToAdd.length} questions added successfully ${sectionDisplay}. (${skippedDuplicates.length} duplicates skipped).`
+                  : `${newQuestionsToAdd.length} questions added successfully ${sectionDisplay}. Total questions: ${updatedQuestions.length}.`,
               });
             }}
           />
@@ -3142,6 +4135,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       <AssessmentQuestionEditor
         test={selectedTest}
         role={role}
+        initialQuestionId={editingQuestionId}
+        targetSection={manualQuestionSection}
         onBack={() => {
           setEditingQuestionId(null);
           setViewState("exam-dashboard");
@@ -3207,11 +4202,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         }
       />
 
-      {/* BULK UPLOAD ASSESSMENTS INLINE CARD */}
+      {/* BULK UPLOAD ASSESSMENTS POPUP MODAL */}
       {showBulkUploadAssessments && (
-        <BulkUploadCard
+        <BulkUploadModal
           isOpen={true}
-          inline={true}
+          inline={false}
           onClose={() => setShowBulkUploadAssessments(false)}
           moduleType="assessment_track"
           moduleTitle="Assessments & Exams Catalog"
@@ -3258,13 +4253,54 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
         </div>
       </div>
 
+      {/* Bulk Delete Toolbar for Assessments */}
+      {selectedTestIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl px-4 py-3 shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-md bg-red-600 text-white text-xs font-bold flex items-center justify-center">
+              {selectedTestIds.length}
+            </span>
+            <span className="text-xs font-bold text-red-800 dark:text-red-300">
+              {selectedTestIds.length === 1 ? "1 assessment selected" : `${selectedTestIds.length} assessments selected`}
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedTestIds([])}
+              className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-zinc-400 underline cursor-pointer ml-1"
+            >
+              Clear selection
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => handleBulkDeleteTests(selectedTestIds)}
+              className="h-8 px-3.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete Selected ({selectedTestIds.length})</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Exams Table */}
       <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] shadow-xs overflow-hidden">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-xs font-bold text-[#6B7280] uppercase tracking-wider">
               <tr>
-                <th className="p-4 pl-6">Assessment Title</th>
+                <th className="p-4 pl-5 w-12 text-center">
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && filtered.every((t) => selectedTestIds.includes(t.id))}
+                    onChange={() => toggleSelectAllTests(filtered)}
+                    className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                    title={filtered.length > 0 && filtered.every((t) => selectedTestIds.includes(t.id)) ? "Deselect all assessments" : "Select all assessments"}
+                  />
+                </th>
+                <th className="p-4 pl-2">Assessment Title</th>
                 <th className="p-4">Schedule & Timing</th>
                 <th className="p-4">Assigned Batches</th>
                 <th className="p-4">Questions & Marks</th>
@@ -3273,9 +4309,28 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
-              {filtered.map((t) => (
-                <tr key={t.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60 transition-colors group">
-                  <td className="p-4 pl-6 space-y-0.5">
+              {filtered.map((t) => {
+                const isSelected = selectedTestIds.includes(t.id);
+                return (
+                <tr
+                  key={t.id}
+                  className={cn(
+                    "transition-colors group",
+                    isSelected
+                      ? "bg-blue-50/70 dark:bg-blue-950/25 border-l-2 border-blue-600"
+                      : "hover:bg-[#F9FAFB] dark:hover:bg-[#09090B]/60"
+                  )}
+                >
+                  <td className="p-4 pl-5 w-12 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelectTest(t.id)}
+                      className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                      title={`Select ${t.title}`}
+                    />
+                  </td>
+                  <td className="p-4 pl-2 space-y-0.5">
                     <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs">{t.title}</p>
                     <p className="text-[11px] text-[#6B7280] flex items-center gap-1.5">
                       <ShieldCheck className="h-3 w-3 text-[#16A34A]" /> {t.proctoringFlags?.length || 0} Security Rules Active
@@ -3353,13 +4408,11 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                         variant="outline"
                         size="sm"
                         onClick={() => openReassignModal(t)}
-                        className="h-8 text-[11px] font-bold rounded-lg border-amber-500/30 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 gap-1"
-                        title="Reassign test & allow retakes for completed candidates"
+                        className="h-8 text-[11px] font-bold rounded-lg border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-zinc-800 gap-1.5 shadow-2xs cursor-pointer transition-all"
+                        title="Assign or reassign batches and manage candidate retakes"
                       >
-                        <RefreshCw className="h-3 w-3" /> Reassign
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => openAssignModal(t)} className="h-8 text-[11px] font-bold rounded-lg">
-                        Assign
+                        <RefreshCw className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                        <span>{t.assignedBatches && t.assignedBatches.length > 0 ? "Reassign" : "Assign"}</span>
                       </Button>
                       <Button 
                         size="sm" 
@@ -3374,7 +4427,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     </div>
                   </td>
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
           </table>
         </CardContent>
@@ -3382,6 +4436,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       {renderAssignmentModal()}
       {renderReassignModal()}
       {renderEditExamSettingsModal()}
+      {renderAddSectionModal()}
+      {renderEditSectionModal()}
 
     </div>
   );

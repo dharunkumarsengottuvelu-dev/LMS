@@ -934,8 +934,9 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         key: "sectionName",
         label: "Section Name",
         type: "string",
-        required: true,
-        description: "Name of the Section (e.g. 'Aptitude & Logical Reasoning', 'Technical MCQ', 'Programming Fundamentals', 'Coding')",
+        required: false,
+        defaultValue: "General Assessment",
+        description: "Name of the Section (e.g. 'Aptitude & Logical Reasoning', 'Technical MCQ', 'Programming Fundamentals', 'Coding'). If left blank, automatically categorized based on question type.",
         sampleValue: "Aptitude & Logical Reasoning",
       },
       {
@@ -951,8 +952,8 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         label: "Question Type",
         type: "enum",
         required: true,
-        options: ["mcq", "msq", "coding"],
-        description: "Type of question: mcq (Single choice), msq (Multiple select), or coding (Live execution)",
+        options: ["mcq", "Multiple Choice", "msq", "coding"],
+        description: "Type of question: mcq / Multiple Choice (Single choice), msq (Multiple select), or coding (Live execution)",
         sampleValue: "mcq",
       },
       {
@@ -1359,47 +1360,69 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
       }
     ],
     mapToPayload: (row, idx) => {
-      const qType = String(row.type || "mcq").toLowerCase().trim();
-      const secName = String(row.sectionName || row.section || "General Assessment").trim();
-      const marks = Number(row.marks) || 5;
+      const rawQType = String(row.type || "mcq").toLowerCase().trim();
+      const cleanQType = rawQType.replace(/[\s_-]+/g, "");
+      const isCoding = cleanQType === "coding" || cleanQType === "code" || cleanQType === "programming";
+      const isMsq = cleanQType === "msq" || cleanQType === "multipleselect" || cleanQType === "multiselect" || cleanQType === "multiple";
+      const qType = isCoding ? "coding" : isMsq ? "msq" : "mcq";
+      let secName = String(row.sectionName || row.section || "").trim();
+
+      // Ensure coding is always isolated into its own dedicated coding section
+      if (isCoding) {
+        if (!secName || (!secName.toLowerCase().includes("code") && !secName.toLowerCase().includes("programming"))) {
+          secName = "Coding Challenges";
+        }
+      } else {
+        if (secName.toLowerCase().includes("code") || secName.toLowerCase().includes("programming") || !secName) {
+          secName = "Multiple Choice Questions";
+        }
+      }
+
+      const marks = Number(row.marks) || (qType === "coding" ? 10 : 2);
 
       const rawCorrect = String(row.correctOption || "A").trim().toUpperCase();
-      const correctParts = rawCorrect.split(",").map((s) => s.trim());
+      const correctParts = rawCorrect.split(/[,;\s]+/).map((s) => s.trim());
 
       const options = [
-        { id: 1, text: String(row.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") },
-        { id: 2, text: String(row.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") },
-        { id: 3, text: String(row.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") },
-        { id: 4, text: String(row.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") },
+        { id: 1, text: String(row.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") || rawCorrect === "A" },
+        { id: 2, text: String(row.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") || rawCorrect === "B" },
+        { id: 3, text: String(row.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") || rawCorrect === "C" },
+        { id: 4, text: String(row.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") || rawCorrect === "D" },
       ];
 
       const testCases: any[] = [];
-      for (let i = 1; i <= 10; i++) {
-        const inp = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`];
-        const out = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`];
-        if (inp !== undefined || out !== undefined) {
-          testCases.push({
-            id: testCases.length + 1,
-            input: String(inp || "").trim(),
-            output: String(out || "").trim(),
-            isHidden: false,
-          });
+      if (qType === "coding") {
+        for (let i = 1; i <= 10; i++) {
+          const inp = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`];
+          const out = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`];
+          const trimmedInp = String(inp || "").trim();
+          const trimmedOut = String(out || "").trim();
+          if (trimmedInp !== "" || trimmedOut !== "") {
+            testCases.push({
+              id: testCases.length + 1,
+              input: trimmedInp,
+              output: trimmedOut,
+              isHidden: false,
+            });
+          }
         }
-      }
-      for (let h = 1; h <= 10; h++) {
-        const hIn = h === 1
-          ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input)
-          : row[`hidden_testcase_${h}_input`];
-        const hOut = h === 1
-          ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output)
-          : row[`hidden_testcase_${h}_output`];
-        if (hIn !== undefined || hOut !== undefined) {
-          testCases.push({
-            id: testCases.length + 1,
-            input: String(hIn || "").trim(),
-            output: String(hOut || "").trim(),
-            isHidden: true,
-          });
+        for (let h = 1; h <= 10; h++) {
+          const hIn = h === 1
+            ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input)
+            : row[`hidden_testcase_${h}_input`];
+          const hOut = h === 1
+            ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output)
+            : row[`hidden_testcase_${h}_output`];
+          const trimmedHIn = String(hIn || "").trim();
+          const trimmedHOut = String(hOut || "").trim();
+          if (trimmedHIn !== "" || trimmedHOut !== "") {
+            testCases.push({
+              id: testCases.length + 1,
+              input: trimmedHIn,
+              output: trimmedHOut,
+              isHidden: true,
+            });
+          }
         }
       }
 
@@ -1408,86 +1431,386 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         assessmentTitle: String(row.assessmentTitle || "").trim(),
         section: secName,
         title: String(row.title || `Question ${idx + 1}`).trim(),
-        type: qType === "coding" ? "coding" : qType === "msq" ? "msq" : "mcq",
+        type: qType,
         marks,
         difficulty: row.difficulty || "Easy",
+        problemStatement: String(row.description || row.problemStatement || row.prompt || row.title || "").trim(),
+        description: String(row.description || row.problemStatement || row.prompt || "").trim(),
         options: qType !== "coding" ? options : undefined,
-        testCases: qType === "coding" ? testCases : undefined,
+        testCases: qType === "coding" ? (testCases.length > 0 ? testCases : undefined) : undefined,
         explanation: String(row.explanation || "").trim(),
-        constraints: String(row.constraints || "").trim(),
-        inputFormat: String(row.input_format || "").trim(),
-        outputFormat: String(row.output_format || "").trim(),
-        starterCode: String(row.starterCode || "").trim(),
+        constraints: qType === "coding" ? String(row.constraints || "").trim() : undefined,
+        inputFormat: qType === "coding" ? String(row.input_format || "").trim() : undefined,
+        outputFormat: qType === "coding" ? String(row.output_format || "").trim() : undefined,
+        starterCode: qType === "coding" ? String(row.starterCode || "").trim() : undefined,
       };
     },
     mapGroupedPayload: (grouped, indexOffset = 0) => {
-      return grouped.map((group, gIdx) => {
-        const secName = String(group.groupKey || `Section ${indexOffset + gIdx + 1}`).trim();
+      const resultSections: any[] = [];
+
+      grouped.forEach((group, gIdx) => {
+        const rawSecName = String(group.groupKey || `Section ${indexOffset + gIdx + 1}`).trim();
         const rows = group.rows || [];
 
-        const questions = rows.map((r, qIdx) => {
-          const qType = String(r.type || "mcq").toLowerCase().trim();
+        // Split rows into coding and non-coding groups so coding always has its own section
+        const nonCodingRows: any[] = [];
+        const codingRows: any[] = [];
+
+        rows.forEach((r) => {
+          const rawQType = String(r.type || "mcq").toLowerCase().trim();
+          const cleanQType = rawQType.replace(/[\s_-]+/g, "");
+          const isCoding = cleanQType === "coding" || cleanQType === "code" || cleanQType === "programming";
+          if (isCoding) {
+            codingRows.push(r);
+          } else {
+            nonCodingRows.push(r);
+          }
+        });
+
+        const processRowToQuestion = (r: any, assignedSection: string, qIdx: number) => {
+          const rawQType = String(r.type || "mcq").toLowerCase().trim();
+          const cleanQType = rawQType.replace(/[\s_-]+/g, "");
+          const isCoding = cleanQType === "coding" || cleanQType === "code" || cleanQType === "programming";
+          const isMsq = cleanQType === "msq" || cleanQType === "multipleselect" || cleanQType === "multiselect" || cleanQType === "multiple";
+          const qType = isCoding ? "coding" : isMsq ? "msq" : "mcq";
           const marks = Number(r.marks) || (qType === "coding" ? 10 : 2);
           const rawCorrect = String(r.correctOption || "A").trim().toUpperCase();
-          const correctParts = rawCorrect.split(",").map((s) => s.trim());
+          const correctParts = rawCorrect.split(/[,;\s]+/).map((s) => s.trim());
 
           const options = [
-            { id: 1, text: String(r.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") },
-            { id: 2, text: String(r.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") },
-            { id: 3, text: String(r.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") },
-            { id: 4, text: String(r.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") },
+            { id: 1, text: String(r.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") || rawCorrect === "A" },
+            { id: 2, text: String(r.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") || rawCorrect === "B" },
+            { id: 3, text: String(r.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") || rawCorrect === "C" },
+            { id: 4, text: String(r.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") || rawCorrect === "D" },
           ];
 
           const testCases: any[] = [];
-          for (let i = 1; i <= 10; i++) {
-            const inp = r[`testcase_${i}_input`] ?? r[`test_case_${i}_input`];
-            const out = r[`testcase_${i}_output`] ?? r[`test_case_${i}_output`];
-            if (inp !== undefined || out !== undefined) {
-              testCases.push({
-                id: testCases.length + 1,
-                input: String(inp || "").trim(),
-                output: String(out || "").trim(),
-                isHidden: false,
-              });
+          if (qType === "coding") {
+            for (let i = 1; i <= 10; i++) {
+              const inp = r[`testcase_${i}_input`] ?? r[`test_case_${i}_input`];
+              const out = r[`testcase_${i}_output`] ?? r[`test_case_${i}_output`];
+              const trimmedInp = String(inp || "").trim();
+              const trimmedOut = String(out || "").trim();
+              if (trimmedInp !== "" || trimmedOut !== "") {
+                testCases.push({
+                  id: testCases.length + 1,
+                  input: trimmedInp,
+                  output: trimmedOut,
+                  isHidden: false,
+                });
+              }
             }
-          }
-          for (let h = 1; h <= 10; h++) {
-            const hIn = h === 1
-              ? (r.hidden_testcase_input ?? r.hidden_testcase_1_input)
-              : r[`hidden_testcase_${h}_input`];
-            const hOut = h === 1
-              ? (r.hidden_testcase_output ?? r.hidden_testcase_1_output)
-              : r[`hidden_testcase_${h}_output`];
-            if (hIn !== undefined || hOut !== undefined) {
-              testCases.push({
-                id: testCases.length + 1,
-                input: String(hIn || "").trim(),
-                output: String(hOut || "").trim(),
-                isHidden: true,
-              });
+            for (let h = 1; h <= 10; h++) {
+              const hIn = h === 1
+                ? (r.hidden_testcase_input ?? r.hidden_testcase_1_input)
+                : r[`hidden_testcase_${h}_input`];
+              const hOut = h === 1
+                ? (r.hidden_testcase_output ?? r.hidden_testcase_1_output)
+                : r[`hidden_testcase_${h}_output`];
+              const trimmedHIn = String(hIn || "").trim();
+              const trimmedHOut = String(hOut || "").trim();
+              if (trimmedHIn !== "" || trimmedHOut !== "") {
+                testCases.push({
+                  id: testCases.length + 1,
+                  input: trimmedHIn,
+                  output: trimmedHOut,
+                  isHidden: true,
+                });
+              }
             }
           }
 
           return {
             id: `q_bulk_${Date.now()}_${gIdx}_${qIdx}`,
             assessmentTitle: String(r.assessmentTitle || "").trim(),
-            section: secName,
+            section: assignedSection,
             title: String(r.title || `Question ${qIdx + 1}`).trim(),
-            type: qType === "coding" ? "coding" : qType === "msq" ? "msq" : "mcq",
+            type: qType,
             marks,
             difficulty: r.difficulty || "Easy",
+            problemStatement: String(r.description || r.problemStatement || r.prompt || r.title || "").trim(),
+            description: String(r.description || r.problemStatement || r.prompt || "").trim(),
             options: qType !== "coding" ? options : undefined,
-            testCases: qType === "coding" ? testCases : undefined,
+            testCases: qType === "coding" ? (testCases.length > 0 ? testCases : undefined) : undefined,
             explanation: String(r.explanation || "").trim(),
-            constraints: String(r.constraints || "").trim(),
-            inputFormat: String(r.input_format || "").trim(),
-            outputFormat: String(r.output_format || "").trim(),
-            starterCode: String(r.starterCode || "").trim(),
+            constraints: qType === "coding" ? String(r.constraints || "").trim() : undefined,
+            inputFormat: qType === "coding" ? String(r.input_format || "").trim() : undefined,
+            outputFormat: qType === "coding" ? String(r.output_format || "").trim() : undefined,
+            starterCode: qType === "coding" ? String(r.starterCode || "").trim() : undefined,
+          };
+        };
+
+        if (nonCodingRows.length > 0) {
+          let nonCodingSec = rawSecName;
+          if (nonCodingSec.toLowerCase().includes("code") || nonCodingSec.toLowerCase().includes("programming")) {
+            nonCodingSec = "Multiple Choice Questions";
+          }
+          const questions = nonCodingRows.map((r, qIdx) => processRowToQuestion(r, nonCodingSec, qIdx));
+          const totalSectionMarks = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
+          resultSections.push({
+            sectionName: nonCodingSec,
+            title: nonCodingSec,
+            questions,
+            questionCount: questions.length,
+            totalMarks: totalSectionMarks,
+            assessmentTitle: rows[0]?.assessmentTitle ? String(rows[0].assessmentTitle).trim() : undefined,
+          });
+        }
+
+        if (codingRows.length > 0) {
+          let codingSec = rawSecName;
+          if (!codingSec.toLowerCase().includes("code") && !codingSec.toLowerCase().includes("programming")) {
+            codingSec = "Coding Challenges";
+          }
+          const questions = codingRows.map((r, qIdx) => processRowToQuestion(r, codingSec, qIdx));
+          const totalSectionMarks = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
+          resultSections.push({
+            sectionName: codingSec,
+            title: codingSec,
+            questions,
+            questionCount: questions.length,
+            totalMarks: totalSectionMarks,
+            assessmentTitle: rows[0]?.assessmentTitle ? String(rows[0].assessmentTitle).trim() : undefined,
+          });
+        }
+      });
+
+      return resultSections;
+    }
+  },
+
+  // ─── 4.6. ASSESSMENT MCQ & MULTI-SELECT TEMPLATE (SECTIONS -> MCQ / MSQ) ───
+  assessment_mcq: {
+    moduleType: "assessment_mcq",
+    displayName: "Assessment MCQ & Multi-Select Template",
+    description: "Template for bulk importing Single-Choice (MCQ) and Multiple-Select (MSQ) questions organized into sections.",
+    templateFileName: "assessment_mcq_sections_template.xlsx",
+    groupByField: "sectionName",
+    columns: [
+      {
+        key: "assessmentTitle",
+        label: "Assessment Title",
+        type: "string",
+        required: false,
+        description: "Title of the Assessment exam. If blank, attaches to open assessment.",
+        sampleValue: "Technical Assessment",
+      },
+      {
+        key: "sectionName",
+        label: "Section Name",
+        type: "string",
+        required: false,
+        defaultValue: "Aptitude & Logical Reasoning",
+        description: "Name of the Section (e.g. 'Aptitude & Logical Reasoning', 'Technical Core', 'Verbal Ability'). Supports multiple MCQ sections.",
+        sampleValue: "Aptitude & Logical Reasoning",
+      },
+      {
+        key: "title",
+        label: "Question / Problem Statement",
+        type: "string",
+        required: true,
+        description: "The complete question prompt or statement",
+        sampleValue: "If 20% of a number is 50, what is the number?",
+      },
+      {
+        key: "type",
+        label: "Question Type",
+        type: "enum",
+        required: true,
+        options: ["mcq", "Multiple Choice", "msq", "Multi-Select"],
+        defaultValue: "mcq",
+        description: "Question type: 'mcq' (Single choice) or 'msq' (Multiple select)",
+        sampleValue: "mcq",
+      },
+      {
+        key: "marks",
+        label: "Marks / Points",
+        type: "number",
+        required: true,
+        defaultValue: 2,
+        description: "Marks allocated for this question",
+        sampleValue: 2,
+      },
+      {
+        key: "difficulty",
+        label: "Difficulty Level",
+        type: "enum",
+        required: false,
+        options: ["Easy", "Medium", "Hard"],
+        defaultValue: "Easy",
+        description: "Question difficulty rating",
+        sampleValue: "Easy",
+      },
+      {
+        key: "optionA",
+        label: "Option A",
+        type: "string",
+        required: true,
+        description: "Option A text",
+        sampleValue: "200",
+      },
+      {
+        key: "optionB",
+        label: "Option B",
+        type: "string",
+        required: true,
+        description: "Option B text",
+        sampleValue: "250",
+      },
+      {
+        key: "optionC",
+        label: "Option C",
+        type: "string",
+        required: false,
+        description: "Option C text",
+        sampleValue: "300",
+      },
+      {
+        key: "optionD",
+        label: "Option D",
+        type: "string",
+        required: false,
+        description: "Option D text",
+        sampleValue: "350",
+      },
+      {
+        key: "correctOption",
+        label: "Correct Option(s)",
+        type: "string",
+        required: true,
+        description: "Correct answer letter (e.g. 'B' for MCQ, or 'A,B' for MSQ)",
+        sampleValue: "B",
+      },
+      {
+        key: "explanation",
+        label: "Explanation / Solution",
+        type: "string",
+        required: false,
+        description: "Detailed solution or explanation",
+        sampleValue: "Let the number be x. 0.20 * x = 50 => x = 250.",
+      },
+    ],
+    sampleRows: [
+      {
+        assessmentTitle: "Technical Assessment",
+        sectionName: "Aptitude & Logical Reasoning",
+        title: "If 20% of a number is 50, what is the number?",
+        type: "mcq",
+        marks: 2,
+        difficulty: "Easy",
+        optionA: "200",
+        optionB: "250",
+        optionC: "300",
+        optionD: "350",
+        correctOption: "B",
+        explanation: "Let the number be x. 0.20 * x = 50 => x = 250."
+      },
+      {
+        assessmentTitle: "Technical Assessment",
+        sectionName: "Aptitude & Logical Reasoning",
+        title: "A train travels 180 km in 3 hours. What is its average speed?",
+        type: "mcq",
+        marks: 2,
+        difficulty: "Easy",
+        optionA: "50 km/h",
+        optionB: "60 km/h",
+        optionC: "70 km/h",
+        optionD: "80 km/h",
+        correctOption: "B",
+        explanation: "Speed = Distance / Time = 180 / 3 = 60 km/h."
+      },
+      {
+        assessmentTitle: "Technical Assessment",
+        sectionName: "Technical Core",
+        title: "Which of the following are primitive data types in Java? (MSQ)",
+        type: "msq",
+        marks: 4,
+        difficulty: "Medium",
+        optionA: "int",
+        optionB: "boolean",
+        optionC: "String",
+        optionD: "Integer",
+        correctOption: "A,B",
+        explanation: "int and boolean are primitive types. String and Integer are reference classes."
+      },
+      {
+        assessmentTitle: "Technical Assessment",
+        sectionName: "Technical Core",
+        title: "Which collection classes implement the List interface in Java? (MSQ)",
+        type: "msq",
+        marks: 4,
+        difficulty: "Medium",
+        optionA: "ArrayList",
+        optionB: "LinkedList",
+        optionC: "HashSet",
+        optionD: "TreeSet",
+        correctOption: "A,B",
+        explanation: "ArrayList and LinkedList implement List; HashSet and TreeSet implement Set."
+      }
+    ],
+    mapToPayload: (row, idx) => {
+      const rawQType = String(row.type || "mcq").toLowerCase().trim().replace(/[\s_-]+/g, "");
+      const isMsq = rawQType === "msq" || rawQType === "multipleselect" || rawQType === "multiselect" || rawQType === "multiple";
+      const qType = isMsq ? "msq" : "mcq";
+      const secName = String(row.sectionName || row.section || "Multiple Choice Questions").trim();
+      const rawCorrect = String(row.correctOption || "A").trim().toUpperCase();
+      const correctParts = rawCorrect.split(/[,;\s]+/).map((s) => s.trim());
+
+      const options = [
+        { id: 1, text: String(row.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") || rawCorrect === "A" },
+        { id: 2, text: String(row.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") || rawCorrect === "B" },
+        { id: 3, text: String(row.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") || rawCorrect === "C" },
+        { id: 4, text: String(row.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") || rawCorrect === "D" },
+      ].filter((o) => o.text !== "");
+
+      return {
+        id: `q_bulk_${Date.now()}_${idx}`,
+        assessmentTitle: String(row.assessmentTitle || "").trim(),
+        section: secName,
+        title: String(row.title || `Question ${idx + 1}`).trim(),
+        type: qType,
+        marks: Number(row.marks) || 2,
+        difficulty: row.difficulty || "Easy",
+        problemStatement: String(row.description || row.problemStatement || row.title || "").trim(),
+        description: String(row.description || row.problemStatement || "").trim(),
+        options,
+        explanation: String(row.explanation || "").trim(),
+      };
+    },
+    mapGroupedPayload: (grouped, indexOffset = 0) => {
+      return grouped.map((group, gIdx) => {
+        const secName = String(group.groupKey || `Section ${indexOffset + gIdx + 1}`).trim();
+        const rows = group.rows || [];
+        const questions = rows.map((r, qIdx) => {
+          const rawQType = String(r.type || "mcq").toLowerCase().trim().replace(/[\s_-]+/g, "");
+          const isMsq = rawQType === "msq" || rawQType === "multipleselect" || rawQType === "multiselect" || rawQType === "multiple";
+          const qType = isMsq ? "msq" : "mcq";
+          const rawCorrect = String(r.correctOption || "A").trim().toUpperCase();
+          const correctParts = rawCorrect.split(/[,;\s]+/).map((s) => s.trim());
+
+          const options = [
+            { id: 1, text: String(r.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") || rawCorrect === "A" },
+            { id: 2, text: String(r.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") || rawCorrect === "B" },
+            { id: 3, text: String(r.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") || rawCorrect === "C" },
+            { id: 4, text: String(r.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") || rawCorrect === "D" },
+          ].filter((o) => o.text !== "");
+
+          return {
+            id: `q_bulk_${Date.now()}_${gIdx}_${qIdx}`,
+            assessmentTitle: String(r.assessmentTitle || "").trim(),
+            section: secName,
+            title: String(r.title || `Question ${qIdx + 1}`).trim(),
+            type: qType,
+            marks: Number(r.marks) || 2,
+            difficulty: r.difficulty || "Easy",
+            problemStatement: String(r.description || r.problemStatement || r.title || "").trim(),
+            description: String(r.description || r.problemStatement || "").trim(),
+            options,
+            explanation: String(r.explanation || "").trim(),
           };
         });
 
         const totalSectionMarks = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
-
         return {
           sectionName: secName,
           title: secName,
@@ -1497,7 +1820,283 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
           assessmentTitle: rows[0]?.assessmentTitle ? String(rows[0].assessmentTitle).trim() : undefined,
         };
       });
-    }
+    },
+  },
+
+  // ─── 4.7. ASSESSMENT CODING TEMPLATE (SECTIONS -> CODING CHALLENGES) ────────
+  assessment_coding: {
+    moduleType: "assessment_coding",
+    displayName: "Assessment Coding Challenges Template",
+    description: "Template for bulk importing interactive programming problems organized into coding sections.",
+    templateFileName: "assessment_coding_sections_template.xlsx",
+    groupByField: "sectionName",
+    columns: [
+      {
+        key: "assessmentTitle",
+        label: "Assessment Title",
+        type: "string",
+        required: false,
+        description: "Title of the Assessment exam. If blank, attaches to open assessment.",
+        sampleValue: "Technical Assessment",
+      },
+      {
+        key: "sectionName",
+        label: "Section Name",
+        type: "string",
+        required: false,
+        defaultValue: "Coding Challenges",
+        description: "Name of the Coding Section (e.g. 'Data Structures', 'Algorithms', 'Core Java Coding'). Supports multiple coding sections.",
+        sampleValue: "Data Structures",
+      },
+      {
+        key: "title",
+        label: "Problem Title / Statement",
+        type: "string",
+        required: true,
+        description: "The complete problem statement or challenge title",
+        sampleValue: "Reverse a String",
+      },
+      {
+        key: "type",
+        label: "Question Type",
+        type: "enum",
+        required: true,
+        options: ["coding"],
+        defaultValue: "coding",
+        description: "Type: coding",
+        sampleValue: "coding",
+      },
+      {
+        key: "marks",
+        label: "Marks / Points",
+        type: "number",
+        required: true,
+        defaultValue: 10,
+        description: "Marks allocated for this coding problem",
+        sampleValue: 10,
+      },
+      {
+        key: "difficulty",
+        label: "Difficulty Level",
+        type: "enum",
+        required: false,
+        options: ["Easy", "Medium", "Hard"],
+        defaultValue: "Easy",
+        description: "Problem difficulty",
+        sampleValue: "Easy",
+      },
+      {
+        key: "constraints",
+        label: "Constraints",
+        type: "string",
+        required: false,
+        description: "Time, memory and input constraints",
+        sampleValue: "1 <= string.length <= 10^5",
+      },
+      {
+        key: "input_format",
+        label: "Input Format",
+        type: "string",
+        required: false,
+        description: "Expected input structure",
+        sampleValue: "A single line containing string S",
+      },
+      {
+        key: "output_format",
+        label: "Output Format",
+        type: "string",
+        required: false,
+        description: "Expected output structure",
+        sampleValue: "Print the reversed string",
+      },
+      {
+        key: "testcase_1_input",
+        label: "Test Case 1 Input",
+        type: "string",
+        required: false,
+        description: "Public test case 1 input",
+        sampleValue: "hello",
+      },
+      {
+        key: "testcase_1_output",
+        label: "Test Case 1 Expected Output",
+        type: "string",
+        required: false,
+        description: "Public test case 1 expected output",
+        sampleValue: "olleh",
+      },
+      {
+        key: "testcase_2_input",
+        label: "Test Case 2 Input",
+        type: "string",
+        required: false,
+        description: "Public test case 2 input",
+        sampleValue: "world",
+      },
+      {
+        key: "testcase_2_output",
+        label: "Test Case 2 Expected Output",
+        type: "string",
+        required: false,
+        description: "Public test case 2 expected output",
+        sampleValue: "dlrow",
+      },
+      {
+        key: "hidden_testcase_input",
+        label: "Hidden Test Case 1 Input",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation input",
+        sampleValue: "racecar",
+      },
+      {
+        key: "hidden_testcase_output",
+        label: "Hidden Test Case 1 Expected Output",
+        type: "string",
+        required: false,
+        description: "Hidden evaluation expected output",
+        sampleValue: "racecar",
+      },
+      {
+        key: "starterCode",
+        label: "Starter Boilerplate Code",
+        type: "string",
+        required: false,
+        description: "Starter code for students",
+        sampleValue: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n    }\n}",
+      },
+    ],
+    sampleRows: [
+      {
+        assessmentTitle: "Technical Assessment",
+        sectionName: "Data Structures",
+        title: "Reverse a String",
+        type: "coding",
+        marks: 10,
+        difficulty: "Easy",
+        constraints: "1 <= string.length <= 10^5",
+        input_format: "A single line containing string S",
+        output_format: "Print the reversed string",
+        testcase_1_input: "hello",
+        testcase_1_output: "olleh",
+        testcase_2_input: "world",
+        testcase_2_output: "dlrow",
+        hidden_testcase_input: "racecar",
+        hidden_testcase_output: "racecar",
+        starterCode: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n    }\n}"
+      },
+      {
+        assessmentTitle: "Technical Assessment",
+        sectionName: "Algorithms",
+        title: "Find Largest Element in Array",
+        type: "coding",
+        marks: 10,
+        difficulty: "Easy",
+        constraints: "1 <= n <= 10^5",
+        input_format: "Line 1: N, Line 2: N space-separated integers",
+        output_format: "Print the maximum integer",
+        testcase_1_input: "5\n1 9 3 7 4",
+        testcase_1_output: "9",
+        testcase_2_input: "3\n-5 -2 -8",
+        testcase_2_output: "-2",
+        hidden_testcase_input: "1\n42",
+        hidden_testcase_output: "42",
+        starterCode: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n    }\n}"
+      }
+    ],
+    mapToPayload: (row, idx) => {
+      const secName = String(row.sectionName || row.section || "Coding Challenges").trim();
+      const testCases: any[] = [];
+      for (let i = 1; i <= 10; i++) {
+        const inp = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`];
+        const out = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`];
+        const trimmedInp = String(inp || "").trim();
+        const trimmedOut = String(out || "").trim();
+        if (trimmedInp !== "" || trimmedOut !== "") {
+          testCases.push({ id: testCases.length + 1, input: trimmedInp, output: trimmedOut, isHidden: false });
+        }
+      }
+      for (let h = 1; h <= 10; h++) {
+        const hIn = h === 1 ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input) : row[`hidden_testcase_${h}_input`];
+        const hOut = h === 1 ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output) : row[`hidden_testcase_${h}_output`];
+        const trimmedHIn = String(hIn || "").trim();
+        const trimmedHOut = String(hOut || "").trim();
+        if (trimmedHIn !== "" || trimmedHOut !== "") {
+          testCases.push({ id: testCases.length + 1, input: trimmedHIn, output: trimmedHOut, isHidden: true });
+        }
+      }
+
+      return {
+        id: `cp_bulk_${Date.now()}_${idx}`,
+        assessmentTitle: String(row.assessmentTitle || "").trim(),
+        section: secName,
+        title: String(row.title || `Coding Challenge ${idx + 1}`).trim(),
+        type: "coding",
+        marks: Number(row.marks) || 10,
+        difficulty: row.difficulty || "Easy",
+        problemStatement: String(row.description || row.problemStatement || row.title || "").trim(),
+        description: String(row.description || row.problemStatement || "").trim(),
+        constraints: String(row.constraints || "").trim(),
+        inputFormat: String(row.input_format || "").trim(),
+        outputFormat: String(row.output_format || "").trim(),
+        starterCode: String(row.starterCode || "").trim(),
+        testCases: testCases.length > 0 ? testCases : [{ id: "tc_1", input: "1", output: "1", expected_output: "1", isHidden: false }],
+      };
+    },
+    mapGroupedPayload: (grouped, indexOffset = 0) => {
+      return grouped.map((group, gIdx) => {
+        const secName = String(group.groupKey || `Coding Section ${indexOffset + gIdx + 1}`).trim();
+        const rows = group.rows || [];
+        const questions = rows.map((r, qIdx) => {
+          const testCases: any[] = [];
+          for (let i = 1; i <= 10; i++) {
+            const inp = r[`testcase_${i}_input`] ?? r[`test_case_${i}_input`];
+            const out = r[`testcase_${i}_output`] ?? r[`test_case_${i}_output`];
+            const trimmedInp = String(inp || "").trim();
+            const trimmedOut = String(out || "").trim();
+            if (trimmedInp !== "" || trimmedOut !== "") {
+              testCases.push({ id: testCases.length + 1, input: trimmedInp, output: trimmedOut, isHidden: false });
+            }
+          }
+          for (let h = 1; h <= 10; h++) {
+            const hIn = h === 1 ? (r.hidden_testcase_input ?? r.hidden_testcase_1_input) : r[`hidden_testcase_${h}_input`];
+            const hOut = h === 1 ? (r.hidden_testcase_output ?? r.hidden_testcase_1_output) : r[`hidden_testcase_${h}_output`];
+            const trimmedHIn = String(hIn || "").trim();
+            const trimmedHOut = String(hOut || "").trim();
+            if (trimmedHIn !== "" || trimmedHOut !== "") {
+              testCases.push({ id: testCases.length + 1, input: trimmedHIn, output: trimmedHOut, isHidden: true });
+            }
+          }
+
+          return {
+            id: `cp_bulk_${Date.now()}_${gIdx}_${qIdx}`,
+            assessmentTitle: String(r.assessmentTitle || "").trim(),
+            section: secName,
+            title: String(r.title || `Coding Challenge ${qIdx + 1}`).trim(),
+            type: "coding",
+            marks: Number(r.marks) || 10,
+            difficulty: r.difficulty || "Easy",
+            problemStatement: String(r.description || r.problemStatement || r.title || "").trim(),
+            description: String(r.description || r.problemStatement || "").trim(),
+            constraints: String(r.constraints || "").trim(),
+            inputFormat: String(r.input_format || "").trim(),
+            outputFormat: String(r.output_format || "").trim(),
+            starterCode: String(r.starterCode || "").trim(),
+            testCases: testCases.length > 0 ? testCases : [{ id: "tc_1", input: "1", output: "1", expected_output: "1", isHidden: false }],
+          };
+        });
+
+        const totalSectionMarks = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
+        return {
+          sectionName: secName,
+          title: secName,
+          questions,
+          questionCount: questions.length,
+          totalMarks: totalSectionMarks,
+          assessmentTitle: rows[0]?.assessmentTitle ? String(rows[0].assessmentTitle).trim() : undefined,
+        };
+      });
+    },
   },
 
   // ─── 5. QUIZ TEMPLATE ──────────────────────────────────────────────────────
@@ -2656,9 +3255,9 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         label: "Question Type",
         type: "enum",
         required: true,
-        options: ["MCQ", "Coding"],
+        options: ["MCQ", "Multiple Choice", "MSQ", "Coding"],
         defaultValue: "MCQ",
-        description: "Specify whether this row is an 'MCQ' or 'Coding' challenge",
+        description: "Specify whether this row is an 'MCQ' / 'Multiple Choice', 'MSQ', or 'Coding' challenge",
         sampleValue: "MCQ",
       },
       {
@@ -2923,11 +3522,19 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
     ],
     mapToPayload: (row: Record<string, any>, idx: number) => {
       const rawType = String(row.type || "").toLowerCase().trim();
+      const cleanType = rawType.replace(/[\s_-]+/g, "");
       const hasMcqOptions = Boolean(row.optionA || row.optionB || row.option_1 || row.correctOption);
-      const isMcq = rawType === "mcq" || (rawType !== "coding" && hasMcqOptions);
+      const isCoding = cleanType === "coding" || cleanType === "code";
+      const isMcq = 
+        cleanType === "mcq" || 
+        cleanType === "msq" || 
+        cleanType.includes("choice") || 
+        cleanType.includes("select") || 
+        (!isCoding && hasMcqOptions);
 
       if (isMcq) {
-        const correctOpt = String(row.correctOption || row.correctAnswer || "A").trim().toUpperCase();
+        const rawCorrect = String(row.correctOption || row.correctAnswer || "A").trim().toUpperCase();
+        const correctParts = rawCorrect.split(/[,;\s]+/).map(s => s.trim());
         return {
           questionCategory: "mcq",
           id: `mcq_bulk_${Date.now()}_${idx}`,
@@ -2936,11 +3543,11 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
           difficulty: row.difficulty || "Easy",
           explanation: String(row.explanation || "").trim(),
           options: [
-            { id: `opt_${Date.now()}_1_${idx}`, text: String(row.optionA || row.option_1 || "Option A").trim(), isCorrect: correctOpt === "A" || correctOpt === "1" },
-            { id: `opt_${Date.now()}_2_${idx}`, text: String(row.optionB || row.option_2 || "Option B").trim(), isCorrect: correctOpt === "B" || correctOpt === "2" },
-            { id: `opt_${Date.now()}_3_${idx}`, text: String(row.optionC || row.option_3 || "Option C").trim(), isCorrect: correctOpt === "C" || correctOpt === "3" },
-            { id: `opt_${Date.now()}_4_${idx}`, text: String(row.optionD || row.option_4 || "Option D").trim(), isCorrect: correctOpt === "D" || correctOpt === "4" },
-          ],
+            { id: `opt_${Date.now()}_1_${idx}`, text: String(row.optionA || row.option_1 || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") || rawCorrect === "A" },
+            { id: `opt_${Date.now()}_2_${idx}`, text: String(row.optionB || row.option_2 || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") || rawCorrect === "B" },
+            { id: `opt_${Date.now()}_3_${idx}`, text: String(row.optionC || row.option_3 || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") || rawCorrect === "C" },
+            { id: `opt_${Date.now()}_4_${idx}`, text: String(row.optionD || row.option_4 || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") || rawCorrect === "D" },
+          ].filter(o => o.text !== ""),
         };
       }
 
@@ -2979,21 +3586,33 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
       const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `prob-${Date.now()}-${idx}`;
 
       return {
+        type: "coding",
         questionCategory: "coding",
         id: `cp_${slug}_${Date.now()}_${idx}`,
         title: rawTitle,
         slug,
         description: String(row.description || row.title || "").trim(),
+        problemStatement: String(row.description || row.problemStatement || row.title || "").trim(),
         difficulty: (row.difficulty || "Easy").toLowerCase(),
         category: "Algorithms",
         points: Number(row.marks || row.points) || 10,
         marks: Number(row.marks || row.points) || 10,
         constraints: String(row.constraints || "").trim(),
-        input_format: String(row.input_format || "").trim(),
-        output_format: String(row.output_format || "").trim(),
-        starter_code: String(row.starterCode || "").trim(),
-        starterCode: String(row.starterCode || "").trim(),
+        input_format: String(row.input_format || row.inputFormat || "").trim(),
+        inputFormat: String(row.input_format || row.inputFormat || "").trim(),
+        output_format: String(row.output_format || row.outputFormat || "").trim(),
+        outputFormat: String(row.output_format || row.outputFormat || "").trim(),
+        starter_code: String(row.starterCode || row.starter_code || "").trim(),
+        starterCode: String(row.starterCode || row.starter_code || "").trim(),
         test_cases: testCases,
+        testCases: testCases.map((tc) => ({
+          id: tc.id,
+          input: tc.input,
+          output: tc.output,
+          expected_output: tc.expected_output,
+          isHidden: Boolean(tc.is_hidden),
+          is_hidden: Boolean(tc.is_hidden),
+        })),
         sample_test_cases: testCases.filter((tc) => !tc.is_hidden),
         hidden_test_cases: testCases.filter((tc) => tc.is_hidden),
         status: "published",
@@ -3020,6 +3639,12 @@ export function getTemplateConfig(moduleType: string): ModuleTemplateConfig {
     return TEMPLATE_CONFIGS[normalized] as ModuleTemplateConfig;
   }
   // Aliases
+  if (normalized === "assessment_mcq" || normalized === "assessment_quiz" || normalized === "test_mcq" || normalized === "test_mcqs") {
+    return (TEMPLATE_CONFIGS.assessment_mcq || TEMPLATE_CONFIGS.quiz) as ModuleTemplateConfig;
+  }
+  if (normalized === "assessment_coding" || normalized === "test_coding" || normalized === "assessment_code") {
+    return (TEMPLATE_CONFIGS.assessment_coding || TEMPLATE_CONFIGS.coding_problem) as ModuleTemplateConfig;
+  }
   if (normalized === "mixed" || normalized === "mixed_questions" || normalized === "mixed_question" || normalized === "practice_mixed" || normalized === "practice_questions") {
     return (TEMPLATE_CONFIGS.mixed_questions || TEMPLATE_CONFIGS.quiz) as ModuleTemplateConfig;
   }

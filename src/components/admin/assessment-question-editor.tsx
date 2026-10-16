@@ -119,6 +119,8 @@ interface AssessmentQuestionEditorProps {
   onSave: (updatedTest: ScheduledTest) => Promise<void>;
   onBack: () => void;
   role?: "admin" | "trainer";
+  initialQuestionId?: string | null;
+  targetSection?: string | null;
 }
 
 export function AssessmentQuestionEditor({
@@ -126,8 +128,12 @@ export function AssessmentQuestionEditor({
   onSave,
   onBack,
   role = "admin",
+  initialQuestionId,
+  targetSection,
 }: AssessmentQuestionEditorProps) {
   const { toast } = useToast();
+
+  const defaultSection = targetSection || test.sections?.[0] || "General Assessment";
 
   // Questions state loaded from database test
   const [questions, setQuestions] = useState<TestQuestion[]>(() => {
@@ -138,7 +144,7 @@ export function AssessmentQuestionEditor({
         title: q.title || `Question ${idx + 1}`,
         type: q.type || "coding",
         marks: q.marks || 10,
-        section: q.section || (q.type === "coding" ? "Coding Challenges" : "Multiple Choice"),
+        section: q.section || defaultSection,
         difficulty: q.difficulty || "medium",
         language: q.language || (typeof q.starterCode === "object" ? Object.keys(q.starterCode)[0] : "java"),
         problemStatement: q.problemStatement || q.description || "",
@@ -166,7 +172,13 @@ export function AssessmentQuestionEditor({
     return [];
   });
 
-  const [activeIndex, setActiveIndex] = useState<number>(0);
+  const [activeIndex, setActiveIndex] = useState<number>(() => {
+    if (initialQuestionId && test.questions && test.questions.length > 0) {
+      const foundIdx = test.questions.findIndex((q) => q.id === initialQuestionId);
+      if (foundIdx !== -1) return foundIdx;
+    }
+    return 0;
+  });
   const [activeCodeTab, setActiveCodeTab] = useState<"starter" | "solution">("starter");
   const [activeConsoleTab, setActiveConsoleTab] = useState<
     "console" | "testcases" | "hiddentestcases" | "customtest" | "testresult"
@@ -244,7 +256,7 @@ export function AssessmentQuestionEditor({
       title: type === "coding" ? `Coding Problem ${newIdx}` : `Question ${newIdx}`,
       type: type,
       marks: type === "coding" ? 10 : 2,
-      section: type === "coding" ? "Coding Challenges" : "Multiple Choice",
+      section: targetSection || defaultSection,
       difficulty: "medium",
       language: "java",
       problemStatement: "",
@@ -829,6 +841,27 @@ export function AssessmentQuestionEditor({
                       onChange={(e) => updateCurrentQuestion({ marks: Number(e.target.value) || 1 })}
                       className="h-8 text-xs font-semibold bg-white dark:bg-zinc-800 text-center"
                     />
+                  </div>
+
+                  <div className="space-y-1 col-span-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Section
+                    </label>
+                    <Select
+                      value={currentQ?.section || defaultSection}
+                      onValueChange={(val: any) => val && updateCurrentQuestion({ section: val })}
+                    >
+                      <SelectTrigger className="h-8 text-xs font-semibold bg-white dark:bg-zinc-800">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(test.sections && test.sections.length > 0 ? test.sections : [defaultSection]).map((sec) => (
+                          <SelectItem key={sec} value={sec}>
+                            {sec}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 

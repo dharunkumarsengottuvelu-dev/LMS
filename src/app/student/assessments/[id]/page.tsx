@@ -247,14 +247,29 @@ export default function AssessmentTakePage() {
             const assessments = assessData.assessments || [];
             const foundAssess = assessments.find((a: any) => a.id === subModuleId);
             if (foundAssess) {
+              const allRawQ = foundAssess.questions || [];
+              const rawMcqs = foundAssess.mcqQuestions && foundAssess.mcqQuestions.length > 0
+                ? foundAssess.mcqQuestions
+                : allRawQ.filter((q: any) => {
+                    const t = String(q.type || q.questionCategory || "").toLowerCase().trim();
+                    return t !== "coding" && t !== "code" && t !== "programming" && !String(q.questionId || "").startsWith("cp_") && (!Array.isArray(q.testCases) || q.testCases.length === 0);
+                  });
+              const rawCoding = foundAssess.codingQuestions && foundAssess.codingQuestions.length > 0
+                ? foundAssess.codingQuestions
+                : allRawQ.filter((q: any) => {
+                    const t = String(q.type || q.questionCategory || "").toLowerCase().trim();
+                    return t === "coding" || t === "code" || t === "programming" || String(q.questionId || "").startsWith("cp_") || (Array.isArray(q.testCases) && q.testCases.length > 0);
+                  });
+
               targetSubModule = {
                 id: foundAssess.id,
                 title: foundAssess.title,
-                type: foundAssess.type || "mixed",
+                type: foundAssess.type || (rawCoding.length > 0 && rawMcqs.length > 0 ? "mixed" : rawCoding.length > 0 ? "coding" : "mcq"),
                 durationMinutes: typeof foundAssess.duration_minutes === "number" ? foundAssess.duration_minutes : (typeof foundAssess.duration === "number" ? foundAssess.duration : 0),
                 totalMarks: foundAssess.total_marks || 100,
-                mcqQuestions: foundAssess.mcqQuestions || foundAssess.questions || [],
-                codingQuestions: foundAssess.codingQuestions || [],
+                sections: foundAssess.sections || [],
+                mcqQuestions: rawMcqs,
+                codingQuestions: rawCoding,
               };
             }
           }
@@ -1149,11 +1164,12 @@ export default function AssessmentTakePage() {
   }
 
   return (
-    <div className="w-full max-w-[1680px] mx-auto px-2.5 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-6 space-y-4 max-w-full overflow-x-hidden">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-100/60 dark:bg-[#09090B]">
       <PracticeRunnerEngine
         key={`runner_${subModuleId}_${runnerKey}`}
         module={currentSubModule}
         questions={questions}
+        isAssessment={true}
         onBack={() => router.back()}
         onSubmit={handleSubmit}
       />

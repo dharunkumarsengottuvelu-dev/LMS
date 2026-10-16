@@ -159,26 +159,27 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
   };
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
+    <div className="space-y-3 h-full flex flex-col min-h-0">
       <PageHeader
+        className="p-3 sm:p-4 mb-0 rounded-xl shadow-xs"
         title={
-          <div className="flex items-center gap-3">
-            <span>Live Exam Proctoring Hub</span>
-            <Badge className="bg-[#16A34A] text-white gap-1.5 px-2.5 py-0.5 text-xs">
-              <span className="h-2 w-2 rounded-full bg-white animate-pulse" /> LIVE MONITORING
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg sm:text-xl font-bold tracking-tight">Live Exam Proctoring Hub</span>
+            <Badge className="bg-[#16A34A] hover:bg-[#16A34A] text-white gap-1.5 px-2 py-0.5 text-[11px] font-semibold">
+              <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> LIVE MONITORING
             </Badge>
           </div>
         }
         backAction={{ href: "/admin/tests", label: "Back to Tests" }}
         actions={
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl p-1">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <div className="flex items-center bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-lg p-0.5">
               <Button
                 onClick={() => setActiveTab("summary")}
                 variant={activeTab === "summary" ? "default" : "ghost"}
-                className={`h-8 text-xs font-semibold rounded-lg px-3 ${
+                className={`h-7.5 text-xs font-semibold rounded-md px-2.5 ${
                   activeTab === "summary"
-                    ? "bg-[#2563EB] text-white"
+                    ? "bg-[#2563EB] text-white shadow-xs"
                     : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
                 }`}
               >
@@ -187,9 +188,9 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
               <Button
                 onClick={() => setActiveTab("grid")}
                 variant={activeTab === "grid" ? "default" : "ghost"}
-                className={`h-8 text-xs font-semibold rounded-lg px-3 ${
+                className={`h-7.5 text-xs font-semibold rounded-md px-2.5 ${
                   activeTab === "grid"
-                    ? "bg-[#2563EB] text-white"
+                    ? "bg-[#2563EB] text-white shadow-xs"
                     : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
                 }`}
               >
@@ -198,9 +199,9 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
               <Button
                 onClick={() => setActiveTab("logs")}
                 variant={activeTab === "logs" ? "default" : "ghost"}
-                className={`h-8 text-xs font-semibold rounded-lg px-3 ${
+                className={`h-7.5 text-xs font-semibold rounded-md px-2.5 ${
                   activeTab === "logs"
-                    ? "bg-[#2563EB] text-white"
+                    ? "bg-[#2563EB] text-white shadow-xs"
                     : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
                 }`}
               >
@@ -210,9 +211,9 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
             <Button
               onClick={exportLogsCsv}
               variant="outline"
-              className="h-10 text-xs font-semibold rounded-xl border-[#E5E7EB] dark:border-[#27272A]"
+              className="h-7.5 text-xs font-semibold rounded-lg border-[#E5E7EB] dark:border-[#27272A] px-2.5"
             >
-              <Download className="h-4 w-4 mr-1.5" /> Export Audit CSV
+              <Download className="h-3.5 w-3.5 mr-1.5" /> Export Audit CSV
             </Button>
           </div>
         }
@@ -220,111 +221,113 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
 
       {/* TAB 1: PROCTORING SUMMARY DASHBOARD */}
       {activeTab === "summary" && (
-        <div className="space-y-6 overflow-y-auto">
+        <div className="space-y-3 overflow-y-auto flex-1 min-h-0 pr-0.5">
           {/* Top KPI Metrics Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl shadow-xs">
-              <p className="text-[11px] font-semibold text-[#6B7280] uppercase">Total Warnings</p>
-              <p className="text-2xl font-bold text-[#111827] dark:text-[#FAFAFA] mt-1">{totalWarnings}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-2.5">
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2.5 px-3 rounded-xl shadow-xs">
+              <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wide">Total Warnings</p>
+              <p className="text-xl font-extrabold text-[#111827] dark:text-[#FAFAFA] mt-0.5">{totalWarnings}</p>
             </Card>
 
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl shadow-xs">
-              <p className="text-[11px] font-semibold text-[#6B7280] uppercase">Face Not Detected</p>
-              <p className="text-2xl font-bold text-[#D97706] mt-1">{faceNotDetectedEvents}</p>
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2.5 px-3 rounded-xl shadow-xs">
+              <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wide">Face Not Detected</p>
+              <p className="text-xl font-extrabold text-[#D97706] mt-0.5">{faceNotDetectedEvents}</p>
             </Card>
 
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl shadow-xs">
-              <p className="text-[11px] font-semibold text-[#6B7280] uppercase">Multiple Faces</p>
-              <p className="text-2xl font-bold text-[#DC2626] mt-1">{multipleFaceEvents}</p>
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2.5 px-3 rounded-xl shadow-xs">
+              <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wide">Multiple Faces</p>
+              <p className="text-xl font-extrabold text-[#DC2626] mt-0.5">{multipleFaceEvents}</p>
             </Card>
 
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl shadow-xs">
-              <p className="text-[11px] font-semibold text-[#6B7280] uppercase">Looking Away</p>
-              <p className="text-2xl font-bold text-[#2563EB] mt-1">{lookingAwayEvents}</p>
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2.5 px-3 rounded-xl shadow-xs">
+              <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wide">Looking Away</p>
+              <p className="text-xl font-extrabold text-[#2563EB] mt-0.5">{lookingAwayEvents}</p>
             </Card>
 
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl shadow-xs">
-              <p className="text-[11px] font-semibold text-[#6B7280] uppercase">Camera Disconnects</p>
-              <p className="text-2xl font-bold text-[#DC2626] mt-1">{cameraDisconnectEvents}</p>
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2.5 px-3 rounded-xl shadow-xs">
+              <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wide">Camera Disconnects</p>
+              <p className="text-xl font-extrabold text-[#DC2626] mt-0.5">{cameraDisconnectEvents}</p>
             </Card>
 
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl shadow-xs">
-              <p className="text-[11px] font-semibold text-[#6B7280] uppercase">Critical Violations</p>
-              <p className="text-2xl font-bold text-[#DC2626] mt-1">{criticalViolations}</p>
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2.5 px-3 rounded-xl shadow-xs">
+              <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wide">Critical Violations</p>
+              <p className="text-xl font-extrabold text-[#DC2626] mt-0.5">{criticalViolations}</p>
             </Card>
 
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-4 rounded-xl shadow-xs">
-              <p className="text-[11px] font-semibold text-[#6B7280] uppercase">Overall Risk</p>
-              <Badge
-                className={`mt-1.5 text-xs font-bold ${
-                  overallRisk === "Clean"
-                    ? "bg-[#16A34A] text-white"
-                    : overallRisk === "Minor Violations"
-                    ? "bg-[#F59E0B] text-white"
-                    : "bg-[#DC2626] text-white"
-                }`}
-              >
-                {overallRisk}
-              </Badge>
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-2.5 px-3 rounded-xl shadow-xs flex flex-col justify-between">
+              <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wide">Overall Risk</p>
+              <div>
+                <Badge
+                  className={`mt-1 text-[11px] font-bold px-2 py-0.5 ${
+                    overallRisk === "Clean"
+                      ? "bg-[#16A34A] text-white"
+                      : overallRisk === "Minor Violations"
+                      ? "bg-[#F59E0B] text-white"
+                      : "bg-[#DC2626] text-white"
+                  }`}
+                >
+                  {overallRisk}
+                </Badge>
+              </div>
             </Card>
           </div>
 
           {/* Candidate Status Table */}
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-sm overflow-hidden">
-            <CardHeader className="p-5 pb-3 border-b border-[#E5E7EB] dark:border-[#27272A]">
-              <CardTitle className="text-base font-bold text-[#111827] dark:text-[#FAFAFA]">
+          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl shadow-xs overflow-hidden">
+            <CardHeader className="p-3 px-3.5 pb-2 border-b border-[#E5E7EB] dark:border-[#27272A]">
+              <CardTitle className="text-xs sm:text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
                 Live Candidate Proctoring Status
               </CardTitle>
-              <CardDescription className="text-xs text-[#6B7280]">
+              <CardDescription className="text-[11px] text-[#6B7280]">
                 Real-time facial detection and attention tracking metrics for all active candidates.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
-                  <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] uppercase font-bold text-[10px]">
+                  <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] uppercase font-bold text-[9px] tracking-wider">
                     <tr>
-                      <th className="p-3.5 pl-5">Candidate</th>
-                      <th className="p-3.5">Camera State</th>
-                      <th className="p-3.5">Face / Attention Status</th>
-                      <th className="p-3.5">Warnings</th>
-                      <th className="p-3.5">Risk Rating</th>
-                      <th className="p-3.5">Last Ping</th>
-                      <th className="p-3.5 pr-5 text-right">Actions</th>
+                      <th className="py-2 px-3 pl-3.5">Candidate</th>
+                      <th className="py-2 px-3">Camera State</th>
+                      <th className="py-2 px-3">Face / Attention Status</th>
+                      <th className="py-2 px-3">Warnings</th>
+                      <th className="py-2 px-3">Risk Rating</th>
+                      <th className="py-2 px-3">Last Ping</th>
+                      <th className="py-2 px-3 pr-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
                     {candidates.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-xs text-[#6B7280]">
+                        <td colSpan={7} className="py-6 text-center text-xs text-[#6B7280]">
                           No candidate attempts or active monitored sessions found for this test yet.
                         </td>
                       </tr>
                     ) : (
                       candidates.map((c) => (
                         <tr key={c.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]/40">
-                          <td className="p-3.5 pl-5">
-                            <p className="font-bold text-[#111827] dark:text-[#FAFAFA]">{c.name}</p>
+                          <td className="py-2 px-3 pl-3.5">
+                            <p className="font-bold text-[#111827] dark:text-[#FAFAFA] text-xs">{c.name}</p>
                             <p className="text-[10px] text-[#6B7280] font-mono">{c.rollNo}</p>
                           </td>
-                          <td className="p-3.5">
-                            <span className="inline-flex items-center gap-1.5 font-semibold text-[#16A34A]">
-                              <span className="h-2 w-2 rounded-full bg-[#16A34A] animate-pulse" /> Active 30 FPS
+                          <td className="py-2 px-3">
+                            <span className="inline-flex items-center gap-1.5 font-semibold text-[#16A34A] text-xs">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A] animate-pulse" /> Active 30 FPS
                             </span>
                           </td>
-                          <td className="p-3.5">
-                            <Badge variant="outline" className="text-[10px] capitalize border-[#E5E7EB] dark:border-[#27272A]">
+                          <td className="py-2 px-3">
+                            <Badge variant="outline" className="text-[10px] capitalize border-[#E5E7EB] dark:border-[#27272A] py-0 px-1.5">
                               {c.faceStatus.replace(/_/g, " ")}
                             </Badge>
                           </td>
-                          <td className="p-3.5">
-                            <span className={`font-bold ${c.warningCount > 0 ? "text-[#DC2626]" : "text-[#16A34A]"}`}>
+                          <td className="py-2 px-3">
+                            <span className={`font-bold text-xs ${c.warningCount > 0 ? "text-[#DC2626]" : "text-[#16A34A]"}`}>
                               {c.warningCount} / {c.maxWarnings}
                             </span>
                           </td>
-                          <td className="p-3.5">
+                          <td className="py-2 px-3">
                             <Badge
-                              className={`text-[10px] font-bold ${
+                              className={`text-[9px] font-bold px-1.5 py-0 ${
                                 c.proctoringRisk === "Clean"
                                   ? "bg-[#16A34A] text-white"
                                   : c.proctoringRisk === "Minor Violations"
@@ -335,13 +338,13 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
                               {c.proctoringRisk}
                             </Badge>
                           </td>
-                          <td className="p-3.5 text-[#6B7280] font-mono">{c.lastPing}</td>
-                          <td className="p-3.5 pr-5 text-right">
+                          <td className="py-2 px-3 text-[#6B7280] font-mono text-[11px]">{c.lastPing}</td>
+                          <td className="py-2 px-3 pr-3.5 text-right">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => setActiveTab("logs")}
-                              className="h-7 px-2.5 text-[11px] font-semibold rounded-lg"
+                              className="h-6.5 px-2 text-[10px] font-semibold rounded-md border-[#E5E7EB] dark:border-[#27272A]"
                             >
                               View Logs
                             </Button>
@@ -359,9 +362,9 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
 
       {/* TAB 2: CANDIDATE CAMERA GRID */}
       {activeTab === "grid" && (
-        <div className="flex-1 pb-6 overflow-y-auto">
+        <div className="flex-1 pb-4 overflow-y-auto">
           {candidates.length === 0 ? (
-            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-12 text-center rounded-2xl">
+            <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-8 text-center rounded-xl shadow-xs">
               <div className="w-12 h-12 rounded-2xl bg-[#2563EB]/10 text-[#2563EB] flex items-center justify-center mx-auto mb-3">
                 <Video className="h-6 w-6" />
               </div>
@@ -422,13 +425,13 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
 
       {/* TAB 3: AUDIT EVENT LOGS */}
       {activeTab === "logs" && (
-        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl shadow-sm flex-1 flex flex-col overflow-hidden">
-          <CardHeader className="p-4 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#F9FAFB] dark:bg-[#09090B]">
+        <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-xl shadow-xs flex-1 flex flex-col overflow-hidden min-h-0">
+          <CardHeader className="p-3 px-3.5 border-b border-[#E5E7EB] dark:border-[#27272A] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-[#F9FAFB] dark:bg-[#09090B]">
             <div>
-              <CardTitle className="text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
+              <CardTitle className="text-xs sm:text-sm font-bold text-[#111827] dark:text-[#FAFAFA]">
                 Proctoring Audit Trail
               </CardTitle>
-              <CardDescription className="text-xs text-[#6B7280]">
+              <CardDescription className="text-[11px] text-[#6B7280]">
                 Chronological security violation events recorded with severity classification.
               </CardDescription>
             </div>
@@ -438,16 +441,16 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
                 placeholder="Search events or student..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-8 text-xs w-[180px] rounded-lg bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A]"
+                className="h-7 text-xs w-[170px] rounded-md bg-white dark:bg-[#18181B] border-[#E5E7EB] dark:border-[#27272A]"
               />
 
-              <div className="flex items-center gap-1 bg-white dark:bg-[#18181B] p-0.5 rounded-lg border border-[#E5E7EB] dark:border-[#27272A]">
+              <div className="flex items-center gap-0.5 bg-white dark:bg-[#18181B] p-0.5 rounded-md border border-[#E5E7EB] dark:border-[#27272A]">
                 {["ALL", "CRITICAL", "HIGH", "WARNING", "INFO"].map((sev) => (
                   <button
                     key={sev}
                     type="button"
                     onClick={() => setSeverityFilter(sev)}
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                    className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${
                       severityFilter === sev
                         ? "bg-[#2563EB] text-white"
                         : "text-[#6B7280] hover:text-[#111827] dark:hover:text-[#FAFAFA]"
@@ -460,35 +463,35 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
             </div>
           </CardHeader>
 
-          <CardContent className="p-0 flex-1 overflow-y-auto">
+          <CardContent className="p-0 flex-1 overflow-y-auto min-h-0">
             {filteredLogs.length === 0 ? (
-              <div className="text-center py-12 text-xs text-[#6B7280]">
+              <div className="text-center py-8 text-xs text-[#6B7280]">
                 No proctoring violations match the current filter.
               </div>
             ) : (
               <table className="w-full text-xs text-left">
-                <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] uppercase font-bold text-[10px]">
+                <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] uppercase font-bold text-[9px] tracking-wider">
                   <tr>
-                    <th className="p-3 pl-5">Timestamp</th>
-                    <th className="p-3">Candidate</th>
-                    <th className="p-3">Violation Event</th>
-                    <th className="p-3">Severity</th>
-                    <th className="p-3">Warning #</th>
-                    <th className="p-3">Duration</th>
-                    <th className="p-3 pr-5">Event Description</th>
+                    <th className="py-2 px-3 pl-3.5">Timestamp</th>
+                    <th className="py-2 px-3">Candidate</th>
+                    <th className="py-2 px-3">Violation Event</th>
+                    <th className="py-2 px-3">Severity</th>
+                    <th className="py-2 px-3">Warning #</th>
+                    <th className="py-2 px-3">Duration</th>
+                    <th className="py-2 px-3 pr-3.5">Event Description</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E7EB] dark:divide-[#27272A]">
                   {filteredLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-[#F9FAFB] dark:hover:bg-[#27272A]/40">
-                      <td className="p-3 pl-5 font-mono text-[11px] text-[#6B7280]">{log.timestamp}</td>
-                      <td className="p-3 font-semibold text-[#111827] dark:text-[#FAFAFA]">{log.studentName}</td>
-                      <td className="p-3">
-                        <span className="font-mono font-bold text-[11px] text-[#2563EB]">{log.eventType}</span>
+                      <td className="py-2 px-3 pl-3.5 font-mono text-[10px] text-[#6B7280]">{log.timestamp}</td>
+                      <td className="py-2 px-3 font-semibold text-[#111827] dark:text-[#FAFAFA] text-xs">{log.studentName}</td>
+                      <td className="py-2 px-3">
+                        <span className="font-mono font-bold text-[10px] text-[#2563EB]">{log.eventType}</span>
                       </td>
-                      <td className="p-3">
+                      <td className="py-2 px-3">
                         <Badge
-                          className={`text-[9px] font-bold ${
+                          className={`text-[9px] font-bold px-1.5 py-0 ${
                             log.severity === "CRITICAL" || log.severity === "HIGH"
                               ? "bg-[#DC2626] text-white"
                               : log.severity === "WARNING"
@@ -499,9 +502,9 @@ export function LiveInspectionHub({ examId }: { examId: string }) {
                           {log.severity}
                         </Badge>
                       </td>
-                      <td className="p-3 font-bold">#{log.warningNumber}</td>
-                      <td className="p-3 font-mono text-[#6B7280]">{log.duration || "Instant"}</td>
-                      <td className="p-3 pr-5 text-[#4B5563] dark:text-[#D1D5DB]">{log.message}</td>
+                      <td className="py-2 px-3 font-bold text-xs">#{log.warningNumber}</td>
+                      <td className="py-2 px-3 font-mono text-[10px] text-[#6B7280]">{log.duration || "Instant"}</td>
+                      <td className="py-2 px-3 pr-3.5 text-[#4B5563] dark:text-[#D1D5DB] text-xs">{log.message}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -380,6 +380,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [bulkUploadModuleType, setBulkUploadModuleType] = useState<string>("coding_problem");
   const [targetQuestionUploadModule, setTargetQuestionUploadModule] = useState<PracticeModule | null>(null);
 
+  // ─── MULTI-SELECT CHECKBOX & BULK DELETE STATES ──────────────────
+  const [selectedMainModuleIds, setSelectedMainModuleIds] = useState<string[]>([]);
+  const [selectedSubmoduleIds, setSelectedSubmoduleIds] = useState<string[]>([]);
+  const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([]);
+  const [selectedViewQuestionKeys, setSelectedViewQuestionKeys] = useState<string[]>([]);
+
   // ─── BULK MODULE CREATION STATE (LEVEL 3) ──────────────────────────
   const [showBulkModuleModal, setShowBulkModuleModal] = useState<boolean>(false);
   const [bulkModuleActiveTab, setBulkModuleActiveTab] = useState<"manual" | "csv">("manual");
@@ -1976,6 +1982,155 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     });
   };
 
+  // ─── BULK DELETE HANDLERS ──────────────────────────────────────────
+  const handleBulkDeleteMainModules = async (ids: string[]) => {
+    if (!ids.length) return;
+    if (!confirm(`Are you sure you want to permanently delete ${ids.length} selected Main Module(s) and all their submodules?`)) return;
+    setIsDeleting(true);
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/admin/practices?id=${encodeURIComponent(id)}&type=main_module`, { method: "DELETE" }).catch(() => null)
+        )
+      );
+      setSelectedMainModuleIds([]);
+      toast({ title: "Main Modules Deleted", description: `Successfully deleted ${ids.length} Main Module(s).` });
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDeleteSubmodules = async (ids: string[], parentMainId: string) => {
+    if (!ids.length || !parentMainId) return;
+    if (!confirm(`Are you sure you want to permanently delete ${ids.length} selected Submodule(s) and their modules?`)) return;
+    setIsDeleting(true);
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(
+            `/api/admin/practices?id=${encodeURIComponent(id)}&type=submodule&main_module_id=${encodeURIComponent(parentMainId)}`,
+            { method: "DELETE" }
+          ).catch(() => null)
+        )
+      );
+      setSelectedSubmoduleIds([]);
+      toast({ title: "Submodules Deleted", description: `Successfully deleted ${ids.length} Submodule(s).` });
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDeleteModules = async (ids: string[], parentMainId: string, parentSubId: string) => {
+    if (!ids.length || !parentMainId || !parentSubId) return;
+    if (!confirm(`Are you sure you want to permanently delete ${ids.length} selected Module(s)?`)) return;
+    setIsDeleting(true);
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(
+            `/api/admin/practices?id=${encodeURIComponent(id)}&type=module&main_module_id=${encodeURIComponent(parentMainId)}&submodule_id=${encodeURIComponent(parentSubId)}`,
+            { method: "DELETE" }
+          ).catch(() => null)
+        )
+      );
+      setSelectedModuleIds([]);
+      toast({ title: "Modules Deleted", description: `Successfully deleted ${ids.length} Module(s).` });
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDeleteQuestionsFromView = async (keys: string[]) => {
+    if (!viewingQuestionsModule || !keys.length) return;
+    if (!confirm(`Are you sure you want to delete ${keys.length} selected question(s)?`)) return;
+
+    const mcqIndicesToDelete = keys
+      .filter((k) => k.startsWith("mcq_"))
+      .map((k) => Number(k.replace("mcq_", "")))
+      .sort((a, b) => b - a);
+
+    const codingIndicesToDelete = keys
+      .filter((k) => k.startsWith("coding_"))
+      .map((k) => Number(k.replace("coding_", "")))
+      .sort((a, b) => b - a);
+
+    let updatedMcqs = [...(viewingQuestionsModule.mcqQuestions || [])];
+    mcqIndicesToDelete.forEach((idx) => {
+      updatedMcqs.splice(idx, 1);
+    });
+
+    let updatedCodings = [...(viewingQuestionsModule.codingQuestions || [])];
+    codingIndicesToDelete.forEach((idx) => {
+      updatedCodings.splice(idx, 1);
+    });
+
+    const remainingTotalCount = updatedMcqs.length + updatedCodings.length;
+    const totalMarks = viewingQuestionsModule.totalMarks || 100;
+    if (remainingTotalCount > 0) {
+      const weights = calculateEqualWeights(totalMarks, remainingTotalCount);
+      let wIdx = 0;
+      updatedMcqs.forEach((q: any) => {
+        q.marks = weights[wIdx++];
+      });
+      updatedCodings.forEach((cq: any) => {
+        const w = weights[wIdx++];
+        cq.points = w;
+        cq.marks = w;
+        cq.weight = w;
+      });
+    }
+
+    const updatedModule = {
+      ...viewingQuestionsModule,
+      mcqQuestions: updatedMcqs,
+      codingQuestions: updatedCodings,
+      questionCount: remainingTotalCount,
+    };
+
+    try {
+      const res = await fetch("/api/admin/practices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_module",
+          id: viewingQuestionsModule.id,
+          main_module_id: viewingQuestionsModule.main_module_id,
+          submodule_id: viewingQuestionsModule.submodule_id,
+          name: viewingQuestionsModule.name || viewingQuestionsModule.title,
+          title: viewingQuestionsModule.name || viewingQuestionsModule.title,
+          description: viewingQuestionsModule.description,
+          type: viewingQuestionsModule.type,
+          status: viewingQuestionsModule.status,
+          display_order: viewingQuestionsModule.display_order,
+          duration_minutes: viewingQuestionsModule.durationMinutes,
+          total_marks: viewingQuestionsModule.totalMarks,
+          question_count: remainingTotalCount,
+          mcq_questions: updatedMcqs,
+          coding_questions: updatedCodings,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed to update module questions");
+
+      setViewingQuestionsModule(updatedModule);
+      setSelectedViewQuestionKeys([]);
+      toast({ title: "Questions Deleted", description: `Successfully deleted ${keys.length} question(s).` });
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
+    }
+  };
+
   // Toggle Coding Problem Scope (Practice Only <-> Code Lab)
   const handleToggleCodeLabScope = async (m: PracticeModule, cp: any, index: number) => {
     const isCurrentlyCodeLab = Boolean(
@@ -2392,6 +2547,38 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             </Card>
           ) : (
             <div className="space-y-3">
+              {/* Main Modules Bulk Delete Toolbar */}
+              {selectedMainModuleIds.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl px-4 py-2.5 shadow-xs animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-6 h-6 rounded-md bg-red-600 text-white text-xs font-bold flex items-center justify-center">
+                      {selectedMainModuleIds.length}
+                    </span>
+                    <span className="text-xs font-bold text-red-800 dark:text-red-300">
+                      {selectedMainModuleIds.length === 1 ? "1 main module selected" : `${selectedMainModuleIds.length} main modules selected`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMainModuleIds([])}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-zinc-400 underline cursor-pointer ml-1"
+                    >
+                      Clear selection
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleBulkDeleteMainModules(selectedMainModuleIds)}
+                      className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete Selected ({selectedMainModuleIds.length})</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {filteredTracks.map((m) => {
                 const subCount = m.submodules?.length || 0;
                 const totalModCount = (m.submodules || []).reduce(
@@ -2404,10 +2591,25 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 return (
                   <Card
                     key={m.id}
-                    className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-4.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                    className={`bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-4.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                      selectedMainModuleIds.includes(m.id) ? "border-blue-500 ring-1 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/10" : ""
+                    }`}
                   >
-                    <div className="space-y-2 min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedMainModuleIds.includes(m.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setSelectedMainModuleIds((prev) =>
+                            prev.includes(m.id) ? prev.filter((id) => id !== m.id) : [...prev, m.id]
+                          );
+                        }}
+                        className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer shrink-0 mt-1"
+                        title="Select this main module"
+                      />
+                      <div className="space-y-2 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/40">
                           LEVEL 1: MAIN MODULE
                         </span>
@@ -2451,8 +2653,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         </span>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-zinc-800">
                       <Button
                         type="button"
                         onClick={() => {
@@ -2535,6 +2738,38 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             </Card>
           ) : (
             <div className="space-y-3">
+              {/* Submodules Bulk Delete Toolbar */}
+              {selectedSubmoduleIds.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl px-4 py-2.5 shadow-xs animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-6 h-6 rounded-md bg-red-600 text-white text-xs font-bold flex items-center justify-center">
+                      {selectedSubmoduleIds.length}
+                    </span>
+                    <span className="text-xs font-bold text-red-800 dark:text-red-300">
+                      {selectedSubmoduleIds.length === 1 ? "1 submodule selected" : `${selectedSubmoduleIds.length} submodules selected`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubmoduleIds([])}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-zinc-400 underline cursor-pointer ml-1"
+                    >
+                      Clear selection
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleBulkDeleteSubmodules(selectedSubmoduleIds, currentMainModule.id)}
+                      className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete Selected ({selectedSubmoduleIds.length})</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {currentMainModule.submodules.map((sm) => {
                 const modCount = sm.modules?.length || 0;
                 const isActive = sm.status === "active";
@@ -2543,11 +2778,26 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                 return (
                   <Card
                     key={sm.id}
-                    className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-4.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                    className={`bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-4.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                      selectedSubmoduleIds.includes(sm.id) ? "border-blue-500 ring-1 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/10" : ""
+                    }`}
                   >
-                    <div className="space-y-2 min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/70 dark:border-indigo-800/40">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedSubmoduleIds.includes(sm.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setSelectedSubmoduleIds((prev) =>
+                            prev.includes(sm.id) ? prev.filter((id) => id !== sm.id) : [...prev, sm.id]
+                          );
+                        }}
+                        className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer shrink-0 mt-1"
+                        title="Select this submodule"
+                      />
+                      <div className="space-y-2 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/70 dark:border-indigo-800/40">
                           LEVEL 2: SUBMODULE
                         </span>
                         <span
@@ -2584,8 +2834,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         </span>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-zinc-800">
                       <Button
                         type="button"
                         onClick={() => {
@@ -2699,6 +2950,38 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             </Card>
           ) : (
             <div className="space-y-2.5">
+              {/* Modules Bulk Delete Toolbar */}
+              {selectedModuleIds.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl px-4 py-2.5 shadow-xs animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-6 h-6 rounded-md bg-red-600 text-white text-xs font-bold flex items-center justify-center">
+                      {selectedModuleIds.length}
+                    </span>
+                    <span className="text-xs font-bold text-red-800 dark:text-red-300">
+                      {selectedModuleIds.length === 1 ? "1 module selected" : `${selectedModuleIds.length} modules selected`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedModuleIds([])}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-zinc-400 underline cursor-pointer ml-1"
+                    >
+                      Clear selection
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleBulkDeleteModules(selectedModuleIds, currentMainModule.id, currentSubmodule.id)}
+                      className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete Selected ({selectedModuleIds.length})</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {currentSubmodule.modules.map((mod) => {
                 const isActive = mod.status === "active";
                 const qCount = (mod.mcqQuestions?.length || 0) + (mod.codingQuestions?.length || 0);
@@ -2708,9 +2991,23 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   return (
                     <Card
                       key={mod.id}
-                      className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                      className={`bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 shadow-2xs hover:border-blue-400/50 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                        selectedModuleIds.includes(mod.id) ? "border-blue-500 ring-1 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/10" : ""
+                      }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedModuleIds.includes(mod.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setSelectedModuleIds((prev) =>
+                              prev.includes(mod.id) ? prev.filter((id) => id !== mod.id) : [...prev, mod.id]
+                            );
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer shrink-0"
+                          title="Select this module"
+                        />
                         <span className="w-5.5 h-5.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-xs flex items-center justify-center shrink-0">
                           {mod.display_order ?? 0}
                         </span>
@@ -2781,6 +3078,18 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       {/* Top Badges & Minimize button */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap">
+                          <input
+                            type="checkbox"
+                            checked={selectedModuleIds.includes(mod.id)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setSelectedModuleIds((prev) =>
+                                prev.includes(mod.id) ? prev.filter((id) => id !== mod.id) : [...prev, mod.id]
+                              );
+                            }}
+                            className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer shrink-0"
+                            title="Select this module"
+                          />
                           <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/40">
                             LEVEL 3: MODULE
                           </span>
@@ -5680,6 +5989,38 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               </Button>
             </div>
 
+            {/* Questions Bulk Delete Toolbar */}
+            {selectedViewQuestionKeys.length > 0 && (
+              <div className="mx-6 mt-4 flex flex-wrap items-center justify-between gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl px-4 py-2.5 shadow-xs animate-in fade-in duration-200">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-md bg-red-600 text-white text-xs font-bold flex items-center justify-center">
+                    {selectedViewQuestionKeys.length}
+                  </span>
+                  <span className="text-xs font-bold text-red-800 dark:text-red-300">
+                    {selectedViewQuestionKeys.length === 1 ? "1 question selected" : `${selectedViewQuestionKeys.length} questions selected`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedViewQuestionKeys([])}
+                    className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-zinc-400 underline cursor-pointer ml-1"
+                  >
+                    Clear selection
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleBulkDeleteQuestionsFromView(selectedViewQuestionKeys)}
+                    className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete Selected ({selectedViewQuestionKeys.length})</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Questions Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* If no questions */}
@@ -5710,15 +6051,52 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           <Layers className="w-3.5 h-3.5 text-blue-600" />
                           {viewingQuestionsModule.mcqSectionTitle || "Section 1: MCQs"} ({(viewingQuestionsModule.mcqQuestions || []).length})
                         </span>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={
+                              (viewingQuestionsModule.mcqQuestions || []).length > 0 &&
+                              (viewingQuestionsModule.mcqQuestions || []).every((_, idx) =>
+                                selectedViewQuestionKeys.includes(`mcq_${idx}`)
+                              )
+                            }
+                            onChange={() => {
+                              const allMcqKeys = (viewingQuestionsModule.mcqQuestions || []).map((_, idx) => `mcq_${idx}`);
+                              const allSelected = allMcqKeys.every((k) => selectedViewQuestionKeys.includes(k));
+                              if (allSelected) {
+                                setSelectedViewQuestionKeys((prev) => prev.filter((k) => !allMcqKeys.includes(k)));
+                              } else {
+                                setSelectedViewQuestionKeys((prev) => Array.from(new Set([...prev, ...allMcqKeys])));
+                              }
+                            }}
+                            className="h-3.5 w-3.5 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                          />
+                          <span>Select All MCQs</span>
+                        </label>
                       </div>
                       <div className="space-y-2.5">
                         {(viewingQuestionsModule.mcqQuestions || []).map((q, qIdx) => (
                           <div
                             key={q.id || qIdx}
-                            className="p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors"
+                            className={`p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors ${
+                              selectedViewQuestionKeys.includes(`mcq_${qIdx}`) ? "border-blue-500 ring-1 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/10" : ""
+                            }`}
                           >
                             <div className="flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2 flex-wrap">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedViewQuestionKeys.includes(`mcq_${qIdx}`)}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const key = `mcq_${qIdx}`;
+                                    setSelectedViewQuestionKeys((prev) =>
+                                      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+                                    );
+                                  }}
+                                  className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer shrink-0"
+                                  title="Select this question"
+                                />
                                 <span className="font-mono text-xs font-bold text-slate-700 dark:text-zinc-300">
                                   Q{qIdx + 1}.
                                 </span>
@@ -5791,6 +6169,28 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           <Layers className="w-3.5 h-3.5 text-blue-600" />
                           {viewingQuestionsModule.codingSectionTitle || "Section 2: Coding"} ({(viewingQuestionsModule.codingQuestions || []).length})
                         </span>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={
+                              (viewingQuestionsModule.codingQuestions || []).length > 0 &&
+                              (viewingQuestionsModule.codingQuestions || []).every((_, idx) =>
+                                selectedViewQuestionKeys.includes(`coding_${idx}`)
+                              )
+                            }
+                            onChange={() => {
+                              const allCodingKeys = (viewingQuestionsModule.codingQuestions || []).map((_, idx) => `coding_${idx}`);
+                              const allSelected = allCodingKeys.every((k) => selectedViewQuestionKeys.includes(k));
+                              if (allSelected) {
+                                setSelectedViewQuestionKeys((prev) => prev.filter((k) => !allCodingKeys.includes(k)));
+                              } else {
+                                setSelectedViewQuestionKeys((prev) => Array.from(new Set([...prev, ...allCodingKeys])));
+                              }
+                            }}
+                            className="h-3.5 w-3.5 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                          />
+                          <span>Select All Coding</span>
+                        </label>
                       </div>
                       <div className="space-y-2.5">
                         {(viewingQuestionsModule.codingQuestions || []).map((cp, cIdx) => {
@@ -5812,10 +6212,25 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                           return (
                             <div
                               key={cp.id || cIdx}
-                              className="p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors"
+                              className={`p-4 bg-slate-50/70 dark:bg-zinc-900/60 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-2.5 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors ${
+                                selectedViewQuestionKeys.includes(`coding_${cIdx}`) ? "border-blue-500 ring-1 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/10" : ""
+                              }`}
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedViewQuestionKeys.includes(`coding_${cIdx}`)}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      const key = `coding_${cIdx}`;
+                                      setSelectedViewQuestionKeys((prev) =>
+                                        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+                                      );
+                                    }}
+                                    className="h-4 w-4 rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer shrink-0"
+                                    title="Select this question"
+                                  />
                                   <span className="font-mono text-xs font-bold text-slate-700 dark:text-zinc-300 shrink-0">
                                     #{cp.problem_number || cIdx + 1}.
                                   </span>

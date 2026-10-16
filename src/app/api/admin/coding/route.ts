@@ -352,24 +352,41 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE /api/admin/coding - Delete problem from Supabase DB
+// DELETE /api/admin/coding - Delete problem(s) from Supabase DB
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = createAdminClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    const idsParam = searchParams.get("ids");
 
-    if (!id) {
-      return NextResponse.json({ error: "Missing problem 'id' parameter." }, { status: 400 });
+    let idsToDelete: string[] = [];
+    if (idsParam) {
+      idsToDelete = idsParam.split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (id) {
+      idsToDelete = [id];
+    } else {
+      try {
+        const body = await request.json();
+        if (Array.isArray(body.ids)) {
+          idsToDelete = body.ids;
+        } else if (body.id) {
+          idsToDelete = [body.id];
+        }
+      } catch {}
     }
 
-    const { error } = await supabase.from("coding_problems").delete().eq("id", id);
+    if (idsToDelete.length === 0) {
+      return NextResponse.json({ error: "Missing problem 'id' or 'ids' parameter." }, { status: 400 });
+    }
+
+    const { error } = await supabase.from("coding_problems").delete().in("id", idsToDelete);
     if (error) {
-      console.error("Error deleting coding problem:", error);
+      console.error("Error deleting coding problem(s):", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, count: idsToDelete.length });
   } catch (error: any) {
     console.error("DELETE /api/admin/coding error:", error);
     return NextResponse.json({ error: error.message || "Failed to delete coding problem." }, { status: 500 });

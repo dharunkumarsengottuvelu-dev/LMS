@@ -109,4 +109,24 @@ export class CodingProblemsService {
       }
     }
   }
+
+  /**
+   * Delete multiple problems in bulk from the database
+   */
+  public static async deleteProblems(ids: string[]): Promise<void> {
+    if (!ids || ids.length === 0) return;
+    this.cachedProblems = this.cachedProblems.filter((p) => !ids.includes(p.id));
+
+    try {
+      await axios.delete(`/api/admin/coding?ids=${encodeURIComponent(ids.join(","))}`);
+    } catch (err) {
+      console.warn("Failed to batch delete problems via API:", err);
+      try {
+        const supabase = createClient();
+        await (supabase as any).from("coding_problems").delete().in("id", ids);
+      } catch (e) {
+        console.error("Direct Supabase batch delete failed:", e);
+      }
+    }
+  }
 }

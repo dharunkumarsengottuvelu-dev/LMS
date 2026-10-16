@@ -165,12 +165,54 @@ export default function StudentTestRunnerPage() {
           // Format questions to match PracticeRunnerEngine format exactly
           const rawQuestions: any[] = data.questions || [];
           const formatted: PracticeQuestion[] = rawQuestions.map((q: any, idx: number) => {
-            const isCoding = q.type === "coding";
-            const isMSQ = q.type === "msq" || q.type === "multiple_choice" || q.type === "both";
-            const qId = q.questionId || `q_${idx + 1}`;
+            const rawType = String(q.type || q.questionCategory || "").toLowerCase().trim();
+            const hasExplicitMcqType =
+              rawType === "mcq" ||
+              rawType === "msq" ||
+              rawType === "single_choice" ||
+              rawType === "multiple_choice" ||
+              rawType === "multiple";
+            const hasExplicitCodingType =
+              rawType === "coding" ||
+              rawType === "code" ||
+              rawType === "programming";
+
+            const hasValidTestCases =
+              Array.isArray(q.testCases) &&
+              q.testCases.some(
+                (tc: any) =>
+                  (tc.input && String(tc.input).trim().length > 0) ||
+                  (tc.output && String(tc.output).trim().length > 0) ||
+                  (tc.expected_output && String(tc.expected_output).trim().length > 0) ||
+                  (tc.expectedOutput && String(tc.expectedOutput).trim().length > 0)
+              );
+
+            const isCoding =
+              !hasExplicitMcqType &&
+              (hasExplicitCodingType ||
+                String(q.questionId || "").startsWith("cp_") ||
+                hasValidTestCases);
+
+            const isMSQ =
+              !isCoding &&
+              (rawType === "msq" ||
+                rawType === "multiple_choice" ||
+                rawType === "multipleselect" ||
+                rawType === "both");
+            const qId = q.questionId || q.id || `q_${idx + 1}`;
+            let sectionName = (q.sectionTitle || q.section || "").trim();
+            if (isCoding) {
+              if (!sectionName || (!sectionName.toLowerCase().includes("code") && !sectionName.toLowerCase().includes("programming"))) {
+                sectionName = "Coding Challenges";
+              }
+            } else {
+              if (sectionName.toLowerCase().includes("code") || sectionName.toLowerCase().includes("programming") || !sectionName) {
+                sectionName = "Multiple Choice Questions";
+              }
+            }
 
             if (isCoding) {
-              const testCases = (q.testCases || []).map((tc: any, tcIdx: number) => ({
+              const testCases = (Array.isArray(q.testCases) ? q.testCases : []).map((tc: any, tcIdx: number) => ({
                 id: tc.id || `tc_${tcIdx + 1}`,
                 input: tc.input || "",
                 expected_output: tc.output || tc.expected_output || tc.expectedOutput || "",
@@ -180,11 +222,11 @@ export default function StudentTestRunnerPage() {
               return {
                 id: qId,
                 type: "coding",
-                title: q.question || `Coding Problem ${idx + 1}`,
-                text: q.problemStatement || q.question || "Solve the challenge.",
+                title: q.question || q.title || `Coding Problem ${idx + 1}`,
+                text: q.problemStatement || q.question || q.description || "Solve the challenge.",
                 marks: Number(q.marks) || 10,
-                section: "coding",
-                sectionTitle: "Coding Challenges",
+                section: sectionName,
+                sectionTitle: sectionName,
                 difficulty: q.difficulty || "medium",
                 constraints: q.constraints || "Standard time and memory limits apply.",
                 inputFormat: q.inputFormat || "Standard Input",
@@ -201,11 +243,18 @@ export default function StudentTestRunnerPage() {
               };
             } else {
               // MCQ or MSQ
-              const optionsList = (q.options || []).map((opt: any, optIdx: number) => {
-                const optText = typeof opt === "string" ? opt : opt.text || "";
-                const isCorrect = typeof opt === "object" ? Boolean(opt.isCorrect) : optIdx === (q.correctOption || 0);
+              const rawOpts =
+                Array.isArray(q.options) && q.options.length > 0
+                  ? q.options
+                  : Array.isArray(q.optionsList) && q.optionsList.length > 0
+                  ? q.optionsList
+                  : [];
+
+              const optionsList = rawOpts.map((opt: any, optIdx: number) => {
+                const optText = typeof opt === "string" ? opt : opt.text || opt.title || "";
+                const isCorrect = typeof opt === "object" ? Boolean(opt.isCorrect) : optIdx === Number(q.correctOption || 0);
                 return {
-                  id: `opt_${optIdx + 1}`,
+                  id: typeof opt === "object" && opt.id ? String(opt.id) : `opt_${optIdx + 1}`,
                   text: optText,
                   isCorrect: isCorrect,
                 };
@@ -214,11 +263,11 @@ export default function StudentTestRunnerPage() {
               return {
                 id: qId,
                 type: isMSQ ? "multiple_choice" : "single_choice",
-                title: q.question || `Question ${idx + 1}`,
-                text: q.problemStatement || q.question || "",
+                title: q.question || q.title || `Question ${idx + 1}`,
+                text: q.problemStatement || q.question || q.text || "",
                 marks: Number(q.marks) || 1,
-                section: "mcq",
-                sectionTitle: isMSQ ? "Multiple Select (MSQ)" : "Multiple Choice (MCQ)",
+                section: sectionName,
+                sectionTitle: sectionName,
                 explanation: q.explanation || "",
                 options: optionsList,
               };
@@ -718,10 +767,23 @@ export default function StudentTestRunnerPage() {
 
   const moduleMeta = useMemo(() => {
     if (!testData) return null;
+    const hasCoding = formattedQuestions.some((q) => q.type === "coding");
+    const hasMcq = formattedQuestions.some(
+      (q) => q.type === "single_choice" || q.type === "multiple_choice" || q.type === "mcq"
+    );
+    const dynamicType: "mcq" | "coding" | "mixed" =
+      testData.type === "mcq" || testData.type === "coding" || testData.type === "mixed"
+        ? testData.type
+        : hasCoding && hasMcq
+        ? "mixed"
+        : hasCoding
+        ? "coding"
+        : "mcq";
+
     return {
       id: testData.id || testId,
       title: testData.title || "Proctored Examination",
-      type: "mixed" as const,
+      type: dynamicType,
       assignedBy: "Instructor / Admin",
       durationMinutes: testData.duration || 60,
       totalMarks: testData.maxMarks || (formattedQuestions.reduce((acc, q) => acc + (q.marks || 1), 0) || 100),
@@ -894,38 +956,32 @@ export default function StudentTestRunnerPage() {
   }[simpleFaceStatus] || { text: "Face Verified", color: "text-emerald-600 dark:text-emerald-400", dot: "bg-emerald-500" };
 
   return (
-    <div className="w-full max-w-[1680px] mx-auto px-2.5 sm:px-6 lg:px-8 py-3 sm:py-4 space-y-4 relative max-w-full overflow-x-hidden">
-      {/* Top Bar Back button */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 px-3 text-xs font-semibold gap-1.5 border-slate-200 dark:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 rounded-xl shadow-2xs cursor-pointer"
-          onClick={() => router.push("/student/assessments")}
-        >
-          <ArrowLeft className="h-3.5 w-3.5 text-slate-400" /> Back to Assessments
-        </Button>
-
-        {/* Real-time Proctoring Alert Ribbon */}
-        {activeAlert && (
-          <div className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-sm ${
-            activeAlert.severity === "CRITICAL"
-              ? "bg-red-500 text-white"
-              : activeAlert.severity === "WARNING"
-              ? "bg-amber-500 text-white"
-              : "bg-blue-500 text-white"
-          }`}>
-            <AlertTriangle className="h-3.5 w-3.5" />
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-100/60 dark:bg-[#09090B] relative">
+      {/* Real-time Proctoring Alert Ribbon (Floating Toast Banner, doesn't distort layout) */}
+      {activeAlert && (
+        <div className="fixed top-2.5 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-in slide-in-from-top-2 duration-200">
+          <div
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 shadow-lg backdrop-blur-md ${
+              activeAlert.severity === "CRITICAL"
+                ? "bg-red-600/95 text-white shadow-red-500/20"
+                : activeAlert.severity === "WARNING"
+                ? "bg-amber-600/95 text-white shadow-amber-500/20"
+                : "bg-blue-600/95 text-white shadow-blue-500/20"
+            }`}
+          >
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>{activeAlert.message}</span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Full PracticeRunnerEngine with Fixed Desktop Proctor */}
       <PracticeRunnerEngine
         module={moduleMeta}
         questions={formattedQuestions}
         onSubmit={handleSubmit}
+        isAssessment={true}
+        onBack={() => router.push("/student/assessments")}
         extraHeaderContent={
           testData?.proctoring?.webcamTracking && !isExamSubmitted ? (
             <div className="hidden lg:flex items-center gap-2.5 px-3 py-1.5 bg-slate-50 dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl shadow-2xs">

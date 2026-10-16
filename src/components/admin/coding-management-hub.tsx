@@ -4,8 +4,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loading } from "@/components/ui/loading";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layouts/page-header";
-import { Search, Plus, UploadCloud } from "lucide-react";
+import { Search, Plus, UploadCloud, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -44,6 +45,11 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
   // Delete modal state
   const [problemToDelete, setProblemToDelete] = useState<CodingProblem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Bulk Selection and Delete State
+  const [selectedProblemIds, setSelectedProblemIds] = useState<string[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   // Bulk Upload Modal state
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
@@ -131,6 +137,38 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
       toast.error("Failed to delete problem.");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const toggleSelectProblem = (id: string) => {
+    setSelectedProblemIds((prev) =>
+      prev.includes(id) ? prev.filter((pId) => pId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    const allFilteredIds = filteredProblems.map((p) => p.id);
+    const allSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedProblemIds.includes(id));
+    if (allSelected) {
+      setSelectedProblemIds([]);
+    } else {
+      setSelectedProblemIds(allFilteredIds);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProblemIds.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      await CodingProblemsService.deleteProblems(selectedProblemIds);
+      toast.success(`Deleted ${selectedProblemIds.length} coding problem(s).`);
+      setSelectedProblemIds([]);
+      setShowBulkDeleteConfirm(false);
+      refreshProblems();
+    } catch {
+      toast.error("Failed to delete selected problems.");
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -250,12 +288,53 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
         </div>
       </div>
 
+      {/* Global Bulk Delete Toolbar for Problems */}
+      {selectedProblemIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl px-4 py-2.5 shadow-xs transition-all">
+          <div className="flex items-center gap-2.5">
+            <span className="w-6 h-6 rounded-md bg-red-600 text-white text-xs font-bold flex items-center justify-center">
+              {selectedProblemIds.length}
+            </span>
+            <span className="text-xs font-bold text-red-800 dark:text-red-300">
+              {selectedProblemIds.length === 1 ? "1 problem selected" : `${selectedProblemIds.length} problems selected`}
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedProblemIds([])}
+              className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-zinc-400 underline cursor-pointer ml-1"
+            >
+              Clear selection
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete Selected ({selectedProblemIds.length})</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Problems Management Table - Pure Admin / Trainer Functionality */}
       <div className="bg-white border border-slate-200 shadow-xs rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                <th className="py-2.5 px-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={filteredProblems.length > 0 && filteredProblems.every((p) => selectedProblemIds.includes(p.id))}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-zinc-700 cursor-pointer"
+                    title="Select all problems"
+                  />
+                </th>
                 <th className="py-2.5 px-4 w-12 text-left whitespace-nowrap">#</th>
                 <th className="py-2.5 px-4 min-w-[220px] text-left">Problem Name</th>
                 <th className="py-2.5 px-4 whitespace-nowrap text-left">Difficulty</th>
@@ -268,13 +347,13 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center">
+                  <td colSpan={8} className="py-10 text-center">
                     <Loading size="sm" text="Loading coding problems..." />
                   </td>
                 </tr>
               ) : filteredProblems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-14 text-center text-slate-500 text-xs">
+                  <td colSpan={8} className="py-14 text-center text-slate-500 text-xs">
                     <p className="font-bold text-slate-700 text-sm">No Coding Problems in Database</p>
                     <p className="mt-1 text-slate-400">
                       All static mock data has been removed. Click &quot;Create Problem&quot; above to create your first question in Supabase.
@@ -288,9 +367,18 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
                   const hiddenCount = testCases.filter((tc) => tc.is_hidden).length;
                   const isSql = prob.category === "Databases" || prob.category === "SQL" || (prob as any).type === "SQL" || !!prob.sql_engine;
                   const rawType = (prob as any).type || prob.category || (isSql ? "SQL" : "Algorithm");
+                  const isSelected = selectedProblemIds.includes(prob.id);
 
                   return (
-                    <tr key={prob.id} className="hover:bg-slate-50/70 transition-colors">
+                    <tr key={prob.id} className={cn("hover:bg-slate-50/70 transition-colors", isSelected && "bg-blue-50/40")}>
+                      <td className="py-3.5 px-3 text-center align-middle">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectProblem(prob.id)}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-zinc-700 cursor-pointer"
+                        />
+                      </td>
                       <td className="py-3.5 px-4 font-mono text-xs font-semibold text-slate-400 whitespace-nowrap align-middle" title={prob.id}>
                         #{idx + 1}
                       </td>
@@ -398,6 +486,39 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
               className="bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold"
             >
               {isDeleting ? "Deleting..." : "Confirm Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteConfirm} onOpenChange={(open) => !open && setShowBulkDeleteConfirm(false)}>
+        <DialogContent className="max-w-md bg-white border border-slate-200">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900">
+              Bulk Delete Coding Problems
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 mt-1">
+              Are you sure you want to permanently delete <strong>{selectedProblemIds.length}</strong> selected coding problem(s)? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-4 flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBulkDeleteConfirm(false)}
+              className="rounded-lg text-xs font-semibold border-slate-200"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold"
+            >
+              {isBulkDeleting ? "Deleting..." : `Delete ${selectedProblemIds.length} Problems`}
             </Button>
           </DialogFooter>
         </DialogContent>
