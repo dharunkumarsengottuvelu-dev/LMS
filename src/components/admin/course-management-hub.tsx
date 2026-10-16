@@ -314,6 +314,15 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
 
+  // MNC-Level Delete Confirmation State (Icon-Free Dialog)
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    title: string;
+    description: string;
+    confirmText?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+  const [isDeletingConfirm, setIsDeletingConfirm] = useState(false);
+
   // Step 1: Course Metadata
   const [fTitle, setFTitle]           = useState("");
   const [fCategory, setFCategory]     = useState("");
@@ -940,40 +949,50 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
     }
   };
 
-  const handleDeleteCourse = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
-    try {
-      const res = await fetch(`/api/admin/courses?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Delete request failed");
-      setCourses((prev) => prev.filter((c) => c.id !== id));
-      toast({ title: "Course Deleted", description: title, variant: "destructive" });
-    } catch (err) {
-      console.error("Failed to delete course", err);
-      // Fallback local removal
-      setCourses((prev) => prev.filter((c) => c.id !== id));
-      toast({ title: "Course Removed", description: title });
-    }
+  const handleDeleteCourse = (id: string, title: string) => {
+    setDeleteConfirmation({
+      title: "Delete Course",
+      description: `Are you sure you want to delete "${title}"? This action cannot be undone.`,
+      confirmText: "Delete Course",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/courses?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+          if (!res.ok) throw new Error("Delete request failed");
+          setCourses((prev) => prev.filter((c) => c.id !== id));
+          toast({ title: "Course Deleted", description: title, variant: "destructive" });
+        } catch (err) {
+          console.error("Failed to delete course", err);
+          setCourses((prev) => prev.filter((c) => c.id !== id));
+          toast({ title: "Course Removed", description: title });
+        }
+      },
+    });
   };
 
-  const handleBulkDeleteCourses = async (ids: string[]) => {
+  const handleBulkDeleteCourses = (ids: string[]) => {
     if (!ids || ids.length === 0) return;
-    if (!confirm(`Are you sure you want to permanently delete ${ids.length} selected course${ids.length > 1 ? "s" : ""}?`)) return;
-
-    try {
-      await Promise.all(
-        ids.map((id) =>
-          fetch(`/api/admin/courses?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null)
-        )
-      );
-      setCourses((prev) => prev.filter((c) => !ids.includes(c.id)));
-      setSelectedCourseIds([]);
-      toast({ title: "Courses Deleted", description: `Successfully removed ${ids.length} course${ids.length > 1 ? "s" : ""}.` });
-    } catch (err) {
-      console.error("Bulk delete courses error", err);
-      setCourses((prev) => prev.filter((c) => !ids.includes(c.id)));
-      setSelectedCourseIds([]);
-      toast({ title: "Courses Removed", description: `Removed ${ids.length} course${ids.length > 1 ? "s" : ""}.` });
-    }
+    setDeleteConfirmation({
+      title: `Delete ${ids.length} Course${ids.length > 1 ? "s" : ""}`,
+      description: `Are you sure you want to permanently delete ${ids.length} selected course${ids.length > 1 ? "s" : ""}? All curriculum and enrolled student associations will be removed.`,
+      confirmText: `Delete ${ids.length} Course${ids.length > 1 ? "s" : ""}`,
+      onConfirm: async () => {
+        try {
+          await Promise.all(
+            ids.map((id) =>
+              fetch(`/api/admin/courses?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null)
+            )
+          );
+          setCourses((prev) => prev.filter((c) => !ids.includes(c.id)));
+          setSelectedCourseIds([]);
+          toast({ title: "Courses Deleted", description: `Successfully removed ${ids.length} course${ids.length > 1 ? "s" : ""}.` });
+        } catch (err) {
+          console.error("Bulk delete courses error", err);
+          setCourses((prev) => prev.filter((c) => !ids.includes(c.id)));
+          setSelectedCourseIds([]);
+          toast({ title: "Courses Removed", description: `Removed ${ids.length} course${ids.length > 1 ? "s" : ""}.` });
+        }
+      },
+    });
   };
 
   // ════════════════════════════════════════════════════════════
@@ -2696,16 +2715,71 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
           </div>
 
           <div className="flex items-center justify-end gap-3 p-6 pt-4 border-t border-[#E5E7EB] dark:border-[#27272A] shrink-0 bg-gray-50/50 dark:bg-black/20">
-              <Button variant="outline" onClick={() => setAssigningCourse(null)} className="h-10 text-xs font-semibold">
-                Cancel
-              </Button>
-              <Button onClick={handleSaveAssignments} className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl gap-2 shadow-sm">
-                <Check className="h-4 w-4" /> Save Assignments
-              </Button>
-            </div>
+            <Button variant="outline" onClick={() => setAssigningCourse(null)} className="h-10 text-xs font-semibold">
+              Cancel
+            </Button>
+            <Button onClick={handleSaveAssignments} className="h-10 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold rounded-xl gap-2 shadow-sm">
+              <Check className="h-4 w-4" /> Save Assignments
+            </Button>
           </div>
         </div>
-      )}
+      </div>
+    )}
+
+      {/* MNC-Level Enterprise Delete Confirmation Dialog (Pure Text, No Icons) */}
+      <Dialog
+        open={!!deleteConfirmation}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingConfirm) setDeleteConfirmation(null);
+        }}
+      >
+        <DialogContent className="max-w-md bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-zinc-800 p-6 rounded-2xl shadow-xl">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-wider bg-red-50 dark:bg-red-950/50 px-2 py-0.5 rounded border border-red-200 dark:border-red-900/50">
+                Critical Action
+              </span>
+            </div>
+            <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">
+              {deleteConfirmation?.title}
+            </DialogTitle>
+            <DialogDescription className="text-xs leading-relaxed text-slate-500 dark:text-zinc-400">
+              {deleteConfirmation?.description}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-5 flex items-center justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isDeletingConfirm}
+              onClick={() => setDeleteConfirmation(null)}
+              className="h-8.5 px-4 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={isDeletingConfirm}
+              onClick={async () => {
+                if (!deleteConfirmation) return;
+                setIsDeletingConfirm(true);
+                try {
+                  await deleteConfirmation.onConfirm();
+                } finally {
+                  setIsDeletingConfirm(false);
+                  setDeleteConfirmation(null);
+                }
+              }}
+              className="h-8.5 px-4 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-xs transition-all"
+            >
+              {isDeletingConfirm ? "Deleting..." : deleteConfirmation?.confirmText || "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

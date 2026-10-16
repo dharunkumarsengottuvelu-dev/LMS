@@ -41,14 +41,43 @@ export class CodingProgressService {
     if (this.storeLoaded) return this.memoryStore;
     try {
       const raw = localStorage.getItem(LOCAL_STORAGE_PROGRESS_KEY);
+      const map = new Map<string, ProblemSavedState>();
       if (raw) {
-        const parsed = JSON.parse(raw) as Record<string, ProblemSavedState>;
-        const map = new Map<string, ProblemSavedState>();
-        Object.entries(parsed).forEach(([k, v]) => map.set(k, v));
-        this.memoryStore = map;
-        this.storeLoaded = true;
-        return map;
+        try {
+          const parsed = JSON.parse(raw) as Record<string, ProblemSavedState>;
+          Object.entries(parsed).forEach(([k, v]) => map.set(k, v));
+        } catch {}
       }
+
+      // Automatically scan for any saved student drafts in localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith("edunexus_draft_") || key.startsWith("lms_draft_"))) {
+          const stripped = key.startsWith("edunexus_draft_") ? key.replace("edunexus_draft_", "") : key.replace("lms_draft_", "");
+          const lastUnderscore = stripped.lastIndexOf("_");
+          if (lastUnderscore !== -1) {
+            const probId = stripped.substring(0, lastUnderscore);
+            const lang = (stripped.substring(lastUnderscore + 1) || "python") as CodingLanguage;
+            const draftCode = localStorage.getItem(key) || "";
+            if (probId && draftCode.trim().length > 0) {
+              const existing = map.get(probId);
+              if (!existing) {
+                map.set(probId, {
+                  problemId: probId,
+                  status: "in_progress",
+                  language: lang,
+                  code: draftCode,
+                  updatedAt: new Date().toISOString(),
+                });
+              }
+            }
+          }
+        }
+      }
+
+      this.memoryStore = map;
+      this.storeLoaded = true;
+      return map;
     } catch (e) {
       console.error("Failed to load coding progress from localStorage:", e);
     }

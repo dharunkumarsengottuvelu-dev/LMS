@@ -4,9 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 import {
   sendEmail,
-  generateNotificationEmailHtml,
   isValidEmail,
 } from "@/lib/email/email-service";
+import { generateAnnouncementEmail } from "@/lib/email/email-templates";
+import { getAbsoluteUrl } from "@/config/site";
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,17 +62,33 @@ export async function POST(request: NextRequest) {
       throw new Error(`Failed to resolve students: ${studentsError.message}`);
     }
 
-    let resolvedStudents = (allProfiles || []).filter((p: any) => {
-      const r = (p.role || "").toLowerCase();
-      return r === "student" || (!r && !["admin", "super_admin", "trainer"].includes(r));
-    });
+    let resolvedStudents: any[] = [];
 
-    if (target_type === "batch" && (batch_id || batch_name)) {
-      resolvedStudents = resolvedStudents.filter((p: any) => {
+    if (target_type === "trainers") {
+      resolvedStudents = (allProfiles || []).filter((p: any) => {
+        const r = (p.role || "").toLowerCase();
+        return r === "trainer";
+      });
+    } else if (target_type === "both" || target_type === "all") {
+      resolvedStudents = (allProfiles || []).filter((p: any) => {
+        const r = (p.role || "").toLowerCase();
+        return r === "student" || r === "trainer" || (!r && !["admin", "super_admin"].includes(r));
+      });
+    } else if (target_type === "batch" && (batch_id || batch_name)) {
+      resolvedStudents = (allProfiles || []).filter((p: any) => {
+        const r = (p.role || "").toLowerCase();
+        const isStudent = r === "student" || (!r && !["admin", "super_admin", "trainer"].includes(r));
         return (
-          (batch_id && (p.batch_id === batch_id || p.batch === batch_id)) ||
-          (batch_name && (p.batch_name === batch_name || p.batch === batch_name))
+          isStudent &&
+          ((batch_id && (p.batch_id === batch_id || p.batch === batch_id)) ||
+            (batch_name && (p.batch_name === batch_name || p.batch === batch_name)))
         );
+      });
+    } else {
+      // Default: all students
+      resolvedStudents = (allProfiles || []).filter((p: any) => {
+        const r = (p.role || "").toLowerCase();
+        return r === "student" || (!r && !["admin", "super_admin", "trainer"].includes(r));
       });
     }
 
@@ -81,7 +98,9 @@ export async function POST(request: NextRequest) {
         error:
           target_type === "batch"
             ? `No students found in batch "${batch_name || batch_id}".`
-            : "No active students found.",
+            : target_type === "trainers"
+            ? "No active trainers found."
+            : "No active recipients found.",
       });
     }
 
@@ -130,22 +149,31 @@ export async function POST(request: NextRequest) {
         const recipientEmail = student.email;
         if (!isValidEmail(recipientEmail)) continue;
 
-        const studentDisplayName =
+        const recipientDisplayName =
           `${student.first_name || ""} ${student.last_name || ""}`.trim() ||
-          "Student";
+          (student.role === "trainer" ? "Trainer" : "Student");
 
-        const emailHtml = generateNotificationEmailHtml(
-          studentDisplayName,
-          title,
-          message,
-          link_url || undefined
-        );
+        const directTargetUrl = link_url
+          ? (link_url.startsWith("http") ? link_url : getAbsoluteUrl(link_url))
+          : getAbsoluteUrl(student.role === "trainer" ? "/trainer/notifications" : "/student/notifications");
+
+        const tpl = generateAnnouncementEmail({
+          recipientName: recipientDisplayName,
+          announcementTitle: title,
+          announcementMessage: message,
+          publishedBy: senderName,
+          announcementUrl: directTargetUrl,
+        });
 
         const result = await sendEmail({
           to: recipientEmail,
-          subject: `[SENSILEARN LMS] ${title}`,
-          html: emailHtml,
-          studentName: studentDisplayName,
+          recipientName: recipientDisplayName,
+          subject: tpl.subject,
+          html: tpl.html,
+          text: tpl.text,
+          notificationType: "ANNOUNCEMENT_PUBLISHED",
+          redirectUrl: directTargetUrl,
+          ctaText: "VIEW ANNOUNCEMENT",
         });
 
         if (result.success) {
@@ -188,7 +216,7 @@ export async function POST(request: NextRequest) {
       emailSent: emailSentCount,
       emailFailed: emailFailedCount,
       emailStatus,
-      message: `Notification sent to ${insertedCount} student(s)${sendEmailFlag ? `, emails: ${emailSentCount} sent, ${emailFailedCount} failed` : ""}.`,
+      message: `Notification sent to ${insertedCount} recipient(s)${sendEmailFlag ? `, emails: ${emailSentCount} sent, ${emailFailedCount} failed` : ""}.`,
     });
   } catch (err: any) {
     console.error("POST /api/admin/notifications/broadcast error:", err);

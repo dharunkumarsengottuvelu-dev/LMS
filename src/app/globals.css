@@ -298,19 +298,26 @@ p, span, div {
 .monaco-editor .suggest-widget {
   border-radius: 8px !important;
   box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.2), 0 4px 12px -2px rgba(0, 0, 0, 0.1) !important;
-  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
   margin-top: 4px !important;
-  max-height: 180px !important;
+  min-width: 260px !important;
 }
 
-.monaco-editor .suggest-widget .tree,
-.monaco-editor .suggest-widget .monaco-list {
-  max-height: 170px !important;
+.monaco-editor .suggest-widget .monaco-list-row {
+  line-height: 22px !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row.focused {
+  background-color: #EFF6FF !important;
 }
 
 .dark .monaco-editor .suggest-widget {
   border: 1px solid rgba(39, 39, 42, 0.9) !important;
   box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .monaco-editor .suggest-widget .monaco-list-row.focused {
+  background-color: #1E293B !important;
 }
 
 /* ── Professional Monaco Editor Typography & Active-Line Removal ── */
@@ -589,6 +596,7 @@ p, span, div {
   color: #94A3B8 !important;
   font-family: var(--font-mono, "JetBrains Mono", monospace) !important;
   font-size: 12px !important;
+  padding-left: 8px !important;
   padding-right: 8px !important;
   letter-spacing: -0.2px;
 }

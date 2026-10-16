@@ -54,7 +54,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { CodingLanguage } from "@/types/coding";
-import { registerMonacoCompletions } from "@/lib/monaco-completions";
+import { registerMonacoCompletions, getDefaultTabSizeForLanguage } from "@/lib/monaco-completions";
 import {
   normalizeTestInput,
   normalizeExpectedOutput,
@@ -233,10 +233,10 @@ export default function StudentPracticeCodingRunnerPage() {
   const [code, setCode] = useState<string>("");
   const editorRef = useRef<any>(null);
   const [cursorPos, setCursorPos] = useState({ line: 1, column: 1 });
-  const [tabSize, setTabSize] = useState<number>(2);
+  const [tabSize, setTabSize] = useState<number>(() => getDefaultTabSizeForLanguage("java"));
 
   useEffect(() => {
-    const size = selectedLanguage === "python" ? 4 : 2;
+    const size = getDefaultTabSizeForLanguage(selectedLanguage);
     setTabSize(size);
     editorRef.current?.getModel()?.updateOptions({ tabSize: size, indentSize: size });
   }, [selectedLanguage]);
@@ -2745,22 +2745,33 @@ export default function StudentPracticeCodingRunnerPage() {
                   }}
                   options={{
                     readOnly: Boolean(isReviewMode),
-                    fontSize: 13,
-                    lineHeight: 22,
+                    fontSize: 13.5,
+                    lineHeight: 23,
                     fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace',
                     minimap: { enabled: false },
                     scrollBeyondLastLine: false,
                     smoothScrolling: true,
                     cursorBlinking: "smooth",
                     automaticLayout: true,
-                    tabSize: selectedLanguage === "python" ? 4 : 2,
+                    tabSize: tabSize,
+                    insertSpaces: true,
                     lineNumbers: "on",
-                    lineNumbersMinChars: 3,
-                    lineDecorationsWidth: 6,
+                    lineNumbersMinChars: 4,
+                    lineDecorationsWidth: 18,
                     glyphMargin: false,
-                    folding: false,
-                    padding: { top: 14, bottom: 14 },
-                    renderLineHighlight: "all",
+                    folding: true,
+                    showFoldingControls: "mouseover",
+                    padding: { top: 16, bottom: 16 },
+                    renderLineHighlight: "none",
+                    fixedOverflowWidgets: true,
+                    quickSuggestions: { other: true, comments: true, strings: true },
+                    quickSuggestionsDelay: 40,
+                    suggestOnTriggerCharacters: true,
+                    acceptSuggestionOnEnter: "smart",
+                    tabCompletion: "on",
+                    wordBasedSuggestions: "allDocuments",
+                    suggestFontSize: 13,
+                    suggestLineHeight: 22,
                   }}
                 />
               </div>
@@ -2787,29 +2798,33 @@ export default function StudentPracticeCodingRunnerPage() {
                     </>
                   )}
                 </div>
-                <div className="flex items-center gap-3 sm:gap-4 text-slate-600">
-                  <span className="hover:text-slate-900 transition-colors cursor-default" title="Cursor Position">
+                <div className="flex items-center gap-2 sm:gap-2.5 text-slate-600">
+                  <span className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5" title="Cursor Position">
                     Ln {cursorPos.line}, Col {cursorPos.column}
                   </span>
+                  <span className="text-slate-300 select-none">|</span>
                   <button
                     type="button"
                     onClick={() => {
-                      const nextSize = tabSize === 2 ? 4 : 2;
+                      const nextSize = tabSize === 4 ? 2 : 4;
                       setTabSize(nextSize);
                       editorRef.current?.getModel()?.updateOptions({ tabSize: nextSize, indentSize: nextSize });
                     }}
-                    className="hover:text-blue-600 px-1 py-0.5 rounded transition-all cursor-pointer font-medium"
+                    className="hover:text-blue-600 hover:bg-slate-200/60 px-1.5 py-0.5 rounded transition-all cursor-pointer font-medium"
                     title="Click to toggle indentation (2 / 4 spaces)"
                   >
                     Spaces: {tabSize}
                   </button>
-                  <span className="hover:text-slate-900 transition-colors cursor-default" title="Encoding">
+                  <span className="text-slate-300 select-none">|</span>
+                  <span className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5" title="Encoding">
                     UTF-8
                   </span>
-                  <span className="hover:text-slate-900 transition-colors cursor-default" title="Line Endings">
+                  <span className="text-slate-300 select-none">|</span>
+                  <span className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5" title="Line Endings">
                     LF
                   </span>
-                  <span className="hover:text-slate-900 transition-colors cursor-default flex items-center gap-1 font-semibold text-slate-700" title="Selected Language">
+                  <span className="text-slate-300 select-none">|</span>
+                  <span className="hover:text-slate-900 transition-colors cursor-default flex items-center gap-1 font-semibold text-slate-700 px-1 py-0.5" title="Selected Language">
                     <span className="text-slate-400 font-bold">&#123;&#125;</span>
                     <span>{SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage)?.name || "Plain Text"}</span>
                   </span>

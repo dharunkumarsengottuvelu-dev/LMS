@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
-import { dispatchBatchNotification } from "@/lib/notifications/dispatcher";
+import { dispatchBatchNotification, dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 
 export async function GET() {
   try {
@@ -206,34 +206,45 @@ export async function POST(request: NextRequest) {
       const testTitle = data?.title || test.title;
       const durationStr = `${test.duration || data?.duration_minutes || 60} Mins`;
       const scheduleStr = test.date ? `${test.date} ${test.startTime || ""}`.trim() : (test.startDate || "Scheduled");
+      const isDraft = (test.status || "").toLowerCase() === "draft";
+      const isUpdate = Boolean(test.id && test.id !== "new");
+      const eventType = isUpdate ? "ASSESSMENT_UPDATED" : "ASSESSMENT_ASSIGNED";
 
-      if (isCommon) {
-        dispatchBatchNotification({
-          isCommon: true,
-          eventType: "test_scheduled",
-          title: `New Assessment Scheduled: ${testTitle}`,
-          message: `A new proctored assessment "${testTitle}" has been scheduled for your cohort. Duration: ${durationStr}.`,
-          resourceType: "assessment",
-          resourceId: testId,
-          targetUrl: `/student/tests/${testId}`,
-          assignedBy: "SensiLearn Examination Team",
-          dueDate: scheduleStr,
-          duration: durationStr,
-        }).catch((e) => console.warn("Test batch notification error:", e));
-      } else if (assignedBatches.length > 0) {
-        for (const bName of assignedBatches) {
-          dispatchBatchNotification({
-            batchName: bName,
-            eventType: "test_scheduled",
-            title: `New Assessment Scheduled: ${testTitle}`,
-            message: `A new assessment "${testTitle}" has been scheduled for batch ${bName}.`,
+      if (!isDraft) {
+        if (isCommon) {
+          dispatchLMSEvent({
+            isCommon: true,
+            eventType,
+            name: testTitle,
+            title: isUpdate ? `Assessment Updated – ${testTitle}` : `New Assessment Assigned – ${testTitle}`,
+            duration: durationStr,
+            totalMarks: test.totalMarks || 100,
+            passingPercentage: test.passPercentage || 40,
+            dueDate: scheduleStr,
             resourceType: "assessment",
             resourceId: testId,
             targetUrl: `/student/tests/${testId}`,
             assignedBy: "SensiLearn Examination Team",
-            dueDate: scheduleStr,
-            duration: durationStr,
-          }).catch((e) => console.warn("Test batch notification error:", e));
+            changeSummary: isUpdate ? "Evaluation parameters / schedule updated" : undefined,
+          }).catch((e) => console.warn("Test broadcast notification error:", e));
+        } else if (assignedBatches.length > 0) {
+          for (const bName of assignedBatches) {
+            dispatchLMSEvent({
+              batchName: bName,
+              eventType,
+              name: testTitle,
+              title: isUpdate ? `Assessment Updated – ${testTitle}` : `New Assessment Assigned – ${testTitle}`,
+              duration: durationStr,
+              totalMarks: test.totalMarks || 100,
+              passingPercentage: test.passPercentage || 40,
+              dueDate: scheduleStr,
+              resourceType: "assessment",
+              resourceId: testId,
+              targetUrl: `/student/tests/${testId}`,
+              assignedBy: "SensiLearn Examination Team",
+              changeSummary: isUpdate ? "Evaluation parameters / schedule updated" : undefined,
+            }).catch((e) => console.warn("Test batch notification error:", e));
+          }
         }
       }
     } catch (notifErr) {

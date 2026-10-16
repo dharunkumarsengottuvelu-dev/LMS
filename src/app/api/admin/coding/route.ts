@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 import type { CodingProblem, TestCase } from "@/types/coding";
 
 // GET /api/admin/coding - Fetch coding problems from Supabase DB scoped to Code Lab or Practice
@@ -338,6 +339,33 @@ export async function POST(request: NextRequest) {
         sample_test_cases: sampleTestCases,
         hidden_test_cases: hiddenTestCases,
       });
+
+      // Asynchronously dispatch notification if published
+      try {
+        const isDraft = (savedProblem?.status || "").toLowerCase() === "draft";
+        const isUpdate = Boolean(problemId);
+        const eventType = isUpdate ? "CODING_PROBLEM_UPDATED" : "CODING_PROBLEM_PUBLISHED";
+        const pTitle = savedProblem?.title || problem.title;
+        const problemTargetUrl = `/coding/problems/${savedProblem?.id || problemId || savedProblem?.slug || "1"}`;
+
+        if (!isDraft) {
+          dispatchLMSEvent({
+            isCommon: true,
+            eventType,
+            name: pTitle,
+            title: isUpdate ? `Coding Challenge Updated – ${pTitle}` : `New Coding Challenge Available – ${pTitle}`,
+            category: (problem.topic_tags && problem.topic_tags[0]) || "Algorithms & Problem Solving",
+            difficulty: savedProblem?.difficulty || problem.difficulty,
+            resourceType: "problem",
+            resourceId: savedProblem?.id,
+            targetUrl: problemTargetUrl,
+            assignedBy: "SensiLearn Academic Faculty",
+            changeSummary: isUpdate ? "Problem statements or test suites updated" : undefined,
+          }).catch((e) => console.warn("Coding problem broadcast notification error:", e));
+        }
+      } catch (notifErr) {
+        console.warn("Notice: Problem notification trigger warning:", notifErr);
+      }
     }
 
     return NextResponse.json({

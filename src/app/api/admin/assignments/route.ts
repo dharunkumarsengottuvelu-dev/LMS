@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
+import { dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 
 export async function GET() {
   try {
@@ -143,6 +144,53 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Asynchronously dispatch in-app and email notifications
+    try {
+      const isUpdate = Boolean(body.id);
+      const assignTitle = data?.title || title;
+      const assignId = data?.id;
+      const eventType = isUpdate ? "ASSIGNMENT_UPDATED" : "ASSIGNMENT_ASSIGNED";
+      const deadlineStr = new Date(payload.deadline).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+
+      if (isCommon) {
+        dispatchLMSEvent({
+          isCommon: true,
+          eventType,
+          name: assignTitle,
+          title: isUpdate ? `Assignment Updated – ${assignTitle}` : `New Assignment Assigned – ${assignTitle}`,
+          dueDate: deadlineStr,
+          totalMarks: payload.max_marks,
+          resourceType: "assignment",
+          resourceId: assignId,
+          targetUrl: `/student/assignments`,
+          assignedBy: "SensiLearn Academic Faculty",
+          changeSummary: isUpdate ? "Assignment deliverables or instructions updated" : undefined,
+        }).catch((e) => console.warn("Assignment broadcast notification error:", e));
+      } else if (assignedBatches.length > 0) {
+        for (const bName of assignedBatches) {
+          dispatchLMSEvent({
+            batchName: bName,
+            eventType,
+            name: assignTitle,
+            title: isUpdate ? `Assignment Updated – ${assignTitle}` : `New Assignment Assigned – ${assignTitle}`,
+            dueDate: deadlineStr,
+            totalMarks: payload.max_marks,
+            resourceType: "assignment",
+            resourceId: assignId,
+            targetUrl: `/student/assignments`,
+            assignedBy: "SensiLearn Academic Faculty",
+            changeSummary: isUpdate ? "Assignment deliverables or instructions updated" : undefined,
+          }).catch((e) => console.warn("Assignment batch notification error:", e));
+        }
+      }
+    } catch (notifErr) {
+      console.warn("Notice: Assignment notification trigger warning:", notifErr);
+    }
 
     return NextResponse.json({ success: true, assignment: data });
   } catch (error) {

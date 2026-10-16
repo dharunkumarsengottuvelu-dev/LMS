@@ -125,6 +125,103 @@ const JAVA_COMPLETIONS: CompletionEntry[] = [
   { label: "InputStreamReader", kind: "class", detail: "java.io.InputStreamReader" },
   { label: "PrintWriter", kind: "class", detail: "java.io.PrintWriter" },
 
+  // Standard Methods & Members (Invoked directly or after dot)
+  { label: "nextInt", kind: "method", detail: "int sc.nextInt()", insertText: "nextInt()", isSnippet: false },
+  { label: "nextLine", kind: "method", detail: "String sc.nextLine()", insertText: "nextLine()", isSnippet: false },
+  { label: "next", kind: "method", detail: "String sc.next()", insertText: "next()", isSnippet: false },
+  { label: "nextDouble", kind: "method", detail: "double sc.nextDouble()", insertText: "nextDouble()", isSnippet: false },
+  { label: "nextLong", kind: "method", detail: "long sc.nextLong()", insertText: "nextLong()", isSnippet: false },
+  { label: "nextFloat", kind: "method", detail: "float sc.nextFloat()", insertText: "nextFloat()", isSnippet: false },
+  { label: "nextBoolean", kind: "method", detail: "boolean sc.nextBoolean()", insertText: "nextBoolean()", isSnippet: false },
+  { label: "hasNext", kind: "method", detail: "boolean sc.hasNext()", insertText: "hasNext()", isSnippet: false },
+  { label: "hasNextInt", kind: "method", detail: "boolean sc.hasNextInt()", insertText: "hasNextInt()", isSnippet: false },
+  { label: "hasNextLine", kind: "method", detail: "boolean sc.hasNextLine()", insertText: "hasNextLine()", isSnippet: false },
+
+  // System & PrintStream
+  { label: "out", kind: "variable", detail: "System.out (PrintStream)" },
+  { label: "in", kind: "variable", detail: "System.in (InputStream)" },
+  { label: "err", kind: "variable", detail: "System.err (PrintStream)" },
+  { label: "println", kind: "method", detail: "System.out.println(...)", insertText: "println(${1:value});", isSnippet: true },
+  { label: "print", kind: "method", detail: "System.out.print(...)", insertText: "print(${1:value});", isSnippet: true },
+  { label: "printf", kind: "method", detail: "System.out.printf(format, ...)", insertText: "printf(\"${1:%s}\\n\", ${2:var});", isSnippet: true },
+  { label: "currentTimeMillis", kind: "method", detail: "System.currentTimeMillis()" },
+  { label: "arraycopy", kind: "method", detail: "System.arraycopy(src, srcPos, dest, destPos, length)" },
+
+  // String Methods
+  { label: "length", kind: "method", detail: "int length()", insertText: "length()", isSnippet: false },
+  { label: "charAt", kind: "method", detail: "char charAt(int index)", insertText: "charAt(${1:index})", isSnippet: true },
+  { label: "substring", kind: "method", detail: "String substring(int beginIndex, int endIndex)", insertText: "substring(${1:start}, ${2:end})", isSnippet: true },
+  { label: "indexOf", kind: "method", detail: "int indexOf(String str)", insertText: "indexOf(${1:str})", isSnippet: true },
+  { label: "lastIndexOf", kind: "method", detail: "int lastIndexOf(String str)", insertText: "lastIndexOf(${1:str})", isSnippet: true },
+  { label: "contains", kind: "method", detail: "boolean contains(CharSequence s)", insertText: "contains(${1:s})", isSnippet: true },
+  { label: "equals", kind: "method", detail: "boolean equals(Object anObject)", insertText: "equals(${1:other})", isSnippet: true },
+  { label: "equalsIgnoreCase", kind: "method", detail: "boolean equalsIgnoreCase(String anotherString)", insertText: "equalsIgnoreCase(${1:other})", isSnippet: true },
+  { label: "toLowerCase", kind: "method", detail: "String toLowerCase()", insertText: "toLowerCase()", isSnippet: false },
+  { label: "toUpperCase", kind: "method", detail: "String toUpperCase()", insertText: "toUpperCase()", isSnippet: false },
+  { label: "trim", kind: "method", detail: "String trim()", insertText: "trim()", isSnippet: false },
+  { label: "strip", kind: "method", detail: "String strip()", insertText: "strip()", isSnippet: false },
+  { label: "replace", kind: "method", detail: "String replace(char oldChar, char newChar)", insertText: "replace(${1:oldVal}, ${2:newVal})", isSnippet: true },
+  { label: "replaceAll", kind: "method", detail: "String replaceAll(String regex, String replacement)", insertText: "replaceAll(\"${1:regex}\", \"${2:replacement}\")", isSnippet: true },
+  { label: "split", kind: "method", detail: "String[] split(String regex)", insertText: "split(\"${1:\\\\s+}\")", isSnippet: true },
+  { label: "toCharArray", kind: "method", detail: "char[] toCharArray()", insertText: "toCharArray()", isSnippet: false },
+  { label: "startsWith", kind: "method", detail: "boolean startsWith(String prefix)", insertText: "startsWith(${1:prefix})", isSnippet: true },
+  { label: "endsWith", kind: "method", detail: "boolean endsWith(String suffix)", insertText: "endsWith(${1:suffix})", isSnippet: true },
+  { label: "isEmpty", kind: "method", detail: "boolean isEmpty()", insertText: "isEmpty()", isSnippet: false },
+  { label: "isBlank", kind: "method", detail: "boolean isBlank()", insertText: "isBlank()", isSnippet: false },
+  { label: "valueOf", kind: "method", detail: "String.valueOf(data)", insertText: "valueOf(${1:data})", isSnippet: true },
+  { label: "compareTo", kind: "method", detail: "int compareTo(String anotherString)", insertText: "compareTo(${1:other})", isSnippet: true },
+
+  // Math Methods
+  { label: "max", kind: "method", detail: "Math.max(a, b)", insertText: "max(${1:a}, ${2:b})", isSnippet: true },
+  { label: "min", kind: "method", detail: "Math.min(a, b)", insertText: "min(${1:a}, ${2:b})", isSnippet: true },
+  { label: "abs", kind: "method", detail: "Math.abs(x)", insertText: "abs(${1:x})", isSnippet: true },
+  { label: "pow", kind: "method", detail: "Math.pow(a, b)", insertText: "pow(${1:base}, ${2:exp})", isSnippet: true },
+  { label: "sqrt", kind: "method", detail: "Math.sqrt(x)", insertText: "sqrt(${1:x})", isSnippet: true },
+  { label: "ceil", kind: "method", detail: "Math.ceil(x)", insertText: "ceil(${1:x})", isSnippet: true },
+  { label: "floor", kind: "method", detail: "Math.floor(x)", insertText: "floor(${1:x})", isSnippet: true },
+  { label: "round", kind: "method", detail: "Math.round(x)", insertText: "round(${1:x})", isSnippet: true },
+  { label: "random", kind: "method", detail: "Math.random()", insertText: "random()", isSnippet: false },
+
+  // Collections & List Methods
+  { label: "add", kind: "method", detail: "boolean add(E e)", insertText: "add(${1:item})", isSnippet: true },
+  { label: "get", kind: "method", detail: "E get(int index)", insertText: "get(${1:index})", isSnippet: true },
+  { label: "set", kind: "method", detail: "E set(int index, E element)", insertText: "set(${1:index}, ${2:element})", isSnippet: true },
+  { label: "remove", kind: "method", detail: "E remove(int index / Object o)", insertText: "remove(${1:index})", isSnippet: true },
+  { label: "size", kind: "method", detail: "int size()", insertText: "size()", isSnippet: false },
+  { label: "clear", kind: "method", detail: "void clear()", insertText: "clear()", isSnippet: false },
+  { label: "toArray", kind: "method", detail: "Object[] toArray()", insertText: "toArray()", isSnippet: false },
+  { label: "sort", kind: "method", detail: "Collections.sort(list) / Arrays.sort(arr)", insertText: "sort(${1:collection})", isSnippet: true },
+  { label: "reverse", kind: "method", detail: "Collections.reverse(list)", insertText: "reverse(${1:list})", isSnippet: true },
+  { label: "fill", kind: "method", detail: "Arrays.fill(arr, val)", insertText: "fill(${1:arr}, ${2:val})", isSnippet: true },
+  { label: "binarySearch", kind: "method", detail: "Arrays.binarySearch(arr, key)", insertText: "binarySearch(${1:arr}, ${2:key})", isSnippet: true },
+
+  // Map Methods
+  { label: "put", kind: "method", detail: "V put(K key, V value)", insertText: "put(${1:key}, ${2:value})", isSnippet: true },
+  { label: "containsKey", kind: "method", detail: "boolean containsKey(Object key)", insertText: "containsKey(${1:key})", isSnippet: true },
+  { label: "containsValue", kind: "method", detail: "boolean containsValue(Object value)", insertText: "containsValue(${1:value})", isSnippet: true },
+  { label: "getOrDefault", kind: "method", detail: "V getOrDefault(Object key, V defaultValue)", insertText: "getOrDefault(${1:key}, ${2:defaultValue})", isSnippet: true },
+  { label: "keySet", kind: "method", detail: "Set<K> keySet()", insertText: "keySet()", isSnippet: false },
+  { label: "values", kind: "method", detail: "Collection<V> values()", insertText: "values()", isSnippet: false },
+  { label: "entrySet", kind: "method", detail: "Set<Map.Entry<K,V>> entrySet()", insertText: "entrySet()", isSnippet: false },
+
+  // Stack & Queue
+  { label: "push", kind: "method", detail: "void push(item)", insertText: "push(${1:item})", isSnippet: true },
+  { label: "pop", kind: "method", detail: "item pop()", insertText: "pop()", isSnippet: false },
+  { label: "peek", kind: "method", detail: "item peek()", insertText: "peek()", isSnippet: false },
+  { label: "poll", kind: "method", detail: "item poll()", insertText: "poll()", isSnippet: false },
+  { label: "offer", kind: "method", detail: "boolean offer(item)", insertText: "offer(${1:item})", isSnippet: true },
+
+  // Wrappers & Parsing
+  { label: "parseInt", kind: "method", detail: "Integer.parseInt(String s)", insertText: "parseInt(${1:s})", isSnippet: true },
+  { label: "parseDouble", kind: "method", detail: "Double.parseDouble(String s)", insertText: "parseDouble(${1:s})", isSnippet: true },
+  { label: "parseLong", kind: "method", detail: "Long.parseLong(String s)", insertText: "parseLong(${1:s})", isSnippet: true },
+  { label: "MAX_VALUE", kind: "variable", detail: "Integer/Long.MAX_VALUE" },
+  { label: "MIN_VALUE", kind: "variable", detail: "Integer/Long.MIN_VALUE" },
+
+  // StringBuilder
+  { label: "append", kind: "method", detail: "StringBuilder append(...)", insertText: "append(${1:str})", isSnippet: true },
+  { label: "toString", kind: "method", detail: "String toString()", insertText: "toString()", isSnippet: false },
+
   // Snippets
   { label: "psvm", kind: "snippet", detail: "main method", insertText: "public static void main(String[] args) {\n\t$0\n}", isSnippet: true },
   { label: "sout", kind: "snippet", detail: "System.out.println", insertText: "System.out.println($1);", isSnippet: true },
@@ -132,6 +229,7 @@ const JAVA_COMPLETIONS: CompletionEntry[] = [
   { label: "scanner", kind: "snippet", detail: "Scanner sc = new Scanner(System.in);", insertText: "Scanner ${1:sc} = new Scanner(System.in);", isSnippet: true },
   { label: "fori", kind: "snippet", detail: "indexed for loop", insertText: "for (int ${1:i} = 0; ${1:i} < ${2:n}; ${1:i}++) {\n\t$0\n}", isSnippet: true },
   { label: "fore", kind: "snippet", detail: "for-each loop", insertText: "for (${1:Type} ${2:item} : ${3:collection}) {\n\t$0\n}", isSnippet: true },
+  { label: "fastio", kind: "snippet", detail: "Fast I/O BufferedReader", insertText: "BufferedReader br = new BufferedReader(new InputStreamReader(System.in));\nStringTokenizer st = new StringTokenizer(br.readLine());\n$0", isSnippet: true },
 ];
 
 const CPP_COMPLETIONS: CompletionEntry[] = [
@@ -955,6 +1053,23 @@ import { registerLMSThemes, registerEnhancedTokenizers } from "./syntax-theme";
 
 let registered = false;
 
+export function getDefaultTabSizeForLanguage(lang: string | undefined): number {
+  if (!lang) return 4;
+  const normalized = lang.toLowerCase().trim();
+  if (
+    normalized === "javascript" ||
+    normalized === "typescript" ||
+    normalized === "html" ||
+    normalized === "css" ||
+    normalized === "react" ||
+    normalized === "nodejs" ||
+    normalized === "json"
+  ) {
+    return 2;
+  }
+  return 4; // Java, Python, C, C++, C#, Go, Rust, Kotlin, etc. default to 4 spaces standard
+}
+
 export function registerMonacoCompletions(monaco: MonacoInstance) {
   if (!monaco) return;
 
@@ -971,6 +1086,8 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
         return monaco.languages.CompletionItemKind.Keyword;
       case "class":
         return monaco.languages.CompletionItemKind.Class;
+      case "method":
+        return monaco.languages.CompletionItemKind.Method;
       case "function":
         return monaco.languages.CompletionItemKind.Function;
       case "snippet":
@@ -990,8 +1107,9 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
 
   Object.entries(LANGUAGE_MAP).forEach(([langId, entries]) => {
     try {
-      // 1. Register Code Auto-Completions
+      // 1. Register Code Auto-Completions with trigger characters
       monaco.languages.registerCompletionItemProvider(langId, {
+        triggerCharacters: [".", ":", ">", "<", "$", "@", "(", '"', "'", "/"],
         provideCompletionItems: (model, position) => {
           const word = model.getWordUntilPosition(position);
           const range: Monaco.IRange = {
@@ -1001,18 +1119,38 @@ export function registerMonacoCompletions(monaco: MonacoInstance) {
             endColumn: word.endColumn,
           };
 
-          const suggestions: Monaco.languages.CompletionItem[] = entries.map((entry) => ({
-            label: entry.label,
-            kind: mapKind(entry.kind),
-            detail: entry.detail || entry.kind || "keyword",
-            documentation: entry.documentation || (entry.detail ? `${entry.label} (${entry.detail})` : entry.label),
-            insertText: entry.insertText || entry.label,
-            insertTextRules: entry.isSnippet
-              ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
-              : undefined,
-            range,
-            sortText: entry.kind === "snippet" ? "20" : entry.kind === "keyword" ? "10" : "15",
-          }));
+          const lineContent = model.getLineContent(position.lineNumber);
+          const textBeforeCursor = lineContent.substring(0, position.column - 1).trimEnd();
+          const isAfterDot = textBeforeCursor.endsWith(".");
+
+          const suggestions: Monaco.languages.CompletionItem[] = entries.map((entry) => {
+            let sortPrefix = "50";
+            if (isAfterDot) {
+              if (entry.kind === "method" || entry.kind === "function") sortPrefix = "01";
+              else if (entry.kind === "variable") sortPrefix = "05";
+              else if (entry.kind === "class") sortPrefix = "15";
+              else sortPrefix = "90";
+            } else {
+              if (entry.kind === "snippet") sortPrefix = "10";
+              else if (entry.kind === "keyword") sortPrefix = "20";
+              else if (entry.kind === "class") sortPrefix = "30";
+              else if (entry.kind === "method" || entry.kind === "function") sortPrefix = "40";
+            }
+
+            return {
+              label: entry.label,
+              kind: mapKind(entry.kind),
+              detail: entry.detail || entry.kind || "keyword",
+              documentation: entry.documentation || (entry.detail ? `${entry.label} (${entry.detail})` : entry.label),
+              insertText: entry.insertText || entry.label,
+              insertTextRules: entry.isSnippet
+                ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+                : undefined,
+              range,
+              sortText: `${sortPrefix}_${entry.label}`,
+              filterText: entry.label,
+            };
+          });
 
           return { suggestions };
         },

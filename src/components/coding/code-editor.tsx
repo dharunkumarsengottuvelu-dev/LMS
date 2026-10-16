@@ -219,8 +219,8 @@ export function CodeEditor({
     minimap: { enabled: showMinimap, scale: 1, renderCharacters: false },
     scrollBeyondLastLine: false,
     lineNumbers: "on" as const,
-    lineNumbersMinChars: 3,
-    lineDecorationsWidth: 8,
+    lineNumbersMinChars: 4,
+    lineDecorationsWidth: 18,
     glyphMargin: false,
     folding: true,
     foldingHighlight: true,
@@ -1110,25 +1110,29 @@ export function CodeEditor({
             <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Ready</span>
             {selectedCharsCount > 0 && <span className="text-slate-400 font-sans ml-1 text-[10px]">({selectedCharsCount} selected)</span>}
           </div>
-          <div className="flex items-center gap-3 sm:gap-4 text-slate-600">
-            <span title="Cursor Position" className="hover:text-slate-900 transition-colors cursor-default">
+          <div className="flex items-center gap-2 sm:gap-2.5 text-slate-600">
+            <span title="Cursor Position" className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5">
               Ln {cursorPos.line}, Col {cursorPos.col}
             </span>
+            <span className="text-slate-300 select-none">|</span>
             <button
               type="button"
               onClick={toggleTabSize}
               title="Click to toggle tab indentation (2 / 4 spaces)"
-              className="hover:text-slate-900 px-1 py-0.5 rounded transition-all cursor-pointer font-medium"
+              className="hover:text-slate-900 hover:bg-slate-200/60 px-1.5 py-0.5 rounded transition-all cursor-pointer font-medium"
             >
               Spaces: {tabSize}
             </button>
-            <span title="File Encoding: UTF-8" className="hover:text-slate-900 transition-colors cursor-default">
+            <span className="text-slate-300 select-none">|</span>
+            <span title="File Encoding: UTF-8" className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5">
               UTF-8
             </span>
-            <span title="End of Line Sequence: LF" className="hover:text-slate-900 transition-colors cursor-default">
+            <span className="text-slate-300 select-none">|</span>
+            <span title="End of Line Sequence: LF" className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5">
               LF
             </span>
-            <span title="Active Language" className="hover:text-slate-900 transition-colors cursor-default flex items-center gap-1 font-semibold text-slate-700">
+            <span className="text-slate-300 select-none">|</span>
+            <span title="Active Language" className="hover:text-slate-900 transition-colors cursor-default flex items-center gap-1 font-semibold text-slate-700 px-1 py-0.5">
               <span className="text-slate-400 font-bold">&#123;&#125;</span>
               <span>{getCleanLanguageName(dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language)}</span>
             </span>

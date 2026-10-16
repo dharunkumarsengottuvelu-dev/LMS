@@ -58,6 +58,14 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { BulkUploadCard, BulkUploadModal } from "@/components/admin/bulk-upload";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/ui/loading";
@@ -281,6 +289,15 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   // Bulk Selection States for Questions & Tests
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
+
+  // MNC-Level Delete Confirmation State (Icon-Free Dialog)
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    title: string;
+    description: string;
+    confirmText?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+  const [isDeletingConfirm, setIsDeletingConfirm] = useState(false);
 
   const toggleSelectQuestion = (qId: string) => {
     setSelectedQuestionIds((prev) =>
@@ -838,60 +855,69 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
   const handleBulkDeleteQuestions = (questionIds: string[]) => {
     if (!selectedTest || questionIds.length === 0) return;
     const count = questionIds.length;
-    if (!confirm(`Are you sure you want to delete ${count} selected question(s)?`)) return;
+    setDeleteConfirmation({
+      title: `Delete ${count} Question${count === 1 ? "" : "s"}`,
+      description: `Are you sure you want to delete ${count} selected question(s) from "${selectedTest.title}"? Maximum marks will be recalculated automatically.`,
+      confirmText: `Delete ${count} Question${count === 1 ? "" : "s"}`,
+      onConfirm: async () => {
+        const idsSet = new Set(questionIds);
+        const remainingQuestions = (selectedTest.questions || []).filter((q) => !idsSet.has(q.id));
+        const newMaxMarks = remainingQuestions.reduce((acc, q) => acc + (q.marks || 0), 0);
+        const updatedTest = {
+          ...selectedTest,
+          totalQuestions: remainingQuestions.length,
+          maxMarks: newMaxMarks,
+          questions: remainingQuestions,
+        };
 
-    const idsSet = new Set(questionIds);
-    const remainingQuestions = (selectedTest.questions || []).filter((q) => !idsSet.has(q.id));
-    const newMaxMarks = remainingQuestions.reduce((acc, q) => acc + (q.marks || 0), 0);
-    const updatedTest = {
-      ...selectedTest,
-      totalQuestions: remainingQuestions.length,
-      maxMarks: newMaxMarks,
-      questions: remainingQuestions,
-    };
+        fetch("/api/admin/tests", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ test: updatedTest }),
+        }).catch((err) => console.error("Failed to bulk delete questions", err));
 
-    fetch("/api/admin/tests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ test: updatedTest }),
-    }).catch((err) => console.error("Failed to bulk delete questions", err));
-
-    setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
-    setSelectedTest(updatedTest);
-    setSelectedQuestionIds((prev) => prev.filter((id) => !idsSet.has(id)));
-    toast({
-      title: "Questions Deleted",
-      description: `${count} question(s) removed from test pool.`,
-      variant: "destructive",
+        setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
+        setSelectedTest(updatedTest);
+        setSelectedQuestionIds((prev) => prev.filter((id) => !idsSet.has(id)));
+        toast({
+          title: "Questions Deleted",
+          description: `${count} question(s) removed from test pool.`,
+          variant: "destructive",
+        });
+      },
     });
   };
 
   const handleDeleteSection = (sectionName: string) => {
     if (!selectedTest) return;
-    if (typeof window !== "undefined" && !window.confirm(`Are you sure you want to delete section "${sectionName}" and all its questions?`)) {
-      return;
-    }
-    const targetNorm = sectionName.trim().toLowerCase();
-    const remainingSections = (selectedTest.sections || []).filter((s) => s.trim().toLowerCase() !== targetNorm);
-    const remainingQuestions = (selectedTest.questions || []).filter((q) => (q.section || "").trim().toLowerCase() !== targetNorm);
-    const finalSections = remainingSections;
-    const updatedTest = {
-      ...selectedTest,
-      sections: finalSections,
-      totalQuestions: remainingQuestions.length,
-      maxMarks: remainingQuestions.reduce((acc, q) => acc + (q.marks || 0), 0),
-      questions: remainingQuestions,
-    };
+    setDeleteConfirmation({
+      title: `Delete Section "${sectionName}"`,
+      description: `Are you sure you want to delete section "${sectionName}" and all its questions? Test total marks will be recalculated.`,
+      confirmText: "Delete Section",
+      onConfirm: async () => {
+        const targetNorm = sectionName.trim().toLowerCase();
+        const remainingSections = (selectedTest.sections || []).filter((s) => s.trim().toLowerCase() !== targetNorm);
+        const remainingQuestions = (selectedTest.questions || []).filter((q) => (q.section || "").trim().toLowerCase() !== targetNorm);
+        const finalSections = remainingSections;
+        const updatedTest = {
+          ...selectedTest,
+          sections: finalSections,
+          totalQuestions: remainingQuestions.length,
+          maxMarks: remainingQuestions.reduce((acc, q) => acc + (q.marks || 0), 0),
+          questions: remainingQuestions,
+        };
 
-    fetch("/api/admin/tests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ test: updatedTest }),
-    }).catch((err) => console.error("Failed to delete section", err));
+        fetch("/api/admin/tests", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ test: updatedTest }),
+        }).catch((err) => console.error("Failed to delete section", err));
 
-    setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
-    setSelectedTest(updatedTest);
-    toast({ title: "Section Removed", description: `Section "${sectionName}" and its questions were removed.`, variant: "destructive" });
+        setTests((prev) => prev.map((t) => (t.id === selectedTest.id ? updatedTest : t)));
+        setSelectedTest(updatedTest);
+        toast({ title: "Section Deleted", description: `Section "${sectionName}" removed.`, variant: "destructive" });
+      },
+    });
   };
 
   const handleCreateNewSection = async () => {
@@ -1126,41 +1152,53 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
     });
   };
 
-  const handleDeleteTest = async (id: string, title: string) => {
-    setTests((prev) => prev.filter((t) => t.id !== id));
-    setSelectedTestIds((prev) => prev.filter((tId) => tId !== id));
-    try {
-      await fetch(`/api/admin/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    } catch (err) {
-      console.error("Failed to delete test", err);
-    }
-    toast({
-      title: "Exam Cancelled",
-      description: `${title} removed from schedule.`,
-      variant: "destructive",
+  const handleDeleteTest = (id: string, title: string) => {
+    setDeleteConfirmation({
+      title: "Delete Assessment",
+      description: `Are you sure you want to delete assessment "${title}"? This will cancel the exam and remove it from student schedules.`,
+      confirmText: "Delete Assessment",
+      onConfirm: async () => {
+        setTests((prev) => prev.filter((t) => t.id !== id));
+        setSelectedTestIds((prev) => prev.filter((tId) => tId !== id));
+        try {
+          await fetch(`/api/admin/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+        } catch (err) {
+          console.error("Failed to delete test", err);
+        }
+        toast({
+          title: "Exam Cancelled",
+          description: `${title} removed from schedule.`,
+          variant: "destructive",
+        });
+      },
     });
   };
 
-  const handleBulkDeleteTests = async (testIds: string[]) => {
+  const handleBulkDeleteTests = (testIds: string[]) => {
     if (testIds.length === 0) return;
     const count = testIds.length;
-    if (!confirm(`Are you sure you want to delete ${count} selected assessment(s)? This action cannot be undone.`)) return;
-
-    setTests((prev) => prev.filter((t) => !testIds.includes(t.id)));
-    setSelectedTestIds([]);
-    try {
-      await Promise.all(
-        testIds.map((id) =>
-          fetch(`/api/admin/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" })
-        )
-      );
-    } catch (err) {
-      console.error("Failed to bulk delete tests", err);
-    }
-    toast({
-      title: "Assessments Deleted",
-      description: `${count} assessment(s) removed from schedule.`,
-      variant: "destructive",
+    setDeleteConfirmation({
+      title: `Delete ${count} Assessment${count === 1 ? "" : "s"}`,
+      description: `Are you sure you want to permanently delete ${count} selected assessment(s)? This action cannot be undone.`,
+      confirmText: `Delete ${count} Assessment${count === 1 ? "" : "s"}`,
+      onConfirm: async () => {
+        setTests((prev) => prev.filter((t) => !testIds.includes(t.id)));
+        setSelectedTestIds([]);
+        try {
+          await Promise.all(
+            testIds.map((id) =>
+              fetch(`/api/admin/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" })
+            )
+          );
+        } catch (err) {
+          console.error("Failed to bulk delete tests", err);
+        }
+        toast({
+          title: "Assessments Deleted",
+          description: `${count} assessment(s) removed from schedule.`,
+          variant: "destructive",
+        });
+      },
     });
   };
 
@@ -3197,9 +3235,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                     size="sm"
                     variant="destructive"
                     onClick={() => handleBulkDeleteQuestions(selectedQuestionIds)}
-                    className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+                    className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-2xs cursor-pointer"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
                     <span>Delete Selected ({selectedQuestionIds.length})</span>
                   </Button>
                 </div>
@@ -3277,11 +3314,10 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                           <Button
                             size="sm"
                             variant="destructive"
-                            className="h-8 px-2.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 cursor-pointer shadow-2xs animate-in fade-in duration-200"
+                            className="h-8 px-2.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg cursor-pointer shadow-2xs animate-in fade-in duration-200"
                             onClick={() => handleBulkDeleteQuestions(sectionSelectedIds)}
                             title={`Delete ${sectionSelectedIds.length} selected questions in this section`}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
                             <span>Delete ({sectionSelectedIds.length})</span>
                           </Button>
                         )}
@@ -4276,9 +4312,8 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
               size="sm"
               variant="destructive"
               onClick={() => handleBulkDeleteTests(selectedTestIds)}
-              className="h-8 px-3.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+              className="h-8 px-3.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-2xs cursor-pointer"
             >
-              <Trash2 className="h-3.5 w-3.5" />
               <span>Delete Selected ({selectedTestIds.length})</span>
             </Button>
           </div>
@@ -4439,6 +4474,60 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       {renderAddSectionModal()}
       {renderEditSectionModal()}
 
+      {/* MNC-Level Enterprise Delete Confirmation Dialog (Pure Text, No Icons) */}
+      <Dialog
+        open={!!deleteConfirmation}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingConfirm) setDeleteConfirmation(null);
+        }}
+      >
+        <DialogContent className="max-w-md bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-zinc-800 p-6 rounded-2xl shadow-xl">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-wider bg-red-50 dark:bg-red-950/50 px-2 py-0.5 rounded border border-red-200 dark:border-red-900/50">
+                Critical Action
+              </span>
+            </div>
+            <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">
+              {deleteConfirmation?.title}
+            </DialogTitle>
+            <DialogDescription className="text-xs leading-relaxed text-slate-500 dark:text-zinc-400">
+              {deleteConfirmation?.description}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-5 flex items-center justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isDeletingConfirm}
+              onClick={() => setDeleteConfirmation(null)}
+              className="h-8.5 px-4 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={isDeletingConfirm}
+              onClick={async () => {
+                if (!deleteConfirmation) return;
+                setIsDeletingConfirm(true);
+                try {
+                  await deleteConfirmation.onConfirm();
+                } finally {
+                  setIsDeletingConfirm(false);
+                  setDeleteConfirmation(null);
+                }
+              }}
+              className="h-8.5 px-4 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-xs transition-all"
+            >
+              {isDeletingConfirm ? "Deleting..." : deleteConfirmation?.confirmText || "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

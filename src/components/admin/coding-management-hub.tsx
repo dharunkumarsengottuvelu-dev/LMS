@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Loading } from "@/components/ui/loading";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layouts/page-header";
-import { Search, Plus, UploadCloud, Trash2 } from "lucide-react";
+import { Search, Plus, UploadCloud } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -311,9 +311,8 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
               size="sm"
               variant="destructive"
               onClick={() => setShowBulkDeleteConfirm(true)}
-              className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+              className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-2xs cursor-pointer"
             >
-              <Trash2 className="h-3.5 w-3.5" />
               <span>Delete Selected ({selectedProblemIds.length})</span>
             </Button>
           </div>

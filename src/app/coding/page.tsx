@@ -50,28 +50,30 @@ export default function CodingDashboardPage() {
         setProblems(problemList);
       }
 
+      // 1. Immediately sync with local cached submissions and drafts
+      const cachedSubs = SubmissionService.getStudentSubmissions();
+      if (cachedSubs && cachedSubs.length > 0) {
+        CodingProgressService.syncWithSubmissions(cachedSubs, problemList);
+      }
+      setSubmissions(cachedSubs || []);
+      setInProgressItems(CodingProgressService.getInProgressProblems(problemList));
+      setSolvedItems(CodingProgressService.getSolvedProblems(problemList));
+
+      // 2. Fetch authoritative database state
       try {
-        const [leads, asgs, posts, subs] = await Promise.all([
+        const [leads, subs] = await Promise.all([
           CodingLeaderboardService.fetchLeaderboard(),
-          CodingAssignmentsService.fetchAssignments(),
-          CodingDiscussService.fetchPosts(),
           SubmissionService.fetchStudentSubmissions(),
         ]);
         setLeaderboard(leads);
-        setAssignments(asgs);
-        setDiscussPosts(posts);
-        setSubmissions(subs);
-
-        // Sync authoritative database submissions with CodingProgressService
-        CodingProgressService.syncWithSubmissions(subs, problemList);
-        setInProgressItems(CodingProgressService.getInProgressProblems(problemList));
-        setSolvedItems(CodingProgressService.getSolvedProblems(problemList));
+        if (subs && subs.length > 0) {
+          setSubmissions(subs);
+          CodingProgressService.syncWithSubmissions(subs, problemList);
+          setInProgressItems(CodingProgressService.getInProgressProblems(problemList));
+          setSolvedItems(CodingProgressService.getSolvedProblems(problemList));
+        }
       } catch (e) {
         console.error("Error refreshing coding data:", e);
-        const cachedSubs = SubmissionService.getStudentSubmissions();
-        CodingProgressService.syncWithSubmissions(cachedSubs, problemList);
-        setInProgressItems(CodingProgressService.getInProgressProblems(problemList));
-        setSolvedItems(CodingProgressService.getSolvedProblems(problemList));
       }
     };
 
@@ -82,7 +84,7 @@ export default function CodingDashboardPage() {
 
   const stats = useMemo(() => {
     return CodingProgressService.getProgressStats(problems);
-  }, [problems]);
+  }, [problems, solvedItems, inProgressItems, submissions]);
 
   const filteredProblems = useMemo(() => {
     return problems.filter((p) => {
@@ -148,8 +150,8 @@ export default function CodingDashboardPage() {
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
               <span className="text-slate-500 font-medium">Solved</span>
               <span className="font-bold text-slate-900">
-                {stats.solvedCount}
-                <span className="text-slate-400 font-normal">/{stats.totalProblems}</span>
+                {solvedItems.length}
+                <span className="text-slate-400 font-normal">/{problems.length || stats.totalProblems}</span>
               </span>
               <span className="text-[11px] text-slate-400 font-medium pl-1.5 border-l border-slate-200 flex items-center gap-1.5">
                 <span className="text-emerald-700 font-semibold">{stats.easySolved}E</span>
@@ -189,12 +191,6 @@ export default function CodingDashboardPage() {
               Problems
             </TabsTrigger>
             <TabsTrigger
-              value="assignments"
-              className="data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none px-3.5 py-1.5 text-xs font-medium rounded-md text-slate-600 transition-colors"
-            >
-              Assignments ({assignments.length})
-            </TabsTrigger>
-            <TabsTrigger
               value="in-progress"
               className="data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none px-3.5 py-1.5 text-xs font-medium rounded-md text-slate-600 transition-colors"
             >
@@ -204,7 +200,7 @@ export default function CodingDashboardPage() {
               value="solved"
               className="data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none px-3.5 py-1.5 text-xs font-medium rounded-md text-slate-600 transition-colors"
             >
-              Solved ({stats.solvedCount})
+              Solved ({solvedItems.length})
             </TabsTrigger>
             <TabsTrigger
               value="submissions"
@@ -217,12 +213,6 @@ export default function CodingDashboardPage() {
               className="data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none px-3.5 py-1.5 text-xs font-medium rounded-md text-slate-600 transition-colors"
             >
               Leaderboard
-            </TabsTrigger>
-            <TabsTrigger
-              value="discuss"
-              className="data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none px-3.5 py-1.5 text-xs font-medium rounded-md text-slate-600 transition-colors"
-            >
-              Discuss
             </TabsTrigger>
           </TabsList>
         </div>
@@ -365,61 +355,6 @@ export default function CodingDashboardPage() {
           </div>
         </TabsContent>
 
-        {/* 2. MY ASSIGNMENTS TAB */}
-        <TabsContent value="assignments" className="space-y-4 m-0">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
-            <div className="mb-4">
-              <h2 className="text-base font-bold text-slate-900">Curated Class Assignments</h2>
-              <p className="text-xs text-slate-500">
-                Problems assigned by your trainer. Submissions count directly toward cohort gradebook.
-              </p>
-            </div>
-
-            {assignments.length === 0 ? (
-              <div className="py-14 text-center text-slate-500 text-xs">
-                <p className="font-bold text-slate-700 text-sm">No Active Assignments</p>
-                <p className="mt-1 text-slate-400">
-                  No coding problem sets have been assigned to your batch yet.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {assignments.map((assign) => (
-                  <div
-                    key={assign.id}
-                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/40 hover:bg-white transition-all flex flex-col md:flex-row md:items-center justify-between gap-3"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                          {assign.assignedCohort}
-                        </span>
-                        <span className="text-xs text-slate-500">
-                          Due: {new Date(assign.dueDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <h3 className="font-semibold text-slate-900 text-xs sm:text-sm">{assign.title}</h3>
-                      <p className="text-xs text-slate-600">{assign.description}</p>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                        <span>Assigned by: {assign.trainerName}</span>
-                        <span>•</span>
-                        <span>Max Score: {assign.maxScore} pts</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Link href={`/coding/problems/${assign.problemIds[0] || "1"}`}>
-                        <Button className="bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg text-xs h-8 px-4">
-                          Start Assignment
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </TabsContent>
 
         {/* 3. IN PROGRESS TAB */}
         <TabsContent value="in-progress" className="space-y-4 m-0">
@@ -665,76 +600,7 @@ export default function CodingDashboardPage() {
           </div>
         </TabsContent>
 
-        {/* 7. DISCUSS TAB */}
-        <TabsContent value="discuss" className="space-y-4 m-0">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5">
-            <div className="mb-4">
-              <h2 className="text-base font-bold text-slate-900">Community Discussions</h2>
-              <p className="text-xs text-slate-500">
-                Discuss algorithm optimizations, interview patterns, and common debugging tips.
-              </p>
-            </div>
 
-            {discussPosts.length === 0 ? (
-              <div className="py-14 text-center text-slate-500 text-xs">
-                <p className="font-bold text-slate-700 text-sm">No Community Discussions Yet</p>
-                <p className="mt-1 text-slate-400">
-                  All static mock discussions have been removed. Discussions started by students or instructors will appear here.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {discussPosts.map((post) => (
-                  <div
-                    key={post.id}
-                    className="p-4 rounded-xl border border-slate-200 bg-white"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-800 text-xs">{post.author.name}</span>
-                        {post.author.badge && (
-                          <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-medium">
-                            {post.author.badge}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[11px] text-slate-400">
-                        {new Date(post.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    <h3 className="font-semibold text-slate-900 text-sm mb-1.5">{post.title}</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line mb-3">
-                      {post.content}
-                    </p>
-
-                    <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        {(post.tags || []).map((t: string) => (
-                          <span key={t} className="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-[10px] font-medium">
-                            #{t}
-                          </span>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center gap-3 text-xs">
-                        <button
-                          onClick={() => handleUpvote(post.id)}
-                          className="text-slate-600 hover:text-slate-900 font-medium"
-                        >
-                          Upvote ({post.upvotes})
-                        </button>
-                        <span className="text-slate-400">
-                          {post.commentsCount} replies
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </TabsContent>
       </Tabs>
     </div>
   );

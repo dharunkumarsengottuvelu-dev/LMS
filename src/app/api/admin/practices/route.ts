@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
-import { dispatchBatchNotification } from "@/lib/notifications/dispatcher";
+import { dispatchBatchNotification, dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 import { randomUUID } from "crypto";
 import {
   validateModuleMarks,
@@ -1507,29 +1507,36 @@ export async function POST(request: NextRequest) {
       const trackId = tracksToSave[0]?.id || "practice";
       const isCommon = tracksToSave[0]?.isCommon ?? true;
       const assignedBatches = tracksToSave[0]?.assignedBatches || [];
+      const isUpdate = tracksToSave[0]?.status === "published" || Boolean(tracksToSave[0]?.id);
+      const eventType = isUpdate ? "PRACTICE_UPDATED" : "PRACTICE_PUBLISHED";
+      const practiceDirectUrl = trackId && trackId !== "practice" ? `/student/practices/${trackId}` : `/student/practices`;
 
       if (isCommon) {
-        dispatchBatchNotification({
+        dispatchLMSEvent({
           isCommon: true,
-          eventType: "practice_assigned",
-          title: `New Practice Assigned: ${trackTitle}`,
-          message: `A new hands-on technical practice track "${trackTitle}" has been added to your workspace.`,
+          eventType,
+          name: trackTitle,
+          title: isUpdate ? `Practice Module Updated – ${trackTitle}` : `New Practice Module Available – ${trackTitle}`,
+          category: "Technical Problem Solving",
           resourceType: "practice",
           resourceId: trackId,
-          targetUrl: `/student/practices`,
-          assignedBy: "SensiLearn Trainer",
-        }).catch((e) => console.warn("Practice batch notification error:", e));
+          targetUrl: practiceDirectUrl,
+          assignedBy: "SensiLearn Academic Faculty",
+          changeSummary: isUpdate ? "Practice problem sets and test cases revised" : undefined,
+        }).catch((e) => console.warn("Practice broadcast notification error:", e));
       } else if (assignedBatches.length > 0) {
         for (const bName of assignedBatches) {
-          dispatchBatchNotification({
+          dispatchLMSEvent({
             batchName: bName,
-            eventType: "practice_assigned",
-            title: `New Practice Assigned: ${trackTitle}`,
-            message: `A new practice track "${trackTitle}" has been assigned to cohort ${bName}.`,
+            eventType,
+            name: trackTitle,
+            title: isUpdate ? `Practice Module Updated – ${trackTitle}` : `New Practice Module Available – ${trackTitle}`,
+            category: "Technical Problem Solving",
             resourceType: "practice",
             resourceId: trackId,
-            targetUrl: `/student/practices`,
-            assignedBy: "SensiLearn Trainer",
+            targetUrl: practiceDirectUrl,
+            assignedBy: "SensiLearn Academic Faculty",
+            changeSummary: isUpdate ? "Practice problem sets and test cases revised" : undefined,
           }).catch((e) => console.warn("Practice batch notification error:", e));
         }
       }

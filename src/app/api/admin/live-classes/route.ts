@@ -402,6 +402,8 @@ export async function POST(request: NextRequest) {
       const scheduleStr = `${effectiveDate} ${effectiveStartTime}`;
       const durationStr = `${payload.duration_minutes} Mins`;
 
+      const classDirectUrl = classId ? `/student/live-classes/${classId}` : `/student/live-classes`;
+
       if (effectiveIsCommon) {
         dispatchBatchNotification({
           isCommon: true,
@@ -410,7 +412,7 @@ export async function POST(request: NextRequest) {
           message: `A live WebRTC classroom session "${classTitle}" has been scheduled for your cohort on ${scheduleStr}.`,
           resourceType: "live_class",
           resourceId: classId,
-          targetUrl: `/student/live-classes`,
+          targetUrl: classDirectUrl,
           assignedBy: effectiveTrainerName || "SensiLearn Trainer",
           dueDate: scheduleStr,
           duration: durationStr,
@@ -425,7 +427,7 @@ export async function POST(request: NextRequest) {
             message: `A live WebRTC classroom session "${classTitle}" has been scheduled for cohort ${bName} on ${scheduleStr}.`,
             resourceType: "live_class",
             resourceId: classId,
-            targetUrl: `/student/live-classes`,
+            targetUrl: classDirectUrl,
             assignedBy: effectiveTrainerName || "SensiLearn Trainer",
             dueDate: scheduleStr,
             duration: durationStr,

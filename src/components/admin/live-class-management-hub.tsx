@@ -128,6 +128,15 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
   const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
 
+  // MNC-Level Confirmation State (Icon-Free Dialog)
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    title: string;
+    description: string;
+    confirmText?: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
+  const [isDeletingConfirm, setIsDeletingConfirm] = useState(false);
+
   const fetchClasses = async (isManualRefresh = false) => {
     try {
       if (isManualRefresh) setIsRefreshing(true);
@@ -382,44 +391,54 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
   };
 
   // Cancel Class Action
-  const handleCancelClass = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to cancel "${title}"?`)) return;
+  const handleCancelClass = (id: string, title: string) => {
+    setDeleteConfirmation({
+      title: "Cancel Live Session",
+      description: `Are you sure you want to cancel the scheduled session "${title}"? Enrolled students will be notified.`,
+      confirmText: "Cancel Session",
+      onConfirm: async () => {
+        try {
+          const apiEndpoint = role === "trainer" ? "/api/trainer/live-classes" : "/api/admin/live-classes";
+          const res = await fetch(apiEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "cancel_class", liveClassId: id }),
+          });
 
-    try {
-      const apiEndpoint = role === "trainer" ? "/api/trainer/live-classes" : "/api/admin/live-classes";
-      const res = await fetch(apiEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel_class", liveClassId: id }),
-      });
-
-      if (res.ok) {
-        setClasses((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, status: "cancelled" } : c))
-        );
-        toast({ title: "Class Cancelled", description: `"${title}" has been cancelled.` });
-        fetchClasses();
-      }
-    } catch (err) {
-      toast({ title: "Cancel Error", description: "Failed to cancel class.", variant: "destructive" });
-    }
+          if (res.ok) {
+            setClasses((prev) =>
+              prev.map((c) => (c.id === id ? { ...c, status: "cancelled" } : c))
+            );
+            toast({ title: "Class Cancelled", description: `"${title}" has been cancelled.` });
+            fetchClasses();
+          }
+        } catch (err) {
+          toast({ title: "Cancel Error", description: "Failed to cancel class.", variant: "destructive" });
+        }
+      },
+    });
   };
 
-  const handleDeleteClass = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
-
-    try {
-      const apiEndpoint = role === "trainer" ? `/api/trainer/live-classes?id=${id}` : `/api/admin/live-classes?id=${id}`;
-      const res = await fetch(apiEndpoint, { method: "DELETE" });
-      if (res.ok) {
-        toast({ title: "Class Deleted", description: `"${title}" has been deleted.` });
-        setClasses((prev) => prev.filter((c) => c.id !== id));
-      } else {
-        throw new Error("Failed to delete");
-      }
-    } catch (err) {
-      toast({ title: "Delete Error", description: "Failed to delete class.", variant: "destructive" });
-    }
+  const handleDeleteClass = (id: string, title: string) => {
+    setDeleteConfirmation({
+      title: "Delete Live Session",
+      description: `Are you sure you want to permanently delete "${title}"? This record and all attendee logs will be removed.`,
+      confirmText: "Delete Session",
+      onConfirm: async () => {
+        try {
+          const apiEndpoint = role === "trainer" ? `/api/trainer/live-classes?id=${id}` : `/api/admin/live-classes?id=${id}`;
+          const res = await fetch(apiEndpoint, { method: "DELETE" });
+          if (res.ok) {
+            toast({ title: "Class Deleted", description: `"${title}" has been deleted.` });
+            setClasses((prev) => prev.filter((c) => c.id !== id));
+          } else {
+            throw new Error("Failed to delete");
+          }
+        } catch (err) {
+          toast({ title: "Delete Error", description: "Failed to delete class.", variant: "destructive" });
+        }
+      },
+    });
   };
 
   const handleEnterClassroom = (id: string) => {
@@ -1132,6 +1151,61 @@ export function LiveClassManagementHub({ role = "admin" }: { role?: "admin" | "t
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MNC-Level Enterprise Confirmation Dialog (Pure Text, No Icons) */}
+      <Dialog
+        open={!!deleteConfirmation}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingConfirm) setDeleteConfirmation(null);
+        }}
+      >
+        <DialogContent className="max-w-md bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-zinc-800 p-6 rounded-2xl shadow-xl">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-wider bg-red-50 dark:bg-red-950/50 px-2 py-0.5 rounded border border-red-200 dark:border-red-900/50">
+                Critical Action
+              </span>
+            </div>
+            <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">
+              {deleteConfirmation?.title}
+            </DialogTitle>
+            <DialogDescription className="text-xs leading-relaxed text-slate-500 dark:text-zinc-400">
+              {deleteConfirmation?.description}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-5 flex items-center justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isDeletingConfirm}
+              onClick={() => setDeleteConfirmation(null)}
+              className="h-8.5 px-4 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={isDeletingConfirm}
+              onClick={async () => {
+                if (!deleteConfirmation) return;
+                setIsDeletingConfirm(true);
+                try {
+                  await deleteConfirmation.onConfirm();
+                } finally {
+                  setIsDeletingConfirm(false);
+                  setDeleteConfirmation(null);
+                }
+              }}
+              className="h-8.5 px-4 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-xs transition-all"
+            >
+              {isDeletingConfirm ? "Processing..." : deleteConfirmation?.confirmText || "Confirm"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

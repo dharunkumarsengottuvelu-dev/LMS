@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 import { authenticateAdminSession } from "@/app/api/admin/_auth";
+import { dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 
 export async function POST(request: NextRequest) {
   try {
@@ -360,6 +361,25 @@ export async function POST(request: NextRequest) {
 
     if (profileError) {
       throw profileError;
+    }
+
+    // Asynchronously dispatch student added to batch notification
+    try {
+      const studentFullName = `${studentProfile.first_name || ""} ${studentProfile.last_name || ""}`.trim() || studentName || "Student";
+      dispatchLMSEvent({
+        eventType: "STUDENT_ADDED_TO_BATCH",
+        recipientUserIds: [studentProfile.id],
+        recipientEmails: studentProfile.email ? [studentProfile.email] : undefined,
+        studentName: studentFullName,
+        name: effectiveBatchName,
+        batchName: effectiveBatchName,
+        resourceType: "batch",
+        resourceId: resolvedBatch.id,
+        targetUrl: `/student/dashboard`,
+        assignedBy: "SensiLearn Administration",
+      }).catch((e) => console.warn("Notice: Student added to batch notification error:", e));
+    } catch (notifErr) {
+      console.warn("Notice: Student added to batch notification trigger warning:", notifErr);
     }
 
     return NextResponse.json({

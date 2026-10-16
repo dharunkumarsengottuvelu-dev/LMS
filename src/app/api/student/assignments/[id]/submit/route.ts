@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
+import { dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 
 export async function POST(
   request: NextRequest,
@@ -92,6 +93,32 @@ export async function POST(
       .single();
 
     if (subError) throw subError;
+
+    // Asynchronously dispatch submission alert to trainers
+    try {
+      const { data: studentProf } = await adminClient
+        .from("profiles")
+        .select("first_name, last_name, email")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const studentFullName = `${studentProf?.first_name || ""} ${studentProf?.last_name || ""}`.trim() || user.email?.split("@")[0] || "Student";
+      const assignTitle = assignment?.title || "Course Assignment";
+
+      dispatchLMSEvent({
+        eventType: "ASSIGNMENT_SUBMITTED",
+        targetRole: "trainer",
+        studentName: studentFullName,
+        name: assignTitle,
+        title: `New Assignment Submission – ${assignTitle}`,
+        batchName: batchContext.batchNames?.[0] || "Assigned Cohort",
+        resourceType: "assignment",
+        resourceId: id,
+        targetUrl: `/admin/submissions`,
+      }).catch((e) => console.warn("Notice: Trainer assignment submission notification error:", e));
+    } catch (notifErr) {
+      console.warn("Notice: Assignment submission notification warning:", notifErr);
+    }
 
     return NextResponse.json({ success: true, submission }, { status: 200 });
   } catch (error) {

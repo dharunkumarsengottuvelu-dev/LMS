@@ -54,7 +54,7 @@ import { CodingDiscussService, type CodingDiscussPost } from "@/services/coding-
 import { SubmissionService } from "@/services/submission.service";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import type { CodingLanguage, CodingSubmission, TestCaseResult } from "@/types/coding";
-import { registerMonacoCompletions } from "@/lib/monaco-completions";
+import { registerMonacoCompletions, getDefaultTabSizeForLanguage } from "@/lib/monaco-completions";
 import { cn } from "@/lib/utils";
 import { normalizeTestInput, normalizeExpectedOutput, extractSampleTestCases } from "@/lib/compiler/comparator";
 import { EditorialViewer } from "@/components/coding/editorial-viewer";
@@ -347,10 +347,10 @@ export default function ProblemSolvingWorkspace() {
   // Monaco Editor Ref, Cursor Position & Tab Size
   const editorRef = useRef<any>(null);
   const [cursorPos, setCursorPos] = useState({ line: 1, column: 1 });
-  const [tabSize, setTabSize] = useState<number>(2);
+  const [tabSize, setTabSize] = useState<number>(() => getDefaultTabSizeForLanguage(selectedLanguage || "python"));
 
   useEffect(() => {
-    const size = selectedLanguage === "python" ? 4 : 2;
+    const size = getDefaultTabSizeForLanguage(selectedLanguage);
     setTabSize(size);
     editorRef.current?.getModel()?.updateOptions({ tabSize: size, indentSize: size });
   }, [selectedLanguage]);
@@ -1681,77 +1681,93 @@ export default function ProblemSolvingWorkspace() {
                         }
                       });
                     }}
-                    options={{
-                      fontSize: 13,
-                      lineHeight: 22,
-                      fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace',
-                      minimap: { enabled: false },
-                      scrollBeyondLastLine: false,
-                      smoothScrolling: true,
-                      cursorBlinking: "smooth",
-                      automaticLayout: true,
-                      tabSize: selectedLanguage === "python" ? 4 : 2,
-                      lineNumbers: "on",
-                      lineNumbersMinChars: 3,
-                      lineDecorationsWidth: 6,
-                      glyphMargin: false,
-                      folding: false,
-                      padding: { top: 14, bottom: 14 },
-                      renderLineHighlight: "all",
-                    }}
-                  />
-                </div>
+                  options={{
+                    readOnly: false,
+                    fontSize: 13.5,
+                    lineHeight: 23,
+                    fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace',
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    smoothScrolling: true,
+                    cursorBlinking: "smooth",
+                    automaticLayout: true,
+                    tabSize: tabSize,
+                    insertSpaces: true,
+                    lineNumbers: "on",
+                    lineNumbersMinChars: 4,
+                    lineDecorationsWidth: 18,
+                    glyphMargin: false,
+                    folding: true,
+                    showFoldingControls: "mouseover",
+                    padding: { top: 16, bottom: 16 },
+                    renderLineHighlight: "none",
+                    fixedOverflowWidgets: true,
+                    quickSuggestions: { other: true, comments: true, strings: true },
+                    quickSuggestionsDelay: 40,
+                    suggestOnTriggerCharacters: true,
+                    acceptSuggestionOnEnter: "smart",
+                    tabCompletion: "on",
+                    wordBasedSuggestions: "allDocuments",
+                    suggestFontSize: 13,
+                    suggestLineHeight: 22,
+                  }}
+                />
+              </div>
 
-                {/* VS Code IDE Status Bar (Light Theme) */}
-                <div className="h-6 bg-slate-50 border-t border-slate-200/90 text-slate-600 px-3 flex items-center justify-between text-[11px] font-mono select-none shrink-0">
-                  <div className="flex items-center gap-2">
-                    {isRunning || isSubmitting || isRunningCustomInput ? (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
-                        <span className="text-[10px] text-blue-600 uppercase tracking-wider font-bold">
-                          {isSubmitting ? "Evaluating..." : "Running..."}
-                        </span>
-                      </>
-                    ) : executionError ? (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                        <span className="text-[10px] text-rose-600 uppercase tracking-wider font-bold">Error</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Ready</span>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 sm:gap-4 text-slate-600">
-                    <span className="hover:text-slate-900 transition-colors cursor-default" title="Cursor Position">
-                      Ln {cursorPos.line}, Col {cursorPos.column}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextSize = tabSize === 2 ? 4 : 2;
-                        setTabSize(nextSize);
-                        editorRef.current?.getModel()?.updateOptions({ tabSize: nextSize, indentSize: nextSize });
-                      }}
-                      className="hover:text-blue-600 px-1 py-0.5 rounded transition-all cursor-pointer font-medium"
-                      title="Click to toggle indentation (2 / 4 spaces)"
-                    >
-                      Spaces: {tabSize}
-                    </button>
-                    <span className="hover:text-slate-900 transition-colors cursor-default" title="Encoding">
-                      UTF-8
-                    </span>
-                    <span className="hover:text-slate-900 transition-colors cursor-default" title="Line Endings">
-                      LF
-                    </span>
-                    <span className="hover:text-slate-900 transition-colors cursor-default flex items-center gap-1 font-semibold text-slate-700" title="Selected Language">
-                      <span className="text-slate-400 font-bold">&#123;&#125;</span>
-                      <span>{SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage)?.name || "Plain Text"}</span>
-                    </span>
-                  </div>
+              {/* VS Code IDE Status Bar (Light Theme) */}
+              <div className="h-6 bg-slate-50 border-t border-slate-200/90 text-slate-600 px-3 flex items-center justify-between text-[11px] font-mono select-none shrink-0">
+                <div className="flex items-center gap-2">
+                  {isRunning || isSubmitting || isRunningCustomInput ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+                      <span className="text-[10px] text-blue-600 uppercase tracking-wider font-bold">
+                        {isSubmitting ? "Evaluating..." : "Running..."}
+                      </span>
+                    </>
+                  ) : executionError ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                      <span className="text-[10px] text-rose-600 uppercase tracking-wider font-bold">Error</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Ready</span>
+                    </>
+                  )}
                 </div>
+                <div className="flex items-center gap-2 sm:gap-2.5 text-slate-600">
+                  <span className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5" title="Cursor Position">
+                    Ln {cursorPos.line}, Col {cursorPos.column}
+                  </span>
+                  <span className="text-slate-300 select-none">|</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextSize = tabSize === 4 ? 2 : 4;
+                      setTabSize(nextSize);
+                      editorRef.current?.getModel()?.updateOptions({ tabSize: nextSize, indentSize: nextSize });
+                    }}
+                    className="hover:text-blue-600 hover:bg-slate-200/60 px-1.5 py-0.5 rounded transition-all cursor-pointer font-medium"
+                    title="Click to toggle indentation (2 / 4 spaces)"
+                  >
+                    Spaces: {tabSize}
+                  </button>
+                  <span className="text-slate-300 select-none">|</span>
+                  <span className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5" title="Encoding">
+                    UTF-8
+                  </span>
+                  <span className="text-slate-300 select-none">|</span>
+                  <span className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5" title="Line Endings">
+                    LF
+                  </span>
+                  <span className="text-slate-300 select-none">|</span>
+                  <span className="hover:text-slate-900 transition-colors cursor-default flex items-center gap-1 font-semibold text-slate-700 px-1 py-0.5" title="Selected Language">
+                    <span className="text-slate-400 font-bold">&#123;&#125;</span>
+                    <span>{SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage)?.name || "Plain Text"}</span>
+                  </span>
+                </div>
+              </div>
               </div>
             </div>
 

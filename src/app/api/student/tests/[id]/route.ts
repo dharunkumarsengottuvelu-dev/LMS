@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
+import { dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 
 export async function GET(
   request: NextRequest,
@@ -358,6 +359,44 @@ export async function POST(
 
     if (attemptError) {
       console.warn("Notice: assessment_attempts insert error:", attemptError.message);
+    }
+
+    // Asynchronously dispatch result notification to student and completion alert to trainers
+    try {
+      const studentFullName = `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() || user.email?.split("@")[0] || "Student";
+      const testTitle = assessment?.title || "Proctored Assessment";
+
+      // 1. Notify student with result and direct link to scorecard
+      dispatchLMSEvent({
+        eventType: "RESULT_PUBLISHED",
+        recipientUserIds: [studentId],
+        recipientEmails: profile?.email ? [profile.email] : (user.email ? [user.email] : undefined),
+        studentName: studentFullName,
+        name: testTitle,
+        title: `Your Assessment Result – ${testTitle}`,
+        score: calculatedScore,
+        totalMarks: totalMarks,
+        percentage: percentage,
+        resourceType: "result",
+        resourceId: id,
+        targetUrl: `/student/reports`,
+      }).catch((e) => console.warn("Notice: Student result notification error:", e));
+
+      // 2. Notify trainer/examination board of candidate submission
+      dispatchLMSEvent({
+        eventType: "ASSESSMENT_SUBMITTED",
+        targetRole: "trainer",
+        studentName: studentFullName,
+        name: testTitle,
+        title: `Assessment Completed – ${testTitle}`,
+        score: `${calculatedScore}/${totalMarks} (${percentage}%)`,
+        batchName: profile?.department || "Active Batch",
+        resourceType: "assessment",
+        resourceId: id,
+        targetUrl: `/admin/tests/inspect/${id}`,
+      }).catch((e) => console.warn("Notice: Trainer test completion notification error:", e));
+    } catch (notifErr) {
+      console.warn("Notice: Post-test notification error:", notifErr);
     }
 
     return NextResponse.json({

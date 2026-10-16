@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAdminSession } from "@/app/api/admin/_auth";
 import { getErrorMessage } from "@/lib/utils";
-import { dispatchBatchNotification } from "@/lib/notifications/dispatcher";
+import { dispatchBatchNotification, dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 
 export async function GET() {
   try {
@@ -367,46 +367,60 @@ export async function POST(request: NextRequest) {
       const courseSlug = savedCourse?.slug || slug;
       const courseTitle = savedCourse?.title || course.title;
       const courseId = savedCourse?.id || targetCourseId;
+      const isDraft = (payload.status || course.status || "").toLowerCase() === "draft";
+      const isUpdate = Boolean(targetCourseId);
+      const eventType = isUpdate ? "COURSE_UPDATED" : "COURSE_PUBLISHED";
 
-      if (isCommon) {
-        dispatchBatchNotification({
-          isCommon: true,
-          eventType: "course_assigned",
-          title: `New Course Assigned: ${courseTitle}`,
-          message: `You have been enrolled in "${courseTitle}". Start your learning journey on SensiLearn LMS today!`,
-          resourceType: "course",
-          resourceId: courseId,
-          targetUrl: `/student/course/${courseSlug}`,
-          assignedBy: meta.instructor || "SensiLearn Learning Team",
-          category: meta.category,
-        }).catch((e) => console.warn("Course batch notification dispatch error:", e));
-      } else if (assignedBatches.length > 0) {
-        for (const bName of assignedBatches) {
-          dispatchBatchNotification({
-            batchName: bName,
-            eventType: "course_assigned",
-            title: `New Course Assigned: ${courseTitle}`,
-            message: `A new course "${courseTitle}" has been assigned to your cohort (${bName}).`,
+      if (!isDraft) {
+        if (isCommon) {
+          dispatchLMSEvent({
+            isCommon: true,
+            isDraft,
+            eventType,
+            name: courseTitle,
+            title: isUpdate ? `Course Updated – ${courseTitle}` : `New Course Available – ${courseTitle}`,
+            courseName: courseTitle,
             resourceType: "course",
             resourceId: courseId,
             targetUrl: `/student/course/${courseSlug}`,
-            assignedBy: meta.instructor || "SensiLearn Learning Team",
+            assignedBy: meta.instructor || "SensiLearn Academic Faculty",
             category: meta.category,
-          }).catch((e) => console.warn("Course batch notification dispatch error:", e));
+            changeSummary: isUpdate ? "Curriculum lessons & modules updated" : undefined,
+          }).catch((e) => console.warn("Course broadcast notification dispatch error:", e));
+        } else if (assignedBatches.length > 0) {
+          for (const bName of assignedBatches) {
+            dispatchLMSEvent({
+              batchName: bName,
+              isDraft,
+              eventType,
+              name: courseTitle,
+              title: isUpdate ? `Course Updated – ${courseTitle}` : `New Course Available – ${courseTitle}`,
+              courseName: courseTitle,
+              resourceType: "course",
+              resourceId: courseId,
+              targetUrl: `/student/course/${courseSlug}`,
+              assignedBy: meta.instructor || "SensiLearn Academic Faculty",
+              category: meta.category,
+              changeSummary: isUpdate ? "Curriculum lessons & modules updated" : undefined,
+            }).catch((e) => console.warn("Course batch notification dispatch error:", e));
+          }
         }
-      }
-      if (assignedStudents && assignedStudents.length > 0) {
-        dispatchBatchNotification({
-          studentIds: assignedStudents,
-          eventType: "course_assigned",
-          title: `New Course Assigned: ${courseTitle}`,
-          message: `You have been assigned to "${courseTitle}". Start your lessons on SensiLearn LMS.`,
-          resourceType: "course",
-          resourceId: courseId,
-          targetUrl: `/student/course/${courseSlug}`,
-          assignedBy: meta.instructor || "SensiLearn Learning Team",
-          category: meta.category,
-        }).catch((e) => console.warn("Course student notification dispatch error:", e));
+        if (assignedStudents && assignedStudents.length > 0) {
+          dispatchLMSEvent({
+            recipientUserIds: assignedStudents,
+            isDraft,
+            eventType,
+            name: courseTitle,
+            title: isUpdate ? `Course Updated – ${courseTitle}` : `New Course Available – ${courseTitle}`,
+            courseName: courseTitle,
+            resourceType: "course",
+            resourceId: courseId,
+            targetUrl: `/student/course/${courseSlug}`,
+            assignedBy: meta.instructor || "SensiLearn Academic Faculty",
+            category: meta.category,
+            changeSummary: isUpdate ? "Curriculum lessons & modules updated" : undefined,
+          }).catch((e) => console.warn("Course student notification dispatch error:", e));
+        }
       }
     } catch (notifErr) {
       console.warn("Course notification trigger warning:", notifErr);

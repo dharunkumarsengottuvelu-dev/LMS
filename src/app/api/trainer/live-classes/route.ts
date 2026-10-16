@@ -334,6 +334,8 @@ export async function POST(request: NextRequest) {
       const scheduleStr = `${scheduledDate} ${startTime}`;
       const durationStr = `${payload.duration_minutes} Mins`;
 
+      const classDirectUrl = classId ? `/student/live-classes/${classId}` : `/student/live-classes`;
+
       if (isCommon) {
         dispatchBatchNotification({
           isCommon: true,
@@ -342,7 +344,7 @@ export async function POST(request: NextRequest) {
           message: `Trainer ${trainerFullName} has scheduled a SensiLearn live classroom session "${title}" for ${scheduleStr}.`,
           resourceType: "live_class",
           resourceId: classId,
-          targetUrl: `/student/live-classes`,
+          targetUrl: classDirectUrl,
           assignedBy: trainerFullName,
           dueDate: scheduleStr,
           duration: durationStr,
@@ -357,7 +359,7 @@ export async function POST(request: NextRequest) {
             message: `A SensiLearn live classroom session "${title}" has been scheduled for cohort ${bName} on ${scheduleStr}.`,
             resourceType: "live_class",
             resourceId: classId,
-            targetUrl: `/student/live-classes`,
+            targetUrl: classDirectUrl,
             assignedBy: trainerFullName,
             dueDate: scheduleStr,
             duration: durationStr,

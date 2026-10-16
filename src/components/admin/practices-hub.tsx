@@ -432,6 +432,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     | { type: "submodule"; item: PracticeSubmodule; title: string; modCount: number }
     | { type: "module"; item: PracticeModule; title: string; questionCount: number }
     | { type: "question"; questionType: "coding" | "mcq"; index: number; title: string; targetModule?: PracticeModule }
+    | { type: "bulk_main_modules"; count: number; ids: string[] }
+    | { type: "bulk_submodules"; count: number; ids: string[]; parentMainId: string }
+    | { type: "bulk_modules"; count: number; ids: string[]; parentMainId: string; parentSubId: string }
+    | { type: "bulk_questions"; count: number; keys: string[] }
     | null
   >(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -1487,15 +1491,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
 
   const handleCloseBulkModal = () => {
     if (isBulkSubmitting) return;
-    const hasUnsavedManual = bulkManualRows.some((r) => r.name.trim() !== "" || r.description.trim() !== "");
-    const hasUnsavedCsv = bulkCsvRows.length > 0;
-    if (hasUnsavedManual || hasUnsavedCsv) {
-      if (window.confirm("Discard unsaved modules? Any changes will be lost.")) {
-        setShowBulkModuleModal(false);
-      }
-    } else {
-      setShowBulkModuleModal(false);
-    }
+    setShowBulkModuleModal(false);
   };
 
   // 3.8. OPEN QUESTION BULK UPLOAD MODAL (OPTIONS: MIXED | CODE ONLY | MCQ ONLY)
@@ -1943,6 +1939,122 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         toast({ title: "Deleted", description: `"${title}" has been deleted successfully.` });
         setDeleteTarget(null);
         await fetchData();
+      } else if (deleteTarget.type === "bulk_main_modules") {
+        const { ids } = deleteTarget;
+        await Promise.all(
+          ids.map((id) =>
+            fetch(`/api/admin/practices?id=${encodeURIComponent(id)}&type=main_module`, { method: "DELETE" }).catch(() => null)
+          )
+        );
+        setSelectedMainModuleIds([]);
+        toast({ title: "Main Modules Deleted", description: `Successfully deleted ${ids.length} Main Module(s).` });
+        setDeleteTarget(null);
+        await fetchData();
+      } else if (deleteTarget.type === "bulk_submodules") {
+        const { ids, parentMainId } = deleteTarget;
+        await Promise.all(
+          ids.map((id) =>
+            fetch(
+              `/api/admin/practices?id=${encodeURIComponent(id)}&type=submodule&main_module_id=${encodeURIComponent(parentMainId)}`,
+              { method: "DELETE" }
+            ).catch(() => null)
+          )
+        );
+        setSelectedSubmoduleIds([]);
+        toast({ title: "Submodules Deleted", description: `Successfully deleted ${ids.length} Submodule(s).` });
+        setDeleteTarget(null);
+        await fetchData();
+      } else if (deleteTarget.type === "bulk_modules") {
+        const { ids, parentMainId, parentSubId } = deleteTarget;
+        await Promise.all(
+          ids.map((id) =>
+            fetch(
+              `/api/admin/practices?id=${encodeURIComponent(id)}&type=module&main_module_id=${encodeURIComponent(parentMainId)}&submodule_id=${encodeURIComponent(parentSubId)}`,
+              { method: "DELETE" }
+            ).catch(() => null)
+          )
+        );
+        setSelectedModuleIds([]);
+        toast({ title: "Modules Deleted", description: `Successfully deleted ${ids.length} Module(s).` });
+        setDeleteTarget(null);
+        await fetchData();
+      } else if (deleteTarget.type === "bulk_questions") {
+        const { keys } = deleteTarget;
+        if (viewingQuestionsModule) {
+          const mcqIndicesToDelete = keys
+            .filter((k) => k.startsWith("mcq_"))
+            .map((k) => Number(k.replace("mcq_", "")))
+            .sort((a, b) => b - a);
+
+          const codingIndicesToDelete = keys
+            .filter((k) => k.startsWith("coding_"))
+            .map((k) => Number(k.replace("coding_", "")))
+            .sort((a, b) => b - a);
+
+          let updatedMcqs = [...(viewingQuestionsModule.mcqQuestions || [])];
+          mcqIndicesToDelete.forEach((idx) => {
+            updatedMcqs.splice(idx, 1);
+          });
+
+          let updatedCodings = [...(viewingQuestionsModule.codingQuestions || [])];
+          codingIndicesToDelete.forEach((idx) => {
+            updatedCodings.splice(idx, 1);
+          });
+
+          const remainingTotalCount = updatedMcqs.length + updatedCodings.length;
+          const totalMarks = viewingQuestionsModule.totalMarks || 100;
+          if (remainingTotalCount > 0) {
+            const weights = calculateEqualWeights(totalMarks, remainingTotalCount);
+            let wIdx = 0;
+            updatedMcqs.forEach((q: any) => {
+              q.marks = weights[wIdx++];
+            });
+            updatedCodings.forEach((cq: any) => {
+              const w = weights[wIdx++];
+              cq.points = w;
+              cq.marks = w;
+              cq.weight = w;
+            });
+          }
+
+          const updatedModule = {
+            ...viewingQuestionsModule,
+            mcqQuestions: updatedMcqs,
+            codingQuestions: updatedCodings,
+            questionCount: remainingTotalCount,
+          };
+
+          const res = await fetch("/api/admin/practices", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "update_module",
+              id: viewingQuestionsModule.id,
+              main_module_id: viewingQuestionsModule.main_module_id,
+              submodule_id: viewingQuestionsModule.submodule_id,
+              name: viewingQuestionsModule.name || viewingQuestionsModule.title,
+              title: viewingQuestionsModule.name || viewingQuestionsModule.title,
+              description: viewingQuestionsModule.description,
+              type: viewingQuestionsModule.type,
+              status: viewingQuestionsModule.status,
+              display_order: viewingQuestionsModule.display_order,
+              duration_minutes: viewingQuestionsModule.durationMinutes,
+              total_marks: viewingQuestionsModule.totalMarks,
+              question_count: remainingTotalCount,
+              mcq_questions: updatedMcqs,
+              coding_questions: updatedCodings,
+            }),
+          });
+
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error || "Failed to update module questions");
+
+          setViewingQuestionsModule(updatedModule);
+          setSelectedViewQuestionKeys([]);
+          toast({ title: "Questions Deleted", description: `Successfully deleted ${keys.length} question(s).` });
+          setDeleteTarget(null);
+          await fetchData();
+        }
       }
     } catch (err: any) {
       toast({ title: "Delete Error", description: err.message || "Failed to complete deletion", variant: "destructive" });
@@ -1983,152 +2095,43 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   };
 
   // ─── BULK DELETE HANDLERS ──────────────────────────────────────────
-  const handleBulkDeleteMainModules = async (ids: string[]) => {
+  const handleBulkDeleteMainModules = (ids: string[]) => {
     if (!ids.length) return;
-    if (!confirm(`Are you sure you want to permanently delete ${ids.length} selected Main Module(s) and all their submodules?`)) return;
-    setIsDeleting(true);
-    try {
-      await Promise.all(
-        ids.map((id) =>
-          fetch(`/api/admin/practices?id=${encodeURIComponent(id)}&type=main_module`, { method: "DELETE" }).catch(() => null)
-        )
-      );
-      setSelectedMainModuleIds([]);
-      toast({ title: "Main Modules Deleted", description: `Successfully deleted ${ids.length} Main Module(s).` });
-      await fetchData();
-    } catch (err: any) {
-      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
-    } finally {
-      setIsDeleting(false);
-    }
+    setDeleteTarget({
+      type: "bulk_main_modules",
+      count: ids.length,
+      ids,
+    });
   };
 
-  const handleBulkDeleteSubmodules = async (ids: string[], parentMainId: string) => {
+  const handleBulkDeleteSubmodules = (ids: string[], parentMainId: string) => {
     if (!ids.length || !parentMainId) return;
-    if (!confirm(`Are you sure you want to permanently delete ${ids.length} selected Submodule(s) and their modules?`)) return;
-    setIsDeleting(true);
-    try {
-      await Promise.all(
-        ids.map((id) =>
-          fetch(
-            `/api/admin/practices?id=${encodeURIComponent(id)}&type=submodule&main_module_id=${encodeURIComponent(parentMainId)}`,
-            { method: "DELETE" }
-          ).catch(() => null)
-        )
-      );
-      setSelectedSubmoduleIds([]);
-      toast({ title: "Submodules Deleted", description: `Successfully deleted ${ids.length} Submodule(s).` });
-      await fetchData();
-    } catch (err: any) {
-      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
-    } finally {
-      setIsDeleting(false);
-    }
+    setDeleteTarget({
+      type: "bulk_submodules",
+      count: ids.length,
+      ids,
+      parentMainId,
+    });
   };
 
-  const handleBulkDeleteModules = async (ids: string[], parentMainId: string, parentSubId: string) => {
+  const handleBulkDeleteModules = (ids: string[], parentMainId: string, parentSubId: string) => {
     if (!ids.length || !parentMainId || !parentSubId) return;
-    if (!confirm(`Are you sure you want to permanently delete ${ids.length} selected Module(s)?`)) return;
-    setIsDeleting(true);
-    try {
-      await Promise.all(
-        ids.map((id) =>
-          fetch(
-            `/api/admin/practices?id=${encodeURIComponent(id)}&type=module&main_module_id=${encodeURIComponent(parentMainId)}&submodule_id=${encodeURIComponent(parentSubId)}`,
-            { method: "DELETE" }
-          ).catch(() => null)
-        )
-      );
-      setSelectedModuleIds([]);
-      toast({ title: "Modules Deleted", description: `Successfully deleted ${ids.length} Module(s).` });
-      await fetchData();
-    } catch (err: any) {
-      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
-    } finally {
-      setIsDeleting(false);
-    }
+    setDeleteTarget({
+      type: "bulk_modules",
+      count: ids.length,
+      ids,
+      parentMainId,
+      parentSubId,
+    });
   };
 
-  const handleBulkDeleteQuestionsFromView = async (keys: string[]) => {
+  const handleBulkDeleteQuestionsFromView = (keys: string[]) => {
     if (!viewingQuestionsModule || !keys.length) return;
-    if (!confirm(`Are you sure you want to delete ${keys.length} selected question(s)?`)) return;
-
-    const mcqIndicesToDelete = keys
-      .filter((k) => k.startsWith("mcq_"))
-      .map((k) => Number(k.replace("mcq_", "")))
-      .sort((a, b) => b - a);
-
-    const codingIndicesToDelete = keys
-      .filter((k) => k.startsWith("coding_"))
-      .map((k) => Number(k.replace("coding_", "")))
-      .sort((a, b) => b - a);
-
-    let updatedMcqs = [...(viewingQuestionsModule.mcqQuestions || [])];
-    mcqIndicesToDelete.forEach((idx) => {
-      updatedMcqs.splice(idx, 1);
+    setDeleteTarget({
+      type: "bulk_questions",
+      count: keys.length,
+      keys,
     });
-
-    let updatedCodings = [...(viewingQuestionsModule.codingQuestions || [])];
-    codingIndicesToDelete.forEach((idx) => {
-      updatedCodings.splice(idx, 1);
-    });
-
-    const remainingTotalCount = updatedMcqs.length + updatedCodings.length;
-    const totalMarks = viewingQuestionsModule.totalMarks || 100;
-    if (remainingTotalCount > 0) {
-      const weights = calculateEqualWeights(totalMarks, remainingTotalCount);
-      let wIdx = 0;
-      updatedMcqs.forEach((q: any) => {
-        q.marks = weights[wIdx++];
-      });
-      updatedCodings.forEach((cq: any) => {
-        const w = weights[wIdx++];
-        cq.points = w;
-        cq.marks = w;
-        cq.weight = w;
-      });
-    }
-
-    const updatedModule = {
-      ...viewingQuestionsModule,
-      mcqQuestions: updatedMcqs,
-      codingQuestions: updatedCodings,
-      questionCount: remainingTotalCount,
-    };
-
-    try {
-      const res = await fetch("/api/admin/practices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update_module",
-          id: viewingQuestionsModule.id,
-          main_module_id: viewingQuestionsModule.main_module_id,
-          submodule_id: viewingQuestionsModule.submodule_id,
-          name: viewingQuestionsModule.name || viewingQuestionsModule.title,
-          title: viewingQuestionsModule.name || viewingQuestionsModule.title,
-          description: viewingQuestionsModule.description,
-          type: viewingQuestionsModule.type,
-          status: viewingQuestionsModule.status,
-          display_order: viewingQuestionsModule.display_order,
-          duration_minutes: viewingQuestionsModule.durationMinutes,
-          total_marks: viewingQuestionsModule.totalMarks,
-          question_count: remainingTotalCount,
-          mcq_questions: updatedMcqs,
-          coding_questions: updatedCodings,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Failed to update module questions");
-
-      setViewingQuestionsModule(updatedModule);
-      setSelectedViewQuestionKeys([]);
-      toast({ title: "Questions Deleted", description: `Successfully deleted ${keys.length} question(s).` });
-      await fetchData();
-    } catch (err: any) {
-      toast({ title: "Delete Error", description: err.message, variant: "destructive" });
-    }
   };
 
   // Toggle Coding Problem Scope (Practice Only <-> Code Lab)
@@ -2570,9 +2573,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       size="sm"
                       variant="destructive"
                       onClick={() => handleBulkDeleteMainModules(selectedMainModuleIds)}
-                      className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+                      className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-2xs cursor-pointer"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
                       <span>Delete Selected ({selectedMainModuleIds.length})</span>
                     </Button>
                   </div>
@@ -2761,9 +2763,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       size="sm"
                       variant="destructive"
                       onClick={() => handleBulkDeleteSubmodules(selectedSubmoduleIds, currentMainModule.id)}
-                      className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+                      className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-2xs cursor-pointer"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
                       <span>Delete Selected ({selectedSubmoduleIds.length})</span>
                     </Button>
                   </div>
@@ -2973,9 +2974,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       size="sm"
                       variant="destructive"
                       onClick={() => handleBulkDeleteModules(selectedModuleIds, currentMainModule.id, currentSubmodule.id)}
-                      className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+                      className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-2xs cursor-pointer"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
                       <span>Delete Selected ({selectedModuleIds.length})</span>
                     </Button>
                   </div>
@@ -6012,9 +6012,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                     size="sm"
                     variant="destructive"
                     onClick={() => handleBulkDeleteQuestionsFromView(selectedViewQuestionKeys)}
-                    className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg gap-1.5 shadow-2xs cursor-pointer"
+                    className="h-8 px-3 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-2xs cursor-pointer"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
                     <span>Delete Selected ({selectedViewQuestionKeys.length})</span>
                   </Button>
                 </div>
@@ -6349,122 +6348,126 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         document.body
       )}
 
-      {/* ─── MNC-LEVEL ENTERPRISE DELETE CONFIRMATION MODAL ──────────────── */}
+      {/* ─── MNC-LEVEL ENTERPRISE DELETE CONFIRMATION MODAL (PURE TEXT & TYPOGRAPHY, NO ICONS) ─── */}
       {mounted && typeof document !== "undefined" && deleteTarget && createPortal(
         <div className="fixed inset-0 z-[10000] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
           <div 
             className="fixed inset-0 cursor-pointer" 
             onClick={() => { if (!isDeleting) setDeleteTarget(null); }} 
           />
-          <div className="relative w-full max-w-lg bg-white dark:bg-[#0F172A] border border-slate-200/90 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200 my-auto">
-            {/* Top Danger Gradient Accent Line */}
-            <div className="h-1.5 w-full bg-gradient-to-r from-red-500 via-rose-500 to-amber-500" />
+          <div className="relative w-full max-w-lg bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-10 animate-in zoom-in-95 duration-200 my-auto">
+            {/* Top Danger Line */}
+            <div className="h-1 w-full bg-red-600" />
 
             <div className="p-6 sm:p-7 space-y-5">
-              {/* Header with Danger Ring & Level Indicator */}
+              {/* Header with Badges & Title (No Icons) */}
               <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/50 border border-red-200/70 dark:border-red-900/40 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0 shadow-xs ring-4 ring-red-500/10">
-                    <AlertTriangle className="w-6 h-6 animate-pulse" />
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded border bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700">
+                      {deleteTarget.type === "main_module" && "Level 1 · Main Module"}
+                      {deleteTarget.type === "submodule" && "Level 2 · Submodule"}
+                      {deleteTarget.type === "module" && "Level 3 · Practice Module"}
+                      {deleteTarget.type === "question" && (deleteTarget.questionType === "coding" ? "Coding Problem" : "MCQ Question")}
+                      {deleteTarget.type === "bulk_main_modules" && "Bulk Action · Main Modules"}
+                      {deleteTarget.type === "bulk_submodules" && "Bulk Action · Submodules"}
+                      {deleteTarget.type === "bulk_modules" && "Bulk Action · Modules"}
+                      {deleteTarget.type === "bulk_questions" && "Bulk Action · Questions"}
+                    </span>
+                    <span className="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-wider bg-red-50 dark:bg-red-950/50 px-2 py-0.5 rounded border border-red-200 dark:border-red-900/50">
+                      Critical Action
+                    </span>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-md border ${
-                        deleteTarget.type === "main_module"
-                          ? "bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] dark:text-blue-300 border-blue-200/60 dark:border-blue-800/60"
-                          : deleteTarget.type === "submodule"
-                          ? "bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 border-purple-200/60 dark:border-purple-800/60"
-                          : deleteTarget.type === "module"
-                          ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/60"
-                          : "bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300 border-amber-200/60 dark:border-amber-800/60"
-                      }`}>
-                        {deleteTarget.type === "main_module" && "Level 1 · Main Module"}
-                        {deleteTarget.type === "submodule" && "Level 2 · Submodule"}
-                        {deleteTarget.type === "module" && "Level 3 · Practice Module"}
-                        {deleteTarget.type === "question" && (deleteTarget.questionType === "coding" ? "Coding Problem" : "MCQ Question")}
-                      </span>
-                      <span className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest bg-red-50 dark:bg-red-950/50 px-2 py-0.5 rounded-md border border-red-200/50 dark:border-red-900/40">
-                        Critical Action
-                      </span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1">
-                      {deleteTarget.type === "main_module" && "Delete Main Module"}
-                      {deleteTarget.type === "submodule" && "Delete Submodule"}
-                      {deleteTarget.type === "module" && "Delete Practice Module"}
-                      {deleteTarget.type === "question" && `Delete ${deleteTarget.questionType === "coding" ? "Coding Problem" : "MCQ Question"}`}
-                    </h3>
-                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    {deleteTarget.type === "main_module" && "Delete Main Module"}
+                    {deleteTarget.type === "submodule" && "Delete Submodule"}
+                    {deleteTarget.type === "module" && "Delete Practice Module"}
+                    {deleteTarget.type === "question" && `Delete ${deleteTarget.questionType === "coding" ? "Coding Problem" : "MCQ Question"}`}
+                    {deleteTarget.type === "bulk_main_modules" && `Delete ${deleteTarget.count} Main Modules`}
+                    {deleteTarget.type === "bulk_submodules" && `Delete ${deleteTarget.count} Submodules`}
+                    {deleteTarget.type === "bulk_modules" && `Delete ${deleteTarget.count} Modules`}
+                    {deleteTarget.type === "bulk_questions" && `Delete ${deleteTarget.count} Questions`}
+                  </h3>
                 </div>
 
                 <button
                   type="button"
                   disabled={isDeleting}
                   onClick={() => setDeleteTarget(null)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-40 cursor-pointer"
-                  title="Close"
+                  className="px-2.5 py-1 text-xs font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-40 cursor-pointer"
                 >
-                  <X className="w-5 h-5" />
+                  Close
                 </button>
               </div>
 
-              {/* Selected Target Summary Card */}
-              <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/60 p-4 space-y-2.5">
+              {/* Selected Target Summary Card (Clean Text, No Icons) */}
+              <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-900/60 p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
                     Target Resource
                   </span>
                   <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
                     {deleteTarget.type === "main_module" && `${deleteTarget.subCount} Submodule${deleteTarget.subCount === 1 ? "" : "s"}`}
                     {deleteTarget.type === "submodule" && `${deleteTarget.modCount} Module${deleteTarget.modCount === 1 ? "" : "s"}`}
                     {deleteTarget.type === "module" && `${deleteTarget.questionCount} Question${deleteTarget.questionCount === 1 ? "" : "s"}`}
+                    {deleteTarget.type === "question" && "Single Item"}
+                    {deleteTarget.type === "bulk_main_modules" && `${deleteTarget.count} Selected`}
+                    {deleteTarget.type === "bulk_submodules" && `${deleteTarget.count} Selected`}
+                    {deleteTarget.type === "bulk_modules" && `${deleteTarget.count} Selected`}
+                    {deleteTarget.type === "bulk_questions" && `${deleteTarget.count} Selected`}
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200/80 dark:border-zinc-700 shadow-2xs text-slate-700 dark:text-zinc-200 shrink-0">
-                    {deleteTarget.type === "main_module" && <FolderPlus className="w-5 h-5 text-[#2563EB]" />}
-                    {deleteTarget.type === "submodule" && <Layers className="w-5 h-5 text-purple-600" />}
-                    {deleteTarget.type === "module" && <BookOpen className="w-5 h-5 text-emerald-600" />}
-                    {deleteTarget.type === "question" && (deleteTarget.questionType === "coding" ? <Code2 className="w-5 h-5 text-indigo-600" /> : <HelpCircle className="w-5 h-5 text-amber-600" />)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-base font-bold text-slate-900 dark:text-white truncate">
-                      {deleteTarget.title}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400">
-                      {deleteTarget.type === "main_module" && "All child submodules, modules, and practice questions will be removed."}
-                      {deleteTarget.type === "submodule" && "All modules and questions grouped in this submodule will be removed."}
-                      {deleteTarget.type === "module" && "All MCQs and coding challenges in this module will be permanently removed."}
-                      {deleteTarget.type === "question" && "This question will be permanently removed from this practice module."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Enterprise Irreversible Warning Alert */}
-              <div className="rounded-2xl border border-red-200/70 dark:border-red-900/40 bg-red-50/60 dark:bg-red-950/30 p-3.5 flex items-start gap-3">
-                <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                <div className="space-y-0.5 text-xs text-red-900 dark:text-red-200">
-                  <p className="font-bold">Irreversible Action Warning</p>
-                  <p className="text-[11px] leading-relaxed text-red-800/80 dark:text-red-300/80">
-                    {deleteTarget.type === "main_module"
-                      ? `Deleting Main Module "${deleteTarget.title}" will permanently cascade and erase all nested submodules, modules, test cases, and student progress records. This action cannot be undone.`
-                      : deleteTarget.type === "submodule"
-                      ? `Deleting Submodule "${deleteTarget.title}" will permanently remove all child modules and associated questions. This action cannot be reversed.`
-                      : deleteTarget.type === "module"
-                      ? `Deleting Module "${deleteTarget.title}" will remove all practice questions. Once deleted, this data cannot be recovered.`
-                      : `Are you sure you want to delete "${deleteTarget.title}"? Once confirmed, this item cannot be recovered.`}
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                    {"title" in deleteTarget
+                      ? deleteTarget.title
+                      : `${deleteTarget.count} items selected for deletion`}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    {deleteTarget.type === "main_module" && "All child submodules, modules, and practice questions will be removed."}
+                    {deleteTarget.type === "submodule" && "All modules and questions grouped in this submodule will be removed."}
+                    {deleteTarget.type === "module" && "All MCQs and coding challenges in this module will be permanently removed."}
+                    {deleteTarget.type === "question" && "This question will be permanently removed from this practice module."}
+                    {deleteTarget.type === "bulk_main_modules" && "All selected tracks and their full nested hierarchies will be permanently removed."}
+                    {deleteTarget.type === "bulk_submodules" && "All selected submodules and their child modules will be permanently removed."}
+                    {deleteTarget.type === "bulk_modules" && "All selected practice modules and questions will be permanently removed."}
+                    {deleteTarget.type === "bulk_questions" && "The selected questions will be removed and module scores rebalanced."}
                   </p>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+              {/* Enterprise Irreversible Warning Alert (Clean Text Box, No Icons) */}
+              <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/70 dark:bg-red-950/30 p-4 space-y-1">
+                <p className="text-xs font-bold text-red-900 dark:text-red-200 uppercase tracking-wide">
+                  Irreversible Action Warning
+                </p>
+                <p className="text-xs leading-relaxed text-red-800 dark:text-red-300">
+                  {deleteTarget.type === "main_module"
+                    ? `Deleting Main Module "${deleteTarget.title}" will permanently cascade and erase all nested submodules, modules, test cases, and student progress records. This action cannot be undone.`
+                    : deleteTarget.type === "submodule"
+                    ? `Deleting Submodule "${deleteTarget.title}" will permanently remove all child modules and associated questions. This action cannot be reversed.`
+                    : deleteTarget.type === "module"
+                    ? `Deleting Module "${deleteTarget.title}" will remove all practice questions. Once deleted, this data cannot be recovered.`
+                    : deleteTarget.type === "question"
+                    ? `Are you sure you want to delete "${deleteTarget.title}"? Once confirmed, this item cannot be recovered.`
+                    : deleteTarget.type === "bulk_main_modules"
+                    ? `Are you sure you want to delete ${deleteTarget.count} selected Main Modules? All nested submodules and questions will be permanently erased.`
+                    : deleteTarget.type === "bulk_submodules"
+                    ? `Are you sure you want to delete ${deleteTarget.count} selected Submodules? All child modules and questions will be permanently erased.`
+                    : deleteTarget.type === "bulk_modules"
+                    ? `Are you sure you want to delete ${deleteTarget.count} selected Modules? All questions will be permanently erased.`
+                    : `Are you sure you want to delete ${deleteTarget.count} selected questions? Points will be automatically rebalanced.`}
+                </p>
+              </div>
+
+              {/* Action Buttons (Pure Text, No Icons) */}
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
                 <Button
                   type="button"
                   variant="outline"
                   disabled={isDeleting}
                   onClick={() => setDeleteTarget(null)}
-                  className="h-10 px-5 text-xs font-semibold rounded-xl border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  className="h-9 px-4 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </Button>
@@ -6472,16 +6475,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   type="button"
                   disabled={isDeleting}
                   onClick={handleExecuteDelete}
-                  className="h-10 px-6 text-xs font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                  className="h-9 px-5 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-xs transition-all"
                 >
-                  {isDeleting ? (
-                    <span>Deleting...</span>
-                  ) : (
-                    <>
-                      <Trash2 className="w-4 h-4" />
-                      <span>Delete Permanently</span>
-                    </>
-                  )}
+                  {isDeleting
+                    ? "Deleting..."
+                    : deleteTarget.type.startsWith("bulk_")
+                    ? `Delete Selected (${"count" in deleteTarget ? deleteTarget.count : ""})`
+                    : "Delete Permanently"}
                 </Button>
               </div>
             </div>

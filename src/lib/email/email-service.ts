@@ -1,14 +1,18 @@
 import nodemailer from "nodemailer";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface SendEmailPayload {
   to: string;
   studentName?: string;
+  recipientName?: string;
   subject: string;
   html: string;
   text?: string;
   notificationType?: string;
   resourceType?: string;
   resourceId?: string;
+  redirectUrl?: string;
+  ctaText?: string;
 }
 
 export interface EmailDeliveryResult {
@@ -19,108 +23,44 @@ export interface EmailDeliveryResult {
 }
 
 /**
- * Validates basic email syntax.
+ * Validates email syntax strictly to prevent injection and delivery issues.
  */
 export function isValidEmail(email: string | null | undefined): boolean {
   if (!email || typeof email !== "string") return false;
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email.trim());
+  const cleaned = email.trim();
+  // Protection against newline injection in email addresses
+  if (/[\r\n]/.test(cleaned)) return false;
+  const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return re.test(cleaned);
 }
 
 /**
- * Generates branded FALCON Learning Technologies HTML email for notifications.
- * Format: FALCON header → title → Hello [name], → message → Regards, Falcon Learning Technologies
+ * Sanitizes header string to prevent email header injection attacks.
  */
-export function generateNotificationEmailHtml(
-  studentName: string,
-  title: string,
-  message: string,
-  linkUrl?: string,
-  linkLabel?: string
-): string {
-  const safeStudentName = studentName || "Student";
-  const safeLinkSection = linkUrl
-    ? `<div style="margin:28px 0 0;">
-        <a href="${linkUrl}" style="display:inline-block;background:#2563EB;color:#fff;font-family:'Segoe UI',Arial,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:8px;letter-spacing:0.3px;">
-          ${linkLabel || "View Details"}
-        </a>
-      </div>`
-    : "";
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>${title}</title>
-</head>
-<body style="margin:0;padding:0;background:#F1F5F9;font-family:'Segoe UI',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F1F5F9;padding:40px 16px;">
-    <tr>
-      <td align="center">
-        <table width="100%" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #E2E8F0;">
-          <!-- Header -->
-          <tr>
-            <td style="background:#0F172A;padding:28px 36px;">
-              <p style="margin:0;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">
-                SENSILEARN<span style="color:#2563EB;">.</span>
-              </p>
-              <p style="margin:4px 0 0;font-size:11px;font-weight:600;color:#94A3B8;letter-spacing:1.5px;text-transform:uppercase;">
-                Learning Technologies
-              </p>
-            </td>
-          </tr>
-          <!-- Blue accent bar -->
-          <tr>
-            <td style="background:#2563EB;height:4px;"></td>
-          </tr>
-          <!-- Body -->
-          <tr>
-            <td style="padding:36px 36px 28px;">
-              <h1 style="margin:0 0 20px;font-size:20px;font-weight:700;color:#0F172A;line-height:1.3;">
-                ${title}
-              </h1>
-              <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6;">
-                Hello <strong>${safeStudentName}</strong>,
-              </p>
-              <p style="margin:0 0 24px;font-size:15px;color:#334155;line-height:1.7;">
-                ${message.replace(/\n/g, "<br/>")}
-              </p>
-              ${safeLinkSection}
-            </td>
-          </tr>
-          <!-- Divider -->
-          <tr>
-            <td style="padding:0 36px;">
-              <hr style="border:none;border-top:1px solid #E2E8F0;margin:0;" />
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="padding:24px 36px 32px;">
-              <p style="margin:0 0 4px;font-size:13px;color:#64748B;line-height:1.6;">
-                Regards,<br/>
-                <strong style="color:#0F172A;">SensiLearn Learning Technologies</strong>
-              </p>
-              <p style="margin:16px 0 0;font-size:11px;color:#94A3B8;line-height:1.5;">
-                This is an automated notification from the SensiLearn LMS platform. Please do not reply to this email.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+function sanitizeHeader(val: string): string {
+  return (val || "").replace(/[\r\n]+/g, " ").trim();
 }
 
 /**
- * Universal Server-Side Email Service.
- * Transports emails through SMTP, Resend, Brevo, or simulated Dev Logger.
+ * Universal Server-Side Email Service with Retry & Fallback.
+ * Conforms to MNC Email specifications with multi-mode (development / production) execution.
  */
 export async function sendEmail(payload: SendEmailPayload): Promise<EmailDeliveryResult> {
-  const { to, subject, html, text } = payload;
+  const {
+    to,
+    studentName,
+    recipientName,
+    subject,
+    html,
+    text,
+    notificationType,
+    resourceType,
+    resourceId,
+    redirectUrl,
+    ctaText,
+  } = payload;
+
+  const targetName = recipientName || studentName || "Recipient";
 
   if (!isValidEmail(to)) {
     console.warn(`[Email Service] Skipped: Invalid or missing email address: "${to}"`);
@@ -131,81 +71,135 @@ export async function sendEmail(payload: SendEmailPayload): Promise<EmailDeliver
     };
   }
 
-  const fromEmail = process.env.EMAIL_FROM || process.env.SMTP_FROM || "notifications@sensilearn.com";
-  const fromName = process.env.EMAIL_FROM_NAME || "SensiLearn LMS";
-  const formattedFrom = `"${fromName}" <${fromEmail}>`;
+  const cleanTo = to.trim();
+  const cleanSubject = sanitizeHeader(subject);
 
-  // Option 1: Resend API
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+  const fromEmail = process.env.EMAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || "sensigroup.info@gmail.com";
+  const fromName = process.env.EMAIL_FROM_NAME || "SensiGroup LMS";
+  const formattedFrom = `"${sanitizeHeader(fromName)}" <${sanitizeHeader(fromEmail)}>`;
+
+  const emailMode = (process.env.EMAIL_MODE || "").toLowerCase();
+  const smtpUser = process.env.SMTP_USER || "sensigroup.info@gmail.com";
+  const rawPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || "";
+  const smtpPass = rawPass.replace(/\s+/g, "");
+  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+
+  // Check if simulated mode explicitly forced via EMAIL_MODE=development without SMTP_PASS
+  if (emailMode === "development" && !smtpPass) {
+    console.log(`\n========================================`);
+    console.log(`EMAIL SIMULATION`);
+    console.log(`========================================`);
+    console.log(`Event:     ${notificationType || "GENERAL_NOTIFICATION"}`);
+    console.log(`Recipient: ${cleanTo} (${targetName})`);
+    console.log(`Subject:   ${cleanSubject}`);
+    console.log(`Redirect:  ${redirectUrl || "N/A"}`);
+    console.log(`CTA:       ${ctaText || "VIEW"}`);
+    console.log(`Status:    SIMULATED`);
+    console.log(`========================================\n`);
+
+    return {
+      success: true,
+      status: "dev_simulated",
+      messageId: `sim_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+    };
+  }
+
+  // Option 1: Live SMTP Transport via Nodemailer with Retries
+  if (smtpPass) {
+    const isGmail =
+      smtpHost.toLowerCase().includes("gmail") ||
+      smtpUser.toLowerCase().endsWith("@gmail.com");
+
+    const port = Number(process.env.SMTP_PORT) || (isGmail ? 465 : 587);
+    const secure = port === 465 || process.env.SMTP_SECURE === "true";
+
+    const transporter = isGmail
+      ? nodemailer.createTransport({
+          service: "gmail",
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+        })
+      : nodemailer.createTransport({
+          host: smtpHost,
+          port,
+          secure,
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+        });
+
+    let lastError: any = null;
+    const maxRetries = 3;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const info = await transporter.sendMail({
           from: formattedFrom,
-          to: [to.trim()],
-          subject,
+          to: cleanTo,
+          subject: cleanSubject,
           html,
           text: text || "",
-        }),
-      });
+        });
 
-      if (res.ok) {
-        const data = await res.json();
-        console.log(`[Email Service] Successfully dispatched via Resend to ${to} (ID: ${data.id})`);
-        return { success: true, status: "sent", messageId: data.id };
-      } else {
-        const errText = await res.text();
-        console.error(`[Email Service] Resend API error:`, errText);
-        return { success: false, status: "failed", errorMessage: errText };
+        console.log(`[Email Service] Success: Dispatched via SMTP to ${cleanTo} (Message ID: ${info.messageId}) [Attempt ${attempt}]`);
+
+        // Record asynchronous delivery log
+        logEmailDeliveryAsync({
+          recipientEmail: cleanTo,
+          recipientName: targetName,
+          subject: cleanSubject,
+          eventType: notificationType || "GENERAL",
+          resourceType,
+          resourceId,
+          redirectUrl,
+          status: "sent",
+          messageId: info.messageId,
+          provider: isGmail ? "gmail_smtp" : "smtp",
+        });
+
+        return { success: true, status: "sent", messageId: info.messageId };
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Email Service] SMTP attempt ${attempt}/${maxRetries} failed for ${cleanTo}:`, err?.message || err);
+        if (attempt < maxRetries) {
+          // Exponential backoff: 500ms, 1500ms
+          await new Promise((resolve) => setTimeout(resolve, attempt * 750));
+        }
       }
-    } catch (err: any) {
-      console.error(`[Email Service] Resend dispatch exception:`, err);
-      return { success: false, status: "failed", errorMessage: err?.message || String(err) };
     }
+
+    console.error(`[Email Service] SMTP delivery permanently failed after ${maxRetries} attempts for ${cleanTo}:`, lastError);
+
+    logEmailDeliveryAsync({
+      recipientEmail: cleanTo,
+      recipientName: targetName,
+      subject: cleanSubject,
+      eventType: notificationType || "GENERAL",
+      resourceType,
+      resourceId,
+      redirectUrl,
+      status: "failed",
+      errorMessage: lastError?.message || String(lastError),
+      provider: isGmail ? "gmail_smtp" : "smtp",
+    });
+
+    return {
+      success: false,
+      status: "failed",
+      errorMessage: lastError?.message || "SMTP dispatch failed after retries",
+    };
   }
 
-  // Option 2: SMTP Transport via Nodemailer
-  if (process.env.SMTP_HOST && process.env.SMTP_USER) {
-    try {
-      const port = Number(process.env.SMTP_PORT) || 587;
-      const secure = port === 465;
-
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port,
-        secure,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASSWORD || process.env.SMTP_PASS,
-        },
-      });
-
-      const info = await transporter.sendMail({
-        from: formattedFrom,
-        to: to.trim(),
-        subject,
-        html,
-        text: text || "",
-      });
-
-      console.log(`[Email Service] Successfully dispatched via SMTP to ${to} (ID: ${info.messageId})`);
-      return { success: true, status: "sent", messageId: info.messageId };
-    } catch (err: any) {
-      console.error(`[Email Service] SMTP dispatch error:`, err);
-      return { success: false, status: "failed", errorMessage: err?.message || String(err) };
-    }
-  }
-
-  // Option 3: Development Simulation / Console Transport
+  // Option 2: Fallback Development Simulation when SMTP_PASS is missing
   console.log(`\n================== [SENSILEARN LMS EMAIL DISPATCH] ==================`);
-  console.log(`To: ${to}`);
-  console.log(`Subject: ${subject}`);
-  console.log(`From: ${formattedFrom}`);
-  console.log(`Status: Simulated Dev Delivery (Configure SMTP_HOST or RESEND_API_KEY for live sending)`);
+  console.log(`To:             ${cleanTo} (${targetName})`);
+  console.log(`Subject:        ${cleanSubject}`);
+  console.log(`From:           ${formattedFrom}`);
+  console.log(`Status:         Simulated Dev Delivery (SMTP_PASS not provided)`);
+  console.log(`Redirect URL:   ${redirectUrl || "N/A"}`);
   console.log(`=================================================================\n`);
 
   return {
@@ -213,4 +207,113 @@ export async function sendEmail(payload: SendEmailPayload): Promise<EmailDeliver
     status: "dev_simulated",
     messageId: `dev_${Date.now()}`,
   };
+}
+
+/**
+ * Asynchronously persists delivery logs into database without blocking the caller.
+ */
+function logEmailDeliveryAsync(log: {
+  recipientEmail: string;
+  recipientName?: string;
+  subject: string;
+  eventType: string;
+  resourceType?: string;
+  resourceId?: string;
+  redirectUrl?: string;
+  status: string;
+  messageId?: string;
+  errorMessage?: string;
+  provider: string;
+}) {
+  try {
+    const admin = createAdminClient();
+    admin
+      .from("email_notifications")
+      .insert({
+        email: log.recipientEmail,
+        notification_type: log.eventType,
+        resource_type: log.resourceType || "general",
+        resource_id: log.resourceId || null,
+        subject: log.subject,
+        status: log.status,
+        error_message: log.errorMessage || null,
+        sent_at: log.status === "sent" ? new Date().toISOString() : null,
+        created_at: new Date().toISOString(),
+      })
+      .then(
+        () => {},
+        () => {
+          // Table may not exist yet, fallback silently
+        }
+      );
+  } catch {}
+}
+
+/**
+ * Verifies SMTP configuration and sends a test email.
+ */
+export async function testSmtpConnection(testRecipient?: string): Promise<{ success: boolean; message: string; details?: any }> {
+  const smtpUser = process.env.SMTP_USER || "sensigroup.info@gmail.com";
+  const rawPass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS || "";
+  const smtpPass = rawPass.replace(/\s+/g, "");
+  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+
+  if (!smtpPass) {
+    return {
+      success: false,
+      message: `SMTP password (Google App Password) is not set in .env.local for ${smtpUser}. Please add SMTP_PASS=your-16-char-app-password.`,
+    };
+  }
+
+  try {
+    const isGmail = smtpHost.toLowerCase().includes("gmail") || smtpUser.toLowerCase().endsWith("@gmail.com");
+    const port = Number(process.env.SMTP_PORT) || (isGmail ? 465 : 587);
+    const secure = port === 465 || process.env.SMTP_SECURE === "true";
+
+    const transporter = isGmail
+      ? nodemailer.createTransport({
+          service: "gmail",
+          auth: { user: smtpUser, pass: smtpPass },
+        })
+      : nodemailer.createTransport({
+          host: smtpHost,
+          port,
+          secure,
+          auth: { user: smtpUser, pass: smtpPass },
+        });
+
+    await transporter.verify();
+
+    const targetEmail = testRecipient || smtpUser;
+    const testResult = await transporter.sendMail({
+      from: `"SensiGroup LMS" <${smtpUser}>`,
+      to: targetEmail,
+      subject: `[SensiGroup LMS] SMTP Verification Test Email`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 24px; max-width: 550px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #0F172A; margin-top: 0;">SensiGroup LMS — SMTP Connected</h2>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+            This test confirmation verifies that <strong>${smtpUser}</strong> is successfully configured for automated LMS email notifications to students and trainers.
+          </p>
+          <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px; border-radius: 8px; font-size: 12px; color: #475569;">
+            <strong>Timestamp:</strong> ${new Date().toISOString()}<br/>
+            <strong>Service:</strong> Gmail SMTP (SSL: ${secure})
+          </div>
+        </div>
+      `,
+      text: `SensiGroup LMS — SMTP Connected successfully for ${smtpUser} at ${new Date().toISOString()}`,
+    });
+
+    return {
+      success: true,
+      message: `SMTP connection verified and test email sent to ${targetEmail}!`,
+      details: { messageId: testResult.messageId },
+    };
+  } catch (err: any) {
+    console.error("[Email Service] SMTP verification failed:", err);
+    return {
+      success: false,
+      message: err?.message || "Failed to connect to SMTP server. Ensure Google App Password is correct.",
+    };
+  }
 }

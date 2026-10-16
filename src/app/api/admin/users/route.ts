@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAdminSession } from "@/app/api/admin/_auth";
+import { dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 
 export async function GET(request: NextRequest) {
   try {
@@ -261,6 +262,31 @@ export async function POST(request: NextRequest) {
       } catch (bErr) {
         console.warn("Notice: Error syncing batch_members on create:", bErr);
       }
+    }
+
+    // Asynchronously dispatch welcome notifications
+    try {
+      const userFullName = `${firstName} ${lastName}`.trim() || email.split("@")[0];
+      if (userRole === "student") {
+        dispatchLMSEvent({
+          eventType: "STUDENT_CREATED",
+          recipientUserIds: [profile?.id || userId],
+          recipientEmails: [email],
+          studentName: userFullName,
+          batchName: resolvedBatchName || "Active Cohort",
+          targetUrl: `/student/dashboard`,
+        }).catch((e) => console.warn("Notice: Student welcome email warning:", e));
+      } else if (userRole === "trainer") {
+        dispatchLMSEvent({
+          eventType: "TRAINER_CREATED",
+          recipientUserIds: [profile?.id || userId],
+          recipientEmails: [email],
+          trainerName: userFullName,
+          targetUrl: `/trainer/dashboard`,
+        }).catch((e) => console.warn("Notice: Trainer welcome email warning:", e));
+      }
+    } catch (notifErr) {
+      console.warn("Notice: Welcome email trigger warning:", notifErr);
     }
 
     return NextResponse.json({
