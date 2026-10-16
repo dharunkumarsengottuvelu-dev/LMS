@@ -146,23 +146,25 @@ export default function LoginPage() {
           }
         }
 
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("role")
-          .or(`user_id.eq.${authData.user.id},id.eq.${authData.user.id}`)
-          .maybeSingle();
-
-        const profile = profileData as { role?: string } | null;
-        toast({ title: "Welcome back", description: "Logged in successfully." });
-
-        const emailLower = authData.user.email?.toLowerCase() || "";
-        const profileRole = (
+        let profileRole = (
           serverAuthData?.role ||
-          profile?.role ||
           (authData.user.user_metadata?.role as string) ||
           (authData.user.app_metadata?.role as string) ||
           ""
         ).toLowerCase();
+
+        if (!profileRole) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("role")
+            .or(`user_id.eq.${authData.user.id},id.eq.${authData.user.id}`)
+            .maybeSingle();
+          profileRole = ((profileData as { role?: string } | null)?.role || "").toLowerCase();
+        }
+
+        toast({ title: "Welcome back", description: "Logged in successfully." });
+
+        const emailLower = authData.user.email?.toLowerCase() || "";
 
         const [localPart = ""] = emailLower.split("@");
         let effectiveRole = profileRole || "student";

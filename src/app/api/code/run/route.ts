@@ -75,18 +75,19 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Universal multi-language execution
-    const timeoutMs = body.timeout_ms ? parseInt(body.timeout_ms, 10) : undefined;
+    const timeoutMs = body.timeout_ms ? Math.min(parseInt(body.timeout_ms, 10), 10000) : 6000;
     const version = body.version || body.language_version;
     const result = await UniversalExecutor.execute(language, code, stdin, timeoutMs, version);
 
     return NextResponse.json(result, { status: 200 });
   } catch (error: unknown) {
     const msg = getErrorMessage(error);
+    const isBusy = msg.toLowerCase().includes("busy");
     console.error("API /api/code/run Error:", error);
     
     return NextResponse.json(
       { error: msg },
-      { status: 500 }
+      { status: isBusy ? 429 : 500 }
     );
   }
 }

@@ -430,7 +430,7 @@ export function CodingProblemCreator({
     if (initialTemplates && Object.keys(initialTemplates).length > 0) {
       return initialTemplates;
     }
-    return DEFAULT_STARTER_CODES;
+    return {};
   });
   const [activeCodeLang, setActiveCodeLang] = useState<string>(
     initialSingleLang || "python"
@@ -575,12 +575,28 @@ export function CodingProblemCreator({
         ? [selectedSingleLanguage]
         : isMulti
         ? selectedMultiLanguages
-        : Object.keys(DEFAULT_STARTER_CODES);
-      const finalTemplates = isSingle
-        ? { [selectedSingleLanguage]: templates[selectedSingleLanguage] || DEFAULT_STARTER_CODES[selectedSingleLanguage] || "" }
-        : isMulti
-        ? Object.fromEntries(selectedMultiLanguages.map((l) => [l, templates[l] || DEFAULT_STARTER_CODES[l] || ""]))
-        : templates;
+        : Object.keys(templates).length > 0
+        ? Object.keys(templates)
+        : AVAILABLE_CODING_LANGUAGES.map((l) => l.id);
+
+      const finalTemplates: Record<string, string> = {};
+      if (isSingle) {
+        if (templates[selectedSingleLanguage] && templates[selectedSingleLanguage].trim()) {
+          finalTemplates[selectedSingleLanguage] = templates[selectedSingleLanguage].trim();
+        }
+      } else if (isMulti) {
+        selectedMultiLanguages.forEach((l) => {
+          if (templates[l] && templates[l].trim()) {
+            finalTemplates[l] = templates[l].trim();
+          }
+        });
+      } else {
+        Object.entries(templates).forEach(([k, v]) => {
+          if (v && v.trim()) {
+            finalTemplates[k] = v.trim();
+          }
+        });
+      }
 
       onChange({
         title,
@@ -775,12 +791,28 @@ export function CodingProblemCreator({
       ? [selectedSingleLanguage]
       : isMulti
       ? selectedMultiLanguages
-      : Object.keys(DEFAULT_STARTER_CODES);
-    const finalTemplates = isSingle
-      ? { [selectedSingleLanguage]: templates[selectedSingleLanguage] || DEFAULT_STARTER_CODES[selectedSingleLanguage] || "" }
-      : isMulti
-      ? Object.fromEntries(selectedMultiLanguages.map((l) => [l, templates[l] || DEFAULT_STARTER_CODES[l] || ""]))
-      : templates;
+      : Object.keys(templates).length > 0
+      ? Object.keys(templates)
+      : AVAILABLE_CODING_LANGUAGES.map((l) => l.id);
+
+    const finalTemplates: Record<string, string> = {};
+    if (isSingle) {
+      if (templates[selectedSingleLanguage] && templates[selectedSingleLanguage].trim()) {
+        finalTemplates[selectedSingleLanguage] = templates[selectedSingleLanguage].trim();
+      }
+    } else if (isMulti) {
+      selectedMultiLanguages.forEach((l) => {
+        if (templates[l] && templates[l].trim()) {
+          finalTemplates[l] = templates[l].trim();
+        }
+      });
+    } else {
+      Object.entries(templates).forEach(([k, v]) => {
+        if (v && v.trim()) {
+          finalTemplates[k] = v.trim();
+        }
+      });
+    }
 
     // Clean test cases: keep input optional (default "") and expected_output cleanly preserved
     const cleanTestCases: TestCase[] = testCases.map((tc, idx) => ({

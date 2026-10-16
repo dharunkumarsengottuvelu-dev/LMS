@@ -1,19 +1,28 @@
 import { NextResponse } from "next/server";
 import { jobeService } from "@/services/jobe";
+import { CompilerConcurrencyManager } from "@/lib/compiler/concurrency-manager";
 
 export async function GET() {
+  const queueStats = CompilerConcurrencyManager.getStats();
+
   try {
     const status = await jobeService.healthCheck();
 
     return NextResponse.json(
       {
         service: "SensiLearn Hybrid Code Execution Engine",
-        status: "healthy",
+        status: queueStats.status === "BUSY" ? "busy" : "healthy",
         available: true,
         jobe_url: status.url,
         latency_ms: status.latencyMs,
         engine: status.available && status.languages && status.languages.length > 0 ? "Jobe Remote VPS Server" : "Local System Fallback Sandbox (Python, Java, Node.js, SQL, Web Dev)",
         supported_languages_count: 19,
+        concurrency: {
+          active_executions: queueStats.activeCount,
+          queued_requests: queueStats.queueLength,
+          max_concurrent: queueStats.maxConcurrent,
+          load_state: queueStats.status,
+        },
         timestamp: new Date().toISOString(),
       },
       { status: 200 }

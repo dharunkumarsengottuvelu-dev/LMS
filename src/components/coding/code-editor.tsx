@@ -219,8 +219,8 @@ export function CodeEditor({
     minimap: { enabled: showMinimap, scale: 1, renderCharacters: false },
     scrollBeyondLastLine: false,
     lineNumbers: "on" as const,
-    lineNumbersMinChars: 4,
-    lineDecorationsWidth: 18,
+    lineNumbersMinChars: 3,
+    lineDecorationsWidth: 4,
     glyphMargin: false,
     folding: true,
     foldingHighlight: true,
@@ -779,6 +779,8 @@ export function CodeEditor({
   }, [problem, onCodeChange]);
 
   const handleRun = async () => {
+    if (isRunning || isSubmitting) return;
+
     if (!code.trim()) {
       toast({ title: "Empty code", description: "Please write some code first", variant: "destructive" });
       return;
@@ -796,11 +798,15 @@ export function CodeEditor({
       scrollToConsole();
     }, 80);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
       if (targetTab === "customtest") {
         const response = await fetch("/api/code/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             language,
             code,
@@ -815,6 +821,8 @@ export function CodeEditor({
           }),
         });
 
+        clearTimeout(timeoutId);
+
         if (!response.ok) {
           const error = (await response.json()) as { error: string };
           throw new Error(error.error ?? "Code execution failed");
@@ -826,6 +834,7 @@ export function CodeEditor({
         const response = await fetch("/api/code/run-testcases", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             problem_id: problem?.id,
             language,
@@ -837,6 +846,8 @@ export function CodeEditor({
             comparison_mode: problem?.comparison_mode,
           }),
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           const error = (await response.json()) as { error: string };
@@ -862,15 +873,32 @@ export function CodeEditor({
           consoleContentRef.current.scrollTop = 0;
         }
       }, 80);
-    } catch (error) {
-      const msg = getErrorMessage(error);
-      toast({ title: "Run failed", description: msg, variant: "destructive" });
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error?.name === "AbortError") {
+        toast({
+          title: "Execution Timed Out",
+          description: "Request took longer than 30 seconds. Please check for infinite loops or excessive computations.",
+          variant: "destructive",
+        });
+      } else {
+        const msg = getErrorMessage(error);
+        const isBusy = msg.toLowerCase().includes("busy");
+        toast({
+          title: isBusy ? "Execution Service Busy" : "Run failed",
+          description: isBusy ? "The execution engine is currently busy handling high volume. Please retry in a few moments." : msg,
+          variant: "destructive",
+        });
+      }
     } finally {
+      clearTimeout(timeoutId);
       setIsRunning(false);
     }
   };
 
   const handleSubmit = async () => {
+    if (isRunning || isSubmitting) return;
+
     if (onSubmit) {
       try {
         setShowConsole(true);
@@ -879,9 +907,14 @@ export function CodeEditor({
           scrollToConsole();
         }, 80);
         await onSubmit(code, language);
-      } catch (err) {
+      } catch (err: any) {
         const msg = getErrorMessage(err);
-        toast({ title: "Submission error", description: msg, variant: "destructive" });
+        const isBusy = msg.toLowerCase().includes("busy");
+        toast({
+          title: isBusy ? "Service Busy" : "Submission error",
+          description: isBusy ? "Evaluation engine is temporarily busy. Please retry shortly." : msg,
+          variant: "destructive",
+        });
       }
     }
   };

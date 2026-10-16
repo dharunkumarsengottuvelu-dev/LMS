@@ -754,9 +754,13 @@ export default function ProblemSolvingWorkspace() {
       // On Run: ONLY evaluate public (sample) test cases as requested
       const casesToRun = sampleCases;
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
       const res = await fetch("/api/code/run-testcases", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           problem_id: problem.id,
           language: selectedLanguage,
@@ -766,13 +770,19 @@ export default function ProblemSolvingWorkspace() {
         }),
       });
 
+      clearTimeout(timeoutId);
+
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
         const errMsg = errJson.error || "Failed to execute code";
         const isComp = errMsg.toLowerCase().includes("compil") || errMsg.toLowerCase().includes("syntax") || errMsg.toLowerCase().includes("error:");
+        const isTLE = errMsg.toLowerCase().includes("time limit") || errMsg.toLowerCase().includes("timed out");
+        const isMLE = errMsg.toLowerCase().includes("memory limit");
+        const isOLE = errMsg.toLowerCase().includes("output limit");
+        const isBusy = errMsg.toLowerCase().includes("busy");
         setExecutionError({
-          title: isComp ? "Compilation Error" : "Execution Error",
-          message: errMsg,
+          title: isComp ? "Compilation Error" : isTLE ? "Time Limit Exceeded" : isMLE ? "Memory Limit Exceeded" : isOLE ? "Output Limit Exceeded" : isBusy ? "Execution Service Busy" : "Execution Error",
+          message: isBusy ? "The code execution engine is currently busy handling high volume. Please retry in a few moments." : errMsg,
           type: isComp ? "compilation" : "system",
         });
         throw new Error(errMsg);
@@ -946,9 +956,13 @@ export default function ProblemSolvingWorkspace() {
             is_hidden: Boolean(tc.is_hidden),
           }));
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 35000);
+
       const res = await fetch("/api/code/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           problem_id: problem.id,
           language: selectedLanguage,
@@ -957,12 +971,16 @@ export default function ProblemSolvingWorkspace() {
         }),
       });
 
+      clearTimeout(timeoutId);
+
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
         const errMsg = errJson.error || "Submission evaluation failed";
+        const isBusy = errMsg.toLowerCase().includes("busy");
+        const isTLE = errMsg.toLowerCase().includes("time limit") || errMsg.toLowerCase().includes("timed out");
         setExecutionError({
-          title: "Submission Error",
-          message: errMsg,
+          title: isBusy ? "Execution Service Busy" : isTLE ? "Time Limit Exceeded" : "Submission Error",
+          message: isBusy ? "The evaluation service is temporarily handling high volume. Please retry in a moment." : errMsg,
           type: "system",
         });
         throw new Error(errMsg);
@@ -1777,8 +1795,8 @@ export default function ProblemSolvingWorkspace() {
                     tabSize: tabSize,
                     insertSpaces: true,
                     lineNumbers: "on",
-                    lineNumbersMinChars: 4,
-                    lineDecorationsWidth: 18,
+                    lineNumbersMinChars: 3,
+                    lineDecorationsWidth: 4,
                     glyphMargin: false,
                     folding: true,
                     showFoldingControls: "mouseover",

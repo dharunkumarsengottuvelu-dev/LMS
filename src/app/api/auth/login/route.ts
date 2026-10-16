@@ -10,42 +10,49 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
 
-    const lowerEmail = email.toLowerCase();
+    const lowerEmail = email.toLowerCase().trim();
     const admin = createAdminClient();
 
-    // Find user by email across any domain
-    const { data: usersData } = await admin.auth.admin.listUsers();
+    // Fast path: Targeted indexed profile lookup by email (< 20ms)
+    const { data: existingProfile } = await admin
+      .from("profiles")
+      .select("id, user_id, role, status, first_name, last_name")
+      .eq("email", lowerEmail)
+      .maybeSingle();
+
+    if (existingProfile && existingProfile.user_id) {
+      const effectiveRole = existingProfile.role || "student";
+
+      // Non-blocking background email confirmation check if needed
+      admin.auth.admin.getUserById(existingProfile.user_id).then(({ data }) => {
+        if (data?.user && !data.user.email_confirmed_at) {
+          admin.auth.admin.updateUserById(existingProfile.user_id, { email_confirm: true }).catch(() => {});
+        }
+      }).catch(() => {});
+
+      return NextResponse.json({ success: true, role: effectiveRole });
+    }
+
+    // Fallback path: If profile not created yet, check auth user directly
+    const { data: usersData } = await admin.auth.admin.listUsers({ page: 1, perPage: 100 });
     const existingUser = usersData?.users?.find((u) => u.email?.toLowerCase() === lowerEmail);
 
     if (existingUser) {
-      // Auto confirm email if unconfirmed
       if (!existingUser.email_confirmed_at) {
         await admin.auth.admin.updateUserById(existingUser.id, { email_confirm: true });
       }
 
-      // Check existing profile
-      const { data: profile } = await admin
-        .from("profiles")
-        .select("id, role")
-        .or(`user_id.eq.${existingUser.id},id.eq.${existingUser.id}`)
-        .maybeSingle();
-
       const userMetadataRole = (existingUser.user_metadata?.role as string) || (existingUser.app_metadata?.role as string) || "";
-      let effectiveRole = profile?.role || userMetadataRole;
-      if (!effectiveRole) {
-        effectiveRole = "student";
-      }
+      const effectiveRole = userMetadataRole || "student";
 
-      if (!profile) {
-        await admin.from("profiles").insert({
-          user_id: existingUser.id,
-          first_name: existingUser.user_metadata?.first_name || lowerEmail.split("@")[0],
-          last_name: existingUser.user_metadata?.last_name || "",
-          email: lowerEmail,
-          role: effectiveRole,
-          status: "active",
-        });
-      }
+      await admin.from("profiles").upsert({
+        user_id: existingUser.id,
+        first_name: existingUser.user_metadata?.first_name || lowerEmail.split("@")[0],
+        last_name: existingUser.user_metadata?.last_name || "",
+        email: lowerEmail,
+        role: effectiveRole,
+        status: "active",
+      }, { onConflict: "user_id" });
 
       return NextResponse.json({ success: true, role: effectiveRole });
     } else {

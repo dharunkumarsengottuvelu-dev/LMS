@@ -45,6 +45,8 @@ function normalizeWandboxResponse(
   const compileErr = (parsed.compiler_error || "").trim();
   const programOut = (parsed.program_output || parsed.program_message || "").trim();
   const programErr = (parsed.program_error || "").trim();
+  const lowerErr = `${programErr} ${programOut}`.toLowerCase();
+  const signal = String(parsed.signal || "").toUpperCase();
 
   // Compilation failed
   if (compileErr && !programOut && parsed.status !== "0") {
@@ -55,6 +57,64 @@ function normalizeWandboxResponse(
       message: "Compilation Error",
       status: { id: 6, description: "Compilation Error" },
       outcome: 11,
+      time: elapsed,
+      memory: 12000,
+    };
+  }
+
+  // Time Limit Exceeded
+  if (
+    signal === "XCPU" ||
+    signal === "KILL" ||
+    parsed.status === "137" ||
+    lowerErr.includes("time out") ||
+    lowerErr.includes("cpu time limit") ||
+    lowerErr.includes("timed out")
+  ) {
+    return {
+      stdout: programOut,
+      stderr: programErr || "Time Limit Exceeded: Process execution took longer than permitted time limit.",
+      compile_output: compileErr,
+      message: "Time Limit Exceeded",
+      status: { id: 5, description: "Time Limit Exceeded" },
+      outcome: 13,
+      time: elapsed,
+      memory: 12000,
+    };
+  }
+
+  // Memory Limit Exceeded
+  if (
+    lowerErr.includes("out of memory") ||
+    lowerErr.includes("bad_alloc") ||
+    lowerErr.includes("heap out of memory") ||
+    lowerErr.includes("outofmemoryerror")
+  ) {
+    return {
+      stdout: programOut,
+      stderr: programErr || "Memory Limit Exceeded: Process exhausted allowed memory bounds.",
+      compile_output: compileErr,
+      message: "Memory Limit Exceeded",
+      status: { id: 4, description: "Memory Limit Exceeded" },
+      outcome: 17,
+      time: elapsed,
+      memory: 256000,
+    };
+  }
+
+  // Output Limit Exceeded
+  if (
+    lowerErr.includes("file size limit exceeded") ||
+    lowerErr.includes("output limit") ||
+    lowerErr.includes("excessive output")
+  ) {
+    return {
+      stdout: programOut.slice(0, 5000),
+      stderr: "Output Limit Exceeded: Process generated excessive output.",
+      compile_output: compileErr,
+      message: "Output Limit Exceeded",
+      status: { id: 14, description: "Output Limit Exceeded" },
+      outcome: 18,
       time: elapsed,
       memory: 12000,
     };
@@ -80,6 +140,14 @@ function normalizeWandboxResponse(
  * Performs an HTTPS POST request to Wandbox and returns the NormalizedExecutionResult.
  * Works in any Node.js environment including serverless (Vercel, AWS Lambda).
  */
+// Persistent keep-alive agent to eliminate TCP & TLS handshake overhead on every execution
+const compilerHttpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 30000,
+});
+
 function executeOnWandbox(
   compiler: string,
   code: string,
@@ -104,6 +172,7 @@ function executeOnWandbox(
         hostname: "wandbox.org",
         path: "/api/compile.json",
         method: "POST",
+        agent: compilerHttpsAgent,
         headers: {
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(payload),
@@ -119,6 +188,19 @@ function executeOnWandbox(
         });
         res.on("end", () => {
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+          if (res.statusCode === 429 || res.statusCode === 503) {
+            return resolve({
+              stdout: "",
+              stderr: "The code execution service is temporarily busy handling high volume. Please retry in a few moments.",
+              compile_output: "",
+              message: "Execution Service Busy",
+              status: { id: 13, description: "Service Busy" },
+              outcome: 20,
+              time: elapsed,
+              memory: 0,
+            });
+          }
+
           try {
             const parsed = JSON.parse(data);
             resolve(normalizeWandboxResponse(parsed, startTime));
@@ -155,7 +237,7 @@ function executeOnWandbox(
       req.destroy();
       resolve({
         stdout: "",
-        stderr: "Execution timed out",
+        stderr: "Execution timed out: Compiler server took longer than expected to respond.",
         compile_output: "",
         message: "Time Limit Exceeded",
         status: { id: 5, description: "Time Limit Exceeded" },

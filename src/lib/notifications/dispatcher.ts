@@ -640,88 +640,116 @@ export async function dispatchLMSEvent(event: LMSEventPayload): Promise<{
       return { success: true, totalRecipients: 0, dispatched: 0 };
     }
 
-    // 2. Dispatch concurrently to all deduplicated recipients
+    // 2. Dispatch with batch in-app notifications and non-blocking background emails
     let dispatchedCount = 0;
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const eventTitle = event.title || event.name || "LMS Notification";
 
-    await Promise.allSettled(
-      uniqueRecipients.map(async (u) => {
-        try {
-          const userId = u.user_id || u.id || "system";
-          const recipientName =
-            (u.first_name || u.last_name)
-              ? `${u.first_name || ""} ${u.last_name || ""}`.trim()
-              : (u.email ? u.email.split("@")[0] : (u.role === "trainer" ? "Trainer" : "Student"));
-          const recipientEmail = u.email || "";
+    // Batch query recent duplicate notifications for all candidate recipients at once
+    const userIds = uniqueRecipients.map((u) => u.user_id || u.id || "system").filter(Boolean);
+    const recentDupsMap = new Set<string>();
+    try {
+      const { data: recentDups } = await adminClient
+        .from("notifications")
+        .select("user_id")
+        .in("user_id", userIds.slice(0, 100))
+        .eq("title", eventTitle)
+        .gte("created_at", tenMinutesAgo);
 
-          // Deduplication: check if same notification was sent in last 10 minutes
-          const eventTitle = event.title || event.name || "LMS Notification";
-          const { data: recentDups } = await adminClient
-            .from("notifications")
-            .select("id")
-            .eq("user_id", userId)
-            .eq("title", eventTitle)
-            .gte("created_at", tenMinutesAgo)
-            .limit(1);
+      (recentDups || []).forEach((d: any) => {
+        if (d.user_id) recentDupsMap.add(d.user_id);
+      });
+    } catch {
+      // Non-critical, continue
+    }
 
-          if (recentDups && recentDups.length > 0) {
-            return;
-          }
+    const notificationsToInsert: any[] = [];
+    const emailsToSend: any[] = [];
 
-          // Build template
-          const template = resolveEmailTemplate(
-            event.eventType,
-            recipientName,
-            event,
-            directRedirectUrl
-          );
+    for (const u of uniqueRecipients) {
+      const userId = u.user_id || u.id || "system";
+      if (recentDupsMap.has(userId)) {
+        continue;
+      }
 
-          // Create In-App Notification in Supabase
-          try {
-            await adminClient.from("notifications").insert({
-              user_id: userId,
-              type: event.eventType.toLowerCase(),
-              title: eventTitle,
-              message: event.customMessage || template.subject,
-              is_read: false,
-              link_url: event.targetUrl,
-              metadata: {
-                event_type: event.eventType,
-                redirect_url: directRedirectUrl,
-                cta_text: template.ctaText,
-                resource_type: event.resourceType,
-                resource_id: event.resourceId,
-              },
-              created_at: new Date().toISOString(),
-            });
-          } catch (dbErr) {
-            console.warn("[Notification Hub] In-app notification insert warning:", dbErr);
-          }
+      const recipientName =
+        (u.first_name || u.last_name)
+          ? `${u.first_name || ""} ${u.last_name || ""}`.trim()
+          : (u.email ? u.email.split("@")[0] : (u.role === "trainer" ? "Trainer" : "Student"));
+      const recipientEmail = u.email || "";
 
-          // Send Email if valid email exists
-          if (isValidEmail(recipientEmail)) {
-            await sendEmail({
-              to: recipientEmail,
-              recipientName,
-              subject: template.subject,
-              html: template.html,
-              text: template.text,
-              notificationType: event.eventType,
-              resourceType: event.resourceType,
-              resourceId: event.resourceId,
-              redirectUrl: directRedirectUrl,
-              ctaText: template.ctaText,
-            });
-            dispatchedCount++;
-          }
-        } catch (itemErr) {
-          console.error("[Notification Hub] Recipient dispatch exception:", itemErr);
+      // Build template
+      const template = resolveEmailTemplate(
+        event.eventType,
+        recipientName,
+        event,
+        directRedirectUrl
+      );
+
+      notificationsToInsert.push({
+        user_id: userId,
+        type: event.eventType.toLowerCase(),
+        title: eventTitle,
+        message: event.customMessage || template.subject,
+        is_read: false,
+        link_url: event.targetUrl,
+        metadata: {
+          event_type: event.eventType,
+          redirect_url: directRedirectUrl,
+          cta_text: template.ctaText,
+          resource_type: event.resourceType,
+          resource_id: event.resourceId,
+        },
+        created_at: new Date().toISOString(),
+      });
+
+      if (isValidEmail(recipientEmail)) {
+        emailsToSend.push({
+          to: recipientEmail,
+          recipientName,
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+          notificationType: event.eventType,
+          resourceType: event.resourceType,
+          resourceId: event.resourceId,
+          redirectUrl: directRedirectUrl,
+          ctaText: template.ctaText,
+        });
+      }
+    }
+
+    // Bulk insert all in-app notifications in a single database round-trip
+    if (notificationsToInsert.length > 0) {
+      try {
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < notificationsToInsert.length; i += BATCH_SIZE) {
+          const chunk = notificationsToInsert.slice(i, i + BATCH_SIZE);
+          await adminClient.from("notifications").insert(chunk);
         }
-      })
-    );
+      } catch (dbErr) {
+        console.warn("[Notification Hub] Bulk in-app notification insert warning:", dbErr);
+      }
+    }
 
-    console.log(`[Notification Hub] Event "${event.eventType}" dispatched to ${dispatchedCount}/${uniqueRecipients.length} recipients.`);
-    return { success: true, totalRecipients: uniqueRecipients.length, dispatched: dispatchedCount };
+    // Asynchronously dispatch emails in the background so API callers are never blocked by SMTP latency
+    if (emailsToSend.length > 0) {
+      dispatchedCount = emailsToSend.length;
+      void (async () => {
+        try {
+          const CHUNK_SIZE = 5;
+          for (let i = 0; i < emailsToSend.length; i += CHUNK_SIZE) {
+            const chunk = emailsToSend.slice(i, i + CHUNK_SIZE);
+            await Promise.allSettled(chunk.map((item) => sendEmail(item)));
+          }
+        } catch (emailErr) {
+          console.warn("[Notification Hub] Background email dispatch error:", emailErr);
+        }
+      })();
+    }
+
+    console.log(`[Notification Hub] Event "${event.eventType}" dispatched to ${notificationsToInsert.length} in-app / ${emailsToSend.length} email recipients.`);
+    return { success: true, totalRecipients: uniqueRecipients.length, dispatched: notificationsToInsert.length };
   } catch (error) {
     console.error("[Notification Hub] Top-level dispatch error:", error);
     return { success: false, totalRecipients: 0, dispatched: 0 };

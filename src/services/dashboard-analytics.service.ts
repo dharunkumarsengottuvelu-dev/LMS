@@ -760,7 +760,7 @@ export class DashboardAnalyticsService {
     };
 
     DashboardAnalyticsService.cachedAnalytics = payload;
-    DashboardAnalyticsService.cacheExpiresAt = Date.now() + 30000;
+    DashboardAnalyticsService.cacheExpiresAt = Date.now() + 60000;
 
     return payload;
   }

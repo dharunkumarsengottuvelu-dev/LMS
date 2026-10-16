@@ -376,7 +376,15 @@ export const LANGUAGE_REGISTRY: Record<CodingLanguage, LanguageConfig> = {
 };
 
 export type Difficulty = "easy" | "medium" | "hard";
-export type SubmissionStatus = "accepted" | "wrong_answer" | "time_limit_exceeded" | "compilation_error" | "runtime_error" | "pending";
+export type SubmissionStatus =
+  | "accepted"
+  | "wrong_answer"
+  | "time_limit_exceeded"
+  | "memory_limit_exceeded"
+  | "output_limit_exceeded"
+  | "compilation_error"
+  | "runtime_error"
+  | "pending";
 
 export interface ExampleCase {
   id?: string;

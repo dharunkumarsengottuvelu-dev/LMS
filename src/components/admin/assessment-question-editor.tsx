@@ -214,7 +214,7 @@ export function AssessmentQuestionEditor({
       if (q.starterCode && typeof q.starterCode === "object" && q.starterCode[currentLang]) {
         return q.starterCode[currentLang];
       }
-      return DEFAULT_STARTER_CODES[currentLang] || "// Write your code here\n";
+      return "";
     },
     []
   );

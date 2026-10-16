@@ -66,7 +66,7 @@ export function BulkUploadComponent({
     setCurrentModuleType(moduleType);
   }, [moduleType]);
 
-  // Coding Problems Language Mode State
+  // Coding Problems Language Mode State (includes pure coding & mixed modules containing code)
   const isCodingModule = useMemo(() => {
     const norm = (currentModuleType || "").toLowerCase();
     return (
@@ -77,7 +77,16 @@ export function BulkUploadComponent({
       norm === "assessment_coding" ||
       norm === "test_coding" ||
       norm === "code_lab" ||
-      norm === "codelab"
+      norm === "codelab" ||
+      norm === "mixed_questions" ||
+      norm === "mixed" ||
+      norm === "mixed_question" ||
+      norm === "practice_mixed" ||
+      norm === "practice_questions" ||
+      norm === "assessment_questions" ||
+      norm === "assessment_question" ||
+      norm === "test_questions" ||
+      norm === "exam_questions"
     );
   }, [currentModuleType]);
 
@@ -403,6 +412,17 @@ export function BulkUploadComponent({
           const matchedCol = columnMapping[cleaned];
           if (matchedCol) {
             mappedRow[matchedCol.key] = row[rawHeader];
+          } else {
+            const isStarter = cleaned.includes("starter") || cleaned.includes("code") || cleaned.includes("boilerplate");
+            const matchedLang = CODING_LANGUAGES.find(
+              (l) => cleaned.includes(l.id) || cleaned.includes(l.name.toLowerCase())
+            );
+            if (matchedLang && isStarter) {
+              mappedRow[`${matchedLang.id}_starter_code`] = row[rawHeader];
+            } else {
+              mappedRow[rawHeader] = row[rawHeader];
+              mappedRow[cleaned] = row[rawHeader];
+            }
           }
         });
 

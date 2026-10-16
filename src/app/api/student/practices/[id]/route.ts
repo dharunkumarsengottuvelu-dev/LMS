@@ -129,87 +129,103 @@ export async function GET(
       }
     });
 
-    let codingProblemsMap: Record<string, any[]> = {};
-    if (allModuleIds.length > 0) {
-      const { data: codingProblems, error: cpErr } = await adminClient
-        .from("coding_problems")
-        .select("*") as any;
-
-      if (codingProblems && !cpErr) {
-        codingProblems.forEach((cp: any) => {
-          let extra = typeof cp.starter_code === "object" && cp.starter_code !== null ? cp.starter_code : {};
-          if (typeof cp.starter_code === "string") {
-            try {
-              extra = JSON.parse(cp.starter_code);
-            } catch {
-              extra = {};
-            }
-          }
-          const modId = extra.assessment_id || extra.module_id;
-          if (modId && allModuleIds.includes(modId)) {
-            if (!codingProblemsMap[modId]) {
-              codingProblemsMap[modId] = [];
-            }
-
-            const rawAllowed = extra.allowed_languages || extra.allowedLanguages || cp.allowed_languages || (cp as any).allowedLanguages;
-            let finalAllowed: string[] | undefined = undefined;
-            if (Array.isArray(rawAllowed)) {
-              finalAllowed = rawAllowed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
-            } else if (typeof rawAllowed === "string" && rawAllowed.trim()) {
-              try {
-                const parsed = JSON.parse(rawAllowed);
-                if (Array.isArray(parsed)) {
-                  finalAllowed = parsed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
-                } else {
-                  finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
-                }
-              } catch {
-                finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
-              }
-            } else if (extra.templates && Object.keys(extra.templates).length > 0) {
-              finalAllowed = Object.keys(extra.templates);
-            } else if (extra.default_language) {
-              finalAllowed = [extra.default_language.toLowerCase().trim()];
-            }
-
-            const defaultLang = extra.default_language || (finalAllowed?.[0]) || "java";
-
-            codingProblemsMap[modId].push({
-              id: cp.id,
-              title: cp.title,
-              slug: cp.slug,
-              description: cp.description,
-              difficulty: cp.difficulty,
-              assessment_id: modId,
-              time_limit_ms: cp.time_limit_ms || 2000,
-              memory_limit_kb: (cp.memory_limit_mb || 256) * 1024,
-              templates: extra.templates || {},
-              starter_code: cp.starter_code,
-              sample_test_cases: extra.sample_test_cases || [],
-              test_cases: extra.test_cases || [],
-              example_cases: extra.example_cases || [],
-              constraints: extra.constraints || "",
-              input_format: extra.input_format || "",
-              output_format: extra.output_format || "",
-              points: extra.points || 100,
-              allowed_languages: finalAllowed,
-              allowedLanguages: finalAllowed,
-              default_language: defaultLang,
-              defaultLanguage: defaultLang,
-            });
-          }
-        });
-      }
-    }
-
-    // Fetch student's submissions & attempts
     const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
 
-    const { data: submissions } = await adminClient
-      .from("coding_submissions")
-      .select("problem_id, status, score, max_score, created_at")
-      .or(studentFilter) as any;
+    // Execute problem lookups, submissions, and attempts in parallel to eliminate sequential round-trips
+    const [codingProblemsRes, submissionsRes, attemptsRes, practiceSubsRes] = await Promise.all([
+      allModuleIds.length > 0
+        ? (adminClient
+            .from("coding_problems")
+            .select("id, title, slug, description, difficulty, starter_code, allowed_languages, time_limit_ms, memory_limit_mb") as any)
+        : Promise.resolve({ data: [], error: null }),
+      adminClient
+        .from("coding_submissions")
+        .select("problem_id, status, score, max_score, created_at")
+        .or(studentFilter) as any,
+      adminClient
+        .from("assessment_attempts")
+        .select("id, assessment_id, status, score, total_marks, started_at, submitted_at, answers, created_at")
+        .or(studentFilter)
+        .order("created_at", { ascending: true }) as any,
+      (adminClient
+        .from("student_practice_submissions")
+        .select("module_id, status, score, completed_at")
+        .eq("track_id", trackId)
+        .or(studentFilter) as any)
+        .catch(() => ({ data: [], error: null })),
+    ]);
 
+    let codingProblemsMap: Record<string, any[]> = {};
+    const codingProblems = codingProblemsRes.data;
+    const cpErr = codingProblemsRes.error;
+
+    if (codingProblems && !cpErr) {
+      codingProblems.forEach((cp: any) => {
+        let extra = typeof cp.starter_code === "object" && cp.starter_code !== null ? cp.starter_code : {};
+        if (typeof cp.starter_code === "string") {
+          try {
+            extra = JSON.parse(cp.starter_code);
+          } catch {
+            extra = {};
+          }
+        }
+        const modId = extra.assessment_id || extra.module_id;
+        if (modId && allModuleIds.includes(modId)) {
+          if (!codingProblemsMap[modId]) {
+            codingProblemsMap[modId] = [];
+          }
+
+          const rawAllowed = extra.allowed_languages || extra.allowedLanguages || cp.allowed_languages || (cp as any).allowedLanguages;
+          let finalAllowed: string[] | undefined = undefined;
+          if (Array.isArray(rawAllowed)) {
+            finalAllowed = rawAllowed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+          } else if (typeof rawAllowed === "string" && rawAllowed.trim()) {
+            try {
+              const parsed = JSON.parse(rawAllowed);
+              if (Array.isArray(parsed)) {
+                finalAllowed = parsed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+              } else {
+                finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
+              }
+            } catch {
+              finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
+            }
+          } else if (extra.templates && Object.keys(extra.templates).length > 0) {
+            finalAllowed = Object.keys(extra.templates);
+          } else if (extra.default_language) {
+            finalAllowed = [extra.default_language.toLowerCase().trim()];
+          }
+
+          const defaultLang = extra.default_language || (finalAllowed?.[0]) || "java";
+
+          codingProblemsMap[modId].push({
+            id: cp.id,
+            title: cp.title,
+            slug: cp.slug,
+            description: cp.description,
+            difficulty: cp.difficulty,
+            assessment_id: modId,
+            time_limit_ms: cp.time_limit_ms || 2000,
+            memory_limit_kb: (cp.memory_limit_mb || 256) * 1024,
+            templates: extra.templates || {},
+            starter_code: cp.starter_code,
+            sample_test_cases: extra.sample_test_cases || [],
+            test_cases: extra.test_cases || [],
+            example_cases: extra.example_cases || [],
+            constraints: extra.constraints || "",
+            input_format: extra.input_format || "",
+            output_format: extra.output_format || "",
+            points: extra.points || 100,
+            allowed_languages: finalAllowed,
+            allowedLanguages: finalAllowed,
+            default_language: defaultLang,
+            defaultLanguage: defaultLang,
+          });
+        }
+      });
+    }
+
+    const submissions = submissionsRes.data;
     const completedProblemsMap = new Map<string, any>();
     const attemptedProblemsMap = new Map<string, any>();
     (submissions || []).forEach((sub: any) => {
@@ -244,12 +260,7 @@ export async function GET(
       );
     };
 
-    const { data: attempts } = await adminClient
-      .from("assessment_attempts")
-      .select("id, assessment_id, status, score, total_marks, started_at, submitted_at, answers, created_at")
-      .or(studentFilter)
-      .order("created_at", { ascending: true }) as any;
-
+    const attempts = attemptsRes.data;
     const moduleAttemptsMap = new Map<string, any[]>();
     (attempts || []).forEach((att: any) => {
       if (att.assessment_id) {
@@ -266,22 +277,14 @@ export async function GET(
       }
     });
 
-    // Also query student_practice_submissions
+    const practiceSubs = practiceSubsRes.data;
     const practiceSubMap = new Map<string, any>();
-    try {
-      const { data: practiceSubs } = await adminClient
-        .from("student_practice_submissions")
-        .select("module_id, status, score, completed_at")
-        .eq("track_id", trackId)
-        .or(studentFilter) as any;
-
-      (practiceSubs || []).forEach((ps: any) => {
-        if (ps.module_id) {
-          practiceSubMap.set(ps.module_id, ps);
-          practiceSubMap.set(toDeterministicUUID(ps.module_id), ps);
-        }
-      });
-    } catch {}
+    (practiceSubs || []).forEach((ps: any) => {
+      if (ps.module_id) {
+        practiceSubMap.set(ps.module_id, ps);
+        practiceSubMap.set(toDeterministicUUID(ps.module_id), ps);
+      }
+    });
 
     let totalQuestionsAcrossTrack = 0;
     let completedQuestionsAcrossTrack = 0;

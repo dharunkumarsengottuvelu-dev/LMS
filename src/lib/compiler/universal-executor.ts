@@ -8,6 +8,8 @@ import { getLanguageDefinition, type SourceFileInfo } from "./language-registry"
 import { sanitizeCompilerOutput, type StandardExecutionStatus } from "./comparator";
 import { OnlineCompilerService } from "@/services/online-compiler.service";
 import { adaptCodeForExecution } from "./code-adapter";
+import { ExecutionMetricsTracker, type ExecutionTimings } from "./execution-tracker";
+import { CompilerConcurrencyManager } from "./concurrency-manager";
 
 export interface UniversalExecutionResult {
   stdout: string;
@@ -23,7 +25,11 @@ export interface UniversalExecutionResult {
   memory: number;
   filename: string;
   language: string;
+  stageTimings?: ExecutionTimings;
 }
+
+const MAX_OUTPUT_BYTES = 256 * 1024; // 256 KB max output size
+const COMPILATION_TIMEOUT_MS = 10000; // 10 seconds compilation timeout
 
 function isServerless(): boolean {
   return !!(
@@ -42,9 +48,51 @@ function cleanInputString(s: string): string {
     .replace(/\r\n/g, "\n");
 }
 
+/**
+ * Safely kills a child process and its entire process tree.
+ * On Windows, calls taskkill /F /T /PID to prevent orphan background processes.
+ * On POSIX, sends SIGKILL to the process group.
+ */
+export function killProcessTree(proc: cp.ChildProcess | null | undefined): void {
+  if (!proc || !proc.pid) return;
+  try {
+    if (process.platform === "win32") {
+      cp.exec(`taskkill /F /T /PID ${proc.pid}`, () => {});
+    } else {
+      try {
+        process.kill(-proc.pid, "SIGKILL");
+      } catch {
+        proc.kill("SIGKILL");
+      }
+    }
+  } catch {
+    try {
+      proc.kill();
+    } catch {}
+  }
+}
+
+/**
+ * Detects whether an execution failure was caused by memory exhaustion.
+ */
+function isMemoryError(errStr: string, exitCode?: number | null): boolean {
+  if (exitCode === 137) return true;
+  const lower = (errStr || "").toLowerCase();
+  return (
+    lower.includes("outofmemoryerror") ||
+    lower.includes("heap out of memory") ||
+    lower.includes("memoryerror") ||
+    lower.includes("bad_alloc") ||
+    lower.includes("std::bad_alloc") ||
+    lower.includes("allocation failed") ||
+    lower.includes("fatal error: ineffective mark-compacts")
+  );
+}
+
 export class UniversalExecutor {
   /**
    * Universal entry point for executing any supported programming language.
+   * Manages concurrency, tracking metrics, sandbox isolation, and resource limits.
    */
   public static async execute(
     language: string,
@@ -53,6 +101,9 @@ export class UniversalExecutor {
     timeoutMs?: number,
     version?: string
   ): Promise<UniversalExecutionResult> {
+    const tracker = new ExecutionMetricsTracker(language);
+    tracker.startValidation();
+
     const langDef = getLanguageDefinition(language);
     const cleanStdin = cleanInputString(stdin);
     const effectiveTimeout = timeoutMs || langDef.defaultTimeoutMs;
@@ -60,8 +111,11 @@ export class UniversalExecutor {
 
     // 1. Resolve source filename dynamically
     const sourceInfo: SourceFileInfo = langDef.sourceFilenameStrategy(adaptedCode);
+    tracker.endValidation();
 
     if (sourceInfo.error) {
+      tracker.recordTimeout("VALIDATION");
+      tracker.logSummary("COMPILE_ERROR", sourceInfo.error);
       return {
         stdout: "",
         stderr: sourceInfo.error,
@@ -73,86 +127,117 @@ export class UniversalExecutor {
         memory: 0,
         filename: sourceInfo.filename,
         language: langDef.id,
+        stageTimings: tracker.getMetrics(),
       };
     }
 
     // 2. Serverless environment -> Online Sandbox
     if (isServerless()) {
-      return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
+      tracker.startCompilerSetup();
+      const res = await this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
+      tracker.endCompilerSetup();
+      tracker.endExecution();
+      res.stageTimings = tracker.getMetrics();
+      tracker.logSummary(res.status.description, res.stderr || res.compile_output);
+      return res;
     }
 
-    // 3. Create isolated temporary workspace
-    let tempDir: string | null = null;
-    try {
-      const createdDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "lms_sandbox_"));
-      tempDir = createdDir;
-      const sourcePath = path.join(createdDir, sourceInfo.filename);
-      fs.writeFileSync(sourcePath, adaptedCode, "utf8");
+    // 3. Local Execution with Concurrency Management & Isolation
+    return CompilerConcurrencyManager.runWithConcurrency(
+      tracker.id,
+      (waitMs) => {
+        tracker.startQueueWait();
+        tracker.endQueueWait();
+      },
+      async () => {
+        let tempDir: string | null = null;
+        tracker.startExecution();
 
-      let result: UniversalExecutionResult;
-
-      switch (langDef.id) {
-        case "java":
-          result = await this.executeJava(sourceInfo, createdDir, cleanStdin, effectiveTimeout, version);
-          break;
-        case "python":
-          result = await this.executePython(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
-          break;
-        case "cpp":
-          result = await this.executeCpp(sourceInfo, createdDir, cleanStdin, effectiveTimeout, version);
-          break;
-        case "c":
-          result = await this.executeC(sourceInfo, createdDir, cleanStdin, effectiveTimeout, version);
-          break;
-        case "javascript":
-          result = await this.executeJavaScript(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
-          break;
-        case "typescript":
-          result = await this.executeTypeScript(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
-          break;
-        case "go":
-          result = await this.executeGo(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
-          break;
-        case "rust":
-          result = await this.executeRust(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
-          break;
-        case "php":
-          result = await this.executePhp(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
-          break;
-        case "ruby":
-          result = await this.executeRuby(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
-          break;
-        case "csharp":
-          result = await this.executeCSharp(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
-          break;
-        case "kotlin":
-          result = await this.executeKotlin(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
-          break;
-        case "bash":
-          result = await this.executeBash(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
-          break;
-        case "r":
-        case "lua":
-        case "perl":
-        default:
-          return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
-      }
-
-      // If local execution failed due to missing local compiler binary, seamlessly fallback to Online Sandbox
-      if (result.outcome === 20 || result.status.id === 13) {
-        return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
-      }
-
-      return result;
-    } catch {
-      return this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
-    } finally {
-      if (tempDir) {
         try {
-          fs.rmSync(tempDir, { recursive: true, force: true });
-        } catch {}
+          const createdDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "lms_sandbox_"));
+          tempDir = createdDir;
+          const sourcePath = path.join(createdDir, sourceInfo.filename);
+          fs.writeFileSync(sourcePath, adaptedCode, "utf8");
+
+          let result: UniversalExecutionResult;
+
+          switch (langDef.id) {
+            case "java":
+              result = await this.executeJava(sourceInfo, createdDir, cleanStdin, effectiveTimeout, version);
+              break;
+            case "python":
+              result = await this.executePython(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+              break;
+            case "cpp":
+              result = await this.executeCpp(sourceInfo, createdDir, cleanStdin, effectiveTimeout, version);
+              break;
+            case "c":
+              result = await this.executeC(sourceInfo, createdDir, cleanStdin, effectiveTimeout, version);
+              break;
+            case "javascript":
+              result = await this.executeJavaScript(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+              break;
+            case "typescript":
+              result = await this.executeTypeScript(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+              break;
+            case "go":
+              result = await this.executeGo(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+              break;
+            case "rust":
+              result = await this.executeRust(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+              break;
+            case "php":
+              result = await this.executePhp(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+              break;
+            case "ruby":
+              result = await this.executeRuby(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+              break;
+            case "csharp":
+              result = await this.executeCSharp(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+              break;
+            case "kotlin":
+              result = await this.executeKotlin(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+              break;
+            case "bash":
+              result = await this.executeBash(sourceInfo, createdDir, cleanStdin, effectiveTimeout);
+              break;
+            case "r":
+            case "lua":
+            case "perl":
+            default:
+              result = await this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
+              break;
+          }
+
+          // If local execution failed due to missing local compiler binary (ENOENT), seamlessly fallback to Online Sandbox
+          if (result.outcome === 20 || result.status.id === 13) {
+            result = await this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
+          }
+
+          tracker.endExecution();
+          result.stageTimings = tracker.getMetrics();
+          if (result.status.description === "TIME_LIMIT_EXCEEDED") {
+            tracker.recordTimeout("EXECUTION");
+          }
+          tracker.logSummary(result.status.description, result.stderr || result.compile_output);
+          return result;
+        } catch (err: any) {
+          tracker.startCompilerSetup();
+          const fallbackRes = await this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
+          tracker.endCompilerSetup();
+          tracker.endExecution();
+          fallbackRes.stageTimings = tracker.getMetrics();
+          tracker.logSummary(fallbackRes.status.description, fallbackRes.stderr || fallbackRes.compile_output);
+          return fallbackRes;
+        } finally {
+          if (tempDir) {
+            try {
+              fs.rmSync(tempDir, { recursive: true, force: true });
+            } catch {}
+          }
+        }
       }
-    }
+    );
   }
 
   // ── Language Runners ────────────────────────────────────────────────────────
@@ -185,14 +270,34 @@ export class UniversalExecutor {
     return new Promise((resolve) => {
       const startTime = Date.now();
       const className = sourceInfo.entryClass || "Main";
+      let resolved = false;
+
+      const doResolve = (res: UniversalExecutionResult) => {
+        if (resolved) return;
+        resolved = true;
+        resolve(res);
+      };
 
       // Runs the compiled Java class
       const runJavaProcess = (extraArgs: string[] = []) => {
-        const javaProc = cp.spawn("java", [...extraArgs, "-cp", ".", className], { cwd: tempDir });
+        let javaProc: cp.ChildProcess | null = null;
         let stdout = "";
         let stderr = "";
-        let timedOut = false;
-        const timer = setTimeout(() => { timedOut = true; javaProc.kill(); }, timeoutMs);
+        let stdoutBytes = 0;
+        let timer: NodeJS.Timeout | null = null;
+
+        timer = setTimeout(() => {
+          killProcessTree(javaProc);
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+          doResolve(UniversalExecutor.createTimeoutResult(elapsed, sourceInfo.filename, "java"));
+        }, timeoutMs);
+
+        try {
+          javaProc = cp.spawn("java", [...extraArgs, "-Xmx256m", "-cp", ".", className], { cwd: tempDir });
+        } catch (spawnErr: any) {
+          if (timer) clearTimeout(timer);
+          return doResolve(UniversalExecutor.createInternalError(`java spawn: ${spawnErr.message}`, sourceInfo.filename, "java"));
+        }
 
         if (stdin && javaProc.stdin) {
           javaProc.stdin.write(stdin);
@@ -201,19 +306,34 @@ export class UniversalExecutor {
           javaProc.stdin.end();
         }
 
-        javaProc.stdout?.on("data", (d: any) => { stdout += d.toString(); });
-        javaProc.stderr?.on("data", (d: any) => { stderr += d.toString(); });
+        javaProc.stdout?.on("data", (d: any) => {
+          const len = typeof d === "string" ? Buffer.byteLength(d) : d.length;
+          stdoutBytes += len;
+          if (stdoutBytes > MAX_OUTPUT_BYTES) {
+            killProcessTree(javaProc);
+            if (timer) clearTimeout(timer);
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+            return doResolve(UniversalExecutor.createOutputLimitResult(elapsed, sourceInfo.filename, "java"));
+          }
+          stdout += d.toString();
+        });
+
+        javaProc.stderr?.on("data", (d: any) => {
+          stderr += d.toString();
+        });
 
         javaProc.on("close", (rc: number | null) => {
-          clearTimeout(timer);
+          if (timer) clearTimeout(timer);
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-          if (timedOut) {
-            return resolve(this.createTimeoutResult(elapsed, sourceInfo.filename, "java"));
-          }
           const isOk = rc === 0;
           const sanitizedErr = sanitizeCompilerOutput(stderr, sourceInfo.filename);
+
+          if (isMemoryError(sanitizedErr, rc)) {
+            return doResolve(UniversalExecutor.createMemoryLimitResult(elapsed, sourceInfo.filename, "java"));
+          }
+
           const statusDesc: StandardExecutionStatus = isOk ? "ACCEPTED" : "RUNTIME_ERROR";
-          resolve({
+          doResolve({
             stdout: stdout.trimEnd(),
             stderr: sanitizedErr,
             compile_output: "",
@@ -228,35 +348,57 @@ export class UniversalExecutor {
         });
 
         javaProc.on("error", (err: Error) => {
-          clearTimeout(timer);
-          resolve(this.createInternalError(err.message, sourceInfo.filename, "java"));
+          if (timer) clearTimeout(timer);
+          doResolve(UniversalExecutor.createInternalError(err.message, sourceInfo.filename, "java"));
         });
       };
 
-      // Compiles code with javac; auto-retries with unrestricted or preview flags if necessary
+      // Compiles code with javac with a compilation timeout
       const compileWithJavac = (args: string[], isRetry: boolean = false) => {
-        const javac = cp.spawn("javac", args, { cwd: tempDir });
+        let javac: cp.ChildProcess | null = null;
         let compileErr = "";
+
+        const compTimer = setTimeout(() => {
+          killProcessTree(javac);
+          doResolve({
+            stdout: "",
+            stderr: "Compilation timed out after 10 seconds.",
+            compile_output: "Compilation timed out after 10 seconds.",
+            message: "Compilation Timeout",
+            status: { id: 6, description: "COMPILE_ERROR" },
+            outcome: 11,
+            time: "10.00",
+            memory: 0,
+            filename: sourceInfo.filename,
+            language: "java",
+          });
+        }, COMPILATION_TIMEOUT_MS);
+
+        try {
+          javac = cp.spawn("javac", args, { cwd: tempDir });
+        } catch (jerr: any) {
+          clearTimeout(compTimer);
+          return doResolve(UniversalExecutor.createInternalError(`javac spawn: ${jerr.message}`, sourceInfo.filename, "java"));
+        }
 
         javac.stderr?.on("data", (d: any) => { compileErr += d.toString(); });
         javac.on("close", (cc: number | null) => {
+          clearTimeout(compTimer);
           if (cc === 0) {
             const hasPreview = args.includes("--enable-preview");
             return runJavaProcess(hasPreview ? ["--enable-preview"] : []);
           }
 
-          // If restricted release flag was passed and failed on newer syntax, retry unrestricted
           if (!isRetry && args.includes("--release")) {
             return compileWithJavac([sourceInfo.filename], true);
           }
 
-          // If modern preview features were detected, retry with --enable-preview --release 25
           if (!isRetry && (compileErr.includes("preview feature") || compileErr.includes("--enable-preview"))) {
             return compileWithJavac(["--enable-preview", "--release", "25", sourceInfo.filename], true);
           }
 
           const sanitizedErr = sanitizeCompilerOutput(compileErr, sourceInfo.filename);
-          return resolve({
+          return doResolve({
             stdout: "",
             stderr: sanitizedErr,
             compile_output: sanitizedErr,
@@ -271,11 +413,11 @@ export class UniversalExecutor {
         });
 
         javac.on("error", (err: Error) => {
-          resolve(this.createInternalError(`javac: ${err.message}`, sourceInfo.filename, "java"));
+          clearTimeout(compTimer);
+          doResolve(UniversalExecutor.createInternalError(`javac: ${err.message}`, sourceInfo.filename, "java"));
         });
       };
 
-      // By default compile unconstrained so user code in any Java version (8 to 25) compiles naturally
       compileWithJavac([sourceInfo.filename]);
     });
   }
@@ -288,7 +430,6 @@ export class UniversalExecutor {
   ): Promise<UniversalExecutionResult> {
     const pyCmd = this.resolvePythonCommand();
     const res = await this.executeProcessRunner(pyCmd, [sourceInfo.filename], tempDir, stdin, timeoutMs, sourceInfo.filename, "python", 18000);
-    // If windows app execution alias stub failed with "Python was not found", mark for online fallback
     if (res.stderr && res.stderr.includes("Python was not found")) {
       return { ...res, outcome: 20 };
     }
@@ -450,16 +591,30 @@ export class UniversalExecutor {
   ): Promise<UniversalExecutionResult> {
     return new Promise((resolve) => {
       const startTime = Date.now();
-      const proc = cp.spawn(cmd, args, { cwd });
-
+      let proc: cp.ChildProcess | null = null;
       let stdout = "";
       let stderr = "";
-      let timedOut = false;
+      let stdoutBytes = 0;
+      let resolved = false;
+
+      const doResolve = (res: UniversalExecutionResult) => {
+        if (resolved) return;
+        resolved = true;
+        resolve(res);
+      };
 
       const timer = setTimeout(() => {
-        timedOut = true;
-        proc.kill();
+        killProcessTree(proc);
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+        doResolve(this.createTimeoutResult(elapsed, filename, language));
       }, timeoutMs);
+
+      try {
+        proc = cp.spawn(cmd, args, { cwd });
+      } catch (spawnErr: any) {
+        clearTimeout(timer);
+        return doResolve(this.createInternalError(spawnErr.message, filename, language));
+      }
 
       if (stdin && proc.stdin) {
         proc.stdin.write(stdin);
@@ -468,19 +623,34 @@ export class UniversalExecutor {
         proc.stdin.end();
       }
 
-      proc.stdout?.on("data", (d: any) => { stdout += d.toString(); });
-      proc.stderr?.on("data", (d: any) => { stderr += d.toString(); });
+      proc.stdout?.on("data", (d: any) => {
+        const len = typeof d === "string" ? Buffer.byteLength(d) : d.length;
+        stdoutBytes += len;
+        if (stdoutBytes > MAX_OUTPUT_BYTES) {
+          killProcessTree(proc);
+          clearTimeout(timer);
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+          return doResolve(this.createOutputLimitResult(elapsed, filename, language));
+        }
+        stdout += d.toString();
+      });
+
+      proc.stderr?.on("data", (d: any) => {
+        stderr += d.toString();
+      });
 
       proc.on("close", (code: number | null) => {
         clearTimeout(timer);
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-        if (timedOut) {
-          return resolve(this.createTimeoutResult(elapsed, filename, language));
-        }
         const isOk = code === 0;
         const sanitizedErr = sanitizeCompilerOutput(stderr, filename);
+
+        if (isMemoryError(sanitizedErr, code)) {
+          return doResolve(this.createMemoryLimitResult(elapsed, filename, language));
+        }
+
         const statusDesc: StandardExecutionStatus = isOk ? "ACCEPTED" : "RUNTIME_ERROR";
-        resolve({
+        doResolve({
           stdout: stdout.trimEnd(),
           stderr: sanitizedErr,
           compile_output: "",
@@ -496,7 +666,7 @@ export class UniversalExecutor {
 
       proc.on("error", (err: Error) => {
         clearTimeout(timer);
-        resolve(this.createInternalError(err.message, filename, language));
+        doResolve(this.createInternalError(err.message, filename, language));
       });
     });
   }
@@ -514,14 +684,45 @@ export class UniversalExecutor {
   ): Promise<UniversalExecutionResult> {
     return new Promise((resolve) => {
       const startTime = Date.now();
-      const comp = cp.spawn(compilerCmd, compilerArgs, { cwd });
+      let comp: cp.ChildProcess | null = null;
       let compileErr = "";
+      let resolved = false;
+
+      const doResolve = (res: UniversalExecutionResult) => {
+        if (resolved) return;
+        resolved = true;
+        resolve(res);
+      };
+
+      const compTimer = setTimeout(() => {
+        killProcessTree(comp);
+        doResolve({
+          stdout: "",
+          stderr: `Compilation timed out after ${(COMPILATION_TIMEOUT_MS / 1000).toFixed(0)} seconds.`,
+          compile_output: `Compilation timed out after ${(COMPILATION_TIMEOUT_MS / 1000).toFixed(0)} seconds.`,
+          message: "Compilation Timeout",
+          status: { id: 6, description: "COMPILE_ERROR" },
+          outcome: 11,
+          time: "10.00",
+          memory: 0,
+          filename,
+          language,
+        });
+      }, COMPILATION_TIMEOUT_MS);
+
+      try {
+        comp = cp.spawn(compilerCmd, compilerArgs, { cwd });
+      } catch (cerr: any) {
+        clearTimeout(compTimer);
+        return doResolve(this.createInternalError(`${compilerCmd}: ${cerr.message}`, filename, language));
+      }
 
       comp.stderr?.on("data", (d: any) => { compileErr += d.toString(); });
       comp.on("close", (cc: number | null) => {
+        clearTimeout(compTimer);
         if (cc !== 0) {
           const sanitized = sanitizeCompilerOutput(compileErr, filename);
-          return resolve({
+          return doResolve({
             stdout: "",
             stderr: sanitized,
             compile_output: sanitized,
@@ -536,12 +737,23 @@ export class UniversalExecutor {
         }
 
         const binaryName = executableCmd.startsWith("./") ? executableCmd.slice(2) : executableCmd;
-        const runProc = cp.spawn(path.join(cwd, binaryName), [], { cwd });
-
+        let runProc: cp.ChildProcess | null = null;
         let stdout = "";
         let stderr = "";
-        let timedOut = false;
-        const timer = setTimeout(() => { timedOut = true; runProc.kill(); }, timeoutMs);
+        let stdoutBytes = 0;
+
+        const timer = setTimeout(() => {
+          killProcessTree(runProc);
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+          doResolve(this.createTimeoutResult(elapsed, filename, language));
+        }, timeoutMs);
+
+        try {
+          runProc = cp.spawn(path.join(cwd, binaryName), [], { cwd });
+        } catch (rerr: any) {
+          clearTimeout(timer);
+          return doResolve(this.createInternalError(`run ${binaryName}: ${rerr.message}`, filename, language));
+        }
 
         if (stdin && runProc.stdin) {
           runProc.stdin.write(stdin);
@@ -550,19 +762,34 @@ export class UniversalExecutor {
           runProc.stdin.end();
         }
 
-        runProc.stdout?.on("data", (d: any) => { stdout += d.toString(); });
-        runProc.stderr?.on("data", (d: any) => { stderr += d.toString(); });
+        runProc.stdout?.on("data", (d: any) => {
+          const len = typeof d === "string" ? Buffer.byteLength(d) : d.length;
+          stdoutBytes += len;
+          if (stdoutBytes > MAX_OUTPUT_BYTES) {
+            killProcessTree(runProc);
+            clearTimeout(timer);
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+            return doResolve(this.createOutputLimitResult(elapsed, filename, language));
+          }
+          stdout += d.toString();
+        });
+
+        runProc.stderr?.on("data", (d: any) => {
+          stderr += d.toString();
+        });
 
         runProc.on("close", (rc: number | null) => {
           clearTimeout(timer);
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-          if (timedOut) {
-            return resolve(this.createTimeoutResult(elapsed, filename, language));
-          }
           const isOk = rc === 0;
           const sanitizedErr = sanitizeCompilerOutput(stderr, filename);
+
+          if (isMemoryError(sanitizedErr, rc)) {
+            return doResolve(this.createMemoryLimitResult(elapsed, filename, language));
+          }
+
           const statusDesc: StandardExecutionStatus = isOk ? "ACCEPTED" : "RUNTIME_ERROR";
-          resolve({
+          doResolve({
             stdout: stdout.trimEnd(),
             stderr: sanitizedErr,
             compile_output: "",
@@ -578,12 +805,13 @@ export class UniversalExecutor {
 
         runProc.on("error", (err: Error) => {
           clearTimeout(timer);
-          resolve(this.createInternalError(err.message, filename, language));
+          doResolve(this.createInternalError(err.message, filename, language));
         });
       });
 
       comp.on("error", (err: Error) => {
-        resolve(this.createInternalError(`${compilerCmd}: ${err.message}`, filename, language));
+        clearTimeout(compTimer);
+        doResolve(this.createInternalError(`${compilerCmd}: ${err.message}`, filename, language));
       });
     });
   }
@@ -604,9 +832,13 @@ export class UniversalExecutor {
     const isOk = raw.outcome === 15 || raw.status?.id === 3;
     const isCompileErr = raw.outcome === 11 || raw.status?.id === 6;
     const isTimeout = raw.outcome === 13 || raw.status?.id === 5;
+    const isMemory = raw.outcome === 17 || raw.status?.id === 4 || isMemoryError(sanitizedErr);
+    const isOutputLimit = raw.outcome === 18 || raw.status?.id === 14;
 
     let statusDesc: StandardExecutionStatus = "ACCEPTED";
     if (isTimeout) statusDesc = "TIME_LIMIT_EXCEEDED";
+    else if (isOutputLimit) statusDesc = "OUTPUT_LIMIT_EXCEEDED";
+    else if (isMemory) statusDesc = "MEMORY_LIMIT_EXCEEDED";
     else if (isCompileErr) statusDesc = "COMPILE_ERROR";
     else if (!isOk) statusDesc = "RUNTIME_ERROR";
 
@@ -616,10 +848,10 @@ export class UniversalExecutor {
       compile_output: sanitizedComp,
       message: raw.message || (isOk ? "Accepted" : "Execution Error"),
       status: {
-        id: raw.status?.id || (isOk ? 3 : 7),
+        id: isOutputLimit ? 14 : isMemory ? 4 : isTimeout ? 5 : isCompileErr ? 6 : (raw.status?.id || (isOk ? 3 : 7)),
         description: statusDesc,
       },
-      outcome: raw.outcome || (isOk ? 15 : 12),
+      outcome: isOutputLimit ? 18 : isMemory ? 17 : isTimeout ? 13 : isCompileErr ? 11 : (raw.outcome || (isOk ? 15 : 12)),
       time: raw.time || "0.00",
       memory: raw.memory || 12000,
       filename,
@@ -629,10 +861,10 @@ export class UniversalExecutor {
 
   // ── Error Response Builders ────────────────────────────────────────────────
 
-  private static createTimeoutResult(time: string, filename: string, language: string): UniversalExecutionResult {
+  public static createTimeoutResult(time: string, filename: string, language: string): UniversalExecutionResult {
     return {
       stdout: "",
-      stderr: "Time Limit Exceeded",
+      stderr: "Time Limit Exceeded: Process execution took longer than permitted time limit.",
       compile_output: "",
       message: "Time Limit Exceeded",
       status: { id: 5, description: "TIME_LIMIT_EXCEEDED" },
@@ -644,7 +876,37 @@ export class UniversalExecutor {
     };
   }
 
-  private static createInternalError(errMsg: string, filename: string, language: string): UniversalExecutionResult {
+  public static createOutputLimitResult(time: string, filename: string, language: string): UniversalExecutionResult {
+    return {
+      stdout: "",
+      stderr: "Output Limit Exceeded: Program produced excessive output (exceeded 256 KB limit). Please check for infinite print loops.",
+      compile_output: "",
+      message: "Output Limit Exceeded",
+      status: { id: 14, description: "OUTPUT_LIMIT_EXCEEDED" },
+      outcome: 18,
+      time,
+      memory: 0,
+      filename,
+      language,
+    };
+  }
+
+  public static createMemoryLimitResult(time: string, filename: string, language: string): UniversalExecutionResult {
+    return {
+      stdout: "",
+      stderr: "Memory Limit Exceeded: Process exhausted allowed memory bounds.",
+      compile_output: "",
+      message: "Memory Limit Exceeded",
+      status: { id: 4, description: "MEMORY_LIMIT_EXCEEDED" },
+      outcome: 17,
+      time,
+      memory: 256000,
+      filename,
+      language,
+    };
+  }
+
+  public static createInternalError(errMsg: string, filename: string, language: string): UniversalExecutionResult {
     return {
       stdout: "",
       stderr: sanitizeCompilerOutput(errMsg, filename),

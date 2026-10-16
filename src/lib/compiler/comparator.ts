@@ -9,6 +9,8 @@ export type StandardExecutionStatus =
   | "RUNTIME_ERROR"
   | "TIME_LIMIT_EXCEEDED"
   | "MEMORY_LIMIT_EXCEEDED"
+  | "OUTPUT_LIMIT_EXCEEDED"
+  | "SERVICE_BUSY"
   | "SYSTEM_ERROR"
   | "CANCELLED";
 
@@ -122,7 +124,25 @@ export function resolveStandardStatus(
     return "TIME_LIMIT_EXCEEDED";
   }
 
-  if (outcome === 17) {
+  const combinedError = `${stderr} ${compileOutput}`.toLowerCase();
+
+  if (
+    outcome === 18 ||
+    combinedError.includes("output limit") ||
+    combinedError.includes("file size limit") ||
+    combinedError.includes("output exceeded")
+  ) {
+    return "OUTPUT_LIMIT_EXCEEDED";
+  }
+
+  if (
+    outcome === 17 ||
+    combinedError.includes("memory limit") ||
+    combinedError.includes("out of memory") ||
+    combinedError.includes("heap out of memory") ||
+    combinedError.includes("bad_alloc") ||
+    combinedError.includes("outofmemoryerror")
+  ) {
     return "MEMORY_LIMIT_EXCEEDED";
   }
 
@@ -130,16 +150,31 @@ export function resolveStandardStatus(
     return "COMPILE_ERROR";
   }
 
+  if (
+    combinedError.includes("syntax error") ||
+    combinedError.includes("compilation error") ||
+    combinedError.includes("cannot find symbol")
+  ) {
+    return "COMPILE_ERROR";
+  }
+
+  if (
+    combinedError.includes("service is currently busy") ||
+    combinedError.includes("execution service busy")
+  ) {
+    return "SERVICE_BUSY";
+  }
+
   if (outcome === 12 || (outcome !== 15 && outcome !== 0 && outcome !== undefined)) {
     return "RUNTIME_ERROR";
   }
 
-  const combinedError = `${stderr} ${compileOutput}`.toLowerCase();
-  if (combinedError.includes("syntax error") || combinedError.includes("compilation error") || combinedError.includes("cannot find symbol")) {
-    return "COMPILE_ERROR";
-  }
-
-  if (combinedError.includes("exception in thread") || combinedError.includes("traceback") || combinedError.includes("segmentation fault") || combinedError.includes("panic:")) {
+  if (
+    combinedError.includes("exception in thread") ||
+    combinedError.includes("traceback") ||
+    combinedError.includes("segmentation fault") ||
+    combinedError.includes("panic:")
+  ) {
     return "RUNTIME_ERROR";
   }
 

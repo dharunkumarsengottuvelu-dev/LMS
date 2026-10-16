@@ -68,11 +68,11 @@ async function getStudentData() {
     status: pData?.status || "active",
   };
 
-  // 2. Fetch live data from database with batch authorization (selecting only needed columns)
+  // 2. Fetch live data from database with batch authorization (selecting only needed columns with limits)
   const [coursesRes, tracksRes, testsRes, notificationsRes, codingRes] = await Promise.all([
-    adminClient.from("courses").select("id, slug, title, status, assigned_batches, is_common, tags, created_at").order("created_at", { ascending: false }),
-    adminClient.from("practice_tracks").select("id, title, category, difficulty, description, thumbnail, assigned_by_name, assigned_batches, assigned_students, sub_modules, is_common, status, created_at, tags").order("created_at", { ascending: false }),
-    adminClient.from("assessments").select("id, title, description, duration_minutes, total_marks, passing_marks, status, scheduled_at, assigned_batches, is_common, tags, created_at").order("created_at", { ascending: false }),
+    adminClient.from("courses").select("id, slug, title, status, assigned_batches, is_common, tags, created_at").order("created_at", { ascending: false }).limit(40),
+    adminClient.from("practice_tracks").select("id, title, category, difficulty, description, thumbnail, assigned_by_name, assigned_batches, assigned_students, sub_modules, is_common, status, created_at, tags").order("created_at", { ascending: false }).limit(40),
+    adminClient.from("assessments").select("id, title, description, duration_minutes, total_marks, passing_marks, status, scheduled_at, assigned_batches, is_common, tags, created_at").order("created_at", { ascending: false }).limit(40),
     adminClient.from("notifications").select("id, title, message, type, read, created_at").order("created_at", { ascending: false }).limit(8),
     adminClient.from("coding_problems").select("id, title, slug, difficulty, category, topic_tags, points, created_at, starter_code").order("created_at", { ascending: false }).limit(20),
   ]);

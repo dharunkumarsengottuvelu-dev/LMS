@@ -207,200 +207,211 @@ export async function POST(request: NextRequest) {
     }
 
     const savedResults: any[] = [];
+    const isBulk = problemsList.length > 1;
+    const CHUNK_SIZE = 8;
 
-    for (const problem of problemsList) {
-      if (!problem || !problem.title) continue;
+    for (let chunkIdx = 0; chunkIdx < problemsList.length; chunkIdx += CHUNK_SIZE) {
+      const chunk = problemsList.slice(chunkIdx, chunkIdx + CHUNK_SIZE);
 
-      // Only treat as existing record if it's a real UUID (36-char standard format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-      // Bulk-generated IDs like "problem-two-sum-1234-0" are NOT real UUIDs and must be inserted as new
-      const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const isRealUUID = Boolean(problem.id && UUID_REGEX.test(problem.id));
-      let problemId = isRealUUID ? problem.id : undefined;
+      const chunkResults = await Promise.all(
+        chunk.map(async (problem: any) => {
+          if (!problem || !problem.title) return null;
 
-      // If problemId is not directly a UUID, check if this problem already exists in DB by slug so we UPDATE it instead of creating a duplicate
-      if (!problemId && problem.slug) {
-        const { data: matchSlug } = await supabase
-          .from("coding_problems")
-          .select("id")
-          .eq("slug", problem.slug)
-          .maybeSingle();
-        if (matchSlug?.id) {
-          problemId = matchSlug.id;
-        }
+          // Only treat as existing record if it's a real UUID (36-char standard format)
+          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const isRealUUID = Boolean(problem.id && UUID_REGEX.test(problem.id));
+          let problemId = isRealUUID ? problem.id : undefined;
+
+          // Check if this problem already exists in DB by slug so we UPDATE it instead of creating a duplicate
+          if (!problemId && problem.slug) {
+            const { data: matchSlug } = await supabase
+              .from("coding_problems")
+              .select("id")
+              .eq("slug", problem.slug)
+              .maybeSingle();
+            if (matchSlug?.id) {
+              problemId = matchSlug.id;
+            }
+          }
+
+          const baseSlug = problem.slug || problem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+          const slug = problemId ? (problem.slug || baseSlug) : `${baseSlug}-${Date.now().toString(36)}`;
+
+          const rawTestCases = Array.isArray(problem.test_cases)
+            ? problem.test_cases
+            : Array.isArray((problem as any).testCases)
+            ? (problem as any).testCases
+            : [];
+
+          const allTestCases = rawTestCases.map((tc: any, idx: number) => ({
+            id: tc.id || `tc_${idx + 1}`,
+            name: tc.name || `Test Case ${idx + 1}`,
+            input: tc.input !== undefined && tc.input !== null ? String(tc.input) : (tc.stdin !== undefined && tc.stdin !== null ? String(tc.stdin) : ""),
+            expected_output: tc.expected_output !== undefined && tc.expected_output !== null
+              ? String(tc.expected_output)
+              : (tc.expectedOutput !== undefined && tc.expectedOutput !== null
+                ? String(tc.expectedOutput)
+                : (tc.output !== undefined && tc.output !== null ? String(tc.output) : "")),
+            is_hidden: Boolean(tc.is_hidden || tc.isHidden),
+            weight: tc.weight !== undefined ? Number(tc.weight) : 10,
+          }));
+
+          const sampleTestCases = allTestCases.filter((tc: any) => !tc.is_hidden);
+          const hiddenTestCases = allTestCases.filter((tc: any) => !!tc.is_hidden);
+
+          const problemScope = (problem as any).scope || ((problem as any).module_id || (problem as any).assessment_id ? "practice" : "codelab");
+          const starterCodePayload = {
+            scope: problemScope,
+            module_id: (problem as any).module_id || (problem as any).moduleId || undefined,
+            assessment_id: (problem as any).assessment_id || undefined,
+            templates: problem.templates || {},
+            allowed_languages: problem.allowed_languages || (problem as any).allowedLanguages || undefined,
+            allowedLanguages: problem.allowed_languages || (problem as any).allowedLanguages || undefined,
+            default_language: (problem as any).default_language || undefined,
+            function_signature: problem.function_signature || "",
+            example_cases: problem.example_cases || [],
+            constraints: problem.constraints || "",
+            input_format: problem.input_format || "",
+            output_format: problem.output_format || "",
+            points: problem.points || 100,
+            category: problem.category || (problem as any).type || "Algorithm",
+            type: (problem as any).type || problem.category || "Algorithm",
+            topic_tags: problem.topic_tags || [],
+            max_attempts: problem.max_attempts || 0,
+            start_date: problem.start_date || "",
+            due_date: problem.due_date || "",
+            allow_run: problem.allow_run !== false,
+            allow_submit: problem.allow_submit !== false,
+            is_mandatory: !!problem.is_mandatory,
+            enforce_fullscreen: !!problem.enforce_fullscreen,
+            restrict_copy_paste: !!problem.restrict_copy_paste,
+            restrict_screenshot: !!problem.restrict_screenshot,
+            acceptance_rate: problem.acceptance_rate || undefined,
+            problem_number: (problem as any).problem_number ? Number((problem as any).problem_number) : undefined,
+            test_cases: allTestCases,
+            sample_test_cases: sampleTestCases,
+            hidden_test_cases: hiddenTestCases,
+          };
+
+          const solutionCodePayload = problem.solution_editorial || null;
+          let savedProblem: any = null;
+
+          if (problemId) {
+            const { data, error } = await supabase
+              .from("coding_problems")
+              .upsert([
+                {
+                  id: problemId,
+                  title: problem.title,
+                  slug,
+                  description: problem.description,
+                  difficulty: (problem.difficulty || "easy").toLowerCase(),
+                  tags: problem.topic_tags || [],
+                  time_limit_ms: problem.time_limit_ms || 2000,
+                  memory_limit_mb: problem.memory_limit_mb || 256,
+                  starter_code: starterCodePayload,
+                  solution_code: solutionCodePayload,
+                  status: problem.status || "published",
+                  updated_at: new Date().toISOString(),
+                },
+              ])
+              .select()
+              .single();
+
+            if (!error && data) savedProblem = data;
+          } else {
+            const { data, error } = await supabase
+              .from("coding_problems")
+              .insert([
+                {
+                  title: problem.title,
+                  slug,
+                  description: problem.description,
+                  difficulty: (problem.difficulty || "easy").toLowerCase(),
+                  tags: problem.topic_tags || [],
+                  time_limit_ms: problem.time_limit_ms || 2000,
+                  memory_limit_mb: problem.memory_limit_mb || 256,
+                  starter_code: starterCodePayload,
+                  solution_code: solutionCodePayload,
+                  status: problem.status || "published",
+                },
+              ])
+              .select()
+              .single();
+
+            if (!error && data) savedProblem = data;
+          }
+
+          if (savedProblem && savedProblem.id && allTestCases.length > 0) {
+            await supabase.from("test_cases").delete().eq("problem_id", savedProblem.id);
+            const tcRows = allTestCases.map((tc: any, idx: number) => ({
+              problem_id: savedProblem.id,
+              input: tc.input || "",
+              expected_output: tc.expected_output || "",
+              is_hidden: !!tc.is_hidden,
+              order_index: idx,
+            }));
+            await supabase.from("test_cases").insert(tcRows);
+          }
+
+          // Single item notification only
+          if (!isBulk && savedProblem) {
+            try {
+              const isDraft = (savedProblem?.status || "").toLowerCase() === "draft";
+              const isUpdate = Boolean(problemId);
+              const eventType = isUpdate ? "CODING_PROBLEM_UPDATED" : "CODING_PROBLEM_PUBLISHED";
+              const pTitle = savedProblem?.title || problem.title;
+              const problemTargetUrl = `/coding/problems/${savedProblem?.id || problemId || savedProblem?.slug || "1"}`;
+
+              if (!isDraft) {
+                dispatchLMSEvent({
+                  isCommon: true,
+                  eventType,
+                  name: pTitle,
+                  title: isUpdate ? `Coding Challenge Updated – ${pTitle}` : `New Coding Challenge Available – ${pTitle}`,
+                  category: (problem.topic_tags && problem.topic_tags[0]) || "Algorithms & Problem Solving",
+                  difficulty: savedProblem?.difficulty || problem.difficulty,
+                  resourceType: "problem",
+                  resourceId: savedProblem?.id,
+                  targetUrl: problemTargetUrl,
+                  assignedBy: "SensiLearn Academic Faculty",
+                  changeSummary: isUpdate ? "Problem statements or test suites updated" : undefined,
+                }).catch(() => {});
+              }
+            } catch {}
+          }
+
+          return {
+            ...savedProblem,
+            test_cases: allTestCases,
+            sample_test_cases: sampleTestCases,
+            hidden_test_cases: hiddenTestCases,
+          };
+        })
+      );
+
+      for (const res of chunkResults) {
+        if (res) savedResults.push(res);
       }
+    }
 
-      // Generate a clean slug: preserve exact slug for existing problems, only append timestamp for new inserts
-      const baseSlug = problem.slug || problem.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const slug = problemId ? (problem.slug || baseSlug) : `${baseSlug}-${Date.now().toString(36)}`;
-
-      const rawTestCases = Array.isArray(problem.test_cases)
-        ? problem.test_cases
-        : Array.isArray((problem as any).testCases)
-        ? (problem as any).testCases
-        : [];
-
-      const allTestCases = rawTestCases.map((tc: any, idx: number) => ({
-        id: tc.id || `tc_${idx + 1}`,
-        name: tc.name || `Test Case ${idx + 1}`,
-        input: tc.input !== undefined && tc.input !== null ? String(tc.input) : (tc.stdin !== undefined && tc.stdin !== null ? String(tc.stdin) : ""),
-        expected_output: tc.expected_output !== undefined && tc.expected_output !== null
-          ? String(tc.expected_output)
-          : (tc.expectedOutput !== undefined && tc.expectedOutput !== null
-            ? String(tc.expectedOutput)
-            : (tc.output !== undefined && tc.output !== null ? String(tc.output) : "")),
-        is_hidden: Boolean(tc.is_hidden || tc.isHidden),
-        weight: tc.weight !== undefined ? Number(tc.weight) : 10,
-      }));
-
-      const sampleTestCases = allTestCases.filter((tc: any) => !tc.is_hidden);
-      const hiddenTestCases = allTestCases.filter((tc: any) => !!tc.is_hidden);
-
-      const problemScope = (problem as any).scope || ((problem as any).module_id || (problem as any).assessment_id ? "practice" : "codelab");
-      const starterCodePayload = {
-        scope: problemScope,
-        module_id: (problem as any).module_id || (problem as any).moduleId || undefined,
-        assessment_id: (problem as any).assessment_id || undefined,
-        templates: problem.templates || {},
-        allowed_languages: problem.allowed_languages || (problem as any).allowedLanguages || undefined,
-        allowedLanguages: problem.allowed_languages || (problem as any).allowedLanguages || undefined,
-        default_language: (problem as any).default_language || undefined,
-        function_signature: problem.function_signature || "",
-        example_cases: problem.example_cases || [],
-        constraints: problem.constraints || "",
-        input_format: problem.input_format || "",
-        output_format: problem.output_format || "",
-        points: problem.points || 100,
-        category: problem.category || (problem as any).type || "Algorithm",
-        type: (problem as any).type || problem.category || "Algorithm",
-        topic_tags: problem.topic_tags || [],
-        max_attempts: problem.max_attempts || 0,
-        start_date: problem.start_date || "",
-        due_date: problem.due_date || "",
-        allow_run: problem.allow_run !== false,
-        allow_submit: problem.allow_submit !== false,
-        is_mandatory: !!problem.is_mandatory,
-        enforce_fullscreen: !!problem.enforce_fullscreen,
-        restrict_copy_paste: !!problem.restrict_copy_paste,
-        restrict_screenshot: !!problem.restrict_screenshot,
-        acceptance_rate: problem.acceptance_rate || undefined,
-        problem_number: (problem as any).problem_number ? Number((problem as any).problem_number) : undefined,
-        test_cases: allTestCases,
-        sample_test_cases: sampleTestCases,
-        hidden_test_cases: hiddenTestCases,
-      };
-
-      const solutionCodePayload = problem.solution_editorial || null;
-
-      let savedProblem: any = null;
-
-      if (problemId) {
-        // Upsert existing
-        const { data, error } = await supabase
-          .from("coding_problems")
-          .upsert([
-            {
-              id: problemId,
-              title: problem.title,
-              slug,
-              description: problem.description,
-              difficulty: (problem.difficulty || "easy").toLowerCase(),
-              tags: problem.topic_tags || [],
-              time_limit_ms: problem.time_limit_ms || 2000,
-              memory_limit_mb: problem.memory_limit_mb || 256,
-              starter_code: starterCodePayload,
-              solution_code: solutionCodePayload,
-              status: problem.status || "published",
-              updated_at: new Date().toISOString(),
-            },
-          ])
-          .select()
-          .single();
-
-        if (error) {
-          console.error("Error upserting coding problem:", error);
-          return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-        savedProblem = data;
-      } else {
-        // Insert new
-        const { data, error } = await supabase
-          .from("coding_problems")
-          .insert([
-            {
-              title: problem.title,
-              slug,
-              description: problem.description,
-              difficulty: (problem.difficulty || "easy").toLowerCase(),
-              tags: problem.topic_tags || [],
-              time_limit_ms: problem.time_limit_ms || 2000,
-              memory_limit_mb: problem.memory_limit_mb || 256,
-              starter_code: starterCodePayload,
-              solution_code: solutionCodePayload,
-              status: problem.status || "published",
-            },
-          ])
-          .select()
-          .single();
-
-        if (error) {
-          console.error("Error inserting coding problem:", error);
-          return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-        savedProblem = data;
-      }
-
-      // Synchronize test_cases table
-      if (savedProblem && savedProblem.id && allTestCases.length > 0) {
-        // Delete existing test cases for this problem
-        await supabase.from("test_cases").delete().eq("problem_id", savedProblem.id);
-
-        const tcRows = allTestCases.map((tc: any, idx: number) => ({
-          problem_id: savedProblem.id,
-          input: tc.input || "",
-          expected_output: tc.expected_output || "",
-          is_hidden: !!tc.is_hidden,
-          order_index: idx,
-        }));
-
-        const { error: tcErr } = await supabase.from("test_cases").insert(tcRows);
-        if (tcErr) {
-          console.warn("Test cases insert warning:", tcErr);
-        }
-      }
-
-      savedResults.push({
-        ...savedProblem,
-        test_cases: allTestCases,
-        sample_test_cases: sampleTestCases,
-        hidden_test_cases: hiddenTestCases,
-      });
-
-      // Asynchronously dispatch notification if published
+    // Consolidated single notification for bulk import
+    if (isBulk && savedResults.length > 0) {
       try {
-        const isDraft = (savedProblem?.status || "").toLowerCase() === "draft";
-        const isUpdate = Boolean(problemId);
-        const eventType = isUpdate ? "CODING_PROBLEM_UPDATED" : "CODING_PROBLEM_PUBLISHED";
-        const pTitle = savedProblem?.title || problem.title;
-        const problemTargetUrl = `/coding/problems/${savedProblem?.id || problemId || savedProblem?.slug || "1"}`;
-
-        if (!isDraft) {
-          dispatchLMSEvent({
-            isCommon: true,
-            eventType,
-            name: pTitle,
-            title: isUpdate ? `Coding Challenge Updated – ${pTitle}` : `New Coding Challenge Available – ${pTitle}`,
-            category: (problem.topic_tags && problem.topic_tags[0]) || "Algorithms & Problem Solving",
-            difficulty: savedProblem?.difficulty || problem.difficulty,
-            resourceType: "problem",
-            resourceId: savedProblem?.id,
-            targetUrl: problemTargetUrl,
-            assignedBy: "SensiLearn Academic Faculty",
-            changeSummary: isUpdate ? "Problem statements or test suites updated" : undefined,
-          }).catch((e) => console.warn("Coding problem broadcast notification error:", e));
-        }
-      } catch (notifErr) {
-        console.warn("Notice: Problem notification trigger warning:", notifErr);
-      }
+        dispatchLMSEvent({
+          isCommon: true,
+          eventType: "CODING_PROBLEM_PUBLISHED",
+          name: `${savedResults.length} New Challenges`,
+          title: `New Coding Challenges – ${savedResults.length} Problems Added`,
+          category: "Algorithms & Problem Solving",
+          difficulty: "Multiple",
+          resourceType: "problem",
+          resourceId: savedResults[0]?.id,
+          targetUrl: "/coding/problems",
+          assignedBy: "SensiLearn Academic Faculty",
+          changeSummary: `${savedResults.length} challenges added via curriculum update`,
+        }).catch(() => {});
+      } catch {}
     }
 
     return NextResponse.json({

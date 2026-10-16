@@ -88,13 +88,18 @@ function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parent
 
   const combinedCases = [...publicTestCases, ...hiddenTestCases];
 
-  const starterTemplates: Record<string, string> = {
-    java: starterCodeStr || "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write solution here\n    }\n}\n",
-    python: starterCodeStr || "# Write solution here\nimport sys\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n",
-    cpp: starterCodeStr || "#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write solution here\n    return 0;\n}\n",
-    javascript: starterCodeStr || "// Write solution here\nconst fs = require('fs');\nconst input = fs.readFileSync(0, 'utf-8').trim();\n",
-    c: starterCodeStr || "/* Write solution here */\n#include <stdio.h>\n\nint main() {\n    return 0;\n}\n",
-  };
+  const starterTemplates: Record<string, string> = {};
+  if (starterCodeStr) {
+    const rawLang = String(row.language || row.lang || row.default_language || "").toLowerCase().trim();
+    const matchedLang = CODING_LANGUAGES.find(l => l.id === rawLang || l.name.toLowerCase() === rawLang)?.id || "java";
+    starterTemplates[matchedLang] = starterCodeStr;
+  }
+  CODING_LANGUAGES.forEach(l => {
+    const lVal = row[`${l.id}_starter_code`] ?? row[`${l.id}_starter`] ?? row[`starter_code_${l.id}`];
+    if (lVal !== undefined && String(lVal).trim() !== "") {
+      starterTemplates[l.id] = String(lVal).trim();
+    }
+  });
 
   return {
     id: `cq_${Date.now()}_${parentModuleId}_${qIdx}`,
@@ -901,19 +906,7 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
       templates[targetLang] = String(genStarter).trim();
     }
 
-    // 3. Populate default templates if needed
-    if (Object.keys(templates).length === 0) {
-      if (mode === "single") {
-        templates[singleLang] = CODING_LANGUAGE_STARTERS[singleLang] || CODING_LANGUAGE_STARTERS.python || "";
-      } else {
-        // All / Multi fallback: fill popular compilers
-        CODING_LANGUAGES.forEach(l => {
-          templates[l.id] = CODING_LANGUAGE_STARTERS[l.id] || "";
-        });
-      }
-    }
-
-    // 4. Allowed Languages resolution
+    // 3. Allowed Languages resolution - strictly based on user selection scope
     let allowed_languages: string[] | undefined = undefined;
     if (row.allowed_languages) {
       allowed_languages = String(row.allowed_languages)
@@ -926,16 +919,26 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
       allowed_languages = multiLangs;
     } else if (matchedLang) {
       allowed_languages = [matchedLang];
+    } else if (Object.keys(templates).length > 0) {
+      allowed_languages = Object.keys(templates);
     }
 
-    // Retain only templates for allowed languages if restricted
+    // 4. Retain ONLY starter codes explicitly provided by author - NEVER inject default boilerplate!
+    const prunedTemplates: Record<string, string> = {};
     if (allowed_languages && allowed_languages.length > 0) {
-      const prunedTemplates: Record<string, string> = {};
       allowed_languages.forEach(lId => {
-        prunedTemplates[lId] = templates[lId] || CODING_LANGUAGE_STARTERS[lId] || "";
+        if (templates[lId] && templates[lId].trim()) {
+          prunedTemplates[lId] = templates[lId].trim();
+        }
       });
-      templates = prunedTemplates;
+    } else {
+      Object.entries(templates).forEach(([lId, codeStr]) => {
+        if (codeStr && codeStr.trim()) {
+          prunedTemplates[lId] = codeStr.trim();
+        }
+      });
     }
+    templates = prunedTemplates;
 
     // 5. Default Language resolution
     const default_language =
@@ -1799,669 +1802,7 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
   },
 
   // ─── 4.5. ASSESSMENT SECTION & QUESTIONS TEMPLATE (1 EXAM -> MULTI-SECTIONS -> QUESTIONS) ─
-  assessment_questions: {
-    moduleType: "assessment_questions",
-    displayName: "Assessment Sections & Questions Template",
-    description: "Template for bulk importing questions organized into sections (e.g. Aptitude, Technical, Coding) under an Assessment.",
-    templateFileName: "assessment_sections_and_questions_template.xlsx",
-    groupByField: "sectionName",
-    columns: [
-      {
-        key: "assessmentTitle",
-        label: "Assessment Title",
-        type: "string",
-        required: false,
-        description: "Title of the Assessment exam (e.g. 'Java MNC Assessment'). If left blank, questions will attach to the currently open assessment.",
-        sampleValue: "Java MNC Assessment",
-      },
-      {
-        key: "sectionName",
-        label: "Section Name",
-        type: "string",
-        required: false,
-        defaultValue: "General Assessment",
-        description: "Name of the Section (e.g. 'Aptitude & Logical Reasoning', 'Technical MCQ', 'Programming Fundamentals', 'Coding'). If left blank, automatically categorized based on question type.",
-        sampleValue: "Aptitude & Logical Reasoning",
-      },
-      {
-        key: "title",
-        label: "Question / Problem Statement",
-        type: "string",
-        required: true,
-        description: "The complete question prompt or programming challenge problem statement",
-        sampleValue: "What is the primary difference between JVM and JRE?",
-      },
-      {
-        key: "type",
-        label: "Question Type",
-        type: "enum",
-        required: true,
-        options: ["mcq", "Multiple Choice", "msq", "coding"],
-        description: "Type of question: mcq / Multiple Choice (Single choice), msq (Multiple select), or coding (Live execution)",
-        sampleValue: "mcq",
-      },
-      {
-        key: "marks",
-        label: "Marks / Points",
-        type: "number",
-        required: true,
-        defaultValue: 5,
-        description: "Marks allocated for this question",
-        sampleValue: 5,
-      },
-      {
-        key: "difficulty",
-        label: "Difficulty Level",
-        type: "enum",
-        required: false,
-        options: ["Easy", "Medium", "Hard"],
-        defaultValue: "Easy",
-        description: "Question difficulty rating",
-        sampleValue: "Easy",
-      },
-      {
-        key: "optionA",
-        label: "Option A",
-        type: "string",
-        required: false,
-        description: "MCQ / MSQ Option A text",
-        sampleValue: "JVM executes bytecode; JRE provides libraries + JVM.",
-      },
-      {
-        key: "optionB",
-        label: "Option B",
-        type: "string",
-        required: false,
-        description: "MCQ / MSQ Option B text",
-        sampleValue: "JVM compiles source code; JRE executes binary.",
-      },
-      {
-        key: "optionC",
-        label: "Option C",
-        type: "string",
-        required: false,
-        description: "MCQ / MSQ Option C text",
-        sampleValue: "JVM and JRE are completely identical.",
-      },
-      {
-        key: "optionD",
-        label: "Option D",
-        type: "string",
-        required: false,
-        description: "MCQ / MSQ Option D text",
-        sampleValue: "None of the above.",
-      },
-      {
-        key: "correctOption",
-        label: "Correct Option (A/B/C/D)",
-        type: "string",
-        required: false,
-        description: "For MCQ enter single letter (A, B, C, or D). For MSQ enter comma-separated letters (e.g. A,B).",
-        sampleValue: "A",
-      },
-      {
-        key: "explanation",
-        label: "Explanation",
-        type: "string",
-        required: false,
-        description: "Reasoning and explanation shown in test review",
-        sampleValue: "JVM is the execution runtime; JRE bundles the JVM with class libraries.",
-      },
-      {
-        key: "constraints",
-        label: "Coding Constraints",
-        type: "string",
-        required: false,
-        description: "Execution boundary for coding problems (e.g. '1 <= N <= 10^5')",
-        sampleValue: "1 <= N <= 10^5",
-      },
-      {
-        key: "input_format",
-        label: "Coding Input Format",
-        type: "string",
-        required: false,
-        description: "Expected structure from stdin",
-        sampleValue: "Single line containing integer N",
-      },
-      {
-        key: "output_format",
-        label: "Coding Output Format",
-        type: "string",
-        required: false,
-        description: "Expected printed output to stdout",
-        sampleValue: "Print the computed result",
-      },
-      {
-        key: "testcase_1_input",
-        label: "Test Case 1 Input",
-        type: "string",
-        required: false,
-        description: "First public testcase input for coding problems",
-        sampleValue: "5",
-      },
-      {
-        key: "testcase_1_output",
-        label: "Test Case 1 Expected Output",
-        type: "string",
-        required: false,
-        description: "First public testcase expected output",
-        sampleValue: "120",
-      },
-      {
-        key: "testcase_2_input",
-        label: "Test Case 2 Input",
-        type: "string",
-        required: false,
-        description: "Second public testcase input",
-        sampleValue: "3",
-      },
-      {
-        key: "testcase_2_output",
-        label: "Test Case 2 Expected Output",
-        type: "string",
-        required: false,
-        description: "Second public testcase expected output",
-        sampleValue: "6",
-      },
-      {
-        key: "testcase_3_input",
-        label: "Test Case 3 Input",
-        type: "string",
-        required: false,
-        description: "Third public testcase input",
-        sampleValue: "4",
-      },
-      {
-        key: "testcase_3_output",
-        label: "Test Case 3 Expected Output",
-        type: "string",
-        required: false,
-        description: "Third public testcase expected output",
-        sampleValue: "24",
-      },
-      {
-        key: "testcase_4_input",
-        label: "Test Case 4 Input",
-        type: "string",
-        required: false,
-        description: "Fourth public testcase input",
-        sampleValue: "2",
-      },
-      {
-        key: "testcase_4_output",
-        label: "Test Case 4 Expected Output",
-        type: "string",
-        required: false,
-        description: "Fourth public testcase expected output",
-        sampleValue: "2",
-      },
-      {
-        key: "testcase_5_input",
-        label: "Test Case 5 Input",
-        type: "string",
-        required: false,
-        description: "Fifth public testcase input",
-        sampleValue: "1",
-      },
-      {
-        key: "testcase_5_output",
-        label: "Test Case 5 Expected Output",
-        type: "string",
-        required: false,
-        description: "Fifth public testcase expected output",
-        sampleValue: "1",
-      },
-      {
-        key: "hidden_testcase_input",
-        label: "Hidden Test Case 1 Input",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation testcase 1 to prevent hardcoding",
-        sampleValue: "7",
-      },
-      {
-        key: "hidden_testcase_output",
-        label: "Hidden Test Case 1 Expected Output",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation 1 expected output",
-        sampleValue: "5040",
-      },
-      {
-        key: "hidden_testcase_2_input",
-        label: "Hidden Test Case 2 Input",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation testcase 2",
-        sampleValue: "8",
-      },
-      {
-        key: "hidden_testcase_2_output",
-        label: "Hidden Test Case 2 Expected Output",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation 2 expected output",
-        sampleValue: "40320",
-      },
-      {
-        key: "hidden_testcase_3_input",
-        label: "Hidden Test Case 3 Input",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation testcase 3",
-        sampleValue: "9",
-      },
-      {
-        key: "hidden_testcase_3_output",
-        label: "Hidden Test Case 3 Expected Output",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation 3 expected output",
-        sampleValue: "362880",
-      },
-      {
-        key: "hidden_testcase_4_input",
-        label: "Hidden Test Case 4 Input",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation testcase 4",
-        sampleValue: "10",
-      },
-      {
-        key: "hidden_testcase_4_output",
-        label: "Hidden Test Case 4 Expected Output",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation 4 expected output",
-        sampleValue: "3628800",
-      },
-      {
-        key: "hidden_testcase_5_input",
-        label: "Hidden Test Case 5 Input",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation testcase 5",
-        sampleValue: "0",
-      },
-      {
-        key: "hidden_testcase_5_output",
-        label: "Hidden Test Case 5 Expected Output",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation 5 expected output",
-        sampleValue: "1",
-      },
-      {
-        key: "starterCode",
-        label: "Starter Boilerplate Code",
-        type: "string",
-        required: false,
-        description: "Pre-filled code template for students",
-        sampleValue: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n    }\n}",
-      }
-    ],
-    sampleRows: [
-      // Section 1: Aptitude & Logical Reasoning (MCQs)
-      {
-        assessmentTitle: "Java MNC Assessment",
-        sectionName: "Aptitude & Logical Reasoning",
-        title: "Find the missing number in series: 2, 6, 12, 20, 30, ?",
-        type: "mcq",
-        marks: 2,
-        difficulty: "Easy",
-        optionA: "36",
-        optionB: "40",
-        optionC: "42",
-        optionD: "46",
-        correctOption: "C",
-        explanation: "The differences are +4, +6, +8, +10, +12. 30 + 12 = 42."
-      },
-      {
-        assessmentTitle: "Java MNC Assessment",
-        sectionName: "Aptitude & Logical Reasoning",
-        title: "A train running at 60 km/hr crosses a pole in 9 seconds. What is the length of the train?",
-        type: "mcq",
-        marks: 2,
-        difficulty: "Easy",
-        optionA: "120 meters",
-        optionB: "150 meters",
-        optionC: "180 meters",
-        optionD: "200 meters",
-        correctOption: "B",
-        explanation: "Speed = 60 * (5/18) = 50/3 m/s. Length = (50/3) * 9 = 150 meters."
-      },
-      {
-        assessmentTitle: "Java MNC Assessment",
-        sectionName: "Aptitude & Logical Reasoning",
-        title: "If 12 men can complete a job in 8 days, how many days will 16 men take?",
-        type: "mcq",
-        marks: 2,
-        difficulty: "Easy",
-        optionA: "4 days",
-        optionB: "6 days",
-        optionC: "8 days",
-        optionD: "10 days",
-        correctOption: "B",
-        explanation: "M1 * D1 = M2 * D2 => 12 * 8 = 16 * D2 => D2 = 6 days."
-      },
-
-      // Section 2: Programming Fundamentals & OOP (MCQs)
-      {
-        assessmentTitle: "Java MNC Assessment",
-        sectionName: "Programming Fundamentals",
-        title: "Which of the following is NOT an access modifier in Java?",
-        type: "mcq",
-        marks: 2,
-        difficulty: "Easy",
-        optionA: "private",
-        optionB: "protected",
-        optionC: "internal",
-        optionD: "public",
-        correctOption: "C",
-        explanation: "'internal' is a C# keyword, not supported in Java."
-      },
-      {
-        assessmentTitle: "Java MNC Assessment",
-        sectionName: "Programming Fundamentals",
-        title: "What is the return type of hashCode() method in java.lang.Object?",
-        type: "mcq",
-        marks: 2,
-        difficulty: "Easy",
-        optionA: "int",
-        optionB: "long",
-        optionC: "String",
-        optionD: "void",
-        correctOption: "A",
-        explanation: "hashCode() returns a 32-bit signed primitive integer."
-      },
-
-      // Section 3: Technical MCQ (MCQ & MSQ)
-      {
-        assessmentTitle: "Java MNC Assessment",
-        sectionName: "Technical MCQ",
-        title: "Which Java collection preserves insertion order and permits null values?",
-        type: "mcq",
-        marks: 2,
-        difficulty: "Medium",
-        optionA: "HashSet",
-        optionB: "TreeSet",
-        optionC: "LinkedHashSet",
-        optionD: "PriorityQueue",
-        correctOption: "C",
-        explanation: "LinkedHashSet maintains a doubly-linked list running across its elements preserving insertion order."
-      },
-      {
-        assessmentTitle: "Java MNC Assessment",
-        sectionName: "Technical MCQ",
-        title: "Which of the following are checked exceptions in Java? (MSQ)",
-        type: "msq",
-        marks: 3,
-        difficulty: "Medium",
-        optionA: "IOException",
-        optionB: "SQLException",
-        optionC: "NullPointerException",
-        optionD: "ArithmeticException",
-        correctOption: "A,B",
-        explanation: "IOException and SQLException are checked exceptions; NullPointerException and ArithmeticException are RuntimeExceptions."
-      },
-
-      // Section 4: Coding (Algorithmic challenges with test cases)
-      {
-        assessmentTitle: "Java MNC Assessment",
-        sectionName: "Coding",
-        title: "Reverse a String",
-        type: "coding",
-        marks: 10,
-        difficulty: "Easy",
-        constraints: "1 <= string.length <= 10^5",
-        input_format: "Single line containing string S",
-        output_format: "Reversed string",
-        testcase_1_input: "hello",
-        testcase_1_output: "olleh",
-        testcase_2_input: "world",
-        testcase_2_output: "dlrow",
-        hidden_testcase_input: "enterprise",
-        hidden_testcase_output: "esirpretne",
-        starterCode: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        String s = sc.nextLine();\n        System.out.println(new StringBuilder(s).reverse().toString());\n    }\n}"
-      },
-      {
-        assessmentTitle: "Java MNC Assessment",
-        sectionName: "Coding",
-        title: "Check Balanced Parentheses",
-        type: "coding",
-        marks: 10,
-        difficulty: "Medium",
-        constraints: "1 <= string.length <= 10^4",
-        input_format: "A string containing brackets '()[]{}'",
-        output_format: "Print 'true' if balanced, else 'false'",
-        testcase_1_input: "{[()]}",
-        testcase_1_output: "true",
-        testcase_2_input: "{[(])}",
-        testcase_2_output: "false",
-        hidden_testcase_input: "((()))",
-        hidden_testcase_output: "true",
-        starterCode: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write solution here\n    }\n}"
-      }
-    ],
-    mapToPayload: (row, idx) => {
-      const rawQType = String(row.type || "mcq").toLowerCase().trim();
-      const cleanQType = rawQType.replace(/[\s_-]+/g, "");
-      const isCoding = cleanQType === "coding" || cleanQType === "code" || cleanQType === "programming";
-      const isMsq = cleanQType === "msq" || cleanQType === "multipleselect" || cleanQType === "multiselect" || cleanQType === "multiple";
-      const qType = isCoding ? "coding" : isMsq ? "msq" : "mcq";
-      let secName = String(row.sectionName || row.section || "").trim();
-
-      // Ensure coding is always isolated into its own dedicated coding section
-      if (isCoding) {
-        if (!secName || (!secName.toLowerCase().includes("code") && !secName.toLowerCase().includes("programming"))) {
-          secName = "Coding Challenges";
-        }
-      } else {
-        if (secName.toLowerCase().includes("code") || secName.toLowerCase().includes("programming") || !secName) {
-          secName = "Multiple Choice Questions";
-        }
-      }
-
-      const marks = Number(row.marks) || (qType === "coding" ? 10 : 2);
-
-      const rawCorrect = String(row.correctOption || "A").trim().toUpperCase();
-      const correctParts = rawCorrect.split(/[,;\s]+/).map((s) => s.trim());
-
-      const options = [
-        { id: 1, text: String(row.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") || rawCorrect === "A" },
-        { id: 2, text: String(row.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") || rawCorrect === "B" },
-        { id: 3, text: String(row.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") || rawCorrect === "C" },
-        { id: 4, text: String(row.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") || rawCorrect === "D" },
-      ];
-
-      const testCases: any[] = [];
-      if (qType === "coding") {
-        for (let i = 1; i <= 10; i++) {
-          const inp = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`];
-          const out = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`];
-          const trimmedInp = String(inp || "").trim();
-          const trimmedOut = String(out || "").trim();
-          if (trimmedInp !== "" || trimmedOut !== "") {
-            testCases.push({
-              id: testCases.length + 1,
-              input: trimmedInp,
-              output: trimmedOut,
-              isHidden: false,
-            });
-          }
-        }
-        for (let h = 1; h <= 10; h++) {
-          const hIn = h === 1
-            ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input)
-            : row[`hidden_testcase_${h}_input`];
-          const hOut = h === 1
-            ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output)
-            : row[`hidden_testcase_${h}_output`];
-          const trimmedHIn = String(hIn || "").trim();
-          const trimmedHOut = String(hOut || "").trim();
-          if (trimmedHIn !== "" || trimmedHOut !== "") {
-            testCases.push({
-              id: testCases.length + 1,
-              input: trimmedHIn,
-              output: trimmedHOut,
-              isHidden: true,
-            });
-          }
-        }
-      }
-
-      return {
-        id: `q_bulk_${Date.now()}_${idx}`,
-        assessmentTitle: String(row.assessmentTitle || "").trim(),
-        section: secName,
-        title: String(row.title || `Question ${idx + 1}`).trim(),
-        type: qType,
-        marks,
-        difficulty: row.difficulty || "Easy",
-        problemStatement: String(row.description || row.problemStatement || row.prompt || row.title || "").trim(),
-        description: String(row.description || row.problemStatement || row.prompt || "").trim(),
-        options: qType !== "coding" ? options : undefined,
-        testCases: qType === "coding" ? (testCases.length > 0 ? testCases : undefined) : undefined,
-        explanation: String(row.explanation || "").trim(),
-        constraints: qType === "coding" ? String(row.constraints || "").trim() : undefined,
-        inputFormat: qType === "coding" ? String(row.input_format || "").trim() : undefined,
-        outputFormat: qType === "coding" ? String(row.output_format || "").trim() : undefined,
-        starterCode: qType === "coding" ? String(row.starterCode || "").trim() : undefined,
-      };
-    },
-    mapGroupedPayload: (grouped, indexOffset = 0) => {
-      const resultSections: any[] = [];
-
-      grouped.forEach((group, gIdx) => {
-        const rawSecName = String(group.groupKey || `Section ${indexOffset + gIdx + 1}`).trim();
-        const rows = group.rows || [];
-
-        // Split rows into coding and non-coding groups so coding always has its own section
-        const nonCodingRows: any[] = [];
-        const codingRows: any[] = [];
-
-        rows.forEach((r) => {
-          const rawQType = String(r.type || "mcq").toLowerCase().trim();
-          const cleanQType = rawQType.replace(/[\s_-]+/g, "");
-          const isCoding = cleanQType === "coding" || cleanQType === "code" || cleanQType === "programming";
-          if (isCoding) {
-            codingRows.push(r);
-          } else {
-            nonCodingRows.push(r);
-          }
-        });
-
-        const processRowToQuestion = (r: any, assignedSection: string, qIdx: number) => {
-          const rawQType = String(r.type || "mcq").toLowerCase().trim();
-          const cleanQType = rawQType.replace(/[\s_-]+/g, "");
-          const isCoding = cleanQType === "coding" || cleanQType === "code" || cleanQType === "programming";
-          const isMsq = cleanQType === "msq" || cleanQType === "multipleselect" || cleanQType === "multiselect" || cleanQType === "multiple";
-          const qType = isCoding ? "coding" : isMsq ? "msq" : "mcq";
-          const marks = Number(r.marks) || (qType === "coding" ? 10 : 2);
-          const rawCorrect = String(r.correctOption || "A").trim().toUpperCase();
-          const correctParts = rawCorrect.split(/[,;\s]+/).map((s) => s.trim());
-
-          const options = [
-            { id: 1, text: String(r.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") || rawCorrect === "A" },
-            { id: 2, text: String(r.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") || rawCorrect === "B" },
-            { id: 3, text: String(r.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") || rawCorrect === "C" },
-            { id: 4, text: String(r.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") || rawCorrect === "D" },
-          ];
-
-          const testCases: any[] = [];
-          if (qType === "coding") {
-            for (let i = 1; i <= 10; i++) {
-              const inp = r[`testcase_${i}_input`] ?? r[`test_case_${i}_input`];
-              const out = r[`testcase_${i}_output`] ?? r[`test_case_${i}_output`];
-              const trimmedInp = String(inp || "").trim();
-              const trimmedOut = String(out || "").trim();
-              if (trimmedInp !== "" || trimmedOut !== "") {
-                testCases.push({
-                  id: testCases.length + 1,
-                  input: trimmedInp,
-                  output: trimmedOut,
-                  isHidden: false,
-                });
-              }
-            }
-            for (let h = 1; h <= 10; h++) {
-              const hIn = h === 1
-                ? (r.hidden_testcase_input ?? r.hidden_testcase_1_input)
-                : r[`hidden_testcase_${h}_input`];
-              const hOut = h === 1
-                ? (r.hidden_testcase_output ?? r.hidden_testcase_1_output)
-                : r[`hidden_testcase_${h}_output`];
-              const trimmedHIn = String(hIn || "").trim();
-              const trimmedHOut = String(hOut || "").trim();
-              if (trimmedHIn !== "" || trimmedHOut !== "") {
-                testCases.push({
-                  id: testCases.length + 1,
-                  input: trimmedHIn,
-                  output: trimmedHOut,
-                  isHidden: true,
-                });
-              }
-            }
-          }
-
-          return {
-            id: `q_bulk_${Date.now()}_${gIdx}_${qIdx}`,
-            assessmentTitle: String(r.assessmentTitle || "").trim(),
-            section: assignedSection,
-            title: String(r.title || `Question ${qIdx + 1}`).trim(),
-            type: qType,
-            marks,
-            difficulty: r.difficulty || "Easy",
-            problemStatement: String(r.description || r.problemStatement || r.prompt || r.title || "").trim(),
-            description: String(r.description || r.problemStatement || r.prompt || "").trim(),
-            options: qType !== "coding" ? options : undefined,
-            testCases: qType === "coding" ? (testCases.length > 0 ? testCases : undefined) : undefined,
-            explanation: String(r.explanation || "").trim(),
-            constraints: qType === "coding" ? String(r.constraints || "").trim() : undefined,
-            inputFormat: qType === "coding" ? String(r.input_format || "").trim() : undefined,
-            outputFormat: qType === "coding" ? String(r.output_format || "").trim() : undefined,
-            starterCode: qType === "coding" ? String(r.starterCode || "").trim() : undefined,
-          };
-        };
-
-        if (nonCodingRows.length > 0) {
-          let nonCodingSec = rawSecName;
-          if (nonCodingSec.toLowerCase().includes("code") || nonCodingSec.toLowerCase().includes("programming")) {
-            nonCodingSec = "Multiple Choice Questions";
-          }
-          const questions = nonCodingRows.map((r, qIdx) => processRowToQuestion(r, nonCodingSec, qIdx));
-          const totalSectionMarks = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
-          resultSections.push({
-            sectionName: nonCodingSec,
-            title: nonCodingSec,
-            questions,
-            questionCount: questions.length,
-            totalMarks: totalSectionMarks,
-            assessmentTitle: rows[0]?.assessmentTitle ? String(rows[0].assessmentTitle).trim() : undefined,
-          });
-        }
-
-        if (codingRows.length > 0) {
-          let codingSec = rawSecName;
-          if (!codingSec.toLowerCase().includes("code") && !codingSec.toLowerCase().includes("programming")) {
-            codingSec = "Coding Challenges";
-          }
-          const questions = codingRows.map((r, qIdx) => processRowToQuestion(r, codingSec, qIdx));
-          const totalSectionMarks = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
-          resultSections.push({
-            sectionName: codingSec,
-            title: codingSec,
-            questions,
-            questionCount: questions.length,
-            totalMarks: totalSectionMarks,
-            assessmentTitle: rows[0]?.assessmentTitle ? String(rows[0].assessmentTitle).trim() : undefined,
-          });
-        }
-      });
-
-      return resultSections;
-    }
-  },
+  assessment_questions: getAssessmentQuestionsTemplateConfig(),
 
   // ─── 4.6. ASSESSMENT MCQ & MULTI-SELECT TEMPLATE (SECTIONS -> MCQ / MSQ) ───
   assessment_mcq: {
@@ -3633,282 +2974,404 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
   },
 
   // ─── 11. MIXED QUESTIONS (MCQ + CODING) TEMPLATE FOR PRACTICE MODULES ────
-  mixed_questions: {
-    moduleType: "mixed_questions",
-    displayName: "Mixed Questions (MCQ + Coding) Template",
-    description: "Template for bulk uploading both Multiple Choice Questions and interactive Coding challenges into a single module.",
-    templateFileName: "module_mixed_questions_template.csv",
-    columns: [
+  mixed_questions: getMixedQuestionsTemplateConfig(),
+};
+
+// ─── 11. MIXED QUESTIONS (MCQ + CODING) TEMPLATE DYNAMIC GENERATOR ─────────
+export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions): ModuleTemplateConfig {
+  const mode = options?.languageMode || "all";
+  const singleLang = options?.selectedSingleLanguage || "python";
+  const singleLangDef: CodingLanguageDef = CODING_LANGUAGES.find(l => l.id === singleLang) || CODING_LANGUAGES[0]!;
+  const multiLangs = options?.selectedMultiLanguages && options.selectedMultiLanguages.length > 0
+    ? options.selectedMultiLanguages
+    : ["python", "java", "cpp"];
+
+  let templateFileName = "module_mixed_questions_template.csv";
+  let displayName = "Mixed Questions (MCQ + Coding) Template";
+  let description = "Template for bulk uploading both Multiple Choice Questions and interactive Coding challenges into a single module.";
+
+  let languageColumns: ColumnDefinition[] = [];
+
+  if (mode === "single") {
+    templateFileName = `module_mixed_questions_${singleLang}_template.xlsx`;
+    displayName = `Mixed Questions Template (Single Language: ${singleLangDef.name})`;
+    description = `Combined template for Multiple Choice Questions and Coding problems strictly locked to ${singleLangDef.name}.`;
+
+    languageColumns = [
       {
-        key: "type",
-        label: "Question Type",
+        key: "language",
+        label: "Coding Language",
         type: "enum",
-        required: true,
-        options: ["MCQ", "Multiple Choice", "MSQ", "Coding"],
-        defaultValue: "MCQ",
-        description: "Specify whether this row is an 'MCQ' / 'Multiple Choice', 'MSQ', or 'Coding' challenge",
-        sampleValue: "MCQ",
-      },
-      {
-        key: "title",
-        label: "Question Title / Prompt",
-        type: "string",
-        required: true,
-        description: "Question prompt for MCQ, or challenge title for Coding problems",
-        sampleValue: "Which keyword prevents method overriding in Java?",
-      },
-      {
-        key: "difficulty",
-        label: "Difficulty",
-        type: "enum",
         required: false,
-        options: ["Easy", "Medium", "Hard"],
-        defaultValue: "Easy",
-        description: "Difficulty level: Easy, Medium, or Hard",
-        sampleValue: "Easy",
+        defaultValue: singleLangDef.name,
+        options: CODING_LANGUAGES.map(l => l.name),
+        description: `Single locked programming language for coding challenges: ${singleLangDef.name}`,
+        sampleValue: singleLangDef.name,
       },
       {
-        key: "marks",
-        label: "Marks / Points",
-        type: "number",
-        required: false,
-        defaultValue: 10,
-        description: "Score marks awarded for this question",
-        sampleValue: 10,
-      },
-      // MCQ-specific columns
-      {
-        key: "optionA",
-        label: "Option A (MCQ)",
+        key: "starterCode",
+        label: `Starter Code (${singleLangDef.name})`,
         type: "string",
         required: false,
-        description: "Option A choice text (MCQ only)",
-        sampleValue: "static",
+        description: `Starter boilerplate code provided to learners in ${singleLangDef.name} (Coding challenges only)`,
+        sampleValue: CODING_LANGUAGE_STARTERS[singleLang] || CODING_LANGUAGE_STARTERS.python,
       },
       {
-        key: "optionB",
-        label: "Option B (MCQ)",
+        key: "allowed_languages",
+        label: "Allowed Languages (Coding)",
         type: "string",
         required: false,
-        description: "Option B choice text (MCQ only)",
-        sampleValue: "final",
+        defaultValue: singleLangDef.id,
+        description: `Strictly locked compiler ID for this problem (${singleLangDef.id})`,
+        sampleValue: singleLangDef.id,
+      },
+    ];
+  } else if (mode === "multi") {
+    templateFileName = "module_mixed_questions_multi_language_template.xlsx";
+    const selectedNames = multiLangs.map(id => CODING_LANGUAGES.find(l => l.id === id)?.name || id.toUpperCase());
+    displayName = `Mixed Questions Template (Multi Language: ${selectedNames.join(", ")})`;
+    description = `Combined template for MCQ and Coding challenges enabled across: ${selectedNames.join(", ")}.`;
+
+    languageColumns = [
+      {
+        key: "allowed_languages",
+        label: "Allowed Languages (Coding)",
+        type: "string",
+        required: false,
+        defaultValue: multiLangs.join(", "),
+        description: `Comma-separated list of enabled compilers for coding challenges: ${multiLangs.join(", ")}`,
+        sampleValue: multiLangs.join(", "),
       },
       {
-        key: "optionC",
-        label: "Option C (MCQ)",
+        key: "starterCode",
+        label: "Starter Code (Default / Fallback)",
         type: "string",
         required: false,
-        description: "Option C choice text (MCQ only)",
-        sampleValue: "abstract",
+        description: "Default starter code boilerplate for coding questions",
+        sampleValue: CODING_LANGUAGE_STARTERS[multiLangs[0] || "python"] || CODING_LANGUAGE_STARTERS.python,
       },
+      ...multiLangs.map(lId => {
+        const lDef = CODING_LANGUAGES.find(l => l.id === lId) || { id: lId, name: lId.toUpperCase() };
+        return {
+          key: `${lId}_starter_code`,
+          label: `Starter Code (${lDef.name})`,
+          type: "string" as ColumnType,
+          required: false,
+          description: `Optional dedicated starter code template for ${lDef.name}`,
+          sampleValue: CODING_LANGUAGE_STARTERS[lId] || "",
+        };
+      }),
+    ];
+  } else {
+    languageColumns = [
       {
-        key: "optionD",
-        label: "Option D (MCQ)",
+        key: "allowed_languages",
+        label: "Allowed Languages (Coding, optional)",
         type: "string",
         required: false,
-        description: "Option D choice text (MCQ only)",
-        sampleValue: "synchronized",
-      },
-      {
-        key: "correctOption",
-        label: "Correct Option (A, B, C, or D)",
-        type: "string",
-        required: false,
-        description: "Correct answer choice: A, B, C, or D (MCQ only)",
-        sampleValue: "B",
-      },
-      {
-        key: "explanation",
-        label: "Explanation (MCQ)",
-        type: "string",
-        required: false,
-        description: "Detailed solution explanation (MCQ only)",
-        sampleValue: "Marking a method with 'final' in Java forbids subclasses from overriding it.",
-      },
-      // Coding-specific columns
-      {
-        key: "description",
-        label: "Problem Description (Coding)",
-        type: "string",
-        required: false,
-        description: "Problem statement and instructions for Coding problems",
-        sampleValue: "Given an array of integers nums and an integer target, return indices of the two numbers that add up to target.",
-      },
-      {
-        key: "constraints",
-        label: "Constraints (Coding)",
-        type: "string",
-        required: false,
-        description: "Input range and constraints (Coding only)",
-        sampleValue: "2 <= nums.length <= 10^4",
-      },
-      {
-        key: "input_format",
-        label: "Input Format (Coding)",
-        type: "string",
-        required: false,
-        description: "Input format received via stdin (Coding only)",
-        sampleValue: "Line 1: space-separated integers for nums. Line 2: target integer.",
-      },
-      {
-        key: "output_format",
-        label: "Output Format (Coding)",
-        type: "string",
-        required: false,
-        description: "Expected stdout structure (Coding only)",
-        sampleValue: "Print two 0-indexed positions separated by a space.",
+        description: "Optional comma-separated list of allowed compilers for this question (e.g. 'python, java')",
+        sampleValue: "python, java, cpp",
       },
       {
         key: "starterCode",
         label: "Starter Code (Coding)",
         type: "string",
         required: false,
-        description: "Starter boilerplate code for learners (Coding only)",
-        sampleValue: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n    }\n}",
+        description: "Starter boilerplate code for learners (Coding challenges only)",
+        sampleValue: CODING_LANGUAGE_STARTERS.java,
       },
-      {
-        key: "testcase_1_input",
-        label: "Test Case 1 Input (Coding)",
-        type: "string",
-        required: false,
-        description: "Public testcase 1 input (Coding only)",
-        sampleValue: "2 7 11 15\n9",
-      },
-      {
-        key: "testcase_1_output",
-        label: "Test Case 1 Expected Output (Coding)",
-        type: "string",
-        required: false,
-        description: "Public testcase 1 expected output (Coding only)",
-        sampleValue: "0 1",
-      },
-      {
-        key: "testcase_2_input",
-        label: "Test Case 2 Input (Coding)",
-        type: "string",
-        required: false,
-        description: "Public testcase 2 input (Coding only)",
-        sampleValue: "3 2 4\n6",
-      },
-      {
-        key: "testcase_2_output",
-        label: "Test Case 2 Expected Output (Coding)",
-        type: "string",
-        required: false,
-        description: "Public testcase 2 expected output (Coding only)",
-        sampleValue: "1 2",
-      },
-      {
-        key: "hidden_testcase_input",
-        label: "Hidden Test Case 1 Input (Coding)",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation input (Coding only)",
-        sampleValue: "3 3\n6",
-      },
-      {
-        key: "hidden_testcase_output",
-        label: "Hidden Test Case 1 Expected Output (Coding)",
-        type: "string",
-        required: false,
-        description: "Hidden evaluation expected output (Coding only)",
-        sampleValue: "0 1",
-      },
-    ],
-    sampleRows: [
-      {
-        type: "MCQ",
-        title: "Which keyword prevents method overriding in Java?",
-        difficulty: "Easy",
-        marks: 10,
-        optionA: "static",
-        optionB: "final",
-        optionC: "abstract",
-        optionD: "synchronized",
-        correctOption: "B",
-        explanation: "Marking a method with 'final' in Java forbids subclasses from overriding it.",
-        description: "",
-        constraints: "",
-        input_format: "",
-        output_format: "",
-        starterCode: "",
-        testcase_1_input: "",
-        testcase_1_output: "",
-        testcase_2_input: "",
-        testcase_2_output: "",
-        hidden_testcase_input: "",
-        hidden_testcase_output: "",
-      },
-      {
-        type: "MCQ",
-        title: "What is the average time complexity of lookup in a HashMap in Java?",
-        difficulty: "Medium",
-        marks: 10,
-        optionA: "O(1)",
-        optionB: "O(log n)",
-        optionC: "O(n)",
-        optionD: "O(n log n)",
-        correctOption: "A",
-        explanation: "Assuming a proper hash distribution, HashMap provides O(1) average lookup time.",
-        description: "",
-        constraints: "",
-        input_format: "",
-        output_format: "",
-        starterCode: "",
-        testcase_1_input: "",
-        testcase_1_output: "",
-        testcase_2_input: "",
-        testcase_2_output: "",
-        hidden_testcase_input: "",
-        hidden_testcase_output: "",
-      },
-      {
-        type: "Coding",
-        title: "Two Sum Problem",
-        difficulty: "Easy",
-        marks: 10,
-        optionA: "",
-        optionB: "",
-        optionC: "",
-        optionD: "",
-        correctOption: "",
-        explanation: "",
-        description: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
-        constraints: "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9",
-        input_format: "Line 1: space separated integers for nums\nLine 2: target integer",
-        output_format: "Print two 0-based indices separated by space",
-        starterCode: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // Write solution here\n    }\n}",
-        testcase_1_input: "2 7 11 15\n9",
-        testcase_1_output: "0 1",
-        testcase_2_input: "3 2 4\n6",
-        testcase_2_output: "1 2",
-        hidden_testcase_input: "3 3\n6",
-        hidden_testcase_output: "0 1",
-      },
-      {
-        type: "Coding",
-        title: "Check Even or Odd",
-        difficulty: "Easy",
-        marks: 10,
-        optionA: "",
-        optionB: "",
-        optionC: "",
-        optionD: "",
-        correctOption: "",
-        explanation: "",
-        description: "Given an integer n, print 'Even' if it is divisible by 2, otherwise print 'Odd'.",
-        constraints: "-10^9 <= n <= 10^9",
-        input_format: "A single integer n",
-        output_format: "Print 'Even' or 'Odd'",
-        starterCode: "/* Write C code here */\n#include <stdio.h>\n\nint main() {\n    return 0;\n}",
-        testcase_1_input: "4",
-        testcase_1_output: "Even",
-        testcase_2_input: "7",
-        testcase_2_output: "Odd",
-        hidden_testcase_input: "12",
-        hidden_testcase_output: "Even",
-      },
-    ],
+    ];
+  }
+
+  const columns: ColumnDefinition[] = [
+    {
+      key: "type",
+      label: "Question Type",
+      type: "enum",
+      required: true,
+      options: ["MCQ", "Multiple Choice", "MSQ", "Coding"],
+      defaultValue: "MCQ",
+      description: "Specify whether this row is an 'MCQ' / 'Multiple Choice', 'MSQ', or 'Coding' challenge",
+      sampleValue: "MCQ",
+    },
+    {
+      key: "title",
+      label: "Question Title / Prompt",
+      type: "string",
+      required: true,
+      description: "Question prompt for MCQ, or challenge title for Coding problems",
+      sampleValue: "Which keyword prevents method overriding in Java?",
+    },
+    {
+      key: "difficulty",
+      label: "Difficulty",
+      type: "enum",
+      required: false,
+      options: ["Easy", "Medium", "Hard"],
+      defaultValue: "Easy",
+      description: "Difficulty level: Easy, Medium, or Hard",
+      sampleValue: "Easy",
+    },
+    {
+      key: "marks",
+      label: "Marks / Points",
+      type: "number",
+      required: false,
+      defaultValue: 10,
+      description: "Score marks awarded for this question",
+      sampleValue: 10,
+    },
+    // MCQ-specific columns
+    {
+      key: "optionA",
+      label: "Option A (MCQ)",
+      type: "string",
+      required: false,
+      description: "Option A choice text (MCQ only)",
+      sampleValue: "static",
+    },
+    {
+      key: "optionB",
+      label: "Option B (MCQ)",
+      type: "string",
+      required: false,
+      description: "Option B choice text (MCQ only)",
+      sampleValue: "final",
+    },
+    {
+      key: "optionC",
+      label: "Option C (MCQ)",
+      type: "string",
+      required: false,
+      description: "Option C choice text (MCQ only)",
+      sampleValue: "abstract",
+    },
+    {
+      key: "optionD",
+      label: "Option D (MCQ)",
+      type: "string",
+      required: false,
+      description: "Option D choice text (MCQ only)",
+      sampleValue: "synchronized",
+    },
+    {
+      key: "correctOption",
+      label: "Correct Option (A, B, C, or D)",
+      type: "string",
+      required: false,
+      description: "Correct answer choice: A, B, C, or D (MCQ only)",
+      sampleValue: "B",
+    },
+    {
+      key: "explanation",
+      label: "Explanation (MCQ)",
+      type: "string",
+      required: false,
+      description: "Detailed solution explanation (MCQ only)",
+      sampleValue: "Marking a method with 'final' in Java forbids subclasses from overriding it.",
+    },
+    // Coding-specific columns
+    {
+      key: "description",
+      label: "Problem Description (Coding)",
+      type: "string",
+      required: false,
+      description: "Problem statement and instructions for Coding problems",
+      sampleValue: "Given an array of integers nums and an integer target, return indices of the two numbers that add up to target.",
+    },
+    {
+      key: "constraints",
+      label: "Constraints (Coding)",
+      type: "string",
+      required: false,
+      description: "Input range and constraints (Coding only)",
+      sampleValue: "2 <= nums.length <= 10^4",
+    },
+    {
+      key: "input_format",
+      label: "Input Format (Coding)",
+      type: "string",
+      required: false,
+      description: "Input format received via stdin (Coding only)",
+      sampleValue: "Line 1: space-separated integers for nums. Line 2: target integer.",
+    },
+    {
+      key: "output_format",
+      label: "Output Format (Coding)",
+      type: "string",
+      required: false,
+      description: "Expected stdout structure (Coding only)",
+      sampleValue: "Print two 0-indexed positions separated by a space.",
+    },
+    // Injected Language & Starter Code Columns
+    ...languageColumns,
+    // Test cases
+    {
+      key: "testcase_1_input",
+      label: "Test Case 1 Input (Coding)",
+      type: "string",
+      required: false,
+      description: "Public testcase 1 input (Coding only)",
+      sampleValue: "2 7 11 15\n9",
+    },
+    {
+      key: "testcase_1_output",
+      label: "Test Case 1 Expected Output (Coding)",
+      type: "string",
+      required: false,
+      description: "Public testcase 1 expected output (Coding only)",
+      sampleValue: "0 1",
+    },
+    {
+      key: "testcase_2_input",
+      label: "Test Case 2 Input (Coding)",
+      type: "string",
+      required: false,
+      description: "Public testcase 2 input (Coding only)",
+      sampleValue: "3 2 4\n6",
+    },
+    {
+      key: "testcase_2_output",
+      label: "Test Case 2 Expected Output (Coding)",
+      type: "string",
+      required: false,
+      description: "Public testcase 2 expected output (Coding only)",
+      sampleValue: "1 2",
+    },
+    {
+      key: "hidden_testcase_input",
+      label: "Hidden Test Case 1 Input (Coding)",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation input (Coding only)",
+      sampleValue: "3 3\n6",
+    },
+    {
+      key: "hidden_testcase_output",
+      label: "Hidden Test Case 1 Expected Output (Coding)",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation expected output (Coding only)",
+      sampleValue: "0 1",
+    },
+  ];
+
+  const codingStarterSample = mode === "single"
+    ? (CODING_LANGUAGE_STARTERS[singleLang] || CODING_LANGUAGE_STARTERS.python)
+    : mode === "multi"
+    ? (CODING_LANGUAGE_STARTERS[multiLangs[0] || "python"] || CODING_LANGUAGE_STARTERS.python)
+    : CODING_LANGUAGE_STARTERS.java;
+
+  const sampleRows: Record<string, any>[] = [
+    {
+      type: "MCQ",
+      title: "Which keyword prevents method overriding in Java?",
+      difficulty: "Easy",
+      marks: 10,
+      optionA: "static",
+      optionB: "final",
+      optionC: "abstract",
+      optionD: "synchronized",
+      correctOption: "B",
+      explanation: "Marking a method with 'final' in Java forbids subclasses from overriding it.",
+      description: "",
+      constraints: "",
+      input_format: "",
+      output_format: "",
+      starterCode: "",
+      language: mode === "single" ? singleLangDef.name : "",
+      allowed_languages: mode === "single" ? singleLang : (mode === "multi" ? multiLangs.join(", ") : ""),
+      testcase_1_input: "",
+      testcase_1_output: "",
+      testcase_2_input: "",
+      testcase_2_output: "",
+      hidden_testcase_input: "",
+      hidden_testcase_output: "",
+    },
+    {
+      type: "MCQ",
+      title: "What is the average time complexity of lookup in a HashMap in Java?",
+      difficulty: "Medium",
+      marks: 10,
+      optionA: "O(1)",
+      optionB: "O(log n)",
+      optionC: "O(n)",
+      optionD: "O(n log n)",
+      correctOption: "A",
+      explanation: "Assuming a proper hash distribution, HashMap provides O(1) average lookup time.",
+      description: "",
+      constraints: "",
+      input_format: "",
+      output_format: "",
+      starterCode: "",
+      language: mode === "single" ? singleLangDef.name : "",
+      allowed_languages: mode === "single" ? singleLang : (mode === "multi" ? multiLangs.join(", ") : ""),
+      testcase_1_input: "",
+      testcase_1_output: "",
+      testcase_2_input: "",
+      testcase_2_output: "",
+      hidden_testcase_input: "",
+      hidden_testcase_output: "",
+    },
+    {
+      type: "Coding",
+      title: "Two Sum Problem",
+      difficulty: "Easy",
+      marks: 10,
+      optionA: "",
+      optionB: "",
+      optionC: "",
+      optionD: "",
+      correctOption: "",
+      explanation: "",
+      description: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+      constraints: "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9",
+      input_format: "Line 1: space separated integers for nums\nLine 2: target integer",
+      output_format: "Print two 0-based indices separated by space",
+      language: mode === "single" ? singleLangDef.name : "",
+      allowed_languages: mode === "single" ? singleLang : (mode === "multi" ? multiLangs.join(", ") : "python, java, cpp"),
+      starterCode: codingStarterSample,
+      testcase_1_input: "2 7 11 15\n9",
+      testcase_1_output: "0 1",
+      testcase_2_input: "3 2 4\n6",
+      testcase_2_output: "1 2",
+      hidden_testcase_input: "3 3\n6",
+      hidden_testcase_output: "0 1",
+    },
+    {
+      type: "Coding",
+      title: "Check Even or Odd",
+      difficulty: "Easy",
+      marks: 10,
+      optionA: "",
+      optionB: "",
+      optionC: "",
+      optionD: "",
+      correctOption: "",
+      explanation: "",
+      description: "Given an integer n, print 'Even' if it is divisible by 2, otherwise print 'Odd'.",
+      constraints: "-10^9 <= n <= 10^9",
+      input_format: "A single integer n",
+      output_format: "Print 'Even' or 'Odd'",
+      language: mode === "single" ? singleLangDef.name : "",
+      allowed_languages: mode === "single" ? singleLang : (mode === "multi" ? multiLangs.join(", ") : "python, java, cpp"),
+      starterCode: codingStarterSample,
+      testcase_1_input: "4",
+      testcase_1_output: "Even",
+      testcase_2_input: "7",
+      testcase_2_output: "Odd",
+      hidden_testcase_input: "12",
+      hidden_testcase_output: "Even",
+    },
+  ];
+
+  return {
+    moduleType: "mixed_questions",
+    displayName,
+    description,
+    templateFileName,
+    columns,
+    sampleRows,
     mapToPayload: (row: Record<string, any>, idx: number) => {
       const rawType = String(row.type || "").toLowerCase().trim();
       const cleanType = rawType.replace(/[\s_-]+/g, "");
@@ -3974,6 +3437,82 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
       const rawTitle = String(row.title || `Coding Challenge ${idx + 1}`).trim();
       const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `prob-${Date.now()}-${idx}`;
 
+      // Resolve Language Scope & Templates
+      let allowed_languages: string[] | undefined = undefined;
+      if (row.allowed_languages) {
+        allowed_languages = String(row.allowed_languages)
+          .split(/[,|;\s]+/)
+          .map(s => s.trim().toLowerCase())
+          .filter(Boolean);
+      } else if (mode === "single") {
+        allowed_languages = [singleLang];
+      } else if (mode === "multi" && multiLangs && multiLangs.length > 0) {
+        allowed_languages = multiLangs;
+      } else if (row.language) {
+        const match = CODING_LANGUAGES.find(l => l.name.toLowerCase() === String(row.language).toLowerCase().trim() || l.id === String(row.language).toLowerCase().trim());
+        allowed_languages = [match?.id || String(row.language).toLowerCase().trim()];
+      }
+
+      const default_language =
+        (mode === "single" ? singleLang : undefined) ||
+        (row.default_language ? String(row.default_language).trim().toLowerCase() : undefined) ||
+        allowed_languages?.[0] ||
+        "python";
+
+      let templates: Record<string, string> = {};
+      const genStarter = row.starterCode ?? row.starter_code ?? row.code ?? row.boilerplate;
+
+      if (mode === "single") {
+        if (genStarter && String(genStarter).trim()) {
+          templates[singleLang] = String(genStarter).trim();
+        }
+      } else if (mode === "multi") {
+        multiLangs.forEach(lId => {
+          const lVal = row[`${lId}_starter_code`] ?? row[`${lId}_starter`];
+          if (lVal && String(lVal).trim()) {
+            templates[lId] = String(lVal).trim();
+          }
+        });
+        if (Object.keys(templates).length === 0 && genStarter && String(genStarter).trim()) {
+          templates[default_language] = String(genStarter).trim();
+        }
+      } else {
+        CODING_LANGUAGES.forEach(l => {
+          const lVal = row[`${l.id}_starter_code`] ?? row[`${l.id}_starter`];
+          if (lVal && String(lVal).trim()) templates[l.id] = String(lVal).trim();
+        });
+        if (Object.keys(templates).length === 0 && genStarter && String(genStarter).trim()) {
+          templates[default_language] = String(genStarter).trim();
+        }
+      }
+
+      // Retain ONLY templates explicitly provided by author - NEVER inject default boilerplate!
+      const pruned: Record<string, string> = {};
+      if (allowed_languages && allowed_languages.length > 0) {
+        allowed_languages.forEach(lId => {
+          if (templates[lId] && templates[lId].trim()) {
+            pruned[lId] = templates[lId].trim();
+          }
+        });
+      } else {
+        Object.entries(templates).forEach(([lId, codeStr]) => {
+          if (codeStr && codeStr.trim()) {
+            pruned[lId] = codeStr.trim();
+          }
+        });
+      }
+      templates = pruned;
+
+      const starterCodePayload = {
+        scope: "practice",
+        templates,
+        allowed_languages,
+        allowedLanguages: allowed_languages,
+        default_language,
+        defaultLanguage: default_language,
+        test_cases: testCases,
+      };
+
       return {
         type: "coding",
         questionCategory: "coding",
@@ -3991,8 +3530,13 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         inputFormat: String(row.input_format || row.inputFormat || "").trim(),
         output_format: String(row.output_format || row.outputFormat || "").trim(),
         outputFormat: String(row.output_format || row.outputFormat || "").trim(),
-        starter_code: String(row.starterCode || row.starter_code || "").trim(),
-        starterCode: String(row.starterCode || row.starter_code || "").trim(),
+        starter_code: starterCodePayload,
+        starterCode: String(row.starterCode || row.starter_code || templates[default_language] || "").trim(),
+        templates,
+        allowed_languages,
+        allowedLanguages: allowed_languages,
+        default_language,
+        defaultLanguage: default_language,
         test_cases: testCases,
         testCases: testCases.map((tc) => ({
           id: tc.id,
@@ -4008,8 +3552,825 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         scope: "practice",
       };
     },
-  },
-};
+  };
+}
+
+// ─── 4.5. ASSESSMENT SECTION & QUESTIONS TEMPLATE DYNAMIC GENERATOR ────────
+export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOptions): ModuleTemplateConfig {
+  const mode = options?.languageMode || "all";
+  const singleLang = (options?.selectedSingleLanguage || "python").toLowerCase();
+  const singleLangDef: CodingLanguageDef = CODING_LANGUAGES.find(l => l.id === singleLang) || CODING_LANGUAGES[0]!;
+  const multiLangs = (options?.selectedMultiLanguages && options.selectedMultiLanguages.length > 0)
+    ? options.selectedMultiLanguages.map(l => l.toLowerCase())
+    : ["python", "java", "cpp"];
+
+  let templateFileName = "assessment_sections_and_questions_template.xlsx";
+  let displayName = "Assessment Sections & Questions Template";
+  let description = "Template for bulk importing questions organized into sections (e.g. Aptitude, Technical, Coding) under an Assessment.";
+
+  let languageColumns: ColumnDefinition[] = [];
+
+  if (mode === "single") {
+    templateFileName = `assessment_sections_and_questions_${singleLang}_template.xlsx`;
+    displayName = `Assessment Sections & Questions Template (Single Language: ${singleLangDef.name})`;
+    description = `Template for importing assessment questions with Coding challenges strictly locked to ${singleLangDef.name}.`;
+
+    languageColumns = [
+      {
+        key: "language",
+        label: "Coding Language",
+        type: "enum",
+        required: false,
+        defaultValue: singleLangDef.name,
+        options: CODING_LANGUAGES.map(l => l.name),
+        description: `Single locked programming language for coding challenges: ${singleLangDef.name}`,
+        sampleValue: singleLangDef.name,
+      },
+      {
+        key: "starterCode",
+        label: `Starter Code (${singleLangDef.name})`,
+        type: "string",
+        required: false,
+        description: `Starter boilerplate code provided in ${singleLangDef.name} for coding questions`,
+        sampleValue: CODING_LANGUAGE_STARTERS[singleLang] || CODING_LANGUAGE_STARTERS.python,
+      },
+      {
+        key: "allowed_languages",
+        label: "Allowed Languages (Coding)",
+        type: "string",
+        required: false,
+        defaultValue: singleLangDef.id,
+        description: `Strictly locked compiler ID for this problem (${singleLangDef.id})`,
+        sampleValue: singleLangDef.id,
+      },
+    ];
+  } else if (mode === "multi") {
+    templateFileName = "assessment_sections_and_questions_multi_language_template.xlsx";
+    const selectedNames = multiLangs.map(id => CODING_LANGUAGES.find(l => l.id === id)?.name || id.toUpperCase());
+    displayName = `Assessment Sections & Questions Template (Multi Language: ${selectedNames.join(", ")})`;
+    description = `Template for assessment questions with Coding challenges enabled across: ${selectedNames.join(", ")}.`;
+
+    languageColumns = [
+      {
+        key: "allowed_languages",
+        label: "Allowed Languages (Coding)",
+        type: "string",
+        required: false,
+        defaultValue: multiLangs.join(", "),
+        description: `Comma-separated list of enabled compilers for coding challenges: ${multiLangs.join(", ")}`,
+        sampleValue: multiLangs.join(", "),
+      },
+      {
+        key: "starterCode",
+        label: "Starter Code (Default / Fallback)",
+        type: "string",
+        required: false,
+        description: "Default starter code boilerplate for coding questions",
+        sampleValue: CODING_LANGUAGE_STARTERS[multiLangs[0] || "python"] || CODING_LANGUAGE_STARTERS.python,
+      },
+      ...multiLangs.map(lId => {
+        const lDef = CODING_LANGUAGES.find(l => l.id === lId) || { id: lId, name: lId.toUpperCase() };
+        return {
+          key: `${lId}_starter_code`,
+          label: `Starter Code (${lDef.name})`,
+          type: "string" as ColumnType,
+          required: false,
+          description: `Optional dedicated starter code template for ${lDef.name}`,
+          sampleValue: CODING_LANGUAGE_STARTERS[lId] || "",
+        };
+      }),
+    ];
+  } else {
+    languageColumns = [
+      {
+        key: "allowed_languages",
+        label: "Allowed Languages (Coding, optional)",
+        type: "string",
+        required: false,
+        description: "Optional comma-separated list of allowed compilers for this question (e.g. 'python, java')",
+        sampleValue: "python, java, cpp",
+      },
+      {
+        key: "starterCode",
+        label: "Starter Boilerplate Code",
+        type: "string",
+        required: false,
+        description: "Pre-filled code template for students",
+        sampleValue: "import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n    }\n}",
+      },
+    ];
+  }
+
+  const columns: ColumnDefinition[] = [
+    {
+      key: "assessmentTitle",
+      label: "Assessment Title",
+      type: "string",
+      required: false,
+      description: "Title of the Assessment exam (e.g. 'Java MNC Assessment'). If left blank, questions will attach to the currently open assessment.",
+      sampleValue: "Java MNC Assessment",
+    },
+    {
+      key: "sectionName",
+      label: "Section Name",
+      type: "string",
+      required: false,
+      defaultValue: "General Assessment",
+      description: "Name of the Section (e.g. 'Aptitude & Logical Reasoning', 'Technical MCQ', 'Programming Fundamentals', 'Coding'). If left blank, automatically categorized based on question type.",
+      sampleValue: "Aptitude & Logical Reasoning",
+    },
+    {
+      key: "title",
+      label: "Question / Problem Statement",
+      type: "string",
+      required: true,
+      description: "The complete question prompt or programming challenge problem statement",
+      sampleValue: "What is the primary difference between JVM and JRE?",
+    },
+    {
+      key: "type",
+      label: "Question Type",
+      type: "enum",
+      required: true,
+      options: ["mcq", "Multiple Choice", "msq", "coding"],
+      description: "Type of question: mcq / Multiple Choice (Single choice), msq (Multiple select), or coding (Live execution)",
+      sampleValue: "mcq",
+    },
+    {
+      key: "marks",
+      label: "Marks / Points",
+      type: "number",
+      required: true,
+      defaultValue: 5,
+      description: "Marks allocated for this question",
+      sampleValue: 5,
+    },
+    {
+      key: "difficulty",
+      label: "Difficulty Level",
+      type: "enum",
+      required: false,
+      options: ["Easy", "Medium", "Hard"],
+      defaultValue: "Easy",
+      description: "Question difficulty rating",
+      sampleValue: "Easy",
+    },
+    {
+      key: "optionA",
+      label: "Option A",
+      type: "string",
+      required: false,
+      description: "MCQ / MSQ Option A text",
+      sampleValue: "JVM executes bytecode; JRE provides libraries + JVM.",
+    },
+    {
+      key: "optionB",
+      label: "Option B",
+      type: "string",
+      required: false,
+      description: "MCQ / MSQ Option B text",
+      sampleValue: "JVM compiles source code; JRE executes binary.",
+    },
+    {
+      key: "optionC",
+      label: "Option C",
+      type: "string",
+      required: false,
+      description: "MCQ / MSQ Option C text",
+      sampleValue: "JVM and JRE are completely identical.",
+    },
+    {
+      key: "optionD",
+      label: "Option D",
+      type: "string",
+      required: false,
+      description: "MCQ / MSQ Option D text",
+      sampleValue: "None of the above.",
+    },
+    {
+      key: "correctOption",
+      label: "Correct Option (A/B/C/D)",
+      type: "string",
+      required: false,
+      description: "For MCQ enter single letter (A, B, C, or D). For MSQ enter comma-separated letters (e.g. A,B).",
+      sampleValue: "A",
+    },
+    {
+      key: "explanation",
+      label: "Explanation",
+      type: "string",
+      required: false,
+      description: "Reasoning and explanation shown in test review",
+      sampleValue: "JVM is the execution runtime; JRE bundles the JVM with class libraries.",
+    },
+    {
+      key: "constraints",
+      label: "Coding Constraints",
+      type: "string",
+      required: false,
+      description: "Execution boundary for coding problems (e.g. '1 <= N <= 10^5')",
+      sampleValue: "1 <= N <= 10^5",
+    },
+    {
+      key: "input_format",
+      label: "Coding Input Format",
+      type: "string",
+      required: false,
+      description: "Expected structure from stdin",
+      sampleValue: "Single line containing integer N",
+    },
+    {
+      key: "output_format",
+      label: "Coding Output Format",
+      type: "string",
+      required: false,
+      description: "Expected printed output to stdout",
+      sampleValue: "Print the computed result",
+    },
+    ...languageColumns,
+    {
+      key: "testcase_1_input",
+      label: "Test Case 1 Input",
+      type: "string",
+      required: false,
+      description: "First public testcase input for coding problems",
+      sampleValue: "5",
+    },
+    {
+      key: "testcase_1_output",
+      label: "Test Case 1 Expected Output",
+      type: "string",
+      required: false,
+      description: "First public testcase expected output",
+      sampleValue: "120",
+    },
+    {
+      key: "testcase_2_input",
+      label: "Test Case 2 Input",
+      type: "string",
+      required: false,
+      description: "Second public testcase input",
+      sampleValue: "3",
+    },
+    {
+      key: "testcase_2_output",
+      label: "Test Case 2 Expected Output",
+      type: "string",
+      required: false,
+      description: "Second public testcase expected output",
+      sampleValue: "6",
+    },
+    {
+      key: "testcase_3_input",
+      label: "Test Case 3 Input",
+      type: "string",
+      required: false,
+      description: "Third public testcase input",
+      sampleValue: "4",
+    },
+    {
+      key: "testcase_3_output",
+      label: "Test Case 3 Expected Output",
+      type: "string",
+      required: false,
+      description: "Third public testcase expected output",
+      sampleValue: "24",
+    },
+    {
+      key: "testcase_4_input",
+      label: "Test Case 4 Input",
+      type: "string",
+      required: false,
+      description: "Fourth public testcase input",
+      sampleValue: "2",
+    },
+    {
+      key: "testcase_4_output",
+      label: "Test Case 4 Expected Output",
+      type: "string",
+      required: false,
+      description: "Fourth public testcase expected output",
+      sampleValue: "2",
+    },
+    {
+      key: "testcase_5_input",
+      label: "Test Case 5 Input",
+      type: "string",
+      required: false,
+      description: "Fifth public testcase input",
+      sampleValue: "1",
+    },
+    {
+      key: "testcase_5_output",
+      label: "Test Case 5 Expected Output",
+      type: "string",
+      required: false,
+      description: "Fifth public testcase expected output",
+      sampleValue: "1",
+    },
+    {
+      key: "hidden_testcase_input",
+      label: "Hidden Test Case 1 Input",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 1 to prevent hardcoding",
+      sampleValue: "7",
+    },
+    {
+      key: "hidden_testcase_output",
+      label: "Hidden Test Case 1 Expected Output",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation 1 expected output",
+      sampleValue: "5040",
+    },
+    {
+      key: "hidden_testcase_2_input",
+      label: "Hidden Test Case 2 Input",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 2",
+      sampleValue: "8",
+    },
+    {
+      key: "hidden_testcase_2_output",
+      label: "Hidden Test Case 2 Expected Output",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation 2 expected output",
+      sampleValue: "40320",
+    },
+    {
+      key: "hidden_testcase_3_input",
+      label: "Hidden Test Case 3 Input",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 3",
+      sampleValue: "9",
+    },
+    {
+      key: "hidden_testcase_3_output",
+      label: "Hidden Test Case 3 Expected Output",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation 3 expected output",
+      sampleValue: "362880",
+    },
+    {
+      key: "hidden_testcase_4_input",
+      label: "Hidden Test Case 4 Input",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 4",
+      sampleValue: "10",
+    },
+    {
+      key: "hidden_testcase_4_output",
+      label: "Hidden Test Case 4 Expected Output",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation 4 expected output",
+      sampleValue: "3628800",
+    },
+    {
+      key: "hidden_testcase_5_input",
+      label: "Hidden Test Case 5 Input",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation testcase 5",
+      sampleValue: "0",
+    },
+    {
+      key: "hidden_testcase_5_output",
+      label: "Hidden Test Case 5 Expected Output",
+      type: "string",
+      required: false,
+      description: "Hidden evaluation 5 expected output",
+      sampleValue: "1",
+    },
+  ];
+
+  const sampleStarter = mode === "single"
+    ? (CODING_LANGUAGE_STARTERS[singleLang] || CODING_LANGUAGE_STARTERS.python)
+    : mode === "multi"
+    ? (CODING_LANGUAGE_STARTERS[multiLangs[0] || "python"] || CODING_LANGUAGE_STARTERS.python)
+    : CODING_LANGUAGE_STARTERS.java;
+
+  const sampleRows: Record<string, any>[] = [
+    // Section 1: Aptitude & Logical Reasoning (MCQs)
+    {
+      assessmentTitle: "Java MNC Assessment",
+      sectionName: "Aptitude & Logical Reasoning",
+      title: "Find the missing number in series: 2, 6, 12, 20, 30, ?",
+      type: "mcq",
+      marks: 2,
+      difficulty: "Easy",
+      optionA: "36",
+      optionB: "40",
+      optionC: "42",
+      optionD: "46",
+      correctOption: "C",
+      explanation: "The differences are +4, +6, +8, +10, +12. 30 + 12 = 42."
+    },
+    {
+      assessmentTitle: "Java MNC Assessment",
+      sectionName: "Aptitude & Logical Reasoning",
+      title: "A train running at 60 km/hr crosses a pole in 9 seconds. What is the length of the train?",
+      type: "mcq",
+      marks: 2,
+      difficulty: "Easy",
+      optionA: "120 meters",
+      optionB: "150 meters",
+      optionC: "180 meters",
+      optionD: "200 meters",
+      correctOption: "B",
+      explanation: "Speed = 60 * (5/18) = 50/3 m/s. Length = (50/3) * 9 = 150 meters."
+    },
+    {
+      assessmentTitle: "Java MNC Assessment",
+      sectionName: "Programming Fundamentals",
+      title: "Which of the following is NOT an access modifier in Java?",
+      type: "mcq",
+      marks: 2,
+      difficulty: "Easy",
+      optionA: "private",
+      optionB: "protected",
+      optionC: "internal",
+      optionD: "public",
+      correctOption: "C",
+      explanation: "'internal' is a C# keyword, not supported in Java."
+    },
+    {
+      assessmentTitle: "Java MNC Assessment",
+      sectionName: "Technical MCQ",
+      title: "Which of the following are checked exceptions in Java? (MSQ)",
+      type: "msq",
+      marks: 3,
+      difficulty: "Medium",
+      optionA: "IOException",
+      optionB: "SQLException",
+      optionC: "NullPointerException",
+      optionD: "ArithmeticException",
+      correctOption: "A,B",
+      explanation: "IOException and SQLException are checked exceptions."
+    },
+    // Section 4: Coding (Algorithmic challenges with test cases)
+    {
+      assessmentTitle: "Java MNC Assessment",
+      sectionName: "Coding",
+      title: "Reverse a String",
+      type: "coding",
+      marks: 10,
+      difficulty: "Easy",
+      constraints: "1 <= string.length <= 10^5",
+      input_format: "Single line containing string S",
+      output_format: "Reversed string",
+      language: mode === "single" ? singleLangDef.name : "",
+      allowed_languages: mode === "single" ? singleLang : (mode === "multi" ? multiLangs.join(", ") : ""),
+      starterCode: sampleStarter,
+      testcase_1_input: "hello",
+      testcase_1_output: "olleh",
+      testcase_2_input: "world",
+      testcase_2_output: "dlrow",
+      hidden_testcase_input: "enterprise",
+      hidden_testcase_output: "esirpretne"
+    },
+    {
+      assessmentTitle: "Java MNC Assessment",
+      sectionName: "Coding",
+      title: "Check Balanced Parentheses",
+      type: "coding",
+      marks: 10,
+      difficulty: "Medium",
+      constraints: "1 <= string.length <= 10^4",
+      input_format: "A string containing brackets '()[]{}'",
+      output_format: "Print 'true' if balanced, else 'false'",
+      language: mode === "single" ? singleLangDef.name : "",
+      allowed_languages: mode === "single" ? singleLang : (mode === "multi" ? multiLangs.join(", ") : ""),
+      starterCode: sampleStarter,
+      testcase_1_input: "{[()]}",
+      testcase_1_output: "true",
+      testcase_2_input: "{[(])}",
+      testcase_2_output: "false",
+      hidden_testcase_input: "((()))",
+      hidden_testcase_output: "true"
+    }
+  ];
+
+  const parseCodingLanguageScope = (row: any) => {
+    let allowed_languages: string[] | undefined = undefined;
+    if (row.allowed_languages) {
+      allowed_languages = String(row.allowed_languages)
+        .split(/[,|;\s]+/)
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
+    } else if (mode === "single") {
+      allowed_languages = [singleLang];
+    } else if (mode === "multi" && multiLangs && multiLangs.length > 0) {
+      allowed_languages = multiLangs;
+    } else if (row.language) {
+      const match = CODING_LANGUAGES.find(l => l.name.toLowerCase() === String(row.language).toLowerCase().trim() || l.id === String(row.language).toLowerCase().trim());
+      allowed_languages = [match?.id || String(row.language).toLowerCase().trim()];
+    }
+
+    const default_language =
+      (mode === "single" ? singleLang : undefined) ||
+      (row.default_language ? String(row.default_language).trim().toLowerCase() : undefined) ||
+      allowed_languages?.[0] ||
+      "python";
+
+    let templates: Record<string, string> = {};
+    const genStarter = row.starterCode ?? row.starter_code ?? row.code ?? row.boilerplate;
+
+    if (mode === "single") {
+      if (genStarter && String(genStarter).trim()) {
+        templates[singleLang] = String(genStarter).trim();
+      }
+    } else if (mode === "multi") {
+      multiLangs.forEach(lId => {
+        const lVal = row[`${lId}_starter_code`] ?? row[`${lId}_starter`];
+        if (lVal && String(lVal).trim()) {
+          templates[lId] = String(lVal).trim();
+        }
+      });
+      if (Object.keys(templates).length === 0 && genStarter && String(genStarter).trim()) {
+        templates[default_language] = String(genStarter).trim();
+      }
+    } else {
+      CODING_LANGUAGES.forEach(l => {
+        const lVal = row[`${l.id}_starter_code`] ?? row[`${l.id}_starter`];
+        if (lVal && String(lVal).trim()) templates[l.id] = String(lVal).trim();
+      });
+      if (Object.keys(templates).length === 0 && genStarter && String(genStarter).trim()) {
+        templates[default_language] = String(genStarter).trim();
+      }
+    }
+
+    // Retain ONLY templates explicitly provided by author - NEVER inject default boilerplate!
+    const pruned: Record<string, string> = {};
+    if (allowed_languages && allowed_languages.length > 0) {
+      allowed_languages.forEach(lId => {
+        if (templates[lId] && templates[lId].trim()) {
+          pruned[lId] = templates[lId].trim();
+        }
+      });
+    } else {
+      Object.entries(templates).forEach(([lId, codeStr]) => {
+        if (codeStr && codeStr.trim()) {
+          pruned[lId] = codeStr.trim();
+        }
+      });
+    }
+    templates = pruned;
+
+    return { allowed_languages, default_language, templates };
+  };
+
+  const mapToPayload = (row: Record<string, any>, idx: number) => {
+    const rawQType = String(row.type || "mcq").toLowerCase().trim();
+    const cleanQType = rawQType.replace(/[\s_-]+/g, "");
+    const isCoding = cleanQType === "coding" || cleanQType === "code" || cleanQType === "programming";
+    const isMsq = cleanQType === "msq" || cleanQType === "multipleselect" || cleanQType === "multiselect" || cleanQType === "multiple";
+    const qType = isCoding ? "coding" : isMsq ? "msq" : "mcq";
+    let secName = String(row.sectionName || row.section || "").trim();
+
+    if (isCoding) {
+      if (!secName || (!secName.toLowerCase().includes("code") && !secName.toLowerCase().includes("programming"))) {
+        secName = "Coding Challenges";
+      }
+    } else {
+      if (secName.toLowerCase().includes("code") || secName.toLowerCase().includes("programming") || !secName) {
+        secName = "Multiple Choice Questions";
+      }
+    }
+
+    const marks = Number(row.marks) || (qType === "coding" ? 10 : 2);
+    const rawCorrect = String(row.correctOption || "A").trim().toUpperCase();
+    const correctParts = rawCorrect.split(/[,;\s]+/).map((s) => s.trim());
+
+    const options = [
+      { id: 1, text: String(row.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") || rawCorrect === "A" },
+      { id: 2, text: String(row.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") || rawCorrect === "B" },
+      { id: 3, text: String(row.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") || rawCorrect === "C" },
+      { id: 4, text: String(row.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") || rawCorrect === "D" },
+    ];
+
+    const testCases: any[] = [];
+    if (qType === "coding") {
+      for (let i = 1; i <= 10; i++) {
+        const inp = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`];
+        const out = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`];
+        const trimmedInp = String(inp || "").trim();
+        const trimmedOut = String(out || "").trim();
+        if (trimmedInp !== "" || trimmedOut !== "") {
+          testCases.push({
+            id: testCases.length + 1,
+            input: trimmedInp,
+            output: trimmedOut,
+            isHidden: false,
+          });
+        }
+      }
+      for (let h = 1; h <= 10; h++) {
+        const hIn = h === 1
+          ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input)
+          : row[`hidden_testcase_${h}_input`];
+        const hOut = h === 1
+          ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output)
+          : row[`hidden_testcase_${h}_output`];
+        const trimmedHIn = String(hIn || "").trim();
+        const trimmedHOut = String(hOut || "").trim();
+        if (trimmedHIn !== "" || trimmedHOut !== "") {
+          testCases.push({
+            id: testCases.length + 1,
+            input: trimmedHIn,
+            output: trimmedHOut,
+            isHidden: true,
+          });
+        }
+      }
+    }
+
+    const codingScope = isCoding ? parseCodingLanguageScope(row) : null;
+
+    return {
+      id: `q_bulk_${Date.now()}_${idx}`,
+      assessmentTitle: String(row.assessmentTitle || "").trim(),
+      section: secName,
+      title: String(row.title || `Question ${idx + 1}`).trim(),
+      type: qType,
+      marks,
+      difficulty: row.difficulty || "Easy",
+      problemStatement: String(row.description || row.problemStatement || row.prompt || row.title || "").trim(),
+      description: String(row.description || row.problemStatement || row.prompt || "").trim(),
+      options: qType !== "coding" ? options : undefined,
+      testCases: qType === "coding" ? (testCases.length > 0 ? testCases : undefined) : undefined,
+      explanation: String(row.explanation || "").trim(),
+      constraints: qType === "coding" ? String(row.constraints || "").trim() : undefined,
+      inputFormat: qType === "coding" ? String(row.input_format || "").trim() : undefined,
+      outputFormat: qType === "coding" ? String(row.output_format || "").trim() : undefined,
+      allowed_languages: codingScope?.allowed_languages,
+      allowedLanguages: codingScope?.allowed_languages,
+      default_language: codingScope?.default_language,
+      defaultLanguage: codingScope?.default_language,
+      templates: codingScope?.templates,
+      language: qType === "coding" ? (mode === "single" ? singleLang : codingScope?.default_language) : undefined,
+      starterCode: qType === "coding" ? (codingScope?.templates?.[codingScope.default_language] || String(row.starterCode || row.starter_code || "").trim()) : undefined,
+    };
+  };
+
+  const mapGroupedPayload = (grouped: { groupKey: string; rows: Record<string, any>[] }[], indexOffset = 0) => {
+    const resultSections: any[] = [];
+
+    grouped.forEach((group, gIdx) => {
+      const rawSecName = String(group.groupKey || `Section ${indexOffset + gIdx + 1}`).trim();
+      const rows = group.rows || [];
+
+      const nonCodingRows: any[] = [];
+      const codingRows: any[] = [];
+
+      rows.forEach((r) => {
+        const rawQType = String(r.type || "mcq").toLowerCase().trim();
+        const cleanQType = rawQType.replace(/[\s_-]+/g, "");
+        const isCoding = cleanQType === "coding" || cleanQType === "code" || cleanQType === "programming";
+        if (isCoding) {
+          codingRows.push(r);
+        } else {
+          nonCodingRows.push(r);
+        }
+      });
+
+      const processRowToQuestion = (r: any, assignedSection: string, qIdx: number) => {
+        const rawQType = String(r.type || "mcq").toLowerCase().trim();
+        const cleanQType = rawQType.replace(/[\s_-]+/g, "");
+        const isCoding = cleanQType === "coding" || cleanQType === "code" || cleanQType === "programming";
+        const isMsq = cleanQType === "msq" || cleanQType === "multipleselect" || cleanQType === "multiselect" || cleanQType === "multiple";
+        const qType = isCoding ? "coding" : isMsq ? "msq" : "mcq";
+        const marks = Number(r.marks) || (qType === "coding" ? 10 : 2);
+        const rawCorrect = String(r.correctOption || "A").trim().toUpperCase();
+        const correctParts = rawCorrect.split(/[,;\s]+/).map((s) => s.trim());
+
+        const options = [
+          { id: 1, text: String(r.optionA || "Option A").trim(), isCorrect: correctParts.includes("A") || correctParts.includes("1") || rawCorrect === "A" },
+          { id: 2, text: String(r.optionB || "Option B").trim(), isCorrect: correctParts.includes("B") || correctParts.includes("2") || rawCorrect === "B" },
+          { id: 3, text: String(r.optionC || "Option C").trim(), isCorrect: correctParts.includes("C") || correctParts.includes("3") || rawCorrect === "C" },
+          { id: 4, text: String(r.optionD || "Option D").trim(), isCorrect: correctParts.includes("D") || correctParts.includes("4") || rawCorrect === "D" },
+        ];
+
+        const testCases: any[] = [];
+        if (qType === "coding") {
+          for (let i = 1; i <= 10; i++) {
+            const inp = r[`testcase_${i}_input`] ?? r[`test_case_${i}_input`];
+            const out = r[`testcase_${i}_output`] ?? r[`test_case_${i}_output`];
+            const trimmedInp = String(inp || "").trim();
+            const trimmedOut = String(out || "").trim();
+            if (trimmedInp !== "" || trimmedOut !== "") {
+              testCases.push({
+                id: testCases.length + 1,
+                input: trimmedInp,
+                output: trimmedOut,
+                isHidden: false,
+              });
+            }
+          }
+          for (let h = 1; h <= 10; h++) {
+            const hIn = h === 1
+              ? (r.hidden_testcase_input ?? r.hidden_testcase_1_input)
+              : r[`hidden_testcase_${h}_input`];
+            const hOut = h === 1
+              ? (r.hidden_testcase_output ?? r.hidden_testcase_1_output)
+              : r[`hidden_testcase_${h}_output`];
+            const trimmedHIn = String(hIn || "").trim();
+            const trimmedHOut = String(hOut || "").trim();
+            if (trimmedHIn !== "" || trimmedHOut !== "") {
+              testCases.push({
+                id: testCases.length + 1,
+                input: trimmedHIn,
+                output: trimmedHOut,
+                isHidden: true,
+              });
+            }
+          }
+        }
+
+        const codingScope = isCoding ? parseCodingLanguageScope(r) : null;
+
+        return {
+          id: `q_bulk_${Date.now()}_${gIdx}_${qIdx}`,
+          assessmentTitle: String(r.assessmentTitle || "").trim(),
+          section: assignedSection,
+          title: String(r.title || `Question ${qIdx + 1}`).trim(),
+          type: qType,
+          marks,
+          difficulty: r.difficulty || "Easy",
+          problemStatement: String(r.description || r.problemStatement || r.prompt || r.title || "").trim(),
+          description: String(r.description || r.problemStatement || r.prompt || "").trim(),
+          options: qType !== "coding" ? options : undefined,
+          testCases: qType === "coding" ? (testCases.length > 0 ? testCases : undefined) : undefined,
+          explanation: String(r.explanation || "").trim(),
+          constraints: qType === "coding" ? String(r.constraints || "").trim() : undefined,
+          inputFormat: qType === "coding" ? String(r.input_format || "").trim() : undefined,
+          outputFormat: qType === "coding" ? String(r.output_format || "").trim() : undefined,
+          allowed_languages: codingScope?.allowed_languages,
+          allowedLanguages: codingScope?.allowed_languages,
+          default_language: codingScope?.default_language,
+          defaultLanguage: codingScope?.default_language,
+          templates: codingScope?.templates,
+          language: qType === "coding" ? (mode === "single" ? singleLang : codingScope?.default_language) : undefined,
+          starterCode: qType === "coding" ? (codingScope?.templates?.[codingScope.default_language] || String(r.starterCode || r.starter_code || "").trim()) : undefined,
+        };
+      };
+
+      if (nonCodingRows.length > 0) {
+        let nonCodingSec = rawSecName;
+        if (nonCodingSec.toLowerCase().includes("code") || nonCodingSec.toLowerCase().includes("programming")) {
+          nonCodingSec = "Multiple Choice Questions";
+        }
+        const questions = nonCodingRows.map((r, qIdx) => processRowToQuestion(r, nonCodingSec, qIdx));
+        const totalSectionMarks = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
+        resultSections.push({
+          sectionName: nonCodingSec,
+          title: nonCodingSec,
+          questions,
+          questionCount: questions.length,
+          totalMarks: totalSectionMarks,
+          assessmentTitle: rows[0]?.assessmentTitle ? String(rows[0].assessmentTitle).trim() : undefined,
+        });
+      }
+
+      if (codingRows.length > 0) {
+        let codingSec = rawSecName;
+        if (!codingSec.toLowerCase().includes("code") && !codingSec.toLowerCase().includes("programming")) {
+          codingSec = "Coding Challenges";
+        }
+        const questions = codingRows.map((r, qIdx) => processRowToQuestion(r, codingSec, qIdx));
+        const totalSectionMarks = questions.reduce((sum, q) => sum + (q.marks || 0), 0);
+        resultSections.push({
+          sectionName: codingSec,
+          title: codingSec,
+          questions,
+          questionCount: questions.length,
+          totalMarks: totalSectionMarks,
+          assessmentTitle: rows[0]?.assessmentTitle ? String(rows[0].assessmentTitle).trim() : undefined,
+        });
+      }
+    });
+
+    return resultSections;
+  };
+
+  return {
+    moduleType: "assessment_questions",
+    displayName,
+    description,
+    templateFileName,
+    groupByField: "sectionName",
+    columns,
+    sampleRows,
+    mapToPayload,
+    mapGroupedPayload,
+  };
+}
 
 /**
  * Helper to normalize truthy/boolean inputs from Excel/CSV (e.g. Yes/No, True/False, 1/0)
@@ -4041,15 +4402,33 @@ export function getTemplateConfig(moduleType: string, options?: CodingTemplateOp
     return getCodingProblemTemplateConfig(options);
   }
 
+  // Dynamic Mixed Questions Routing (MCQ + Code for Practice Modules)
+  if (
+    normalized === "mixed" ||
+    normalized === "mixed_questions" ||
+    normalized === "mixed_question" ||
+    normalized === "practice_mixed" ||
+    normalized === "practice_questions"
+  ) {
+    return getMixedQuestionsTemplateConfig(options);
+  }
+
+  // Dynamic Assessment Questions Routing (Sections + MCQ + Code for Assessments)
+  if (
+    normalized === "assessment_questions" ||
+    normalized === "assessment_question" ||
+    normalized === "test_questions" ||
+    normalized === "exam_questions"
+  ) {
+    return getAssessmentQuestionsTemplateConfig(options);
+  }
+
   if (TEMPLATE_CONFIGS[normalized]) {
     return TEMPLATE_CONFIGS[normalized] as ModuleTemplateConfig;
   }
   // Aliases
   if (normalized === "assessment_mcq" || normalized === "assessment_quiz" || normalized === "test_mcq" || normalized === "test_mcqs") {
     return (TEMPLATE_CONFIGS.assessment_mcq || TEMPLATE_CONFIGS.quiz) as ModuleTemplateConfig;
-  }
-  if (normalized === "mixed" || normalized === "mixed_questions" || normalized === "mixed_question" || normalized === "practice_mixed" || normalized === "practice_questions") {
-    return (TEMPLATE_CONFIGS.mixed_questions || TEMPLATE_CONFIGS.quiz) as ModuleTemplateConfig;
   }
   if (normalized === "mcq" || normalized === "mcq_only" || normalized === "mcqs" || normalized === "mcq_questions") {
     return (TEMPLATE_CONFIGS.quiz || TEMPLATE_CONFIGS.assessment_questions) as ModuleTemplateConfig;
@@ -4058,9 +4437,6 @@ export function getTemplateConfig(moduleType: string, options?: CodingTemplateOp
   if (normalized === "practices" || normalized === "practice_track" || normalized === "tracks") return (TEMPLATE_CONFIGS.practice_track || TEMPLATE_CONFIGS.practice) as ModuleTemplateConfig;
   if (normalized === "practice_module" || normalized === "practice_modules" || normalized === "module" || normalized === "modules" || normalized === "level3_module") {
     return (TEMPLATE_CONFIGS.practice_module || TEMPLATE_CONFIGS.practice) as ModuleTemplateConfig;
-  }
-  if (normalized === "assessment_questions" || normalized === "assessment_question" || normalized === "test_questions" || normalized === "exam_questions") {
-    return (TEMPLATE_CONFIGS.assessment_questions || TEMPLATE_CONFIGS.assessment) as ModuleTemplateConfig;
   }
   if (normalized === "assessments" || normalized === "assessment_track" || normalized === "tests") return (TEMPLATE_CONFIGS.assessment_track || TEMPLATE_CONFIGS.assessment) as ModuleTemplateConfig;
   if (normalized === "main_modules" || normalized === "units") return (TEMPLATE_CONFIGS.main_module || TEMPLATE_CONFIGS.course) as ModuleTemplateConfig;

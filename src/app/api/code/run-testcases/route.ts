@@ -99,17 +99,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Evaluate test cases sequentially with caching for identical inputs
-    const testResults: TestCaseResult[] = [];
+    // Fast evaluation: evaluate test case 0 first to fail-fast on compilation errors,
+    // then evaluate remaining test cases in parallel chunks with deduplication
+    const testResults: TestCaseResult[] = new Array(testCases.length);
     const executionCache = new Map<string, {
       trimmedActual: string;
       execTime: number;
       passed: boolean;
       resError?: string;
     }>();
-    let earlyCompileError: string | null = null;
 
-    for (const tc of testCases) {
+    async function evaluateSingleTestCase(tc: any, index: number, compileErrOverride?: string | null): Promise<void> {
       const isHidden = Boolean(tc.is_hidden || tc.isHidden || tc.hidden);
       let passed = false;
       let trimmedActual = "";
@@ -119,9 +119,9 @@ export async function POST(request: NextRequest) {
       let resError: string | undefined;
       let execTime = 0.02;
 
-      if (earlyCompileError) {
+      if (compileErrOverride) {
         passed = false;
-        resError = earlyCompileError;
+        resError = compileErrOverride;
         trimmedActual = "";
       } else if (language === "sql") {
         const sqlEngine = body.sql_engine || problem?.sql_engine || "sqlite";
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
             }
           }
         } else {
-          const res = await UniversalExecutor.execute(language, code, cleanInput, 25000, version);
+          const res = await UniversalExecutor.execute(language, code, cleanInput, 4000, version);
           trimmedActual = (res.stdout || "").trim();
           execTime = parseFloat(res.time) || 0.02;
 
@@ -181,6 +181,12 @@ export async function POST(request: NextRequest) {
           if (!passed) {
             if (hasCompileError) {
               resError = res.compile_output.trim();
+            } else if (res.status?.description === "TIME_LIMIT_EXCEEDED" || res.outcome === 13) {
+              resError = "Time Limit Exceeded: Execution time exceeded 4.0 seconds limit.";
+            } else if (res.status?.description === "OUTPUT_LIMIT_EXCEEDED" || res.outcome === 18) {
+              resError = "Output Limit Exceeded: Program generated excessive output (exceeded 256 KB limit).";
+            } else if (res.status?.description === "MEMORY_LIMIT_EXCEEDED" || res.outcome === 17) {
+              resError = "Memory Limit Exceeded: Memory allocation exceeded allowed limits.";
             } else if (hasStderr) {
               resError = res.stderr.trim();
             } else if (!isSuccess && res.message && res.message !== "Accepted") {
@@ -196,10 +202,6 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          if (res.status?.id === 6 || res.outcome === 11 || (hasCompileError)) {
-            earlyCompileError = res.compile_output || res.stderr || "Compilation Error";
-          }
-
           executionCache.set(cacheKey, {
             trimmedActual,
             execTime,
@@ -211,8 +213,8 @@ export async function POST(request: NextRequest) {
 
       const displayActual = trimmedActual || (resError && !resError.startsWith("Output mismatch") ? resError : (passed ? (isHidden ? "Match" : expectedOutput) : "(No output produced)"));
 
-      testResults.push({
-        test_case_id: tc.id || `tc_${testResults.length + 1}`,
+      testResults[index] = {
+        test_case_id: tc.id || `tc_${index + 1}`,
         passed,
         is_hidden: isHidden,
         input: isHidden ? undefined : (rawInput !== undefined && rawInput !== null ? String(rawInput) : ""),
@@ -221,7 +223,40 @@ export async function POST(request: NextRequest) {
         error: !passed ? resError : undefined,
         time_seconds: execTime,
         memory_kb: 16000,
-      });
+      };
+    }
+
+    // Step 1: Run first test case to verify compilation
+    if (testCases.length > 0) {
+      await evaluateSingleTestCase(testCases[0], 0);
+
+      const firstRes = testResults[0];
+      const hasCompileError = Boolean(
+        firstRes?.error &&
+        (firstRes.error.toLowerCase().includes("compilation") ||
+         firstRes.error.toLowerCase().includes("syntaxerror") ||
+         firstRes.error.toLowerCase().includes("error:"))
+      );
+
+      // If compilation failed on first test case, short-circuit all remaining test cases instantly
+      if (hasCompileError && firstRes?.error) {
+        for (let i = 1; i < testCases.length; i++) {
+          await evaluateSingleTestCase(testCases[i], i, firstRes.error);
+        }
+      } else {
+        // Step 2: Run remaining test cases in parallel chunks of 3
+        const remaining = testCases.slice(1);
+        const CHUNK_SIZE = 3;
+        for (let i = 0; i < remaining.length; i += CHUNK_SIZE) {
+          const chunk = remaining.slice(i, i + CHUNK_SIZE);
+          await Promise.all(
+            chunk.map((tc: any, chunkIdx: number) => {
+              const actualIdx = 1 + i + chunkIdx;
+              return evaluateSingleTestCase(tc, actualIdx);
+            })
+          );
+        }
+      }
     }
 
     const firstCompileError = testResults.find(

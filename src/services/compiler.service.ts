@@ -40,7 +40,15 @@ export const DEFAULT_COMPILER_LANGUAGES: CompilerLanguageEntity[] = [
   { id: "perl", display_name: "Perl", jobe_language: "perl", version: "Perl 5.40+", is_enabled: true, category: "interpreted" },
 ];
 
+let cachedCompilerLanguages: CompilerLanguageEntity[] | null = null;
+let languagesCacheExpiresAt = 0;
+
 export async function getCompilerLanguages(enabledOnly = false): Promise<CompilerLanguageEntity[]> {
+  const now = Date.now();
+  if (cachedCompilerLanguages && now < languagesCacheExpiresAt) {
+    return cachedCompilerLanguages.filter(l => !enabledOnly || l.is_enabled);
+  }
+
   try {
     const supabase = createAdminClient();
     let query = supabase.from("compiler_languages").select("*").order("display_name");
@@ -52,10 +60,12 @@ export async function getCompilerLanguages(enabledOnly = false): Promise<Compile
     const { data, error } = await query;
     
     if (error || !data || data.length === 0) {
+      cachedCompilerLanguages = DEFAULT_COMPILER_LANGUAGES;
+      languagesCacheExpiresAt = now + 5 * 60 * 1000;
       return DEFAULT_COMPILER_LANGUAGES.filter(l => !enabledOnly || l.is_enabled);
     }
     
-    return data.map((d: any) => ({
+    const mapped = data.map((d: any) => ({
       id: d.id,
       display_name: d.display_name,
       jobe_language: d.jobe_language,
@@ -63,7 +73,13 @@ export async function getCompilerLanguages(enabledOnly = false): Promise<Compile
       is_enabled: d.is_enabled,
       category: d.category || UNIVERSAL_LANGUAGES[d.jobe_language as CodingLanguage]?.category || "general",
     }));
+
+    cachedCompilerLanguages = mapped;
+    languagesCacheExpiresAt = now + 5 * 60 * 1000;
+    return mapped.filter(l => !enabledOnly || l.is_enabled);
   } catch {
+    cachedCompilerLanguages = DEFAULT_COMPILER_LANGUAGES;
+    languagesCacheExpiresAt = now + 5 * 60 * 1000;
     return DEFAULT_COMPILER_LANGUAGES.filter(l => !enabledOnly || l.is_enabled);
   }
 }

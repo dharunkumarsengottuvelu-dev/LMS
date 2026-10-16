@@ -155,6 +155,11 @@ export interface TestQuestion {
   section: string;
   difficulty?: "easy" | "medium" | "hard" | string;
   language?: string;
+  allowedLanguages?: string[];
+  allowed_languages?: string[];
+  defaultLanguage?: string;
+  default_language?: string;
+  templates?: Record<string, string>;
   problemStatement?: string;
   description?: string;
   inputFormat?: string;
@@ -4003,14 +4008,19 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
                   marks,
                   section: assignedSec,
                   difficulty: rawQ.difficulty || "Easy",
-                  language: rawQ.language || (qType === "coding" ? "java" : undefined),
+                  language: rawQ.language || (qType === "coding" ? (rawQ.defaultLanguage || rawQ.default_language || (rawQ.allowedLanguages && rawQ.allowedLanguages[0]) || "java") : undefined),
+                  allowedLanguages: qType === "coding" ? (rawQ.allowedLanguages || rawQ.allowed_languages) : undefined,
+                  allowed_languages: qType === "coding" ? (rawQ.allowed_languages || rawQ.allowedLanguages) : undefined,
+                  defaultLanguage: qType === "coding" ? (rawQ.defaultLanguage || rawQ.default_language) : undefined,
+                  default_language: qType === "coding" ? (rawQ.default_language || rawQ.defaultLanguage) : undefined,
+                  templates: qType === "coding" ? rawQ.templates : undefined,
                   problemStatement,
                   description: (rawQ.description || problemStatement).trim(),
                   inputFormat: qType === "coding" ? (rawQ.inputFormat || rawQ.input_format || "").trim() : undefined,
                   outputFormat: qType === "coding" ? (rawQ.outputFormat || rawQ.output_format || "").trim() : undefined,
                   constraints: qType === "coding" ? (rawQ.constraints || "").trim() : undefined,
                   explanation: (rawQ.explanation || "").trim(),
-                  starterCode: qType === "coding" ? (rawQ.starterCode || rawQ.starter_code || { java: DEFAULT_STARTER_CODES.java || "// Java" }) : undefined,
+                  starterCode: qType === "coding" ? (rawQ.starterCode || rawQ.starter_code || rawQ.templates || { java: DEFAULT_STARTER_CODES.java || "// Java" }) : undefined,
                   referenceCode: qType === "coding" ? (rawQ.referenceCode || { java: "" }) : undefined,
                   options: qType !== "coding" ? (structuredOptions || []) : undefined,
                   testCases: qType === "coding"
