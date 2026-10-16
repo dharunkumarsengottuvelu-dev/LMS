@@ -115,6 +115,876 @@ function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parent
   };
 }
 
+// ─── CODING PROBLEMS DYNAMIC LANGUAGE SCOPE GENERATOR ───────────────────────
+export type CodingLanguageMode = "all" | "multi" | "single";
+
+export interface CodingLanguageDef {
+  id: string;
+  name: string;
+  category: "Popular" | "Systems" | "Modern" | "Backend" | "Mobile" | "Database" | "Shell";
+}
+
+export interface CodingTemplateOptions {
+  languageMode?: CodingLanguageMode;
+  selectedSingleLanguage?: string;
+  selectedMultiLanguages?: string[];
+}
+
+export const CODING_LANGUAGES: CodingLanguageDef[] = [
+  { id: "python", name: "Python", category: "Popular" },
+  { id: "java", name: "Java", category: "Popular" },
+  { id: "cpp", name: "C++", category: "Popular" },
+  { id: "c", name: "C", category: "Popular" },
+  { id: "javascript", name: "JavaScript", category: "Popular" },
+  { id: "typescript", name: "TypeScript", category: "Popular" },
+  { id: "csharp", name: "C#", category: "Popular" },
+  { id: "go", name: "Go", category: "Systems" },
+  { id: "rust", name: "Rust", category: "Systems" },
+  { id: "kotlin", name: "Kotlin", category: "Modern" },
+  { id: "php", name: "PHP", category: "Backend" },
+  { id: "ruby", name: "Ruby", category: "Modern" },
+  { id: "swift", name: "Swift", category: "Mobile" },
+  { id: "scala", name: "Scala", category: "Modern" },
+  { id: "dart", name: "Dart", category: "Mobile" },
+  { id: "sql", name: "SQL", category: "Database" },
+  { id: "bash", name: "Bash", category: "Shell" },
+];
+
+export const CODING_LANGUAGE_STARTERS: Record<string, string> = {
+  python: `# Write your solution below\nimport sys\n\ndef solve():\n    lines = sys.stdin.read().splitlines()\n    if not lines:\n        return\n    # TODO: Implement solution\n\nif __name__ == '__main__':\n    solve()\n`,
+  java: `import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // TODO: Implement solution\n    }\n}\n`,
+  cpp: `#include <iostream>\n#include <vector>\n#include <string>\n\nusing namespace std;\n\nint main() {\n    ios_base::sync_with_stdio(false);\n    cin.tie(NULL);\n    // TODO: Implement solution\n    return 0;\n}\n`,
+  c: `#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n    // TODO: Implement solution\n    return 0;\n}\n`,
+  javascript: `// Write your solution below\nconst fs = require('fs');\n\nfunction solve() {\n  const input = fs.readFileSync(0, 'utf-8').trim();\n  if (!input) return;\n  // TODO: Implement solution\n}\n\nsolve();\n`,
+  typescript: `// Write your solution below\nimport * as fs from 'fs';\n\nfunction solve(): void {\n  const input = fs.readFileSync(0, 'utf-8').trim();\n  if (!input) return;\n  // TODO: Implement solution\n}\n\nsolve();\n`,
+  csharp: `using System;\n\npublic class Program {\n    public static void Main(string[] args) {\n        // TODO: Implement solution\n    }\n}\n`,
+  go: `package main\n\nimport (\n    "bufio"\n    "fmt"\n    "os"\n)\n\nfunc main() {\n    // TODO: Implement solution\n}\n`,
+  rust: `use std::io::{self, Read};\n\nfn main() {\n    let mut buffer = String::new();\n    io::stdin().read_to_string(&mut buffer).unwrap();\n    // TODO: Implement solution\n}\n`,
+  kotlin: `import java.util.Scanner\n\nfun main() {\n    val scanner = Scanner(System.\`in\`)\n    // TODO: Implement solution\n}\n`,
+  php: `<?php\n// Write your solution below\n$input = stream_get_contents(STDIN);\n// TODO: Implement solution\n?>\n`,
+  ruby: `# Write your solution below\ninput = ARGF.read\n# TODO: Implement solution\n`,
+  swift: `import Foundation\n// Write your solution below\n`,
+  scala: `import scala.io.StdIn\n\nobject Solution {\n    def main(args: Array[String]): Unit = {\n        // TODO: Implement solution\n    }\n}\n`,
+  dart: `import 'dart:io';\n\nvoid main() {\n  // TODO: Implement solution\n}\n`,
+  sql: `-- Write your SQL query statement below\nSELECT * FROM table_name;\n`,
+  bash: `#!/bin/bash\n# Write your solution below\n`,
+};
+
+export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions): ModuleTemplateConfig {
+  const mode: CodingLanguageMode = options?.languageMode || "all";
+  const singleLang = (options?.selectedSingleLanguage || "python").toLowerCase();
+  const multiLangs = (options?.selectedMultiLanguages && options.selectedMultiLanguages.length > 0)
+    ? options.selectedMultiLanguages.map(l => l.toLowerCase())
+    : ["python", "java", "cpp"];
+
+  const isSqlSingle = mode === "single" && singleLang === "sql";
+  const singleLangDef = CODING_LANGUAGES.find(l => l.id === singleLang) || { id: singleLang, name: singleLang.toUpperCase() };
+
+  // Base Columns common to all coding challenges
+  const baseColumns: ColumnDefinition[] = [
+    {
+      key: "title",
+      label: "Problem Title",
+      type: "string",
+      required: true,
+      description: "Title of the coding challenge (e.g. 'Two Sum', 'Reverse Linked List')",
+      sampleValue: isSqlSingle ? "Combine Two Tables" : "Two Sum",
+    },
+    {
+      key: "difficulty",
+      label: "Difficulty",
+      type: "enum",
+      required: true,
+      options: ["Easy", "Medium", "Hard"],
+      description: "Challenge difficulty level: Easy, Medium, or Hard",
+      sampleValue: "Easy",
+    },
+    {
+      key: "category",
+      label: "Category / Domain",
+      type: "string",
+      required: false,
+      defaultValue: isSqlSingle ? "Databases" : "Algorithms",
+      description: "Topic domain (e.g. 'Algorithms', 'Databases', 'Data Structures', 'Strings')",
+      sampleValue: isSqlSingle ? "Databases" : "Algorithms",
+    },
+    {
+      key: "topic_tags",
+      label: "Topic Tags (Comma-separated)",
+      type: "string",
+      required: false,
+      description: "Comma-separated search tags (e.g. 'Array, Hash Table' or 'SQL, Join')",
+      sampleValue: isSqlSingle ? "SQL, Join, Database" : "Array, Hash Table",
+    },
+    {
+      key: "points",
+      label: "Points",
+      type: "number",
+      required: false,
+      defaultValue: 100,
+      description: "Score points awarded upon full pass (e.g. 10, 50, 100)",
+      sampleValue: 10,
+    },
+    {
+      key: "acceptance_rate",
+      label: "Acceptance Rate",
+      type: "string",
+      required: false,
+      defaultValue: "65%",
+      description: "Benchmark acceptance percentage (e.g. '49.8%')",
+      sampleValue: isSqlSingle ? "72.4%" : "49.8%",
+    },
+    {
+      key: "description",
+      label: "Problem Statement (Markdown)",
+      type: "string",
+      required: true,
+      description: "Detailed problem description, task instructions, and rules.",
+      sampleValue: isSqlSingle
+        ? "Table: Person\n+-------------+---------+\n| Column Name | Type    |\n+-------------+---------+\n| personId    | int     |\n| lastName    | varchar |\n| firstName   | varchar |\n+-------------+---------+\npersonId is the primary key for this table.\n\nTable: Address\n+-------------+---------+\n| Column Name | Type    |\n+-------------+---------+\n| addressId   | int     |\n| personId    | int     |\n| city        | varchar |\n| state       | varchar |\n+-------------+---------+\n\nWrite a solution to report firstName, lastName, city, and state of each person in the Person table."
+        : "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+    },
+    {
+      key: "constraints",
+      label: "Constraints",
+      type: "string",
+      required: false,
+      description: "Execution and boundary constraints",
+      sampleValue: isSqlSingle ? "Person table has up to 1000 rows.\nAddress table has up to 1000 rows." : "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9",
+    },
+    {
+      key: "input_format",
+      label: "Input Format",
+      type: "string",
+      required: false,
+      description: isSqlSingle ? "Relational database tables schema" : "Explanation of standard input structure",
+      sampleValue: isSqlSingle ? "Person and Address relational tables." : "Line 1: Space-separated integers for nums.\nLine 2: target integer.",
+    },
+    {
+      key: "output_format",
+      label: "Output Format",
+      type: "string",
+      required: false,
+      description: isSqlSingle ? "Result set query format" : "Explanation of standard output structure",
+      sampleValue: isSqlSingle ? "Table with columns: firstName, lastName, city, state." : "Print the two 0-indexed positions separated by a space.",
+    },
+    {
+      key: "sample_input",
+      label: "Sample Input (Example 1)",
+      type: "string",
+      required: false,
+      description: "Example input shown in problem overview",
+      sampleValue: isSqlSingle ? "Person: [[1, 'Wang', 'Allen']], Address: [[1, 2, 'New York City', 'New York']]" : "2 7 11 15\n9",
+    },
+    {
+      key: "sample_output",
+      label: "Sample Output (Example 1)",
+      type: "string",
+      required: false,
+      description: "Expected output for Example 1",
+      sampleValue: isSqlSingle ? "Allen|Wang|None|None" : "0 1",
+    },
+    {
+      key: "sample_explanation",
+      label: "Sample Explanation",
+      type: "string",
+      required: false,
+      description: "Reasoning for Example 1",
+      sampleValue: isSqlSingle ? "Allen has addressId null in Address table." : "Because nums[0] + nums[1] == 9, we return 0 1.",
+    },
+    {
+      key: "testcase_1_input",
+      label: "Test Case 1 Input",
+      type: "string",
+      required: false,
+      description: "First public test case input for automated grader",
+      sampleValue: isSqlSingle ? "SELECT * FROM Person;" : "2 7 11 15\n9",
+    },
+    {
+      key: "testcase_1_output",
+      label: "Test Case 1 Expected Output",
+      type: "string",
+      required: false,
+      description: "First public test case expected output",
+      sampleValue: isSqlSingle ? "Allen|Wang|None|None" : "0 1",
+    },
+    {
+      key: "testcase_2_input",
+      label: "Test Case 2 Input",
+      type: "string",
+      required: false,
+      description: "Second public testcase input",
+      sampleValue: isSqlSingle ? "SELECT COUNT(*) FROM Person;" : "3 2 4\n6",
+    },
+    {
+      key: "testcase_2_output",
+      label: "Test Case 2 Expected Output",
+      type: "string",
+      required: false,
+      description: "Second public testcase expected output",
+      sampleValue: isSqlSingle ? "1" : "1 2",
+    },
+    {
+      key: "testcase_3_input",
+      label: "Test Case 3 Input",
+      type: "string",
+      required: false,
+      description: "Third public testcase input",
+      sampleValue: isSqlSingle ? "SELECT * FROM Address;" : "3 3\n6",
+    },
+    {
+      key: "testcase_3_output",
+      label: "Test Case 3 Expected Output",
+      type: "string",
+      required: false,
+      description: "Third public testcase expected output",
+      sampleValue: isSqlSingle ? "1|2|New York City|New York" : "0 1",
+    },
+    {
+      key: "testcase_4_input",
+      label: "Test Case 4 Input",
+      type: "string",
+      required: false,
+      description: "Fourth public testcase input",
+      sampleValue: "1 5\n6",
+    },
+    {
+      key: "testcase_4_output",
+      label: "Test Case 4 Expected Output",
+      type: "string",
+      required: false,
+      description: "Fourth public testcase expected output",
+      sampleValue: "0 1",
+    },
+    {
+      key: "testcase_5_input",
+      label: "Test Case 5 Input",
+      type: "string",
+      required: false,
+      description: "Fifth public testcase input",
+      sampleValue: "4 8\n12",
+    },
+    {
+      key: "testcase_5_output",
+      label: "Test Case 5 Expected Output",
+      type: "string",
+      required: false,
+      description: "Fifth public testcase expected output",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_input",
+      label: "Hidden Test Case 1 Input",
+      type: "string",
+      required: false,
+      description: "Private/Hidden test case 1 to prevent hardcoding",
+      sampleValue: isSqlSingle ? "SELECT firstName FROM Person WHERE personId = 1;" : "3 3\n6",
+    },
+    {
+      key: "hidden_testcase_output",
+      label: "Hidden Test Case 1 Expected Output",
+      type: "string",
+      required: false,
+      description: "Expected output for hidden test case 1",
+      sampleValue: isSqlSingle ? "Allen" : "0 1",
+    },
+    {
+      key: "hidden_testcase_2_input",
+      label: "Hidden Test Case 2 Input",
+      type: "string",
+      required: false,
+      description: "Private/Hidden testcase 2 evaluated during submit",
+      sampleValue: "10 20 30\n50",
+    },
+    {
+      key: "hidden_testcase_2_output",
+      label: "Hidden Test Case 2 Expected Output",
+      type: "string",
+      required: false,
+      description: "Expected output for hidden testcase 2",
+      sampleValue: "1 2",
+    },
+    {
+      key: "hidden_testcase_3_input",
+      label: "Hidden Test Case 3 Input",
+      type: "string",
+      required: false,
+      description: "Private/Hidden testcase 3 evaluated during submit",
+      sampleValue: "100 200\n300",
+    },
+    {
+      key: "hidden_testcase_3_output",
+      label: "Hidden Test Case 3 Expected Output",
+      type: "string",
+      required: false,
+      description: "Expected output for hidden testcase 3",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_4_input",
+      label: "Hidden Test Case 4 Input",
+      type: "string",
+      required: false,
+      description: "Private/Hidden testcase 4 evaluated during submit",
+      sampleValue: "-1 -2\n-3",
+    },
+    {
+      key: "hidden_testcase_4_output",
+      label: "Hidden Test Case 4 Expected Output",
+      type: "string",
+      required: false,
+      description: "Expected output for hidden testcase 4",
+      sampleValue: "0 1",
+    },
+    {
+      key: "hidden_testcase_5_input",
+      label: "Hidden Test Case 5 Input",
+      type: "string",
+      required: false,
+      description: "Private/Hidden testcase 5 evaluated during submit",
+      sampleValue: "0 0\n0",
+    },
+    {
+      key: "hidden_testcase_5_output",
+      label: "Hidden Test Case 5 Expected Output",
+      type: "string",
+      required: false,
+      description: "Expected output for hidden testcase 5",
+      sampleValue: "0 1",
+    },
+    {
+      key: "time_limit_ms",
+      label: "Time Limit (ms)",
+      type: "number",
+      required: false,
+      defaultValue: 2000,
+      description: "Execution timeout in milliseconds (default: 2000)",
+      sampleValue: 2000,
+    },
+    {
+      key: "memory_limit_mb",
+      label: "Memory Limit (MB)",
+      type: "number",
+      required: false,
+      defaultValue: 256,
+      description: "Memory threshold in megabytes (default: 256)",
+      sampleValue: 256,
+    },
+  ];
+
+  let modeSpecificColumns: ColumnDefinition[] = [];
+  let templateFileName = "coding_problems_all_languages_template.xlsx";
+  let displayName = "Coding Problems Repository Template (All Languages)";
+  let description = "Universal LeetCode-style coding challenges template open to all platform compilers.";
+
+  if (mode === "all") {
+    modeSpecificColumns = [
+      {
+        key: "starter_code",
+        label: "Starter Code (Optional)",
+        type: "string",
+        required: false,
+        description: "General starter code boilerplate. If empty, platform templates are automatically assigned.",
+        sampleValue: CODING_LANGUAGE_STARTERS.python,
+      },
+    ];
+  } else if (mode === "single") {
+    templateFileName = `coding_problems_${singleLang}_template.xlsx`;
+    displayName = `Coding Problems Template (Single Language: ${singleLangDef.name})`;
+    description = `Targeted template configured exclusively for ${singleLangDef.name}. Submissions will be locked to ${singleLangDef.name}.`;
+
+    if (isSqlSingle) {
+      modeSpecificColumns = [
+        {
+          key: "sql_engine",
+          label: "SQL Engine",
+          type: "enum",
+          required: false,
+          defaultValue: "postgresql",
+          options: ["postgresql", "mysql", "sqlite", "sqlserver", "oracle", "mariadb"],
+          description: "Relational database engine dialect: postgresql, mysql, sqlite, sqlserver",
+          sampleValue: "postgresql",
+        },
+        {
+          key: "schema_sql",
+          label: "Schema SQL (DDL Tables & Inserts)",
+          type: "string",
+          required: true,
+          description: "Database table schema and sample INSERT data for sandbox environment",
+          sampleValue: "CREATE TABLE Person (personId INT PRIMARY KEY, lastName VARCHAR(50), firstName VARCHAR(50));\nCREATE TABLE Address (addressId INT PRIMARY KEY, personId INT, city VARCHAR(50), state VARCHAR(50));\nINSERT INTO Person VALUES (1, 'Wang', 'Allen'), (2, 'Alice', 'Bob');\nINSERT INTO Address VALUES (1, 2, 'New York City', 'New York');",
+        },
+        {
+          key: "solution_sql",
+          label: "Solution Query (SQL)",
+          type: "string",
+          required: false,
+          description: "Reference solution SQL query",
+          sampleValue: "SELECT p.firstName, p.lastName, a.city, a.state FROM Person p LEFT JOIN Address a ON p.personId = a.personId;",
+        },
+        {
+          key: "starter_code",
+          label: "Starter Query Template (SQL)",
+          type: "string",
+          required: false,
+          description: "Starter SQL query boilerplate presented to the learner",
+          sampleValue: "-- Write a solution to report firstName, lastName, city, and state of each person\nSELECT p.firstName, p.lastName, a.city, a.state\nFROM Person p\nLEFT JOIN Address a ON p.personId = a.personId;\n",
+        },
+      ];
+    } else {
+      modeSpecificColumns = [
+        {
+          key: "language",
+          label: "Language",
+          type: "enum",
+          required: false,
+          defaultValue: singleLangDef.name,
+          options: CODING_LANGUAGES.map(l => l.name),
+          description: `Single locked programming language for this problem: ${singleLangDef.name}`,
+          sampleValue: singleLangDef.name,
+        },
+        {
+          key: "starter_code",
+          label: `Starter Code (${singleLangDef.name})`,
+          type: "string",
+          required: false,
+          description: `Starter boilerplate code provided to learners in ${singleLangDef.name}`,
+          sampleValue: CODING_LANGUAGE_STARTERS[singleLang] || CODING_LANGUAGE_STARTERS.python,
+        },
+      ];
+    }
+  } else if (mode === "multi") {
+    templateFileName = "coding_problems_multi_language_template.xlsx";
+    const selectedNames = multiLangs.map(id => CODING_LANGUAGES.find(l => l.id === id)?.name || id.toUpperCase());
+    displayName = `Coding Problems Template (Multi Language: ${selectedNames.join(", ")})`;
+    description = `Multi-language template with dedicated starter code columns for each chosen language (${selectedNames.join(", ")}).`;
+
+    modeSpecificColumns = [
+      {
+        key: "allowed_languages",
+        label: "Allowed Languages (Comma-separated)",
+        type: "string",
+        required: false,
+        defaultValue: multiLangs.join(", "),
+        description: `Comma-separated list of enabled compilers (default: ${multiLangs.join(", ")})`,
+        sampleValue: multiLangs.join(", "),
+      },
+      {
+        key: "default_language",
+        label: "Default Language",
+        type: "string",
+        required: false,
+        defaultValue: multiLangs[0] || "python",
+        description: "Language selected by default when learner opens the problem",
+        sampleValue: multiLangs[0] || "python",
+      },
+    ];
+
+    // Add a dedicated column for each selected language
+    multiLangs.forEach(langId => {
+      const lDef = CODING_LANGUAGES.find(l => l.id === langId) || { id: langId, name: langId.toUpperCase() };
+      modeSpecificColumns.push({
+        key: `${langId}_starter_code`,
+        label: `${lDef.name} Starter Code`,
+        type: "string",
+        required: false,
+        description: `Starter code template for ${lDef.name}`,
+        sampleValue: CODING_LANGUAGE_STARTERS[langId] || CODING_LANGUAGE_STARTERS.python,
+      });
+    });
+  }
+
+  const columns = [...baseColumns, ...modeSpecificColumns];
+
+  // Sample Rows Generation
+  let sampleRows: Record<string, any>[] = [];
+
+  if (isSqlSingle) {
+    sampleRows = [
+      {
+        title: "Combine Two Tables",
+        difficulty: "Easy",
+        category: "Databases",
+        topic_tags: "SQL, Database, Join",
+        points: 10,
+        acceptance_rate: "72.4%",
+        description: "Table: Person\n+-------------+---------+\n| Column Name | Type    |\n+-------------+---------+\n| personId    | int     |\n| lastName    | varchar |\n| firstName   | varchar |\n+-------------+---------+\npersonId is the primary key column for this table.\n\nTable: Address\n+-------------+---------+\n| Column Name | Type    |\n+-------------+---------+\n| addressId   | int     |\n| personId    | int     |\n| city        | varchar |\n| state       | varchar |\n+-------------+---------+\n\nWrite a solution to report the first name, last name, city, and state of each person in the Person table. If the address of a personId is not present in the Address table, report null instead.",
+        constraints: "Person table has up to 1000 rows.\nAddress table has up to 1000 rows.",
+        input_format: "Person and Address relational tables.",
+        output_format: "Result table with columns: firstName, lastName, city, state in any order.",
+        sql_engine: "postgresql",
+        schema_sql: "CREATE TABLE Person (personId INT PRIMARY KEY, lastName VARCHAR(50), firstName VARCHAR(50));\nCREATE TABLE Address (addressId INT PRIMARY KEY, personId INT, city VARCHAR(50), state VARCHAR(50));\nINSERT INTO Person VALUES (1, 'Wang', 'Allen'), (2, 'Alice', 'Bob');\nINSERT INTO Address VALUES (1, 2, 'New York City', 'New York');",
+        solution_sql: "SELECT p.firstName, p.lastName, a.city, a.state FROM Person p LEFT JOIN Address a ON p.personId = a.personId;",
+        starter_code: "-- Write a solution to report firstName, lastName, city, and state of each person\nSELECT p.firstName, p.lastName, a.city, a.state\nFROM Person p\nLEFT JOIN Address a ON p.personId = a.personId;\n",
+        sample_input: "Person: [[1, 'Wang', 'Allen'], [2, 'Alice', 'Bob']], Address: [[1, 2, 'New York City', 'New York']]",
+        sample_output: "Allen|Wang|None|None\nBob|Alice|New York City|New York",
+        sample_explanation: "Allen has addressId null, Bob has city New York City and state New York.",
+        testcase_1_input: "SELECT * FROM Person;",
+        testcase_1_output: "1|Wang|Allen\n2|Alice|Bob",
+        testcase_2_input: "SELECT COUNT(*) FROM Person;",
+        testcase_2_output: "2",
+        testcase_3_input: "SELECT * FROM Address;",
+        testcase_3_output: "1|2|New York City|New York",
+        hidden_testcase_input: "SELECT firstName FROM Person WHERE personId = 1;",
+        hidden_testcase_output: "Allen",
+        time_limit_ms: 2000,
+        memory_limit_mb: 256,
+      },
+      {
+        title: "Second Highest Salary",
+        difficulty: "Medium",
+        category: "Databases",
+        topic_tags: "SQL, Database, Subquery",
+        points: 20,
+        acceptance_rate: "39.1%",
+        description: "Table: Employee\n+-------------+------+\n| Column Name | Type |\n+-------------+------+\n| id          | int  |\n| salary      | int  |\n+-------------+------+\nid is the primary key column for this table.\nEach row contains information about the salary of an employee.\n\nWrite a solution to find the second highest distinct salary from the Employee table. If there is no second highest salary, return null.",
+        constraints: "1 <= Employee table length <= 10^4",
+        input_format: "Employee table with id and salary integers.",
+        output_format: "Result table with single column SecondHighestSalary.",
+        sql_engine: "postgresql",
+        schema_sql: "CREATE TABLE Employee (id INT PRIMARY KEY, salary INT);\nINSERT INTO Employee VALUES (1, 100), (2, 200), (3, 300);",
+        solution_sql: "SELECT MAX(salary) AS SecondHighestSalary FROM Employee WHERE salary < (SELECT MAX(salary) FROM Employee);",
+        starter_code: "-- Write a solution to find the second highest distinct salary\nSELECT MAX(salary) AS SecondHighestSalary\nFROM Employee\nWHERE salary < (SELECT MAX(salary) FROM Employee);\n",
+        sample_input: "Employee: [[1, 100], [2, 200], [3, 300]]",
+        sample_output: "200",
+        sample_explanation: "The highest salary is 300 and the second highest salary is 200.",
+        testcase_1_input: "SELECT * FROM Employee;",
+        testcase_1_output: "1|100\n2|200\n3|300",
+        testcase_2_input: "SELECT MAX(salary) FROM Employee;",
+        testcase_2_output: "300",
+        hidden_testcase_input: "DELETE FROM Employee WHERE id = 3; SELECT * FROM Employee;",
+        hidden_testcase_output: "1|100\n2|200",
+        time_limit_ms: 2000,
+        memory_limit_mb: 256,
+      },
+      {
+        title: "Customers Who Never Order",
+        difficulty: "Easy",
+        category: "Databases",
+        topic_tags: "SQL, Database",
+        points: 10,
+        acceptance_rate: "67.8%",
+        description: "Table: Customers\n+-------------+---------+\n| Column Name | Type    |\n+-------------+---------+\n| id          | int     |\n| name        | varchar |\n+-------------+---------+\nid is the primary key column for this table.\n\nTable: Orders\n+-------------+------+\n| Column Name | Type |\n+-------------+------+\n| id          | int  |\n| customerId  | int  |\n+-------------+------+\nid is the primary key column for this table.\ncustomerId is a foreign key of the ID from the Customers table.\n\nWrite a solution to find all customers who never order anything.",
+        constraints: "Customers up to 10^4 rows, Orders up to 10^4 rows.",
+        input_format: "Customers and Orders relational tables.",
+        output_format: "Result table with single column Customers.",
+        sql_engine: "postgresql",
+        schema_sql: "CREATE TABLE Customers (id INT PRIMARY KEY, name VARCHAR(50));\nCREATE TABLE Orders (id INT PRIMARY KEY, customerId INT);\nINSERT INTO Customers VALUES (1, 'Joe'), (2, 'Henry'), (3, 'Sam'), (4, 'Max');\nINSERT INTO Orders VALUES (1, 3), (2, 1);",
+        solution_sql: "SELECT name AS Customers FROM Customers c LEFT JOIN Orders o ON c.id = o.customerId WHERE o.customerId IS NULL;",
+        starter_code: "-- Write a solution to find all customers who never order anything\nSELECT name AS Customers\nFROM Customers\nWHERE id NOT IN (SELECT customerId FROM Orders WHERE customerId IS NOT NULL);\n",
+        sample_input: "Customers: [[1, 'Joe'], [2, 'Henry'], [3, 'Sam'], [4, 'Max']], Orders: [[1, 3], [2, 1]]",
+        sample_output: "Henry\nMax",
+        sample_explanation: "Henry and Max never made any orders.",
+        testcase_1_input: "SELECT * FROM Customers;",
+        testcase_1_output: "1|Joe\n2|Henry\n3|Sam\n4|Max",
+        hidden_testcase_input: "SELECT COUNT(*) FROM Customers;",
+        hidden_testcase_output: "4",
+        time_limit_ms: 2000,
+        memory_limit_mb: 256,
+      },
+    ];
+  } else {
+    const defaultStarter = CODING_LANGUAGE_STARTERS[singleLang] || CODING_LANGUAGE_STARTERS.python;
+
+    sampleRows = [
+      {
+        title: "Two Sum",
+        difficulty: "Easy",
+        category: "Algorithms",
+        topic_tags: "Array, Hash Table",
+        points: 10,
+        acceptance_rate: "49.8%",
+        description: "Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.",
+        constraints: "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9",
+        input_format: "Line 1: Space-separated integers for nums.\nLine 2: target integer.",
+        output_format: "Print the two 0-indexed positions separated by a space.",
+        sample_input: "2 7 11 15\n9",
+        sample_output: "0 1",
+        sample_explanation: "nums[0] + nums[1] == 2 + 7 == 9, so output is 0 1.",
+        testcase_1_input: "2 7 11 15\n9",
+        testcase_1_output: "0 1",
+        testcase_2_input: "3 2 4\n6",
+        testcase_2_output: "1 2",
+        testcase_3_input: "3 3\n6",
+        testcase_3_output: "0 1",
+        hidden_testcase_input: "3 3\n6",
+        hidden_testcase_output: "0 1",
+        time_limit_ms: 2000,
+        memory_limit_mb: 256,
+        starter_code: defaultStarter,
+        language: singleLangDef.name,
+        allowed_languages: multiLangs.join(", "),
+        default_language: multiLangs[0] || "python",
+      },
+      {
+        title: "Valid Palindrome",
+        difficulty: "Easy",
+        category: "Strings",
+        topic_tags: "Two Pointers, String",
+        points: 20,
+        acceptance_rate: "45.2%",
+        description: "A phrase is a palindrome if, after converting all uppercase letters into lowercase letters and removing all non-alphanumeric characters, it reads the same forward and backward.\n\nGiven a string `s`, return `true` if it is a palindrome, or `false` otherwise.",
+        constraints: "1 <= s.length <= 2 * 10^5\ns consists only of printable ASCII characters.",
+        input_format: "A single line containing the string s.",
+        output_format: "Print 'true' or 'false'.",
+        sample_input: "A man, a plan, a canal: Panama",
+        sample_output: "true",
+        sample_explanation: "'amanaplanacanalpanama' is a palindrome.",
+        testcase_1_input: "A man, a plan, a canal: Panama",
+        testcase_1_output: "true",
+        testcase_2_input: "race a car",
+        testcase_2_output: "false",
+        hidden_testcase_input: " ",
+        hidden_testcase_output: "true",
+        time_limit_ms: 2000,
+        memory_limit_mb: 256,
+        starter_code: defaultStarter,
+        language: singleLangDef.name,
+        allowed_languages: multiLangs.join(", "),
+        default_language: multiLangs[0] || "python",
+      },
+      {
+        title: "Maximum Subarray Sum",
+        difficulty: "Medium",
+        category: "Algorithms",
+        topic_tags: "Array, Dynamic Programming",
+        points: 50,
+        acceptance_rate: "50.4%",
+        description: "Given an integer array `nums`, find the subarray with the largest sum, and return its sum.",
+        constraints: "1 <= nums.length <= 10^5\n-10^4 <= nums[i] <= 10^4",
+        input_format: "A single line containing space-separated integers of the array.",
+        output_format: "Print the maximum subarray sum.",
+        sample_input: "-2 1 -3 4 -1 2 1 -5 4",
+        sample_output: "6",
+        sample_explanation: "The subarray [4, -1, 2, 1] has the largest sum 6.",
+        testcase_1_input: "-2 1 -3 4 -1 2 1 -5 4",
+        testcase_1_output: "6",
+        testcase_2_input: "1",
+        testcase_2_output: "1",
+        hidden_testcase_input: "5 4 -1 7 8",
+        hidden_testcase_output: "23",
+        time_limit_ms: 2000,
+        memory_limit_mb: 256,
+        starter_code: defaultStarter,
+        language: singleLangDef.name,
+        allowed_languages: multiLangs.join(", "),
+        default_language: multiLangs[0] || "python",
+      },
+    ];
+
+    // If multi mode, populate language-specific starter codes on sample rows
+    if (mode === "multi") {
+      sampleRows.forEach(row => {
+        multiLangs.forEach(langId => {
+          row[`${langId}_starter_code`] = CODING_LANGUAGE_STARTERS[langId] || CODING_LANGUAGE_STARTERS.python;
+        });
+      });
+    }
+  }
+
+  // Universal mapToPayload capable of processing all modes
+  const mapToPayload = (row: Record<string, any>, idx: number) => {
+    const rawTitle = String(row.title || `Coding Challenge ${idx + 1}`).trim();
+    const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const diffRaw = String(row.difficulty || "Easy").toLowerCase().trim();
+    const difficulty = (diffRaw === "hard" ? "hard" : diffRaw === "medium" ? "medium" : "easy") as "easy" | "medium" | "hard";
+
+    const tags = row.topic_tags
+      ? String(row.topic_tags).split(",").map((s) => s.trim()).filter(Boolean)
+      : [isSqlSingle ? "Databases" : "Algorithms"];
+
+    const cleanCsvVal = (v: any) =>
+      String(v ?? "")
+        .replace(/\\r\\n/g, "\n")
+        .replace(/\\n/g, "\n")
+        .replace(/\r\n/g, "\n")
+        .trim();
+
+    const testCases: any[] = [];
+
+    // Scan numbered test cases
+    for (let i = 1; i <= 20; i++) {
+      const inpVal = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`] ?? row[`input_${i}`] ?? row[`tc${i}_input`];
+      const outVal = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`] ?? row[`output_${i}`] ?? row[`tc${i}_output`];
+
+      if ((inpVal !== undefined && String(inpVal).trim() !== "") || (outVal !== undefined && String(outVal).trim() !== "")) {
+        testCases.push({
+          id: `tc-${Date.now()}-${i}-${idx}`,
+          name: `Test Case ${i}`,
+          input: cleanCsvVal(inpVal),
+          expected_output: cleanCsvVal(outVal),
+          is_hidden: false,
+          is_enabled: true,
+          weight: 10,
+          order_index: testCases.length,
+        });
+      }
+    }
+
+    // Sample fallback as Test Case 1 if no test cases given
+    if (testCases.length === 0 && (row.sample_input || row.sample_output)) {
+      testCases.push({
+        id: `tc-${Date.now()}-1-${idx}`,
+        name: "Test Case 1 (Sample)",
+        input: cleanCsvVal(row.sample_input),
+        expected_output: cleanCsvVal(row.sample_output),
+        is_hidden: false,
+        is_enabled: true,
+        weight: 10,
+        order_index: 0,
+      });
+    }
+
+    // Hidden Test Cases
+    for (let h = 1; h <= 10; h++) {
+      const hInp = h === 1
+        ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input ?? row.hidden_input ?? row.hidden_test_case_1_input)
+        : (row[`hidden_testcase_${h}_input`] ?? row[`hidden_testcase_${h}`] ?? row[`hidden_input_${h}`] ?? row[`hidden_${h}_input`]);
+      const hOut = h === 1
+        ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output ?? row.hidden_output ?? row.hidden_test_case_1_output)
+        : (row[`hidden_testcase_${h}_output`] ?? row[`hidden_testcase_${h}`] ?? row[`hidden_output_${h}`] ?? row[`hidden_${h}_output`]);
+
+      if ((hInp !== undefined && String(hInp).trim() !== "") || (hOut !== undefined && String(hOut).trim() !== "")) {
+        testCases.push({
+          id: `tc-${Date.now()}-h${h}-${idx}`,
+          name: `Hidden Case ${h}`,
+          input: cleanCsvVal(hInp),
+          expected_output: cleanCsvVal(hOut),
+          is_hidden: true,
+          is_enabled: true,
+          weight: 20,
+          order_index: testCases.length,
+        });
+      }
+    }
+
+    // Example Cases
+    const exampleCases: any[] = [];
+    for (let e = 1; e <= 5; e++) {
+      const eInp = e === 1
+        ? (row.sample_input ?? row.example_1_input ?? row.sample_input_1 ?? row.example_input)
+        : (row[`sample_input_${e}`] ?? row[`example_${e}_input`] ?? row[`example_input_${e}`]);
+      const eOut = e === 1
+        ? (row.sample_output ?? row.example_1_output ?? row.sample_output_1 ?? row.example_output)
+        : (row[`sample_output_${e}`] ?? row[`example_${e}_output`] ?? row[`example_output_${e}`]);
+      const eExp = e === 1
+        ? (row.sample_explanation ?? row.example_1_explanation ?? row.sample_explanation_1 ?? row.example_explanation)
+        : (row[`sample_explanation_${e}`] ?? row[`example_${e}_explanation`] ?? row[`example_explanation_${e}`]);
+
+      if ((eInp !== undefined && String(eInp).trim() !== "") || (eOut !== undefined && String(eOut).trim() !== "")) {
+        exampleCases.push({
+          id: `example-${e}`,
+          input: String(eInp || "").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").trim(),
+          output: String(eOut || "").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").trim(),
+          explanation: String(eExp || "").trim(),
+        });
+      }
+    }
+
+    // Determine Language Scope & Templates
+    const templates: Record<string, string> = {};
+
+    // 1. Check for language-specific starter code columns (e.g. python_starter_code, java_starter_code, etc.)
+    CODING_LANGUAGES.forEach(l => {
+      const lCode = row[`${l.id}_starter_code`] ?? row[`${l.id}_starter`] ?? row[`starter_code_${l.id}`] ?? row[`code_${l.id}`];
+      if (lCode !== undefined && String(lCode).trim() !== "") {
+        templates[l.id] = String(lCode).trim();
+      }
+    });
+
+    // 2. Check for general starter_code column
+    const genStarter = row.starter_code ?? row.starterCode ?? row.code ?? row.boilerplate;
+    const rowLangRaw = String(row.language || row.lang || "").toLowerCase().trim();
+    const matchedLang = CODING_LANGUAGES.find(l => l.id === rowLangRaw || l.name.toLowerCase() === rowLangRaw)?.id;
+
+    if (genStarter && String(genStarter).trim() !== "") {
+      const targetLang = matchedLang || (mode === "single" ? singleLang : "python");
+      templates[targetLang] = String(genStarter).trim();
+    }
+
+    // 3. Populate default templates if needed
+    if (Object.keys(templates).length === 0) {
+      if (mode === "single") {
+        templates[singleLang] = CODING_LANGUAGE_STARTERS[singleLang] || CODING_LANGUAGE_STARTERS.python || "";
+      } else {
+        // All / Multi fallback: fill popular compilers
+        CODING_LANGUAGES.forEach(l => {
+          templates[l.id] = CODING_LANGUAGE_STARTERS[l.id] || "";
+        });
+      }
+    }
+
+    // 4. Allowed Languages resolution
+    let allowed_languages: string[] | undefined = undefined;
+    if (row.allowed_languages) {
+      allowed_languages = String(row.allowed_languages).split(/[,|\s]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+    } else if (mode === "single") {
+      allowed_languages = [singleLang];
+    } else if (mode === "multi") {
+      allowed_languages = multiLangs && multiLangs.length > 0 ? multiLangs : (Object.keys(templates).length > 0 ? Object.keys(templates) : ["python", "java", "cpp"]);
+    }
+
+    // 5. Default Language resolution
+    const default_language =
+      (row.default_language ? String(row.default_language).trim().toLowerCase() : undefined) ||
+      matchedLang ||
+      allowed_languages?.[0] ||
+      (mode === "single" ? singleLang : "python");
+
+    // 6. SQL Database properties
+    const isSql = (row.category && String(row.category).toLowerCase().includes("database")) ||
+      (row.category && String(row.category).toLowerCase().includes("sql")) ||
+      row.sql_engine ||
+      row.schema_sql ||
+      (mode === "single" && singleLang === "sql");
+
+    const sql_engine = row.sql_engine ? String(row.sql_engine).trim().toLowerCase() : (isSql ? "postgresql" : undefined);
+    const schema_sql = row.schema_sql ? cleanCsvVal(row.schema_sql) : undefined;
+    const solution_sql = row.solution_sql ? cleanCsvVal(row.solution_sql) : undefined;
+
+    return {
+      id: `problem-${slug}-${Date.now()}-${idx}`,
+      title: rawTitle,
+      slug,
+      description: String(row.description || "").trim(),
+      difficulty,
+      category: isSql ? "Databases" : String(row.category || "Algorithms").trim(),
+      topic_tags: tags,
+      points: Number(row.points) || 100,
+      acceptance_rate: row.acceptance_rate ? String(row.acceptance_rate).trim() : undefined,
+      constraints: String(row.constraints || "").trim(),
+      input_format: String(row.input_format || "").trim(),
+      output_format: String(row.output_format || "").trim(),
+      sample_input: String(row.sample_input || ""),
+      sample_output: String(row.sample_output || ""),
+      example_cases: exampleCases,
+      templates,
+      allowed_languages,
+      allowedLanguages: allowed_languages,
+      default_language,
+      defaultLanguage: default_language,
+      sql_engine,
+      schema_sql,
+      solution_sql,
+      test_cases: testCases,
+      time_limit_ms: Number(row.time_limit_ms) || 2000,
+      memory_limit_mb: Number(row.memory_limit_mb) || 256,
+      status: "published",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  };
+
+  return {
+    moduleType: "coding_problem",
+    displayName,
+    description,
+    templateFileName,
+    columns,
+    sampleRows,
+    mapToPayload,
+  };
+}
+
 export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
   // ─── 0. COURSE MAIN MODULE TEMPLATE ─────────────────────────────────────────
   main_module: {
@@ -2606,503 +3476,8 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
     })
   },
 
-  // ─── 5. CODING PROBLEMS REPOSITORY TEMPLATE ───────────────────────────────
-  coding_problem: {
-    moduleType: "coding_problem",
-    displayName: "Coding Problems Repository Template",
-    description: "Template for creating LeetCode-style algorithm & database coding challenges in bulk with test cases.",
-    templateFileName: "coding_problems_template.xlsx",
-    columns: [
-      {
-        key: "title",
-        label: "Problem Title",
-        type: "string",
-        required: true,
-        description: "Title of the coding challenge (e.g. 'Two Sum', 'Reverse Linked List')",
-        sampleValue: "Two Sum",
-      },
-      {
-        key: "difficulty",
-        label: "Difficulty",
-        type: "enum",
-        required: true,
-        options: ["Easy", "Medium", "Hard"],
-        description: "Challenge difficulty level: Easy, Medium, or Hard",
-        sampleValue: "Easy",
-      },
-      {
-        key: "category",
-        label: "Category / Domain",
-        type: "string",
-        required: false,
-        defaultValue: "Algorithms",
-        description: "Topic domain (e.g. 'Algorithms', 'Data Structures', 'Databases', 'Dynamic Programming', 'Strings')",
-        sampleValue: "Algorithms",
-      },
-      {
-        key: "topic_tags",
-        label: "Topic Tags (Comma-separated)",
-        type: "string",
-        required: false,
-        description: "Comma-separated search tags (e.g. 'Array, Hash Table, Two Pointers')",
-        sampleValue: "Array, Hash Table",
-      },
-      {
-        key: "points",
-        label: "Points",
-        type: "number",
-        required: false,
-        defaultValue: 100,
-        description: "Score points awarded upon full pass (e.g. 10, 50, 100)",
-        sampleValue: 10,
-      },
-      {
-        key: "acceptance_rate",
-        label: "Acceptance Rate",
-        type: "string",
-        required: false,
-        defaultValue: "65%",
-        description: "Benchmark acceptance percentage (e.g. '49.8%')",
-        sampleValue: "49.8%",
-      },
-      {
-        key: "description",
-        label: "Problem Statement (Markdown)",
-        type: "string",
-        required: true,
-        description: "Detailed problem description, task instructions, and rules.",
-        sampleValue: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
-      },
-      {
-        key: "constraints",
-        label: "Constraints",
-        type: "string",
-        required: false,
-        description: "Execution and boundary constraints (e.g. '2 <= nums.length <= 10^4')",
-        sampleValue: "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9",
-      },
-      {
-        key: "input_format",
-        label: "Input Format",
-        type: "string",
-        required: false,
-        description: "Explanation of input structure received via standard input",
-        sampleValue: "Line 1: Space-separated integers for nums.\nLine 2: target integer.",
-      },
-      {
-        key: "output_format",
-        label: "Output Format",
-        type: "string",
-        required: false,
-        description: "Explanation of expected output printed to standard output",
-        sampleValue: "Print the two 0-indexed positions separated by a space.",
-      },
-      {
-        key: "sample_input",
-        label: "Sample Input (Example 1)",
-        type: "string",
-        required: false,
-        description: "Example input shown in problem overview",
-        sampleValue: "2 7 11 15\n9",
-      },
-      {
-        key: "sample_output",
-        label: "Sample Output (Example 1)",
-        type: "string",
-        required: false,
-        description: "Expected output for Example 1",
-        sampleValue: "0 1",
-      },
-      {
-        key: "sample_explanation",
-        label: "Sample Explanation",
-        type: "string",
-        required: false,
-        description: "Reasoning for Example 1",
-        sampleValue: "Because nums[0] + nums[1] == 9, we return 0 1.",
-      },
-      {
-        key: "testcase_1_input",
-        label: "Test Case 1 Input",
-        type: "string",
-        required: false,
-        description: "First public test case input for automated grader",
-        sampleValue: "2 7 11 15\n9",
-      },
-      {
-        key: "testcase_1_output",
-        label: "Test Case 1 Expected Output",
-        type: "string",
-        required: false,
-        description: "First public test case expected output",
-        sampleValue: "0 1",
-      },
-      {
-        key: "testcase_2_input",
-        label: "Test Case 2 Input",
-        type: "string",
-        required: false,
-        description: "Second public testcase input",
-        sampleValue: "3 2 4\n6",
-      },
-      {
-        key: "testcase_2_output",
-        label: "Test Case 2 Expected Output",
-        type: "string",
-        required: false,
-        description: "Second public testcase expected output",
-        sampleValue: "1 2",
-      },
-      {
-        key: "testcase_3_input",
-        label: "Test Case 3 Input",
-        type: "string",
-        required: false,
-        description: "Third public testcase input",
-        sampleValue: "3 3\n6",
-      },
-      {
-        key: "testcase_3_output",
-        label: "Test Case 3 Expected Output",
-        type: "string",
-        required: false,
-        description: "Third public testcase expected output",
-        sampleValue: "0 1",
-      },
-      {
-        key: "testcase_4_input",
-        label: "Test Case 4 Input",
-        type: "string",
-        required: false,
-        description: "Fourth public testcase input",
-        sampleValue: "1 5\n6",
-      },
-      {
-        key: "testcase_4_output",
-        label: "Test Case 4 Expected Output",
-        type: "string",
-        required: false,
-        description: "Fourth public testcase expected output",
-        sampleValue: "0 1",
-      },
-      {
-        key: "testcase_5_input",
-        label: "Test Case 5 Input",
-        type: "string",
-        required: false,
-        description: "Fifth public testcase input",
-        sampleValue: "4 8\n12",
-      },
-      {
-        key: "testcase_5_output",
-        label: "Test Case 5 Expected Output",
-        type: "string",
-        required: false,
-        description: "Fifth public testcase expected output",
-        sampleValue: "0 1",
-      },
-      {
-        key: "hidden_testcase_input",
-        label: "Hidden Test Case 1 Input",
-        type: "string",
-        required: false,
-        description: "Private/Hidden test case 1 to prevent hardcoding",
-        sampleValue: "3 3\n6",
-      },
-      {
-        key: "hidden_testcase_output",
-        label: "Hidden Test Case 1 Expected Output",
-        type: "string",
-        required: false,
-        description: "Expected output for hidden test case 1",
-        sampleValue: "0 1",
-      },
-      {
-        key: "hidden_testcase_2_input",
-        label: "Hidden Test Case 2 Input",
-        type: "string",
-        required: false,
-        description: "Private/Hidden testcase 2 evaluated during submit",
-        sampleValue: "10 20 30\n50",
-      },
-      {
-        key: "hidden_testcase_2_output",
-        label: "Hidden Test Case 2 Expected Output",
-        type: "string",
-        required: false,
-        description: "Expected output for hidden testcase 2",
-        sampleValue: "1 2",
-      },
-      {
-        key: "hidden_testcase_3_input",
-        label: "Hidden Test Case 3 Input",
-        type: "string",
-        required: false,
-        description: "Private/Hidden testcase 3 evaluated during submit",
-        sampleValue: "100 200\n300",
-      },
-      {
-        key: "hidden_testcase_3_output",
-        label: "Hidden Test Case 3 Expected Output",
-        type: "string",
-        required: false,
-        description: "Expected output for hidden testcase 3",
-        sampleValue: "0 1",
-      },
-      {
-        key: "hidden_testcase_4_input",
-        label: "Hidden Test Case 4 Input",
-        type: "string",
-        required: false,
-        description: "Private/Hidden testcase 4 evaluated during submit",
-        sampleValue: "-1 -2\n-3",
-      },
-      {
-        key: "hidden_testcase_4_output",
-        label: "Hidden Test Case 4 Expected Output",
-        type: "string",
-        required: false,
-        description: "Expected output for hidden testcase 4",
-        sampleValue: "0 1",
-      },
-      {
-        key: "hidden_testcase_5_input",
-        label: "Hidden Test Case 5 Input",
-        type: "string",
-        required: false,
-        description: "Private/Hidden testcase 5 evaluated during submit",
-        sampleValue: "0 0\n0",
-      },
-      {
-        key: "hidden_testcase_5_output",
-        label: "Hidden Test Case 5 Expected Output",
-        type: "string",
-        required: false,
-        description: "Expected output for hidden testcase 5",
-        sampleValue: "0 1",
-      },
-      {
-        key: "time_limit_ms",
-        label: "Time Limit (ms)",
-        type: "number",
-        required: false,
-        defaultValue: 2000,
-        description: "Execution timeout in milliseconds (default: 2000)",
-        sampleValue: 2000,
-      },
-      {
-        key: "memory_limit_mb",
-        label: "Memory Limit (MB)",
-        type: "number",
-        required: false,
-        defaultValue: 256,
-        description: "Memory threshold in megabytes (default: 256)",
-        sampleValue: 256,
-      }
-    ],
-    sampleRows: [
-      {
-        title: "Two Sum",
-        difficulty: "Easy",
-        category: "Algorithms",
-        topic_tags: "Array, Hash Table",
-        points: 10,
-        acceptance_rate: "49.8%",
-        description: "Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.",
-        constraints: "2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9",
-        input_format: "Line 1: Space-separated integers for nums.\nLine 2: target integer.",
-        output_format: "Print the two 0-indexed positions separated by a space.",
-        sample_input: "2 7 11 15\n9",
-        sample_output: "0 1",
-        sample_explanation: "nums[0] + nums[1] == 2 + 7 == 9, so output is 0 1.",
-        testcase_1_input: "2 7 11 15\n9",
-        testcase_1_output: "0 1",
-        testcase_2_input: "3 2 4\n6",
-        testcase_2_output: "1 2",
-        hidden_testcase_input: "3 3\n6",
-        hidden_testcase_output: "0 1",
-        time_limit_ms: 2000,
-        memory_limit_mb: 256
-      },
-      {
-        title: "Valid Palindrome",
-        difficulty: "Easy",
-        category: "Strings",
-        topic_tags: "Two Pointers, String",
-        points: 20,
-        acceptance_rate: "45.2%",
-        description: "A phrase is a palindrome if, after converting all uppercase letters into lowercase letters and removing all non-alphanumeric characters, it reads the same forward and backward.\n\nGiven a string `s`, return `true` if it is a palindrome, or `false` otherwise.",
-        constraints: "1 <= s.length <= 2 * 10^5\ns consists only of printable ASCII characters.",
-        input_format: "A single line containing the string s.",
-        output_format: "Print 'true' or 'false'.",
-        sample_input: "A man, a plan, a canal: Panama",
-        sample_output: "true",
-        sample_explanation: "'amanaplanacanalpanama' is a palindrome.",
-        testcase_1_input: "A man, a plan, a canal: Panama",
-        testcase_1_output: "true",
-        testcase_2_input: "race a car",
-        testcase_2_output: "false",
-        hidden_testcase_input: " ",
-        hidden_testcase_output: "true",
-        time_limit_ms: 2000,
-        memory_limit_mb: 256
-      },
-      {
-        title: "Maximum Subarray Sum",
-        difficulty: "Medium",
-        category: "Algorithms",
-        topic_tags: "Array, Dynamic Programming",
-        points: 50,
-        acceptance_rate: "50.4%",
-        description: "Given an integer array `nums`, find the subarray with the largest sum, and return its sum.",
-        constraints: "1 <= nums.length <= 10^5\n-10^4 <= nums[i] <= 10^4",
-        input_format: "A single line containing space-separated integers of the array.",
-        output_format: "Print the maximum subarray sum.",
-        sample_input: "-2 1 -3 4 -1 2 1 -5 4",
-        sample_output: "6",
-        sample_explanation: "The subarray [4, -1, 2, 1] has the largest sum 6.",
-        testcase_1_input: "-2 1 -3 4 -1 2 1 -5 4",
-        testcase_1_output: "6",
-        testcase_2_input: "1",
-        testcase_2_output: "1",
-        hidden_testcase_input: "5 4 -1 7 8",
-        hidden_testcase_output: "23",
-        time_limit_ms: 2000,
-        memory_limit_mb: 256
-      }
-    ],
-    mapToPayload: (row, idx) => {
-      const rawTitle = String(row.title || `Coding Challenge ${idx + 1}`).trim();
-      const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const diffRaw = String(row.difficulty || "Easy").toLowerCase().trim();
-      const difficulty = (diffRaw === "hard" ? "hard" : diffRaw === "medium" ? "medium" : "easy") as "easy" | "medium" | "hard";
-      
-      const tags = row.topic_tags 
-        ? String(row.topic_tags).split(",").map((s) => s.trim()).filter(Boolean)
-        : ["Algorithms"];
-
-      const cleanCsvVal = (v: any) =>
-        String(v ?? "")
-          .replace(/\\r\\n/g, "\n")
-          .replace(/\\n/g, "\n")
-          .replace(/\r\n/g, "\n")
-          .trim();
-
-      const testCases: any[] = [];
-      const testCaseKeysSeen = new Set<string>();
-
-      // 1. Dynamic scanner for numbered test cases (Test Case 1, 2, 3, 4, 5...)
-      for (let i = 1; i <= 20; i++) {
-        const inpVal = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`] ?? row[`input_${i}`] ?? row[`tc${i}_input`];
-        const outVal = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`] ?? row[`output_${i}`] ?? row[`tc${i}_output`];
-        
-        if ((inpVal !== undefined && String(inpVal).trim() !== "") || (outVal !== undefined && String(outVal).trim() !== "")) {
-          testCaseKeysSeen.add(`tc_${i}`);
-          testCases.push({
-            id: `tc-${Date.now()}-${i}-${idx}`,
-            name: `Test Case ${i}`,
-            input: cleanCsvVal(inpVal),
-            expected_output: cleanCsvVal(outVal),
-            is_hidden: false,
-            is_enabled: true,
-            weight: 10,
-            order_index: testCases.length,
-          });
-        }
-      }
-
-      // 2. Sample input/output fallback as Test Case 1 if no public test cases were provided
-      if (testCases.length === 0 && (row.sample_input || row.sample_output)) {
-        testCases.push({
-          id: `tc-${Date.now()}-1-${idx}`,
-          name: "Test Case 1 (Sample)",
-          input: cleanCsvVal(row.sample_input),
-          expected_output: cleanCsvVal(row.sample_output),
-          is_hidden: false,
-          is_enabled: true,
-          weight: 10,
-          order_index: 0,
-        });
-      }
-
-      // 3. Hidden Test Cases (Hidden 1, Hidden 2, etc.)
-      for (let h = 1; h <= 10; h++) {
-        const hInp = h === 1
-          ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input ?? row.hidden_input ?? row.hidden_test_case_1_input)
-          : (row[`hidden_testcase_${h}_input`] ?? row[`hidden_testcase_${h}`] ?? row[`hidden_input_${h}`] ?? row[`hidden_${h}_input`]);
-        const hOut = h === 1
-          ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output ?? row.hidden_output ?? row.hidden_test_case_1_output)
-          : (row[`hidden_testcase_${h}_output`] ?? row[`hidden_testcase_${h}`] ?? row[`hidden_output_${h}`] ?? row[`hidden_${h}_output`]);
-
-        if ((hInp !== undefined && String(hInp).trim() !== "") || (hOut !== undefined && String(hOut).trim() !== "")) {
-          testCases.push({
-            id: `tc-${Date.now()}-h${h}-${idx}`,
-            name: `Hidden Case ${h}`,
-            input: cleanCsvVal(hInp),
-            expected_output: cleanCsvVal(hOut),
-            is_hidden: true,
-            is_enabled: true,
-            weight: 20,
-            order_index: testCases.length,
-          });
-        }
-      }
-
-      const exampleCases: any[] = [];
-      for (let e = 1; e <= 5; e++) {
-        const eInp = e === 1 
-          ? (row.sample_input ?? row.example_1_input ?? row.sample_input_1 ?? row.example_input)
-          : (row[`sample_input_${e}`] ?? row[`example_${e}_input`] ?? row[`example_input_${e}`]);
-        const eOut = e === 1 
-          ? (row.sample_output ?? row.example_1_output ?? row.sample_output_1 ?? row.example_output)
-          : (row[`sample_output_${e}`] ?? row[`example_${e}_output`] ?? row[`example_output_${e}`]);
-        const eExp = e === 1 
-          ? (row.sample_explanation ?? row.example_1_explanation ?? row.sample_explanation_1 ?? row.example_explanation)
-          : (row[`sample_explanation_${e}`] ?? row[`example_${e}_explanation`] ?? row[`example_explanation_${e}`]);
-
-        if ((eInp !== undefined && String(eInp).trim() !== "") || (eOut !== undefined && String(eOut).trim() !== "")) {
-          exampleCases.push({
-            id: `example-${e}`,
-            input: String(eInp || "").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").trim(),
-            output: String(eOut || "").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").trim(),
-            explanation: String(eExp || "").trim(),
-          });
-        }
-      }
-
-      const templates = {
-        python: `# Write your solution below\nimport sys\n\ndef solve():\n    lines = sys.stdin.read().splitlines()\n    if not lines:\n        return\n    # TODO: Implement solution\n\nif __name__ == '__main__':\n    solve()\n`,
-        javascript: `// Write your solution below\nconst fs = require('fs');\n\nfunction solve() {\n  const input = fs.readFileSync(0, 'utf-8').trim();\n  if (!input) return;\n  // TODO: Implement solution\n}\n\nsolve();\n`,
-        java: `import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // TODO: Implement solution\n    }\n}\n`,
-        cpp: `#include <iostream>\n#include <vector>\n#include <string>\n\nusing namespace std;\n\nint main() {\n    ios_base::sync_with_stdio(false);\n    cin.tie(NULL);\n    // TODO: Implement solution\n    return 0;\n}\n`
-      };
-
-      return {
-        id: `problem-${slug}-${Date.now()}-${idx}`,
-        title: rawTitle,
-        slug,
-        description: String(row.description || "").trim(),
-        difficulty,
-        category: String(row.category || "Algorithms").trim(),
-        topic_tags: tags,
-        points: Number(row.points) || 100,
-        acceptance_rate: row.acceptance_rate ? String(row.acceptance_rate).trim() : undefined,
-        constraints: String(row.constraints || "").trim(),
-        input_format: String(row.input_format || "").trim(),
-        output_format: String(row.output_format || "").trim(),
-        sample_input: String(row.sample_input || ""),
-        sample_output: String(row.sample_output || ""),
-        example_cases: exampleCases,
-        templates,
-        test_cases: testCases,
-        time_limit_ms: Number(row.time_limit_ms) || 2000,
-        memory_limit_mb: Number(row.memory_limit_mb) || 256,
-        status: "published",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-    }
-  },
+  // ─── 5. CODING PROBLEMS REPOSITORY TEMPLATE (DYNAMIC LANGUAGE SCOPES) ─────
+  coding_problem: getCodingProblemTemplateConfig({ languageMode: "all" }),
   practice_module: {
     moduleType: "practice_module",
     displayName: "Level-3 Practice Module",
@@ -3633,8 +4008,25 @@ export function isTruthy(val: any): boolean {
   return str === "yes" || str === "true" || str === "1" || str === "enabled" || str === "y";
 }
 
-export function getTemplateConfig(moduleType: string): ModuleTemplateConfig {
+export function getTemplateConfig(moduleType: string, options?: CodingTemplateOptions): ModuleTemplateConfig {
   const normalized = (moduleType || "course").toLowerCase().trim();
+
+  // Dynamic Coding Problem Routing
+  if (
+    normalized === "coding" ||
+    normalized === "code_only" ||
+    normalized === "coding_only" ||
+    normalized === "coding_problem" ||
+    normalized === "coding_problems" ||
+    normalized === "code_lab" ||
+    normalized === "codelab" ||
+    normalized === "assessment_coding" ||
+    normalized === "test_coding" ||
+    normalized === "assessment_code"
+  ) {
+    return getCodingProblemTemplateConfig(options);
+  }
+
   if (TEMPLATE_CONFIGS[normalized]) {
     return TEMPLATE_CONFIGS[normalized] as ModuleTemplateConfig;
   }
@@ -3642,17 +4034,11 @@ export function getTemplateConfig(moduleType: string): ModuleTemplateConfig {
   if (normalized === "assessment_mcq" || normalized === "assessment_quiz" || normalized === "test_mcq" || normalized === "test_mcqs") {
     return (TEMPLATE_CONFIGS.assessment_mcq || TEMPLATE_CONFIGS.quiz) as ModuleTemplateConfig;
   }
-  if (normalized === "assessment_coding" || normalized === "test_coding" || normalized === "assessment_code") {
-    return (TEMPLATE_CONFIGS.assessment_coding || TEMPLATE_CONFIGS.coding_problem) as ModuleTemplateConfig;
-  }
   if (normalized === "mixed" || normalized === "mixed_questions" || normalized === "mixed_question" || normalized === "practice_mixed" || normalized === "practice_questions") {
     return (TEMPLATE_CONFIGS.mixed_questions || TEMPLATE_CONFIGS.quiz) as ModuleTemplateConfig;
   }
   if (normalized === "mcq" || normalized === "mcq_only" || normalized === "mcqs" || normalized === "mcq_questions") {
     return (TEMPLATE_CONFIGS.quiz || TEMPLATE_CONFIGS.assessment_questions) as ModuleTemplateConfig;
-  }
-  if (normalized === "coding" || normalized === "code_only" || normalized === "coding_only" || normalized === "coding_problem" || normalized === "coding_problems" || normalized === "code_lab" || normalized === "codelab") {
-    return (TEMPLATE_CONFIGS.coding_problem || Object.values(TEMPLATE_CONFIGS)[0]) as ModuleTemplateConfig;
   }
   if (normalized === "courses" || normalized === "course_batch") return (TEMPLATE_CONFIGS.course_batch || TEMPLATE_CONFIGS.course) as ModuleTemplateConfig;
   if (normalized === "practices" || normalized === "practice_track" || normalized === "tracks") return (TEMPLATE_CONFIGS.practice_track || TEMPLATE_CONFIGS.practice) as ModuleTemplateConfig;

@@ -7,7 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { getTemplateConfig, ModuleTemplateConfig, ColumnDefinition } from "./template-configs";
+import { Globe, Lock } from "lucide-react";
+import {
+  getTemplateConfig,
+  ModuleTemplateConfig,
+  ColumnDefinition,
+  CODING_LANGUAGES,
+  CodingLanguageMode,
+} from "./template-configs";
 import { safeParseSpreadsheet, downloadExcelWorkbook, downloadSpreadsheetFile } from "@/lib/excel-security";
 
 export interface BulkUploadProps {
@@ -59,13 +66,47 @@ export function BulkUploadComponent({
     setCurrentModuleType(moduleType);
   }, [moduleType]);
 
-  const config: ModuleTemplateConfig = getTemplateConfig(currentModuleType);
+  // Coding Problems Language Mode State
+  const isCodingModule = useMemo(() => {
+    const norm = (currentModuleType || "").toLowerCase();
+    return (
+      norm === "coding_problem" ||
+      norm === "coding" ||
+      norm === "coding_problems" ||
+      norm === "code_only" ||
+      norm === "assessment_coding" ||
+      norm === "test_coding" ||
+      norm === "code_lab" ||
+      norm === "codelab"
+    );
+  }, [currentModuleType]);
+
+  const [codingLanguageMode, setCodingLanguageMode] = useState<CodingLanguageMode>("all");
+  const [codingSingleLanguage, setCodingSingleLanguage] = useState<string>("python");
+  const [codingMultiLanguages, setCodingMultiLanguages] = useState<string[]>(["python", "java", "cpp"]);
+
+  const config: ModuleTemplateConfig = useMemo(() => {
+    if (isCodingModule) {
+      return getTemplateConfig(currentModuleType, {
+        languageMode: codingLanguageMode,
+        selectedSingleLanguage: codingSingleLanguage,
+        selectedMultiLanguages: codingMultiLanguages,
+      });
+    }
+    return getTemplateConfig(currentModuleType);
+  }, [currentModuleType, isCodingModule, codingLanguageMode, codingSingleLanguage, codingMultiLanguages]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Column Customizer State
   const [selectedColumnKeys, setSelectedColumnKeys] = useState<string[]>(() =>
     config.columns.map((c) => c.key)
   );
+
+  // Automatically keep column keys synced when language mode or config changes
+  useEffect(() => {
+    setSelectedColumnKeys(config.columns.map((c) => c.key));
+  }, [config]);
 
   // Modal Step: "upload" | "preview"
   const [currentStep, setCurrentStep] = useState<"upload" | "preview">("upload");
@@ -79,7 +120,6 @@ export function BulkUploadComponent({
   const [expandedModuleKeys, setExpandedModuleKeys] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    setSelectedColumnKeys(config.columns.map((c) => c.key));
     setParsedRows([]);
     setUploadedFile(null);
     setCurrentStep("upload");
@@ -759,6 +799,188 @@ export function BulkUploadComponent({
                 </Button>
               </div>
             </div>
+
+            {/* CODING PROBLEM LANGUAGE SCOPE SELECTOR (MATCHING IMAGE 2) */}
+            {isCodingModule && (
+              <div className="pt-3 border-t border-slate-200 dark:border-zinc-800 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
+                      Language Availability Scope:
+                    </span>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                      Configure whether this template is universal across all compilers, multi-language, or locked to a single language.
+                    </p>
+                  </div>
+
+                  {/* 3-Pill Toggle matching Image 2 */}
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start sm:self-auto shrink-0 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setCodingLanguageMode("all")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        codingLanguageMode === "all"
+                          ? "bg-white dark:bg-zinc-950 text-[#2563EB] shadow-xs"
+                          : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <Globe className="h-3.5 w-3.5" />
+                      <span>All Languages</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCodingLanguageMode("multi")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        codingLanguageMode === "multi"
+                          ? "bg-white dark:bg-zinc-950 text-[#2563EB] shadow-xs"
+                          : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <span>Multi Language</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCodingLanguageMode("single")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        codingLanguageMode === "single"
+                          ? "bg-white dark:bg-zinc-950 text-[#2563EB] shadow-xs"
+                          : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                      <span>Single Language</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* All Languages Mode Sub-Panel */}
+                {codingLanguageMode === "all" && (
+                  <div className="p-3 bg-slate-50 dark:bg-zinc-900/60 rounded-xl border border-slate-200/80 dark:border-zinc-800 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="text-slate-700 dark:text-zinc-300 font-medium">
+                        <strong>All Languages Mode:</strong> All 17 platform compilers enabled. Problem statements and test cases are open to open-ended submissions in Python, Java, C++, C, JavaScript, TypeScript, C#, Go, Rust, and more.
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-900 shrink-0 ml-3">
+                      17 Compilers
+                    </span>
+                  </div>
+                )}
+
+                {/* Multi Language Mode Sub-Panel */}
+                {codingLanguageMode === "multi" && (
+                  <div className="space-y-2.5 p-3.5 bg-slate-50 dark:bg-zinc-900/60 rounded-xl border border-slate-200/80 dark:border-zinc-800">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-zinc-800 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                          Enabled Languages ({codingMultiLanguages.length} Selected):
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setCodingMultiLanguages(["python", "java", "cpp"])}
+                          className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+                        >
+                          Popular 3 (Python, Java, C++)
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={() => setCodingMultiLanguages(["javascript", "typescript", "python"])}
+                          className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+                        >
+                          Web (JS, TS, Python)
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={() => setCodingMultiLanguages(CODING_LANGUAGES.map(l => l.id))}
+                          className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 hover:underline cursor-pointer"
+                        >
+                          Select All (17)
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {CODING_LANGUAGES.map((lang) => {
+                        const isSelected = codingMultiLanguages.includes(lang.id);
+                        return (
+                          <button
+                            key={lang.id}
+                            type="button"
+                            onClick={() => {
+                              setCodingMultiLanguages((prev) =>
+                                prev.includes(lang.id)
+                                  ? (prev.length > 1 ? prev.filter((id) => id !== lang.id) : prev)
+                                  : [...prev, lang.id]
+                              );
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                                : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-slate-300"
+                            }`}
+                          >
+                            <span>{lang.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 dark:text-zinc-400 pt-0.5">
+                      * The exported template will include a dedicated starter code column for each selected language (e.g. {codingMultiLanguages.slice(0, 3).map(l => CODING_LANGUAGES.find(c => c.id === l)?.name).join(", ")} Starter Code).
+                    </p>
+                  </div>
+                )}
+
+                {/* Single Language Mode Sub-Panel */}
+                {codingLanguageMode === "single" && (
+                  <div className="space-y-2.5 p-3.5 bg-slate-50 dark:bg-zinc-900/60 rounded-xl border border-slate-200/80 dark:border-zinc-800">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-zinc-800 pb-2">
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                        Choose Single Target Language:
+                      </span>
+                      <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-900">
+                        Target: {CODING_LANGUAGES.find((l) => l.id === codingSingleLanguage)?.name || codingSingleLanguage.toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {CODING_LANGUAGES.map((lang) => {
+                        const isSelected = codingSingleLanguage === lang.id;
+                        return (
+                          <button
+                            key={lang.id}
+                            type="button"
+                            onClick={() => setCodingSingleLanguage(lang.id)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                                : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:border-blue-300 hover:text-blue-600"
+                            }`}
+                          >
+                            <span>{lang.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {codingSingleLanguage === "sql" ? (
+                      <div className="p-2.5 bg-blue-50/70 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-200">
+                        <strong>SQL Database Challenge:</strong> Template contains dedicated columns for SQL Engine (PostgreSQL, MySQL, SQLite), Schema SQL (DDL CREATE TABLE &amp; INSERT statements), and Solution Query.
+                      </div>
+                    ) : (
+                      <div className="p-2.5 bg-white dark:bg-zinc-950 rounded-lg border border-slate-200 dark:border-zinc-800 text-xs text-slate-600 dark:text-zinc-400">
+                        <strong>Single Language Lock:</strong> Submissions will be locked exclusively to {CODING_LANGUAGES.find((l) => l.id === codingSingleLanguage)?.name}. The exported template includes {CODING_LANGUAGES.find((l) => l.id === codingSingleLanguage)?.name} starter code boilerplate.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="pt-3 border-t border-slate-200 dark:border-zinc-800 space-y-2.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
