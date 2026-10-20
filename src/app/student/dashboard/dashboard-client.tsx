@@ -468,12 +468,12 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
             </CardContent>
           </Card>
 
-          {/* Code Lab - Latest Challenges Card (MNC - Strictly Zero Icons) */}
+          {/* Challenges - Latest Challenges Card */}
           <Card className="bg-card border-border shadow-card overflow-hidden">
             <CardHeader className="p-4 pb-3 border-b border-border flex flex-row items-center justify-between">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-xs font-bold text-foreground flex items-center gap-2 tracking-tight">
-                  Code Lab
+                  Challenges
                   <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 bg-blue-50/70 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 border-blue-200/70 dark:border-blue-800/40">
                     New
                   </Badge>
@@ -492,7 +492,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                   <p className="text-xs font-semibold text-foreground">No Challenges Available</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">Coding problems will appear here once published.</p>
                   <Button className="mt-3 h-7 text-xs rounded-lg font-semibold" variant="outline" asChild>
-                    <Link href="/coding">Explore Code Lab</Link>
+                    <Link href="/coding">Explore Challenges</Link>
                   </Button>
                 </div>
               ) : (
@@ -553,13 +553,13 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
             {latestCodingProblems.length > 0 && (
               <div className="p-2.5 bg-muted/20 border-t border-border flex items-center justify-between text-[11px]">
                 <span className="text-muted-foreground font-medium">
-                  Latest in Code Lab
+                  Latest in Challenges
                 </span>
                 <Link
                   href="/coding"
                   className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  Open Code Lab
+                  Open Challenges
                 </Link>
               </div>
             )}

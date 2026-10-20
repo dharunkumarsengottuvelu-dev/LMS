@@ -1,6 +1,8 @@
 import { TrainerTopNav } from "@/components/layouts/trainer-top-nav";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -8,18 +10,38 @@ export const metadata: Metadata = {
 };
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {
+  const headersList = await headers();
+  const currentPath = headersList.get("x-pathname") || "";
+  const currentSearch = headersList.get("x-search") || "";
+  const fullOriginalPath = currentPath ? `${currentPath}${currentSearch}` : "";
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login?error=session_expired&next=/trainer/dashboard");
+    const nextTarget = fullOriginalPath || "/trainer/dashboard";
+    redirect(`/login?error=session_expired&next=${encodeURIComponent(nextTarget)}`);
   }
 
-  const { data: profileData } = await supabase
+  let { data: profileData } = await supabase
     .from("profiles")
     .select("role, status")
     .eq("user_id", user.id)
     .maybeSingle();
+
+  if (!profileData) {
+    try {
+      const adminClient = createAdminClient();
+      const { data } = await adminClient
+        .from("profiles")
+        .select("role, status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (data) profileData = data as any;
+    } catch (e) {
+      console.warn("Trainer layout: fallback profile fetch error", e);
+    }
+  }
 
   const profile = profileData as { role?: string; status?: string } | null;
   if (profile?.status === "suspended") {
@@ -27,8 +49,6 @@ export default async function TrainerLayout({ children }: { children: React.Reac
   }
 
   const role = (profile?.role || user.user_metadata?.role || user.app_metadata?.role || "").toLowerCase();
-  const email = (user.email || "").toLowerCase();
-  const [localPart = ""] = email.split("@");
 
   const isTrainer = role === "trainer";
   const isAdmin = role === "admin" || role === "super_admin" || role === "founder" || role === "ceo";
@@ -50,3 +70,4 @@ export default async function TrainerLayout({ children }: { children: React.Reac
     </div>
   );
 }
+

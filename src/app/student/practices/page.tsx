@@ -86,7 +86,7 @@ export default function StudentPracticesPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Practice Hub
+              Practice
             </h1>
             <p className="text-xs text-slate-500 dark:text-zinc-400">
               Select a module to access topic-specific submodules and practice exercises.
@@ -123,7 +123,7 @@ export default function StudentPracticesPage() {
                 No practice modules available.
               </h3>
               <p className="text-xs text-slate-500 dark:text-zinc-400">
-                There are currently no active practice modules assigned to your cohort.
+                There are currently no active practice modules assigned to your class.
               </p>
             </div>
           </Card>

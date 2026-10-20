@@ -1,6 +1,8 @@
 import { StudentLayoutWrapper } from "@/components/layouts/student-layout-wrapper";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { SessionTimeout } from "@/components/providers/session-timeout";
 
@@ -9,30 +11,46 @@ export const metadata: Metadata = {
 };
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
+  const headersList = await headers();
+  const currentPath = headersList.get("x-pathname") || "";
+  const currentSearch = headersList.get("x-search") || "";
+  const fullOriginalPath = currentPath ? `${currentPath}${currentSearch}` : "";
+
   const supabase = await createClient();
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
-  console.log(`[AUTH] Student layout user exists = ${Boolean(user)}, auth error = ${authErr?.message || 'none'}`);
-
   if (!user) {
-    redirect("/login?error=session_expired&next=/student/dashboard");
+    const nextTarget = fullOriginalPath || "/student/dashboard";
+    redirect(`/login?error=session_expired&next=${encodeURIComponent(nextTarget)}`);
   }
 
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from("profiles")
     .select("role, status")
     .eq("user_id", user.id)
     .maybeSingle();
 
+  // Robust fallback: query admin client if profile lookup returned null
+  if (!profile) {
+    try {
+      const adminClient = createAdminClient();
+      const { data } = await adminClient
+        .from("profiles")
+        .select("role, status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (data) profile = data as any;
+    } catch (e) {
+      console.warn("Student layout: fallback profile fetch error", e);
+    }
+  }
+
   const profileData = profile as { role?: string; status?: string } | null;
   if (profileData?.status === "suspended") {
-    console.log("STUDENT LAYOUT: user suspended, redirecting");
     redirect("/login?error=suspended");
   }
 
   const role = (profileData?.role || user.user_metadata?.role || user.app_metadata?.role || "").toLowerCase();
-  const email = (user.email || "").toLowerCase();
-  const [localPart = ""] = email.split("@");
 
   const isAdmin =
     role === "admin" ||
@@ -43,14 +61,19 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const isTrainer = role === "trainer";
   const isInstitution = role === "institution";
 
-  if (isAdmin) {
-    console.log("STUDENT LAYOUT: isAdmin, redirecting to admin dashboard");
+  // Allow admins and trainers to preview student courses, practices, or tests without kicking them back to dashboard
+  const isContentPreview =
+    currentPath.startsWith("/student/course/") ||
+    currentPath.startsWith("/courses/") ||
+    currentPath.startsWith("/student/practices") ||
+    currentPath.startsWith("/practice") ||
+    currentPath.startsWith("/coding");
+
+  if (isAdmin && !isContentPreview) {
     redirect("/admin/dashboard");
-  } else if (isTrainer) {
-    console.log("STUDENT LAYOUT: isTrainer, redirecting to trainer dashboard");
+  } else if (isTrainer && !isContentPreview) {
     redirect("/trainer/dashboard");
-  } else if (isInstitution) {
-    console.log("STUDENT LAYOUT: isInstitution, redirecting to institution overview");
+  } else if (isInstitution && !isContentPreview) {
     redirect("/institution/overview");
   }
 
@@ -60,3 +83,4 @@ export default async function StudentLayout({ children }: { children: React.Reac
     </SessionTimeout>
   );
 }
+

@@ -17,107 +17,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getInitials } from "@/lib/utils";
 
-interface NavItem {
-  label: string;
-  href?: string;
-  icon: React.ElementType;
-  badge?: string | number;
-  children?: NavItem[];
-}
-
-const adminNavItems: NavItem[] = [
-  { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  {
-    label: "Users",
-    icon: Users,
-    children: [
-      { label: "All Users", href: "/admin/users", icon: Users },
-      { label: "Students", href: "/admin/students", icon: GraduationCap },
-      { label: "Trainers", href: "/admin/trainers", icon: Shield },
-      { label: "Batches", href: "/admin/batches", icon: Boxes },
-    ],
-  },
-  {
-    label: "Content",
-    icon: BookOpen,
-    children: [
-      { label: "Courses", href: "/admin/courses", icon: BookOpen },
-      { label: "Categories", href: "/admin/categories", icon: FolderOpen },
-      { label: "Modules", href: "/admin/modules", icon: FileText },
-      { label: "Lessons", href: "/admin/lessons", icon: FileText },
-    ],
-  },
-  {
-    label: "Practice Modules",
-    icon: ClipboardList,
-    children: [
-      { label: "All Practice Modules", href: "/admin/assessments", icon: ClipboardList },
-      { label: "Scheduled Tests", href: "/admin/tests", icon: Calendar },
-      { label: "Live Classes", href: "/admin/live-classes", icon: Video },
-    ],
-  },
-  {
-    label: "Reports",
-    icon: BarChart3,
-    children: [
-      { label: "Analytics", href: "/admin/analytics", icon: TrendingUp },
-      { label: "Reports", href: "/admin/reports", icon: BarChart3 },
-    ],
-  },
-  { label: "Notifications", href: "/admin/notifications", icon: Bell },
-  { label: "Settings", href: "/admin/settings", icon: Settings },
-];
+import { adminNavigation, NavItem } from "@/config/navigation";
 
 function NavItemComponent({ item }: { item: NavItem }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(() =>
-    item.children?.some((c) => c.href && pathname.startsWith(c.href)) ?? false
-  );
-
-  const isActive = item.href ? pathname === item.href || pathname.startsWith(item.href + "/") : false;
+  const isExact = pathname === item.href;
+  const isSubpath = !item.href.endsWith("/dashboard") && pathname.startsWith(item.href);
+  const isAlias = (item.aliases || []).some((alias) => pathname === alias || (!alias.endsWith("/dashboard") && pathname.startsWith(alias)));
+  const isActive = isExact || isSubpath || isAlias;
   const Icon = item.icon;
-
-  if (item.children) {
-    return (
-      <div className="space-y-0.5">
-        <button
-          onClick={() => setOpen(!open)}
-          className={cn(
-            "w-full flex items-center gap-3 px-3.5 h-11 rounded-lg text-sm font-medium transition-colors",
-            "text-[#6B7280] dark:text-[#A1A1AA] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-[#F5F5F5] dark:hover:bg-[#27272A]",
-            open && "text-[#111827] dark:text-[#FAFAFA]"
-          )}
-        >
-          <Icon className="h-5 w-5 shrink-0" />
-          <span className="flex-1 text-left">{item.label}</span>
-          {open ? (
-            <ChevronDown className="h-4 w-4 text-[#6B7280]" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-[#6B7280]" />
-          )}
-        </button>
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="overflow-hidden pl-4 space-y-0.5"
-            >
-              {item.children.map((child) => (
-                <NavItemComponent key={child.href ?? child.label} item={child} />
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  }
 
   return (
     <Link
-      href={item.href!}
+      href={item.href}
       className={cn(
         "flex items-center gap-3 px-3.5 h-11 rounded-lg text-sm font-medium transition-colors relative",
         isActive
@@ -125,13 +37,8 @@ function NavItemComponent({ item }: { item: NavItem }) {
           : "text-[#6B7280] dark:text-[#A1A1AA] hover:text-[#111827] dark:hover:text-[#FAFAFA] hover:bg-[#F5F5F5] dark:hover:bg-[#27272A]"
       )}
     >
-      <Icon className="h-5 w-5 shrink-0" />
+      {Icon && <Icon className="h-5 w-5 shrink-0" />}
       <span className="flex-1">{item.label}</span>
-      {item.badge && (
-        <Badge variant="secondary" className="text-xs px-2 py-0.5">
-          {item.badge}
-        </Badge>
-      )}
     </Link>
   );
 }
@@ -154,8 +61,8 @@ export function AdminSidebar() {
 
       {/* Navigation list */}
       <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1">
-        {adminNavItems.map((item) => (
-          <NavItemComponent key={item.href ?? item.label} item={item} />
+        {adminNavigation.map((item) => (
+          <NavItemComponent key={item.href} item={item} />
         ))}
       </nav>
 

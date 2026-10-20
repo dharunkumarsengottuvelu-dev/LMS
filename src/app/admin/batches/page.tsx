@@ -674,10 +674,10 @@ export default function AdminBatchesPage() {
 
   return (
     <div className="space-y-8 animate-fade-up">
-      {/* 1. Header & Primary Actions (Falcon / Courses / Practices Style) */}
+      {/* 1. Header & Primary Actions */}
       <PageHeader
-        title="Batch Management"
-        description="Configure student cohorts, link academic partner institutions, assign training tracks, and track learner enrollments."
+        title="Batches"
+        description="Configure batches, link academic partner institutions, assign training courses, and track learner enrollments."
         actions={
           <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
             <Button
@@ -688,7 +688,7 @@ export default function AdminBatchesPage() {
               }}
               variant="outline"
               className="h-[44px] gap-2 px-4 rounded-xl border-[#E5E7EB] dark:border-[#27272A] hover:bg-slate-50 dark:hover:bg-[#27272A] text-slate-700 dark:text-slate-200 font-semibold text-xs shadow-xs transition-all shrink-0"
-              title="Bulk create cohorts via spreadsheet"
+              title="Bulk create batches via spreadsheet"
             >
               <UploadCloud className="h-4 w-4 text-[#2563EB]" />
               <span>Bulk Upload Batches</span>
@@ -743,7 +743,7 @@ export default function AdminBatchesPage() {
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] p-5 rounded-2xl shadow-xs hover:border-slate-300 dark:hover:border-zinc-700 transition-all flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA] uppercase tracking-wider text-[11px]">Active Cohorts</span>
+            <span className="text-xs font-semibold text-[#6B7280] dark:text-[#A1A1AA] uppercase tracking-wider text-[11px]">Active Batches</span>
             <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
               LIVE
             </span>

@@ -514,8 +514,27 @@ export default function StudentCoursePlayerPage() {
           norm.forEach((m) => { expMap[m.id] = true; });
           setExpandedModules(expMap);
 
-          if (norm[0]?.subModules?.[0]) {
-            setActiveLesson(convertSubToLesson(norm[0].subModules[0]));
+          // Support deep linking and refresh preservation for active lesson
+          const requestedLesson = typeof window !== "undefined"
+            ? new URLSearchParams(window.location.search).get("lesson")
+            : null;
+
+          let targetLesson = norm[0]?.subModules?.[0];
+          if (requestedLesson) {
+            const allSubs = norm.flatMap((m) => m.subModules);
+            const matched = allSubs.find(
+              (s) =>
+                s.id === requestedLesson ||
+                s.id.endsWith(`_${requestedLesson}`) ||
+                s.title.toLowerCase().includes(`lesson ${requestedLesson.toLowerCase()}`)
+            ) || (!isNaN(Number(requestedLesson)) ? allSubs[Number(requestedLesson) - 1] : undefined);
+            if (matched) {
+              targetLesson = matched;
+            }
+          }
+
+          if (targetLesson) {
+            setActiveLesson(convertSubToLesson(targetLesson));
           }
         }
       } catch (err) {
@@ -567,6 +586,13 @@ export default function StudentCoursePlayerPage() {
     setCodeOutput(null);
     if (les.type === "coding" && les.codingData) {
       setCodeContent(les.codingData.starterCode[selectedLanguage] || les.codingData.starterCode["javascript"] || "");
+    }
+
+    // Preserve the active lesson in URL search params so F5 reload retains it
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("lesson", sub.id);
+      window.history.replaceState({}, "", url.toString());
     }
   };
 

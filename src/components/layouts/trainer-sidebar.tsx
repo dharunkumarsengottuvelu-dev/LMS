@@ -33,7 +33,10 @@ export function TrainerSidebar() {
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {trainerNavigation.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const isExact = pathname === item.href;
+          const isSubpath = !item.href.endsWith("/dashboard") && pathname.startsWith(item.href);
+          const isAlias = (item.aliases || []).some((alias) => pathname === alias || (!alias.endsWith("/dashboard") && pathname.startsWith(alias)));
+          const isActive = isExact || isSubpath || isAlias;
           const Icon = item.icon;
           return (
             <Link

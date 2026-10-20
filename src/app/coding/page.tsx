@@ -135,7 +135,7 @@ export default function CodingDashboardPage() {
             <div className="h-4 w-px bg-slate-200 hidden sm:block" />
             <div className="flex items-center gap-2">
               <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                Coding Workspace
+                Challenges
               </h1>
               {stats.streakDays > 0 && (
                 <span className="text-[11px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">

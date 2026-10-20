@@ -24,11 +24,11 @@ export interface NavItem {
 
 /**
  * Enterprise Admin Portal Navigation
- * Exactly: Overview | Learners | Batches | Programs | Skill Lab | Code Lab | Assess | Live | Management
+ * Exactly: Dashboard | Learners | Classes | Courses | Practice | Challenges | Assessments | Live Classes | User Management
  */
 export const adminNavigation: NavItem[] = [
   {
-    label: "Overview",
+    label: "Dashboard",
     href: "/admin/dashboard",
     icon: LayoutDashboard,
   },
@@ -41,50 +41,50 @@ export const adminNavigation: NavItem[] = [
   {
     label: "Batches",
     href: "/admin/batches",
-    aliases: ["/admin/batches"],
+    aliases: ["/admin/batches", "/admin/classes"],
     icon: Boxes,
   },
   {
-    label: "Programs",
+    label: "Courses",
     href: "/admin/assigned-courses",
-    aliases: ["/admin/courses", "/admin/assigned-courses", "/admin/modules"],
+    aliases: ["/admin/courses", "/admin/assigned-courses", "/admin/modules", "/admin/lessons", "/admin/categories"],
     icon: BookOpen,
   },
   {
-    label: "Skill Lab",
+    label: "Practice",
     href: "/admin/practices",
     aliases: ["/admin/practices"],
     icon: Dumbbell,
   },
   {
-    label: "Code Lab",
+    label: "Challenges",
     href: "/admin/coding",
-    aliases: ["/admin/coding", "/coding"],
+    aliases: ["/admin/coding", "/coding", "/admin/compiler"],
     icon: Code2,
   },
   {
-    label: "Assess",
+    label: "Assessments",
     href: "/admin/assessments",
     aliases: ["/admin/tests", "/admin/assessments"],
     icon: ClipboardList,
   },
   {
-    label: "Live",
+    label: "Live Classes",
     href: "/admin/live-classes",
     aliases: ["/admin/live-classes"],
     icon: Video,
   },
   {
-    label: "Management",
+    label: "User Management",
     href: "/admin/users",
-    aliases: ["/admin/users", "/admin/settings"],
+    aliases: ["/admin/users", "/admin/trainers", "/admin/settings"],
     icon: ShieldCheck,
   },
 ];
 
 /**
  * Student Learning Portal Navigation
- * Exactly: Home | Learning | Skill Lab | Code Lab | Assess | Live | Profile
+ * Exactly: Dashboard | Courses | Practice | Challenges | Assessments | Live Classes
  */
 export const studentNavigation: NavItem[] = [
   {
@@ -93,9 +93,9 @@ export const studentNavigation: NavItem[] = [
     icon: LayoutDashboard,
   },
   {
-    label: "Learning",
+    label: "Courses",
     href: "/student/my-courses",
-    aliases: ["/student/courses", "/student/my-courses", "/courses"],
+    aliases: ["/student/courses", "/student/my-courses", "/courses", "/student/course"],
     icon: BookOpen,
   },
   {
@@ -105,7 +105,7 @@ export const studentNavigation: NavItem[] = [
     icon: Dumbbell,
   },
   {
-    label: "Code Lab",
+    label: "Challenges",
     href: "/coding",
     aliases: [
       "/coding/problems",
@@ -113,6 +113,7 @@ export const studentNavigation: NavItem[] = [
       "/coding/assignments",
       "/coding/submissions",
       "/coding/leaderboard",
+      "/coding",
     ],
     icon: Code2,
   },
@@ -123,7 +124,7 @@ export const studentNavigation: NavItem[] = [
     icon: ClipboardList,
   },
   {
-    label: "Live",
+    label: "Live Classes",
     href: "/student/live-classes",
     aliases: ["/student/live", "/student/live-classes", "/live"],
     icon: Video,
@@ -132,11 +133,11 @@ export const studentNavigation: NavItem[] = [
 
 /**
  * Trainer Portal Navigation
- * Exactly: Overview | Learners | Programs | Skill Lab | Code Lab | Assess | Live | Management
+ * Exactly: Dashboard | Learners | Batches | Courses | Practice | Challenges | Assessments | Live Classes
  */
 export const trainerNavigation: NavItem[] = [
   {
-    label: "Overview",
+    label: "Dashboard",
     href: "/trainer/dashboard",
     icon: LayoutDashboard,
   },
@@ -147,39 +148,39 @@ export const trainerNavigation: NavItem[] = [
     icon: Users,
   },
   {
-    label: "Programs",
+    label: "Batches",
+    href: "/trainer/classes",
+    aliases: ["/trainer/classes", "/trainer/batches"],
+    icon: Boxes,
+  },
+  {
+    label: "Courses",
     href: "/trainer/courses",
     aliases: ["/trainer/courses", "/trainer/modules", "/trainer/my-courses"],
     icon: BookOpen,
   },
   {
-    label: "Skill Lab",
+    label: "Practice",
     href: "/trainer/practices",
     aliases: ["/trainer/practices"],
     icon: Dumbbell,
   },
   {
-    label: "Code Lab",
+    label: "Challenges",
     href: "/trainer/coding",
     aliases: ["/trainer/coding", "/coding"],
     icon: Code2,
   },
   {
-    label: "Assess",
+    label: "Assessments",
     href: "/trainer/assessments",
     aliases: ["/trainer/assessments", "/trainer/tests"],
     icon: ClipboardList,
   },
   {
-    label: "Live",
+    label: "Live Classes",
     href: "/trainer/live-classes",
     aliases: ["/trainer/live-classes"],
     icon: Video,
-  },
-  {
-    label: "Management",
-    href: "/trainer/analytics",
-    aliases: ["/trainer/analytics", "/trainer/reports", "/trainer/management"],
-    icon: ShieldCheck,
   },
 ];

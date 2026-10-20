@@ -2238,8 +2238,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       }
 
       toast({
-        title: newScope ? "Published to Code Lab" : "Removed from Code Lab",
-        description: `"${cp.title || "Problem"}" is ${newScope ? "now available in Code Lab challenges" : "restricted to practice module only"}.`,
+        title: newScope ? "Published to Challenges" : "Removed from Challenges",
+        description: `"${cp.title || "Problem"}" is ${newScope ? "now available in Challenges" : "restricted to practice module only"}.`,
       });
     } catch (err: any) {
       console.error("Error toggling Code Lab scope:", err);
@@ -4037,7 +4037,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                             {Boolean(currentModule || (selectedModuleId && resolveHierarchyForModule(selectedModuleId).module)) && (
                               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-2xs">
                                 <span className="text-[10px] font-semibold text-slate-700 dark:text-zinc-300">
-                                  Code Lab
+                                  Challenges
                                 </span>
                                 <button
                                   type="button"
@@ -4062,7 +4062,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                       ? "bg-emerald-600"
                                       : "bg-slate-300 dark:bg-zinc-700"
                                   }`}
-                                  title="Toggle Code Lab Challenge visibility"
+                                  title="Toggle Challenges visibility"
                                 >
                                   <span
                                     aria-hidden="true"
@@ -6255,7 +6255,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                   {/* Code Lab Scope Toggle */}
                                   <div className="h-7 flex items-center gap-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 shadow-2xs">
                                     <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-300 select-none">
-                                      Code Lab
+                                      Challenges
                                     </span>
                                     <button
                                       type="button"
@@ -6266,7 +6266,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                                       className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
                                         isCodeLabActive ? "bg-emerald-600" : "bg-slate-300 dark:bg-zinc-700"
                                       }`}
-                                      title={isCodeLabActive ? "Published to Code Lab (Click to disable)" : "Practice only (Click to publish to Code Lab)"}
+                                      title={isCodeLabActive ? "Published to Challenges (Click to disable)" : "Practice only (Click to publish to Challenges)"}
                                     >
                                       <span
                                         aria-hidden="true"

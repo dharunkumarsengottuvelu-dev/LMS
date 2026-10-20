@@ -17,6 +17,12 @@ const ROUTE_ROLE_MAP: Record<string, string[]> = {
   "/student": ["student"],
   "/api/student": ["student", "super_admin", "admin", "trainer"],
   "/ide": ["super_admin", "admin", "trainer", "student"],
+  "/dashboard": ["student", "trainer", "super_admin", "admin", "institution", "recruiter"],
+  "/practice": ["student", "trainer", "super_admin", "admin"],
+  "/challenges": ["student", "trainer", "super_admin", "admin"],
+  "/assessments": ["student", "trainer", "super_admin", "admin"],
+  "/live-classes": ["student", "trainer", "super_admin", "admin"],
+  "/courses/": ["student", "trainer", "super_admin", "admin"],
 };
 
 // Public routes that never require auth
@@ -39,14 +45,20 @@ const PUBLIC_ROUTES = [
 ];
 
 function isPublicRoute(pathname: string): boolean {
-  return PUBLIC_ROUTES.some(
+  if (pathname === "/courses" || pathname === "/courses/") return true;
+  return PUBLIC_ROUTES.filter((r) => r !== "/courses").some(
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
 }
 
 function getRequiredRoles(pathname: string): string[] | null {
   for (const [prefix, roles] of Object.entries(ROUTE_ROLE_MAP)) {
-    if (pathname.startsWith(prefix)) {
+    if (
+      pathname === prefix ||
+      pathname.startsWith(prefix + "/") ||
+      pathname.startsWith(prefix + "?") ||
+      (prefix.endsWith("/") && pathname.startsWith(prefix))
+    ) {
       return roles;
     }
   }
@@ -81,22 +93,36 @@ function getValidDestinationForRole(role: string, nextParam: string | null): str
     return getRoleDefaultPath(role);
   }
 
+  const commonAllowedPrefixes = [
+    "/courses",
+    "/coding",
+    "/ide",
+    "/dashboard",
+    "/practice",
+    "/challenges",
+    "/assessments",
+    "/live-classes",
+  ];
+  const isCommon = commonAllowedPrefixes.some(
+    (prefix) => nextParam === prefix || nextParam.startsWith(prefix + "/") || nextParam.startsWith(prefix + "?")
+  );
+
   if (isSuperAdminOrAdmin) {
-    if (nextParam.startsWith("/admin") || nextParam.startsWith("/coding") || nextParam.startsWith("/courses") || nextParam.startsWith("/ide")) {
+    if (nextParam.startsWith("/admin") || isCommon) {
       return nextParam;
     }
     return "/admin/dashboard";
   }
 
   if (isInstitution) {
-    if (nextParam.startsWith("/institution")) {
+    if (nextParam.startsWith("/institution") || nextParam.startsWith("/dashboard")) {
       return nextParam;
     }
     return "/institution/overview";
   }
 
   if (isTrainer) {
-    if (nextParam.startsWith("/trainer") || nextParam.startsWith("/coding") || nextParam.startsWith("/ide")) {
+    if (nextParam.startsWith("/trainer") || isCommon) {
       return nextParam;
     }
     return "/trainer/dashboard";
@@ -111,6 +137,149 @@ function getValidDestinationForRole(role: string, nextParam: string | null): str
   }
 
   return nextParam;
+}
+
+/**
+ * Maps clean top-level and alias URLs directly to the underlying component routes
+ * via transparent rewrite. Preserves the full URL, query parameters, dynamic IDs,
+ * and history state in the browser across reloads and direct navigation.
+ */
+function resolveInternalRewrite(
+  pathname: string,
+  search: string,
+  role: string
+): string | null {
+  // 1. Dashboard top-level route
+  if (pathname === "/dashboard" || pathname === "/dashboard/") {
+    if (role === "admin" || role === "super_admin") return `/admin/dashboard${search}`;
+    if (role === "trainer") return `/trainer/dashboard${search}`;
+    if (role === "institution") return `/institution/overview${search}`;
+    return `/student/dashboard${search}`;
+  }
+
+  // 2. Courses dynamic & nested routes
+  // /courses/:id/lessons/:lessonId
+  const courseLessonMatch = pathname.match(/^\/courses\/([^\/]+)\/lessons\/([^\/]+)\/?$/);
+  if (courseLessonMatch && courseLessonMatch[1] && courseLessonMatch[2]) {
+    const courseId = courseLessonMatch[1];
+    const lessonId = courseLessonMatch[2];
+    const separator = search ? (search.includes("?") ? "&" : "?") : "?";
+    return `/student/course/${courseId}${search}${separator}lesson=${encodeURIComponent(lessonId)}`;
+  }
+
+  // /courses/:id (except /courses itself which is public page)
+  const courseMatch = pathname.match(/^\/courses\/([^\/]+)\/?$/);
+  if (courseMatch && courseMatch[1] && courseMatch[1] !== "page") {
+    return `/student/course/${courseMatch[1]}${search}`;
+  }
+
+  // /student/courses/:id/lessons/:lessonId
+  const studentCourseLessonMatch = pathname.match(/^\/student\/courses\/([^\/]+)\/lessons\/([^\/]+)\/?$/);
+  if (studentCourseLessonMatch && studentCourseLessonMatch[1] && studentCourseLessonMatch[2]) {
+    const courseId = studentCourseLessonMatch[1];
+    const lessonId = studentCourseLessonMatch[2];
+    const separator = search ? (search.includes("?") ? "&" : "?") : "?";
+    return `/student/course/${courseId}${search}${separator}lesson=${encodeURIComponent(lessonId)}`;
+  }
+
+  // /student/courses/:id
+  const studentCourseMatch = pathname.match(/^\/student\/courses\/([^\/]+)\/?$/);
+  if (studentCourseMatch && studentCourseMatch[1]) {
+    return `/student/course/${studentCourseMatch[1]}${search}`;
+  }
+
+  // /student/courses -> /student/my-courses
+  if (pathname === "/student/courses" || pathname === "/student/courses/") {
+    return `/student/my-courses${search}`;
+  }
+
+  // 3. Practice routes
+  // /practice/coding/:id
+  const practiceCodingMatch = pathname.match(/^\/practice\/coding\/([^\/]+)\/?$/);
+  if (practiceCodingMatch && practiceCodingMatch[1]) {
+    return `/student/practices/coding/${practiceCodingMatch[1]}${search}`;
+  }
+
+  // /practice/:id
+  const practiceIdMatch = pathname.match(/^\/practice\/([^\/]+)\/?$/);
+  if (practiceIdMatch && practiceIdMatch[1]) {
+    return `/student/practices/${practiceIdMatch[1]}${search}`;
+  }
+
+  // /practice
+  if (pathname === "/practice" || pathname === "/practice/") {
+    if (role === "admin" || role === "super_admin") return `/admin/practices${search}`;
+    if (role === "trainer") return `/trainer/practices${search}`;
+    return `/student/practices${search}`;
+  }
+
+  // 4. Challenges routes
+  // /challenges/:id
+  const challengeIdMatch = pathname.match(/^\/challenges\/([^\/]+)\/?$/);
+  if (challengeIdMatch && challengeIdMatch[1]) {
+    return `/coding/problems/${challengeIdMatch[1]}${search}`;
+  }
+
+  // /challenges
+  if (pathname === "/challenges" || pathname === "/challenges/") {
+    return `/coding${search}`;
+  }
+
+  // 5. Assessments routes
+  // /assessments/:id
+  const assessmentIdMatch = pathname.match(/^\/assessments\/([^\/]+)\/?$/);
+  if (assessmentIdMatch && assessmentIdMatch[1]) {
+    if (role === "admin" || role === "super_admin") return `/admin/assessments${search}`;
+    if (role === "trainer") return `/trainer/assessments${search}`;
+    return `/student/assessments/${assessmentIdMatch[1]}${search}`;
+  }
+
+  // /assessments
+  if (pathname === "/assessments" || pathname === "/assessments/") {
+    if (role === "admin" || role === "super_admin") return `/admin/assessments${search}`;
+    if (role === "trainer") return `/trainer/assessments${search}`;
+    return `/student/assessments${search}`;
+  }
+
+  // 6. Live Classes routes
+  // /live-classes/:id
+  const liveClassIdMatch = pathname.match(/^\/live-classes\/([^\/]+)\/?$/);
+  if (liveClassIdMatch && liveClassIdMatch[1]) {
+    if (role === "admin" || role === "super_admin") return `/admin/live-classes/${liveClassIdMatch[1]}${search}`;
+    if (role === "trainer") return `/trainer/live-classes/${liveClassIdMatch[1]}${search}`;
+    return `/student/live-classes/${liveClassIdMatch[1]}${search}`;
+  }
+
+  // /live-classes
+  if (pathname === "/live-classes" || pathname === "/live-classes/") {
+    if (role === "admin" || role === "super_admin") return `/admin/live-classes${search}`;
+    if (role === "trainer") return `/trainer/live-classes${search}`;
+    return `/student/live-classes${search}`;
+  }
+
+  // 7. Role alias routes (learners -> students)
+  if (pathname === "/trainer/learners" || pathname === "/trainer/learners/") {
+    return `/trainer/students${search}`;
+  }
+  if (pathname === "/admin/learners" || pathname === "/admin/learners/") {
+    return `/admin/students${search}`;
+  }
+
+  // 8. Admin users dynamic detail: /admin/users/:id
+  const adminUserMatch = pathname.match(/^\/admin\/users\/([^\/]+)\/?$/);
+  if (adminUserMatch && adminUserMatch[1]) {
+    const separator = search ? (search.includes("?") ? "&" : "?") : "?";
+    return `/admin/users${search}${separator}userId=${encodeURIComponent(adminUserMatch[1])}`;
+  }
+
+  // 9. Trainer courses edit: /trainer/courses/:id/edit
+  const trainerCourseEditMatch = pathname.match(/^\/trainer\/courses\/([^\/]+)\/edit\/?$/);
+  if (trainerCourseEditMatch && trainerCourseEditMatch[1]) {
+    const separator = search ? (search.includes("?") ? "&" : "?") : "?";
+    return `/trainer/courses${search}${separator}courseId=${encodeURIComponent(trainerCourseEditMatch[1])}&mode=edit`;
+  }
+
+  return null;
 }
 
 /**
@@ -414,9 +583,39 @@ export async function proxy(request: NextRequest) {
       return createRedirectWithCookies(loginUrl, request, supabaseResponse);
     }
 
-    // Cross-role boundary enforcement (Step 6) is now handled entirely
-    // by Server Components (e.g., layout.tsx) which can reliably query the DB
-    // to determine the user's role without conflicting with JWT metadata.
+    // 6. Transparent Internal Route Rewrites:
+    // Preserves the exact browser URL (including query parameters, dynamic IDs, and subpaths)
+    // while seamlessly rendering the underlying component implementation.
+    const userRole = user ? resolveRoleFromUser(user) : "student";
+    const rewriteTarget = resolveInternalRewrite(pathname, search, userRole);
+    if (rewriteTarget) {
+      const rewriteUrl = new URL(rewriteTarget, request.url);
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set("x-url", request.url);
+      requestHeaders.set("x-pathname", request.nextUrl.pathname);
+      requestHeaders.set("x-search", request.nextUrl.search);
+
+      const rewriteResponse = NextResponse.rewrite(rewriteUrl, {
+        request: {
+          headers: requestHeaders,
+        },
+      });
+
+      // Preserve all cookies from session update
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        const { name, value, ...options } = cookie;
+        rewriteResponse.cookies.set(name, value, {
+          ...options,
+          path: "/",
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          domain: undefined,
+        });
+      });
+
+      sanitizeResponseCookies(request, rewriteResponse);
+      return rewriteResponse;
+    }
 
     return supabaseResponse;
   } catch (err) {

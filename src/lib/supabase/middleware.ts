@@ -46,7 +46,16 @@ export function sanitizeResponseCookies(request: NextRequest, response: NextResp
 }
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-url", request.url);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  requestHeaders.set("x-search", request.nextUrl.search);
+
+  let supabaseResponse = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 
   const supabase = createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookieOptions: {
@@ -76,9 +85,13 @@ export async function updateSession(request: NextRequest) {
         // We must manually serialize the cookies back to request.headers.
         const updatedCookies = request.cookies.getAll();
         const cookieHeader = updatedCookies.map(c => `${c.name}=${c.value}`).join("; ");
-        request.headers.set("cookie", cookieHeader);
+        requestHeaders.set("cookie", cookieHeader);
 
-        supabaseResponse = NextResponse.next({ request });
+        supabaseResponse = NextResponse.next({
+          request: {
+            headers: requestHeaders,
+          },
+        });
         cookiesToSet.forEach(({ name, value, options }) => {
           if (
             name.includes("provider-token") ||

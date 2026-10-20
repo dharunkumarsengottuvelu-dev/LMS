@@ -45,8 +45,8 @@ export function StudentSidebar() {
       <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1">
         {studentNavigation.map((item) => {
           const isExact = pathname === item.href;
-          const isSubpath = pathname.startsWith(item.href + "/");
-          const isAlias = (item.aliases || []).some((alias) => pathname === alias || pathname.startsWith(alias + "/"));
+          const isSubpath = !item.href.endsWith("/dashboard") && (pathname.startsWith(item.href + "/") || pathname.startsWith(item.href));
+          const isAlias = (item.aliases || []).some((alias) => pathname === alias || (!alias.endsWith("/dashboard") && (pathname.startsWith(alias + "/") || pathname.startsWith(alias))));
           const isActive = isExact || isSubpath || isAlias;
           const Icon = item.icon;
           const isNotification = item.href === "/student/notifications";

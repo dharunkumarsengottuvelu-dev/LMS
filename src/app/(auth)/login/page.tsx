@@ -28,23 +28,53 @@ function resolveRoleDestination(role: string, nextUrl: string | null): string {
   const isTrainer = role === "trainer";
   const isRecruiter = role === "recruiter";
 
+  if (!nextUrl || !nextUrl.startsWith("/") || nextUrl.startsWith("/login") || nextUrl.startsWith("/register")) {
+    switch (role) {
+      case "super_admin":
+      case "admin":
+        return "/admin/dashboard";
+      case "trainer":
+        return "/trainer/dashboard";
+      case "institution":
+        return "/institution/overview";
+      case "recruiter":
+        return "/admin/students";
+      default:
+        return "/student/dashboard";
+    }
+  }
+
+  const commonAllowedPrefixes = [
+    "/courses",
+    "/coding",
+    "/ide",
+    "/dashboard",
+    "/practice",
+    "/challenges",
+    "/assessments",
+    "/live-classes",
+  ];
+  const isCommon = commonAllowedPrefixes.some(
+    (prefix) => nextUrl === prefix || nextUrl.startsWith(prefix + "/") || nextUrl.startsWith(prefix + "?")
+  );
+
   // Strict role boundaries: users must only land in their dedicated portal
   if (isSuperAdminOrAdmin) {
-    if (nextUrl && nextUrl.startsWith("/admin") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+    if (nextUrl.startsWith("/admin") || isCommon) {
       return nextUrl;
     }
     return "/admin/dashboard";
   }
 
   if (isInstitution) {
-    if (nextUrl && nextUrl.startsWith("/institution") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+    if (nextUrl.startsWith("/institution") || nextUrl.startsWith("/dashboard")) {
       return nextUrl;
     }
     return "/institution/overview";
   }
 
   if (isTrainer) {
-    if (nextUrl && nextUrl.startsWith("/trainer") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+    if (nextUrl.startsWith("/trainer") || isCommon) {
       return nextUrl;
     }
     return "/trainer/dashboard";
@@ -55,10 +85,10 @@ function resolveRoleDestination(role: string, nextUrl: string | null): string {
   }
 
   // Student / Learner
-  if (nextUrl && (nextUrl.startsWith("/student") || nextUrl.startsWith("/coding") || nextUrl.startsWith("/courses") || nextUrl.startsWith("/ide")) && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
-    return nextUrl;
+  if (nextUrl.startsWith("/admin") || nextUrl.startsWith("/trainer") || nextUrl.startsWith("/institution")) {
+    return "/student/dashboard";
   }
-  return "/student/dashboard";
+  return nextUrl;
 }
 
 export default function LoginPage() {

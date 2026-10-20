@@ -29,7 +29,8 @@ function getPageTitle(pathname: string, role?: string): string {
   if (normalized === "/unauthorized") return "SensilLearn | Unauthorized";
 
   // Student portal pages
-  if (normalized === "/student/dashboard") return "SensilLearn | Student Dashboard";
+  if (normalized === "/student/dashboard") return "SensilLearn | Dashboard";
+  if (normalized === "/student/classes" || normalized === "/student/batches") return "SensilLearn | Batches";
   if (normalized === "/student/my-courses") return "SensilLearn | Courses";
   if (normalized.startsWith("/student/course/")) return "SensilLearn | Courses";
   if (normalized === "/student/practices") return "SensilLearn | Practice";
@@ -38,10 +39,10 @@ function getPageTitle(pathname: string, role?: string): string {
   if (normalized === "/student/assessments") return "SensilLearn | Assessments";
   if (normalized.startsWith("/student/assessments/tracks/")) return "SensilLearn | Assessment Track";
   if (normalized.startsWith("/student/assessments/")) return "SensilLearn | Assessment";
-  if (normalized === "/student/coding") return "SensilLearn | Coding";
+  if (normalized === "/student/coding") return "SensilLearn | Challenges";
   if (normalized === "/student/assignments") return "SensilLearn | Assignments";
-  if (normalized === "/student/tests") return "SensilLearn | Tests";
-  if (normalized.startsWith("/student/tests/")) return "SensilLearn | Test";
+  if (normalized === "/student/tests") return "SensilLearn | Assessments";
+  if (normalized.startsWith("/student/tests/")) return "SensilLearn | Assessment";
   if (normalized === "/student/certificates") return "SensilLearn | Certificates";
   if (normalized === "/student/live-classes") return "SensilLearn | Live Classes";
   if (normalized.startsWith("/student/live-classes/")) return "SensilLearn | Live Class";
@@ -52,14 +53,15 @@ function getPageTitle(pathname: string, role?: string): string {
   if (normalized === "/student/settings") return "SensilLearn | Settings";
 
   // Trainer portal pages
-  if (normalized === "/trainer/dashboard") return "SensilLearn | Trainer Dashboard";
+  if (normalized === "/trainer/dashboard") return "SensilLearn | Dashboard";
+  if (normalized === "/trainer/students") return "SensilLearn | Learners";
+  if (normalized === "/trainer/classes" || normalized === "/trainer/batches") return "SensilLearn | Batches";
   if (normalized === "/trainer/courses") return "SensilLearn | Courses";
   if (normalized === "/trainer/modules") return "SensilLearn | Modules";
   if (normalized === "/trainer/practices") return "SensilLearn | Practice";
   if (normalized === "/trainer/assessments") return "SensilLearn | Assessments";
   if (normalized === "/trainer/assignments") return "SensilLearn | Assignments";
-  if (normalized === "/trainer/coding") return "SensilLearn | Coding";
-  if (normalized === "/trainer/students") return "SensilLearn | Students";
+  if (normalized === "/trainer/coding") return "SensilLearn | Challenges";
   if (normalized === "/trainer/analytics") return "SensilLearn | Analytics";
   if (normalized === "/trainer/live-classes") return "SensilLearn | Live Classes";
   if (normalized === "/trainer/live-classes/new") return "SensilLearn | Schedule Live Class";
@@ -69,9 +71,10 @@ function getPageTitle(pathname: string, role?: string): string {
   if (normalized === "/trainer/profile") return "SensilLearn | Profile";
 
   // Admin portal pages
-  if (normalized === "/admin/dashboard") return "SensilLearn | Admin Dashboard";
-  if (normalized === "/admin/courses") return "SensilLearn | Courses";
-  if (normalized === "/admin/assigned-courses") return "SensilLearn | Assigned Courses";
+  if (normalized === "/admin/dashboard") return "SensilLearn | Dashboard";
+  if (normalized === "/admin/student-performance" || normalized === "/admin/students") return "SensilLearn | Learners";
+  if (normalized === "/admin/batches" || normalized === "/admin/classes") return "SensilLearn | Batches";
+  if (normalized === "/admin/courses" || normalized === "/admin/assigned-courses") return "SensilLearn | Courses";
   if (normalized === "/admin/modules") return "SensilLearn | Modules";
   if (normalized === "/admin/lessons") return "SensilLearn | Lessons";
   if (normalized === "/admin/categories") return "SensilLearn | Categories";
@@ -79,16 +82,13 @@ function getPageTitle(pathname: string, role?: string): string {
   if (normalized === "/admin/assessments") return "SensilLearn | Assessments";
   if (normalized === "/admin/assignments") return "SensilLearn | Assignments";
   if (normalized === "/admin/submissions") return "SensilLearn | Submissions";
-  if (normalized === "/admin/tests") return "SensilLearn | Tests";
-  if (normalized.startsWith("/admin/tests/inspect/")) return "SensilLearn | Test Inspection";
-  if (normalized === "/admin/coding") return "SensilLearn | Coding";
+  if (normalized === "/admin/tests") return "SensilLearn | Assessments";
+  if (normalized.startsWith("/admin/tests/inspect/")) return "SensilLearn | Assessment Inspection";
+  if (normalized === "/admin/coding") return "SensilLearn | Challenges";
   if (normalized === "/admin/compiler") return "SensilLearn | Online Compiler";
-  if (normalized === "/admin/batches") return "SensilLearn | Batches";
-  if (normalized === "/admin/students") return "SensilLearn | Students";
   if (normalized === "/admin/trainers") return "SensilLearn | Trainers";
-  if (normalized === "/admin/users") return "SensilLearn | Users";
+  if (normalized === "/admin/users") return "SensilLearn | User Management";
   if (normalized === "/admin/certificates") return "SensilLearn | Certificates";
-  if (normalized === "/admin/student-performance") return "SensilLearn | Student Performance";
   if (normalized === "/admin/analytics") return "SensilLearn | Analytics";
   if (normalized === "/admin/reports") return "SensilLearn | Reports";
   if (normalized === "/admin/live-classes") return "SensilLearn | Live Classes";
@@ -112,8 +112,8 @@ function getPageTitle(pathname: string, role?: string): string {
   if (normalized === "/institution/profile") return "SensilLearn | Profile";
 
   // Coding & IDE pages
-  if (normalized === "/coding" || normalized === "/coding/problems") return "SensilLearn | Coding";
-  if (normalized.startsWith("/coding/problems/")) return "SensilLearn | Coding";
+  if (normalized === "/coding" || normalized === "/coding/problems") return "SensilLearn | Challenges";
+  if (normalized.startsWith("/coding/problems/")) return "SensilLearn | Challenges";
   if (normalized === "/ide/playground") return "SensilLearn | Code Playground";
 
   // Fallback formatting for any unmapped nested route

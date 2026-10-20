@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { InstitutionTopNav } from "@/components/layouts/institution-top-nav";
 import type { Metadata } from "next";
 
@@ -16,18 +18,38 @@ export default async function InstitutionLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const headersList = await headers();
+  const currentPath = headersList.get("x-pathname") || "";
+  const currentSearch = headersList.get("x-search") || "";
+  const fullOriginalPath = currentPath ? `${currentPath}${currentSearch}` : "";
+
   const supabase = await createClient();
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
   if (authErr || !user) {
-    redirect("/login?error=session_expired&next=/institution/overview");
+    const nextTarget = fullOriginalPath || "/institution/overview";
+    redirect(`/login?error=session_expired&next=${encodeURIComponent(nextTarget)}`);
   }
 
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from("profiles")
     .select("role, status, college")
     .eq("user_id", user.id)
     .maybeSingle();
+
+  if (!profile) {
+    try {
+      const adminClient = createAdminClient();
+      const { data } = await adminClient
+        .from("profiles")
+        .select("role, status, college")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (data) profile = data as any;
+    } catch (e) {
+      console.warn("Institution layout: fallback profile fetch error", e);
+    }
+  }
 
   const userProfile = profile as any;
   if (userProfile?.status === "suspended") {
@@ -40,9 +62,6 @@ export default async function InstitutionLayout({
     user.app_metadata?.role ||
     ""
   ).toLowerCase();
-
-  const email = (user.email || "").toLowerCase();
-  const [localPart = ""] = email.split("@");
 
   const isAllowed =
     role === "institution" ||
@@ -66,3 +85,4 @@ export default async function InstitutionLayout({
     </div>
   );
 }
+

@@ -1124,26 +1124,45 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
 
 
   const handleToggleStatus = async (studentId: string) => {
-    // Note: To properly update in Supabase, we should make an API call here.
-    // For now, updating local state and showing a toast safely outside the setState callback.
-    let changedName = "";
-    let nextStatus = "";
-    
-    setStudents((prev) =>
-      prev.map((s) => {
-        if (s.id === studentId) {
-          nextStatus = s.status === "active" ? "suspended" : "active";
-          changedName = s.name;
-          return { ...s, status: nextStatus as any };
-        }
-        return s;
-      })
+    const currentStudent = reportStudents.find((s) => s.id === studentId) || students.find((s) => s.id === studentId);
+    const currentStatus = currentStudent?.status === "suspended" ? "suspended" : "active";
+    const nextStatus = currentStatus === "active" ? "suspended" : "active";
+    const studentName = currentStudent?.name || "Student";
+
+    // Optimistically update reportStudents and students state
+    setReportStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, status: nextStatus as any } : s))
     );
-    
-    if (changedName) {
+    setStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, status: nextStatus as any } : s))
+    );
+
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: studentId, status: nextStatus }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update status");
+      }
       toast({
         title: "Student Status Updated",
-        description: `${changedName} status changed to ${nextStatus.toUpperCase()}`,
+        description: `${studentName} status changed to ${nextStatus.toUpperCase()}`,
+      });
+    } catch (err: any) {
+      // Revert on error
+      setReportStudents((prev) =>
+        prev.map((s) => (s.id === studentId ? { ...s, status: currentStatus as any } : s))
+      );
+      setStudents((prev) =>
+        prev.map((s) => (s.id === studentId ? { ...s, status: currentStatus as any } : s))
+      );
+      toast({
+        title: "Failed to Update Status",
+        description: err.message,
+        variant: "destructive",
       });
     }
   };
@@ -3590,17 +3609,44 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                         </td>
 
                         <td className="p-3.5">
-                          <Badge
-                            className={`text-[10px] font-bold capitalize ${
-                              std.overallStatus.toLowerCase() === "active"
-                                ? "bg-[#16A34A] text-white"
-                                : std.overallStatus.toLowerCase() === "flagged"
-                                ? "bg-[#DC2626] text-white"
-                                : "bg-[#6B7280] text-white"
-                            }`}
-                          >
-                            {std.overallStatus}
-                          </Badge>
+                          {(() => {
+                            const isSuspended = std.status === "suspended";
+                            const isFlagged = std.status === "flagged" || (std.violationCount && std.violationCount >= 3);
+                            const hasActivity =
+                              (std.activeTimeSeconds && std.activeTimeSeconds > 0) ||
+                              (std.activeTimeFormatted && std.activeTimeFormatted !== "0m" && std.activeTimeFormatted !== "0h 0m") ||
+                              (std.enrolledCoursesCount && std.enrolledCoursesCount > 0) ||
+                              (std.codingSubmissionsCount && std.codingSubmissionsCount > 0) ||
+                              (std.practiceCount && std.practiceCount > 0) ||
+                              (std.assessmentCount && std.assessmentCount > 0);
+
+                            if (isSuspended) {
+                              return (
+                                <Badge className="text-[10px] font-bold capitalize bg-[#DC2626] text-white">
+                                  Suspended
+                                </Badge>
+                              );
+                            }
+                            if (isFlagged) {
+                              return (
+                                <Badge className="text-[10px] font-bold capitalize bg-[#DC2626] text-white">
+                                  Flagged
+                                </Badge>
+                              );
+                            }
+                            if (hasActivity) {
+                              return (
+                                <Badge className="text-[10px] font-bold capitalize bg-[#16A34A] text-white">
+                                  Active
+                                </Badge>
+                              );
+                            }
+                            return (
+                              <Badge className="text-[10px] font-bold capitalize bg-[#6B7280] text-white">
+                                Inactive
+                              </Badge>
+                            );
+                          })()}
                         </td>
 
                         <td className="p-3.5 pr-6">
@@ -3617,7 +3663,7 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                                   designation: "Student",
                                   techTrack: "General",
                                   role: "student",
-                                  status: (std.overallStatus.toLowerCase().includes("flagged") ? "flagged" : std.overallStatus.toLowerCase().includes("suspended") ? "suspended" : "active"),
+                                  status: (std.status === "suspended" ? "suspended" : std.status === "flagged" ? "flagged" : "active"),
                                   avgScore: std.avgScore ?? 0,
                                   mcqAccuracy: std.assessmentScore ?? 0,
                                   codingAccuracy: std.codingAccuracy ?? 0,
@@ -3641,18 +3687,28 @@ export function StudentAnalyticsHub({ portalRole = "admin" }: { portalRole?: "ad
                             >
                               View Performance
                             </Button>
-                            <Button
-                              onClick={() => handleToggleStatus(std.id)}
-                              variant="outline"
-                              size="icon"
-                              className={`h-8 w-8 shrink-0 shadow-xs ${
-                                std.overallStatus.toLowerCase() === "active"
-                                  ? "text-[#DC2626] border-[#DC2626]/30 hover:border-[#DC2626] hover:bg-[#DC2626]/10"
-                                  : "text-[#16A34A] border-[#16A34A]/30 hover:border-[#16A34A] hover:bg-[#16A34A]/10"
-                              }`}
-                            >
-                              {std.overallStatus.toLowerCase() === "active" ? <ShieldAlert className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
-                            </Button>
+                            {(() => {
+                              const isSuspended = std.status === "suspended";
+                              return (
+                                <Button
+                                  onClick={() => handleToggleStatus(std.id)}
+                                  variant="outline"
+                                  size="icon"
+                                  title={isSuspended ? "Reactivate Student Account" : "Suspend Student Account"}
+                                  className={`h-8 w-8 shrink-0 shadow-xs ${
+                                    !isSuspended
+                                      ? "text-[#DC2626] border-[#DC2626]/30 hover:border-[#DC2626] hover:bg-[#DC2626]/10"
+                                      : "text-[#16A34A] border-[#16A34A]/30 hover:border-[#16A34A] hover:bg-[#16A34A]/10"
+                                  }`}
+                                >
+                                  {!isSuspended ? (
+                                    <ShieldAlert className="h-4 w-4" />
+                                  ) : (
+                                    <ShieldCheck className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              );
+                            })()}
                           </div>
                         </td>
                       </tr>

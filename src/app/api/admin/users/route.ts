@@ -319,7 +319,7 @@ export async function PUT(request: NextRequest) {
     const adminClient = auth.adminClient!;
 
     const body = await request.json();
-    const { id, name, email, role, batch_id, batch, department, college, branch, phone } = body;
+    const { id, name, email, role, status, batch_id, batch, department, college, branch, phone } = body;
 
     if (!id) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
@@ -405,6 +405,10 @@ export async function PUT(request: NextRequest) {
       phone: phone || null,
       updated_at: new Date().toISOString(),
     };
+
+    if (status && ["active", "suspended", "inactive", "flagged"].includes(String(status).toLowerCase())) {
+      updatePayload.status = String(status).toLowerCase();
+    }
 
     if (email && email.trim()) {
       updatePayload.email = email.trim().toLowerCase();

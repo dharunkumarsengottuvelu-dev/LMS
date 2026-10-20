@@ -28,9 +28,10 @@ import { cn } from "@/lib/utils";
 
 const LINK_OPTIONS = [
   { label: "— No link —", value: "" },
-  { label: "My Courses", value: "/student/my-courses" },
-  { label: "Skill Lab", value: "/student/practices" },
-  { label: "Code Lab", value: "/coding" },
+  { label: "Batches", value: "/student/classes" },
+  { label: "Courses", value: "/student/my-courses" },
+  { label: "Practice", value: "/student/practices" },
+  { label: "Challenges", value: "/coding" },
   { label: "Assessments", value: "/student/tests" },
   { label: "Live Classes", value: "/student/live-classes" },
   { label: "Notifications", value: "/student/notifications" },

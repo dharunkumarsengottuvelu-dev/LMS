@@ -28,7 +28,8 @@ export default function StudentLiveClassRoomPage() {
         // 1. Get authenticated user profile
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          router.push("/auth/login");
+          const currentPath = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/student/live-classes";
+          router.push(`/login?next=${encodeURIComponent(currentPath)}`);
           return;
         }
 

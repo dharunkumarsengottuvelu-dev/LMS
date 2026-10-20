@@ -1185,13 +1185,13 @@ export default function ProblemSolvingWorkspace() {
   if (!problem) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-slate-50 text-slate-800 font-sans p-6 text-center">
-        <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-2">Problem Not Available in Code Lab</h2>
+        <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-2">Problem Not Available in Challenges</h2>
         <p className="text-xs text-slate-600 max-w-md mb-6 leading-relaxed">
-          This problem belongs to a Practice Module or is not published in Code Lab. Practice and Code Lab problems are isolated.
+          This problem belongs to a Practice Module or is not published in Challenges. Practice and Challenges problems are isolated.
         </p>
         <div className="flex items-center gap-3">
           <Button onClick={() => router.push("/coding")} variant="outline" className="rounded-xl text-xs">
-            Back to Code Lab
+            Back to Challenges
           </Button>
           <Button onClick={() => router.push("/student/practices")} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs">
             Go to Practice
@@ -1206,7 +1206,7 @@ export default function ProblemSolvingWorkspace() {
       {/* ─── 1. TOP HEADER & ACTION BAR (CLEAN, NO GLOBAL LMS NAVBAR) ─── */}
       {/* ─── 1. TOP HEADER & ACTION BAR (CLEAN, NO GLOBAL LMS NAVBAR) ─── */}
       <header className="h-14 bg-white border-b border-slate-200/90 px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-2xs z-20">
-        {/* Left: ← Back to Code Lab / #1. Title [Difficulty] */}
+        {/* Left: ← Back to Challenges / #1. Title [Difficulty] */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             type="button"
@@ -1216,7 +1216,7 @@ export default function ProblemSolvingWorkspace() {
             className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors py-1 px-2 rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
-            <span>Back to Code Lab</span>
+            <span>Back to Challenges</span>
           </button>
 
           <span className="text-slate-300 font-medium">/</span>
@@ -2327,7 +2327,7 @@ export default function ProblemSolvingWorkspace() {
               Confirm Final Submission
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500 max-w-xs">
-              Are you sure you want to finalize your submission for <strong>#{questionNumber}. {problem.title}</strong>? Your solution will be officially completed in Code Lab.
+              Are you sure you want to finalize your submission for <strong>#{questionNumber}. {problem.title}</strong>? Your solution will be officially completed in Challenges.
             </DialogDescription>
           </DialogHeader>
 

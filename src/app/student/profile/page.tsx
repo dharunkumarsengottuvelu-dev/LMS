@@ -1128,7 +1128,7 @@ export default function StudentProfilePage() {
             </div>
           </div>
 
-          {/* Sub-tabs: Learning | Skill Lab | Code Lab | Assess | Live | Time & Sessions */}
+          {/* Sub-tabs: Courses | Practice | Challenges | Assessments | Live Classes | Time & Sessions */}
           <div className="flex items-center gap-2 border-b border-slate-200 dark:border-zinc-800 pb-2.5 overflow-x-auto no-scrollbar">
             <button
               type="button"
@@ -1140,7 +1140,7 @@ export default function StudentProfilePage() {
                   : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800"
               )}
             >
-              Learning ({coursesList.length})
+              Courses ({coursesList.length})
             </button>
 
             <button
@@ -1153,7 +1153,7 @@ export default function StudentProfilePage() {
                   : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800"
               )}
             >
-              Skill Lab ({skillLabList.reduce((acc, p) => acc + (p.completedChallenges || 0), 0)} Solved)
+              Practice ({skillLabList.reduce((acc, p) => acc + (p.completedChallenges || 0), 0)} Solved)
             </button>
 
             <button
@@ -1166,7 +1166,7 @@ export default function StudentProfilePage() {
                   : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800"
               )}
             >
-              Code Lab ({codeLabList.filter((c) => c.completed).length} Solved)
+              Challenges ({codeLabList.filter((c) => c.completed).length} Solved)
             </button>
 
             <button
@@ -1179,7 +1179,7 @@ export default function StudentProfilePage() {
                   : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800"
               )}
             >
-              Assess ({assessmentsList.length})
+              Assessments ({assessmentsList.length})
             </button>
 
             <button
@@ -1192,7 +1192,7 @@ export default function StudentProfilePage() {
                   : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800"
               )}
             >
-              Live ({liveClassesList.length})
+              Live Classes ({liveClassesList.length})
             </button>
 
             <button
@@ -1275,13 +1275,13 @@ export default function StudentProfilePage() {
             </div>
           )}
 
-          {/* Sub-tab 2: SKILL LAB REPORT */}
+          {/* Sub-tab 2: PRACTICE REPORT */}
           {reportSubTab === "skill-lab" && (
             <div className="space-y-4">
               {filteredSkillLab.length === 0 ? (
                 <Card className="p-10 text-center bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-2xl">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">No Skill Lab Tracks</p>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">Skill practice tracks and topical question exercises will appear here.</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">No Practice Tracks</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">Practice tracks and topical question exercises will appear here.</p>
                 </Card>
               ) : (
                 filteredSkillLab.map((track) => (
@@ -1366,23 +1366,23 @@ export default function StudentProfilePage() {
             </div>
           )}
 
-          {/* Sub-tab 3: CODE LAB REPORT */}
+          {/* Sub-tab 3: CHALLENGES REPORT */}
           {reportSubTab === "code-lab" && (
             <div className="space-y-4">
               {filteredCodeLab.length === 0 ? (
                 <Card className="p-10 text-center bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-2xl">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">No Coding Problems Available</p>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">Interactive algorithmic challenges from Code Lab will appear here.</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">No Challenges Available</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">Interactive algorithmic challenges will appear here.</p>
                 </Card>
               ) : (
                 <Card className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 shadow-sm rounded-2xl overflow-hidden">
                   <CardHeader className="p-5 pb-3 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <CardTitle className="text-sm font-bold text-slate-900 dark:text-white">
-                        Code Lab Problem Solving
+                        Challenges Problem Solving
                       </CardTitle>
                       <CardDescription className="text-[11px] text-slate-500 dark:text-zinc-400">
-                        Coding problem submissions, execution performance, and test case pass records
+                        Problem submissions, execution performance, and test case pass records
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1768,7 +1768,7 @@ export default function StudentProfilePage() {
                   <p className="text-[11px] text-slate-500 dark:text-zinc-400">Curriculum syllabus lessons</p>
                 </Card>
                 <Card className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 shadow-sm rounded-2xl p-5 space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Code Lab Problems</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Challenges</span>
                   <p className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{codeLabList.filter((c) => c.completed).length} Solved</p>
                   <p className="text-[11px] text-slate-500 dark:text-zinc-400">Coding challenges completed</p>
                 </Card>
