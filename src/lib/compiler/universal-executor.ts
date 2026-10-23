@@ -254,7 +254,7 @@ export class UniversalExecutor {
         "C:\\Users\\KaaviyaDharun\\AppData\\Local\\Python\\bin\\python.exe",
       ];
       for (const c of candidates) {
-        if (fs.existsSync(c)) return c;
+        if (c && fs.existsSync(/*turbopackIgnore: true*/ c)) return c;
       }
     }
     return "python3";

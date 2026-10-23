@@ -5,7 +5,7 @@ import { CodingManagementHub } from "@/components/admin/coding-management-hub";
 
 export default function TrainerCodingPage() {
   return (
-    <div className="w-full p-4 sm:p-6 lg:p-8">
+    <div className="w-full py-2 space-y-6">
       <CodingManagementHub role="trainer" />
     </div>
   );

@@ -10,6 +10,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
+function InstagramIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  );
+}
+
 export default function PublicContactPage() {
   const { toast } = useToast();
   const [name, setName] = useState("");
@@ -67,6 +86,41 @@ export default function PublicContactPage() {
           <p className="text-sm text-[#6B7280] dark:text-[#A1A1AA]">
             Have questions about enterprise deployment, proctoring features, or custom pricing? We&apos;re here to help.
           </p>
+        </div>
+
+        {/* Quick Contact Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+          <a
+            href="mailto:sensigroup.info@gamil.com"
+            className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/50 hover:border-blue-400 dark:hover:border-blue-600 transition-all flex items-center gap-3 group"
+          >
+            <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-[#2563EB] flex items-center justify-center shrink-0">
+              <Mail className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Direct Email</p>
+              <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[#2563EB] transition-colors">
+                sensigroup.info@gamil.com
+              </p>
+            </div>
+          </a>
+
+          <a
+            href="https://www.instagram.com/sensilearn?mdxt=M3RqeTUxMHpmeTF6"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/50 hover:border-pink-400 dark:hover:border-pink-600 transition-all flex items-center gap-3 group"
+          >
+            <div className="w-10 h-10 rounded-lg bg-pink-50 dark:bg-pink-950/50 text-pink-600 flex items-center justify-center shrink-0">
+              <InstagramIcon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Instagram</p>
+              <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-pink-600 transition-colors">
+                @sensilearn
+              </p>
+            </div>
+          </a>
         </div>
 
         <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-8 shadow-sm">

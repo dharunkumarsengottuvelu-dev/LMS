@@ -95,7 +95,7 @@ export default function AdminCompilerPage() {
   const totalCount = languages.length;
 
   return (
-    <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
+    <div className="w-full max-w-7xl mx-auto space-y-6 py-2">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -169,8 +169,8 @@ export default function AdminCompilerPage() {
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="overflow-x-auto" aria-busy="true" aria-label="Loading compiler configuration">
-              <table className="w-full text-sm text-left">
+            <div className="overflow-x-auto w-full" aria-busy="true" aria-label="Loading compiler configuration">
+              <table className="w-full min-w-[640px] text-sm text-left">
                 <thead className="bg-muted/60 text-muted-foreground text-xs uppercase font-semibold border-b">
                   <tr>
                     <th className="px-5 py-3">Language</th>
@@ -196,8 +196,8 @@ export default function AdminCompilerPage() {
               </table>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full min-w-[640px] text-sm text-left">
                 <thead className="bg-muted/60 text-muted-foreground text-xs uppercase font-semibold border-b">
                   <tr>
                     <th className="px-5 py-3">Language</th>

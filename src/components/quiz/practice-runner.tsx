@@ -1706,19 +1706,20 @@ export function PracticeRunnerEngine({
       </div>
 
       {/* ── 4. BOTTOM NAVIGATION BAR (Matches Practice Page Reference) ── */}
-      <footer className="h-12 sm:h-14 bg-white dark:bg-[#18181B] border-t border-slate-200/90 dark:border-zinc-800 px-3 sm:px-6 flex items-center justify-between gap-3 shrink-0 shadow-2xs z-20 sticky bottom-0 select-none">
+      <footer className="h-12 sm:h-14 bg-white dark:bg-[#18181B] border-t border-slate-200/90 dark:border-zinc-800 px-2 sm:px-6 flex items-center justify-between gap-1.5 sm:gap-3 shrink-0 shadow-2xs z-20 sticky bottom-0 select-none overflow-x-auto no-scrollbar">
         {/* Left: Previous + Mark for Review */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handlePrevClick}
             disabled={currentQuestionIndex === 0}
-            className="h-8 px-3 sm:px-4 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 shadow-2xs cursor-pointer disabled:opacity-40"
+            className="h-8 px-2.5 sm:px-4 text-xs font-semibold rounded-lg border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 shadow-2xs cursor-pointer disabled:opacity-40"
           >
-            <ArrowLeft className="w-3.5 h-3.5 mr-1" />
-            <span>Previous</span>
+            <ArrowLeft className="w-3.5 h-3.5 mr-0.5 sm:mr-1 shrink-0" />
+            <span className="hidden sm:inline">Previous</span>
+            <span className="sm:hidden">Prev</span>
           </Button>
 
           <Button
@@ -1727,44 +1728,45 @@ export function PracticeRunnerEngine({
             size="sm"
             onClick={() => toggleMarkForReview(currentQuestion.id)}
             className={cn(
-              "h-8 px-2.5 sm:px-3 text-xs font-semibold rounded-lg border gap-1.5 transition-colors cursor-pointer",
+              "h-8 px-2 sm:px-3 text-xs font-semibold rounded-lg border gap-1 sm:gap-1.5 transition-colors cursor-pointer",
               markedForReview.has(currentQuestion.id)
                 ? "bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950/40 dark:text-purple-300"
                 : "border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
             )}
           >
-            <Flag className={cn("w-3.5 h-3.5", markedForReview.has(currentQuestion.id) ? "fill-purple-600 text-purple-600" : "text-slate-400")} />
+            <Flag className={cn("w-3.5 h-3.5 shrink-0", markedForReview.has(currentQuestion.id) ? "fill-purple-600 text-purple-600" : "text-slate-400")} />
             <span className="hidden sm:inline">{markedForReview.has(currentQuestion.id) ? "Marked for Review" : "Mark for Review"}</span>
             <span className="sm:hidden">{markedForReview.has(currentQuestion.id) ? "Marked" : "Review"}</span>
           </Button>
         </div>
 
         {/* Center: Question X / Total */}
-        <span className="text-xs sm:text-sm font-bold text-slate-800 dark:text-zinc-200">
+        <span className="text-[11px] sm:text-sm font-bold text-slate-800 dark:text-zinc-200 px-1 shrink-0">
           {currentQuestionIndex + 1} / {totalQuestions}
         </span>
 
         {/* Right: Next + Review & Submit */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <Button
             type="button"
             size="sm"
             onClick={handleNextClick}
             disabled={currentQuestionIndex >= totalQuestions - 1}
-            className="h-8 px-3.5 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-40"
+            className="h-8 px-2.5 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-40"
           >
             <span>Next</span>
-            <span className="ml-1">→</span>
+            <span className="ml-0.5 sm:ml-1">→</span>
           </Button>
 
           <Button
             type="button"
             size="sm"
             onClick={handleInitiateSubmit}
-            className="h-8 px-3.5 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1.5"
+            className="h-8 px-2.5 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
           >
-            <CheckCheck className="w-3.5 h-3.5" />
-            <span>Review &amp; Submit</span>
+            <CheckCheck className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Review &amp; Submit</span>
+            <span className="sm:hidden">Submit</span>
           </Button>
         </div>
       </footer>

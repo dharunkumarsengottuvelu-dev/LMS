@@ -1175,13 +1175,13 @@ export function CodeEditor({
         </div>
 
         {/* ── VS Code IDE Style Status Bar (Light Theme) ── */}
-        <div className="h-6 px-3 bg-slate-50 border-t border-slate-200/90 flex items-center justify-between text-[11px] font-mono select-none shrink-0 z-10 text-slate-600">
-          <div className="flex items-center gap-2">
+        <div className="h-6 px-3 bg-slate-50 border-t border-slate-200/90 flex items-center justify-between text-[11px] font-mono select-none shrink-0 z-10 text-slate-600 overflow-hidden">
+          <div className="flex items-center gap-2 shrink-0">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Ready</span>
-            {selectedCharsCount > 0 && <span className="text-slate-400 font-sans ml-1 text-[10px]">({selectedCharsCount} selected)</span>}
+            {selectedCharsCount > 0 && <span className="text-slate-400 font-sans ml-1 text-[10px] hidden xs:inline">({selectedCharsCount} selected)</span>}
           </div>
-          <div className="flex items-center gap-2 sm:gap-2.5 text-slate-600">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 text-slate-600 shrink-0 overflow-x-auto no-scrollbar">
             <span title="Cursor Position" className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5">
               Ln {cursorPos.line}, Col {cursorPos.col}
             </span>
@@ -1194,18 +1194,18 @@ export function CodeEditor({
             >
               Spaces: {tabSize}
             </button>
-            <span className="text-slate-300 select-none">|</span>
-            <span title="File Encoding: UTF-8" className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5">
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <span title="File Encoding: UTF-8" className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5 hidden sm:inline-flex">
               UTF-8
             </span>
-            <span className="text-slate-300 select-none">|</span>
-            <span title="End of Line Sequence: LF" className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5">
+            <span className="text-slate-300 select-none hidden sm:inline">|</span>
+            <span title="End of Line Sequence: LF" className="hover:text-slate-900 transition-colors cursor-default px-1 py-0.5 hidden sm:inline-flex">
               LF
             </span>
             <span className="text-slate-300 select-none">|</span>
             <span title="Active Language" className="hover:text-slate-900 transition-colors cursor-default flex items-center gap-1 font-semibold text-slate-700 px-1 py-0.5">
               <span className="text-slate-400 font-bold">&#123;&#125;</span>
-              <span>{getCleanLanguageName(dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language)}</span>
+              <span className="truncate max-w-[80px] sm:max-w-none">{getCleanLanguageName(dbLanguages.find(l => l.id === language)?.name || LANGUAGE_DISPLAY_NAMES[language as CodingLanguage] || language)}</span>
             </span>
           </div>
         </div>

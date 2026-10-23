@@ -204,8 +204,8 @@ export default function AdminReportsPage() {
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full min-w-[720px] text-xs text-left">
               <thead className="bg-[#F9FAFB] dark:bg-[#09090B] border-b border-[#E5E7EB] dark:border-[#27272A] text-[#6B7280] uppercase font-bold text-[10px]">
                 <tr>
                   <th className="p-4 pl-6">Assessment Module</th>
@@ -231,7 +231,14 @@ export default function AdminReportsPage() {
                     </td>
                     <td className="p-4">
                       <span className="font-bold text-[#111827] dark:text-[#FAFAFA]">{r.attemptedCount}</span>
-                      <span className="text-[#6B7280]"> / {r.totalCandidates} ({Math.round((r.attemptedCount / r.totalCandidates) * 100)}%)</span>
+                      <span className="text-[#6B7280]">
+                        {" "}
+                        / {r.totalCandidates} (
+                        {r.totalCandidates > 0
+                          ? Math.round((r.attemptedCount / r.totalCandidates) * 100)
+                          : 0}
+                        %)
+                      </span>
                     </td>
                     <td className="p-4 font-bold text-[#2563EB]">{r.avgScore}</td>
                     <td className="p-4">
