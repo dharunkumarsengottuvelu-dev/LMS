@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 import { getErrorMessage } from "@/lib/utils";
 import { dispatchBatchNotification } from "@/lib/notifications/dispatcher";
 
@@ -7,7 +7,13 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const { errorResponse, adminClient } = await authenticateAdminSession([
+      "super_admin",
+      "admin",
+      "trainer",
+    ]);
+    if (errorResponse) return errorResponse;
+
     const { searchParams } = new URL(request.url);
     const classId = searchParams.get("classId");
     const type = searchParams.get("type");
@@ -202,7 +208,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const { errorResponse, adminClient } = await authenticateAdminSession([
+      "super_admin",
+      "admin",
+      "trainer",
+    ]);
+    if (errorResponse) return errorResponse;
+
     const body = await request.json();
 
     const {
@@ -448,7 +460,13 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const { errorResponse, adminClient } = await authenticateAdminSession([
+      "super_admin",
+      "admin",
+      "trainer",
+    ]);
+    if (errorResponse) return errorResponse;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 

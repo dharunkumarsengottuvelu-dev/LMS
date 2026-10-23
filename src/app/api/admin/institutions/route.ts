@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 import { getErrorMessage } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const { errorResponse, adminClient } = await authenticateAdminSession([
+      "super_admin",
+      "admin",
+    ]);
+    if (errorResponse) return errorResponse;
 
     // 1. Fetch profiles where role = 'institution'
     const { data: instProfiles, error: pErr } = await adminClient

@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { jobeService } from "@/services/jobe";
 import type { ExecuteCodeInput } from "@/types/coding";
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized: Active session required to execute code." },
+        { status: 401 }
+      );
+    }
+
     const body = (await request.json()) as Record<string, any>;
     const language = body.language;
     const code = body.code;
@@ -26,6 +39,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Both 'language' and 'code' fields are required." },
         { status: 400 }
+      );
+    }
+
+    if (typeof code === "string" && code.length > 65536) {
+      return NextResponse.json(
+        { error: "Payload too large: Code exceeds maximum allowed size (64KB)." },
+        { status: 413 }
       );
     }
 

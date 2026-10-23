@@ -7,6 +7,13 @@ import { siteConfig } from "@/config/site";
 const ROUTE_ROLE_MAP: Record<string, string[]> = {
   "/admin": ["super_admin", "admin"],
   "/api/admin/coding": ["super_admin", "admin", "trainer", "student"],
+  "/api/admin/practices": ["super_admin", "admin", "trainer"],
+  "/api/admin/tests": ["super_admin", "admin", "trainer"],
+  "/api/admin/live-classes": ["super_admin", "admin", "trainer"],
+  "/api/admin/assignments": ["super_admin", "admin", "trainer"],
+  "/api/admin/compiler": ["super_admin", "admin", "trainer"],
+  "/api/admin/users": ["super_admin", "admin", "trainer"],
+  "/api/admin/students": ["super_admin", "admin", "trainer", "student"],
   "/api/admin": ["super_admin", "admin"],
   "/coding": ["student", "trainer", "super_admin", "admin"],
   "/trainer": ["super_admin", "admin", "trainer"],
@@ -14,8 +21,15 @@ const ROUTE_ROLE_MAP: Record<string, string[]> = {
   "/recruiter": ["super_admin", "admin", "recruiter"],
   "/institution": ["super_admin", "admin", "institution"],
   "/api/institution": ["super_admin", "admin", "institution"],
-  "/student": ["student"],
+  "/student": ["student", "super_admin", "admin", "trainer"],
   "/api/student": ["student", "super_admin", "admin", "trainer"],
+  "/api/code": ["student", "trainer", "super_admin", "admin"],
+  "/api/coding": ["student", "trainer", "super_admin", "admin"],
+  "/api/jobe": ["student", "trainer", "super_admin", "admin"],
+  "/api/live-classes": ["student", "trainer", "super_admin", "admin"],
+  "/api/messages": ["student", "trainer", "super_admin", "admin"],
+  "/api/video": ["student", "trainer", "super_admin", "admin"],
+  "/api/sql": ["student", "trainer", "super_admin", "admin"],
   "/ide": ["super_admin", "admin", "trainer", "student"],
   "/dashboard": ["student", "trainer", "super_admin", "admin", "institution", "recruiter"],
   "/practice": ["student", "trainer", "super_admin", "admin"],
@@ -63,6 +77,15 @@ function getRequiredRoles(pathname: string): string[] | null {
     }
   }
   return null;
+}
+
+function isRoleAuthorized(userRole: string, requiredRoles: string[]): boolean {
+  if (userRole === "super_admin") return true;
+  if (userRole === "admin") {
+    if (requiredRoles.length === 1 && requiredRoles[0] === "super_admin") return false;
+    return true;
+  }
+  return requiredRoles.includes(userRole);
 }
 
 function getRoleDefaultPath(role: string): string {
@@ -305,7 +328,8 @@ function resolveRoleFromUser(user: {
   // Trust app_metadata first (server-set, authoritative)
   if (user.app_metadata?.role) {
     const r = (user.app_metadata.role as string).toLowerCase();
-    if (r === "super_admin" || r === "admin" || r === "founder" || r === "ceo") return "admin";
+    if (r === "super_admin") return "super_admin";
+    if (r === "admin" || r === "founder" || r === "ceo") return "admin";
     if (r === "trainer") return "trainer";
     if (r === "institution") return "institution";
     if (r === "recruiter") return "recruiter";
@@ -314,7 +338,8 @@ function resolveRoleFromUser(user: {
 
   // Then user_metadata (set at registration or via admin)
   if (metaRole) {
-    if (metaRole === "super_admin" || metaRole === "admin" || metaRole === "founder" || metaRole === "ceo") return "admin";
+    if (metaRole === "super_admin") return "super_admin";
+    if (metaRole === "admin" || metaRole === "founder" || metaRole === "ceo") return "admin";
     if (metaRole === "trainer") return "trainer";
     if (metaRole === "institution") return "institution";
     if (metaRole === "recruiter") return "recruiter";
@@ -563,7 +588,7 @@ export async function proxy(request: NextRequest) {
       }
     }
 
-    // 5. Protect private routes — unauthenticated access
+    // 5. Protect private routes — unauthenticated and unauthorized access
     const requiredRoles = getRequiredRoles(pathname);
     if (requiredRoles && !user) {
       if (pathname.startsWith("/api/")) {
@@ -581,6 +606,21 @@ export async function proxy(request: NextRequest) {
       }
 
       return createRedirectWithCookies(loginUrl, request, supabaseResponse);
+    }
+
+    if (requiredRoles && user) {
+      const userRole = resolveRoleFromUser(user);
+      if (!isRoleAuthorized(userRole, requiredRoles)) {
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json(
+            { error: `Forbidden: Access restricted for role '${userRole}'` },
+            { status: 403 }
+          );
+        }
+        const defaultPath = getValidDestinationForRole(userRole, null);
+        const redirectUrl = new URL(defaultPath, request.url);
+        return createRedirectWithCookies(redirectUrl, request, supabaseResponse);
+      }
     }
 
     // 6. Transparent Internal Route Rewrites:

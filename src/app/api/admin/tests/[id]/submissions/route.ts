@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 import { getErrorMessage } from "@/lib/utils";
 
 export async function GET(
@@ -7,8 +7,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { errorResponse, adminClient } = await authenticateAdminSession([
+      "super_admin",
+      "admin",
+      "trainer",
+    ]);
+    if (errorResponse) return errorResponse;
+
     const { id } = await params;
-    const adminClient = createAdminClient();
 
     // 1. Fetch attempts for this assessment
     const { data: attempts, error: attemptsError } = await adminClient

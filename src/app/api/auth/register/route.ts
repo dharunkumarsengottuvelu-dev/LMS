@@ -22,28 +22,25 @@ export async function POST(request: Request) {
     let userId: string;
 
     if (existingUser) {
-      // User exists, update password and confirm email automatically
-      userId = existingUser.id;
-      await admin.auth.admin.updateUserById(userId, {
-        password: password,
-        email_confirm: true,
-        user_metadata: { first_name, last_name, role: "student" },
-      });
-    } else {
-      // Create user with email_confirm: true
-      const { data: newUser, error: createError } = await admin.auth.admin.createUser({
-        email: email,
-        password: password,
-        email_confirm: true,
-        user_metadata: { first_name, last_name, role: "student" },
-      });
-
-      if (createError) {
-        return NextResponse.json({ error: createError.message }, { status: 400 });
-      }
-
-      userId = newUser.user.id;
+      return NextResponse.json(
+        { error: "An account with this email address already exists. Please log in or reset your password." },
+        { status: 409 }
+      );
     }
+
+    // Create user with email_confirm: true
+    const { data: newUser, error: createError } = await admin.auth.admin.createUser({
+      email: email,
+      password: password,
+      email_confirm: true,
+      user_metadata: { first_name, last_name, role: "student" },
+    });
+
+    if (createError) {
+      return NextResponse.json({ error: createError.message }, { status: 400 });
+    }
+
+    userId = newUser.user.id;
 
     // 2. Auto-upsert profile
     const { error: profileError } = await admin.from("profiles").upsert(

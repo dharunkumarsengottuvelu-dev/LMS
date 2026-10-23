@@ -145,12 +145,16 @@ export async function GET(
         inputFormat: resolvedType === "coding" ? (q.inputFormat || q.input_format || "") : undefined,
         outputFormat: resolvedType === "coding" ? (q.outputFormat || q.output_format || "") : undefined,
         constraints: resolvedType === "coding" ? (q.constraints || "") : undefined,
-        explanation: q.explanation || "",
+        explanation: "",
         options: resolvedType === "coding"
           ? []
           : (optionsArray.length > 0 ? optionsArray : ["Option A", "Option B", "Option C", "Option D"]),
-        optionsList: resolvedType === "coding" ? [] : (q.options || []),
-        correctOption: correctIndex >= 0 ? correctIndex : 0,
+        optionsList: resolvedType === "coding"
+          ? []
+          : (q.options || []).map((opt: any, optIdx: number) => ({
+              id: typeof opt === "object" && opt.id ? String(opt.id) : `opt_${optIdx + 1}`,
+              text: typeof opt === "string" ? opt : opt.text || opt.title || "",
+            })),
         testCases: resolvedType === "coding"
           ? (validTestCases.length > 0
               ? validTestCases

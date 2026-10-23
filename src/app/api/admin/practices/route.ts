@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 import { getErrorMessage } from "@/lib/utils";
 import { dispatchBatchNotification, dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 import { randomUUID } from "crypto";
@@ -129,7 +130,12 @@ function normalizeSubmodules(rawSubmodules: any[], mainModuleId: string): any[] 
 
 export async function GET() {
   try {
-    const adminClient = createAdminClient();
+    const { errorResponse, adminClient } = await authenticateAdminSession([
+      "super_admin",
+      "admin",
+      "trainer",
+    ]);
+    if (errorResponse) return errorResponse;
 
     // 1. Fetch Practice Tracks (Main Modules) from Database
     const { data: dbTracks, error: tracksError } = await adminClient
@@ -315,7 +321,13 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const { errorResponse, adminClient } = await authenticateAdminSession([
+      "super_admin",
+      "admin",
+      "trainer",
+    ]);
+    if (errorResponse) return errorResponse;
+
     const body = await request.json();
     const { action } = body;
 
@@ -1553,7 +1565,13 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const adminClient = createAdminClient();
+    const { errorResponse, adminClient } = await authenticateAdminSession([
+      "super_admin",
+      "admin",
+      "trainer",
+    ]);
+    if (errorResponse) return errorResponse;
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") || "main_module";
     const id = searchParams.get("id");

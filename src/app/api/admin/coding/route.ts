@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { authenticateAdminSession } from "@/app/api/admin/_auth";
 import { dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 import type { CodingProblem, TestCase } from "@/types/coding";
 
 // GET /api/admin/coding - Fetch coding problems from Supabase DB scoped to Code Lab or Practice
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const { errorResponse, adminClient: supabase } = await authenticateAdminSession([
+      "super_admin",
+      "admin",
+      "trainer",
+      "student",
+    ]);
+    if (errorResponse) return errorResponse;
     const { searchParams } = new URL(request.url);
     const scopeParam = searchParams.get("scope") || searchParams.get("context") || "codelab";
 
@@ -192,7 +199,13 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/coding - Save or update coding problem(s) in Supabase DB
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const { errorResponse, adminClient: supabase } = await authenticateAdminSession([
+      "super_admin",
+      "admin",
+      "trainer",
+    ]);
+    if (errorResponse) return errorResponse;
+
     const body = await request.json();
 
     // Support single problem or array / { problems: [...] }
@@ -429,7 +442,13 @@ export async function POST(request: NextRequest) {
 // DELETE /api/admin/coding - Delete problem(s) from Supabase DB
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const { errorResponse, adminClient: supabase } = await authenticateAdminSession([
+      "super_admin",
+      "admin",
+      "trainer",
+    ]);
+    if (errorResponse) return errorResponse;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const idsParam = searchParams.get("ids");

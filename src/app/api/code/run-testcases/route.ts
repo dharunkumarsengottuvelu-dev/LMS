@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { UniversalExecutor } from "@/lib/compiler/universal-executor";
 import { compareOutput, sanitizeCompilerOutput, normalizeTestInput, normalizeExpectedOutput } from "@/lib/compiler/comparator";
 import { SQLExecutionService } from "@/services/sql-execution.service";
@@ -9,12 +10,31 @@ import { isLanguageEnabled } from "@/services/compiler.service";
 
 export async function POST(request: NextRequest) {
   try {
+    const supabaseUser = await createClient();
+    const {
+      data: { user },
+    } = await supabaseUser.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized: Active session required to run test cases." },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { problem_id, language, code, test_cases } = body;
     const version = body.version || body.language_version;
 
     if (!problem_id || !language || !code) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
+    }
+
+    if (typeof code === "string" && code.length > 65536) {
+      return NextResponse.json(
+        { error: "Payload too large: Code exceeds maximum allowed size (64KB)." },
+        { status: 413 }
+      );
     }
 
     // 1. Language validation against database (with fallback)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { AccessToken } from "livekit-server-sdk";
 
 export const dynamic = "force-dynamic";
@@ -16,19 +17,34 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { classId, userName, userRole } = body;
+    const { classId, userName } = body;
 
     if (!classId) {
       return NextResponse.json({ error: "Missing classId" }, { status: 400 });
     }
 
+    const adminClient = createAdminClient();
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("role, first_name, last_name")
+      .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+      .maybeSingle();
+
+    const actualRole = (
+      profile?.role ||
+      user.user_metadata?.role ||
+      user.app_metadata?.role ||
+      "student"
+    ).toLowerCase();
+
+    const isHost = ["super_admin", "admin", "trainer"].includes(actualRole);
+    const participantIdentity = user.id;
+    const profileName = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "";
+    const participantName = userName || profileName || user.email?.split("@")[0] || "Participant";
+
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
     const wsUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || process.env.LIVEKIT_URL;
-
-    const isHost = userRole === "trainer" || userRole === "admin";
-    const participantIdentity = user.id;
-    const participantName = userName || user.email?.split("@")[0] || "Participant";
 
     // If LiveKit credentials are provided in env, generate a production JWT AccessToken
     if (apiKey && apiSecret && wsUrl) {

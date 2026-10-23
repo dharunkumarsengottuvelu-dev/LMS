@@ -891,12 +891,6 @@ function EcosystemSpatialDeck() {
                 {current.desc}
               </p>
             </div>
-
-            {/* Bottom Capability Metrics */}
-            <div className="pt-5 mt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500 font-medium">
-              <span className="text-slate-800 font-semibold">{current.metrics}</span>
-              <span className="text-[#2563EB] font-semibold">Institutional Grade</span>
-            </div>
           </div>
         </div>
 
@@ -1059,8 +1053,11 @@ export default function LandingPage() {
               <span className="font-extrabold text-xl text-slate-900 tracking-tight leading-none">
                 SENSILEARN<span className="text-[#2563EB]">.</span>
               </span>
-              <span className="text-[10px] text-slate-500 font-medium tracking-tight mt-0.5">
-                Learning Technologies • SENSI Group
+              <span className="text-[10px] text-slate-500 font-medium tracking-tight mt-1 leading-none">
+                Learning Technologies
+              </span>
+              <span className="text-[6.5px] text-slate-400/80 font-medium tracking-wider uppercase mt-0.5 leading-none">
+                SENSI Group
               </span>
             </div>
           </Link>
@@ -1095,7 +1092,8 @@ export default function LandingPage() {
                     <SheetTitle className="text-base font-bold text-slate-900">
                       SENSILEARN<span className="text-[#2563EB]">.</span>
                     </SheetTitle>
-                    <p className="text-xs text-slate-500 font-medium">SensiLearn Learning Technologies</p>
+                    <p className="text-xs text-slate-500 font-medium">Learning Technologies</p>
+                    <p className="text-[6.5px] text-slate-400/80 font-medium tracking-wider uppercase">SENSI Group</p>
                   </SheetHeader>
 
                   <nav className="flex flex-col gap-3 text-sm font-semibold text-slate-700">
@@ -1504,7 +1502,6 @@ export default function LandingPage() {
                 <li><Link href="#who-we-are" className="hover:text-slate-900 transition-colors">Students</Link></li>
                 <li><Link href="#who-we-are" className="hover:text-slate-900 transition-colors">Trainers</Link></li>
                 <li><Link href="#who-we-are" className="hover:text-slate-900 transition-colors">Institutions</Link></li>
-                <li><Link href="#ecosystem" className="hover:text-slate-900 transition-colors">Analytics</Link></li>
               </ul>
             </div>
 

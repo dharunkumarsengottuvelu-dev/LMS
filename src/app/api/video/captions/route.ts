@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const videoId = searchParams.get("videoId")?.trim();
 
-  if (!videoId) {
-    return NextResponse.json({ error: "Missing videoId parameter", cues: [] }, { status: 400 });
+  if (!videoId || !/^[a-zA-Z0-9_-]{6,32}$/.test(videoId)) {
+    return NextResponse.json({ error: "Invalid videoId parameter", cues: [] }, { status: 400 });
   }
 
   try {

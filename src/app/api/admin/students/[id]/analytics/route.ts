@@ -35,6 +35,31 @@ export async function GET(
 
     const studentId = profile?.id || id;
     const studentUserId = profile?.user_id || id;
+
+    // Check authorization: caller must be staff (admin/trainer) or the student themselves
+    const { data: callerProfile } = await adminClient
+      .from("profiles")
+      .select("role")
+      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
+      .maybeSingle();
+
+    const callerRole = (
+      callerProfile?.role ||
+      user.user_metadata?.role ||
+      user.app_metadata?.role ||
+      "student"
+    ).toLowerCase();
+
+    const isStaff = ["super_admin", "admin", "trainer"].includes(callerRole);
+    const isSelf = user.id === id || user.id === studentId || user.id === studentUserId;
+
+    if (!isStaff && !isSelf) {
+      return NextResponse.json(
+        { error: "Forbidden: You are not authorized to view this student's analytics." },
+        { status: 403 }
+      );
+    }
+
     const studentName = profile
       ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || profile.email?.split("@")[0] || "Student"
       : "Student";

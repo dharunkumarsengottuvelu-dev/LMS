@@ -171,7 +171,21 @@ export async function POST(request: NextRequest) {
     const nameParts = (name || "").trim().split(" ");
     const firstName = nameParts[0] || email.split("@")[0] || "User";
     const lastName = nameParts.slice(1).join(" ") || "";
-    const userRole = role || "student";
+    let userRole = role || "student";
+
+    // Enforce role creation boundaries to prevent privilege escalation
+    if (auth.role === "trainer" && userRole !== "student") {
+      return NextResponse.json(
+        { error: "Forbidden: Trainers are only permitted to create student accounts." },
+        { status: 403 }
+      );
+    }
+    if (auth.role === "admin" && userRole === "super_admin") {
+      return NextResponse.json(
+        { error: "Forbidden: Only super administrators can create super admin accounts." },
+        { status: 403 }
+      );
+    }
 
     // 1. Create user in Supabase Auth
     const { data: authUser, error: authError } = await adminClient.auth.admin.createUser({
@@ -224,10 +238,11 @@ export async function POST(request: NextRequest) {
     if (userRole === "student" && batch_id && batch_id.trim() && batch_id !== "Unassigned") {
       try {
         const trimmedBatch = batch_id.trim();
+        const safeBatch = trimmedBatch.replace(/["\(\),]/g, "");
         let { data: targetBatch } = await adminClient
           .from("batches")
           .select("id, name, batch_name")
-          .or(`id.eq."${trimmedBatch}",name.ilike."${trimmedBatch}",batch_name.ilike."${trimmedBatch}"`)
+          .or(`id.eq."${safeBatch}",name.ilike."${safeBatch}",batch_name.ilike."${safeBatch}"`)
           .maybeSingle();
 
         if (!targetBatch) {
@@ -336,6 +351,37 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "User profile not found" }, { status: 404 });
     }
 
+    // Role boundaries on update: prevent horizontal and vertical privilege escalation
+    if (auth.role === "trainer") {
+      if (existingProfile.role !== "student") {
+        return NextResponse.json(
+          { error: "Forbidden: Trainers are only permitted to manage student accounts." },
+          { status: 403 }
+        );
+      }
+      if (role && role !== "student") {
+        return NextResponse.json(
+          { error: "Forbidden: Trainers cannot elevate user roles." },
+          { status: 403 }
+        );
+      }
+    }
+
+    if (auth.role === "admin") {
+      if (existingProfile.role === "super_admin") {
+        return NextResponse.json(
+          { error: "Forbidden: Cannot modify a super administrator profile." },
+          { status: 403 }
+        );
+      }
+      if (role === "super_admin") {
+        return NextResponse.json(
+          { error: "Forbidden: Only super administrators can grant super admin privileges." },
+          { status: 403 }
+        );
+      }
+    }
+
     const nameParts = (name || "").trim().split(" ");
     const firstName = nameParts[0] || existingProfile.first_name || "User";
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : (existingProfile.last_name || "");
@@ -357,10 +403,11 @@ export async function PUT(request: NextRequest) {
         }
       } else {
         // Find or create the batch
+        const safeSelectedBatch = selectedBatch.replace(/["\(\),]/g, "");
         let { data: targetBatch } = await adminClient
           .from("batches")
           .select("id, name, batch_name")
-          .or(`id.eq."${selectedBatch}",name.ilike."${selectedBatch}",batch_name.ilike."${selectedBatch}"`)
+          .or(`id.eq."${safeSelectedBatch}",name.ilike."${safeSelectedBatch}",batch_name.ilike."${safeSelectedBatch}"`)
           .maybeSingle();
 
         if (!targetBatch) {
@@ -464,12 +511,19 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
 
-    // Get user_id from profile
+    // Get user_id and role from profile
     const { data: prof } = await adminClient
       .from("profiles")
-      .select("user_id")
+      .select("user_id, role")
       .eq("id", id)
       .maybeSingle();
+
+    if (prof?.role === "super_admin" && auth.role !== "super_admin") {
+      return NextResponse.json(
+        { error: "Forbidden: Only super administrators can delete super admin accounts." },
+        { status: 403 }
+      );
+    }
 
     const authUserId = prof?.user_id || id;
 

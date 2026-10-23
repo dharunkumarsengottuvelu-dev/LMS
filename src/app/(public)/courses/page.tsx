@@ -159,8 +159,11 @@ export default function PublicCoursesPage() {
         <div className="max-w-[1280px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-[#6B7280]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2563EB] to-indigo-600 flex items-center justify-center text-white font-bold text-sm">S</div>
-            <span className="font-bold text-sm text-[#111827]">SENSILEARN</span>
-            <span className="text-[#9CA3AF]">Learning Technologies • SENSI Group</span>
+            <div className="flex flex-col">
+              <span className="font-bold text-sm text-[#111827] leading-none">SENSILEARN</span>
+              <span className="text-[10px] text-[#9CA3AF] mt-1 leading-none">Learning Technologies</span>
+              <span className="text-[6.5px] text-[#9CA3AF]/80 uppercase tracking-wider mt-0.5 leading-none">SENSI Group</span>
+            </div>
           </div>
           <p>© {new Date().getFullYear()} SensiLearn Learning Technologies. All rights reserved.</p>
           <div className="flex items-center gap-6">
