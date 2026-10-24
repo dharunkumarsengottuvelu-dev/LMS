@@ -124,6 +124,30 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // If role is missing in JWT metadata, query profiles to ensure accurate role resolution
+  if (user) {
+    const metaRole =
+      (user.app_metadata?.role as string) ||
+      (user.user_metadata?.role as string);
+
+    if (!metaRole) {
+      try {
+        const { data: prof } = (await supabase
+          .from("profiles")
+          .select("role")
+          .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+          .maybeSingle()) as { data: { role?: string } | null };
+
+        if (prof?.role) {
+          if (!user.user_metadata) user.user_metadata = {};
+          user.user_metadata.role = prof.role;
+        }
+      } catch (e) {
+        // Non-blocking fallback
+      }
+    }
+  }
+
   // Apply cookie hygiene: expire stale/duplicate/provider cookies across all scopes
   sanitizeResponseCookies(request, supabaseResponse);
 

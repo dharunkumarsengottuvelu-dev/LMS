@@ -34,7 +34,7 @@ export default async function InstitutionLayout({
   let { data: profile } = await supabase
     .from("profiles")
     .select("role, status, college")
-    .eq("user_id", user.id)
+    .or(`user_id.eq.${user.id},id.eq.${user.id}${user.email ? `,email.eq.${user.email}` : ""}`)
     .maybeSingle();
 
   if (!profile) {
@@ -43,7 +43,7 @@ export default async function InstitutionLayout({
       const { data } = await adminClient
         .from("profiles")
         .select("role, status, college")
-        .eq("user_id", user.id)
+        .or(`user_id.eq.${user.id},id.eq.${user.id}${user.email ? `,email.eq.${user.email}` : ""}`)
         .maybeSingle();
       if (data) profile = data as any;
     } catch (e) {

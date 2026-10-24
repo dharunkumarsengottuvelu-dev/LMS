@@ -26,7 +26,7 @@ export default async function TrainerLayout({ children }: { children: React.Reac
   let { data: profileData } = await supabase
     .from("profiles")
     .select("role, status")
-    .eq("user_id", user.id)
+    .or(`user_id.eq.${user.id},id.eq.${user.id}${user.email ? `,email.eq.${user.email}` : ""}`)
     .maybeSingle();
 
   if (!profileData) {
@@ -35,7 +35,7 @@ export default async function TrainerLayout({ children }: { children: React.Reac
       const { data } = await adminClient
         .from("profiles")
         .select("role, status")
-        .eq("user_id", user.id)
+        .or(`user_id.eq.${user.id},id.eq.${user.id}${user.email ? `,email.eq.${user.email}` : ""}`)
         .maybeSingle();
       if (data) profileData = data as any;
     } catch (e) {

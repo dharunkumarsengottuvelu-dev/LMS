@@ -27,7 +27,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
   let { data: profile } = await supabase
     .from("profiles")
     .select("role, status")
-    .eq("user_id", user.id)
+    .or(`user_id.eq.${user.id},id.eq.${user.id}${user.email ? `,email.eq.${user.email}` : ""}`)
     .maybeSingle();
 
   // Robust fallback: query admin client if profile lookup returned null
@@ -37,7 +37,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
       const { data } = await adminClient
         .from("profiles")
         .select("role, status")
-        .eq("user_id", user.id)
+        .or(`user_id.eq.${user.id},id.eq.${user.id}${user.email ? `,email.eq.${user.email}` : ""}`)
         .maybeSingle();
       if (data) profile = data as any;
     } catch (e) {

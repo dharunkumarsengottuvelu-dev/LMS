@@ -23,10 +23,20 @@ export async function POST(request: Request) {
     if (existingProfile && existingProfile.user_id) {
       const effectiveRole = existingProfile.role || "student";
 
-      // Non-blocking background email confirmation check if needed
+      // Non-blocking background email confirmation & role metadata sync
       admin.auth.admin.getUserById(existingProfile.user_id).then(({ data }) => {
-        if (data?.user && !data.user.email_confirmed_at) {
-          admin.auth.admin.updateUserById(existingProfile.user_id, { email_confirm: true }).catch(() => {});
+        if (data?.user) {
+          const updates: Record<string, any> = {};
+          if (!data.user.email_confirmed_at) {
+            updates.email_confirm = true;
+          }
+          if (data.user.user_metadata?.role !== effectiveRole || data.user.app_metadata?.role !== effectiveRole) {
+            updates.user_metadata = { ...data.user.user_metadata, role: effectiveRole };
+            updates.app_metadata = { ...data.user.app_metadata, role: effectiveRole };
+          }
+          if (Object.keys(updates).length > 0) {
+            admin.auth.admin.updateUserById(existingProfile.user_id, updates).catch(() => {});
+          }
         }
       }).catch(() => {});
 

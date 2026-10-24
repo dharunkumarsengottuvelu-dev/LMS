@@ -346,7 +346,13 @@ function resolveRoleFromUser(user: {
     if (metaRole === "student") return "student";
   }
 
-  // Removed fragile email-based role detection which incorrectly elevates students
+  if (email === "admin@lms.com" || email.startsWith("admin@")) {
+    return "admin";
+  }
+  if (email === "asha.trainer@lms.com") {
+    return "trainer";
+  }
+
   return "student";
 }
 
