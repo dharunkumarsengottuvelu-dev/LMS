@@ -129,7 +129,8 @@ export async function GET(
       }
     });
 
-    const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
+    const validStudentIds = Array.from(new Set([batchContext.profileId, batchContext.studentUserId, user.id].filter(Boolean)));
+    const studentFilter = validStudentIds.map((id) => `student_id.eq.${id}`).join(",") || `student_id.eq.${user.id}`;
 
     // Execute problem lookups, submissions, and attempts in parallel to eliminate sequential round-trips
     const [codingProblemsRes, submissionsRes, attemptsRes, practiceSubsRes] = await Promise.all([
@@ -147,12 +148,19 @@ export async function GET(
         .select("id, assessment_id, status, score, total_marks, started_at, submitted_at, answers, created_at")
         .or(studentFilter)
         .order("created_at", { ascending: true }) as any,
-      (adminClient
-        .from("student_practice_submissions")
-        .select("module_id, status, score, completed_at")
-        .eq("track_id", trackId)
-        .or(studentFilter) as any)
-        .catch(() => ({ data: [], error: null })),
+      (async () => {
+        try {
+          const res = await adminClient
+            .from("student_practice_submissions")
+            .select("module_id, status, score, completed_at")
+            .eq("track_id", trackId)
+            .or(studentFilter);
+          if (res?.error) return { data: [], error: null };
+          return res;
+        } catch {
+          return { data: [], error: null };
+        }
+      })(),
     ]);
 
     let codingProblemsMap: Record<string, any[]> = {};
@@ -600,7 +608,8 @@ export async function POST(
     }
 
     const moduleUUID = toDeterministicUUID(module_id);
-    const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
+    const validStudentIds = Array.from(new Set([batchContext.profileId, batchContext.studentUserId, user.id].filter(Boolean)));
+    const studentFilter = validStudentIds.map((id) => `student_id.eq.${id}`).join(",") || `student_id.eq.${user.id}`;
 
     // 1. Fetch practice track to get Admin configuration for this module
     const { data: dbTrack, error: trackError } = await adminClient
