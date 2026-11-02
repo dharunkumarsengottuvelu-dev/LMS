@@ -40,6 +40,10 @@ interface StudentModule {
   score?: number;
   codingQuestions?: any[];
   mcqQuestions?: any[];
+  mcqSectionTitle?: string;
+  codingSectionTitle?: string;
+  customSections?: any[];
+  sections?: any[];
   isCompleted?: boolean;
   isInProgress?: boolean;
   isSubmitted?: boolean;

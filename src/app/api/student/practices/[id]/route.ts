@@ -326,6 +326,10 @@ export async function GET(
               reviewEnabled: sm.reviewEnabled !== false,
               passingMarks: sm.passingMarks || 40,
               completionRule: sm.completionRule || "submit",
+              mcqSectionTitle: sm.mcqSectionTitle || sm.mcq_section_title || "Section 1: MCQs",
+              codingSectionTitle: sm.codingSectionTitle || sm.coding_section_title || "Section 2: Coding",
+              customSections: Array.isArray(sm.customSections) ? sm.customSections : (Array.isArray(sm.custom_sections) ? sm.custom_sections : []),
+              sections: Array.isArray(sm.sections) ? sm.sections : [],
               mcqQuestions: sm.mcqQuestions || [],
               codingQuestions: sm.codingQuestions || [],
             },
@@ -515,6 +519,11 @@ export async function GET(
               canReattempt,
               canReview,
               primaryAction,
+
+              mcqSectionTitle: m.mcqSectionTitle || m.mcq_section_title || "Section 1: MCQs",
+              codingSectionTitle: m.codingSectionTitle || m.coding_section_title || "Section 2: Coding",
+              customSections: Array.isArray(m.customSections) ? m.customSections : (Array.isArray(m.custom_sections) ? m.custom_sections : []),
+              sections: Array.isArray(m.sections) ? m.sections : [],
 
               mcqQuestions: m.mcqQuestions || [],
               codingQuestions: combinedCoding,

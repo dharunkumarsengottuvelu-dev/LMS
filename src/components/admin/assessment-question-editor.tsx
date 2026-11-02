@@ -494,16 +494,18 @@ export function AssessmentQuestionEditor({
       const isCoding = q.type === "coding";
       const isMSQ = q.type === "msq";
       const qId = q.id || `q_${idx + 1}`;
+      const secTitle = (q.section || defaultSection || "").trim();
 
       if (isCoding) {
+        const codingSec = secTitle || "Coding Challenges";
         return {
           id: qId,
           type: "coding",
           title: q.title || `Coding Problem ${idx + 1}`,
           text: q.problemStatement || q.description || "Solve the challenge.",
           marks: Number(q.marks) || 10,
-          section: "coding",
-          sectionTitle: "Coding Challenges",
+          section: codingSec,
+          sectionTitle: codingSec,
           difficulty: q.difficulty || "medium",
           constraints: q.constraints || "",
           inputFormat: q.inputFormat || "",
@@ -524,14 +526,15 @@ export function AssessmentQuestionEditor({
           })),
         };
       } else {
+        const mcqSec = secTitle || (isMSQ ? "Multiple Select (MSQ)" : "Multiple Choice (MCQ)");
         return {
           id: qId,
           type: isMSQ ? "multiple_choice" : "single_choice",
           title: q.title || `Question ${idx + 1}`,
           text: q.problemStatement || q.description || q.title || "",
           marks: Number(q.marks) || 2,
-          section: "mcq",
-          sectionTitle: isMSQ ? "Multiple Select (MSQ)" : "Multiple Choice (MCQ)",
+          section: mcqSec,
+          sectionTitle: mcqSec,
           explanation: q.explanation || "",
           options: (q.options || []).map((opt, oIdx) => ({
             id: String(opt.id || oIdx + 1),
@@ -541,7 +544,7 @@ export function AssessmentQuestionEditor({
         };
       }
     });
-  }, [questions]);
+  }, [questions, defaultSection]);
 
   // Current active language
   const activeLanguage = currentQ?.language || "java";

@@ -363,11 +363,13 @@ export default function AssessmentTakePage() {
             const correctCount = normalizedOptions.filter((o: any) => o.isCorrect).length;
             const isMulti = q.questionType === "multiple" || correctCount > 1;
             const qWeight = q.marks !== undefined ? Number(q.marks) : (q.weight !== undefined ? Number(q.weight) : (q.points !== undefined ? Number(q.points) : (equalWeights[globalMcqIdx] || 10)));
+            const qSec = (q.sectionTitle || q.section || "").trim();
+            const finalSec = (qSec && qSec !== "mcq" && qSec !== "coding") ? qSec : customSecTitle;
             formattedQuestions.push({
               id: q.id || `mcq_${globalMcqIdx}`,
               type: isMulti ? "multiple_choice" : "single_choice",
-              section: "mcq",
-              sectionTitle: customSecTitle,
+              section: finalSec,
+              sectionTitle: finalSec,
               sectionIndex: sIdx,
               title: q.title || `Question ${globalMcqIdx + 1}`,
               text: q.questionText || q.text || q.title || "Choose the correct option:",
@@ -416,11 +418,13 @@ export default function AssessmentTakePage() {
               }));
             }
 
+            const cqSec = (cq.sectionTitle || cq.section || "").trim();
+            const finalCqSec = (cqSec && cqSec !== "mcq" && cqSec !== "coding") ? cqSec : customSecTitle;
             formattedQuestions.push({
               id: cq.id || `cq_${globalCodingIdx}`,
               type: "coding",
-              section: "coding",
-              sectionTitle: customSecTitle,
+              section: finalCqSec,
+              sectionTitle: finalCqSec,
               sectionIndex: sIdx,
               title: cq.title || `Coding Challenge ${globalCodingIdx + 1}`,
               text: cq.description || cq.problemDescription || "Implement the algorithm as specified.",
@@ -456,12 +460,14 @@ export default function AssessmentTakePage() {
           const correctCount = normalizedOptions.filter((o: any) => o.isCorrect).length;
           const isMulti = q.questionType === "multiple" || correctCount > 1;
           const qWeight = q.marks !== undefined ? Number(q.marks) : (q.weight !== undefined ? Number(q.weight) : (q.points !== undefined ? Number(q.points) : (equalWeights[idx] || 10)));
+          const qSec = (q.sectionTitle || q.section || "").trim();
+          const finalSec = (qSec && qSec !== "mcq" && qSec !== "coding") ? qSec : customMcqTitle;
           formattedQuestions.push({
             id: q.id || `mcq_${idx}`,
             type: isMulti ? "multiple_choice" : "single_choice",
-            section: "mcq",
-            sectionTitle: customMcqTitle,
-            title: `Question ${idx + 1}`,
+            section: finalSec,
+            sectionTitle: finalSec,
+            title: q.title || `Question ${idx + 1}`,
             text: q.questionText || q.text || q.title || "Choose the correct option:",
             marks: qWeight,
             options: normalizedOptions,
@@ -506,11 +512,13 @@ export default function AssessmentTakePage() {
               }));
             }
 
+            const cqSec = (cq.sectionTitle || cq.section || "").trim();
+            const finalCqSec = (cqSec && cqSec !== "mcq" && cqSec !== "coding") ? cqSec : customCodingTitle;
             formattedQuestions.push({
               id: cq.id || `cq_${idx}`,
               type: "coding",
-              section: "coding",
-              sectionTitle: customCodingTitle,
+              section: finalCqSec,
+              sectionTitle: finalCqSec,
               title: cq.title || `Coding Challenge ${idx + 1}`,
               text: cq.description || cq.problemDescription || "Implement the algorithm as specified.",
               marks: cq.marks !== undefined ? Number(cq.marks) : (cq.points !== undefined ? Number(cq.points) : (cq.weight !== undefined ? Number(cq.weight) : (equalWeights[mcqs.length + idx] || 20))),

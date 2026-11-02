@@ -652,14 +652,11 @@ export function PracticeRunnerEngine({
 
     questions.forEach((q, idx) => {
       let secName = (q.sectionTitle || q.section || "").trim();
-      if (q.type === "coding") {
-        if (!secName || (!secName.toLowerCase().includes("code") && !secName.toLowerCase().includes("programming"))) {
+      // If secName is empty or a literal generic type identifier, fall back based on question type
+      if (!secName || secName.toLowerCase() === "mcq" || secName.toLowerCase() === "coding") {
+        if (q.type === "coding") {
           secName = "Coding Challenges";
-        }
-      } else {
-        if (secName.toLowerCase().includes("code") || secName.toLowerCase().includes("programming")) {
-          secName = "Multiple Choice Questions";
-        } else if (!secName) {
+        } else {
           secName = "Multiple Choice Questions";
         }
       }
@@ -673,6 +670,38 @@ export function PracticeRunnerEngine({
 
     return groups;
   }, [questions]);
+
+  // Clean human-readable section name for the active question
+  const displaySectionName = useMemo(() => {
+    if (!currentQuestion) return "";
+    const raw = (currentQuestion.sectionTitle || currentQuestion.section || "").trim();
+    if (raw && raw.toLowerCase() !== "mcq" && raw.toLowerCase() !== "coding") {
+      return raw;
+    }
+    return currentQuestion.type === "coding" ? "Coding Challenges" : "Multiple Choice Questions";
+  }, [currentQuestion]);
+
+  // Clean title for header (avoids duplicate number e.g. "#3. Question 3")
+  const displayHeaderTitle = useMemo(() => {
+    if (!currentQuestion) return "";
+    const raw = (currentQuestion.title || "").trim();
+    const qNum = currentQuestionIndex + 1;
+
+    if (!raw) return `Question ${qNum}`;
+
+    // If title already starts with "Question 3", "Question #3", etc., keep it as is without prepending "#3."
+    if (/^question\s*#?\d+/i.test(raw)) {
+      return raw;
+    }
+
+    // If title already starts with number prefix (e.g. "#3.", "3.")
+    if (/^#?\d+[:.\s-]+/i.test(raw)) {
+      return raw;
+    }
+
+    // Otherwise, prepend "#{qNum}. "
+    return `#${qNum}. ${raw}`;
+  }, [currentQuestion, currentQuestionIndex]);
 
   // Convert current question to CodingProblem for the Jobe CodeEditor
   const activeCodingProblem: CodingProblem = useMemo(() => {
@@ -764,9 +793,9 @@ export function PracticeRunnerEngine({
       <CardHeader className="p-4 sm:p-5 pb-3.5 border-b border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
-            {(currentQuestion?.sectionTitle || currentQuestion?.section) && (
-              <Badge variant="outline" className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border-slate-300 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800">
-                {currentQuestion.sectionTitle || currentQuestion.section}
+            {displaySectionName && (
+              <Badge variant="outline" className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border-slate-300 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 bg-slate-100 dark:bg-zinc-800" title={displaySectionName}>
+                {displaySectionName}
               </Badge>
             )}
             <Badge className="bg-[#2563EB] text-white text-xs font-bold px-3 py-1 rounded-full shadow-2xs">
@@ -1126,14 +1155,14 @@ export function PracticeRunnerEngine({
           <span className="text-slate-300 dark:text-zinc-700 font-medium">/</span>
 
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-            {(currentQuestion?.sectionTitle || currentQuestion?.section) && (
-              <span className="hidden md:inline-flex px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md shrink-0 bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 truncate max-w-[140px]">
-                {currentQuestion.sectionTitle || currentQuestion.section}
+            {displaySectionName && (
+              <span className="hidden md:inline-flex px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md shrink-0 bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 truncate max-w-[160px]" title={displaySectionName}>
+                {displaySectionName}
               </span>
             )}
 
-            <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[130px] sm:max-w-[260px] md:max-w-[360px]">
-              #{currentQuestionIndex + 1}. {currentQuestion.title}
+            <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[130px] sm:max-w-[260px] md:max-w-[360px]" title={displayHeaderTitle}>
+              {displayHeaderTitle}
             </span>
 
             <span
@@ -1258,9 +1287,9 @@ export function PracticeRunnerEngine({
             {/* Question Header */}
             <div className="space-y-2 pb-3 border-b border-slate-100 dark:border-zinc-800">
               <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider block">
-                {(currentQuestion.sectionTitle || currentQuestion.section) ? (
+                {displaySectionName ? (
                   <>
-                    <span className="text-slate-500 font-semibold">{currentQuestion.sectionTitle || currentQuestion.section} • </span>
+                    <span className="text-slate-500 font-semibold">{displaySectionName} • </span>
                     QUESTION {currentQuestionIndex + 1} OF {totalQuestions}
                   </>
                 ) : (
@@ -1590,14 +1619,14 @@ export function PracticeRunnerEngine({
 
             {/* SCROLLABLE INNER: Question Grid Buttons */}
             <div className="flex-1 overflow-y-auto pt-3 pr-1 space-y-3">
-              {sectionGroups.length > 1 ? (
+              {sectionGroups.length > 0 ? (
                 sectionGroups.map((group, gIdx) => {
                   const grpAnswered = group.questions.filter((item) => isQuestionAnswered(item.question.id)).length;
                   const isCurrentGroup = group.questions.some((item) => item.globalIndex === currentQuestionIndex);
 
                   return (
                     <div
-                      key={gIdx}
+                      key={group.name || gIdx}
                       className={cn(
                         "space-y-2 p-2.5 rounded-xl border transition-colors",
                         isCurrentGroup
@@ -1606,11 +1635,11 @@ export function PracticeRunnerEngine({
                       )}
                     >
                       <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-zinc-300">
-                        <span className="truncate flex items-center gap-1.5">
-                          <span className={cn("w-1.5 h-1.5 rounded-full", isCurrentGroup ? "bg-blue-600" : "bg-slate-400")} />
-                          {group.name}
+                        <span className="truncate flex items-center gap-1.5" title={group.name}>
+                          <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", isCurrentGroup ? "bg-blue-600" : "bg-slate-400")} />
+                          <span className="truncate">{group.name}</span>
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400">
+                        <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 shrink-0">
                           {grpAnswered}/{group.questions.length}
                         </span>
                       </div>
@@ -1991,7 +2020,11 @@ export function PracticeRunnerEngine({
                                 {originalIndex + 1}
                               </span>
                               <span className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider">
-                                {q.sectionTitle || q.section || (module as any).mcqSectionTitle || "MCQ Assessment"}
+                                {(q.sectionTitle && q.sectionTitle !== "mcq" && q.sectionTitle !== "coding")
+                                  ? q.sectionTitle
+                                  : (q.section && q.section !== "mcq" && q.section !== "coding")
+                                  ? q.section
+                                  : (module as any)?.mcqSectionTitle || "Multiple Choice Questions"}
                               </span>
                               {q.marks && (
                                 <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
@@ -2105,7 +2138,11 @@ export function PracticeRunnerEngine({
                                 {originalIndex + 1}
                               </span>
                               <span className="text-[11px] font-bold text-[#2563EB] uppercase tracking-wider">
-                                {q.sectionTitle || q.section || (module as any).codingSectionTitle || "Coding Assessment"}
+                                {(q.sectionTitle && q.sectionTitle !== "mcq" && q.sectionTitle !== "coding")
+                                  ? q.sectionTitle
+                                  : (q.section && q.section !== "mcq" && q.section !== "coding")
+                                  ? q.section
+                                  : (module as any)?.codingSectionTitle || "Coding Challenges"}
                               </span>
                               {q.marks && (
                                 <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">

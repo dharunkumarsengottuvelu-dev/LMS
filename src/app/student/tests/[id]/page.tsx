@@ -201,14 +201,8 @@ export default function StudentTestRunnerPage() {
                 rawType === "both");
             const qId = q.questionId || q.id || `q_${idx + 1}`;
             let sectionName = (q.sectionTitle || q.section || "").trim();
-            if (isCoding) {
-              if (!sectionName || (!sectionName.toLowerCase().includes("code") && !sectionName.toLowerCase().includes("programming"))) {
-                sectionName = "Coding Challenges";
-              }
-            } else {
-              if (sectionName.toLowerCase().includes("code") || sectionName.toLowerCase().includes("programming") || !sectionName) {
-                sectionName = "Multiple Choice Questions";
-              }
+            if (!sectionName || sectionName.toLowerCase() === "mcq" || sectionName.toLowerCase() === "coding") {
+              sectionName = isCoding ? "Coding Challenges" : "Multiple Choice Questions";
             }
 
             if (isCoding) {

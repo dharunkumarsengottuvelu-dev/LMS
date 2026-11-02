@@ -121,15 +121,9 @@ export async function GET(
         resolvedType = "mcq";
       }
 
-      let resolvedSection = (q.section || "").trim();
-      if (resolvedType === "coding") {
-        if (!resolvedSection || (!resolvedSection.toLowerCase().includes("code") && !resolvedSection.toLowerCase().includes("programming"))) {
-          resolvedSection = "Coding Challenges";
-        }
-      } else {
-        if (resolvedSection.toLowerCase().includes("code") || resolvedSection.toLowerCase().includes("programming") || !resolvedSection) {
-          resolvedSection = "Multiple Choice Questions";
-        }
+      let resolvedSection = (q.section || q.sectionTitle || "").trim();
+      if (!resolvedSection || resolvedSection.toLowerCase() === "mcq" || resolvedSection.toLowerCase() === "coding") {
+        resolvedSection = resolvedType === "coding" ? "Coding Challenges" : "Multiple Choice Questions";
       }
 
       return {
