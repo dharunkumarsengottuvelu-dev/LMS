@@ -1783,7 +1783,7 @@ export default function StudentPracticeCodingRunnerPage() {
                 size="sm"
                 onClick={() => handleConfirmAndSubmit(false)}
                 disabled={isSubmittingFinal}
-                className="h-8 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                className="h-8 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 cursor-pointer"
               >
                 {isSubmittingFinal ? (
                   <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...</>
@@ -2012,7 +2012,7 @@ export default function StudentPracticeCodingRunnerPage() {
                   type="button"
                   size="sm"
                   onClick={handleOpenReviewSubmit}
-                  className="w-full h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
                   <span>Review & Submit Practice</span>
@@ -2102,23 +2102,23 @@ export default function StudentPracticeCodingRunnerPage() {
             )}
 
             {notAnsweredCount > 0 ? (
-              <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-4 sm:p-5 shadow-2xs">
+              <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-4 sm:p-5 shadow-2xs">
                 <div>
-                  <h2 className="text-sm font-bold text-amber-950">
+                  <h2 className="text-sm font-bold text-slate-900">
                     You have {notAnsweredCount} unanswered question{notAnsweredCount > 1 ? "s" : ""}.
                   </h2>
-                  <p className="text-xs text-amber-800 mt-0.5">
+                  <p className="text-xs text-slate-600 mt-0.5">
                     Are you sure you want to submit? You can go back and answer them or proceed with your current answers below.
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-xl p-4 sm:p-5 shadow-2xs">
+              <div className="bg-blue-50/70 border border-blue-200/90 rounded-xl p-4 sm:p-5 shadow-2xs">
                 <div>
-                  <h2 className="text-sm font-bold text-emerald-950">
+                  <h2 className="text-sm font-bold text-blue-950">
                     All questions have been answered.
                   </h2>
-                  <p className="text-xs text-emerald-800 mt-0.5">
+                  <p className="text-xs text-blue-700 mt-0.5">
                     Every question has submitted code or an attempted solution. You can now submit your practice below.
                   </p>
                 </div>
@@ -2306,7 +2306,7 @@ export default function StudentPracticeCodingRunnerPage() {
                   type="button"
                   onClick={() => handleConfirmAndSubmit(false)}
                   disabled={isSubmittingFinal}
-                  className="flex-1 sm:flex-initial h-10 px-5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-sm cursor-pointer"
+                  className="flex-1 sm:flex-initial h-10 px-5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold shadow-sm cursor-pointer"
                 >
                   {isSubmittingFinal ? "Submitting..." : "Confirm & Submit"}
                 </Button>
@@ -3443,7 +3443,7 @@ export default function StudentPracticeCodingRunnerPage() {
               type="button"
               size="sm"
               onClick={handleOpenReviewSubmit}
-              className="h-8 px-3 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1.5"
+              className="h-8 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1.5"
             >
               <CheckCheck className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Complete Practice</span>

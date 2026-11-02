@@ -906,9 +906,9 @@ export function PracticeRunnerEngine({
 
         {/* Explanation / Editorial Section */}
         {(activeCodingProblem.explanation || (currentQuestion as any)?.explanation) && (
-          <div className="p-3.5 bg-amber-50/70 dark:bg-amber-950/25 rounded-xl border border-amber-200/80 dark:border-amber-900/40 space-y-1.5 pt-1">
-            <strong className="text-amber-800 dark:text-amber-300 text-xs font-bold uppercase tracking-wider block flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5" /> Explanation:
+          <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/25 rounded-xl border border-blue-200/80 dark:border-blue-900/40 space-y-1.5 pt-1">
+            <strong className="text-blue-700 dark:text-blue-300 text-xs font-bold uppercase tracking-wider block flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /> Explanation:
             </strong>
             <p className="text-slate-700 dark:text-zinc-300 whitespace-pre-line text-xs leading-relaxed">
               {activeCodingProblem.explanation || (currentQuestion as any)?.explanation}
@@ -996,7 +996,7 @@ export function PracticeRunnerEngine({
                   if (isActive) {
                     btnStyle = "bg-[#2563EB] text-white font-bold ring-2 ring-[#2563EB] ring-offset-1 shadow-xs";
                   } else if (isMarked) {
-                    btnStyle = "bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800 font-bold";
+                    btnStyle = "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800 font-bold";
                   } else if (isAnswered) {
                     btnStyle = "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800 font-bold";
                   } else if (isDraft) {
@@ -1051,9 +1051,9 @@ export function PracticeRunnerEngine({
             </div>
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> Marked for Review
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-600" /> Marked for Review
               </span>
-              <span className="font-bold text-purple-600 dark:text-purple-400">{markedForReview.size}</span>
+              <span className="font-bold text-blue-600 dark:text-blue-400">{markedForReview.size}</span>
             </div>
             <div className="pt-2 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between">
               <span className="font-bold text-slate-800 dark:text-zinc-200">Total Questions</span>
@@ -1141,40 +1141,43 @@ export function PracticeRunnerEngine({
       {/* ── 1. TOP HEADER (Matches Coding Practice Page Reference) ── */}
       <header className="h-12 sm:h-14 bg-white dark:bg-[#18181B] border-b border-slate-200/90 dark:border-zinc-800 px-3 sm:px-6 flex items-center justify-between gap-3 shrink-0 select-none z-20">
         {/* Left: ← Back to Assessment / #1. Title [Difficulty] */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 max-w-full">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 max-w-full">
           <button
             type="button"
             onClick={onBack || (() => router.push(isAssessment ? "/student/assessments" : "/student/practices"))}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors py-1 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 shrink-0 cursor-pointer"
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors py-1.5 px-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 shrink-0 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
             <span className="hidden sm:inline">Back to {isAssessment ? "Assessment" : "Practice"}</span>
             <span className="sm:hidden">Back</span>
           </button>
 
-          <span className="text-slate-300 dark:text-zinc-700 font-medium">/</span>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-zinc-600 shrink-0" />
 
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-            {displaySectionName && (
-              <span className="hidden md:inline-flex px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md shrink-0 bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 truncate max-w-[160px]" title={displaySectionName}>
-                {displaySectionName}
-              </span>
-            )}
-
-            <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[130px] sm:max-w-[260px] md:max-w-[360px]" title={displayHeaderTitle}>
+          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <span
+              className="text-xs sm:text-sm md:text-[15px] font-bold text-slate-900 dark:text-white tracking-tight truncate max-w-[140px] sm:max-w-[260px] md:max-w-[360px]"
+              title={displayHeaderTitle}
+            >
               {displayHeaderTitle}
             </span>
 
             <span
               className={cn(
-                "px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md shrink-0 border",
-                currentQuestion?.type === "coding"
-                  ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
-                  : isMultiSelectQuestion(currentQuestion)
-                  ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300"
-                  : "bg-slate-100 text-slate-700 border-slate-200 dark:bg-zinc-800 dark:text-zinc-300"
+                "inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-semibold rounded-full shrink-0 border shadow-2xs",
+                currentQuestion?.type === "coding" || isMultiSelectQuestion(currentQuestion)
+                  ? "bg-blue-50 text-blue-700 border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                  : "bg-slate-50 text-slate-700 border-slate-200/90 dark:bg-zinc-800/80 dark:text-zinc-300 dark:border-zinc-700"
               )}
             >
+              <span
+                className={cn(
+                  "w-1.5 h-1.5 rounded-full shrink-0",
+                  currentQuestion?.type === "coding" || isMultiSelectQuestion(currentQuestion)
+                    ? "bg-blue-600"
+                    : "bg-slate-400"
+                )}
+              />
               {currentQuestion?.type === "coding"
                 ? "Coding"
                 : isMultiSelectQuestion(currentQuestion)
@@ -1185,14 +1188,24 @@ export function PracticeRunnerEngine({
             {currentQuestion?.difficulty && (
               <span
                 className={cn(
-                  "hidden md:inline-flex px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold rounded-md capitalize shrink-0 border",
+                  "hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-semibold rounded-full capitalize shrink-0 border shadow-2xs",
                   currentQuestion.difficulty === "easy"
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300"
                     : currentQuestion.difficulty === "hard"
-                    ? "bg-rose-50 text-rose-700 border-rose-200"
-                    : "bg-amber-50 text-amber-700 border-amber-200"
+                    ? "bg-rose-50 text-rose-700 border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300"
+                    : "bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300"
                 )}
               >
+                <span
+                  className={cn(
+                    "w-1.5 h-1.5 rounded-full shrink-0",
+                    currentQuestion.difficulty === "easy"
+                      ? "bg-emerald-500"
+                      : currentQuestion.difficulty === "hard"
+                      ? "bg-rose-500"
+                      : "bg-amber-500"
+                  )}
+                />
                 {currentQuestion.difficulty === "easy" ? "Easy" : currentQuestion.difficulty === "hard" ? "Hard" : "Medium"}
               </span>
             )}
@@ -1402,9 +1415,9 @@ export function PracticeRunnerEngine({
 
             {/* Explanation if present */}
             {currentQuestion.explanation && (
-              <div className="p-3.5 bg-amber-50/70 dark:bg-amber-950/25 rounded-xl border border-amber-200/80 dark:border-amber-900/40 space-y-1.5">
-                <strong className="text-amber-800 dark:text-amber-300 text-xs font-bold uppercase tracking-wider block flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" /> Explanation
+              <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/25 rounded-xl border border-blue-200/80 dark:border-blue-900/40 space-y-1.5">
+                <strong className="text-blue-700 dark:text-blue-300 text-xs font-bold uppercase tracking-wider block flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /> Explanation
                 </strong>
                 <p className="text-slate-700 dark:text-zinc-300 whitespace-pre-line text-xs leading-relaxed">
                   {currentQuestion.explanation}
@@ -1495,7 +1508,7 @@ export function PracticeRunnerEngine({
               {/* Options Body */}
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
                 {(!currentQuestion.options || currentQuestion.options.length === 0) ? (
-                  <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs">
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 text-xs">
                     No options defined for this question.
                   </div>
                 ) : (
@@ -1607,11 +1620,11 @@ export function PracticeRunnerEngine({
                 </div>
                 {markedCount > 0 && (
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-medium">
-                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0" />
+                    <span className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-medium">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" />
                       <span>Marked for Review</span>
                     </span>
-                    <span className="font-bold text-purple-700 dark:text-purple-300">{markedCount}</span>
+                    <span className="font-bold text-blue-700 dark:text-blue-300">{markedCount}</span>
                   </div>
                 )}
               </div>
@@ -1660,7 +1673,7 @@ export function PracticeRunnerEngine({
                               isActive
                                 ? "bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-300 font-bold"
                                 : isMarked
-                                ? "bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100 font-bold"
+                                ? "bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 font-bold"
                                 : isAnswered
                                 ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 font-bold"
                                 : isDraft
@@ -1695,7 +1708,7 @@ export function PracticeRunnerEngine({
                           isActive
                             ? "bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-300 font-bold"
                             : isMarked
-                            ? "bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100 font-bold"
+                            ? "bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 font-bold"
                             : isAnswered
                             ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 font-bold"
                             : isDraft
@@ -1759,11 +1772,11 @@ export function PracticeRunnerEngine({
             className={cn(
               "h-8 px-2 sm:px-3 text-xs font-semibold rounded-lg border gap-1 sm:gap-1.5 transition-colors cursor-pointer",
               markedForReview.has(currentQuestion.id)
-                ? "bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950/40 dark:text-purple-300"
+                ? "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
                 : "border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
             )}
           >
-            <Flag className={cn("w-3.5 h-3.5 shrink-0", markedForReview.has(currentQuestion.id) ? "fill-purple-600 text-purple-600" : "text-slate-400")} />
+            <Flag className={cn("w-3.5 h-3.5 shrink-0", markedForReview.has(currentQuestion.id) ? "fill-blue-600 text-blue-600" : "text-slate-400")} />
             <span className="hidden sm:inline">{markedForReview.has(currentQuestion.id) ? "Marked for Review" : "Mark for Review"}</span>
             <span className="sm:hidden">{markedForReview.has(currentQuestion.id) ? "Marked" : "Review"}</span>
           </Button>
@@ -1778,10 +1791,11 @@ export function PracticeRunnerEngine({
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <Button
             type="button"
+            variant="outline"
             size="sm"
             onClick={handleNextClick}
             disabled={currentQuestionIndex >= totalQuestions - 1}
-            className="h-8 px-2.5 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-40"
+            className="h-8 px-2.5 sm:px-4 border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-40"
           >
             <span>Next</span>
             <span className="ml-0.5 sm:ml-1">→</span>
@@ -1791,7 +1805,7 @@ export function PracticeRunnerEngine({
             type="button"
             size="sm"
             onClick={handleInitiateSubmit}
-            className="h-8 px-2.5 sm:px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
+            className="h-8 px-2.5 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
           >
             <CheckCheck className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">Review &amp; Submit</span>
@@ -2035,8 +2049,8 @@ export function PracticeRunnerEngine({
 
                             <div className="flex items-center gap-2 shrink-0">
                               {marked && (
-                                <span className="bg-amber-50 text-amber-600 border border-amber-200/70 text-xs font-semibold px-3 py-0.5 rounded-full flex items-center gap-1">
-                                  <Flag className="h-3 w-3" /> Flagged
+                                <span className="bg-blue-50 text-blue-700 border border-blue-200/70 text-xs font-semibold px-3 py-0.5 rounded-full flex items-center gap-1">
+                                  <Flag className="h-3 w-3 fill-blue-600 text-blue-600" /> Flagged
                                 </span>
                               )}
                               {answered ? (
@@ -2295,7 +2309,7 @@ export function PracticeRunnerEngine({
                 onClick={() => {
                   handleFinalSubmit();
                 }}
-                className="h-9 px-5 bg-[#16A34A] hover:bg-[#15803D] disabled:opacity-60 text-white font-semibold text-xs gap-1.5 rounded-full shadow-xs cursor-pointer"
+                className="h-9 px-5 bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-60 text-white font-semibold text-xs gap-1.5 rounded-full shadow-xs cursor-pointer"
               >
                 <CheckCircle2 className="h-4 w-4" /> {isFinalSubmitting ? "Submitting..." : "Confirm & Final Submit"}
               </Button>
@@ -2317,14 +2331,14 @@ export function PracticeRunnerEngine({
 
           {/* Submission Status Summary Cards */}
           <div className="grid grid-cols-2 gap-3 my-4">
-            <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/40">
-              <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 block">Answered Questions</span>
-              <strong className="text-lg font-bold text-emerald-800 dark:text-emerald-300">{answeredCount} of {totalQuestions}</strong>
+            <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40">
+              <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-400 block">Answered Questions</span>
+              <strong className="text-lg font-bold text-blue-800 dark:text-blue-300">{answeredCount} of {totalQuestions}</strong>
             </div>
 
-            <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40">
-              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 block">Unanswered Questions</span>
-              <strong className="text-lg font-bold text-amber-800 dark:text-amber-300">{Math.max(0, totalQuestions - answeredCount)}</strong>
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+              <span className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400 block">Unanswered Questions</span>
+              <strong className="text-lg font-bold text-slate-900 dark:text-white">{Math.max(0, totalQuestions - answeredCount)}</strong>
             </div>
 
             <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40">
