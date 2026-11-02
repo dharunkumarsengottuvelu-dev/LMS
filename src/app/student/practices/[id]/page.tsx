@@ -268,12 +268,6 @@ export default function StudentTrackDetailPage() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2 pt-0.5">
-              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/40">
-                {track.category || "Practice Track"}
-              </span>
-            </div>
-
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
               {track.name || track.title}
             </h1>

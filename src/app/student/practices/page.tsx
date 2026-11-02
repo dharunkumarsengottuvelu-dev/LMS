@@ -128,7 +128,7 @@ export default function StudentPracticesPage() {
             </div>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 w-full">
             {filteredTracks.map((track) => {
               const subCount = track.totalSubmodules || track.submodules?.length || 0;
               const modCount = track.totalModules || 0;
@@ -137,37 +137,44 @@ export default function StudentPracticesPage() {
               return (
                 <Card
                   key={track.id}
-                  className="flex flex-col justify-between overflow-hidden hover:border-blue-500/50 transition-all bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 shadow-2xs rounded-xl"
+                  className="group flex flex-col justify-between overflow-hidden hover:border-blue-500/60 hover:shadow-card transition-all duration-200 bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 shadow-2xs rounded-xl"
                 >
-                  <CardHeader className="p-4 pb-2 space-y-2">
+                  <CardHeader className="p-5 pb-2.5 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/40">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/40">
                         Practice Track
                       </span>
-                      <span className="text-[10px] font-semibold text-slate-400">
-                        {track.category || "General"}
-                      </span>
+                      {track.category && track.category.toLowerCase() !== "general" && (
+                        <span className="text-[11px] font-semibold text-slate-400 dark:text-zinc-500">
+                          {track.category}
+                        </span>
+                      )}
                     </div>
 
-                    <CardTitle className="text-base font-bold text-slate-900 dark:text-zinc-100 leading-snug line-clamp-1">
+                    <CardTitle className="text-base font-bold text-slate-900 dark:text-zinc-100 leading-snug line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {track.name || track.title}
                     </CardTitle>
 
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed min-h-[36px]">
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed min-h-[34px]">
                       {track.description || "Hands-on curriculum with structured submodules and practice challenges."}
                     </p>
                   </CardHeader>
 
-                  <CardContent className="p-4 pt-1 space-y-3">
-                    <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-zinc-400 border-t border-slate-100 dark:border-zinc-800/80 pt-2">
-                      <span>{subCount} {subCount === 1 ? "Submodule" : "Submodules"}</span>
-                      <span>{modCount} {modCount === 1 ? "Module" : "Modules"}</span>
+                  <CardContent className="p-5 pt-0 space-y-3">
+                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400 border-t border-slate-100 dark:border-zinc-800/80 pt-2.5">
+                      <span className="font-medium text-slate-700 dark:text-zinc-300">
+                        {subCount} {subCount === 1 ? "Submodule" : "Submodules"}
+                      </span>
+                      <span className="text-slate-300 dark:text-zinc-700">•</span>
+                      <span className="font-medium text-slate-700 dark:text-zinc-300">
+                        {modCount} {modCount === 1 ? "Module" : "Modules"}
+                      </span>
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-[10px] font-bold">
-                        <span className="text-slate-500">Progress</span>
-                        <span className={progress === 100 ? "text-emerald-600" : "text-blue-600"}>
+                        <span className="text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Progress</span>
+                        <span className={progress === 100 ? "text-emerald-600 dark:text-emerald-400" : "text-blue-600 dark:text-blue-400"}>
                           {progress}%
                         </span>
                       </div>
@@ -178,11 +185,11 @@ export default function StudentPracticesPage() {
                     </div>
                   </CardContent>
 
-                  <CardFooter className="p-4 pt-0">
+                  <CardFooter className="p-5 pt-0">
                     <Button
                       type="button"
                       onClick={() => router.push(`/student/practices/${track.id}`)}
-                      className="w-full h-8.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs"
+                      className="w-full h-9 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs transition-colors"
                     >
                       Explore Module
                     </Button>
