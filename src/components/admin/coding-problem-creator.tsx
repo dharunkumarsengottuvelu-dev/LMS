@@ -612,6 +612,15 @@ export function CodingProblemCreator({
         allowedLanguages: finalAllowed,
         default_language: isSingle ? selectedSingleLanguage : undefined,
         defaultLanguage: isSingle ? selectedSingleLanguage : undefined,
+        language: isSingle ? selectedSingleLanguage : undefined,
+        language_mode: languageMode,
+        starter_code: {
+          templates: finalTemplates,
+          allowed_languages: finalAllowed,
+          allowedLanguages: finalAllowed,
+          default_language: isSingle ? selectedSingleLanguage : undefined,
+          language_mode: languageMode,
+        },
         test_cases: testCases,
       });
     }
@@ -855,6 +864,15 @@ export function CodingProblemCreator({
       allowed_languages: finalAllowed,
       allowedLanguages: finalAllowed,
       default_language: isSingle ? selectedSingleLanguage : undefined,
+      language: isSingle ? selectedSingleLanguage : undefined,
+      language_mode: languageMode,
+      starter_code: {
+        templates: finalTemplates,
+        allowed_languages: finalAllowed,
+        allowedLanguages: finalAllowed,
+        default_language: isSingle ? selectedSingleLanguage : undefined,
+        language_mode: languageMode,
+      },
       function_signature: functionSignature,
       test_cases: cleanTestCases,
       sample_test_cases: sampleTestCases,

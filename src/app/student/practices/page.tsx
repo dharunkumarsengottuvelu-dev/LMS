@@ -144,11 +144,6 @@ export default function StudentPracticesPage() {
                       <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/40">
                         Practice Track
                       </span>
-                      {track.category && track.category.toLowerCase() !== "general" && (
-                        <span className="text-[11px] font-semibold text-slate-400 dark:text-zinc-500">
-                          {track.category}
-                        </span>
-                      )}
                     </div>
 
                     <CardTitle className="text-base font-bold text-slate-900 dark:text-zinc-100 leading-snug line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">

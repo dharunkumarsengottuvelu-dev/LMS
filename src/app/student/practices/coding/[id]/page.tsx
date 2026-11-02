@@ -1860,7 +1860,14 @@ export default function StudentPracticeCodingRunnerPage() {
 
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                 <span className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[130px] sm:max-w-[240px] md:max-w-[340px]">
-                  #{currentIdx + 1}. {currentProblem.title}
+                  {(() => {
+                    const raw = (currentProblem.title || "").trim();
+                    const qNum = currentIdx + 1;
+                    if (!raw) return `Question ${qNum}`;
+                    if (/^question\s*#?\d+/i.test(raw)) return raw;
+                    if (/^#?\d+[:.\s-]+/i.test(raw)) return raw.startsWith("#") ? raw : `#${raw}`;
+                    return `#${qNum}. ${raw}`;
+                  })()}
                 </span>
 
                 <span

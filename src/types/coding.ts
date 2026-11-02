@@ -459,6 +459,10 @@ export interface CodingProblem {
   allowed_languages?: string[];
   allowedLanguages?: string[];
   default_language?: string;
+  defaultLanguage?: string;
+  language?: string;
+  language_mode?: string;
+  starter_code?: any;
   function_signature?: string;
   test_cases: TestCase[];
   sample_test_cases?: TestCase[];
