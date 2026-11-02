@@ -137,7 +137,7 @@ export async function GET(
       allModuleIds.length > 0
         ? (adminClient
             .from("coding_problems")
-            .select("id, title, slug, description, difficulty, starter_code, allowed_languages, time_limit_ms, memory_limit_mb") as any)
+            .select("id, title, slug, description, difficulty, starter_code, time_limit_ms, memory_limit_mb") as any)
         : Promise.resolve({ data: [], error: null }),
       adminClient
         .from("coding_submissions")

@@ -2330,7 +2330,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         const sampleCases = item.sample_test_cases || testCases.filter((tc: any) => !tc.is_hidden && !tc.isHidden);
         const hiddenCases = item.hidden_test_cases || testCases.filter((tc: any) => tc.is_hidden || tc.isHidden);
 
+        const allowedLangs = item.allowed_languages || item.allowedLanguages || (typeof starterCode === "object" && starterCode !== null ? starterCode.allowed_languages || starterCode.allowedLanguages : undefined);
+        const defLang = item.default_language || item.defaultLanguage || item.language || (typeof starterCode === "object" && starterCode !== null ? starterCode.default_language || starterCode.defaultLanguage || starterCode.language : undefined);
+        const templates = item.templates || (typeof starterCode === "object" && starterCode !== null ? starterCode.templates : undefined) || {};
+        const langMode = item.language_mode || item.languageMode || (typeof starterCode === "object" && starterCode !== null ? starterCode.language_mode : undefined);
+
         const newProblem = {
+          ...item,
           id: item.id || `cp-${Date.now()}-${idx}`,
           title: item.title || `Coding Challenge ${idx + 1}`,
           slug: item.slug || `prob-${Date.now()}-${idx}`,
@@ -2342,7 +2348,19 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           marks: Number(item.points || item.marks) || 10,
           time_limit_ms: Number(item.time_limit_ms) || 2000,
           memory_limit_mb: Number(item.memory_limit_mb) || 256,
-          starter_code: starterCode,
+          starter_code: typeof starterCode === "object" && starterCode !== null ? {
+            ...starterCode,
+            allowed_languages: allowedLangs,
+            default_language: defLang,
+            templates,
+          } : starterCode,
+          allowed_languages: allowedLangs,
+          allowedLanguages: allowedLangs,
+          default_language: defLang,
+          defaultLanguage: defLang,
+          language: defLang,
+          language_mode: langMode,
+          templates,
           test_cases: testCases,
           sample_test_cases: sampleCases,
           hidden_test_cases: hiddenCases,

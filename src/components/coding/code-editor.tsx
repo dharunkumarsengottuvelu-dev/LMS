@@ -610,7 +610,8 @@ export function CodeEditor({
     if (starter?.templates && Object.keys(starter.templates).length > 0) {
       return Object.keys(starter.templates) as CodingLanguage[];
     }
-    return [defaultLanguage] as CodingLanguage[];
+    // If problem is open to all languages (universal mode), allow all platform languages
+    return Object.keys(CLEAN_LANG_MAP) as CodingLanguage[];
   }, [problem, defaultLanguage]);
 
   useEffect(() => {

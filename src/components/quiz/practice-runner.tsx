@@ -764,14 +764,29 @@ export function PracticeRunnerEngine({
       allowed_languages: effectiveAllowed,
       allowedLanguages: effectiveAllowed,
       templates: (() => {
+        const inferredLang: string = (() => {
+          if (effectiveAllowed && effectiveAllowed.length === 1 && effectiveAllowed[0]) return effectiveAllowed[0];
+          if ((currentQuestion as any).language) return String((currentQuestion as any).language).toLowerCase().trim();
+          const code = String(currentQuestion.starterCode || "");
+          if (code.includes("#include <stdio.h>") || (code.includes("printf(") && !code.includes("System.out"))) return "c";
+          if (code.includes("#include <iostream>") || code.includes("std::")) return "cpp";
+          if (code.includes("public class") || code.includes("System.out")) return "java";
+          if (code.includes("def ") || code.includes("import sys")) return "python";
+          if (code.includes("SELECT ") || code.includes("FROM ")) return "sql";
+          const text = `${currentQuestion.title || ""} ${currentQuestion.text || ""}`.toLowerCase();
+          if (/\b(c program|in c\b|c programming|complete c program)\b/i.test(text)) return "c";
+          if (/\b(c\+\+ program|in c\+\+)\b/i.test(text)) return "cpp";
+          if (/\b(python script|python program)\b/i.test(text)) return "python";
+          return "c";
+        })();
         const rawTemplates = typeof currentQuestion.starterCode === "string"
-          ? { java: currentQuestion.starterCode }
+          ? { [inferredLang]: currentQuestion.starterCode }
           : (currentQuestion.starterCode || (currentQuestion as any).templates || {
+              c: "/* Write your C solution here */\n",
+              cpp: "// Write your C++ solution here\n",
               java: "// Write your Java solution here\n",
               python: "# Write your Python solution here\n",
-              cpp: "// Write your C++ solution here\n",
               javascript: "// Write your JavaScript solution here\n",
-              c: "/* Write your C solution here */\n"
             });
         const allowedList = effectiveAllowed;
         const formatted: Record<string, string> = {};
@@ -1468,7 +1483,9 @@ export function PracticeRunnerEngine({
                     ? (module.defaultLanguage as CodingLanguage)
                     : null) ||
                   (codeAnswers[activeCodingProblem.id]?.language as CodingLanguage) ||
-                  "java"
+                  ((currentQuestion as any).language as CodingLanguage) ||
+                  (activeCodingProblem?.allowed_languages?.[0] as CodingLanguage) ||
+                  "c"
                 }
                 defaultCode={codeAnswers[activeCodingProblem.id]?.code}
                 submissionResult={submissionResults[activeCodingProblem.id]}

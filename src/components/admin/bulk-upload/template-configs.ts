@@ -3439,8 +3439,9 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
 
       // Resolve Language Scope & Templates
       let allowed_languages: string[] | undefined = undefined;
-      if (row.allowed_languages) {
-        allowed_languages = String(row.allowed_languages)
+      const rawAllowedCol = row.allowed_languages || row.allowedLanguages || row.languages || row.supportedLanguages;
+      if (rawAllowedCol) {
+        allowed_languages = String(rawAllowedCol)
           .split(/[,|;\s]+/)
           .map(s => s.trim().toLowerCase())
           .filter(Boolean);
@@ -3448,16 +3449,17 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
         allowed_languages = [singleLang];
       } else if (mode === "multi" && multiLangs && multiLangs.length > 0) {
         allowed_languages = multiLangs;
-      } else if (row.language) {
-        const match = CODING_LANGUAGES.find(l => l.name.toLowerCase() === String(row.language).toLowerCase().trim() || l.id === String(row.language).toLowerCase().trim());
-        allowed_languages = [match?.id || String(row.language).toLowerCase().trim()];
+      } else if (row.language || row.lang || row.codingLanguage) {
+        const rawL = String(row.language || row.lang || row.codingLanguage).toLowerCase().trim();
+        const match = CODING_LANGUAGES.find(l => l.name.toLowerCase() === rawL || l.id === rawL);
+        allowed_languages = [match?.id || rawL];
       }
 
       const default_language =
         (mode === "single" ? singleLang : undefined) ||
         (row.default_language ? String(row.default_language).trim().toLowerCase() : undefined) ||
-        allowed_languages?.[0] ||
-        "python";
+        (row.language ? String(row.language).trim().toLowerCase() : undefined) ||
+        allowed_languages?.[0];
 
       let templates: Record<string, string> = {};
       const genStarter = row.starterCode ?? row.starter_code ?? row.code ?? row.boilerplate;
@@ -3474,7 +3476,8 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
           }
         });
         if (Object.keys(templates).length === 0 && genStarter && String(genStarter).trim()) {
-          templates[default_language] = String(genStarter).trim();
+          const targetLang = default_language || (allowed_languages?.[0]) || "python";
+          templates[targetLang] = String(genStarter).trim();
         }
       } else {
         CODING_LANGUAGES.forEach(l => {
@@ -3482,7 +3485,8 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
           if (lVal && String(lVal).trim()) templates[l.id] = String(lVal).trim();
         });
         if (Object.keys(templates).length === 0 && genStarter && String(genStarter).trim()) {
-          templates[default_language] = String(genStarter).trim();
+          const targetLang = default_language || (allowed_languages?.[0]) || "python";
+          templates[targetLang] = String(genStarter).trim();
         }
       }
 
@@ -3531,7 +3535,7 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
         output_format: String(row.output_format || row.outputFormat || "").trim(),
         outputFormat: String(row.output_format || row.outputFormat || "").trim(),
         starter_code: starterCodePayload,
-        starterCode: String(row.starterCode || row.starter_code || templates[default_language] || "").trim(),
+        starterCode: String(row.starterCode || row.starter_code || (default_language ? templates[default_language] : Object.values(templates)[0]) || "").trim(),
         templates,
         allowed_languages,
         allowedLanguages: allowed_languages,
@@ -4059,8 +4063,9 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
 
   const parseCodingLanguageScope = (row: any) => {
     let allowed_languages: string[] | undefined = undefined;
-    if (row.allowed_languages) {
-      allowed_languages = String(row.allowed_languages)
+    const rawAllowedCol = row.allowed_languages || row.allowedLanguages || row.languages || row.supportedLanguages;
+    if (rawAllowedCol) {
+      allowed_languages = String(rawAllowedCol)
         .split(/[,|;\s]+/)
         .map(s => s.trim().toLowerCase())
         .filter(Boolean);
@@ -4068,16 +4073,17 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
       allowed_languages = [singleLang];
     } else if (mode === "multi" && multiLangs && multiLangs.length > 0) {
       allowed_languages = multiLangs;
-    } else if (row.language) {
-      const match = CODING_LANGUAGES.find(l => l.name.toLowerCase() === String(row.language).toLowerCase().trim() || l.id === String(row.language).toLowerCase().trim());
-      allowed_languages = [match?.id || String(row.language).toLowerCase().trim()];
+    } else if (row.language || row.lang || row.codingLanguage) {
+      const rawL = String(row.language || row.lang || row.codingLanguage).toLowerCase().trim();
+      const match = CODING_LANGUAGES.find(l => l.name.toLowerCase() === rawL || l.id === rawL);
+      allowed_languages = [match?.id || rawL];
     }
 
     const default_language =
       (mode === "single" ? singleLang : undefined) ||
       (row.default_language ? String(row.default_language).trim().toLowerCase() : undefined) ||
-      allowed_languages?.[0] ||
-      "python";
+      (row.language ? String(row.language).trim().toLowerCase() : undefined) ||
+      allowed_languages?.[0];
 
     let templates: Record<string, string> = {};
     const genStarter = row.starterCode ?? row.starter_code ?? row.code ?? row.boilerplate;
@@ -4094,7 +4100,8 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
         }
       });
       if (Object.keys(templates).length === 0 && genStarter && String(genStarter).trim()) {
-        templates[default_language] = String(genStarter).trim();
+        const targetLang = default_language || (allowed_languages?.[0]) || "python";
+        templates[targetLang] = String(genStarter).trim();
       }
     } else {
       CODING_LANGUAGES.forEach(l => {
@@ -4102,7 +4109,8 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
         if (lVal && String(lVal).trim()) templates[l.id] = String(lVal).trim();
       });
       if (Object.keys(templates).length === 0 && genStarter && String(genStarter).trim()) {
-        templates[default_language] = String(genStarter).trim();
+        const targetLang = default_language || (allowed_languages?.[0]) || "python";
+        templates[targetLang] = String(genStarter).trim();
       }
     }
 
@@ -4215,7 +4223,7 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
       defaultLanguage: codingScope?.default_language,
       templates: codingScope?.templates,
       language: qType === "coding" ? (mode === "single" ? singleLang : codingScope?.default_language) : undefined,
-      starterCode: qType === "coding" ? (codingScope?.templates?.[codingScope.default_language] || String(row.starterCode || row.starter_code || "").trim()) : undefined,
+      starterCode: qType === "coding" ? ((codingScope?.default_language && codingScope.templates?.[codingScope.default_language]) || String(row.starterCode || row.starter_code || "").trim()) : undefined,
     };
   };
 
@@ -4317,7 +4325,7 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
           defaultLanguage: codingScope?.default_language,
           templates: codingScope?.templates,
           language: qType === "coding" ? (mode === "single" ? singleLang : codingScope?.default_language) : undefined,
-          starterCode: qType === "coding" ? (codingScope?.templates?.[codingScope.default_language] || String(r.starterCode || r.starter_code || "").trim()) : undefined,
+          starterCode: qType === "coding" ? ((codingScope?.default_language && codingScope.templates?.[codingScope.default_language]) || String(r.starterCode || r.starter_code || "").trim()) : undefined,
         };
       };
 

@@ -137,6 +137,49 @@ function toDeterministicUUID(str: string): string {
   return `${full.slice(0, 8)}-${full.slice(8, 12)}-4${full.slice(13, 16)}-a${full.slice(17, 20)}-${full.slice(20, 32)}`;
 }
 
+export function inferLanguageFromContent(problem: any): CodingLanguage | null {
+  if (!problem) return null;
+  const starter = typeof problem.starter_code === "object" && problem.starter_code !== null
+    ? problem.starter_code
+    : (typeof problem.starter_code === "string" ? (() => { try { return JSON.parse(problem.starter_code); } catch { return {}; } })() : {});
+
+  // 1. Direct language configuration fields
+  const explicit =
+    problem.language ||
+    starter.language ||
+    problem.default_language ||
+    problem.defaultLanguage ||
+    starter.default_language ||
+    starter.defaultLanguage;
+  if (explicit) {
+    const norm = normalizeLanguageId(String(explicit));
+    if (norm) return norm as CodingLanguage;
+  }
+
+  // 2. Starter code content
+  const codeStr = typeof problem.starter_code === "string"
+    ? problem.starter_code
+    : (problem.starterCode || starter.code || starter.starter_code || "");
+  if (typeof codeStr === "string" && codeStr.trim()) {
+    if (codeStr.includes("#include <stdio.h>") || (codeStr.includes("printf(") && !codeStr.includes("System.out"))) return "c";
+    if (codeStr.includes("#include <iostream>") || codeStr.includes("std::") || codeStr.includes("cout <<")) return "cpp";
+    if (codeStr.includes("public class") || codeStr.includes("System.out.println")) return "java";
+    if (codeStr.includes("def ") || codeStr.includes("import sys")) return "python";
+    if (codeStr.includes("SELECT ") || codeStr.includes("FROM ") || codeStr.includes("CREATE TABLE")) return "sql";
+    if (codeStr.includes("console.log") || codeStr.includes("function ")) return "javascript";
+  }
+
+  // 3. Problem title and description
+  const text = `${problem.title || ""} ${problem.description || ""} ${problem.problemStatement || ""}`.toLowerCase();
+  if (/\b(c program|in c\b|c programming|complete c program|first c programming)\b/i.test(text)) return "c";
+  if (/\b(c\+\+ program|in c\+\+|c\+\+ programming|complete c\+\+)\b/i.test(text)) return "cpp";
+  if (/\b(java program|in java\b|java class|public class)\b/i.test(text)) return "java";
+  if (/\b(python script|python program|in python\b)\b/i.test(text)) return "python";
+  if (/\b(sql query|sql statement|in sql\b)\b/i.test(text)) return "sql";
+
+  return null;
+}
+
 function matchesProblemSubmission(s: any, pId: string, pSlug?: string): boolean {
   if (!s || !pId) return false;
   const subPid = String(s.problem_id || "");
@@ -192,7 +235,8 @@ function normalizeProblem(p: any, index: number) {
     parsedAllowed = Object.keys(templates).map(normalizeLanguageId).filter(Boolean);
   }
 
-  const defLang = p.default_language || p.defaultLanguage || starter.default_language || starter.defaultLanguage || p.language || starter.language || parsedAllowed?.[0] || "java";
+  const inferred = inferLanguageFromContent(p);
+  const defLang = p.default_language || p.defaultLanguage || starter.default_language || starter.defaultLanguage || p.language || starter.language || parsedAllowed?.[0] || inferred || "c";
 
   return {
     ...p,
@@ -274,11 +318,11 @@ export default function StudentPracticeCodingRunnerPage() {
   }, [isReviewMode]);
 
   // Code & Language state
-  const [selectedLanguage, setSelectedLanguage] = useState<CodingLanguage>("java");
+  const [selectedLanguage, setSelectedLanguage] = useState<CodingLanguage>("c");
   const [code, setCode] = useState<string>("");
   const editorRef = useRef<any>(null);
   const [cursorPos, setCursorPos] = useState({ line: 1, column: 1 });
-  const [tabSize, setTabSize] = useState<number>(() => getDefaultTabSizeForLanguage("java"));
+  const [tabSize, setTabSize] = useState<number>(() => getDefaultTabSizeForLanguage("c"));
 
   useEffect(() => {
     const size = getDefaultTabSizeForLanguage(selectedLanguage);
@@ -764,25 +808,25 @@ export default function StudentPracticeCodingRunnerPage() {
       return Array.from(new Set(parsed));
     }
 
-    const defLang =
+    // 2. Explicit single language mode configured by admin
+    const isSingleMode =
+      currentProblem.language_mode === "single" ||
+      starter.language_mode === "single" ||
+      Boolean(currentProblem.language || starter.language);
+
+    const explicitLang =
+      currentProblem.language ||
+      starter.language ||
       currentProblem.default_language ||
       currentProblem.defaultLanguage ||
       starter.default_language ||
-      starter.defaultLanguage ||
-      currentProblem.language ||
-      starter.language;
+      starter.defaultLanguage;
 
-    if (
-      defLang &&
-      (currentProblem.language_mode === "single" ||
-        starter.language_mode === "single" ||
-        currentProblem.language ||
-        starter.language)
-    ) {
-      return [normalizeLanguageId(String(defLang))];
+    if (isSingleMode && explicitLang) {
+      return [normalizeLanguageId(String(explicitLang))];
     }
 
-    // Check if templates has restricted keys (e.g. only 1 or 2 specific languages provided)
+    // 3. Check if templates has restricted keys (e.g. only 1 or 2 specific languages provided)
     const probTemplates = currentProblem.templates || starter.templates;
     if (probTemplates && typeof probTemplates === "object" && Object.keys(probTemplates).length > 0) {
       const keys = Object.keys(probTemplates).map(normalizeLanguageId).filter(Boolean);
@@ -791,10 +835,14 @@ export default function StudentPracticeCodingRunnerPage() {
       }
     }
 
-    if (defLang) {
-      return [normalizeLanguageId(String(defLang))];
+    // 4. Content inference for single language tasks (e.g. "Write a complete C program")
+    const inferred = inferLanguageFromContent(currentProblem);
+    const textToCheck = `${currentProblem.title || ""} ${currentProblem.description || ""}`;
+    if (inferred && (isSingleMode || /\b(complete c program|c programming|first c)\b/i.test(textToCheck))) {
+      return [inferred];
     }
 
+    // 5. If no restrictions configured, return empty array to indicate ALL platform languages are permitted!
     return [];
   }, [currentProblem]);
 
@@ -839,12 +887,13 @@ export default function StudentPracticeCodingRunnerPage() {
       starter.default_language ||
       starter.defaultLanguage ||
       currentProblem.language ||
-      starter.language;
+      starter.language ||
+      inferLanguageFromContent(currentProblem);
 
     const normDef = configuredDefault ? normalizeLanguageId(String(configuredDefault)) : null;
     let initialLang: CodingLanguage = (normDef && availableLanguages.some((l) => normalizeLanguageId(l.id) === normDef)
-      ? (availableLanguages.find((l) => normalizeLanguageId(l.id) === normDef)?.id || availableLanguages[0]?.id || "java")
-      : availableLanguages[0]?.id || "java") as CodingLanguage;
+      ? (availableLanguages.find((l) => normalizeLanguageId(l.id) === normDef)?.id || availableLanguages[0]?.id || "c")
+      : availableLanguages[0]?.id || (normDef as CodingLanguage) || "c") as CodingLanguage;
 
     setSelectedLanguage(initialLang);
 
@@ -1849,21 +1898,30 @@ export default function StudentPracticeCodingRunnerPage() {
               ) : (
                 <>
                   {/* Language selector: strictly restricted to admin-specified allowed languages */}
-                  <Select
-                    value={selectedLanguage}
-                    onValueChange={(val: any) => handleLanguageChange(val as CodingLanguage)}
-                  >
-                    <SelectTrigger className="h-8 px-2 sm:px-3 text-xs font-semibold bg-white border-slate-200 rounded-lg min-w-[85px] sm:min-w-[95px] text-slate-800 shadow-2xs cursor-pointer">
-                      <SelectValue placeholder="Select Language" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-slate-200 text-xs">
-                      {availableLanguages.map((lang) => (
-                        <SelectItem key={lang.id} value={lang.id} className="text-xs font-medium cursor-pointer">
-                          {lang.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {availableLanguages.length > 1 ? (
+                    <Select
+                      value={selectedLanguage}
+                      onValueChange={(val: any) => handleLanguageChange(val as CodingLanguage)}
+                    >
+                      <SelectTrigger className="h-8 px-2 sm:px-3 text-xs font-semibold bg-white border-slate-200 rounded-lg min-w-[85px] sm:min-w-[95px] text-slate-800 shadow-2xs cursor-pointer">
+                        <SelectValue placeholder="Select Language" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-slate-200 text-xs">
+                        {availableLanguages.map((lang) => (
+                          <SelectItem key={lang.id} value={lang.id} className="text-xs font-medium cursor-pointer">
+                            {lang.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div
+                      className="h-8 px-3 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-800 shadow-2xs flex items-center justify-center select-none"
+                      title={availableLanguages[0] ? `Language locked to ${availableLanguages[0].name}` : undefined}
+                    >
+                      {availableLanguages[0]?.name || selectedLanguage.toUpperCase()}
+                    </div>
+                  )}
 
                   {/* Reset Code */}
                   <Button
@@ -2838,7 +2896,7 @@ export default function StudentPracticeCodingRunnerPage() {
             <div className="flex-1 min-h-0 relative bg-white overflow-hidden flex flex-col">
               <div className="flex-1 relative overflow-hidden">
                 <MonacoEditor
-                  language={SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage)?.monacoLang || "java"}
+                  language={SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage)?.monacoLang || selectedLanguage || "c"}
                   value={code}
                   theme="vs"
                   onChange={handleCodeChange}

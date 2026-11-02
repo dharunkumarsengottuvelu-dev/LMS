@@ -390,6 +390,9 @@ export function BulkUploadComponent({
         hidden_testcase_5_input: ["hiddentestcase5input", "hiddeninput5", "h5input", "hiddentestcase5"],
         hidden_testcase_5_output: ["hiddentestcase5output", "hiddenoutput5", "h5output", "hiddentestcase5expectedoutput"],
         starterCode: ["startercode", "startercodeboilerplate", "boilerplate", "template", "starter"],
+        language: ["language", "languages", "lang", "programminglanguage", "codinglanguage", "compiler", "targetlanguage", "lockedlanguage"],
+        allowed_languages: ["allowedlanguages", "allowed_languages", "supportedlanguages", "availablelanguages", "languagesallowed", "langs"],
+        default_language: ["defaultlanguage", "default_language", "primarylanguage", "initiallanguage"],
       };
 
       const columnMapping: Record<string, ColumnDefinition> = {};
