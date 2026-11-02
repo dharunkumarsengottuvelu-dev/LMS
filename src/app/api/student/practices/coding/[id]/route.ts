@@ -4,6 +4,69 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 import { extractSampleTestCases } from "@/lib/compiler/comparator";
 
+function formatProblemPayload(problem: any) {
+  let starter = typeof problem.starter_code === "object" && problem.starter_code !== null ? problem.starter_code : {};
+  if (typeof problem.starter_code === "string") {
+    try {
+      starter = JSON.parse(problem.starter_code);
+    } catch {
+      starter = {};
+    }
+  }
+
+  // Filter public test cases safely
+  const publicTestCases = extractSampleTestCases(problem);
+
+  // Strictly resolve allowed languages
+  const rawAllowed = starter.allowed_languages || starter.allowedLanguages || problem.allowed_languages || (problem as any).allowedLanguages;
+  let finalAllowed: string[] | undefined = undefined;
+  if (Array.isArray(rawAllowed)) {
+    finalAllowed = rawAllowed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+  } else if (typeof rawAllowed === "string" && rawAllowed.trim()) {
+    try {
+      const parsed = JSON.parse(rawAllowed);
+      if (Array.isArray(parsed)) {
+        finalAllowed = parsed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
+      } else {
+        finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
+      }
+    } catch {
+      finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
+    }
+  } else if (starter.templates && Object.keys(starter.templates).length > 0) {
+    finalAllowed = Object.keys(starter.templates);
+  } else if (problem.templates && Object.keys(problem.templates).length > 0) {
+    finalAllowed = Object.keys(problem.templates);
+  } else if (starter.default_language) {
+    finalAllowed = [starter.default_language.toLowerCase().trim()];
+  }
+
+  const defaultLang = starter.default_language || (finalAllowed?.[0]) || (problem as any).default_language || "c";
+
+  return {
+    id: problem.id,
+    title: problem.title,
+    slug: problem.slug,
+    description: problem.description,
+    difficulty: problem.difficulty || "medium",
+    tags: problem.tags || [],
+    points: problem.points || starter.points || 100,
+    constraints: problem.constraints || starter.constraints || "",
+    input_format: problem.input_format || starter.input_format || "",
+    output_format: problem.output_format || starter.output_format || "",
+    example_cases: problem.example_cases || starter.example_cases || [],
+    timeLimitMs: problem.time_limit_ms || 2000,
+    memoryLimitKb: (problem.memory_limit_mb ? problem.memory_limit_mb * 1024 : 262144),
+    templates: starter.templates || problem.templates || {},
+    allowedLanguages: finalAllowed,
+    allowed_languages: finalAllowed,
+    defaultLanguage: defaultLang,
+    default_language: defaultLang,
+    sampleTestCases: publicTestCases,
+    test_cases: publicTestCases,
+  };
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -29,105 +92,99 @@ export async function GET(
 
     const profileId = profile?.id || studentUserId;
 
-    // Fetch problem details (NEVER select hidden_test_cases or hidden test answers)
-    const { data: problem, error: problemError } = await adminClient
+    // 1. First attempt: match by ID
+    let { data: problem, error: problemError } = await adminClient
       .from("coding_problems")
       .select("id, title, slug, description, difficulty, tags, time_limit_ms, memory_limit_mb, starter_code, sample_test_cases, test_cases, example_cases, constraints, input_format, output_format, points, templates, created_at")
       .eq("id", problemId)
       .maybeSingle() as any;
 
-    if (problemError || !problem) {
-      return NextResponse.json({ error: "Coding problem not found" }, { status: 404 });
-    }
-
-    let starter = typeof problem.starter_code === "object" && problem.starter_code !== null ? problem.starter_code : {};
-    if (typeof problem.starter_code === "string") {
-      try {
-        starter = JSON.parse(problem.starter_code);
-      } catch {
-        starter = {};
+    // 2. Second attempt: match by slug
+    if (!problem) {
+      const { data: problemBySlug } = await adminClient
+        .from("coding_problems")
+        .select("id, title, slug, description, difficulty, tags, time_limit_ms, memory_limit_mb, starter_code, sample_test_cases, test_cases, example_cases, constraints, input_format, output_format, points, templates, created_at")
+        .eq("slug", problemId)
+        .maybeSingle() as any;
+      if (problemBySlug) {
+        problem = problemBySlug;
       }
     }
 
-    // Filter public test cases safely
-    let publicTestCases = extractSampleTestCases(problem);
-    if (publicTestCases.length === 0 || (publicTestCases.length === 1 && !publicTestCases[0]?.expected_output)) {
+    // 3. Third attempt: match by module_id or assessment_id in starter_code
+    if (!problem) {
+      const { data: allProblems } = await adminClient
+        .from("coding_problems")
+        .select("id, title, slug, description, difficulty, tags, time_limit_ms, memory_limit_mb, starter_code, sample_test_cases, test_cases, example_cases, constraints, input_format, output_format, points, templates, created_at")
+        .order("created_at", { ascending: true });
+
+      const matchingList = (allProblems || []).filter((p: any) => {
+        let starter = typeof p.starter_code === "object" && p.starter_code !== null ? p.starter_code : {};
+        if (typeof p.starter_code === "string") {
+          try {
+            starter = JSON.parse(p.starter_code);
+          } catch {
+            starter = {};
+          }
+        }
+        return (
+          starter.module_id === problemId ||
+          starter.assessment_id === problemId ||
+          starter.submodule_id === problemId ||
+          starter.track_id === problemId
+        );
+      });
+
+      if (matchingList.length > 0) {
+        const formattedProblems = matchingList.map(formatProblemPayload);
+        return NextResponse.json({
+          problem: formattedProblems[0],
+          problems: formattedProblems,
+          latestSubmission: null,
+        }, { status: 200 });
+      }
+    }
+
+    if (!problem) {
+      return NextResponse.json({ error: "Coding problem not found" }, { status: 404 });
+    }
+
+    const formattedProblem = formatProblemPayload(problem);
+
+    // If test_cases are missing in problem JSON, check test_cases table
+    if (!formattedProblem.sampleTestCases || formattedProblem.sampleTestCases.length === 0) {
       const { data: dbTc } = await adminClient
         .from("test_cases")
         .select("id, input, expected_output")
-        .eq("problem_id", problemId)
+        .eq("problem_id", problem.id)
         .eq("is_hidden", false)
         .order("order_index", { ascending: true });
       if (dbTc && dbTc.length > 0) {
-        publicTestCases = dbTc.map((tc: any, i: number) => ({
+        const publicTc = dbTc.map((tc: any, i: number) => ({
           id: tc.id || `tc_pub_${i + 1}`,
           name: `Sample Case ${i + 1}`,
           input: tc.input || "",
           expected_output: tc.expected_output || "",
           is_hidden: false,
         }));
+        formattedProblem.sampleTestCases = publicTc;
+        formattedProblem.test_cases = publicTc;
       }
     }
-
-    // Strictly resolve allowed languages
-    const rawAllowed = starter.allowed_languages || starter.allowedLanguages || problem.allowed_languages || (problem as any).allowedLanguages;
-    let finalAllowed: string[] | undefined = undefined;
-    if (Array.isArray(rawAllowed)) {
-      finalAllowed = rawAllowed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
-    } else if (typeof rawAllowed === "string" && rawAllowed.trim()) {
-      try {
-        const parsed = JSON.parse(rawAllowed);
-        if (Array.isArray(parsed)) {
-          finalAllowed = parsed.map((s: any) => String(s).toLowerCase().trim()).filter(Boolean);
-        } else {
-          finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
-        }
-      } catch {
-        finalAllowed = rawAllowed.split(/[,|;\s]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean);
-      }
-    } else if (starter.templates && Object.keys(starter.templates).length > 0) {
-      finalAllowed = Object.keys(starter.templates);
-    } else if (problem.templates && Object.keys(problem.templates).length > 0) {
-      finalAllowed = Object.keys(problem.templates);
-    } else if (starter.default_language) {
-      finalAllowed = [starter.default_language.toLowerCase().trim()];
-    }
-
-    const defaultLang = starter.default_language || (finalAllowed?.[0]) || (problem as any).default_language || "c";
 
     // Fetch student's latest submission for this problem
     const { data: latestSubmission } = await adminClient
       .from("coding_submissions")
       .select("id, code, language, status, score, max_score, execution_time_ms, memory_used_kb, created_at")
-      .eq("problem_id", problemId)
+      .eq("problem_id", problem.id)
       .or(`student_id.eq.${profileId},student_id.eq.${studentUserId}`)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle() as any;
 
     return NextResponse.json({
-      problem: {
-        id: problem.id,
-        title: problem.title,
-        slug: problem.slug,
-        description: problem.description,
-        difficulty: problem.difficulty || "medium",
-        tags: problem.tags || [],
-        points: problem.points || 100,
-        constraints: problem.constraints || starter.constraints || "",
-        input_format: problem.input_format || starter.input_format || "",
-        output_format: problem.output_format || starter.output_format || "",
-        example_cases: problem.example_cases || starter.example_cases || [],
-        timeLimitMs: problem.time_limit_ms || 2000,
-        memoryLimitKb: (problem.memory_limit_mb ? problem.memory_limit_mb * 1024 : 262144),
-        templates: starter.templates || problem.templates || {},
-        allowedLanguages: finalAllowed,
-        allowed_languages: finalAllowed,
-        defaultLanguage: defaultLang,
-        default_language: defaultLang,
-        sampleTestCases: publicTestCases,
-        test_cases: publicTestCases,
-      },
+      problem: formattedProblem,
+      problems: [formattedProblem],
       latestSubmission: latestSubmission || null,
     }, { status: 200 });
 

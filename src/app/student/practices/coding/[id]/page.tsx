@@ -607,8 +607,8 @@ export default function StudentPracticeCodingRunnerPage() {
               targetModule = m;
               break;
             }
-            // Check if rawId is a coding problem id inside this module
-            const cpIdx = (m.codingQuestions || []).findIndex((cq: any) => cq.id === rawId);
+            // Check if rawId is a coding problem id or slug inside this module
+            const cpIdx = (m.codingQuestions || []).findIndex((cq: any) => cq.id === rawId || cq.slug === rawId);
             if (cpIdx >= 0) {
               targetModule = m;
               foundIndex = cpIdx;
@@ -616,9 +616,32 @@ export default function StudentPracticeCodingRunnerPage() {
             }
           }
           if (targetModule) break;
-          if (sm.id === rawId && Array.isArray(sm.codingQuestions) && sm.codingQuestions.length > 0) {
-            targetModule = sm;
-            break;
+          if (sm.id === rawId) {
+            if (Array.isArray(sm.modules) && sm.modules.length > 0) {
+              const modWithCoding = sm.modules.find((m: any) => Array.isArray(m.codingQuestions) && m.codingQuestions.length > 0);
+              targetModule = modWithCoding || sm.modules[0];
+              break;
+            } else if (Array.isArray(sm.codingQuestions) && sm.codingQuestions.length > 0) {
+              targetModule = sm;
+              break;
+            }
+          }
+        }
+
+        // If targetModule was not found by exact ID, fallback to the first module in track that has coding problems
+        if (!targetModule && subs.length > 0) {
+          for (const sm of subs) {
+            for (const m of sm.modules || []) {
+              if (Array.isArray(m.codingQuestions) && m.codingQuestions.length > 0) {
+                targetModule = m;
+                break;
+              }
+            }
+            if (targetModule) break;
+            if (Array.isArray(sm.codingQuestions) && sm.codingQuestions.length > 0) {
+              targetModule = sm;
+              break;
+            }
           }
         }
 
@@ -630,19 +653,24 @@ export default function StudentPracticeCodingRunnerPage() {
         }
       }
 
-      // Fallback: If not found in track, fetch direct problem
+      // Fallback: If not found in track, fetch direct problem(s) from API
       if (codingProblemsList.length === 0) {
         const resDirect = await fetch(`/api/student/practices/coding/${rawId}`);
         if (resDirect.ok) {
           const directData = await resDirect.json();
-          if (directData.problem) {
+          if (Array.isArray(directData.problems) && directData.problems.length > 0) {
+            codingProblemsList = directData.problems;
+          } else if (directData.problem) {
             codingProblemsList = [directData.problem];
           }
         }
       }
 
       if (codingProblemsList.length === 0) {
-        throw new Error("No coding challenges found for this practice module.");
+        setErrorMsg("No coding challenges found for this practice module.");
+        setProblems([]);
+        setLoading(false);
+        return;
       }
 
       const normalizedProblems = codingProblemsList.map((p, i) => normalizeProblem(p, i));

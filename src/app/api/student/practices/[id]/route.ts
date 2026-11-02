@@ -122,10 +122,9 @@ export async function GET(
     // Collect all module IDs for problem and submission lookups
     const allModuleIds: string[] = [];
     rawSubmodules.forEach((sm: any) => {
+      if (sm.id) allModuleIds.push(sm.id);
       if (Array.isArray(sm.modules) && sm.modules.length > 0) {
         sm.modules.forEach((m: any) => { if (m.id) allModuleIds.push(m.id); });
-      } else if (sm.id) {
-        allModuleIds.push(sm.id);
       }
     });
 
@@ -197,7 +196,7 @@ export async function GET(
             extra = {};
           }
         }
-        const modId = extra.assessment_id || extra.module_id;
+        const modId = extra.assessment_id || extra.module_id || extra.submodule_id || extra.sub_module_id;
         if (modId && allModuleIds.includes(modId)) {
           if (!codingProblemsMap[modId]) {
             codingProblemsMap[modId] = [];
@@ -360,7 +359,7 @@ export async function GET(
           .filter((m: any) => m.status !== "inactive")
           .sort((a: any, b: any) => (a.display_order ?? a.displayOrder ?? 0) - (b.display_order ?? b.displayOrder ?? 0))
           .map((m: any, mIdx: number) => {
-            const problems = codingProblemsMap[m.id] || [];
+            const problems = codingProblemsMap[m.id] || codingProblemsMap[sm.id] || [];
             const rawCombinedCoding = m.codingQuestions && m.codingQuestions.length > 0 ? m.codingQuestions : problems;
             const combinedCoding = rawCombinedCoding.map((cq: any) => {
               const { hidden_test_cases, hiddenTestCases, ...safeCq } = cq;
