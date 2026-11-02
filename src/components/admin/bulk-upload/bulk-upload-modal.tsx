@@ -16,6 +16,7 @@ import {
   CodingLanguageMode,
 } from "./template-configs";
 import { safeParseSpreadsheet, downloadExcelWorkbook, downloadSpreadsheetFile } from "@/lib/excel-security";
+import { isCompilerSupportedLanguage, normalizeLanguageId, COMPILER_SUPPORTED_LANGUAGE_IDS } from "@/lib/compiler/coding-language-mode";
 
 export interface BulkUploadProps {
   isOpen?: boolean;
@@ -405,6 +406,7 @@ export function BulkUploadComponent({
         });
       });
 
+      const seenTitles = new Map<string, number>();
       const results: ParsedRowResult[] = rawRows.map((row, idx) => {
         const rowNumber = idx + 2;
         const mappedRow: Record<string, any> = {};
@@ -544,6 +546,115 @@ export function BulkUploadComponent({
             }
           }
         });
+
+        // Enhanced validation for coding problems
+        const isCodingProblem =
+          isCodingModule ||
+          currentModuleType === "coding_problem" ||
+          currentModuleType === "coding" ||
+          currentModuleType === "assessment_coding" ||
+          cleanHeader(mappedRow.type || "").includes("code") ||
+          cleanHeader(mappedRow.type || "").includes("coding");
+
+        if (isCodingProblem) {
+          // 1. Title validation & duplicate detection
+          const problemTitle = String(mappedRow.title || mappedRow.questionText || mappedRow.name || "").trim();
+          if (!problemTitle) {
+            errors.push({
+              fieldKey: "title",
+              fieldLabel: "Problem Title",
+              message: `Row #${rowNumber} – Missing Problem Title.`,
+            });
+          } else {
+            const cleanT = problemTitle.toLowerCase();
+            if (seenTitles.has(cleanT)) {
+              errors.push({
+                fieldKey: "title",
+                fieldLabel: "Problem Title",
+                message: `Row #${rowNumber} – Duplicate Problem Title: '${problemTitle}' (already defined in Row #${seenTitles.get(cleanT)}).`,
+              });
+            } else {
+              seenTitles.set(cleanT, rowNumber);
+            }
+          }
+
+          // 2. Description validation
+          const probDesc = String(mappedRow.description || mappedRow.problemStatement || "").trim();
+          if (!probDesc) {
+            errors.push({
+              fieldKey: "description",
+              fieldLabel: "Problem Description",
+              message: `Row #${rowNumber} – Missing Problem Description.`,
+            });
+          }
+
+          // 3. Difficulty validation
+          const diffStr = String(mappedRow.difficulty || "").toLowerCase().trim();
+          if (diffStr && !["easy", "medium", "hard"].includes(diffStr)) {
+            errors.push({
+              fieldKey: "difficulty",
+              fieldLabel: "Difficulty",
+              message: `Row #${rowNumber} – Invalid Difficulty: '${mappedRow.difficulty}'. Allowed: Easy, Medium, Hard.`,
+            });
+          }
+
+          // 4. Programming language validation
+          const rawLang = mappedRow.language || mappedRow.codingLanguage || mappedRow.lang;
+          if (rawLang) {
+            const normLang = normalizeLanguageId(String(rawLang));
+            if (!isCompilerSupportedLanguage(normLang)) {
+              errors.push({
+                fieldKey: "language",
+                fieldLabel: "Language",
+                message: `Row #${rowNumber} – Unsupported Language: '${rawLang}'.`,
+              });
+            }
+          }
+
+          // 5. Test cases validation (at least 1 public and 1 hidden testcase)
+          const hasPublic = Boolean(
+            mappedRow.sample_input ||
+            mappedRow.sample_output ||
+            mappedRow.testcase_1_output ||
+            mappedRow.testcase_1_input ||
+            mappedRow.testcase_2_output
+          );
+          const hasHidden = Boolean(
+            mappedRow.hidden_testcase_output ||
+            mappedRow.hidden_testcase_input ||
+            mappedRow.hidden_testcase_1_output ||
+            mappedRow.hidden_testcase_2_output
+          );
+
+          if (!hasPublic) {
+            errors.push({
+              fieldKey: "testcase_1_output",
+              fieldLabel: "Public Test Cases",
+              message: `Row #${rowNumber} – Missing Public Test Cases (e.g. Test Case 1 Expected Output).`,
+            });
+          }
+
+          if (!hasHidden) {
+            errors.push({
+              fieldKey: "hidden_testcase_output",
+              fieldLabel: "Hidden Test Cases",
+              message: `Row #${rowNumber} – Missing Hidden Test Cases for automated grading.`,
+            });
+          }
+
+          // Check for input with missing output
+          for (let tc = 1; tc <= 5; tc++) {
+            const inVal = mappedRow[`testcase_${tc}_input`];
+            const outVal = mappedRow[`testcase_${tc}_output`];
+            if (inVal !== undefined && inVal !== null && String(inVal).trim() !== "" && (outVal === undefined || outVal === null || String(outVal).trim() === "")) {
+              errors.push({
+                fieldKey: `testcase_${tc}_output`,
+                fieldLabel: `Test Case ${tc} Output`,
+                message: `Row #${rowNumber} – Invalid Expected Output format for Test Case ${tc}.`,
+              });
+            }
+          }
+        }
 
         return {
           rowNumber,
@@ -1114,61 +1225,51 @@ export function BulkUploadComponent({
       {/* STEP 2: PREVIEW & VALIDATION RESULTS */}
       {currentStep === "preview" && (
         <div className="space-y-5">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20">
-              <p className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">
-                {config.groupByField ? "Total Containers" : "Total Records"}
-              </p>
-              <p className="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-1">
-                {config.groupByField ? groupedModules.length : totalCount}
-              </p>
-              <p className="text-[10px] text-slate-500 mt-0.5">
-                {config.groupByField ? `${validCount} valid items` : "Processed rows"}
-              </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20">
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Total Records</p>
+              <p className="text-xl font-bold text-blue-700 dark:text-blue-300 mt-1">{totalCount}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Processed rows</p>
             </div>
 
-            <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/20">
-              <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">
-                Valid Records
-              </p>
-              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">
-                {validCount}
-              </p>
-              <p className="text-[10px] text-slate-500 mt-0.5">
-                Ready for import
-              </p>
+            <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/20">
+              <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Valid Records</p>
+              <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{validCount}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Passed all checks</p>
             </div>
 
-            <div className={`p-4 rounded-xl border ${
-              totalDuplicatesCount > 0
-                ? "border-amber-200 dark:border-amber-900 bg-amber-50/40 dark:bg-amber-950/20 text-amber-700"
-                : "border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-slate-500"
-            }`}>
-              <p className="text-[11px] font-bold uppercase tracking-wider">
-                Duplicates Detected
-              </p>
-              <p className="text-2xl font-bold mt-1">
-                {totalDuplicatesCount}
-              </p>
-              <p className="text-[10px] text-slate-500 mt-0.5">
-                Duplicate titles in container
-              </p>
-            </div>
-
-            <div className={`p-4 rounded-xl border ${
+            <div className={`p-3.5 rounded-xl border ${
               invalidCount > 0
                 ? "border-red-200 dark:border-red-900 bg-red-50/40 dark:bg-red-950/20 text-red-700"
                 : "border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-slate-500"
             }`}>
-              <p className="text-[11px] font-bold uppercase tracking-wider">
-                Invalid / Errors
+              <p className="text-[10px] font-bold uppercase tracking-wider">Invalid Records</p>
+              <p className="text-xl font-bold mt-1">{invalidCount}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Validation issues</p>
+            </div>
+
+            <div className={`p-3.5 rounded-xl border ${
+              totalDuplicatesCount > 0
+                ? "border-amber-200 dark:border-amber-900 bg-amber-50/40 dark:bg-amber-950/20 text-amber-700"
+                : "border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-slate-500"
+            }`}>
+              <p className="text-[10px] font-bold uppercase tracking-wider">Duplicates</p>
+              <p className="text-xl font-bold mt-1">{totalDuplicatesCount}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Duplicate titles</p>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Missing Fields</p>
+              <p className="text-xl font-bold mt-1">
+                {parsedRows.filter(r => r.errors.some(e => e.message.toLowerCase().includes("required") || e.message.toLowerCase().includes("missing"))).length}
               </p>
-              <p className="text-2xl font-bold mt-1">
-                {invalidCount}
-              </p>
-              <p className="text-[10px] text-slate-500 mt-0.5">
-                Row-level issues
-              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Required columns</p>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-teal-200 dark:border-teal-900 bg-teal-50/40 dark:bg-teal-950/20 text-teal-800 dark:text-teal-200">
+              <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wider">Import-Ready</p>
+              <p className="text-xl font-bold text-teal-700 dark:text-teal-300 mt-1">{validCount}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Ready to publish</p>
             </div>
           </div>
 

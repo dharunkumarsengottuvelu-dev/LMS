@@ -61,6 +61,7 @@ import {
   extractSampleTestCases,
 } from "@/lib/compiler/comparator";
 import { EditorialViewer } from "@/components/coding/editorial-viewer";
+import { COMPILER_SUPPORTED_LANGUAGE_IDS, getLanguageDisplayName } from "@/lib/compiler/coding-language-mode";
 
 // Lazy load Monaco editor in Pure Light ("vs") theme
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
@@ -804,6 +805,48 @@ export default function StudentPracticeCodingRunnerPage() {
       ? currentProblem.starter_code
       : (typeof currentProblem.starter_code === "string" ? (() => { try { return JSON.parse(currentProblem.starter_code); } catch { return {}; } })() : {});
 
+    const mode = (
+      currentProblem.language_mode ||
+      (currentProblem as any).languageMode ||
+      starter.language_mode ||
+      starter.languageMode ||
+      ""
+    ).toLowerCase().trim();
+
+    // 1. Explicit Single Language Mode
+    if (mode === "single") {
+      const singleCandidate =
+        (Array.isArray(currentProblem.allowed_languages) && currentProblem.allowed_languages[0]) ||
+        (Array.isArray(starter.allowed_languages) && starter.allowed_languages[0]) ||
+        currentProblem.default_language ||
+        currentProblem.defaultLanguage ||
+        starter.default_language ||
+        starter.defaultLanguage ||
+        currentProblem.language ||
+        starter.language ||
+        inferLanguageFromContent(currentProblem) ||
+        "c";
+      return [normalizeLanguageId(String(singleCandidate))];
+    }
+
+    // 2. Explicit Multi Language Mode
+    if (mode === "multi") {
+      const rawMulti =
+        currentProblem.allowed_languages ||
+        currentProblem.allowedLanguages ||
+        starter.allowed_languages ||
+        starter.allowedLanguages;
+      if (Array.isArray(rawMulti) && rawMulti.length > 0) {
+        return Array.from(new Set(rawMulti.map((l: any) => normalizeLanguageId(String(l))).filter(Boolean)));
+      }
+    }
+
+    // 3. Explicit All Languages Mode
+    if (mode === "all") {
+      return [...COMPILER_SUPPORTED_LANGUAGE_IDS];
+    }
+
+    // 4. Fallback resolution if mode is not explicitly tagged
     const raw =
       currentProblem.allowed_languages ||
       currentProblem.allowedLanguages ||
@@ -830,25 +873,7 @@ export default function StudentPracticeCodingRunnerPage() {
       return Array.from(new Set(parsed));
     }
 
-    // 2. Explicit single language mode configured by admin
-    const isSingleMode =
-      currentProblem.language_mode === "single" ||
-      starter.language_mode === "single" ||
-      Boolean(currentProblem.language || starter.language);
-
-    const explicitLang =
-      currentProblem.language ||
-      starter.language ||
-      currentProblem.default_language ||
-      currentProblem.defaultLanguage ||
-      starter.default_language ||
-      starter.defaultLanguage;
-
-    if (isSingleMode && explicitLang) {
-      return [normalizeLanguageId(String(explicitLang))];
-    }
-
-    // 3. Check if templates has restricted keys (e.g. only 1 or 2 specific languages provided)
+    // Check if templates has restricted keys (e.g. only 1 language provided)
     const probTemplates = currentProblem.templates || starter.templates;
     if (probTemplates && typeof probTemplates === "object" && Object.keys(probTemplates).length > 0) {
       const keys = Object.keys(probTemplates).map(normalizeLanguageId).filter(Boolean);
@@ -857,15 +882,14 @@ export default function StudentPracticeCodingRunnerPage() {
       }
     }
 
-    // 4. Content inference for single language tasks (e.g. "Write a complete C program")
+    // Content inference for single language tasks (e.g. "Write a complete C program")
     const inferred = inferLanguageFromContent(currentProblem);
     const textToCheck = `${currentProblem.title || ""} ${currentProblem.description || ""}`;
-    if (inferred && (isSingleMode || /\b(complete c program|c programming|first c)\b/i.test(textToCheck))) {
+    if (inferred && /\b(complete c program|c programming|first c|c program)\b/i.test(textToCheck)) {
       return [inferred];
     }
 
-    // 5. If no restrictions configured, return empty array to indicate ALL platform languages are permitted!
-    return [];
+    return [...COMPILER_SUPPORTED_LANGUAGE_IDS];
   }, [currentProblem]);
 
   const availableLanguages = useMemo(() => {

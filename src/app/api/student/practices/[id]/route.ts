@@ -134,20 +134,40 @@ export async function GET(
 
     // Execute problem lookups, submissions, and attempts in parallel to eliminate sequential round-trips
     const [codingProblemsRes, submissionsRes, attemptsRes, practiceSubsRes] = await Promise.all([
-      allModuleIds.length > 0
-        ? (adminClient
+      (async () => {
+        try {
+          if (allModuleIds.length === 0) return { data: [], error: null };
+          const res = await adminClient
             .from("coding_problems")
-            .select("id, title, slug, description, difficulty, starter_code, time_limit_ms, memory_limit_mb") as any)
-        : Promise.resolve({ data: [], error: null }),
-      adminClient
-        .from("coding_submissions")
-        .select("problem_id, status, score, max_score, created_at")
-        .or(studentFilter) as any,
-      adminClient
-        .from("assessment_attempts")
-        .select("id, assessment_id, status, score, total_marks, started_at, submitted_at, answers, created_at")
-        .or(studentFilter)
-        .order("created_at", { ascending: true }) as any,
+            .select("id, title, slug, description, difficulty, starter_code, time_limit_ms, memory_limit_mb");
+          return res?.error ? { data: [], error: null } : res;
+        } catch {
+          return { data: [], error: null };
+        }
+      })(),
+      (async () => {
+        try {
+          const res = await adminClient
+            .from("coding_submissions")
+            .select("problem_id, status, score, max_score, created_at")
+            .or(studentFilter);
+          return res?.error ? { data: [], error: null } : res;
+        } catch {
+          return { data: [], error: null };
+        }
+      })(),
+      (async () => {
+        try {
+          const res = await adminClient
+            .from("assessment_attempts")
+            .select("id, assessment_id, status, score, total_marks, started_at, submitted_at, answers, created_at")
+            .or(studentFilter)
+            .order("created_at", { ascending: true });
+          return res?.error ? { data: [], error: null } : res;
+        } catch {
+          return { data: [], error: null };
+        }
+      })(),
       (async () => {
         try {
           const res = await adminClient
@@ -204,7 +224,7 @@ export async function GET(
             finalAllowed = [extra.default_language.toLowerCase().trim()];
           }
 
-          const defaultLang = extra.default_language || (finalAllowed?.[0]) || "java";
+          const defaultLang = extra.default_language || (finalAllowed?.[0]) || "c";
 
           codingProblemsMap[modId].push({
             id: cp.id,

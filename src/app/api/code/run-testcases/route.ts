@@ -7,6 +7,7 @@ import { getErrorMessage } from "@/lib/utils";
 import type { TestCaseResult, TestCase } from "@/types/coding";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isLanguageEnabled } from "@/services/compiler.service";
+import { normalizeLanguageId, getLanguageDisplayName } from "@/lib/compiler/coding-language-mode";
 
 export async function POST(request: NextRequest) {
   try {

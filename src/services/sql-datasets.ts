@@ -62,3 +62,4 @@ export const SAMPLE_SQL_DATASETS: Record<string, SQLDatasetSchema> = {
 export function getDatasetSchema(datasetName = "university"): SQLDatasetSchema {
   return SAMPLE_SQL_DATASETS[datasetName] ?? SAMPLE_SQL_DATASETS["university"]!;
 }
+

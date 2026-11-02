@@ -93,7 +93,7 @@ export async function GET(
       finalAllowed = [starter.default_language.toLowerCase().trim()];
     }
 
-    const defaultLang = starter.default_language || (finalAllowed?.[0]) || (problem as any).default_language || "java";
+    const defaultLang = starter.default_language || (finalAllowed?.[0]) || (problem as any).default_language || "c";
 
     // Fetch student's latest submission for this problem
     const { data: latestSubmission } = await adminClient

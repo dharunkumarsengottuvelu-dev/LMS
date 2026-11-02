@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CodingProblemsService } from "@/services/coding-problems.service";
+import { COMPILER_SUPPORTED_LANGUAGE_IDS, normalizeLanguageId, getLanguageDisplayName } from "@/lib/compiler/coding-language-mode";
 import type {
   CodingProblem,
   Difficulty,
@@ -93,6 +94,9 @@ export const AVAILABLE_CODING_LANGUAGES = [
   { id: "dart", name: "Dart", category: "Mobile" },
   { id: "sql", name: "SQL", category: "Database" },
   { id: "bash", name: "Bash", category: "Shell" },
+  { id: "r", name: "R", category: "Scientific" },
+  { id: "lua", name: "Lua", category: "Scripting" },
+  { id: "perl", name: "Perl", category: "Scripting" },
 ];
 
 export const getMonacoLanguage = (lang: string) => {
@@ -386,41 +390,57 @@ export function CodingProblemCreator({
   );
 
   // 6. CODE CONFIGURATION & LANGUAGE SCOPE
+  const detectedMode = (existing.language_mode || (existing as any).languageMode || (existing as any).starter_code?.language_mode || "").toLowerCase().trim();
+
   const initialSingleLang = useMemo(() => {
+    if (detectedMode === "single") {
+      const allowed = existing.allowed_languages || (existing as any).allowedLanguages || (existing as any).starter_code?.allowed_languages;
+      if (Array.isArray(allowed) && allowed[0]) return normalizeLanguageId(allowed[0]);
+      if (typeof allowed === "string" && allowed.trim()) return normalizeLanguageId(allowed.split(/[,|;\s]+/)[0]);
+      const def = existing.default_language || (existing as any).defaultLanguage || (existing as any).starter_code?.default_language;
+      if (def) return normalizeLanguageId(def);
+    }
     if (existing.allowed_languages && existing.allowed_languages.length === 1) {
-      return existing.allowed_languages[0];
+      return normalizeLanguageId(existing.allowed_languages[0]);
     }
     if ((existing as any).allowedLanguages && (existing as any).allowedLanguages.length === 1) {
-      return (existing as any).allowedLanguages[0];
+      return normalizeLanguageId((existing as any).allowedLanguages[0]);
     }
     if (initialAllowedLanguages && initialAllowedLanguages.length === 1) {
-      return initialAllowedLanguages[0];
+      return normalizeLanguageId(initialAllowedLanguages[0]);
     }
     if (existing.templates && Object.keys(existing.templates).length === 1) {
-      return Object.keys(existing.templates)[0];
+      return normalizeLanguageId(Object.keys(existing.templates)[0]);
     }
     if (initialTemplates && Object.keys(initialTemplates).length === 1) {
-      return Object.keys(initialTemplates)[0];
+      return normalizeLanguageId(Object.keys(initialTemplates)[0]);
     }
     return null;
-  }, [existing, initialAllowedLanguages, initialTemplates]);
+  }, [existing, initialAllowedLanguages, initialTemplates, detectedMode]);
 
   const initialMultiLangs = useMemo(() => {
-    const allowed = existing.allowed_languages || (existing as any).allowedLanguages || initialAllowedLanguages;
-    if (allowed && allowed.length > 1 && allowed.length < AVAILABLE_CODING_LANGUAGES.length) {
-      return allowed as string[];
+    const allowed = existing.allowed_languages || (existing as any).allowedLanguages || (existing as any).starter_code?.allowed_languages || initialAllowedLanguages;
+    if (Array.isArray(allowed) && allowed.length > 1) {
+      return allowed.map(normalizeLanguageId).filter(Boolean);
     }
     return null;
   }, [existing, initialAllowedLanguages]);
 
-  const [languageMode, setLanguageMode] = useState<"all" | "multi" | "single">(
-    initialSingleLang ? "single" : initialMultiLangs ? "multi" : "all"
-  );
+  const [languageMode, setLanguageMode] = useState<"all" | "multi" | "single">(() => {
+    if (detectedMode === "single" || detectedMode === "multi" || detectedMode === "all") {
+      return detectedMode as "all" | "multi" | "single";
+    }
+    return initialSingleLang ? "single" : initialMultiLangs ? "multi" : "all";
+  });
+
   const [selectedSingleLanguage, setSelectedSingleLanguage] = useState<string>(
-    initialSingleLang || initialDefaultLanguage || (existing as any).default_language || "java"
+    initialSingleLang || (initialDefaultLanguage ? normalizeLanguageId(initialDefaultLanguage) : "") || ((existing as any).default_language ? normalizeLanguageId((existing as any).default_language) : "") || "c"
   );
+
   const [selectedMultiLanguages, setSelectedMultiLanguages] = useState<string[]>(
-    initialMultiLangs || AVAILABLE_CODING_LANGUAGES.map((l) => l.id)
+    initialMultiLangs && initialMultiLangs.length >= 2
+      ? initialMultiLangs
+      : ["c", "cpp", "java", "python"]
   );
 
   const [templates, setTemplates] = useState<Record<string, string>>(() => {
@@ -758,8 +778,31 @@ export function CodingProblemCreator({
       return;
     }
 
+    if (!description.trim()) {
+      toast.error("Please provide a Problem Description.");
+      return;
+    }
+
     if (testCases.length === 0) {
       toast.error("Please add at least one test case.");
+      return;
+    }
+
+    const publicCases = testCases.filter((tc) => !tc.is_hidden && !(tc as any).isHidden);
+    const hiddenCases = testCases.filter((tc) => Boolean(tc.is_hidden || (tc as any).isHidden));
+
+    if (publicCases.length === 0) {
+      toast.error("At least one public/sample testcase is required for learners.");
+      return;
+    }
+
+    if (hiddenCases.length === 0) {
+      toast.error("At least one hidden/private testcase is required for grading.");
+      return;
+    }
+
+    if (languageMode === "multi" && selectedMultiLanguages.length < 2) {
+      toast.error("Multi Language mode requires at least two distinct languages.");
       return;
     }
 
@@ -800,8 +843,6 @@ export function CodingProblemCreator({
       ? [selectedSingleLanguage]
       : isMulti
       ? selectedMultiLanguages
-      : Object.keys(templates).length > 0
-      ? Object.keys(templates)
       : AVAILABLE_CODING_LANGUAGES.map((l) => l.id);
 
     const finalTemplates: Record<string, string> = {};
@@ -863,14 +904,15 @@ export function CodingProblemCreator({
       templates: finalTemplates,
       allowed_languages: finalAllowed,
       allowedLanguages: finalAllowed,
-      default_language: isSingle ? selectedSingleLanguage : undefined,
+      default_language: isSingle ? selectedSingleLanguage : (isMulti ? selectedMultiLanguages[0] : "c"),
       language: isSingle ? selectedSingleLanguage : undefined,
       language_mode: languageMode,
       starter_code: {
         templates: finalTemplates,
         allowed_languages: finalAllowed,
         allowedLanguages: finalAllowed,
-        default_language: isSingle ? selectedSingleLanguage : undefined,
+        default_language: isSingle ? selectedSingleLanguage : (isMulti ? selectedMultiLanguages[0] : "c"),
+        defaultLanguage: isSingle ? selectedSingleLanguage : (isMulti ? selectedMultiLanguages[0] : "c"),
         language_mode: languageMode,
       },
       function_signature: functionSignature,

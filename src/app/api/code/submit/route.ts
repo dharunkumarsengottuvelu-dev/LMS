@@ -6,6 +6,7 @@ import { getErrorMessage } from "@/lib/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isLanguageEnabled } from "@/services/compiler.service";
+import { normalizeLanguageId, getLanguageDisplayName } from "@/lib/compiler/coding-language-mode";
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,6 +53,27 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (problem) {
+        // Enforce problem allowed_languages restriction
+        const starter = typeof problem.starter_code === "object" && problem.starter_code !== null ? problem.starter_code : {};
+        const rawAllowed = (body as any).allowed_languages || (body as any).allowedLanguages || starter.allowed_languages || starter.allowedLanguages || (problem as any).allowed_languages;
+        if (rawAllowed) {
+          let allowedList: string[] = [];
+          if (Array.isArray(rawAllowed)) {
+            allowedList = rawAllowed.map((l: any) => normalizeLanguageId(String(l))).filter(Boolean);
+          } else if (typeof rawAllowed === "string" && rawAllowed.trim()) {
+            allowedList = rawAllowed.split(/[,|;\s]+/).map(normalizeLanguageId).filter(Boolean);
+          }
+          const normSubmitted = normalizeLanguageId(language);
+          if (allowedList.length > 0 && !allowedList.includes(normSubmitted)) {
+            return NextResponse.json(
+              {
+                error: `Programming language '${language}' is not permitted for this problem. Allowed languages: [${allowedList.map(getLanguageDisplayName).join(", ")}].`,
+              },
+              { status: 400 }
+            );
+          }
+        }
+
         // 1. Check test_cases table for this problem
         const { data: dbTc } = await supabase
           .from("test_cases")

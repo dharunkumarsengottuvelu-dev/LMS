@@ -1,3 +1,4 @@
+import { COMPILER_SUPPORTED_LANGUAGE_IDS, normalizeLanguageId } from "@/lib/compiler/coding-language-mode";
 export type ColumnType = "string" | "number" | "boolean" | "enum" | "url" | "time" | "date";
 
 export interface ColumnDefinition {
@@ -907,20 +908,21 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
     }
 
     // 3. Allowed Languages resolution - strictly based on user selection scope
-    let allowed_languages: string[] | undefined = undefined;
-    if (row.allowed_languages) {
+    let allowed_languages: string[] = [];
+    if (mode === "single") {
+      allowed_languages = [singleLang];
+    } else if (mode === "multi") {
+      allowed_languages = multiLangs && multiLangs.length >= 2 ? multiLangs : ["c", "cpp"];
+    } else if (row.allowed_languages) {
       allowed_languages = String(row.allowed_languages)
         .split(/[,|;\s]+/)
-        .map(s => s.trim().toLowerCase())
+        .map(normalizeLanguageId)
         .filter(Boolean);
-    } else if (mode === "single") {
-      allowed_languages = [singleLang];
-    } else if (mode === "multi" && multiLangs && multiLangs.length > 0) {
-      allowed_languages = multiLangs;
-    } else if (matchedLang) {
+      if (allowed_languages.length === 0) allowed_languages = [...COMPILER_SUPPORTED_LANGUAGE_IDS];
+    } else if (matchedLang && mode !== "all") {
       allowed_languages = [matchedLang];
-    } else if (Object.keys(templates).length > 0) {
-      allowed_languages = Object.keys(templates);
+    } else {
+      allowed_languages = [...COMPILER_SUPPORTED_LANGUAGE_IDS];
     }
 
     // 4. Retain ONLY starter codes explicitly provided by author - NEVER inject default boilerplate!
@@ -942,10 +944,12 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
 
     // 5. Default Language resolution
     const default_language =
-      (row.default_language ? String(row.default_language).trim().toLowerCase() : undefined) ||
+      (mode === "single" ? singleLang : undefined) ||
+      (row.default_language ? normalizeLanguageId(row.default_language) : undefined) ||
+      (mode === "multi" ? multiLangs[0] : undefined) ||
       matchedLang ||
       allowed_languages?.[0] ||
-      (mode === "single" ? singleLang : "python");
+      "c";
 
     // 6. SQL Database properties
     const isSql = (row.category && String(row.category).toLowerCase().includes("database")) ||
@@ -975,10 +979,19 @@ export function getCodingProblemTemplateConfig(options?: CodingTemplateOptions):
       sample_output: String(row.sample_output || ""),
       example_cases: exampleCases,
       templates,
+      language_mode: mode,
       allowed_languages,
       allowedLanguages: allowed_languages,
       default_language,
       defaultLanguage: default_language,
+      starter_code: {
+        templates,
+        language_mode: mode,
+        allowed_languages,
+        allowedLanguages: allowed_languages,
+        default_language,
+        defaultLanguage: default_language,
+      },
       sql_engine,
       schema_sql,
       solution_sql,
@@ -4062,28 +4075,34 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
   ];
 
   const parseCodingLanguageScope = (row: any) => {
-    let allowed_languages: string[] | undefined = undefined;
-    const rawAllowedCol = row.allowed_languages || row.allowedLanguages || row.languages || row.supportedLanguages;
-    if (rawAllowedCol) {
-      allowed_languages = String(rawAllowedCol)
-        .split(/[,|;\s]+/)
-        .map(s => s.trim().toLowerCase())
-        .filter(Boolean);
-    } else if (mode === "single") {
+    let allowed_languages: string[] = [];
+    if (mode === "single") {
       allowed_languages = [singleLang];
-    } else if (mode === "multi" && multiLangs && multiLangs.length > 0) {
-      allowed_languages = multiLangs;
-    } else if (row.language || row.lang || row.codingLanguage) {
-      const rawL = String(row.language || row.lang || row.codingLanguage).toLowerCase().trim();
-      const match = CODING_LANGUAGES.find(l => l.name.toLowerCase() === rawL || l.id === rawL);
-      allowed_languages = [match?.id || rawL];
+    } else if (mode === "multi") {
+      allowed_languages = multiLangs && multiLangs.length >= 2 ? multiLangs : ["c", "cpp"];
+    } else {
+      const rawAllowedCol = row.allowed_languages || row.allowedLanguages || row.languages || row.supportedLanguages;
+      if (rawAllowedCol) {
+        allowed_languages = String(rawAllowedCol)
+          .split(/[,|;\s]+/)
+          .map(normalizeLanguageId)
+          .filter(Boolean);
+      } else if (row.language || row.lang || row.codingLanguage) {
+        const rawL = normalizeLanguageId(row.language || row.lang || row.codingLanguage);
+        if (rawL) allowed_languages = [rawL];
+      }
+      if (allowed_languages.length === 0) {
+        allowed_languages = [...COMPILER_SUPPORTED_LANGUAGE_IDS];
+      }
     }
 
     const default_language =
       (mode === "single" ? singleLang : undefined) ||
-      (row.default_language ? String(row.default_language).trim().toLowerCase() : undefined) ||
-      (row.language ? String(row.language).trim().toLowerCase() : undefined) ||
-      allowed_languages?.[0];
+      (row.default_language ? normalizeLanguageId(row.default_language) : undefined) ||
+      (mode === "multi" ? multiLangs[0] : undefined) ||
+      (row.language ? normalizeLanguageId(row.language) : undefined) ||
+      allowed_languages[0] ||
+      "c";
 
     let templates: Record<string, string> = {};
     const genStarter = row.starterCode ?? row.starter_code ?? row.code ?? row.boilerplate;
