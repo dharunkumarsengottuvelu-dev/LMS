@@ -132,10 +132,11 @@ export async function updateSession(request: NextRequest) {
 
     if (!metaRole) {
       try {
+        const emailFilter = user.email ? `,email.eq.${user.email.toLowerCase()}` : "";
         const { data: prof } = (await supabase
           .from("profiles")
           .select("role")
-          .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+          .or(`user_id.eq.${user.id},id.eq.${user.id}${emailFilter}`)
           .maybeSingle()) as { data: { role?: string } | null };
 
         if (prof?.role) {

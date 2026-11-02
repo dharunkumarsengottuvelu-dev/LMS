@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Database, Table, Play, Clock, CheckCircle2, AlertCircle, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SQLExecutionService } from "@/services/sql-execution.service";
+import { getDatasetSchema } from "@/services/sql-datasets";
 import type { SQLQueryResult, SQLDatasetSchema } from "@/types/coding";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +21,7 @@ export function SQLEditor({
   height = "450px",
 }: SQLEditorProps) {
   const [query, setQuery] = useState<string>(defaultQuery);
-  const [schema] = useState<SQLDatasetSchema>(() => SQLExecutionService.getDatasetSchema(datasetName));
+  const [schema] = useState<SQLDatasetSchema>(() => getDatasetSchema(datasetName));
   const [selectedTable, setSelectedTable] = useState<string>(schema.tables[0]?.name ?? "students");
   const [queryResult, setQueryResult] = useState<SQLQueryResult | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);

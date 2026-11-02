@@ -52,9 +52,42 @@ export function generateVerificationId(): string {
 }
 
 /**
- * Safely normalizes any caught error, DOM Event, or exception into a clean string message.
- * Prevents DOM Events, null objects, or raw Event instances from stringifying into "[object Event]".
+ * Robustly resolves the active URL path and search query from incoming request headers.
+ * Extracts x-pathname (set by proxy.ts), next-url, or referer headers to guarantee
+ * that page refreshes, direct links, and redirects retain the exact target route.
  */
+export function getOriginalRequestPath(
+  headersList: Headers,
+  fallback: string = ""
+): { currentPath: string; currentSearch: string; fullOriginalPath: string } {
+  let currentPath = headersList.get("x-pathname") || headersList.get("x-invoke-path") || "";
+  let currentSearch = headersList.get("x-search") || "";
+
+  if (!currentPath) {
+    const nextUrl = headersList.get("next-url");
+    if (nextUrl) {
+      try {
+        const parsed = new URL(nextUrl, "http://localhost");
+        currentPath = parsed.pathname;
+        if (!currentSearch) currentSearch = parsed.search;
+      } catch {}
+    }
+  }
+
+  if (!currentPath) {
+    const referer = headersList.get("referer");
+    if (referer) {
+      try {
+        const parsed = new URL(referer);
+        currentPath = parsed.pathname;
+        if (!currentSearch) currentSearch = parsed.search;
+      } catch {}
+    }
+  }
+
+  const fullOriginalPath = currentPath ? `${currentPath}${currentSearch}` : fallback;
+  return { currentPath, currentSearch, fullOriginalPath };
+}
 export function getErrorMessage(error: unknown): string {
   return normalizeError(error).message;
 }

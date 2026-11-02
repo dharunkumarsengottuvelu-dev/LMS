@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { InstitutionTopNav } from "@/components/layouts/institution-top-nav";
 import type { Metadata } from "next";
+import { getOriginalRequestPath } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: {
@@ -19,9 +20,7 @@ export default async function InstitutionLayout({
   children: React.ReactNode;
 }) {
   const headersList = await headers();
-  const currentPath = headersList.get("x-pathname") || "";
-  const currentSearch = headersList.get("x-search") || "";
-  const fullOriginalPath = currentPath ? `${currentPath}${currentSearch}` : "";
+  const { fullOriginalPath } = getOriginalRequestPath(headersList, "/institution/overview");
 
   const supabase = await createClient();
   const { data: { user }, error: authErr } = await supabase.auth.getUser();

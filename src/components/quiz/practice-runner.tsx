@@ -107,6 +107,18 @@ export function PracticeRunnerEngine({
 
   // Unified single index across all questions (MCQ, MSQ, Coding)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const sp = new URLSearchParams(window.location.search);
+        const urlQ = sp.get("q") || sp.get("question");
+        if (urlQ) {
+          const parsedQ = parseInt(urlQ, 10);
+          if (!isNaN(parsedQ) && parsedQ >= 1) {
+            return Math.min(Math.max(0, parsedQ - 1), Math.max(0, questions.length - 1));
+          }
+        }
+      } catch {}
+    }
     if (shouldRestoreFromStorage && typeof window !== "undefined" && module?.id) {
       try {
         const saved = localStorage.getItem(`lms_practice_session_${module.id}`);
@@ -642,6 +654,13 @@ export function PracticeRunnerEngine({
       setCurrentQuestionIndex(idx);
       setShowPaletteDrawer(false);
       setMobileTab(questions[idx]?.type === "coding" ? "editor" : "problem");
+      if (typeof window !== "undefined") {
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set("q", String(idx + 1));
+          window.history.replaceState(null, "", url.toString());
+        } catch {}
+      }
     }
   };
 

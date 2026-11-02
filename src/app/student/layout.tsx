@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { SessionTimeout } from "@/components/providers/session-timeout";
+import { getOriginalRequestPath } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: { template: "SensilLearn | %s", default: "SensilLearn | Student Dashboard" },
@@ -12,9 +13,7 @@ export const metadata: Metadata = {
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
   const headersList = await headers();
-  const currentPath = headersList.get("x-pathname") || "";
-  const currentSearch = headersList.get("x-search") || "";
-  const fullOriginalPath = currentPath ? `${currentPath}${currentSearch}` : "";
+  const { currentPath, fullOriginalPath } = getOriginalRequestPath(headersList, "/student/dashboard");
 
   const supabase = await createClient();
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
@@ -61,19 +60,16 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const isTrainer = role === "trainer";
   const isInstitution = role === "institution";
 
-  // Allow admins and trainers to preview student courses, practices, or tests without kicking them back to dashboard
-  const isContentPreview =
-    currentPath.startsWith("/student/course/") ||
-    currentPath.startsWith("/courses/") ||
-    currentPath.startsWith("/student/practices") ||
-    currentPath.startsWith("/practice") ||
-    currentPath.startsWith("/coding");
+  // Allow admins and trainers to preview and inspect all student learning experiences
+  // (courses, practices, assessments, tests, coding challenges, live classes, reports).
+  // Only redirect if they explicitly land on the generic student dashboard root.
+  const isGenericStudentHome = currentPath === "/student" || currentPath === "/student/" || currentPath === "/student/dashboard";
 
-  if (isAdmin && !isContentPreview) {
+  if (isAdmin && isGenericStudentHome) {
     redirect("/admin/dashboard");
-  } else if (isTrainer && !isContentPreview) {
+  } else if (isTrainer && isGenericStudentHome) {
     redirect("/trainer/dashboard");
-  } else if (isInstitution && !isContentPreview) {
+  } else if (isInstitution && isGenericStudentHome) {
     redirect("/institution/overview");
   }
 

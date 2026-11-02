@@ -60,7 +60,7 @@ function resolveRoleDestination(role: string, nextUrl: string | null): string {
 
   // Strict role boundaries: users must only land in their dedicated portal
   if (isSuperAdminOrAdmin) {
-    if (nextUrl.startsWith("/admin") || isCommon) {
+    if (nextUrl.startsWith("/admin") || nextUrl.startsWith("/student") || isCommon) {
       return nextUrl;
     }
     return "/admin/dashboard";
@@ -74,7 +74,7 @@ function resolveRoleDestination(role: string, nextUrl: string | null): string {
   }
 
   if (isTrainer) {
-    if (nextUrl.startsWith("/trainer") || isCommon) {
+    if (nextUrl.startsWith("/trainer") || nextUrl.startsWith("/student") || isCommon) {
       return nextUrl;
     }
     return "/trainer/dashboard";

@@ -131,7 +131,7 @@ function getValidDestinationForRole(role: string, nextParam: string | null): str
   );
 
   if (isSuperAdminOrAdmin) {
-    if (nextParam.startsWith("/admin") || isCommon) {
+    if (nextParam.startsWith("/admin") || nextParam.startsWith("/student") || isCommon) {
       return nextParam;
     }
     return "/admin/dashboard";
@@ -145,7 +145,7 @@ function getValidDestinationForRole(role: string, nextParam: string | null): str
   }
 
   if (isTrainer) {
-    if (nextParam.startsWith("/trainer") || isCommon) {
+    if (nextParam.startsWith("/trainer") || nextParam.startsWith("/student") || isCommon) {
       return nextParam;
     }
     return "/trainer/dashboard";
@@ -216,7 +216,31 @@ function resolveInternalRewrite(
     return `/student/my-courses${search}`;
   }
 
-  // 3. Practice routes
+  // 3. Practice routes & aliases (both /practice and /student/practice)
+  // /student/practice/coding/:id
+  const studentPracticeCodingMatch = pathname.match(/^\/student\/practice\/coding\/([^\/]+)\/?$/);
+  if (studentPracticeCodingMatch && studentPracticeCodingMatch[1]) {
+    return `/student/practices/coding/${studentPracticeCodingMatch[1]}${search}`;
+  }
+
+  // /student/practice/:lang/:topic (e.g. /student/practice/c/loops)
+  const studentPracticeTopicMatch = pathname.match(/^\/student\/practice\/([^\/]+)\/([^\/]+)\/?$/);
+  if (studentPracticeTopicMatch && studentPracticeTopicMatch[1] && studentPracticeTopicMatch[2]) {
+    const separator = search ? (search.includes("?") ? "&" : "?") : "?";
+    return `/student/practices${search}${separator}track=${encodeURIComponent(studentPracticeTopicMatch[1])}&topic=${encodeURIComponent(studentPracticeTopicMatch[2])}`;
+  }
+
+  // /student/practice/:id
+  const studentPracticeIdMatch = pathname.match(/^\/student\/practice\/([^\/]+)\/?$/);
+  if (studentPracticeIdMatch && studentPracticeIdMatch[1]) {
+    return `/student/practices/${studentPracticeIdMatch[1]}${search}`;
+  }
+
+  // /student/practice (singular)
+  if (pathname === "/student/practice" || pathname === "/student/practice/") {
+    return `/student/practices${search}`;
+  }
+
   // /practice/coding/:id
   const practiceCodingMatch = pathname.match(/^\/practice\/coding\/([^\/]+)\/?$/);
   if (practiceCodingMatch && practiceCodingMatch[1]) {
@@ -234,6 +258,24 @@ function resolveInternalRewrite(
     if (role === "admin" || role === "super_admin") return `/admin/practices${search}`;
     if (role === "trainer") return `/trainer/practices${search}`;
     return `/student/practices${search}`;
+  }
+
+  // Singular/Plural aliases across portals
+  if (pathname === "/admin/practice" || pathname === "/admin/practice/") return `/admin/practices${search}`;
+  if (pathname === "/trainer/practice" || pathname === "/trainer/practice/") return `/trainer/practices${search}`;
+  if (pathname === "/admin/course" || pathname === "/admin/course/") return `/admin/courses${search}`;
+  if (pathname === "/trainer/course" || pathname === "/trainer/course/") return `/trainer/courses${search}`;
+  if (pathname === "/admin/assignment" || pathname === "/admin/assignment/") return `/admin/assignments${search}`;
+  if (pathname === "/trainer/assignment" || pathname === "/trainer/assignment/") return `/trainer/assignments${search}`;
+  if (pathname === "/student/assessment" || pathname === "/student/assessment/") return `/student/assessments${search}`;
+  const studentAssessmentIdMatch = pathname.match(/^\/student\/assessment\/([^\/]+)\/?$/);
+  if (studentAssessmentIdMatch && studentAssessmentIdMatch[1]) {
+    return `/student/assessments/${studentAssessmentIdMatch[1]}${search}`;
+  }
+  if (pathname === "/student/test" || pathname === "/student/test/") return `/student/tests${search}`;
+  const studentTestIdMatch = pathname.match(/^\/student\/test\/([^\/]+)\/?$/);
+  if (studentTestIdMatch && studentTestIdMatch[1]) {
+    return `/student/tests/${studentTestIdMatch[1]}${search}`;
   }
 
   // 4. Challenges routes
@@ -616,7 +658,16 @@ export async function proxy(request: NextRequest) {
 
     if (requiredRoles && user) {
       const userRole = resolveRoleFromUser(user);
-      if (!isRoleAuthorized(userRole, requiredRoles)) {
+      const isAuthoritativeRole = Boolean(
+        user.app_metadata?.role ||
+        user.user_metadata?.role ||
+        user.email?.toLowerCase().startsWith("admin@")
+      );
+
+      // Only redirect in proxy if the role is authoritative.
+      // If role is an unconfirmed fallback ("student"), let the Server Component layout
+      // verify against the database (via service role client) to prevent false-positive dashboard kicks.
+      if (isAuthoritativeRole && !isRoleAuthorized(userRole, requiredRoles)) {
         if (pathname.startsWith("/api/")) {
           return NextResponse.json(
             { error: `Forbidden: Access restricted for role '${userRole}'` },

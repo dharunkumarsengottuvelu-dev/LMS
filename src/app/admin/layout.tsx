@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
+import { getOriginalRequestPath } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: { template: "SensilLearn | %s", default: "SensilLearn | Admin Dashboard" },
@@ -15,9 +16,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const headersList = await headers();
-  const currentPath = headersList.get("x-pathname") || "";
-  const currentSearch = headersList.get("x-search") || "";
-  const fullOriginalPath = currentPath ? `${currentPath}${currentSearch}` : "";
+  const { fullOriginalPath } = getOriginalRequestPath(headersList, "/admin/dashboard");
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

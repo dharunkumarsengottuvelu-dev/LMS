@@ -104,7 +104,15 @@ export default function StudentTrackDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [expandedHistoryModIds, setExpandedHistoryModIds] = useState<Set<string>>(new Set());
-  const [collapsedSubmoduleIds, setCollapsedSubmoduleIds] = useState<Set<string>>(new Set());
+  const [collapsedSubmoduleIds, setCollapsedSubmoduleIds] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = sessionStorage.getItem(`lms_collapsed_subs_${trackId}`);
+        if (saved) return new Set(JSON.parse(saved));
+      } catch {}
+    }
+    return new Set();
+  });
 
   const toggleSubmoduleCollapse = (submoduleId: string) => {
     setCollapsedSubmoduleIds((prev) => {
@@ -113,6 +121,11 @@ export default function StudentTrackDetailPage() {
         next.delete(submoduleId);
       } else {
         next.add(submoduleId);
+      }
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.setItem(`lms_collapsed_subs_${trackId}`, JSON.stringify(Array.from(next)));
+        } catch {}
       }
       return next;
     });

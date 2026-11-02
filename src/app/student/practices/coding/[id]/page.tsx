@@ -646,7 +646,29 @@ export default function StudentPracticeCodingRunnerPage() {
 
       const normalizedProblems = codingProblemsList.map((p, i) => normalizeProblem(p, i));
       setProblems(normalizedProblems);
-      setCurrentIdx(foundIndex < normalizedProblems.length ? foundIndex : 0);
+
+      // Restore question index from URL search query (?q=...) or local storage session
+      let initialIdx = foundIndex;
+      if (initialIdx === 0 && typeof window !== "undefined") {
+        try {
+          const urlQ = new URLSearchParams(window.location.search).get("q");
+          if (urlQ) {
+            const parsed = parseInt(urlQ, 10);
+            if (!isNaN(parsed) && parsed >= 1 && parsed <= normalizedProblems.length) {
+              initialIdx = parsed - 1;
+            }
+          } else {
+            const savedQ = localStorage.getItem(`lms_coding_last_q_${rawId}`);
+            if (savedQ) {
+              const parsed = parseInt(savedQ, 10);
+              if (!isNaN(parsed) && parsed >= 0 && parsed < normalizedProblems.length) {
+                initialIdx = parsed;
+              }
+            }
+          }
+        } catch {}
+      }
+      setCurrentIdx(initialIdx < normalizedProblems.length ? initialIdx : 0);
 
       // Load student submissions to resolve solved/in-progress states
       try {
@@ -1436,6 +1458,14 @@ export default function StudentPracticeCodingRunnerPage() {
     setConsoleOutput("");
     setBottomTab("testcase");
     setCurrentIdx(idx);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`lms_coding_last_q_${rawId}`, String(idx));
+        const url = new URL(window.location.href);
+        url.searchParams.set("q", String(idx + 1));
+        window.history.replaceState(null, "", url.toString());
+      } catch {}
+    }
   };
 
   const handlePrev = () => {
