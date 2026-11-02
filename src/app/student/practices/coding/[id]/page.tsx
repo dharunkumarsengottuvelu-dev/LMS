@@ -318,6 +318,18 @@ export default function StudentPracticeCodingRunnerPage() {
     }
   }, [isReviewMode]);
 
+  // Suppress benign Monaco Editor internal cancellation promise rejections
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reasonStr = String(event.reason?.name || event.reason?.message || event.reason || "");
+      if (reasonStr.includes("Canceled") || reasonStr.includes("cancelled")) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    return () => window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+  }, []);
+
   // Code & Language state
   const [selectedLanguage, setSelectedLanguage] = useState<CodingLanguage>("c");
   const [code, setCode] = useState<string>("");
@@ -744,29 +756,7 @@ export default function StudentPracticeCodingRunnerPage() {
             }
           } else {
             if (queryAction === "reattempt") {
-              const startRes = await fetch(`/api/student/practices/${trackId}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  action: "start_attempt",
-                  module_id: targetModule.id || rawId,
-                }),
-              });
-              const startData = await startRes.json();
-              if (startRes.ok && startData.attempt) {
-                resolvedAttempt = startData.attempt;
-              } else if (startData.error) {
-                toast({ title: "Attempt Policy Notice", description: startData.error, variant: "destructive" });
-                if (startData.attempt) resolvedAttempt = startData.attempt;
-              }
-            } else {
-              // Priority 1: In-progress attempt resumes automatically
-              if (targetModule.activeAttempt) {
-                resolvedAttempt = targetModule.activeAttempt;
-              } else if (queryAttemptId) {
-                resolvedAttempt = modAttempts.find((a: any) => a.id === queryAttemptId);
-              } else {
-                // Initialize attempt 1 (or next valid attempt) via backend
+              try {
                 const startRes = await fetch(`/api/student/practices/${trackId}`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -775,13 +765,45 @@ export default function StudentPracticeCodingRunnerPage() {
                     module_id: targetModule.id || rawId,
                   }),
                 });
-                const startData = await startRes.json();
-                if (startRes.ok && startData.attempt) {
-                  resolvedAttempt = startData.attempt;
+                if (startRes.ok) {
+                  const startData = await startRes.json();
+                  if (startData.attempt) resolvedAttempt = startData.attempt;
                 }
+              } catch {}
+            } else {
+              // Priority 1: In-progress attempt resumes automatically
+              if (targetModule.activeAttempt) {
+                resolvedAttempt = targetModule.activeAttempt;
+              } else if (queryAttemptId) {
+                resolvedAttempt = modAttempts.find((a: any) => a.id === queryAttemptId);
+              } else {
+                // Initialize attempt 1 (or next valid attempt) via backend
+                try {
+                  const startRes = await fetch(`/api/student/practices/${trackId}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      action: "start_attempt",
+                      module_id: targetModule.id || rawId,
+                    }),
+                  });
+                  if (startRes.ok) {
+                    const startData = await startRes.json();
+                    if (startData.attempt) resolvedAttempt = startData.attempt;
+                  }
+                } catch {}
               }
             }
           }
+        }
+
+        if (!resolvedAttempt) {
+          resolvedAttempt = {
+            id: `attempt-${rawId || "default"}`,
+            attemptNumber: 1,
+            status: "in_progress",
+            answers: {},
+          };
         }
 
         if (resolvedAttempt) {

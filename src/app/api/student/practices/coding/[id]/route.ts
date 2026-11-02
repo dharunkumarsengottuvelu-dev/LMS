@@ -173,14 +173,19 @@ export async function GET(
     }
 
     // Fetch student's latest submission for this problem
-    const { data: latestSubmission } = await adminClient
+    const { data: rawSubmission } = await adminClient
       .from("coding_submissions")
-      .select("id, code, language, status, score, max_score, execution_time_ms, memory_used_kb, created_at")
+      .select("id, source_code, language, status, score, max_score, execution_time_ms, memory_used_kb, created_at")
       .eq("problem_id", problem.id)
       .or(`student_id.eq.${profileId},student_id.eq.${studentUserId}`)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle() as any;
+
+    const latestSubmission = rawSubmission ? {
+      ...rawSubmission,
+      code: rawSubmission.source_code || "",
+    } : null;
 
     return NextResponse.json({
       problem: formattedProblem,
