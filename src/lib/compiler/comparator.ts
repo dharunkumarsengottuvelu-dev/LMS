@@ -159,13 +159,25 @@ export function resolveStandardStatus(
   }
 
   if (
+    outcome === 21 ||
     combinedError.includes("service is currently busy") ||
-    combinedError.includes("execution service busy")
+    combinedError.includes("execution service busy") ||
+    combinedError.includes("rate limit")
   ) {
     return "SERVICE_BUSY";
   }
 
-  if (outcome === 12 || (outcome !== 15 && outcome !== 0 && outcome !== undefined)) {
+  if (
+    outcome === 20 ||
+    combinedError.includes("infrastructure") ||
+    combinedError.includes("service unreachable") ||
+    combinedError.includes("provider error") ||
+    combinedError.includes("internal error")
+  ) {
+    return "SYSTEM_ERROR";
+  }
+
+  if (outcome === 12) {
     return "RUNTIME_ERROR";
   }
 

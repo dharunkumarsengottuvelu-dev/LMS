@@ -29,7 +29,7 @@ export interface UniversalExecutionResult {
 }
 
 const MAX_OUTPUT_BYTES = 256 * 1024; // 256 KB max output size
-const COMPILATION_TIMEOUT_MS = 10000; // 10 seconds compilation timeout
+const COMPILATION_TIMEOUT_MS = 15000; // 15 seconds compilation timeout
 
 function isServerless(): boolean {
   return !!(
@@ -703,7 +703,7 @@ export class UniversalExecutor {
           message: "Compilation Timeout",
           status: { id: 6, description: "COMPILE_ERROR" },
           outcome: 11,
-          time: "10.00",
+          time: "15.00",
           memory: 0,
           filename,
           language,
@@ -736,6 +736,7 @@ export class UniversalExecutor {
           });
         }
 
+        const execStartTime = Date.now();
         const binaryName = executableCmd.startsWith("./") ? executableCmd.slice(2) : executableCmd;
         let runProc: cp.ChildProcess | null = null;
         let stdout = "";
@@ -744,7 +745,7 @@ export class UniversalExecutor {
 
         const timer = setTimeout(() => {
           killProcessTree(runProc);
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+          const elapsed = ((Date.now() - execStartTime) / 1000).toFixed(2);
           doResolve(this.createTimeoutResult(elapsed, filename, language));
         }, timeoutMs);
 
@@ -768,7 +769,7 @@ export class UniversalExecutor {
           if (stdoutBytes > MAX_OUTPUT_BYTES) {
             killProcessTree(runProc);
             clearTimeout(timer);
-            const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+            const elapsed = ((Date.now() - execStartTime) / 1000).toFixed(2);
             return doResolve(this.createOutputLimitResult(elapsed, filename, language));
           }
           stdout += d.toString();
@@ -780,7 +781,7 @@ export class UniversalExecutor {
 
         runProc.on("close", (rc: number | null) => {
           clearTimeout(timer);
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+          const elapsed = ((Date.now() - execStartTime) / 1000).toFixed(2);
           const isOk = rc === 0;
           const sanitizedErr = sanitizeCompilerOutput(stderr, filename);
 
@@ -831,15 +832,19 @@ export class UniversalExecutor {
     const sanitizedComp = sanitizeCompilerOutput(raw.compile_output || "", filename);
     const isOk = raw.outcome === 15 || raw.status?.id === 3;
     const isCompileErr = raw.outcome === 11 || raw.status?.id === 6;
-    const isTimeout = raw.outcome === 13 || raw.status?.id === 5;
+    const isTimeout = raw.outcome === 13 || raw.status?.id === 5 || raw.message === "Time Limit Exceeded";
     const isMemory = raw.outcome === 17 || raw.status?.id === 4 || isMemoryError(sanitizedErr);
     const isOutputLimit = raw.outcome === 18 || raw.status?.id === 14;
+    const isBusy = raw.outcome === 21 || raw.message === "Provider Rate Limit";
+    const isInfraError = raw.outcome === 20 || raw.status?.id === 13 || raw.message === "Infrastructure Error" || raw.message === "Provider Error";
 
     let statusDesc: StandardExecutionStatus = "ACCEPTED";
     if (isTimeout) statusDesc = "TIME_LIMIT_EXCEEDED";
     else if (isOutputLimit) statusDesc = "OUTPUT_LIMIT_EXCEEDED";
     else if (isMemory) statusDesc = "MEMORY_LIMIT_EXCEEDED";
     else if (isCompileErr) statusDesc = "COMPILE_ERROR";
+    else if (isBusy) statusDesc = "SERVICE_BUSY";
+    else if (isInfraError) statusDesc = "SYSTEM_ERROR";
     else if (!isOk) statusDesc = "RUNTIME_ERROR";
 
     return {
@@ -848,12 +853,12 @@ export class UniversalExecutor {
       compile_output: sanitizedComp,
       message: raw.message || (isOk ? "Accepted" : "Execution Error"),
       status: {
-        id: isOutputLimit ? 14 : isMemory ? 4 : isTimeout ? 5 : isCompileErr ? 6 : (raw.status?.id || (isOk ? 3 : 7)),
+        id: isOutputLimit ? 14 : isMemory ? 4 : isTimeout ? 5 : isCompileErr ? 6 : (isBusy || isInfraError ? 13 : (raw.status?.id || (isOk ? 3 : 7))),
         description: statusDesc,
       },
-      outcome: isOutputLimit ? 18 : isMemory ? 17 : isTimeout ? 13 : isCompileErr ? 11 : (raw.outcome || (isOk ? 15 : 12)),
+      outcome: isOutputLimit ? 18 : isMemory ? 17 : isTimeout ? 13 : isCompileErr ? 11 : (isBusy ? 21 : (isInfraError ? 20 : (raw.outcome || (isOk ? 15 : 12)))),
       time: raw.time || "0.00",
-      memory: raw.memory || 12000,
+      memory: raw.memory || 256000,
       filename,
       language,
     };

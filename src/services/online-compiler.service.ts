@@ -58,7 +58,7 @@ function normalizeWandboxResponse(
       status: { id: 6, description: "Compilation Error" },
       outcome: 11,
       time: elapsed,
-      memory: 12000,
+      memory: 256000,
     };
   }
 
@@ -79,7 +79,7 @@ function normalizeWandboxResponse(
       status: { id: 5, description: "Time Limit Exceeded" },
       outcome: 13,
       time: elapsed,
-      memory: 12000,
+      memory: 256000,
     };
   }
 
@@ -116,7 +116,7 @@ function normalizeWandboxResponse(
       status: { id: 14, description: "Output Limit Exceeded" },
       outcome: 18,
       time: elapsed,
-      memory: 12000,
+      memory: 256000,
     };
   }
 
@@ -132,7 +132,7 @@ function normalizeWandboxResponse(
     },
     outcome: isSuccess ? 15 : 12,
     time: elapsed,
-    memory: 12000,
+    memory: 256000,
   };
 }
 
@@ -167,6 +167,10 @@ function executeOnWandbox(
     }
     const payload = JSON.stringify(payloadObj);
 
+    // Transport deadline: Remote compilation (up to 15s) + execution (up to 15s) + network latency/queue buffer (30s)
+    // NEVER bind the network socket timeout directly to the student CPU execution limit!
+    const httpTransportTimeoutMs = Math.max(timeoutMs + 30000, 60000);
+
     const req = https.request(
       {
         hostname: "wandbox.org",
@@ -179,7 +183,7 @@ function executeOnWandbox(
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
           "Accept": "application/json, text/plain, */*",
         },
-        timeout: timeoutMs,
+        timeout: httpTransportTimeoutMs,
       },
       (res) => {
         let data = "";
@@ -188,13 +192,26 @@ function executeOnWandbox(
         });
         res.on("end", () => {
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-          if (res.statusCode === 429 || res.statusCode === 503) {
+          if (res.statusCode === 429) {
             return resolve({
               stdout: "",
-              stderr: "The code execution service is temporarily busy handling high volume. Please retry in a few moments.",
+              stderr: "The code execution service is temporarily rate limited. Please retry in a few moments.",
               compile_output: "",
-              message: "Execution Service Busy",
-              status: { id: 13, description: "Service Busy" },
+              message: "Provider Rate Limit",
+              status: { id: 13, description: "Provider Rate Limit" },
+              outcome: 21,
+              time: elapsed,
+              memory: 0,
+            });
+          }
+
+          if (res.statusCode && res.statusCode >= 500) {
+            return resolve({
+              stdout: "",
+              stderr: `Execution service error (HTTP ${res.statusCode}). The compiler provider is temporarily unavailable.`,
+              compile_output: "",
+              message: "Provider Error",
+              status: { id: 13, description: "Provider Error" },
               outcome: 20,
               time: elapsed,
               memory: 0,
@@ -225,8 +242,8 @@ function executeOnWandbox(
         stdout: "",
         stderr: `Online execution service unreachable: ${err.message}`,
         compile_output: "",
-        message: "Service Unavailable",
-        status: { id: 13, description: "Internal Error" },
+        message: "Infrastructure Error",
+        status: { id: 13, description: "Infrastructure Error" },
         outcome: 20,
         time: "0.00",
         memory: 0,
@@ -235,14 +252,15 @@ function executeOnWandbox(
 
     req.on("timeout", () => {
       req.destroy();
+      // Transport timeout must be classified as Infrastructure Error, NEVER as student Time Limit Exceeded!
       resolve({
         stdout: "",
-        stderr: "Execution timed out: Compiler server took longer than expected to respond.",
+        stderr: "Compiler infrastructure timeout: The remote execution service did not respond within the network deadline. Please retry.",
         compile_output: "",
-        message: "Time Limit Exceeded",
-        status: { id: 5, description: "Time Limit Exceeded" },
-        outcome: 13,
-        time: (timeoutMs / 1000).toFixed(2),
+        message: "Infrastructure Error",
+        status: { id: 13, description: "Infrastructure Error" },
+        outcome: 20,
+        time: "0.00",
         memory: 0,
       });
     });

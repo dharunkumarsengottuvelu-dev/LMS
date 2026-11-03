@@ -10,7 +10,26 @@ import { compareOutput, normalizeTestInput, normalizeExpectedOutput } from "@/li
 import { SQLExecutionService } from "@/services/sql-execution.service";
 import { SubmissionService } from "@/services/submission.service";
 
-const PER_TESTCASE_TIMEOUT_MS = 4000; // 4 seconds max execution time per test case
+/**
+ * Resolves execution timeout dynamically based on problem difficulty and explicit limits.
+ * Per LMS compiler architecture specification:
+ * - Easy: 10 seconds (10,000 ms)
+ * - Medium: 10 seconds (10,000 ms)
+ * - Hard: 15 seconds (15,000 ms)
+ * - Compilation timeout: 15 seconds (15,000 ms)
+ * - Default: 10 seconds (10,000 ms)
+ */
+export function resolveExecutionTimeoutMs(difficulty?: string, problemTimeLimitMs?: number): number {
+  if (problemTimeLimitMs && problemTimeLimitMs >= 10000) {
+    return problemTimeLimitMs;
+  }
+  const diff = (difficulty || "").toLowerCase().trim();
+  if (diff === "hard") {
+    return 15000;
+  }
+  return 10000;
+}
+
 const CHUNK_CONCURRENCY = 3; // Max parallel executions per submission
 
 export class SubmissionEvaluatorService {
@@ -52,6 +71,11 @@ export class SubmissionEvaluatorService {
       ];
     }
 
+    const execTimeoutMs = resolveExecutionTimeoutMs(
+      (problem as any)?.difficulty || (input as any).difficulty,
+      (input as any).timeout_ms || (problem as any)?.time_limit_ms
+    );
+
     const testResults: TestCaseResult[] = new Array(testCases.length);
     const executionCache = new Map<string, {
       trimmedActual: string;
@@ -70,6 +94,7 @@ export class SubmissionEvaluatorService {
       const expectedOutput = normalizeExpectedOutput(tc);
       let resError: string | undefined;
       let executionTime = 0.02;
+      let memoryKb = 256000;
 
       if (compileErrOverride) {
         passed = false;
@@ -123,12 +148,13 @@ export class SubmissionEvaluatorService {
             input.language,
             input.code,
             cleanInput,
-            PER_TESTCASE_TIMEOUT_MS,
+            execTimeoutMs,
             input.version
           );
 
           trimmedActual = (res.stdout || "").trim();
           executionTime = res.time ? parseFloat(res.time) : 0.02;
+          memoryKb = res.memory || 256000;
 
           const hasStderr = Boolean(res.stderr && res.stderr.trim());
           const hasCompileError = Boolean(res.compile_output && res.compile_output.trim());
@@ -139,11 +165,13 @@ export class SubmissionEvaluatorService {
             if (hasCompileError) {
               resError = res.compile_output.trim();
             } else if (res.status?.description === "TIME_LIMIT_EXCEEDED" || res.outcome === 13) {
-              resError = "Time Limit Exceeded: Execution time exceeded 4.0 seconds limit.";
+              resError = `Time Limit Exceeded: Execution time exceeded ${(execTimeoutMs / 1000).toFixed(1)} seconds limit.`;
             } else if (res.status?.description === "OUTPUT_LIMIT_EXCEEDED" || res.outcome === 18) {
               resError = "Output Limit Exceeded: Output exceeded maximum allowed 256 KB buffer.";
             } else if (res.status?.description === "MEMORY_LIMIT_EXCEEDED" || res.outcome === 17) {
-              resError = "Memory Limit Exceeded: Memory allocation exceeded permitted boundaries.";
+              resError = "Memory Limit Exceeded: Memory allocation exceeded permitted boundaries (256 MB limit).";
+            } else if (res.status?.description === "SYSTEM_ERROR" || res.outcome === 20 || res.outcome === 21) {
+              resError = res.stderr || res.message || "Infrastructure Error: The compiler service encountered a temporary error.";
             } else if (hasStderr) {
               resError = res.stderr.trim();
             } else if (!isSuccessStatus && res.message && res.message !== "Accepted") {
@@ -159,12 +187,16 @@ export class SubmissionEvaluatorService {
             }
           }
 
-          executionCache.set(cacheKey, {
-            trimmedActual,
-            execTime: executionTime,
-            passed,
-            resError: !isSuccessStatus ? resError : undefined,
-          });
+          // Never cache transient infrastructure errors or provider rate limits!
+          const isInfraError = res.status?.description === "SYSTEM_ERROR" || res.outcome === 20 || res.outcome === 21;
+          if (!isInfraError) {
+            executionCache.set(cacheKey, {
+              trimmedActual,
+              execTime: executionTime,
+              passed,
+              resError: !isSuccessStatus ? resError : undefined,
+            });
+          }
         }
       }
 
@@ -179,7 +211,7 @@ export class SubmissionEvaluatorService {
         expected_output: shouldReveal ? expectedOutput : "[Hidden for evaluation]",
         error: !passed ? resError : undefined,
         time_seconds: executionTime,
-        memory_kb: 16000,
+        memory_kb: memoryKb,
       };
     }
 

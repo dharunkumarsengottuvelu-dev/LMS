@@ -1147,7 +1147,7 @@ export default function StudentPracticeCodingRunnerPage() {
       }));
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
 
       const res = await fetch("/api/code/run-testcases", {
         method: "POST",
@@ -1342,7 +1342,7 @@ export default function StudentPracticeCodingRunnerPage() {
         : systemTestCases;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 35000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
 
       const res = await fetch("/api/code/submit", {
         method: "POST",

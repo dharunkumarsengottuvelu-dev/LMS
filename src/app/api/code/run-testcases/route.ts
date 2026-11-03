@@ -8,6 +8,7 @@ import type { TestCaseResult, TestCase } from "@/types/coding";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isLanguageEnabled } from "@/services/compiler.service";
 import { normalizeLanguageId, getLanguageDisplayName } from "@/lib/compiler/coding-language-mode";
+import { resolveExecutionTimeoutMs } from "@/services/submission-evaluator.service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
 
     // Fast evaluation: evaluate test case 0 first to fail-fast on compilation errors,
     // then evaluate remaining test cases in parallel chunks with deduplication
+    const execTimeoutMs = resolveExecutionTimeoutMs(problem?.difficulty, body.timeout_ms || problem?.time_limit_ms);
     const testResults: TestCaseResult[] = new Array(testCases.length);
     const executionCache = new Map<string, {
       trimmedActual: string;
@@ -139,6 +141,7 @@ export async function POST(request: NextRequest) {
       const expectedOutput = normalizeExpectedOutput(tc);
       let resError: string | undefined;
       let execTime = 0.02;
+      let memoryKb = 256000;
 
       if (compileErrOverride) {
         passed = false;
@@ -190,9 +193,10 @@ export async function POST(request: NextRequest) {
             }
           }
         } else {
-          const res = await UniversalExecutor.execute(language, code, cleanInput, 4000, version);
+          const res = await UniversalExecutor.execute(language, code, cleanInput, execTimeoutMs, version);
           trimmedActual = (res.stdout || "").trim();
           execTime = parseFloat(res.time) || 0.02;
+          memoryKb = res.memory || 256000;
 
           const hasStderr = Boolean(res.stderr && res.stderr.trim());
           const hasCompileError = Boolean(res.compile_output && res.compile_output.trim());
@@ -203,11 +207,13 @@ export async function POST(request: NextRequest) {
             if (hasCompileError) {
               resError = res.compile_output.trim();
             } else if (res.status?.description === "TIME_LIMIT_EXCEEDED" || res.outcome === 13) {
-              resError = "Time Limit Exceeded: Execution time exceeded 4.0 seconds limit.";
+              resError = `Time Limit Exceeded: Execution time exceeded ${(execTimeoutMs / 1000).toFixed(1)} seconds limit.`;
             } else if (res.status?.description === "OUTPUT_LIMIT_EXCEEDED" || res.outcome === 18) {
               resError = "Output Limit Exceeded: Program generated excessive output (exceeded 256 KB limit).";
             } else if (res.status?.description === "MEMORY_LIMIT_EXCEEDED" || res.outcome === 17) {
-              resError = "Memory Limit Exceeded: Memory allocation exceeded allowed limits.";
+              resError = "Memory Limit Exceeded: Memory allocation exceeded allowed limits (256 MB limit).";
+            } else if (res.status?.description === "SYSTEM_ERROR" || res.outcome === 20 || res.outcome === 21) {
+              resError = res.stderr || res.message || "Infrastructure Error: The code execution engine encountered an error.";
             } else if (hasStderr) {
               resError = res.stderr.trim();
             } else if (!isSuccess && res.message && res.message !== "Accepted") {
@@ -223,12 +229,16 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          executionCache.set(cacheKey, {
-            trimmedActual,
-            execTime,
-            passed,
-            resError: !isSuccess ? resError : undefined,
-          });
+          // Never cache transient infrastructure errors or provider rate limits!
+          const isInfraError = res.status?.description === "SYSTEM_ERROR" || res.outcome === 20 || res.outcome === 21;
+          if (!isInfraError) {
+            executionCache.set(cacheKey, {
+              trimmedActual,
+              execTime,
+              passed,
+              resError: !isSuccess ? resError : undefined,
+            });
+          }
         }
       }
 
@@ -243,7 +253,7 @@ export async function POST(request: NextRequest) {
         expected_output: isHidden ? "[Hidden for evaluation]" : expectedOutput,
         error: !passed ? resError : undefined,
         time_seconds: execTime,
-        memory_kb: 16000,
+        memory_kb: memoryKb,
       };
     }
 

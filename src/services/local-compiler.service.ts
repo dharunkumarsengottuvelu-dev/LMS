@@ -373,6 +373,8 @@ export class LocalCompilerService {
       const compiler = lang === "c" ? "gcc-13.2.0-c" : "gcc-13.2.0";
       const payload = JSON.stringify({ compiler, code, stdin: stdin || "" });
 
+      const httpTransportTimeoutMs = Math.max(timeoutMs + 30000, 60000);
+
       const req = httpsModule.request({
         hostname: "wandbox.org",
         path: "/api/compile.json",
@@ -381,12 +383,18 @@ export class LocalCompilerService {
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(payload),
         },
-        timeout: timeoutMs,
+        timeout: httpTransportTimeoutMs,
       }, (res: any) => {
         let data = "";
         res.on("data", (c: any) => { data += c; });
         res.on("end", () => {
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+          if (res.statusCode === 429) {
+            return resolve(errResult("Provider rate limit reached. Please retry in a few moments.", 13, "Provider Rate Limit", 21));
+          }
+          if (res.statusCode && res.statusCode >= 500) {
+            return resolve(errResult(`Execution provider error (HTTP ${res.statusCode}).`, 13, "Provider Error", 20));
+          }
           try {
             const parsed = JSON.parse(data);
             const compileErr = (parsed.compiler_error || "").trim();
@@ -396,19 +404,19 @@ export class LocalCompilerService {
               return resolve({
                 stdout: "", stderr: compileErr, compile_output: compileErr,
                 message: "Compilation Error", status: { id: 6, description: "Compilation Error" },
-                outcome: 11, time: elapsed, memory: 12000,
+                outcome: 11, time: elapsed, memory: 256000,
               });
             }
             const ok = parsed.status === "0";
-            resolve(runResult(ok, programOut, programErr, elapsed, 12000, compileErr));
+            resolve(runResult(ok, programOut, programErr, elapsed, 256000, compileErr));
           } catch {
-            resolve(errResult("Wandbox response parse error"));
+            resolve(errResult("Wandbox response parse error", 13, "Infrastructure Error", 20));
           }
         });
       });
 
-      req.on("error", (err: Error) => resolve(errResult(err.message)));
-      req.on("timeout", () => { req.destroy(); resolve(tlResult((timeoutMs / 1000).toFixed(2))); });
+      req.on("error", (err: Error) => resolve(errResult(`Provider unreachable: ${err.message}`, 13, "Infrastructure Error", 20)));
+      req.on("timeout", () => { req.destroy(); resolve(errResult("Compiler server took longer than expected to respond.", 13, "Infrastructure Error", 20)); });
       req.write(payload);
       req.end();
     });

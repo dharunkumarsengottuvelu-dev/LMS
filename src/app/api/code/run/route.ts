@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Universal multi-language execution
-    const timeoutMs = body.timeout_ms ? Math.min(parseInt(body.timeout_ms, 10), 10000) : 6000;
+    const timeoutMs = body.timeout_ms ? Math.min(parseInt(body.timeout_ms, 10), 15000) : 10000;
     const version = body.version || body.language_version;
     const result = await UniversalExecutor.execute(language, code, stdin, timeoutMs, version);
 
