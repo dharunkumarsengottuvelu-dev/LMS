@@ -94,7 +94,8 @@ int main(void) {
     console.log(`\n       -> Results: ${submission.passed_test_cases}/${submission.total_test_cases} passed. Status: ${submission.status}`);
     
     // Check that none returned TLE
-    const hasTLE = submission.results.some((r) => r.error && r.error.includes("Time Limit Exceeded"));
+    const results = submission.results || [];
+    const hasTLE = results.some((r) => r.error && r.error.includes("Time Limit Exceeded"));
     if (hasTLE) {
       console.error("       -> BUG DETECTED: Still returning Time Limit Exceeded!");
       return false;
@@ -104,7 +105,8 @@ int main(void) {
       submission.status === "accepted" &&
       submission.passed_test_cases === 5 &&
       submission.total_test_cases === 5 &&
-      submission.results.every((r) => r.passed)
+      results.length === 5 &&
+      results.every((r) => r.passed)
     );
   });
 
@@ -174,7 +176,7 @@ int main(void) {
       res.status.description === "COMPILE_ERROR" ||
       res.outcome === 11 ||
       (res.compile_output && res.compile_output.length > 0);
-    return isCompileError && !res.stdout;
+    return Boolean(isCompileError && !res.stdout);
   });
 
   // ── TEST 8: Runtime Error Classification ────────────────────────────────────

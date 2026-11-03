@@ -957,13 +957,19 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
       onConfirm: async () => {
         try {
           const res = await fetch(`/api/admin/courses?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-          if (!res.ok) throw new Error("Delete request failed");
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Delete request failed");
+          }
           setCourses((prev) => prev.filter((c) => c.id !== id));
-          toast({ title: "Course Deleted", description: title, variant: "destructive" });
-        } catch (err) {
+          toast({ title: "Course Deleted", description: `"${title}" was permanently removed.` });
+        } catch (err: any) {
           console.error("Failed to delete course", err);
-          setCourses((prev) => prev.filter((c) => c.id !== id));
-          toast({ title: "Course Removed", description: title });
+          toast({
+            title: "Delete Failed",
+            description: err.message || "Failed to delete course from database.",
+            variant: "destructive",
+          });
         }
       },
     });
@@ -977,19 +983,35 @@ export function CourseManagementHub({ role = "admin" }: { role?: "admin" | "trai
       confirmText: `Delete ${ids.length} Course${ids.length > 1 ? "s" : ""}`,
       onConfirm: async () => {
         try {
-          await Promise.all(
-            ids.map((id) =>
-              fetch(`/api/admin/courses?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null)
-            )
+          const results = await Promise.all(
+            ids.map(async (id) => {
+              const res = await fetch(`/api/admin/courses?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+              return { id, ok: res.ok };
+            })
           );
-          setCourses((prev) => prev.filter((c) => !ids.includes(c.id)));
-          setSelectedCourseIds([]);
-          toast({ title: "Courses Deleted", description: `Successfully removed ${ids.length} course${ids.length > 1 ? "s" : ""}.` });
-        } catch (err) {
+          const successfulIds = results.filter((r) => r.ok).map((r) => r.id);
+          if (successfulIds.length > 0) {
+            setCourses((prev) => prev.filter((c) => !successfulIds.includes(c.id)));
+            setSelectedCourseIds((prev) => prev.filter((id) => !successfulIds.includes(id)));
+            toast({
+              title: "Courses Deleted",
+              description: `Successfully removed ${successfulIds.length} course${successfulIds.length > 1 ? "s" : ""}.`,
+            });
+          }
+          if (successfulIds.length < ids.length) {
+            toast({
+              title: "Partial Deletion Notice",
+              description: `${ids.length - successfulIds.length} course(s) could not be removed due to database constraints.`,
+              variant: "destructive",
+            });
+          }
+        } catch (err: any) {
           console.error("Bulk delete courses error", err);
-          setCourses((prev) => prev.filter((c) => !ids.includes(c.id)));
-          setSelectedCourseIds([]);
-          toast({ title: "Courses Removed", description: `Removed ${ids.length} course${ids.length > 1 ? "s" : ""}.` });
+          toast({
+            title: "Bulk Delete Failed",
+            description: err.message || "Could not complete bulk deletion.",
+            variant: "destructive",
+          });
         }
       },
     });

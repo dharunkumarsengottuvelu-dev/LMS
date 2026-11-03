@@ -680,18 +680,17 @@ export async function proxy(request: NextRequest) {
       }
     }
 
-    // 6. Transparent Internal Route Rewrites:
-    // Preserves the exact browser URL (including query parameters, dynamic IDs, and subpaths)
-    // while seamlessly rendering the underlying component implementation.
+    // 6. Forward accurate navigation headers (x-url, x-pathname, x-search)
+    // Guarantees all Server Component layouts and APIs know the authentic URL on hard refresh (F5)
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-url", request.url);
+    requestHeaders.set("x-pathname", request.nextUrl.pathname);
+    requestHeaders.set("x-search", request.nextUrl.search);
+
     const userRole = user ? resolveRoleFromUser(user) : "student";
     const rewriteTarget = resolveInternalRewrite(pathname, search, userRole);
     if (rewriteTarget) {
       const rewriteUrl = new URL(rewriteTarget, request.url);
-      const requestHeaders = new Headers(request.headers);
-      requestHeaders.set("x-url", request.url);
-      requestHeaders.set("x-pathname", request.nextUrl.pathname);
-      requestHeaders.set("x-search", request.nextUrl.search);
-
       const rewriteResponse = NextResponse.rewrite(rewriteUrl, {
         request: {
           headers: requestHeaders,
@@ -714,7 +713,26 @@ export async function proxy(request: NextRequest) {
       return rewriteResponse;
     }
 
-    return supabaseResponse;
+    // Transparent passthrough with authentic navigation headers preserved across F5 and direct URLs
+    const nextResponse = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      const { name, value, ...options } = cookie;
+      nextResponse.cookies.set(name, value, {
+        ...options,
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        domain: undefined,
+      });
+    });
+
+    sanitizeResponseCookies(request, nextResponse);
+    return nextResponse;
   } catch (err) {
     console.error("PROXY_ERROR:", err);
     return NextResponse.next();

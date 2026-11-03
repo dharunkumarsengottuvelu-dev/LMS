@@ -48,7 +48,7 @@ export interface DayActivityData {
  *  - Moderate performance (50%–89%): maintains base tier
  *  - High / excellent performance (>= 90% with 4+ activities): step up 1 level (maximum 5)
  */
-export function calculateHeatmapIntensity(
+function calculateHeatmapIntensity(
   count: number,
   successfulCount: number
 ): 0 | 1 | 2 | 3 | 4 | 5 {

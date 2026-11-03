@@ -53,7 +53,7 @@ export interface VideoPlayerConfig {
   src: string;
 }
 
-export function getVideoPlayerConfig(url?: string): VideoPlayerConfig {
+function getVideoPlayerConfig(url?: string): VideoPlayerConfig {
   if (!url || !url.trim()) {
     return { type: "empty", src: "" };
   }

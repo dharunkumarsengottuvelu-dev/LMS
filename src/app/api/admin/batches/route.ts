@@ -241,7 +241,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing batch ID" }, { status: 400 });
     }
 
-    await adminClient.from("batch_members").delete().eq("batch_id", id);
+    try { await adminClient.from("batch_members").delete().eq("batch_id", id); } catch (e) {}
+    try { await adminClient.from("batch_module_visibility").delete().eq("batch_id", id); } catch (e) {}
+    try { await adminClient.from("profiles").update({ batch_id: null }).eq("batch_id", id); } catch (e) {}
+
     const { error } = await adminClient.from("batches").delete().eq("id", id);
     if (error) throw error;
 

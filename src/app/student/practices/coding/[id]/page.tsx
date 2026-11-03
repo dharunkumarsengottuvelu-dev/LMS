@@ -73,7 +73,7 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ),
 });
 
-export function normalizeLanguageId(raw: string): string {
+function normalizeLanguageId(raw: string): string {
   if (!raw) return "";
   const cleaned = raw.toLowerCase().trim();
   switch (cleaned) {
@@ -100,7 +100,7 @@ export function normalizeLanguageId(raw: string): string {
   }
 }
 
-export const SUPPORTED_LANGUAGES: { id: CodingLanguage; name: string; monacoLang: string; defaultTemplate: string }[] = [
+const SUPPORTED_LANGUAGES: { id: CodingLanguage; name: string; monacoLang: string; defaultTemplate: string }[] = [
   { id: "java", name: "Java", monacoLang: "java", defaultTemplate: "" },
   { id: "python", name: "Python", monacoLang: "python", defaultTemplate: "" },
   { id: "cpp", name: "C++", monacoLang: "cpp", defaultTemplate: "" },
@@ -138,7 +138,7 @@ function toDeterministicUUID(str: string): string {
   return `${full.slice(0, 8)}-${full.slice(8, 12)}-4${full.slice(13, 16)}-a${full.slice(17, 20)}-${full.slice(20, 32)}`;
 }
 
-export function inferLanguageFromContent(problem: any): CodingLanguage | null {
+function inferLanguageFromContent(problem: any): CodingLanguage | null {
   if (!problem) return null;
   const starter = typeof problem.starter_code === "object" && problem.starter_code !== null
     ? problem.starter_code
@@ -731,8 +731,59 @@ export default function StudentPracticeCodingRunnerPage() {
             }
           });
 
+          // Also check localStorage for non-submitted drafts
+          if (typeof window !== "undefined") {
+            (codingProblemsList || []).forEach((prob: any) => {
+              if (solvedSet.has(prob.id)) return;
+              const starter = prob.starter_code || {};
+              const templates = prob.templates || starter.templates || {};
+              const possibleLangs = [
+                prob.default_language,
+                ...(prob.allowed_languages || []),
+                ...(prob.allowedLanguages || []),
+                "c", "cpp", "java", "python", "javascript", "typescript", "sql"
+              ].filter(Boolean);
+              for (const lang of possibleLangs) {
+                try {
+                  const key = `sensilearn_code_${prob.id}_${lang}`;
+                  const saved = localStorage.getItem(key);
+                  if (saved && saved.trim()) {
+                    const isUntouched = Object.values(templates).some(
+                      (t) => typeof t === "string" && t.trim().length > 0 && t.trim() === saved.trim()
+                    );
+                    if (!isUntouched) {
+                      inProgSet.add(prob.id);
+                      break;
+                    }
+                  }
+                } catch {}
+              }
+            });
+          }
+
+          // Initial active problem is automatically in-progress if not yet solved
+          const activeProb = normalizedProblems[initialIdx];
+          if (activeProb?.id && !solvedSet.has(activeProb.id)) {
+            inProgSet.add(activeProb.id);
+          }
+
+          // Restore visited problems from session
+          if (typeof window !== "undefined") {
+            try {
+              const visitedRaw = sessionStorage.getItem(`lms_visited_${rawId}`);
+              if (visitedRaw) {
+                const visitedArr = JSON.parse(visitedRaw);
+                if (Array.isArray(visitedArr)) {
+                  visitedArr.forEach((vId: string) => {
+                    if (!solvedSet.has(vId)) inProgSet.add(vId);
+                  });
+                }
+              }
+            } catch {}
+          }
+
           setSolvedProblemIds(solvedSet);
-          setInProgressProblemIds(inProgSet);
+          setInProgressProblemIds((prev) => new Set([...Array.from(prev), ...Array.from(inProgSet)]));
         }
       } catch (subErr) {
         console.warn("Submissions fetch notice:", subErr);
@@ -741,8 +792,9 @@ export default function StudentPracticeCodingRunnerPage() {
       // ─── RESOLVE & ATTACH ATTEMPT ACCORDING TO ADMIN CONFIG ───────
       try {
         let resolvedAttempt: any = null;
-        const queryAttemptId = searchParams?.get("attemptId") || "";
-        const queryAction = searchParams?.get("action") || "";
+        const currentUrl = typeof window !== "undefined" ? new URL(window.location.href) : null;
+        const queryAttemptId = currentUrl?.searchParams.get("attemptId") || "";
+        const queryAction = currentUrl?.searchParams.get("action") || "";
 
         if (targetModule) {
           const modAttempts: any[] = targetModule.attempts || [];
@@ -832,11 +884,27 @@ export default function StudentPracticeCodingRunnerPage() {
     } finally {
       setLoading(false);
     }
-  }, [rawId, trackId, isReviewMode, searchParams, toast]);
+  }, [rawId, trackId, isReviewMode, toast]);
 
   useEffect(() => {
     loadPracticeData();
   }, [loadPracticeData]);
+
+  // Smooth client-side SPA back/forward history handling
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window === "undefined" || problems.length === 0) return;
+      const urlQ = new URLSearchParams(window.location.search).get("q");
+      if (urlQ) {
+        const parsed = parseInt(urlQ, 10);
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= problems.length) {
+          setCurrentIdx(parsed - 1);
+        }
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [problems.length]);
 
   // ─── 2. AUTOSAVE & RESTORE CODE PER PROBLEM ─────────────────────────────────
   const getStorageKey = useCallback(
@@ -1005,10 +1073,16 @@ export default function StudentPracticeCodingRunnerPage() {
 
     if (saved && saved.trim() && !isDummyBoilerplate(saved)) {
       setCode(saved);
+      if (!solvedProblemIds.has(currentProblem.id)) {
+        setInProgressProblemIds((prev) => new Set(prev).add(currentProblem.id));
+      }
     } else if (latestSub && latestSub.code && latestSub.code.trim() && !isDummyBoilerplate(latestSub.code)) {
       setCode(latestSub.code);
       if (latestSub.language && availableLanguages.some((l) => l.id === latestSub.language)) {
         setSelectedLanguage(latestSub.language as CodingLanguage);
+      }
+      if (!solvedProblemIds.has(currentProblem.id)) {
+        setInProgressProblemIds((prev) => new Set(prev).add(currentProblem.id));
       }
     } else {
       // Find template from problem or starter_code
@@ -1136,6 +1210,9 @@ export default function StudentPracticeCodingRunnerPage() {
     setIsBottomMinimized(false);
     setBottomTab("testresult");
     setConsoleOutput("Compiling and executing against sample test cases...\n");
+    if (!solvedProblemIds.has(currentProblem.id)) {
+      setInProgressProblemIds((prev) => new Set(prev).add(currentProblem.id));
+    }
 
     try {
       // RUN only executes VISIBLE / SAMPLE test cases — NEVER hidden ones
@@ -1262,6 +1339,9 @@ export default function StudentPracticeCodingRunnerPage() {
     setIsBottomMinimized(false);
     setBottomTab("testresult");
     setConsoleOutput(`Running solution with custom input...\nInput:\n${customInputText || "(None)"}\n`);
+    if (!solvedProblemIds.has(currentProblem.id)) {
+      setInProgressProblemIds((prev) => new Set(prev).add(currentProblem.id));
+    }
 
     try {
       const res = await fetch("/api/code/run-testcases", {
@@ -1505,6 +1585,9 @@ export default function StudentPracticeCodingRunnerPage() {
           localStorage.setItem(key, code);
         } catch {}
       }
+      if (!solvedProblemIds.has(currentProblem.id)) {
+        setInProgressProblemIds((prev) => new Set(prev).add(currentProblem.id));
+      }
       if (trackId && currentAttempt?.id && !isReviewMode) {
         fetch(`/api/student/practices/${trackId}`, {
           method: "POST",
@@ -1532,6 +1615,20 @@ export default function StudentPracticeCodingRunnerPage() {
     setConsoleOutput("");
     setBottomTab("testcase");
     setCurrentIdx(idx);
+
+    const targetProb = problems[idx];
+    if (targetProb?.id && !solvedProblemIds.has(targetProb.id)) {
+      setInProgressProblemIds((prev) => {
+        const next = new Set(prev).add(targetProb.id);
+        if (typeof window !== "undefined") {
+          try {
+            sessionStorage.setItem(`lms_visited_${rawId}`, JSON.stringify(Array.from(next)));
+          } catch {}
+        }
+        return next;
+      });
+    }
+
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem(`lms_coding_last_q_${rawId}`, String(idx));
@@ -1839,14 +1936,76 @@ export default function StudentPracticeCodingRunnerPage() {
     toast({ title: "Posted", description: "Your discussion note has been shared." });
   };
 
+  const isProblemSolved = useCallback(
+    (probId: string, slug?: string) => {
+      if (solvedProblemIds.has(probId)) return true;
+      const probSubs = allSubmissions.filter((s: any) =>
+        matchesProblemSubmission(s, probId, slug)
+      );
+      return probSubs.some((s: any) => s.status === "accepted" || s.status === "passed");
+    },
+    [solvedProblemIds, allSubmissions]
+  );
+
+  const isProblemInProgress = useCallback(
+    (prob: any) => {
+      if (!prob) return false;
+      if (isProblemSolved(prob.id, prob.slug)) return false;
+
+      // 1. Explicit inProgress state
+      if (inProgressProblemIds.has(prob.id)) return true;
+
+      // 2. Non-accepted submissions exist
+      const probSubs = allSubmissions.filter((s: any) =>
+        matchesProblemSubmission(s, prob.id, prob.slug)
+      );
+      if (probSubs.length > 0) return true;
+
+      // 3. Active problem in editor being viewed or worked on
+      if (currentProblem && prob.id === currentProblem.id) {
+        return true;
+      }
+
+      // 4. Saved in localStorage
+      if (typeof window !== "undefined") {
+        const starter = prob.starter_code || {};
+        const templates = prob.templates || starter.templates || {};
+        const possibleLangs: CodingLanguage[] = [
+          selectedLanguage,
+          ...(prob.allowed_languages || []),
+          ...(prob.allowedLanguages || []),
+          prob.default_language,
+          "c", "cpp", "java", "python", "javascript", "typescript", "sql"
+        ].filter(Boolean) as CodingLanguage[];
+        const uniqueLangs = Array.from(new Set(possibleLangs));
+
+        for (const lang of uniqueLangs) {
+          try {
+            const key = getStorageKey(prob.id, lang);
+            const saved = localStorage.getItem(key);
+            if (saved && saved.trim()) {
+              const isUntouched = Object.values(templates).some(
+                (t) => typeof t === "string" && t.trim().length > 0 && t.trim() === saved.trim()
+              );
+              if (!isUntouched) return true;
+            }
+          } catch {}
+        }
+      }
+
+      return false;
+    },
+    [isProblemSolved, inProgressProblemIds, allSubmissions, currentProblem, code, selectedLanguage, getStorageKey]
+  );
+
   // Stats for the Right Navigator Panel
   const solvedCount = useMemo(() => {
-    return problems.filter((p) => solvedProblemIds.has(p.id)).length;
-  }, [problems, solvedProblemIds]);
+    return problems.filter((p) => isProblemSolved(p.id, p.slug)).length;
+  }, [problems, isProblemSolved]);
 
   const inProgressCount = useMemo(() => {
-    return problems.filter((p) => inProgressProblemIds.has(p.id) && !solvedProblemIds.has(p.id)).length;
-  }, [problems, inProgressProblemIds, solvedProblemIds]);
+    return problems.filter((p) => isProblemInProgress(p)).length;
+  }, [problems, isProblemInProgress]);
 
   const notAttemptedCount = useMemo(() => {
     const rem = problems.length - (solvedCount + inProgressCount);
@@ -2147,8 +2306,8 @@ export default function StudentPracticeCodingRunnerPage() {
               <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 max-h-40 overflow-y-auto p-1">
                 {problems.map((p, idx) => {
                   const isActive = idx === currentIdx;
-                  const isSolved = solvedProblemIds.has(p.id);
-                  const isInProgress = inProgressProblemIds.has(p.id) && !isSolved;
+                  const isSolved = isProblemSolved(p.id, p.slug);
+                  const isInProgress = isProblemInProgress(p);
 
                   return (
                     <button
@@ -2161,11 +2320,15 @@ export default function StudentPracticeCodingRunnerPage() {
                       className={cn(
                         "h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer border",
                         isActive
-                          ? "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-300"
+                          ? isSolved
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-blue-500 ring-offset-2"
+                            : isInProgress
+                            ? "bg-amber-500 text-white border-amber-600 shadow-xs ring-2 ring-blue-500 ring-offset-2"
+                            : "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-300 ring-offset-2"
                           : isSolved
                           ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
                           : isInProgress
-                          ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
+                          ? "bg-amber-100 text-amber-900 border-amber-400 hover:bg-amber-200"
                           : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
                       )}
                     >
@@ -2350,7 +2513,7 @@ export default function StudentPracticeCodingRunnerPage() {
                             isAnswered
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : isInProgress
-                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              ? "bg-amber-100 text-amber-900 border-amber-400 font-bold"
                               : "bg-slate-100 text-slate-600 border-slate-200"
                           )}
                         >
@@ -3529,8 +3692,8 @@ export default function StudentPracticeCodingRunnerPage() {
               <div className="grid grid-cols-5 gap-2">
                 {problems.map((p, idx) => {
                   const isActive = idx === currentIdx;
-                  const isSolved = solvedProblemIds.has(p.id);
-                  const isInProgress = inProgressProblemIds.has(p.id) && !isSolved;
+                  const isSolved = isProblemSolved(p.id, p.slug);
+                  const isInProgress = isProblemInProgress(p);
 
                   return (
                     <button
@@ -3540,11 +3703,15 @@ export default function StudentPracticeCodingRunnerPage() {
                       className={cn(
                         "h-9 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer border",
                         isActive
-                          ? "bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-300"
+                          ? isSolved
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-sm ring-2 ring-blue-500 ring-offset-2"
+                            : isInProgress
+                            ? "bg-amber-500 text-white border-amber-600 shadow-sm ring-2 ring-blue-500 ring-offset-2"
+                            : "bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-300 ring-offset-2"
                           : isSolved
                           ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
                           : isInProgress
-                          ? "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100"
+                          ? "bg-amber-100 text-amber-900 border-amber-400 hover:bg-amber-200"
                           : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
                       )}
                     >

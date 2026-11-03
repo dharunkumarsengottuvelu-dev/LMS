@@ -227,10 +227,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing assignment ID" }, { status: 400 });
     }
 
-    const { error } = await adminClient
-      .from("assignments")
-      .delete()
-      .eq("id", id);
+    // Delete associated submissions first
+    try { await adminClient.from("assignment_submissions").delete().eq("assignment_id", id); } catch (e) {}
+
+    const { error } = await adminClient.from("assignments").delete().eq("id", id);
 
     if (error) throw error;
 

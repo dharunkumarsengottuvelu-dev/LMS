@@ -527,8 +527,18 @@ export async function DELETE(request: NextRequest) {
 
     const authUserId = prof?.user_id || id;
 
+    // Delete or unassign dependent child records first to satisfy FK constraints
+    try { await adminClient.from("batch_members").delete().or(`student_id.eq.${id},student_id.eq.${authUserId}`); } catch (e) {}
+    try { await adminClient.from("enrollments").delete().or(`student_id.eq.${id},student_id.eq.${authUserId}`); } catch (e) {}
+    try { await adminClient.from("lesson_progress").delete().or(`student_id.eq.${id},student_id.eq.${authUserId}`); } catch (e) {}
+    try { await adminClient.from("certificates").delete().or(`student_id.eq.${id},student_id.eq.${authUserId}`); } catch (e) {}
+    try { await adminClient.from("assessment_attempts").delete().or(`student_id.eq.${id},user_id.eq.${authUserId}`); } catch (e) {}
+    try { await adminClient.from("coding_submissions").delete().or(`student_id.eq.${id},user_id.eq.${authUserId}`); } catch (e) {}
+    try { await adminClient.from("assignment_submissions").delete().or(`student_id.eq.${id},student_id.eq.${authUserId}`); } catch (e) {}
+
     // Delete from profiles
-    await adminClient.from("profiles").delete().or(`id.eq.${id},user_id.eq.${authUserId}`);
+    const { error: profDeleteErr } = await adminClient.from("profiles").delete().or(`id.eq.${id},user_id.eq.${authUserId}`);
+    if (profDeleteErr) throw profDeleteErr;
 
     // Delete from Auth if exists
     try {

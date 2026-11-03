@@ -286,6 +286,12 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing test ID" }, { status: 400 });
     }
 
+    // Safely delete associated assessment items, logs, and attempts first
+    try { await adminClient.from("assessment_questions").delete().eq("assessment_id", id); } catch (e) {}
+    try { await adminClient.from("proctoring_violations").delete().eq("assessment_id", id); } catch (e) {}
+    try { await adminClient.from("proctoring_logs").delete().eq("assessment_id", id); } catch (e) {}
+    try { await adminClient.from("assessment_attempts").delete().eq("assessment_id", id); } catch (e) {}
+
     const { error } = await adminClient.from("assessments").delete().eq("id", id);
 
     if (error) throw error;

@@ -231,9 +231,23 @@ export function ModuleManagementHub({ role = "admin" }: { role?: "admin" | "trai
     toast({ title: "Module Published", description: `"${newTitle}" added to course.` });
   };
 
-  const handleDeleteModule = (id: string, title: string) => {
-    setModules((prev) => prev.filter((m) => m.id !== id));
-    toast({ title: "Module Deleted", description: `${title} removed.`, variant: "destructive" });
+  const handleDeleteModule = async (id: string, title: string) => {
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      await supabase.from("lessons").delete().eq("module_id", id);
+      const { error } = await supabase.from("modules").delete().eq("id", id);
+      if (error) throw error;
+      setModules((prev) => prev.filter((m) => m.id !== id));
+      toast({ title: "Module Deleted", description: `"${title}" was permanently removed.` });
+    } catch (err: any) {
+      console.error("Failed to delete module:", err);
+      toast({
+        title: "Delete Failed",
+        description: err.message || "Failed to delete module from database.",
+        variant: "destructive",
+      });
+    }
   };
 
   const openAssignView = (mod: CourseModuleItem) => {

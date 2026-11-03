@@ -1659,15 +1659,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 3. DELETE MAIN MODULE (Level 1)
+    try { await adminClient.from("practice_modules").delete().eq("track_id", id); } catch (e) {}
+    try { await adminClient.from("practice_submodules").delete().eq("main_module_id", id); } catch (e) {}
+    try { await adminClient.from("batch_module_visibility").delete().eq("module_id", id); } catch (e) {}
+
     const { error } = await adminClient.from("practice_tracks").delete().eq("id", id);
-
-    if (error) {
-      throw error;
-    }
-
-    try {
-      await adminClient.from("practice_submodules").delete().eq("main_module_id", id);
-    } catch (e) {}
+    if (error) throw error;
 
     return NextResponse.json({ success: true, message: "Main module deleted successfully" });
   } catch (error) {

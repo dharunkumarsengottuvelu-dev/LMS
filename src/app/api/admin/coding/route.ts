@@ -473,6 +473,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing problem 'id' or 'ids' parameter." }, { status: 400 });
     }
 
+    // Safely delete associated test cases and submissions first to satisfy foreign key constraints
+    try { await supabase.from("test_cases").delete().in("problem_id", idsToDelete); } catch (e) {}
+    try { await supabase.from("coding_submissions").delete().in("problem_id", idsToDelete); } catch (e) {}
+
     const { error } = await supabase.from("coding_problems").delete().in("id", idsToDelete);
     if (error) {
       console.error("Error deleting coding problem(s):", error);

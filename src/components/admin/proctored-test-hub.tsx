@@ -1163,18 +1163,26 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       description: `Are you sure you want to delete assessment "${title}"? This will cancel the exam and remove it from student schedules.`,
       confirmText: "Delete Assessment",
       onConfirm: async () => {
-        setTests((prev) => prev.filter((t) => t.id !== id));
-        setSelectedTestIds((prev) => prev.filter((tId) => tId !== id));
         try {
-          await fetch(`/api/admin/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-        } catch (err) {
+          const res = await fetch(`/api/admin/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to delete assessment");
+          }
+          setTests((prev) => prev.filter((t) => t.id !== id));
+          setSelectedTestIds((prev) => prev.filter((tId) => tId !== id));
+          toast({
+            title: "Exam Cancelled",
+            description: `"${title}" removed from schedule.`,
+          });
+        } catch (err: any) {
           console.error("Failed to delete test", err);
+          toast({
+            title: "Delete Failed",
+            description: err.message || "Failed to delete assessment from database.",
+            variant: "destructive",
+          });
         }
-        toast({
-          title: "Exam Cancelled",
-          description: `${title} removed from schedule.`,
-          variant: "destructive",
-        });
       },
     });
   };
@@ -1187,22 +1195,37 @@ export function ProctoredTestHub({ role = "admin" }: { role?: "admin" | "trainer
       description: `Are you sure you want to permanently delete ${count} selected assessment(s)? This action cannot be undone.`,
       confirmText: `Delete ${count} Assessment${count === 1 ? "" : "s"}`,
       onConfirm: async () => {
-        setTests((prev) => prev.filter((t) => !testIds.includes(t.id)));
-        setSelectedTestIds([]);
         try {
-          await Promise.all(
-            testIds.map((id) =>
-              fetch(`/api/admin/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" })
-            )
+          const results = await Promise.all(
+            testIds.map(async (id) => {
+              const res = await fetch(`/api/admin/tests?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+              return { id, ok: res.ok };
+            })
           );
-        } catch (err) {
+          const successfulIds = results.filter((r) => r.ok).map((r) => r.id);
+          if (successfulIds.length > 0) {
+            setTests((prev) => prev.filter((t) => !successfulIds.includes(t.id)));
+            setSelectedTestIds((prev) => prev.filter((id) => !successfulIds.includes(id)));
+            toast({
+              title: "Assessments Deleted",
+              description: `Successfully removed ${successfulIds.length} assessment${successfulIds.length > 1 ? "s" : ""}.`,
+            });
+          }
+          if (successfulIds.length < testIds.length) {
+            toast({
+              title: "Partial Deletion Notice",
+              description: `${testIds.length - successfulIds.length} assessment(s) could not be removed.`,
+              variant: "destructive",
+            });
+          }
+        } catch (err: any) {
           console.error("Failed to bulk delete tests", err);
+          toast({
+            title: "Bulk Delete Failed",
+            description: err.message || "Could not complete bulk deletion.",
+            variant: "destructive",
+          });
         }
-        toast({
-          title: "Assessments Deleted",
-          description: `${count} assessment(s) removed from schedule.`,
-          variant: "destructive",
-        });
       },
     });
   };

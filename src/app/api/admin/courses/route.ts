@@ -445,6 +445,16 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing course ID" }, { status: 400 });
     }
 
+    // Safely cascade child relations before deleting course
+    try { await adminClient.from("lesson_progress").delete().eq("course_id", id); } catch (e) {}
+    try { await adminClient.from("resources").delete().eq("course_id", id); } catch (e) {}
+    try { await adminClient.from("lessons").delete().eq("course_id", id); } catch (e) {}
+    try { await adminClient.from("modules").delete().eq("course_id", id); } catch (e) {}
+    try { await adminClient.from("enrollments").delete().eq("course_id", id); } catch (e) {}
+    try { await adminClient.from("certificates").delete().eq("course_id", id); } catch (e) {}
+    try { await adminClient.from("assignments").delete().eq("course_id", id); } catch (e) {}
+    try { await adminClient.from("batch_module_visibility").delete().eq("module_id", id); } catch (e) {}
+
     const { error } = await adminClient.from("courses").delete().eq("id", id);
 
     if (error) throw error;

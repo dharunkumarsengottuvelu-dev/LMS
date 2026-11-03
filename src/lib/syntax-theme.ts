@@ -232,6 +232,14 @@ export const sensiLearnLightTheme: Monaco.editor.IStandaloneThemeData = {
     "editorRuler.foreground": "#F1F5F9",
     "editorBracketMatch.background": "#DBEAFE80",
     "editorBracketMatch.border": "#93C5FD",
+    // Suggest & Autocomplete Widget High-Contrast Colors
+    "editorSuggestWidget.background": "#FFFFFF",
+    "editorSuggestWidget.border": "#CBD5E1",
+    "editorSuggestWidget.foreground": "#0F172A",
+    "editorSuggestWidget.selectedBackground": "#EFF6FF",
+    "editorSuggestWidget.selectedForeground": "#1D4ED8",
+    "editorSuggestWidget.highlightForeground": "#2563EB",
+    "editorSuggestWidget.focusHighlightForeground": "#1D4ED8",
   },
 };
 

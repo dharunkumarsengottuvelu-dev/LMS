@@ -297,27 +297,177 @@ p, span, div {
 
 .monaco-editor .suggest-widget {
   border-radius: 8px !important;
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.2), 0 4px 12px -2px rgba(0, 0, 0, 0.1) !important;
-  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.18), 0 4px 12px -2px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid #CBD5E1 !important;
   margin-top: 4px !important;
-  min-width: 260px !important;
+  min-width: 300px !important;
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
 }
 
 .monaco-editor .suggest-widget .monaco-list-row {
-  line-height: 22px !important;
+  line-height: 26px !important;
+  color: #1E293B !important;
+  padding: 2px 8px !important;
+  background-color: #FFFFFF !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row .label-name {
+  color: #0F172A !important;
+  font-weight: 600 !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row .label-name .highlight {
+  color: #2563EB !important;
+  font-weight: 700 !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row .monaco-icon-label-description-container,
+.monaco-editor .suggest-widget .monaco-list-row .label-description,
+.monaco-editor .suggest-widget .monaco-list-row .type-label,
+.monaco-editor .suggest-widget .monaco-list-row .details-label,
+.monaco-editor .suggest-widget .monaco-list-row .qualifier-label {
+  color: #475569 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  opacity: 1 !important;
 }
 
 .monaco-editor .suggest-widget .monaco-list-row.focused {
   background-color: #EFF6FF !important;
+  color: #1E40AF !important;
 }
 
-.dark .monaco-editor .suggest-widget {
-  border: 1px solid rgba(39, 39, 42, 0.9) !important;
+.monaco-editor .suggest-widget .monaco-list-row.focused .label-name {
+  color: #1D4ED8 !important;
+  font-weight: 700 !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row.focused .monaco-icon-label-description-container,
+.monaco-editor .suggest-widget .monaco-list-row.focused .label-description,
+.monaco-editor .suggest-widget .monaco-list-row.focused .type-label,
+.monaco-editor .suggest-widget .monaco-list-row.focused .details-label,
+.monaco-editor .suggest-widget .monaco-list-row.focused .qualifier-label {
+  color: #1E293B !important;
+  opacity: 1 !important;
+  font-weight: 600 !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row .codicon,
+.monaco-editor .suggest-widget .monaco-list-row .suggest-icon {
+  color: #2563EB !important;
+  opacity: 1 !important;
+}
+
+.monaco-editor .suggest-widget .details {
+  background-color: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #334155 !important;
+}
+
+/* Ensure light editor theme inside dark mode does not get washed-out text */
+.dark .monaco-editor.vs .suggest-widget,
+.dark .monaco-editor:not(.vs-dark) .suggest-widget {
+  background-color: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.2) !important;
+  color: #0F172A !important;
+}
+
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row,
+.dark .monaco-editor:not(.vs-dark) .suggest-widget .monaco-list-row {
+  color: #1E293B !important;
+  background-color: #FFFFFF !important;
+}
+
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row .label-name,
+.dark .monaco-editor:not(.vs-dark) .suggest-widget .monaco-list-row .label-name {
+  color: #0F172A !important;
+  font-weight: 600 !important;
+}
+
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row .label-name .highlight,
+.dark .monaco-editor:not(.vs-dark) .suggest-widget .monaco-list-row .label-name .highlight {
+  color: #2563EB !important;
+  font-weight: 700 !important;
+}
+
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row .monaco-icon-label-description-container,
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row .label-description,
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row .type-label,
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row .details-label,
+.dark .monaco-editor:not(.vs-dark) .suggest-widget .monaco-list-row .type-label,
+.dark .monaco-editor:not(.vs-dark) .suggest-widget .monaco-list-row .details-label {
+  color: #475569 !important;
+  opacity: 1 !important;
+  font-weight: 500 !important;
+}
+
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row.focused,
+.dark .monaco-editor:not(.vs-dark) .suggest-widget .monaco-list-row.focused {
+  background-color: #EFF6FF !important;
+  color: #1E40AF !important;
+}
+
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row.focused .label-name,
+.dark .monaco-editor:not(.vs-dark) .suggest-widget .monaco-list-row.focused .label-name {
+  color: #1D4ED8 !important;
+  font-weight: 700 !important;
+}
+
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row.focused .monaco-icon-label-description-container,
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row.focused .label-description,
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row.focused .type-label,
+.dark .monaco-editor.vs .suggest-widget .monaco-list-row.focused .details-label,
+.dark .monaco-editor:not(.vs-dark) .suggest-widget .monaco-list-row.focused .type-label,
+.dark .monaco-editor:not(.vs-dark) .suggest-widget .monaco-list-row.focused .details-label {
+  color: #1E293B !important;
+  opacity: 1 !important;
+  font-weight: 600 !important;
+}
+
+.dark .monaco-editor.vs-dark .suggest-widget {
+  background-color: #18181B !important;
+  border: 1px solid #3F3F46 !important;
   box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6) !important;
+  color: #F4F4F5 !important;
 }
 
-.dark .monaco-editor .suggest-widget .monaco-list-row.focused {
-  background-color: #1E293B !important;
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row {
+  color: #E4E4E7 !important;
+  background-color: #18181B !important;
+}
+
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row .label-name {
+  color: #FAFAFA !important;
+}
+
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row .label-name .highlight {
+  color: #60A5FA !important;
+}
+
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row .monaco-icon-label-description-container,
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row .label-description,
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row .type-label,
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row .details-label {
+  color: #A1A1AA !important;
+  opacity: 1 !important;
+}
+
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row.focused {
+  background-color: #27272A !important;
+  color: #60A5FA !important;
+}
+
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row.focused .label-name {
+  color: #93C5FD !important;
+}
+
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row.focused .monaco-icon-label-description-container,
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row.focused .label-description,
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row.focused .type-label,
+.dark .monaco-editor.vs-dark .suggest-widget .monaco-list-row.focused .details-label {
+  color: #E4E4E7 !important;
 }
 
 /* ── Professional Monaco Editor Typography & Active-Line Removal ── */
