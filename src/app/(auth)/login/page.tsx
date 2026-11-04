@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -91,22 +90,10 @@ function resolveRoleDestination(role: string, nextUrl: string | null): string {
   return nextUrl;
 }
 
-async function generateHashedNonce(): Promise<{ rawNonce: string; hashedNonce: string }> {
-  const rawNonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
-  const encoder = new TextEncoder();
-  const encodedNonce = encoder.encode(rawNonce);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", encodedNonce);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashedNonce = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-  return { rawNonce, hashedNonce };
-}
-
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isGsiLoaded, setIsGsiLoaded] = useState(false);
-  const rawNonceRef = useRef<string>("");
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createClient();
@@ -231,139 +218,33 @@ export default function LoginPage() {
     }
   }
 
-  const performOAuthRedirect = useCallback(async () => {
-    const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-    const origin = typeof window !== "undefined" && window.location.origin
-      ? window.location.origin
-      : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn.com");
-    const callbackUrl = new URL("/api/auth/callback", origin);
-    if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
-      callbackUrl.searchParams.set("next", nextUrl);
-    }
-
-    console.log("[AUTH] Initiating Google OAuth with redirectTo:", callbackUrl.toString());
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: callbackUrl.toString(),
-        queryParams: {
-          prompt: "select_account",
-        },
-      },
-    });
-    if (error) throw error;
-  }, [supabase]);
-
-  const handleGoogleCredentialResponse = useCallback(async (response: { credential?: string }) => {
-    if (!response.credential) {
-      setIsGoogleLoading(false);
-      return;
-    }
-
-    setIsGoogleLoading(true);
-    try {
-      const { data: authData, error } = await supabase.auth.signInWithIdToken({
-        provider: "google",
-        token: response.credential,
-        nonce: rawNonceRef.current || undefined,
-      });
-
-      if (error) {
-        console.warn("[GSI] ID token exchange failed, falling back to OAuth redirect:", error.message);
-        await performOAuthRedirect();
-        return;
-      }
-
-      if (authData.user) {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("role")
-          .or(`user_id.eq.${authData.user.id},id.eq.${authData.user.id}`)
-          .maybeSingle();
-
-        const profile = profileData as { role?: string } | null;
-        toast({ title: "Welcome back", description: "Signed in with Google successfully." });
-
-        const emailLower = authData.user.email?.toLowerCase() || "";
-        const profileRole = (
-          profile?.role ||
-          (authData.user.user_metadata?.role as string) ||
-          (authData.user.app_metadata?.role as string) ||
-          ""
-        ).toLowerCase();
-
-        let effectiveRole = "student";
-        if (profileRole === "super_admin" || profileRole === "admin") {
-          effectiveRole = "admin";
-        } else if (profileRole === "institution") {
-          effectiveRole = "institution";
-        } else if (profileRole === "trainer") {
-          effectiveRole = "trainer";
-        } else if (profileRole === "recruiter") {
-          effectiveRole = "recruiter";
-        }
-
-        const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-        const target = resolveRoleDestination(effectiveRole, nextUrl);
-
-        router.push(target);
-        router.refresh();
-      }
-    } catch (err: unknown) {
-      console.warn("[GSI] Exception during ID token login, falling back to OAuth:", err);
-      try {
-        await performOAuthRedirect();
-      } catch (redirectErr: unknown) {
-        const msg = redirectErr instanceof Error ? redirectErr.message : "Google authentication error";
-        toast({ title: "Google Sign-In Error", description: msg, variant: "destructive" });
-        setIsGoogleLoading(false);
-      }
-    }
-  }, [supabase, router, toast, performOAuthRedirect]);
-
-  // Initialize Google Identity Services when script loads
-  useEffect(() => {
-    const clientId = process.env["NEXT_PUBLIC_GOOGLE_CLIENT_ID"];
-    if (!clientId || typeof window === "undefined") return;
-
-    async function initGsi() {
-      const googleObj = (window as unknown as { google?: { accounts?: { id?: { initialize: (c: unknown) => void; prompt: (n?: unknown) => void } } } }).google;
-      if (!googleObj?.accounts?.id) return;
-
-      try {
-        const { rawNonce, hashedNonce } = await generateHashedNonce();
-        rawNonceRef.current = rawNonce;
-
-        googleObj.accounts.id.initialize({
-          client_id: clientId,
-          callback: handleGoogleCredentialResponse,
-          nonce: hashedNonce,
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
-        try {
-          googleObj.accounts.id.prompt();
-        } catch {}
-      } catch {
-        googleObj.accounts.id.initialize({
-          client_id: clientId,
-          callback: handleGoogleCredentialResponse,
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
-      }
-    }
-
-    if (isGsiLoaded) {
-      initGsi();
-    }
-  }, [isGsiLoaded, handleGoogleCredentialResponse]);
-
   async function handleGoogleLogin() {
     setIsGoogleLoading(true);
     try {
-      await performOAuthRedirect();
+      const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
+      const origin = typeof window !== "undefined" && window.location.origin
+        ? window.location.origin
+        : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn.com");
+      const callbackUrl = new URL("/api/auth/callback", origin);
+      if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+        callbackUrl.searchParams.set("next", nextUrl);
+      }
+
+      console.log("[AUTH] Initiating Google OAuth with redirectTo:", callbackUrl.toString());
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: callbackUrl.toString(),
+          queryParams: {
+            prompt: "select_account",
+          },
+        },
+      });
+      if (error) throw error;
+      if (data?.url && typeof window !== "undefined") {
+        window.location.assign(data.url);
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Google sign-in failed";
       toast({ title: "Google Sign-In Error", description: message, variant: "destructive" });
@@ -373,11 +254,6 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-[420px] mx-auto space-y-4 select-none">
-      <Script
-        src="https://accounts.google.com/gsi/client"
-        strategy="afterInteractive"
-        onLoad={() => setIsGsiLoaded(true)}
-      />
       
       {/* MNC Enterprise Header */}
       <div className="space-y-1 text-left">
