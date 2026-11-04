@@ -148,7 +148,7 @@ export function Loading({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/favicon.png"
-            alt="SensilLearn"
+            alt="SensiLearn"
             width={config.image}
             height={config.image}
             className="w-full h-full object-contain rounded-full drop-shadow-sm select-none"

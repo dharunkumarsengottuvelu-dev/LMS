@@ -4,9 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "node --max-http-header-size=65536 ./node_modules/next/dist/bin/next dev --turbo",
-    "build": "node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build",
+    "build": "node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build --webpack",
     "start": "node --max-http-header-size=65536 ./node_modules/next/dist/bin/next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test:compiler": "node --env-file=.env.local scripts/run-regression.js",
+    "test:languages": "npx tsx --env-file=.env.local scripts/test-compilers.ts",
+    "test:batches": "npx tsx --env-file=.env.local scripts/test-batch-visibility-system.ts",
+    "test:email": "npx tsx --env-file=.env.local scripts/test-smtp.ts",
+    "email:broadcast": "npx tsx --env-file=.env.local scripts/broadcast-hosting-announcement.ts",
+    "test:all": "npm run typecheck && npm run test:compiler && npm run test:languages && npm run test:batches && npm run test:email",
+    "test:templates": "node --env-file=.env.local scripts/test-email-notification-system.js",
+    "test:responsive": "node scripts/test-responsive-design.js"
   },
   "allowScripts": {
     "unrs-resolver": true
@@ -111,14 +120,25 @@
     "proxy-addr": "^2.0.8",
     "postcss-selector-parser": "^7.1.7",
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "follow-redirects": "^1.16.2",
+    "systeminformation": "^5.33.19",
+    "deepmerge": "npm:@stackline/deepmerge@^1.1.1",
     "eslint": {
       "brace-expansion": "^1.1.21"
     },
     "typescript-eslint": {
-      "brace-expansion": "^5.0.12"
+      "brace-expansion": "^5.0.12",
+      "minimatch": "^11.0.4"
     },
     "ts-morph": {
-      "brace-expansion": "^5.0.12"
+      "brace-expansion": "^5.0.12",
+      "minimatch": "^11.0.4"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.4"
+    },
+    "@ts-morph/common": {
+      "minimatch": "^11.0.4"
     }
   }
 }

@@ -7,7 +7,7 @@ import type { Metadata } from "next";
 import { getOriginalRequestPath } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: { template: "SensilLearn | %s", default: "SensilLearn | Admin Dashboard" },
+  title: { template: "SensiLearn | %s", default: "SensiLearn | Admin Dashboard" },
 };
 
 export default async function AdminLayout({

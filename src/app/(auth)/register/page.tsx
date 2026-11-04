@@ -55,7 +55,7 @@ export default function RegisterPage() {
     setIsGoogleLoading(true);
     try {
       const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-      const origin = typeof window !== "undefined" ? window.location.origin : (process.env["NEXT_PUBLIC_APP_URL"] || "http://localhost:3000");
+      const origin = typeof window !== "undefined" && window.location.origin ? window.location.origin : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn.com");
       const callbackUrl = new URL("/api/auth/callback", origin);
       if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
         callbackUrl.searchParams.set("next", nextUrl);

@@ -8,8 +8,8 @@ import { getOriginalRequestPath } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: {
-    template: "SensilLearn | %s",
-    default: "SensilLearn | Institution Dashboard",
+    template: "SensiLearn | %s",
+    default: "SensiLearn | Institution Dashboard",
   },
   description: "Academic and learner performance portal for partner institutions.",
 };

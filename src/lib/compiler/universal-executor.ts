@@ -110,7 +110,7 @@ export class UniversalExecutor {
     const adaptedCode = adaptCodeForExecution(langDef.id, code);
 
     // 1. Resolve source filename dynamically
-    const sourceInfo: SourceFileInfo = langDef.sourceFilenameStrategy(adaptedCode);
+    const sourceInfo: SourceFileInfo = langDef.sourceFilenameStrategy(code);
     tracker.endValidation();
 
     if (sourceInfo.error) {

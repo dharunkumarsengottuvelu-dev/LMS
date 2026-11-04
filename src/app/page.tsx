@@ -1451,16 +1451,16 @@ export default function LandingPage() {
                 <div className="flex flex-wrap items-center gap-2.5">
                   {/* Mail Expanding Pill Button: opens logged-in Gmail web composer */}
                   <a
-                    href="https://mail.google.com/mail/?view=cm&fs=1&to=sensigroup.info@gamil.com"
+                    href="https://mail.google.com/mail/?view=cm&fs=1&to=sensigroup.info@gmail.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label="Email: sensigroup.info@gamil.com"
+                    aria-label="Email: sensigroup.info@gmail.com"
                     title="Send Email (Opens in your logged-in Gmail)"
                     className="group relative inline-flex items-center h-10 px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_20px_-4px_rgba(37,99,235,0.28)] hover:border-blue-400/80 hover:bg-blue-50/30 text-slate-700 hover:text-blue-600 transition-all duration-300 ease-out cursor-pointer overflow-hidden"
                   >
                     <Mail className="h-4.5 w-4.5 shrink-0 text-blue-600 transition-transform duration-300 group-hover:scale-110" />
                     <span className="max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2.5 transition-all duration-300 ease-out overflow-hidden whitespace-nowrap text-xs font-semibold font-mono text-slate-800 dark:text-slate-100">
-                      sensigroup.info@gamil.com
+                      sensigroup.info@gmail.com
                     </span>
                   </a>
 

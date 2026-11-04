@@ -2,15 +2,15 @@
  * SENSILEARN LMS — MNC-LEVEL ENTERPRISE EMAIL TEMPLATES
  * 
  * Strict enterprise email formatting conforming to:
+ * - Brand: Sensilearn
+ * - Primary Color: #0A1F44 (Royal Dark Blue Header)
+ * - Secondary Color: #FFFFFF (Clean White Email Card)
+ * - Accent: #2563EB (Professional Blue Buttons & Highlights)
+ * - Background: #F4F6F8
+ * - Typography: Inter, -apple-system, BlinkMacSystemFont, Arial, sans-serif
  * - Master Card Layout: 640px maximum width, centered, responsive
- * - Outer Background: #F4F6F8
- * - Email Card: #FFFFFF, border #E5E7EB, rounded 14px
- * - Primary Brand Color: #2563EB (Sensilearn Blue)
- * - Structured Information Cards with Key-Value grids
- * - Dynamic Primary Contextual CTA Buttons
- * - Fallback Direct Deep-Links
- * - Official Enterprise Multi-Line Footer
- * - Strict zero-emoji, clean corporate typography (Inter / Arial / Helvetica)
+ * - Personalized Student Greeting: Dear {{student_name}},
+ * - Support Contact: sensigroup.info@gmail.com | sensilearn.com
  */
 
 import { getAbsoluteUrl, getAppOrigin } from "@/config/site";
@@ -31,6 +31,26 @@ export interface MasterEmailOptions {
   ctaText: string;
   redirectUrl: string;
   supportingText?: string;
+  subject?: string;
+  closing?: string;
+}
+
+function getFormattedCurrentDate(): string {
+  return new Date().toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function escapeHtml(str: string | number | null | undefined): string {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 /**
@@ -47,6 +67,8 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
     ctaText,
     redirectUrl,
     supportingText,
+    subject = `[SENSILEARN] ${title}`,
+    closing = "Best Regards,\nSensilearn Academic Team",
   } = options;
 
   const currentYear = new Date().getFullYear();
@@ -63,10 +85,10 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
             .map(
               (d) => `
             <tr>
-              <td style="padding: 7px 0; font-size: 13px; color: #64748B; width: 140px; vertical-align: top; font-weight: 500;">
+              <td style="padding: 8px 0; font-size: 13px; color: #64748B; width: 140px; vertical-align: top; font-weight: 500;">
                 ${escapeHtml(d.label)}
               </td>
-              <td style="padding: 7px 0; font-size: 13px; color: ${d.highlight ? "#2563EB" : "#0F172A"}; font-weight: 600; line-height: 1.5;">
+              <td style="padding: 8px 0; font-size: 13px; color: ${d.highlight ? "#2563EB" : "#0F172A"}; font-weight: 600; line-height: 1.5;">
                 ${escapeHtml(d.value)}
               </td>
             </tr>
@@ -81,26 +103,28 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
   // Plaintext version
   const textDetails = details.map((d) => `  ${d.label}: ${d.value}`).join("\n");
   const text = [
-    `SENSILEARN LEARNING TECHNOLOGIES`,
+    `SENSILEARN`,
     `[ ${categoryLabel.toUpperCase()} ]`,
     ``,
     title,
     ``,
-    `Hello ${recipientName},`,
+    `Dear ${recipientName},`,
     ``,
     message,
-    details.length > 0 ? `\nDetails:\n${textDetails}\n` : ``,
-    `Action: ${ctaText}`,
+    details.length > 0 ? `\nDETAILS:\n${textDetails}\n` : ``,
+    supportingText ? `${supportingText}\n` : ``,
+    `CTA: ${ctaText}`,
     `Direct Link: ${redirectUrl}`,
-    supportingText ? `\n${supportingText}\n` : ``,
+    ``,
     `--------------------------------------------------`,
     `If the link above does not open directly, copy and paste this address into your browser:`,
     redirectUrl,
     ``,
-    `Regards,`,
-    `SENSILEARN LEARNING TECHNOLOGIES`,
-    `Learning • Assessment • Growth`,
-    `Support | Privacy | Terms`,
+    closing,
+    ``,
+    `--------------------------------------------------`,
+    `Support: sensigroup.info@gmail.com | sensilearn.com`,
+    `This is an automated notification from the Sensilearn LMS platform. Please do not reply directly to this email.`,
     `© ${currentYear} Sensilearn Learning Technologies. All rights reserved.`,
   ]
     .filter(Boolean)
@@ -113,7 +137,7 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="x-apple-disable-message-reformatting">
-  <title>${escapeHtml(title)}</title>
+  <title>${escapeHtml(subject)}</title>
   <style>
     body {
       margin: 0;
@@ -154,16 +178,16 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
   <div class="email-wrapper" style="max-width: 640px; margin: 0 auto;">
     <table role="presentation" class="email-card" style="width: 100%; max-width: 640px; background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);">
       
-      <!-- Top Brand Header -->
+      <!-- Top Brand Header (Royal Dark Blue #0A1F44) -->
       <tr>
-        <td class="header-bar" style="padding: 24px 32px; background-color: #0F172A; border-bottom: 3px solid #2563EB;">
+        <td class="header-bar" style="padding: 24px 32px; background-color: #0A1F44; border-bottom: 3px solid #2563EB;">
           <table role="presentation" style="width: 100%;">
             <tr>
               <td style="vertical-align: middle;">
                 <table role="presentation" style="border-collapse: collapse;">
                   <tr>
                     <td style="padding-right: 12px; vertical-align: middle;">
-                      <img src="${logoUrl}" alt="Sensilearn Logo" width="32" height="32" style="display: block; border-radius: 6px; background-color: #1E293B;" onerror="this.style.display='none'" />
+                      <img src="${logoUrl}" alt="Sensilearn Logo" width="32" height="32" style="display: block; border-radius: 6px; background-color: #132B5C;" onerror="this.style.display='none'" />
                     </td>
                     <td style="vertical-align: middle;">
                       <div style="font-size: 18px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.3px; line-height: 1.2;">
@@ -177,7 +201,7 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
                 </table>
               </td>
               <td style="text-align: right; vertical-align: middle;">
-                <span style="display: inline-block; font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.8px; background-color: #1E293B; border: 1px solid #334155; padding: 4px 10px; border-radius: 6px;">
+                <span style="display: inline-block; font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.8px; background-color: #132B5C; border: 1px solid #1D4ED8; padding: 4px 10px; border-radius: 6px;">
                   Enterprise LMS
                 </span>
               </td>
@@ -198,13 +222,13 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
           </div>
 
           <!-- Email Title -->
-          <h1 style="margin: 0 0 16px; font-size: 20px; font-weight: 700; color: #0F172A; letter-spacing: -0.3px; line-height: 1.3;">
+          <h1 style="margin: 0 0 16px; font-size: 20px; font-weight: 700; color: #0A1F44; letter-spacing: -0.3px; line-height: 1.3;">
             ${escapeHtml(title)}
           </h1>
 
-          <!-- Greeting -->
+          <!-- Personalized Greeting -->
           <p style="margin: 0 0 14px; font-size: 14px; color: #334155; font-weight: 600;">
-            Hello ${escapeHtml(recipientName)},
+            Dear ${escapeHtml(recipientName)},
           </p>
 
           <!-- Core Message -->
@@ -215,6 +239,17 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
           <!-- Structured Info Card -->
           ${detailsHtml}
 
+          <!-- Supporting Text / Contextual Guidance -->
+          ${
+            supportingText
+              ? `
+            <p style="margin: 0 0 24px; font-size: 13px; color: #475569; line-height: 1.6;">
+              ${escapeHtml(supportingText)}
+            </p>
+          `
+              : ""
+          }
+
           <!-- Universal Primary CTA -->
           <div style="text-align: center; margin: 28px 0 24px;">
             <a href="${redirectUrl}" class="cta-button" style="display: inline-block; background-color: #2563EB; color: #FFFFFF !important; font-size: 13px; font-weight: 700; letter-spacing: 0.3px; text-decoration: none; padding: 13px 32px; border-radius: 9px; border: 1px solid #1D4ED8;">
@@ -222,15 +257,10 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
             </a>
           </div>
 
-          ${
-            supportingText
-              ? `
-            <p style="margin: 0 0 20px; font-size: 12px; color: #64748B; line-height: 1.5; text-align: center;">
-              ${escapeHtml(supportingText)}
-            </p>
-          `
-              : ""
-          }
+          <!-- Professional Closing -->
+          <div style="margin-top: 24px; font-size: 13px; color: #475569; line-height: 1.6;">
+            ${escapeHtml(closing).replace(/\n/g, "<br>")}
+          </div>
 
           <!-- Fallback Direct URL -->
           <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #F1F5F9;">
@@ -247,20 +277,20 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
         </td>
       </tr>
 
-      <!-- Master Footer -->
+      <!-- Master Corporate Footer -->
       <tr>
         <td style="padding: 24px 36px; background-color: #F8FAFC; border-top: 1px solid #E2E8F0; text-align: center;">
-          <div style="font-size: 12px; font-weight: 700; color: #0F172A; letter-spacing: 0.2px; margin-bottom: 4px;">
+          <div style="font-size: 12px; font-weight: 700; color: #0A1F44; letter-spacing: 0.2px; margin-bottom: 4px;">
             SENSILEARN LEARNING TECHNOLOGIES
           </div>
-          <div style="font-size: 11px; color: #64748B; margin-bottom: 12px;">
+          <div style="font-size: 11px; color: #64748B; margin-bottom: 8px;">
             Learning &bull; Assessment &bull; Growth
           </div>
-          <div style="font-size: 11px; color: #94A3B8; margin-bottom: 12px;">
-            Support &nbsp;|&nbsp; Privacy Policy &nbsp;|&nbsp; Terms of Service
+          <div style="font-size: 11px; color: #2563EB; margin-bottom: 12px;">
+            <a href="mailto:sensigroup.info@gmail.com" style="color: #2563EB; text-decoration: none;">Support: sensigroup.info@gmail.com</a> &nbsp;|&nbsp; <a href="https://sensilearn.com" style="color: #2563EB; text-decoration: none;">sensilearn.com</a>
           </div>
           <p style="margin: 0 0 6px; font-size: 11px; color: #94A3B8; line-height: 1.5;">
-            This is an automated notification from the SensiLearn LMS platform. Please do not reply to this email.
+            This is an automated notification from the Sensilearn LMS platform. Please do not reply directly to this email.
           </p>
           <p style="margin: 0; font-size: 11px; color: #94A3B8;">
             &copy; ${currentYear} Sensilearn Learning Technologies. All rights reserved.
@@ -273,516 +303,695 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
 </body>
 </html>`;
 
-  return { subject: `[SENSILEARN LMS] ${title}`, html, text };
-}
-
-function escapeHtml(str: string): string {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  return { subject, html, text };
 }
 
 /* ─────────────────────────────────────────────────────────────
- * EVENT-SPECIFIC TEMPLATE BUILDERS
+ * 20 ACTIVITY-SPECIFIC LMS EMAIL TEMPLATES
  * ───────────────────────────────────────────────────────────── */
 
-// 1. COURSE PUBLISHED
+// 1. COURSE EMAIL TEMPLATE (Section 2)
 export function generateCoursePublishedEmail(options: {
   recipientName: string;
   courseName: string;
-  trainerName?: string;
+  courseDescription?: string;
   batchName?: string;
+  trainerName?: string;
+  publishedDate?: string;
   courseUrl: string;
-  description?: string;
+  description?: string; // fallback alias
 }): { subject: string; html: string; text: string } {
+  const publishedDate = options.publishedDate || getFormattedCurrentDate();
+  const desc = options.courseDescription || options.description || "Comprehensive structured curriculum and hands-on modules.";
   return buildMncEmailLayout({
     recipientName: options.recipientName,
     categoryLabel: "Course Available",
     title: `New Course Available – ${options.courseName}`,
-    preheader: `New course enrolled: ${options.courseName}`,
-    message: `A new course has been published and assigned to your learning cohort on SensiLearn LMS. You can begin exploring your modules, curriculum, and interactive exercises now.`,
+    subject: `New Course Available – ${options.courseName} | Sensilearn`,
+    preheader: `New course opportunity: ${options.courseName}`,
+    message: `A new learning opportunity has been made available for your batch.`,
     details: [
       { label: "Course Name", value: options.courseName },
-      { label: "Lead Trainer", value: options.trainerName || "SensiLearn Faculty" },
-      { label: "Cohort / Batch", value: options.batchName || "Assigned Cohort" },
-      { label: "Status", value: "Active & Enrolled", highlight: true },
+      { label: "Description", value: desc },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Instructor", value: options.trainerName || "Sensilearn Faculty" },
+      { label: "Published Date", value: publishedDate, highlight: true },
     ],
-    ctaText: "VIEW COURSE",
+    supportingText: "You can now access the course through your Sensilearn learning dashboard.",
+    ctaText: "ACCESS YOUR COURSE",
     redirectUrl: options.courseUrl,
-    supportingText: "Complete all prerequisite modules to earn your technical certification.",
+    closing: "Best Regards,\nSensilearn Academic Team",
   });
 }
 
-// 2. COURSE UPDATED
-export function generateCourseUpdatedEmail(options: {
-  recipientName: string;
-  courseName: string;
-  updatedBy?: string;
-  changeSummary?: string;
-  courseUrl: string;
-}): { subject: string; html: string; text: string } {
-  return buildMncEmailLayout({
-    recipientName: options.recipientName,
-    categoryLabel: "Course Update",
-    title: `Course Updated – ${options.courseName}`,
-    preheader: `Course curriculum updated: ${options.courseName}`,
-    message: `Important updates have been published to the course curriculum for "${options.courseName}". Please review the updated syllabus and revised materials.`,
-    details: [
-      { label: "Course", value: options.courseName },
-      { label: "Updated By", value: options.updatedBy || "Academic Team" },
-      { label: "Change Summary", value: options.changeSummary || "Curriculum & Lesson Enhancements" },
-      { label: "Updated Date", value: new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) },
-    ],
-    ctaText: "VIEW UPDATED COURSE",
-    redirectUrl: options.courseUrl,
-    supportingText: "Your existing module completion progress remains safely preserved.",
-  });
-}
-
-// 3. PRACTICE PUBLISHED
+// 2. PRACTICE MODULE EMAIL TEMPLATE (Section 3)
 export function generatePracticePublishedEmail(options: {
   recipientName: string;
   practiceName: string;
-  category?: string;
+  courseName?: string;
+  topicName?: string;
+  batchName?: string;
+  publishedDate?: string;
+  practiceUrl: string;
+  category?: string; // fallback alias
   duration?: string;
   totalMarks?: string | number;
-  practiceUrl: string;
 }): { subject: string; html: string; text: string } {
+  const publishedDate = options.publishedDate || getFormattedCurrentDate();
   return buildMncEmailLayout({
     recipientName: options.recipientName,
-    categoryLabel: "Skill Lab Practice",
-    title: `New Practice Module Available – ${options.practiceName}`,
-    preheader: `Practice module ready: ${options.practiceName}`,
-    message: `A new hands-on technical practice track has been assigned to your workspace. Start working through the interactive challenges to reinforce your problem-solving skills.`,
+    categoryLabel: "Practice Module",
+    title: `New Practice Module – ${options.practiceName}`,
+    subject: `New Practice Module – ${options.practiceName} | Sensilearn`,
+    preheader: `Practice module available: ${options.practiceName}`,
+    message: `A new practice module has been added to your learning programme.`,
     details: [
-      { label: "Practice Track", value: options.practiceName },
-      { label: "Domain / Category", value: options.category || "Technical Problem Solving" },
-      { label: "Total Points", value: String(options.totalMarks || "100") },
-      { label: "Estimated Time", value: options.duration || "Self-Paced" },
+      { label: "Practice Name", value: options.practiceName },
+      { label: "Course", value: options.courseName || "Hands-on Technical Track" },
+      { label: "Topic", value: options.topicName || options.category || "Structured Problem Solving" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Available From", value: publishedDate, highlight: true },
     ],
-    ctaText: "START PRACTICE",
+    supportingText: "Strengthen your technical knowledge through structured practice.",
+    ctaText: "START PRACTICING",
     redirectUrl: options.practiceUrl,
-    supportingText: "Submissions are automatically evaluated against enterprise test suites.",
+    closing: "Best Regards,\nSensilearn Academic Team",
   });
 }
 
-// 4. PRACTICE UPDATED
-export function generatePracticeUpdatedEmail(options: {
+// 3. MCQ PRACTICE EMAIL TEMPLATE (Section 4)
+export function generateMcqPracticePublishedEmail(options: {
   recipientName: string;
   practiceName: string;
-  updatedBy?: string;
-  changeSummary?: string;
+  courseName?: string;
+  topicName?: string;
+  totalQuestions?: number | string;
+  batchName?: string;
   practiceUrl: string;
 }): { subject: string; html: string; text: string } {
   return buildMncEmailLayout({
     recipientName: options.recipientName,
-    categoryLabel: "Practice Update",
-    title: `Practice Module Updated – ${options.practiceName}`,
-    preheader: `Practice exercises revised: ${options.practiceName}`,
-    message: `The practice module "${options.practiceName}" has been updated with revised challenges, instructions, or additional test suites.`,
+    categoryLabel: "MCQ Practice",
+    title: `New MCQ Practice Available – ${options.practiceName}`,
+    subject: `New MCQ Practice Available – ${options.practiceName} | Sensilearn`,
+    preheader: `Multiple-choice practice ready: ${options.practiceName}`,
+    message: `A new multiple-choice practice activity is now available.`,
     details: [
-      { label: "Practice Track", value: options.practiceName },
-      { label: "Updated By", value: options.updatedBy || "Lead Trainer" },
-      { label: "Changes", value: options.changeSummary || "Questions & Test Specifications Updated" },
-      { label: "Updated Date", value: new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) },
+      { label: "Practice", value: options.practiceName },
+      { label: "Course", value: options.courseName || "Conceptual Foundation Track" },
+      { label: "Topic", value: options.topicName || "Objective Evaluation" },
+      { label: "Total Questions", value: String(options.totalQuestions || 10), highlight: true },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
     ],
-    ctaText: "VIEW UPDATED PRACTICE",
+    supportingText: "Access the practice module and evaluate your understanding.",
+    ctaText: "START MCQ PRACTICE",
     redirectUrl: options.practiceUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
   });
 }
 
-// 5. CODE LAB PUBLISHED
-export function generateCodeLabPublishedEmail(options: {
+// 4. CODING PRACTICE EMAIL TEMPLATE (Section 5)
+export function generateCodingPracticePublishedEmail(options: {
   recipientName: string;
-  codelabName: string;
+  practiceName: string;
+  programmingLanguage?: string;
+  difficulty?: string;
   courseName?: string;
-  difficulty?: string;
-  problemCount?: number;
-  codelabUrl: string;
+  batchName?: string;
+  practiceUrl: string;
 }): { subject: string; html: string; text: string } {
   return buildMncEmailLayout({
     recipientName: options.recipientName,
-    categoryLabel: "Code Lab",
-    title: `New Code Lab Available – ${options.codelabName}`,
-    preheader: `New Code Lab available: ${options.codelabName}`,
-    message: `A new algorithmic Code Lab challenge workspace has been published on SensiLearn LMS. Complete the algorithmic challenges directly within the Monaco IDE.`,
+    categoryLabel: "Programming Practice",
+    title: `New Programming Practice – ${options.practiceName}`,
+    subject: `New Programming Practice – ${options.practiceName} | Sensilearn`,
+    preheader: `Programming practice published: ${options.practiceName}`,
+    message: `A new programming practice activity has been published for your batch.`,
     details: [
-      { label: "Code Lab", value: options.codelabName },
-      { label: "Associated Track", value: options.courseName || "Coding Practice" },
-      { label: "Difficulty", value: options.difficulty ? options.difficulty.toUpperCase() : "MEDIUM", highlight: true },
-      { label: "Problem Count", value: String(options.problemCount || 1) },
+      { label: "Practice", value: options.practiceName },
+      { label: "Programming Language", value: options.programmingLanguage || "Multi-Language (Python, Java, C++, JS)" },
+      { label: "Difficulty", value: (options.difficulty || "Medium").toUpperCase(), highlight: true },
+      { label: "Course", value: options.courseName || "Algorithm & Logic Track" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
     ],
-    ctaText: "OPEN CODE LAB",
-    redirectUrl: options.codelabUrl,
-    supportingText: "Compiler environment supports Python, Java, C++, C, JavaScript, and SQL.",
+    supportingText: "Improve your coding skills through practical problem-solving.",
+    ctaText: "OPEN CODING PRACTICE",
+    redirectUrl: options.practiceUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
   });
 }
 
-// 6. CODE LAB UPDATED
-export function generateCodeLabUpdatedEmail(options: {
+// 5. TEST EMAIL TEMPLATE (Section 6)
+export function generateTestPublishedEmail(options: {
   recipientName: string;
-  codelabName: string;
-  updatedBy?: string;
-  codelabUrl: string;
+  testName: string;
+  courseName?: string;
+  batchName?: string;
+  totalQuestions?: number | string;
+  totalMarks?: number | string;
+  duration?: string;
+  startDate?: string;
+  endDate?: string;
+  testUrl: string;
 }): { subject: string; html: string; text: string } {
   return buildMncEmailLayout({
     recipientName: options.recipientName,
-    categoryLabel: "Code Lab Update",
-    title: `Code Lab Updated – ${options.codelabName}`,
-    preheader: `Code Lab modified: ${options.codelabName}`,
-    message: `The Code Lab workspace "${options.codelabName}" has been updated. Review the updated challenge specifications and test parameters.`,
+    categoryLabel: "Formal Test",
+    title: `New Test Available – ${options.testName}`,
+    subject: `New Test Available – ${options.testName} | Sensilearn`,
+    preheader: `Test assigned: ${options.testName}`,
+    message: `A new test has been assigned to your batch.`,
     details: [
-      { label: "Code Lab", value: options.codelabName },
-      { label: "Updated By", value: options.updatedBy || "Technical Lead" },
-      { label: "Updated Date", value: new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) },
+      { label: "Test Name", value: options.testName },
+      { label: "Course", value: options.courseName || "Standard Assessment Track" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Total Questions", value: String(options.totalQuestions || 25) },
+      { label: "Total Marks", value: String(options.totalMarks || 100) },
+      { label: "Duration", value: options.duration || "60 Minutes" },
+      { label: "Start Date", value: options.startDate || "Available Now" },
+      { label: "End Date", value: options.endDate || "See portal schedule", highlight: true },
     ],
-    ctaText: "VIEW UPDATED CODE LAB",
-    redirectUrl: options.codelabUrl,
+    supportingText: "Please review the test instructions and complete the assessment within the scheduled period.",
+    ctaText: "VIEW TEST DETAILS",
+    redirectUrl: options.testUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
   });
 }
 
-// 7. CODING PROBLEM PUBLISHED
-export function generateCodingProblemPublishedEmail(options: {
+// 6. ASSESSMENT EMAIL TEMPLATE (Section 7)
+export function generateAssessmentScheduledEmail(options: {
   recipientName: string;
-  problemName: string;
+  assessmentName: string;
+  courseName?: string;
+  batchName?: string;
+  assessmentDate?: string;
+  startTime?: string;
+  duration?: string;
+  totalMarks?: number | string;
+  assessmentUrl: string;
+}): { subject: string; html: string; text: string } {
+  return buildMncEmailLayout({
+    recipientName: options.recipientName,
+    categoryLabel: "Proctored Assessment",
+    title: `Assessment Scheduled – ${options.assessmentName}`,
+    subject: `Assessment Scheduled – ${options.assessmentName} | Sensilearn`,
+    preheader: `Assessment scheduled: ${options.assessmentName}`,
+    message: `An assessment has been scheduled for your batch.`,
+    details: [
+      { label: "Assessment", value: options.assessmentName },
+      { label: "Course", value: options.courseName || "Academic Track" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Assessment Date", value: options.assessmentDate || "Scheduled Date" },
+      { label: "Start Time", value: options.startTime || "Scheduled Time" },
+      { label: "Duration", value: options.duration || "60 Minutes" },
+      { label: "Total Marks", value: String(options.totalMarks || 100), highlight: true },
+    ],
+    supportingText: "Please prepare accordingly and ensure your availability.",
+    ctaText: "VIEW ASSESSMENT",
+    redirectUrl: options.assessmentUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
+  });
+}
+
+// 7. LIVE CLASS EMAIL TEMPLATE (Section 8)
+export function generateLiveClassScheduledEmail(options: {
+  recipientName: string;
+  sessionTitle?: string;
+  classTitle?: string; // alias
+  courseName?: string;
+  trainerName?: string;
+  batchName?: string;
+  sessionDate?: string;
+  sessionTime?: string;
+  scheduledTime?: string; // alias
+  duration?: string;
+  meetingUrl?: string;
+  platform?: string; // alias
+  liveClassUrl: string;
+}): { subject: string; html: string; text: string } {
+  const sessionTitle = options.sessionTitle || options.classTitle || "Live Interactive Class";
+  const sessionDate = options.sessionDate || (options.scheduledTime ? options.scheduledTime.split(" ")[0] || "Scheduled Date" : "Scheduled Date");
+  const sessionTime = options.sessionTime || (options.scheduledTime ? options.scheduledTime.split(" ").slice(1).join(" ") || "Scheduled Time" : "Scheduled Time");
+  return buildMncEmailLayout({
+    recipientName: options.recipientName,
+    categoryLabel: "Live Class",
+    title: `Upcoming Live Class – ${sessionTitle}`,
+    subject: `Upcoming Live Class – ${sessionTitle} | Sensilearn`,
+    preheader: `Upcoming session: ${sessionTitle}`,
+    message: `A new live learning session has been scheduled.`,
+    details: [
+      { label: "Session", value: sessionTitle },
+      { label: "Course", value: options.courseName || "Interactive Lecture" },
+      { label: "Trainer", value: options.trainerName || "Sensilearn Faculty" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Date", value: sessionDate },
+      { label: "Time", value: sessionTime },
+      { label: "Duration", value: options.duration || "60 Minutes", highlight: true },
+    ],
+    supportingText: "Join the session using the link below.",
+    ctaText: "JOIN LIVE CLASS",
+    redirectUrl: options.meetingUrl || options.liveClassUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
+  });
+}
+
+// 8. LIVE CLASS RESCHEDULE EMAIL TEMPLATE (Section 9)
+export function generateLiveClassRescheduledEmail(options: {
+  recipientName: string;
+  sessionTitle: string;
+  oldDate?: string;
+  oldTime?: string;
+  newDate: string;
+  newTime: string;
+  trainerName?: string;
+  batchName?: string;
+  liveClassUrl: string;
+}): { subject: string; html: string; text: string } {
+  return buildMncEmailLayout({
+    recipientName: options.recipientName,
+    categoryLabel: "Schedule Update",
+    title: `Schedule Update – Live Class: ${options.sessionTitle}`,
+    subject: `Schedule Update – Live Class | Sensilearn`,
+    preheader: `Live class rescheduled: ${options.sessionTitle}`,
+    message: `Please note that the schedule of your upcoming live class has been updated.`,
+    details: [
+      { label: "Session", value: options.sessionTitle },
+      { label: "Previous Date", value: options.oldDate || "Prior Date" },
+      { label: "Previous Time", value: options.oldTime || "Prior Time" },
+      { label: "New Date", value: options.newDate, highlight: true },
+      { label: "New Time", value: options.newTime, highlight: true },
+      { label: "Trainer", value: options.trainerName || "Sensilearn Faculty" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+    ],
+    supportingText: "Please follow the updated schedule.",
+    ctaText: "VIEW UPDATED SCHEDULE",
+    redirectUrl: options.liveClassUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
+  });
+}
+
+// 9. LIVE CLASS CANCELLATION EMAIL TEMPLATE (Section 10)
+export function generateLiveClassCancelledEmail(options: {
+  recipientName: string;
+  sessionTitle: string;
+  courseName?: string;
+  sessionDate?: string;
+  batchName?: string;
+  dashboardUrl: string;
+}): { subject: string; html: string; text: string } {
+  return buildMncEmailLayout({
+    recipientName: options.recipientName,
+    categoryLabel: "Class Cancelled",
+    title: `Live Class Cancelled – ${options.sessionTitle}`,
+    subject: `Live Class Cancelled – ${options.sessionTitle} | Sensilearn`,
+    preheader: `Class cancellation notice: ${options.sessionTitle}`,
+    message: `We would like to inform you that the following live session has been cancelled.`,
+    details: [
+      { label: "Session", value: options.sessionTitle },
+      { label: "Course", value: options.courseName || "Interactive Lecture" },
+      { label: "Original Date", value: options.sessionDate || "Scheduled Date" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Status", value: "Cancelled", highlight: true },
+    ],
+    supportingText: "Please check your Sensilearn dashboard for further updates.",
+    ctaText: "VIEW DASHBOARD",
+    redirectUrl: options.dashboardUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
+  });
+}
+
+// 10. CODING CHALLENGE EMAIL TEMPLATE (Section 11)
+export function generateCodingChallengePublishedEmail(options: {
+  recipientName: string;
+  challengeName: string;
+  category?: string;
   difficulty?: string;
-  topic?: string;
-  estimatedDuration?: string;
-  problemUrl: string;
+  languages?: string;
+  batchName?: string;
+  deadline?: string;
+  challengeUrl: string;
 }): { subject: string; html: string; text: string } {
   return buildMncEmailLayout({
     recipientName: options.recipientName,
     categoryLabel: "Coding Challenge",
-    title: `New Coding Challenge Available – ${options.problemName}`,
-    preheader: `New problem published: ${options.problemName}`,
-    message: `A new technical problem has been added to the SensiLearn Code Lab. Write, execute, and verify your algorithmic solution against comprehensive test suites.`,
+    title: `New Coding Challenge – ${options.challengeName}`,
+    subject: `New Coding Challenge – ${options.challengeName} | Sensilearn`,
+    preheader: `New challenge ready: ${options.challengeName}`,
+    message: `A new coding challenge is available for your batch.`,
     details: [
-      { label: "Problem", value: options.problemName },
-      { label: "Topic", value: options.topic || "Algorithms & Data Structures" },
+      { label: "Challenge", value: options.challengeName },
+      { label: "Category", value: options.category || "Algorithms & Problem Solving" },
       { label: "Difficulty", value: (options.difficulty || "Medium").toUpperCase(), highlight: true },
-      { label: "Duration", value: options.estimatedDuration || "30 Mins" },
+      { label: "Programming Languages", value: options.languages || "Python, Java, C++, JavaScript" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Deadline", value: options.deadline || "Self-Paced" },
     ],
+    supportingText: "Put your programming knowledge into practice and challenge yourself.",
     ctaText: "SOLVE CHALLENGE",
-    redirectUrl: options.problemUrl,
-    supportingText: "Solution submissions are scored on execution time, memory usage, and edge case coverage.",
+    redirectUrl: options.challengeUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
   });
 }
 
-// 8. CODING PROBLEM UPDATED
-export function generateCodingProblemUpdatedEmail(options: {
+// 11. PROGRAMMING CONTEST EMAIL TEMPLATE (Section 12)
+export function generateProgrammingContestEmail(options: {
   recipientName: string;
-  problemName: string;
-  updatedBy?: string;
-  changeSummary?: string;
-  problemUrl: string;
-}): { subject: string; html: string; text: string } {
-  return buildMncEmailLayout({
-    recipientName: options.recipientName,
-    categoryLabel: "Problem Update",
-    title: `Coding Challenge Updated – ${options.problemName}`,
-    preheader: `Problem specifications updated: ${options.problemName}`,
-    message: `The coding problem "${options.problemName}" has been revised. Review the updated problem description and sample test cases.`,
-    details: [
-      { label: "Problem", value: options.problemName },
-      { label: "Updated By", value: options.updatedBy || "Faculty" },
-      { label: "Changes", value: options.changeSummary || "Constraints or test cases revised" },
-    ],
-    ctaText: "VIEW UPDATED PROBLEM",
-    redirectUrl: options.problemUrl,
-  });
-}
-
-// 9. ASSESSMENT ASSIGNED
-export function generateAssessmentAssignedEmail(options: {
-  recipientName: string;
-  assessmentName: string;
-  duration?: string;
-  totalMarks?: string | number;
-  passingPercentage?: string | number;
-  attemptsAllowed?: number | string;
+  contestName: string;
+  batchName?: string;
   startDate?: string;
-  deadline?: string;
-  assessmentUrl: string;
+  startTime?: string;
+  duration?: string;
+  problemCount?: number | string;
+  contestUrl: string;
 }): { subject: string; html: string; text: string } {
   return buildMncEmailLayout({
     recipientName: options.recipientName,
-    categoryLabel: "Assessment Assigned",
-    title: `New Assessment Assigned – ${options.assessmentName}`,
-    preheader: `Assessment scheduled: ${options.assessmentName}`,
-    message: `A formal proctored assessment has been scheduled and assigned to your account on SensiLearn LMS. Please review the schedule and prepare accordingly.`,
+    categoryLabel: "Programming Contest",
+    title: `Upcoming Programming Contest – ${options.contestName}`,
+    subject: `Upcoming Programming Contest – ${options.contestName} | Sensilearn`,
+    preheader: `New contest announced: ${options.contestName}`,
+    message: `A new programming contest has been announced.`,
     details: [
-      { label: "Assessment", value: options.assessmentName },
-      { label: "Duration", value: options.duration || "60 Minutes" },
-      { label: "Total Marks", value: String(options.totalMarks || 100) },
-      { label: "Passing Score", value: `${options.passingPercentage || 40}%` },
-      { label: "Attempts", value: String(options.attemptsAllowed || 1) },
-      { label: "Schedule / Start", value: options.startDate || "Active Now" },
-      { label: "Deadline", value: options.deadline || "See portal", highlight: true },
+      { label: "Contest", value: options.contestName },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Start Date", value: options.startDate || "Scheduled Date" },
+      { label: "Start Time", value: options.startTime || "Scheduled Time" },
+      { label: "Duration", value: options.duration || "120 Minutes" },
+      { label: "Number of Problems", value: String(options.problemCount || 4), highlight: true },
     ],
-    ctaText: "VIEW ASSESSMENT",
-    redirectUrl: options.assessmentUrl,
-    supportingText: "Automated proctoring rules may apply. Ensure a stable internet connection and webcam access.",
+    supportingText: "Prepare yourself and demonstrate your problem-solving skills.",
+    ctaText: "VIEW CONTEST",
+    redirectUrl: options.contestUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
   });
 }
 
-// 10. ASSESSMENT UPDATED
-export function generateAssessmentUpdatedEmail(options: {
-  recipientName: string;
-  assessmentName: string;
-  updatedBy?: string;
-  changes?: string;
-  assessmentUrl: string;
-}): { subject: string; html: string; text: string } {
-  return buildMncEmailLayout({
-    recipientName: options.recipientName,
-    categoryLabel: "Assessment Update",
-    title: `Assessment Updated – ${options.assessmentName}`,
-    preheader: `Assessment update: ${options.assessmentName}`,
-    message: `The assessment parameters, schedule, or questions for "${options.assessmentName}" have been updated by the examination board.`,
-    details: [
-      { label: "Assessment", value: options.assessmentName },
-      { label: "Updated By", value: options.updatedBy || "Examination Board" },
-      { label: "Modifications", value: options.changes || "Schedule / Criteria revised" },
-      { label: "Updated Date", value: new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) },
-    ],
-    ctaText: "VIEW UPDATED ASSESSMENT",
-    redirectUrl: options.assessmentUrl,
-  });
-}
-
-// 11. ASSESSMENT DEADLINE CHANGED
-export function generateAssessmentDeadlineChangedEmail(options: {
-  recipientName: string;
-  assessmentName: string;
-  previousDeadline?: string;
-  newDeadline: string;
-  assessmentUrl: string;
-}): { subject: string; html: string; text: string } {
-  return buildMncEmailLayout({
-    recipientName: options.recipientName,
-    categoryLabel: "Deadline Revision",
-    title: `Assessment Deadline Updated – ${options.assessmentName}`,
-    preheader: `New deadline: ${options.assessmentName}`,
-    message: `The submission deadline for the assessment "${options.assessmentName}" has been modified. Please take note of the updated schedule.`,
-    details: [
-      { label: "Assessment", value: options.assessmentName },
-      { label: "Previous Deadline", value: options.previousDeadline || "Prior schedule" },
-      { label: "New Deadline", value: options.newDeadline, highlight: true },
-    ],
-    ctaText: "VIEW ASSESSMENT",
-    redirectUrl: options.assessmentUrl,
-    supportingText: "Ensure completion before the revised cutoff time. Late submissions will be closed.",
-  });
-}
-
-// 12. ASSIGNMENT ASSIGNED
+// 12. ASSIGNMENT EMAIL TEMPLATE (Section 13)
 export function generateAssignmentAssignedEmail(options: {
   recipientName: string;
   assignmentName: string;
   courseName?: string;
+  batchName?: string;
+  assignedDate?: string;
+  dueDate?: string;
+  totalMarks?: number | string;
+  assignmentUrl: string;
   trainerName?: string;
-  maxMarks?: string | number;
-  dueDate: string;
-  assignmentUrl: string;
+  maxMarks?: string | number; // alias
 }): { subject: string; html: string; text: string } {
+  const assignedDate = options.assignedDate || getFormattedCurrentDate();
   return buildMncEmailLayout({
     recipientName: options.recipientName,
-    categoryLabel: "Assignment Assigned",
-    title: `New Assignment Assigned – ${options.assignmentName}`,
-    preheader: `Assignment assigned: ${options.assignmentName}`,
-    message: `A new project assignment has been assigned to your batch. Complete your deliverables and submit your code/repository before the due date.`,
+    categoryLabel: "Assignment",
+    title: `New Assignment – ${options.assignmentName}`,
+    subject: `New Assignment – ${options.assignmentName} | Sensilearn`,
+    preheader: `New assignment assigned: ${options.assignmentName}`,
+    message: `A new assignment has been assigned to your batch.`,
     details: [
       { label: "Assignment", value: options.assignmentName },
-      { label: "Course / Track", value: options.courseName || "Curriculum Track" },
-      { label: "Lead Trainer", value: options.trainerName || "SensiLearn Faculty" },
-      { label: "Maximum Marks", value: String(options.maxMarks || 100) },
-      { label: "Due Date", value: options.dueDate, highlight: true },
+      { label: "Course", value: options.courseName || "Curriculum Track" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Assigned Date", value: assignedDate },
+      { label: "Due Date", value: options.dueDate || "See portal", highlight: true },
+      { label: "Total Marks", value: String(options.totalMarks || options.maxMarks || 100) },
     ],
+    supportingText: "Please review the instructions and complete your submission before the deadline.",
     ctaText: "VIEW ASSIGNMENT",
     redirectUrl: options.assignmentUrl,
-    supportingText: "Submissions require your GitHub repository link or verified project archive.",
+    closing: "Best Regards,\nSensilearn Academic Team",
   });
 }
 
-// 13. ASSIGNMENT UPDATED
-export function generateAssignmentUpdatedEmail(options: {
+// 13. PROJECT EMAIL TEMPLATE (Section 14)
+export function generateProjectAssignedEmail(options: {
   recipientName: string;
-  assignmentName: string;
-  updatedBy?: string;
-  changes?: string;
-  assignmentUrl: string;
-}): { subject: string; html: string; text: string } {
-  return buildMncEmailLayout({
-    recipientName: options.recipientName,
-    categoryLabel: "Assignment Update",
-    title: `Assignment Updated – ${options.assignmentName}`,
-    preheader: `Assignment updated: ${options.assignmentName}`,
-    message: `The assignment "${options.assignmentName}" has been revised with updated specifications or grading guidelines.`,
-    details: [
-      { label: "Assignment", value: options.assignmentName },
-      { label: "Updated By", value: options.updatedBy || "Course Instructor" },
-      { label: "Details", value: options.changes || "Deliverables or instructions revised" },
-    ],
-    ctaText: "VIEW UPDATED ASSIGNMENT",
-    redirectUrl: options.assignmentUrl,
-  });
-}
-
-// 14. ASSIGNMENT DEADLINE CHANGED
-export function generateAssignmentDeadlineChangedEmail(options: {
-  recipientName: string;
-  assignmentName: string;
-  previousDeadline?: string;
-  newDeadline: string;
-  assignmentUrl: string;
-}): { subject: string; html: string; text: string } {
-  return buildMncEmailLayout({
-    recipientName: options.recipientName,
-    categoryLabel: "Deadline Extended",
-    title: `Assignment Deadline Updated – ${options.assignmentName}`,
-    preheader: `Deadline changed: ${options.assignmentName}`,
-    message: `The deadline for assignment "${options.assignmentName}" has been officially updated. Review the revised cutoff below.`,
-    details: [
-      { label: "Assignment", value: options.assignmentName },
-      { label: "Previous Due Date", value: options.previousDeadline || "Standard cutoff" },
-      { label: "New Due Date", value: options.newDeadline, highlight: true },
-    ],
-    ctaText: "VIEW ASSIGNMENT",
-    redirectUrl: options.assignmentUrl,
-  });
-}
-
-// 15. ASSIGNMENT DEADLINE REMINDER
-export function generateAssignmentReminderEmail(options: {
-  recipientName: string;
-  assignmentName: string;
-  deadline: string;
-  assignmentUrl: string;
-}): { subject: string; html: string; text: string } {
-  return buildMncEmailLayout({
-    recipientName: options.recipientName,
-    categoryLabel: "Submission Reminder",
-    title: `Reminder: Assignment Due Soon – ${options.assignmentName}`,
-    preheader: `Reminder: ${options.assignmentName} is due soon`,
-    message: `This is a courtesy reminder that your submission for "${options.assignmentName}" is pending and due shortly. Please submit your work before the deadline.`,
-    details: [
-      { label: "Assignment", value: options.assignmentName },
-      { label: "Due Date", value: options.deadline, highlight: true },
-      { label: "Submission Status", value: "Pending" },
-    ],
-    ctaText: "SUBMIT ASSIGNMENT",
-    redirectUrl: options.assignmentUrl,
-  });
-}
-
-// 16. ANNOUNCEMENT PUBLISHED
-export function generateAnnouncementEmail(options: {
-  recipientName: string;
-  announcementTitle: string;
-  announcementMessage: string;
-  publishedBy?: string;
-  announcementUrl: string;
-}): { subject: string; html: string; text: string } {
-  return buildMncEmailLayout({
-    recipientName: options.recipientName,
-    categoryLabel: "System Announcement",
-    title: options.announcementTitle,
-    preheader: `Announcement: ${options.announcementTitle}`,
-    message: options.announcementMessage,
-    details: [
-      { label: "Published By", value: options.publishedBy || "SensiLearn Administration" },
-      { label: "Date", value: new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) },
-    ],
-    ctaText: "VIEW ANNOUNCEMENT",
-    redirectUrl: options.announcementUrl,
-  });
-}
-
-// 17. BATCH UPDATED
-export function generateBatchUpdatedEmail(options: {
-  recipientName: string;
-  batchName: string;
-  changes?: string;
-  batchUrl: string;
-}): { subject: string; html: string; text: string } {
-  return buildMncEmailLayout({
-    recipientName: options.recipientName,
-    categoryLabel: "Batch Update",
-    title: `Batch Updated – ${options.batchName}`,
-    preheader: `Cohort details updated: ${options.batchName}`,
-    message: `Details and scheduling for your assigned academic cohort "${options.batchName}" have been updated by the administration.`,
-    details: [
-      { label: "Batch", value: options.batchName },
-      { label: "Status", value: "Active Cohort", highlight: true },
-      { label: "Update Summary", value: options.changes || "Cohort schedules / track updated" },
-    ],
-    ctaText: "VIEW BATCH",
-    redirectUrl: options.batchUrl,
-  });
-}
-
-// 18. STUDENT ADDED TO BATCH
-export function generateStudentAddedToBatchEmail(options: {
-  recipientName: string;
-  batchName: string;
-  programName?: string;
+  projectName: string;
+  courseName?: string;
+  batchName?: string;
+  assignedBy?: string;
   trainerName?: string;
   startDate?: string;
-  batchUrl: string;
+  deadline?: string;
+  projectUrl: string;
 }): { subject: string; html: string; text: string } {
+  const startDate = options.startDate || getFormattedCurrentDate();
   return buildMncEmailLayout({
     recipientName: options.recipientName,
-    categoryLabel: "Cohort Enrolment",
-    title: `You Have Been Added to ${options.batchName}`,
-    preheader: `Enrolled in batch: ${options.batchName}`,
-    message: `You have been officially enrolled into the academic cohort "${options.batchName}". All batch-specific curriculums, assessments, and live sessions are now available on your portal.`,
+    categoryLabel: "Project Assigned",
+    title: `New Project Assigned – ${options.projectName}`,
+    subject: `New Project Assigned – ${options.projectName} | Sensilearn`,
+    preheader: `Capstone project assigned: ${options.projectName}`,
+    message: `A new project has been assigned as part of your learning programme.`,
     details: [
-      { label: "Cohort", value: options.batchName },
-      { label: "Program Track", value: options.programName || "Enterprise Fullstack Track" },
-      { label: "Mentor / Lead", value: options.trainerName || "SensiLearn Academic Team" },
-      { label: "Enrolment Date", value: options.startDate || new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) },
+      { label: "Project", value: options.projectName },
+      { label: "Course", value: options.courseName || "Capstone Track" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Assigned By", value: options.assignedBy || options.trainerName || "Sensilearn Faculty" },
+      { label: "Start Date", value: startDate },
+      { label: "Submission Deadline", value: options.deadline || "See portal", highlight: true },
     ],
-    ctaText: "VIEW BATCH",
-    redirectUrl: options.batchUrl,
+    supportingText: "Review the project requirements and begin your work.",
+    ctaText: "VIEW PROJECT",
+    redirectUrl: options.projectUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
   });
 }
 
-// 19. RESULT PUBLISHED
+// 14. DEADLINE REMINDER EMAIL TEMPLATE (Section 15)
+export function generateDeadlineReminderEmail(options: {
+  recipientName: string;
+  activityName: string;
+  activityType?: string;
+  courseName?: string;
+  batchName?: string;
+  deadline: string;
+  activityUrl: string;
+}): { subject: string; html: string; text: string } {
+  return buildMncEmailLayout({
+    recipientName: options.recipientName,
+    categoryLabel: "Deadline Reminder",
+    title: `Upcoming Deadline Reminder – ${options.activityName}`,
+    subject: `Upcoming Deadline Reminder – ${options.activityName} | Sensilearn`,
+    preheader: `Approaching deadline: ${options.activityName}`,
+    message: `This is a reminder that an upcoming academic activity is approaching its deadline.`,
+    details: [
+      { label: "Activity", value: options.activityName },
+      { label: "Type", value: options.activityType || "Assignment / Activity" },
+      { label: "Course", value: options.courseName || "Curriculum Track" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Deadline", value: options.deadline, highlight: true },
+    ],
+    supportingText: "Please complete the activity before the deadline.",
+    ctaText: "CONTINUE ACTIVITY",
+    redirectUrl: options.activityUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
+  });
+}
+
+// 15. RESULTS PUBLISHED EMAIL TEMPLATE (Section 16)
 export function generateResultPublishedEmail(options: {
   recipientName: string;
   assessmentName: string;
-  score: string | number;
-  totalMarks: string | number;
-  percentage: string | number;
-  status: string;
-  completedDate?: string;
+  courseName?: string;
+  batchName?: string;
+  publishedDate?: string;
   resultUrl: string;
+  // Optional detailed fields for scorecard
+  score?: string | number;
+  totalMarks?: string | number;
+  percentage?: string | number;
+  status?: string;
+  completedDate?: string;
 }): { subject: string; html: string; text: string } {
-  const isPassed = String(options.status).toLowerCase().includes("pass");
+  const publishedDate = options.publishedDate || options.completedDate || getFormattedCurrentDate();
   return buildMncEmailLayout({
     recipientName: options.recipientName,
-    categoryLabel: "Assessment Result",
-    title: `Your Assessment Result – ${options.assessmentName}`,
+    categoryLabel: "Results Published",
+    title: `Results Published – ${options.assessmentName}`,
+    subject: `Results Published – ${options.assessmentName} | Sensilearn`,
     preheader: `Results published: ${options.assessmentName}`,
-    message: `Evaluation for your proctored assessment "${options.assessmentName}" has been processed and your scorecard is now accessible.`,
+    message: `Your assessment results are now available.`,
     details: [
       { label: "Assessment", value: options.assessmentName },
-      { label: "Score", value: `${options.score} / ${options.totalMarks}` },
-      { label: "Percentage", value: `${options.percentage}%` },
-      { label: "Outcome", value: isPassed ? "PASSED" : options.status.toUpperCase(), highlight: true },
-      { label: "Evaluated At", value: options.completedDate || new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) },
+      { label: "Course", value: options.courseName || "Assessment Module" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Published Date", value: publishedDate, highlight: true },
     ],
-    ctaText: "VIEW RESULT",
+    supportingText: "Log in to your Sensilearn dashboard to view your individual performance.",
+    ctaText: "VIEW MY RESULTS",
     redirectUrl: options.resultUrl,
-    supportingText: "Access your student analytics page for section-wise breakdown and feedback.",
+    closing: "Best Regards,\nSensilearn Academic Team",
   });
 }
 
-// 20. CERTIFICATE GENERATED
+// 16. FEEDBACK EMAIL TEMPLATE (Section 17)
+export function generateFeedbackEmail(options: {
+  recipientName: string;
+  activityName: string;
+  courseName?: string;
+  batchName?: string;
+  trainerName?: string;
+  evaluatorName?: string;
+  evaluationDate?: string;
+  feedbackUrl: string;
+}): { subject: string; html: string; text: string } {
+  const evalDate = options.evaluationDate || getFormattedCurrentDate();
+  return buildMncEmailLayout({
+    recipientName: options.recipientName,
+    categoryLabel: "Evaluation Feedback",
+    title: `Feedback Available – ${options.activityName}`,
+    subject: `Feedback Available – ${options.activityName} | Sensilearn`,
+    preheader: `Instructor feedback available for: ${options.activityName}`,
+    message: `Your submitted work has been evaluated.`,
+    details: [
+      { label: "Activity", value: options.activityName },
+      { label: "Course", value: options.courseName || "Curriculum Track" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Evaluated By", value: options.evaluatorName || options.trainerName || "Sensilearn Faculty" },
+      { label: "Evaluation Date", value: evalDate, highlight: true },
+    ],
+    supportingText: "Your individual feedback is now available through Sensilearn.",
+    ctaText: "VIEW FEEDBACK",
+    redirectUrl: options.feedbackUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
+  });
+}
+
+// 17. STUDY MATERIAL EMAIL TEMPLATE (Section 18)
+export function generateStudyMaterialEmail(options: {
+  recipientName: string;
+  resourceName: string;
+  courseName?: string;
+  moduleName?: string;
+  batchName?: string;
+  trainerName?: string;
+  materialUrl: string;
+}): { subject: string; html: string; text: string } {
+  return buildMncEmailLayout({
+    recipientName: options.recipientName,
+    categoryLabel: "Learning Material",
+    title: `New Learning Material – ${options.resourceName}`,
+    subject: `New Learning Material – ${options.resourceName} | Sensilearn`,
+    preheader: `Study material available: ${options.resourceName}`,
+    message: `New learning material has been made available for your batch.`,
+    details: [
+      { label: "Resource", value: options.resourceName },
+      { label: "Course", value: options.courseName || "Curriculum Track" },
+      { label: "Module", value: options.moduleName || "Core Courseware" },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Uploaded By", value: options.trainerName || "Sensilearn Faculty", highlight: true },
+    ],
+    supportingText: "Access the resource through your learning dashboard.",
+    ctaText: "ACCESS STUDY MATERIAL",
+    redirectUrl: options.materialUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
+  });
+}
+
+// 18. ANNOUNCEMENT EMAIL TEMPLATE (Section 19)
+export function generateAnnouncementEmail(options: {
+  recipientName: string;
+  announcementTitle: string;
+  announcementDescription?: string;
+  announcementMessage?: string; // alias
+  batchName?: string;
+  authorName?: string;
+  publishedBy?: string; // alias
+  publishedDate?: string;
+  announcementUrl: string;
+}): { subject: string; html: string; text: string } {
+  const publishedDate = options.publishedDate || getFormattedCurrentDate();
+  const desc = options.announcementDescription || options.announcementMessage || "An important academic announcement has been published.";
+  return buildMncEmailLayout({
+    recipientName: options.recipientName,
+    categoryLabel: "Important Announcement",
+    title: options.announcementTitle,
+    subject: `Important Announcement – ${options.announcementTitle} | Sensilearn`,
+    preheader: `Important announcement: ${options.announcementTitle}`,
+    message: `An important academic announcement has been published.`,
+    details: [
+      { label: "Title", value: options.announcementTitle },
+      { label: "Posted By", value: options.authorName || options.publishedBy || "Sensilearn Administration" },
+      { label: "Batch", value: options.batchName || "All Cohorts" },
+      { label: "Published Date", value: publishedDate, highlight: true },
+    ],
+    supportingText: `${desc}\n\nPlease review the complete announcement.`,
+    ctaText: "READ ANNOUNCEMENT",
+    redirectUrl: options.announcementUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
+  });
+}
+
+// 19. BATCH ALLOCATION EMAIL TEMPLATE (Section 20)
+export function generateBatchAllocationEmail(options: {
+  recipientName: string;
+  batchName: string;
+  programmeName?: string;
+  programName?: string; // alias
+  institutionName?: string;
+  trainerName?: string;
+  startDate?: string;
+  dashboardUrl: string;
+}): { subject: string; html: string; text: string } {
+  const startDate = options.startDate || getFormattedCurrentDate();
+  return buildMncEmailLayout({
+    recipientName: options.recipientName,
+    categoryLabel: "Batch Allocation",
+    title: "Batch Allocation Confirmed",
+    subject: "Batch Allocation Confirmed – Sensilearn",
+    preheader: `You have been allocated to cohort: ${options.batchName}`,
+    message: `Your batch allocation has been successfully completed.`,
+    details: [
+      { label: "Batch Name", value: options.batchName },
+      { label: "Programme", value: options.programmeName || options.programName || "Enterprise Fullstack Track" },
+      { label: "Institution", value: options.institutionName || "Sensilearn Academic Institute" },
+      { label: "Start Date", value: startDate, highlight: true },
+    ],
+    supportingText: "You can now access the learning activities assigned to your batch.",
+    ctaText: "OPEN STUDENT DASHBOARD",
+    redirectUrl: options.dashboardUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
+  });
+}
+
+// 20. COURSE UPDATE EMAIL TEMPLATE (Section 21)
+export function generateCourseUpdatedEmail(options: {
+  recipientName: string;
+  courseName: string;
+  batchName?: string;
+  updateDescription?: string;
+  changeSummary?: string; // alias
+  updatedBy?: string;
+  updatedDate?: string;
+  courseUrl: string;
+}): { subject: string; html: string; text: string } {
+  const updatedDate = options.updatedDate || getFormattedCurrentDate();
+  const summary = options.updateDescription || options.changeSummary || "Curriculum lessons & modules updated";
+  return buildMncEmailLayout({
+    recipientName: options.recipientName,
+    categoryLabel: "Course Update",
+    title: `Course Update – ${options.courseName}`,
+    subject: `Course Update – ${options.courseName} | Sensilearn`,
+    preheader: `Course curriculum updated: ${options.courseName}`,
+    message: `An important update has been published for your course.`,
+    details: [
+      { label: "Course", value: options.courseName },
+      { label: "Batch", value: options.batchName || "Enrolled Cohort" },
+      { label: "Update", value: summary },
+      { label: "Updated Date", value: updatedDate, highlight: true },
+    ],
+    supportingText: "Please review the latest course information.",
+    ctaText: "VIEW COURSE UPDATE",
+    redirectUrl: options.courseUrl,
+    closing: "Best Regards,\nSensilearn Academic Team",
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * PRESERVED OPERATIONAL / SYSTEM EMAIL BUILDERS
+ * ───────────────────────────────────────────────────────────── */
+
+// CERTIFICATE GENERATED
 export function generateCertificateGeneratedEmail(options: {
   recipientName: string;
   courseName: string;
@@ -794,13 +1003,14 @@ export function generateCertificateGeneratedEmail(options: {
     recipientName: options.recipientName,
     categoryLabel: "Certification",
     title: `Your Certificate Is Ready – ${options.courseName}`,
+    subject: `Your Certificate Is Ready – ${options.courseName} | Sensilearn`,
     preheader: `Official certificate issued: ${options.courseName}`,
-    message: `Congratulations! You have fulfilled all graduation and testing requirements for "${options.courseName}". Your official, verifiable digital certificate is now ready for download.`,
+    message: `Congratulations! You have fulfilled all graduation and testing requirements for "${options.courseName}". Your official digital certificate is now ready for download.`,
     details: [
       { label: "Program", value: options.courseName },
       { label: "Recipient", value: options.recipientName },
       { label: "Credential ID", value: options.certificateId, highlight: true },
-      { label: "Issue Date", value: options.completionDate || new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) },
+      { label: "Issue Date", value: options.completionDate || getFormattedCurrentDate() },
     ],
     ctaText: "VIEW CERTIFICATE",
     redirectUrl: options.certificateUrl,
@@ -808,7 +1018,7 @@ export function generateCertificateGeneratedEmail(options: {
   });
 }
 
-// 21. STUDENT SUBMISSION → TRAINER (Assignment)
+// TRAINER: STUDENT ASSIGNMENT SUBMISSION
 export function generateAssignmentSubmissionTrainerEmail(options: {
   trainerName: string;
   studentName: string;
@@ -822,6 +1032,7 @@ export function generateAssignmentSubmissionTrainerEmail(options: {
     recipientName: options.trainerName,
     categoryLabel: "Student Submission",
     title: `New Assignment Submission – ${options.assignmentName}`,
+    subject: `New Assignment Submission – ${options.assignmentName} | Sensilearn`,
     preheader: `Submission from ${options.studentName}`,
     message: `A student has submitted their project for "${options.assignmentName}". Please review the code repository and grade the deliverables.`,
     details: [
@@ -836,7 +1047,7 @@ export function generateAssignmentSubmissionTrainerEmail(options: {
   });
 }
 
-// 22. ASSESSMENT COMPLETION → TRAINER
+// TRAINER: ASSESSMENT COMPLETION
 export function generateAssessmentCompletionTrainerEmail(options: {
   trainerName: string;
   studentName: string;
@@ -850,6 +1061,7 @@ export function generateAssessmentCompletionTrainerEmail(options: {
     recipientName: options.trainerName,
     categoryLabel: "Assessment Completed",
     title: `Assessment Completed – ${options.assessmentName}`,
+    subject: `Assessment Completed – ${options.assessmentName} | Sensilearn`,
     preheader: `${options.studentName} completed ${options.assessmentName}`,
     message: `A candidate has completed their proctored assessment attempt for "${options.assessmentName}". Proctoring logs and answer records are ready for review.`,
     details: [
@@ -864,7 +1076,7 @@ export function generateAssessmentCompletionTrainerEmail(options: {
   });
 }
 
-// 23. STUDENT WELCOME
+// STUDENT WELCOME
 export function generateStudentWelcomeEmail(options: {
   studentName: string;
   studentEmail: string;
@@ -876,6 +1088,7 @@ export function generateStudentWelcomeEmail(options: {
     recipientName: options.studentName,
     categoryLabel: "Welcome to Sensilearn",
     title: "Welcome to Sensilearn LMS",
+    subject: "Welcome to Sensilearn LMS",
     preheader: "Your Sensilearn account has been created",
     message: `Welcome to the Sensilearn Learning Technologies platform. Your student account is active and you have been provisioned access to your technical courses, practice labs, and coding environments.`,
     details: [
@@ -890,7 +1103,7 @@ export function generateStudentWelcomeEmail(options: {
   });
 }
 
-// 24. TRAINER WELCOME
+// TRAINER WELCOME
 export function generateTrainerWelcomeEmail(options: {
   trainerName: string;
   trainerEmail: string;
@@ -900,6 +1113,7 @@ export function generateTrainerWelcomeEmail(options: {
     recipientName: options.trainerName,
     categoryLabel: "Faculty Onboarding",
     title: "Welcome to Sensilearn – Trainer Account Created",
+    subject: "Welcome to Sensilearn – Trainer Account Created",
     preheader: "Your faculty account is active",
     message: `Welcome to Sensilearn Learning Technologies. Your trainer account has been provisioned with elevated academic management privileges to oversee batches, create assessments, and host live classes.`,
     details: [
@@ -913,7 +1127,7 @@ export function generateTrainerWelcomeEmail(options: {
   });
 }
 
-// 25. PASSWORD RESET
+// PASSWORD RESET
 export function generatePasswordResetEmail(options: {
   recipientName: string;
   resetUrl: string;
@@ -922,6 +1136,7 @@ export function generatePasswordResetEmail(options: {
     recipientName: options.recipientName,
     categoryLabel: "Security Verification",
     title: "Reset Your Sensilearn Password",
+    subject: "Reset Your Sensilearn Password",
     preheader: "Password reset request for your Sensilearn account",
     message: `We received a request to reset the password for your Sensilearn LMS account. Click the button below to establish a new secure password. This request link is valid for 1 hour.`,
     details: [
@@ -935,7 +1150,7 @@ export function generatePasswordResetEmail(options: {
   });
 }
 
-// 26. EMAIL VERIFICATION
+// EMAIL VERIFICATION
 export function generateEmailVerificationEmail(options: {
   recipientName: string;
   verificationUrl: string;
@@ -944,6 +1159,7 @@ export function generateEmailVerificationEmail(options: {
     recipientName: options.recipientName,
     categoryLabel: "Account Verification",
     title: "Verify Your Sensilearn Email Address",
+    subject: "Verify Your Sensilearn Email Address",
     preheader: "Please verify your email address",
     message: `Please confirm your email address to complete your Sensilearn LMS profile setup and activate full platform access.`,
     details: [
@@ -956,35 +1172,212 @@ export function generateEmailVerificationEmail(options: {
   });
 }
 
-// 27. LIVE CLASS SCHEDULED
-export function generateLiveClassScheduledEmail(options: {
+/* ─────────────────────────────────────────────────────────────
+ * BACKWARD COMPATIBILITY ALIASES FOR EXISTING CODEBASE
+ * ───────────────────────────────────────────────────────────── */
+
+export function generatePracticeUpdatedEmail(options: {
   recipientName: string;
-  classTitle: string;
-  trainerName?: string;
-  scheduledTime?: string;
-  duration?: string;
-  platform?: string;
-  liveClassUrl: string;
-}): { subject: string; html: string; text: string } {
-  return buildMncEmailLayout({
+  practiceName: string;
+  updatedBy?: string;
+  changeSummary?: string;
+  practiceUrl: string;
+}) {
+  return generatePracticePublishedEmail({
     recipientName: options.recipientName,
-    categoryLabel: "Live Interactive Session",
-    title: `New Live Class Scheduled – ${options.classTitle}`,
-    preheader: `Live class scheduled: ${options.classTitle}`,
-    message: `A live interactive training lecture has been scheduled for your cohort on SensiLearn LMS. Please review the start time and join promptly.`,
-    details: [
-      { label: "Session Title", value: options.classTitle },
-      { label: "Lead Trainer", value: options.trainerName || "SensiLearn Faculty" },
-      { label: "Scheduled Time", value: options.scheduledTime || "See portal", highlight: true },
-      { label: "Duration", value: options.duration || "60 Minutes" },
-      { label: "Platform", value: options.platform || "Sensilearn Live Classroom" },
-    ],
-    ctaText: "JOIN LIVE CLASS",
-    redirectUrl: options.liveClassUrl,
-    supportingText: "Session attendance and engagement metrics are logged automatically upon entry.",
+    practiceName: options.practiceName,
+    practiceUrl: options.practiceUrl,
   });
 }
 
-// Backward compatibility alias for legacy imports
+export function generateCodeLabPublishedEmail(options: {
+  recipientName: string;
+  codelabName: string;
+  courseName?: string;
+  difficulty?: string;
+  problemCount?: number;
+  codelabUrl: string;
+}) {
+  return generateCodingPracticePublishedEmail({
+    recipientName: options.recipientName,
+    practiceName: options.codelabName,
+    courseName: options.courseName,
+    difficulty: options.difficulty,
+    practiceUrl: options.codelabUrl,
+  });
+}
+
+export function generateCodeLabUpdatedEmail(options: {
+  recipientName: string;
+  codelabName: string;
+  updatedBy?: string;
+  codelabUrl: string;
+}) {
+  return generateCodeLabPublishedEmail({
+    recipientName: options.recipientName,
+    codelabName: options.codelabName,
+    codelabUrl: options.codelabUrl,
+  });
+}
+
+export function generateCodingProblemPublishedEmail(options: {
+  recipientName: string;
+  problemName: string;
+  difficulty?: string;
+  topic?: string;
+  estimatedDuration?: string;
+  problemUrl: string;
+}) {
+  return generateCodingChallengePublishedEmail({
+    recipientName: options.recipientName,
+    challengeName: options.problemName,
+    category: options.topic,
+    difficulty: options.difficulty,
+    deadline: options.estimatedDuration,
+    challengeUrl: options.problemUrl,
+  });
+}
+
+export function generateCodingProblemUpdatedEmail(options: {
+  recipientName: string;
+  problemName: string;
+  updatedBy?: string;
+  changeSummary?: string;
+  problemUrl: string;
+}) {
+  return generateCodingProblemPublishedEmail({
+    recipientName: options.recipientName,
+    problemName: options.problemName,
+    problemUrl: options.problemUrl,
+  });
+}
+
+export function generateAssessmentAssignedEmail(options: {
+  recipientName: string;
+  assessmentName: string;
+  duration?: string;
+  totalMarks?: string | number;
+  passingPercentage?: string | number;
+  attemptsAllowed?: number | string;
+  startDate?: string;
+  deadline?: string;
+  assessmentUrl: string;
+}) {
+  return generateAssessmentScheduledEmail({
+    recipientName: options.recipientName,
+    assessmentName: options.assessmentName,
+    duration: options.duration,
+    totalMarks: options.totalMarks,
+    assessmentDate: options.startDate,
+    assessmentUrl: options.assessmentUrl,
+  });
+}
+
+export function generateAssessmentUpdatedEmail(options: {
+  recipientName: string;
+  assessmentName: string;
+  updatedBy?: string;
+  changes?: string;
+  assessmentUrl: string;
+}) {
+  return generateAssessmentScheduledEmail({
+    recipientName: options.recipientName,
+    assessmentName: options.assessmentName,
+    assessmentUrl: options.assessmentUrl,
+  });
+}
+
+export function generateAssessmentDeadlineChangedEmail(options: {
+  recipientName: string;
+  assessmentName: string;
+  previousDeadline?: string;
+  newDeadline: string;
+  assessmentUrl: string;
+}) {
+  return generateDeadlineReminderEmail({
+    recipientName: options.recipientName,
+    activityName: options.assessmentName,
+    activityType: "Assessment",
+    deadline: options.newDeadline,
+    activityUrl: options.assessmentUrl,
+  });
+}
+
+export function generateAssignmentUpdatedEmail(options: {
+  recipientName: string;
+  assignmentName: string;
+  updatedBy?: string;
+  changes?: string;
+  assignmentUrl: string;
+}) {
+  return generateAssignmentAssignedEmail({
+    recipientName: options.recipientName,
+    assignmentName: options.assignmentName,
+    assignmentUrl: options.assignmentUrl,
+  });
+}
+
+export function generateAssignmentDeadlineChangedEmail(options: {
+  recipientName: string;
+  assignmentName: string;
+  previousDeadline?: string;
+  newDeadline: string;
+  assignmentUrl: string;
+}) {
+  return generateDeadlineReminderEmail({
+    recipientName: options.recipientName,
+    activityName: options.assignmentName,
+    activityType: "Assignment",
+    deadline: options.newDeadline,
+    activityUrl: options.assignmentUrl,
+  });
+}
+
+export function generateAssignmentReminderEmail(options: {
+  recipientName: string;
+  assignmentName: string;
+  deadline: string;
+  assignmentUrl: string;
+}) {
+  return generateDeadlineReminderEmail({
+    recipientName: options.recipientName,
+    activityName: options.assignmentName,
+    activityType: "Assignment",
+    deadline: options.deadline,
+    activityUrl: options.assignmentUrl,
+  });
+}
+
+export function generateBatchUpdatedEmail(options: {
+  recipientName: string;
+  batchName: string;
+  changes?: string;
+  batchUrl: string;
+}) {
+  return generateBatchAllocationEmail({
+    recipientName: options.recipientName,
+    batchName: options.batchName,
+    dashboardUrl: options.batchUrl,
+  });
+}
+
+export function generateStudentAddedToBatchEmail(options: {
+  recipientName: string;
+  batchName: string;
+  programName?: string;
+  trainerName?: string;
+  startDate?: string;
+  batchUrl: string;
+}) {
+  return generateBatchAllocationEmail({
+    recipientName: options.recipientName,
+    batchName: options.batchName,
+    programmeName: options.programName,
+    trainerName: options.trainerName,
+    startDate: options.startDate,
+    dashboardUrl: options.batchUrl,
+  });
+}
+
 export { generateCoursePublishedEmail as generateCourseAssignedEmail };
 export { generatePracticePublishedEmail as generatePracticeAssignedEmail };

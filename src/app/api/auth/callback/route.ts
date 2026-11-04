@@ -5,7 +5,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import { deduplicateCookies } from "@/lib/supabase/cookie-utils";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || "";
 
 interface BufferedCookie {
   name: string;
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const forwardedHost = request.headers.get("x-forwarded-host");
   const host = forwardedHost || request.headers.get("host") || requestUrl.host;
   const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
-  const origin = host ? `${protocol}://${host}` : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn-lms.vercel.app");
+  const origin = host ? `${protocol}://${host}` : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn.com");
 
   console.log(`[AUTH] Callback reached: code present = ${Boolean(code)}, origin = ${origin}`);
 

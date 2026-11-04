@@ -4,10 +4,10 @@ import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: {
-    template: "SensilLearn | %s",
-    default: "SensilLearn | Coding",
+    template: "SensiLearn | %s",
+    default: "SensiLearn | Coding",
   },
-  description: "Problem solving experience on SensilLearn",
+  description: "Problem solving experience on SensiLearn",
 };
 
 export default function CodingRootLayout({

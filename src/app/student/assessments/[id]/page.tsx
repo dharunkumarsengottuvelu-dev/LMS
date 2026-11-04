@@ -141,7 +141,7 @@ export default function AssessmentTakePage() {
 
   useEffect(() => {
     if (currentSubModule?.title) {
-      document.title = `SensilLearn | ${currentSubModule.title}`;
+      document.title = `SensiLearn | ${currentSubModule.title}`;
     }
   }, [currentSubModule?.title]);
 

@@ -64,25 +64,31 @@ async function runVerificationSuite() {
     // TEST 2: Create Batch with Optional Fields (Test 2)
     // -------------------------------------------------------------------------
     const testBatch2Name = `Automated Test Batch 2 - ${Date.now()}`;
+    const descMeta = {
+      college_name: "PSG Tech",
+      course_name: "Java Fullstack Track",
+    };
     const { data: b2, error: b2Err } = await adminClient
       .from("batches")
       .insert({
         batch_name: testBatch2Name,
         name: testBatch2Name,
-        college_name: "PSG Tech",
-        course_name: "Java Fullstack Track",
+        description: JSON.stringify(descMeta),
         start_date: "2026-09-01",
         status: "active",
       })
       .select()
       .single();
 
+    let parsedMeta: any = {};
+    try { parsedMeta = JSON.parse(b2?.description || "{}"); } catch {}
+
     if (b2Err || !b2) {
       report("Test 2: Create Batch with Optional Fields", false, b2Err?.message);
     } else {
       report(
         "Test 2: Create Batch with Optional Fields",
-        b2.college_name === "PSG Tech" && b2.course_name === "Java Fullstack Track" && b2.start_date === "2026-09-01",
+        parsedMeta.college_name === "PSG Tech" && parsedMeta.course_name === "Java Fullstack Track" && b2.start_date === "2026-09-01",
         `Batch created with College, Course Track, Start Date (all optional fields persisted).`
       );
     }

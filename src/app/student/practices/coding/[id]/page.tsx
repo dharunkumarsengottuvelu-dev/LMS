@@ -5,6 +5,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   Play,
+  Code2,
+  FileText,
   RotateCcw,
   Loader2,
   Terminal,
@@ -287,6 +289,33 @@ export default function StudentPracticeCodingRunnerPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Mobile 5-view tab state (problem, editor, custom_input, output, testcases)
+  type MobileCompilerTab = "problem" | "editor" | "custom_input" | "output" | "testcases";
+  const [mobileTab, setMobileTab] = useState<MobileCompilerTab>("editor");
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // ResizeObserver on Monaco Editor container for foldables & responsive displays
+  useEffect(() => {
+    if (!editorContainerRef.current) return;
+    const ro = new ResizeObserver(() => {
+      if (editorRef.current) {
+        editorRef.current.layout();
+      }
+    });
+    ro.observe(editorContainerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  // Re-layout Monaco whenever mobileTab switches to editor
+  useEffect(() => {
+    if (mobileTab === "editor" && editorRef.current) {
+      const timer = setTimeout(() => {
+        editorRef.current?.layout();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [mobileTab]);
+
   // Authoritative Attempt State (controlled by Admin Panel policy)
   const [currentAttempt, setCurrentAttempt] = useState<any>(null);
   const [currentAttemptNumber, setCurrentAttemptNumber] = useState<number>(1);
@@ -301,7 +330,7 @@ export default function StudentPracticeCodingRunnerPage() {
   useEffect(() => {
     const title = currentProblem?.title || moduleTitle || trackTitle;
     if (title) {
-      document.title = `SensilLearn | ${title}`;
+      document.title = `SensiLearn | ${title}`;
     }
   }, [currentProblem?.title, moduleTitle, trackTitle]);
 
@@ -2248,6 +2277,7 @@ export default function StudentPracticeCodingRunnerPage() {
           MOBILE QUESTION NAVIGATION BAR & COLLAPSIBLE PALETTE DRAWER (lg:hidden)
       ══════════════════════════════════════════════════════════════════════ */}
       {!isReviewSubmitOpen && (
+        <>
         <div className="lg:hidden bg-white border-b border-slate-200 px-3 py-2 shrink-0">
           <div className="flex items-center justify-between gap-2">
             {/* Quick Prev / Next for Mobile */}
@@ -2353,6 +2383,102 @@ export default function StudentPracticeCodingRunnerPage() {
             </div>
           )}
         </div>
+
+        {/* Mobile 5-View Accessible Switcher (< lg viewports) */}
+        <div className="lg:hidden bg-slate-100/95 backdrop-blur-xs border-b border-slate-200 px-2.5 py-1.5 shrink-0 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1.5 min-w-max">
+            <button
+              type="button"
+              onClick={() => setMobileTab("problem")}
+              className={cn(
+                "px-3 py-1.5 min-h-[36px] text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation",
+                mobileTab === "problem"
+                  ? "bg-white text-blue-600 shadow-xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Problem</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab("editor")}
+              className={cn(
+                "px-3 py-1.5 min-h-[36px] text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation",
+                mobileTab === "editor"
+                  ? "bg-white text-blue-600 shadow-xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              <Code2 className="w-3.5 h-3.5" />
+              <span>Code Editor</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileTab("custom_input");
+                setBottomTab("testcase");
+                setIsBottomMinimized(false);
+              }}
+              className={cn(
+                "px-3 py-1.5 min-h-[36px] text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation",
+                mobileTab === "custom_input"
+                  ? "bg-white text-blue-600 shadow-xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              <Play className="w-3 h-3" />
+              <span>Custom Input</span>
+              {customInputText && <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileTab("output");
+                setBottomTab(consoleOutput ? "console" : "testresult");
+                setIsBottomMinimized(false);
+              }}
+              className={cn(
+                "px-3 py-1.5 min-h-[36px] text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation",
+                mobileTab === "output"
+                  ? "bg-white text-blue-600 shadow-xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Output</span>
+              {(runResults || executionError || customRunResult) && (
+                <span
+                  className={cn(
+                    "w-1.5 h-1.5 rounded-full",
+                    executionError ? "bg-rose-500" : "bg-emerald-500"
+                  )}
+                />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileTab("testcases");
+                setBottomTab("testcase");
+                setIsBottomMinimized(false);
+              }}
+              className={cn(
+                "px-3 py-1.5 min-h-[36px] text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer touch-manipulation",
+                mobileTab === "testcases"
+                  ? "bg-white text-blue-600 shadow-xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Test Cases</span>
+              <span className="text-[10px] px-1.5 py-0.2 bg-slate-200/80 rounded font-bold text-slate-700">
+                {systemTestCases.length}
+              </span>
+            </button>
+          </div>
+        </div>
+        </>
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════
@@ -2650,7 +2776,10 @@ export default function StudentPracticeCodingRunnerPage() {
         <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden p-2.5 sm:p-3 gap-3 min-h-0">
         {/* ─── COLUMN 1: PROBLEM DESCRIPTION PANEL ────────────────────── */}
         {isDescriptionOpen ? (
-          <div className="w-full lg:w-[32%] lg:min-w-[300px] lg:max-w-[440px] rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden shrink-0 min-h-[380px] lg:min-h-0 lg:h-full">
+          <div className={cn(
+            "w-full lg:w-[32%] 2xl:w-[28%] 3xl:w-[25%] lg:min-w-[300px] lg:max-w-[480px] rounded-xl border border-slate-200/90 bg-white shadow-2xs flex-col overflow-hidden shrink-0",
+            mobileTab === "problem" ? "flex flex-1 min-h-[420px]" : "hidden lg:flex lg:min-h-0 lg:h-full"
+          )}>
             {/* Left Panel Tabs: Description | Solutions | Submissions | Discuss + Chevron Hide Button (<) */}
             <div className="h-10 border-b border-slate-200 px-3 flex items-center justify-between shrink-0 bg-white">
               <div className="flex items-center gap-4 h-full">
@@ -3080,16 +3209,20 @@ export default function StudentPracticeCodingRunnerPage() {
         )}
 
         {/* ─── COLUMN 2: CENTER LIGHT CODE EDITOR + TESTCASE / CONSOLE PANEL ── */}
-        <div className="w-full lg:flex-1 flex flex-col gap-3 min-h-0 lg:overflow-hidden shrink-0 lg:shrink">
+        <div className={cn(
+          "w-full lg:flex-1 flex flex-col gap-3 min-h-0 lg:overflow-hidden shrink-0 lg:shrink",
+          mobileTab !== "problem" ? "flex" : "hidden lg:flex"
+        )}>
           {/* Upper: Light Code Editor Card */}
           <div
             className={cn(
-              "rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden transition-all duration-150 min-h-0",
+              "rounded-xl border border-slate-200/90 bg-white shadow-2xs flex-col overflow-hidden transition-all duration-150 min-h-0",
+              mobileTab === "editor" ? "flex flex-1 h-full min-h-[300px]" : "hidden lg:flex",
               isEditorFullscreen
                 ? "fixed inset-0 z-50 rounded-none border-none h-screen w-screen shadow-2xl"
                 : isBottomMinimized
-                ? "h-[360px] sm:h-[420px] lg:h-auto lg:flex-1 min-h-[220px]"
-                : "h-[340px] sm:h-[380px] lg:h-auto lg:flex-1 lg:min-h-[160px]"
+                ? "lg:h-auto lg:flex-1 lg:min-h-[220px]"
+                : "lg:h-auto lg:flex-1 lg:min-h-[160px]"
             )}
           >
             {/* Editor Header Bar: Blue Dot + Code Editor + Language Badge + Fullscreen Button */}
@@ -3168,7 +3301,7 @@ export default function StudentPracticeCodingRunnerPage() {
 
             {/* Monaco Editor in Pure Light ("vs") Theme with VS Code Status Bar */}
             <div className="flex-1 min-h-0 relative bg-white overflow-hidden flex flex-col">
-              <div className="flex-1 relative overflow-hidden">
+              <div ref={editorContainerRef} className="flex-1 relative overflow-hidden">
                 <MonacoEditor
                   language={SUPPORTED_LANGUAGES.find((l) => l.id === selectedLanguage)?.monacoLang || selectedLanguage || "c"}
                   value={code}
@@ -3280,10 +3413,13 @@ export default function StudentPracticeCodingRunnerPage() {
           {/* Lower: Testcase / Test Result / Console Panel */}
           <div
             className={cn(
-              "rounded-xl border border-slate-200/90 bg-white shadow-2xs flex flex-col overflow-hidden transition-all duration-200 min-h-0",
-              isBottomMinimized
-                ? "h-9.5 shrink-0"
-                : "h-[320px] sm:h-[350px] lg:h-[40%] xl:h-[42%] lg:max-h-[48%] lg:min-h-[180px] shrink-0"
+              "rounded-xl border border-slate-200/90 bg-white shadow-2xs flex-col overflow-hidden transition-all duration-200 min-h-0",
+              mobileTab !== "editor" && mobileTab !== "problem"
+                ? "flex flex-1 h-full min-h-[320px]"
+                : "hidden lg:flex shrink-0",
+              isBottomMinimized && mobileTab === "editor"
+                ? "lg:h-9.5 lg:shrink-0"
+                : "lg:h-[40%] xl:lg:h-[42%] lg:max-h-[48%] lg:min-h-[180px]"
             )}
           >
             {/* Bottom Panel Tabs: Testcase | Test Result | Console + Minimize/Expand Button */}

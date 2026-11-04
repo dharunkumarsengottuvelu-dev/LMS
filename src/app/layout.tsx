@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,27 +11,27 @@ import { ActiveTimeProvider } from "@/components/providers/active-time-provider"
 
 export const metadata: Metadata = {
   title: {
-    default: "SensilLearn",
-    template: "SensilLearn | %s",
+    default: "SensiLearn",
+    template: "SensiLearn | %s",
   },
   description:
-    "SensilLearn is an enterprise learning platform.",
+    "SensiLearn is an enterprise learning platform.",
   keywords: [
-    "SensilLearn",
+    "SensiLearn",
     "LMS",
     "e-learning",
     "corporate training",
     "online courses",
     "coding assessment",
   ],
-  authors: [{ name: "SensilLearn" }],
+  authors: [{ name: "SensiLearn" }],
   openGraph: {
     type: "website",
     locale: "en_US",
     url: process.env["NEXT_PUBLIC_APP_URL"],
-    title: "SensilLearn",
+    title: "SensiLearn",
     description: "Enterprise learning platform.",
-    siteName: "SensilLearn",
+    siteName: "SensiLearn",
   },
   robots: {
     index: true,
@@ -49,6 +49,18 @@ export const metadata: Metadata = {
     ],
   },
   manifest: "/site.webmanifest",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0B1120" },
+  ],
 };
 
 import { GlobalErrorListener } from "@/components/providers/global-error-listener";

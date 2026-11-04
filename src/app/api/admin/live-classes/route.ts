@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAdminSession } from "@/app/api/admin/_auth";
 import { getErrorMessage } from "@/lib/utils";
-import { dispatchBatchNotification } from "@/lib/notifications/dispatcher";
+import { dispatchBatchNotification, dispatchLMSEvent } from "@/lib/notifications/dispatcher";
 
 export const dynamic = "force-dynamic";
 
@@ -279,10 +279,34 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "cancel_class" && liveClassId) {
+      const { data: existingClass } = await adminClient
+        .from("live_classes")
+        .select("*")
+        .eq("id", liveClassId)
+        .maybeSingle();
+
       await adminClient
         .from("live_classes")
         .update({ status: "cancelled", updated_at: new Date().toISOString() })
         .eq("id", liveClassId);
+
+      if (existingClass) {
+        const cTitle = existingClass.title || "Live Class";
+        const cBatches = existingClass.assigned_batches || [];
+        const isCommon = Boolean(existingClass.is_common);
+        dispatchLMSEvent({
+          eventType: "LIVE_CLASS_CANCELLED",
+          name: cTitle,
+          title: `Live Class Cancelled – ${cTitle}`,
+          courseName: existingClass.course_name || existingClass.course_title || "Live Session",
+          sessionDate: existingClass.scheduled_date || "Scheduled Date",
+          targetUrl: `/student/live-classes`,
+          resourceType: "live_class",
+          resourceId: liveClassId,
+          batchNames: cBatches,
+          isCommon,
+        }).catch((e) => console.warn("Live class cancel notification error:", e));
+      }
 
       return NextResponse.json({ success: true, status: "cancelled" });
     }
@@ -347,8 +371,13 @@ export async function POST(request: NextRequest) {
     };
 
     let savedClass: any = null;
+    let previousClass: any = null;
 
     if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      try {
+        const { data: prev } = await adminClient.from("live_classes").select("*").eq("id", id).maybeSingle();
+        previousClass = prev;
+      } catch {}
       payload.id = id;
       const { data, error } = await adminClient
         .from("live_classes")
@@ -416,36 +445,44 @@ export async function POST(request: NextRequest) {
 
       const classDirectUrl = classId ? `/student/live-classes/${classId}` : `/student/live-classes`;
 
-      if (effectiveIsCommon) {
-        dispatchBatchNotification({
-          isCommon: true,
-          eventType: "live_class_scheduled",
-          title: `New Live Class Scheduled: ${classTitle}`,
-          message: `A live WebRTC classroom session "${classTitle}" has been scheduled for your cohort on ${scheduleStr}.`,
+      const isRescheduled = previousClass && (
+        previousClass.scheduled_date !== effectiveDate ||
+        previousClass.start_time !== effectiveStartTime
+      );
+
+      if (isRescheduled) {
+        dispatchLMSEvent({
+          eventType: "LIVE_CLASS_RESCHEDULED",
+          name: classTitle,
+          title: `Schedule Update – Live Class: ${classTitle}`,
+          oldDate: previousClass.scheduled_date,
+          oldTime: previousClass.start_time,
+          newDate: effectiveDate,
+          newTime: effectiveStartTime,
+          trainerName: effectiveTrainerName || "Sensilearn Faculty",
+          batchNames: effectiveBatches,
+          isCommon: effectiveIsCommon,
+          targetUrl: classDirectUrl,
           resourceType: "live_class",
           resourceId: classId,
-          targetUrl: classDirectUrl,
-          assignedBy: effectiveTrainerName || "SensiLearn Trainer",
-          dueDate: scheduleStr,
+        }).catch((e) => console.warn("Live class reschedule notification error:", e));
+      } else {
+        dispatchLMSEvent({
+          eventType: "LIVE_CLASS_SCHEDULED",
+          name: classTitle,
+          title: `Upcoming Live Class – ${classTitle}`,
+          courseName: effectiveCourseName,
+          trainerName: effectiveTrainerName || "Sensilearn Faculty",
+          sessionDate: effectiveDate,
+          sessionTime: effectiveStartTime,
           duration: durationStr,
-          category: "SensiLearn Live Class",
-        }).catch((e) => console.warn("Live class batch notification error:", e));
-      } else if (effectiveBatches && effectiveBatches.length > 0) {
-        for (const bName of effectiveBatches) {
-          dispatchBatchNotification({
-            batchName: bName,
-            eventType: "live_class_scheduled",
-            title: `New Live Class Scheduled: ${classTitle}`,
-            message: `A live WebRTC classroom session "${classTitle}" has been scheduled for cohort ${bName} on ${scheduleStr}.`,
-            resourceType: "live_class",
-            resourceId: classId,
-            targetUrl: classDirectUrl,
-            assignedBy: effectiveTrainerName || "SensiLearn Trainer",
-            dueDate: scheduleStr,
-            duration: durationStr,
-            category: "SensiLearn Live Class",
-          }).catch((e) => console.warn("Live class batch notification error:", e));
-        }
+          meetingUrl: payload.meeting_url,
+          batchNames: effectiveBatches,
+          isCommon: effectiveIsCommon,
+          targetUrl: classDirectUrl,
+          resourceType: "live_class",
+          resourceId: classId,
+        }).catch((e) => console.warn("Live class schedule notification error:", e));
       }
     } catch (notifErr) {
       console.warn("Live class notification dispatch warning:", notifErr);

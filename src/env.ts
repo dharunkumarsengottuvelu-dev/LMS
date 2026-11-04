@@ -3,7 +3,8 @@ import { z } from "zod";
 const envSchema = z.object({
   // Supabase
   NEXT_PUBLIC_SUPABASE_URL: z.string().url("Invalid Supabase URL"),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, "Supabase anon key is required"),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "Supabase service role key is required").optional(),
 
   // Jobe Code Execution Server
@@ -20,7 +21,13 @@ const envSchema = z.object({
 
   // Node
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-});
+}).refine(
+  (data) => !!(data.NEXT_PUBLIC_SUPABASE_ANON_KEY || data.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
+  {
+    message: "Either NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is required",
+    path: ["NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+  }
+);
 
 type Env = z.infer<typeof envSchema>;
 

@@ -414,7 +414,7 @@ export default function StudentCoursePlayerPage() {
 
   useEffect(() => {
     if (courseTitle) {
-      document.title = `SensilLearn | ${courseTitle}`;
+      document.title = `SensiLearn | ${courseTitle}`;
     }
   }, [courseTitle]);
 

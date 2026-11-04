@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: {
-    template: "SensilLearn | %s",
-    default: "SensilLearn | Code Playground",
+    template: "SensiLearn | %s",
+    default: "SensiLearn | Code Playground",
   },
 };
 

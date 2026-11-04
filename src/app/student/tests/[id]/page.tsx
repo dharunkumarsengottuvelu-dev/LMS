@@ -37,7 +37,7 @@ export default function StudentTestRunnerPage() {
 
   useEffect(() => {
     if (testData?.title) {
-      document.title = `SensilLearn | ${testData.title}`;
+      document.title = `SensiLearn | ${testData.title}`;
     }
   }, [testData?.title]);
 

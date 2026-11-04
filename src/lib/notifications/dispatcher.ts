@@ -8,25 +8,29 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, isValidEmail } from "@/lib/email/email-service";
 import {
+  // 20 Primary LMS Activity Templates
   generateCoursePublishedEmail,
-  generateCourseUpdatedEmail,
   generatePracticePublishedEmail,
-  generatePracticeUpdatedEmail,
-  generateCodeLabPublishedEmail,
-  generateCodeLabUpdatedEmail,
-  generateCodingProblemPublishedEmail,
-  generateCodingProblemUpdatedEmail,
-  generateAssessmentAssignedEmail,
-  generateAssessmentUpdatedEmail,
-  generateAssessmentDeadlineChangedEmail,
+  generateMcqPracticePublishedEmail,
+  generateCodingPracticePublishedEmail,
+  generateTestPublishedEmail,
+  generateAssessmentScheduledEmail,
+  generateLiveClassScheduledEmail,
+  generateLiveClassRescheduledEmail,
+  generateLiveClassCancelledEmail,
+  generateCodingChallengePublishedEmail,
+  generateProgrammingContestEmail,
   generateAssignmentAssignedEmail,
-  generateAssignmentUpdatedEmail,
-  generateAssignmentDeadlineChangedEmail,
-  generateAssignmentReminderEmail,
-  generateAnnouncementEmail,
-  generateBatchUpdatedEmail,
-  generateStudentAddedToBatchEmail,
+  generateProjectAssignedEmail,
+  generateDeadlineReminderEmail,
   generateResultPublishedEmail,
+  generateFeedbackEmail,
+  generateStudyMaterialEmail,
+  generateAnnouncementEmail,
+  generateBatchAllocationEmail,
+  generateCourseUpdatedEmail,
+
+  // Operational / System Builders
   generateCertificateGeneratedEmail,
   generateAssignmentSubmissionTrainerEmail,
   generateAssessmentCompletionTrainerEmail,
@@ -34,17 +38,35 @@ import {
   generateTrainerWelcomeEmail,
   generatePasswordResetEmail,
   generateEmailVerificationEmail,
-  generateLiveClassScheduledEmail,
   buildMncEmailLayout,
 } from "@/lib/email/email-templates";
 import { getAbsoluteUrl } from "@/config/site";
 
 export type LMSEventType =
-  | "COURSE_CREATED"
+  // The 20 Primary LMS Activity Events
   | "COURSE_PUBLISHED"
-  | "COURSE_UPDATED"
-  | "PRACTICE_CREATED"
   | "PRACTICE_PUBLISHED"
+  | "MCQ_PRACTICE_PUBLISHED"
+  | "CODING_PRACTICE_PUBLISHED"
+  | "TEST_PUBLISHED"
+  | "ASSESSMENT_SCHEDULED"
+  | "LIVE_CLASS_SCHEDULED"
+  | "LIVE_CLASS_RESCHEDULED"
+  | "LIVE_CLASS_CANCELLED"
+  | "CODING_CHALLENGE_PUBLISHED"
+  | "PROGRAMMING_CONTEST_PUBLISHED"
+  | "ASSIGNMENT_ASSIGNED"
+  | "PROJECT_ASSIGNED"
+  | "DEADLINE_REMINDER"
+  | "RESULT_PUBLISHED"
+  | "FEEDBACK_PUBLISHED"
+  | "STUDY_MATERIAL_PUBLISHED"
+  | "ANNOUNCEMENT_PUBLISHED"
+  | "BATCH_ALLOCATED"
+  | "COURSE_UPDATED"
+  // Operational and legacy aliases
+  | "COURSE_CREATED"
+  | "PRACTICE_CREATED"
   | "PRACTICE_UPDATED"
   | "CODELAB_CREATED"
   | "CODELAB_PUBLISHED"
@@ -60,12 +82,10 @@ export type LMSEventType =
   | "ASSESSMENT_DEADLINE_CHANGED"
   | "ASSIGNMENT_CREATED"
   | "ASSIGNMENT_PUBLISHED"
-  | "ASSIGNMENT_ASSIGNED"
   | "ASSIGNMENT_UPDATED"
   | "ASSIGNMENT_DEADLINE_CHANGED"
   | "ASSIGNMENT_REMINDER"
   | "ANNOUNCEMENT_CREATED"
-  | "ANNOUNCEMENT_PUBLISHED"
   | "ANNOUNCEMENT_UPDATED"
   | "BATCH_CREATED"
   | "BATCH_UPDATED"
@@ -75,11 +95,9 @@ export type LMSEventType =
   | "TRAINER_CREATED"
   | "ASSESSMENT_SUBMITTED"
   | "ASSIGNMENT_SUBMITTED"
-  | "RESULT_PUBLISHED"
   | "CERTIFICATE_GENERATED"
   | "PASSWORD_RESET_REQUESTED"
   | "EMAIL_VERIFICATION_REQUESTED"
-  | "LIVE_CLASS_SCHEDULED"
   // Legacy aliases
   | "course_assigned"
   | "course_updated"
@@ -101,12 +119,31 @@ export interface LMSEventPayload {
   recipientUserIds?: string[];
   recipientEmails?: string[];
   batchId?: string;
+  batchIds?: string[];
   batchName?: string;
-  isCommon?: boolean; // Targets all active students
+  batchNames?: string[];
+  institutionId?: string;
+  isCommon?: boolean; // Targets all active students (scoped to institution if institutionId is set)
   targetRole?: "student" | "trainer" | "all";
 
   // Entity Details
-  resourceType?: "course" | "practice" | "codelab" | "problem" | "assessment" | "test" | "assignment" | "announcement" | "batch" | "result" | "certificate" | "live_class" | "user";
+  resourceType?:
+    | "course"
+    | "practice"
+    | "codelab"
+    | "problem"
+    | "assessment"
+    | "test"
+    | "assignment"
+    | "announcement"
+    | "batch"
+    | "result"
+    | "certificate"
+    | "live_class"
+    | "user"
+    | "project"
+    | "material"
+    | "feedback";
   resourceId?: string;
   targetUrl: string; // The direct relative or absolute URL to the exact resource
 
@@ -114,23 +151,55 @@ export interface LMSEventPayload {
   title?: string;
   name?: string;
   courseName?: string;
+  courseDescription?: string;
   trainerName?: string;
   studentName?: string;
   assignedBy?: string;
   category?: string;
+  topicName?: string;
+  totalQuestions?: string | number;
+  programmingLanguage?: string;
+  languages?: string;
   difficulty?: string;
   duration?: string;
   totalMarks?: string | number;
   passingPercentage?: string | number;
   dueDate?: string;
+  deadline?: string;
   previousDeadline?: string;
   newDeadline?: string;
+  startDate?: string;
+  endDate?: string;
+  startTime?: string;
+  assessmentDate?: string;
+  sessionDate?: string;
+  sessionTime?: string;
+  oldDate?: string;
+  oldTime?: string;
+  newDate?: string;
+  newTime?: string;
+  meetingUrl?: string;
+  problemCount?: number | string;
+  projectName?: string;
+  assignedDate?: string;
+  evaluatorName?: string;
+  evaluationDate?: string;
+  resourceName?: string;
+  moduleName?: string;
+  programmeName?: string;
+  programName?: string;
+  institutionName?: string;
+  updateDescription?: string;
+  updatedDate?: string;
+  publishedDate?: string;
   changes?: string;
   changeSummary?: string;
   score?: string | number;
   percentage?: string | number;
   certificateId?: string;
   customMessage?: string;
+  activityName?: string;
+  activityType?: string;
 }
 
 export interface DispatchStudentNotificationOptions {
@@ -154,6 +223,9 @@ export interface DispatchStudentNotificationOptions {
 export interface DispatchBatchNotificationOptions {
   batchId?: string;
   batchName?: string;
+  batchIds?: string[];
+  batchNames?: string[];
+  institutionId?: string;
   studentIds?: string[];
   trainerIds?: string[];
   isCommon?: boolean;
@@ -178,8 +250,8 @@ function normalizeEventType(evt: LMSEventType): LMSEventType {
   const map: Record<string, LMSEventType> = {
     course_assigned: "COURSE_PUBLISHED",
     course_updated: "COURSE_UPDATED",
-    assessment_assigned: "ASSESSMENT_ASSIGNED",
-    test_scheduled: "ASSESSMENT_ASSIGNED",
+    assessment_assigned: "ASSESSMENT_SCHEDULED",
+    test_scheduled: "TEST_PUBLISHED",
     practice_assigned: "PRACTICE_PUBLISHED",
     live_class_scheduled: "LIVE_CLASS_SCHEDULED",
     result_published: "RESULT_PUBLISHED",
@@ -190,7 +262,7 @@ function normalizeEventType(evt: LMSEventType): LMSEventType {
 }
 
 /**
- * Resolves the appropriate MNC email template based on event type.
+ * Resolves the appropriate MNC email template based on the 20 LMS Activity Types.
  */
 function resolveEmailTemplate(
   eventType: LMSEventType,
@@ -200,139 +272,184 @@ function resolveEmailTemplate(
 ): { subject: string; html: string; text: string; ctaText: string } {
   const norm = normalizeEventType(eventType);
   const resourceTitle = event.name || event.title || event.courseName || "Learning Resource";
+  const primaryBatchName = event.batchName || (event.batchNames && event.batchNames.length > 0 ? event.batchNames[0] : undefined);
 
   switch (norm) {
+    // 1. COURSE EMAIL TEMPLATE (Section 2)
     case "COURSE_PUBLISHED":
     case "COURSE_CREATED": {
       const res = generateCoursePublishedEmail({
         recipientName,
-        courseName: resourceTitle,
+        courseName: event.courseName || resourceTitle,
+        courseDescription: event.courseDescription,
+        batchName: primaryBatchName,
         trainerName: event.trainerName || event.assignedBy,
-        batchName: event.batchName,
+        publishedDate: event.publishedDate,
         courseUrl: directRedirectUrl,
       });
-      return { ...res, ctaText: "VIEW COURSE" };
+      return { ...res, ctaText: "ACCESS YOUR COURSE" };
     }
 
-    case "COURSE_UPDATED": {
-      const res = generateCourseUpdatedEmail({
-        recipientName,
-        courseName: resourceTitle,
-        updatedBy: event.assignedBy || event.trainerName,
-        changeSummary: event.changeSummary || event.changes,
-        courseUrl: directRedirectUrl,
-      });
-      return { ...res, ctaText: "VIEW UPDATED COURSE" };
-    }
-
+    // 2. PRACTICE MODULE EMAIL TEMPLATE (Section 3)
     case "PRACTICE_PUBLISHED":
     case "PRACTICE_CREATED": {
       const res = generatePracticePublishedEmail({
         recipientName,
         practiceName: resourceTitle,
-        category: event.category,
+        courseName: event.courseName,
+        topicName: event.topicName || event.category,
+        batchName: primaryBatchName,
+        publishedDate: event.publishedDate,
+        practiceUrl: directRedirectUrl,
         duration: event.duration,
         totalMarks: event.totalMarks,
-        practiceUrl: directRedirectUrl,
       });
-      return { ...res, ctaText: "START PRACTICE" };
+      return { ...res, ctaText: "START PRACTICING" };
     }
 
-    case "PRACTICE_UPDATED": {
-      const res = generatePracticeUpdatedEmail({
+    // 3. MCQ PRACTICE EMAIL TEMPLATE (Section 4)
+    case "MCQ_PRACTICE_PUBLISHED": {
+      const res = generateMcqPracticePublishedEmail({
         recipientName,
         practiceName: resourceTitle,
-        updatedBy: event.assignedBy,
-        changeSummary: event.changeSummary || event.changes,
+        courseName: event.courseName,
+        topicName: event.topicName || event.category,
+        totalQuestions: event.totalQuestions,
+        batchName: primaryBatchName,
         practiceUrl: directRedirectUrl,
       });
-      return { ...res, ctaText: "VIEW UPDATED PRACTICE" };
+      return { ...res, ctaText: "START MCQ PRACTICE" };
     }
 
-    case "CODELAB_PUBLISHED":
-    case "CODELAB_CREATED": {
-      const res = generateCodeLabPublishedEmail({
+    // 4. CODING PRACTICE EMAIL TEMPLATE (Section 5)
+    case "CODING_PRACTICE_PUBLISHED": {
+      const res = generateCodingPracticePublishedEmail({
         recipientName,
-        codelabName: resourceTitle,
-        courseName: event.courseName,
+        practiceName: resourceTitle,
+        programmingLanguage: event.programmingLanguage || event.languages,
         difficulty: event.difficulty,
-        codelabUrl: directRedirectUrl,
+        courseName: event.courseName,
+        batchName: primaryBatchName,
+        practiceUrl: directRedirectUrl,
       });
-      return { ...res, ctaText: "OPEN CODE LAB" };
+      return { ...res, ctaText: "OPEN CODING PRACTICE" };
     }
 
-    case "CODELAB_UPDATED": {
-      const res = generateCodeLabUpdatedEmail({
+    // 5. TEST EMAIL TEMPLATE (Section 6)
+    case "TEST_PUBLISHED": {
+      const res = generateTestPublishedEmail({
         recipientName,
-        codelabName: resourceTitle,
-        updatedBy: event.assignedBy,
-        codelabUrl: directRedirectUrl,
+        testName: resourceTitle,
+        courseName: event.courseName,
+        batchName: primaryBatchName,
+        totalQuestions: event.totalQuestions,
+        totalMarks: event.totalMarks,
+        duration: event.duration,
+        startDate: event.startDate || event.dueDate,
+        endDate: event.endDate,
+        testUrl: directRedirectUrl,
       });
-      return { ...res, ctaText: "VIEW UPDATED CODE LAB" };
+      return { ...res, ctaText: "VIEW TEST DETAILS" };
     }
 
+    // 6. ASSESSMENT EMAIL TEMPLATE (Section 7)
+    case "ASSESSMENT_SCHEDULED":
+    case "ASSESSMENT_ASSIGNED":
+    case "ASSESSMENT_PUBLISHED":
+    case "ASSESSMENT_CREATED": {
+      const res = generateAssessmentScheduledEmail({
+        recipientName,
+        assessmentName: resourceTitle,
+        courseName: event.courseName,
+        batchName: primaryBatchName,
+        assessmentDate: event.assessmentDate || event.startDate || event.dueDate,
+        startTime: event.startTime,
+        duration: event.duration,
+        totalMarks: event.totalMarks,
+        assessmentUrl: directRedirectUrl,
+      });
+      return { ...res, ctaText: "VIEW ASSESSMENT" };
+    }
+
+    // 7. LIVE CLASS EMAIL TEMPLATE (Section 8)
+    case "LIVE_CLASS_SCHEDULED": {
+      const res = generateLiveClassScheduledEmail({
+        recipientName,
+        sessionTitle: resourceTitle,
+        courseName: event.courseName,
+        trainerName: event.trainerName || event.assignedBy,
+        batchName: primaryBatchName,
+        sessionDate: event.sessionDate || event.startDate || event.dueDate,
+        sessionTime: event.sessionTime || event.startTime,
+        duration: event.duration,
+        meetingUrl: event.meetingUrl,
+        liveClassUrl: directRedirectUrl,
+      });
+      return { ...res, ctaText: "JOIN LIVE CLASS" };
+    }
+
+    // 8. LIVE CLASS RESCHEDULE EMAIL TEMPLATE (Section 9)
+    case "LIVE_CLASS_RESCHEDULED": {
+      const res = generateLiveClassRescheduledEmail({
+        recipientName,
+        sessionTitle: resourceTitle,
+        oldDate: event.oldDate,
+        oldTime: event.oldTime,
+        newDate: event.newDate || event.sessionDate || event.startDate || "Updated Date",
+        newTime: event.newTime || event.sessionTime || event.startTime || "Updated Time",
+        trainerName: event.trainerName || event.assignedBy,
+        batchName: primaryBatchName,
+        liveClassUrl: directRedirectUrl,
+      });
+      return { ...res, ctaText: "VIEW UPDATED SCHEDULE" };
+    }
+
+    // 9. LIVE CLASS CANCELLATION EMAIL TEMPLATE (Section 10)
+    case "LIVE_CLASS_CANCELLED": {
+      const res = generateLiveClassCancelledEmail({
+        recipientName,
+        sessionTitle: resourceTitle,
+        courseName: event.courseName,
+        sessionDate: event.sessionDate || event.startDate,
+        batchName: primaryBatchName,
+        dashboardUrl: directRedirectUrl,
+      });
+      return { ...res, ctaText: "VIEW DASHBOARD" };
+    }
+
+    // 10. CODING CHALLENGE EMAIL TEMPLATE (Section 11)
+    case "CODING_CHALLENGE_PUBLISHED":
     case "CODING_PROBLEM_PUBLISHED":
     case "CODING_PROBLEM_CREATED": {
-      const res = generateCodingProblemPublishedEmail({
+      const res = generateCodingChallengePublishedEmail({
         recipientName,
-        problemName: resourceTitle,
-        topic: event.category,
+        challengeName: resourceTitle,
+        category: event.category,
         difficulty: event.difficulty,
-        estimatedDuration: event.duration,
-        problemUrl: directRedirectUrl,
+        languages: event.languages || event.programmingLanguage,
+        batchName: primaryBatchName,
+        deadline: event.deadline || event.dueDate,
+        challengeUrl: directRedirectUrl,
       });
       return { ...res, ctaText: "SOLVE CHALLENGE" };
     }
 
-    case "CODING_PROBLEM_UPDATED": {
-      const res = generateCodingProblemUpdatedEmail({
+    // 11. PROGRAMMING CONTEST EMAIL TEMPLATE (Section 12)
+    case "PROGRAMMING_CONTEST_PUBLISHED": {
+      const res = generateProgrammingContestEmail({
         recipientName,
-        problemName: resourceTitle,
-        updatedBy: event.assignedBy,
-        changeSummary: event.changeSummary || event.changes,
-        problemUrl: directRedirectUrl,
-      });
-      return { ...res, ctaText: "VIEW UPDATED PROBLEM" };
-    }
-
-    case "ASSESSMENT_ASSIGNED":
-    case "ASSESSMENT_PUBLISHED": {
-      const res = generateAssessmentAssignedEmail({
-        recipientName,
-        assessmentName: resourceTitle,
+        contestName: resourceTitle,
+        batchName: primaryBatchName,
+        startDate: event.startDate || event.dueDate,
+        startTime: event.startTime,
         duration: event.duration,
-        totalMarks: event.totalMarks,
-        passingPercentage: event.passingPercentage,
-        deadline: event.dueDate,
-        startDate: event.dueDate,
-        assessmentUrl: directRedirectUrl,
+        problemCount: event.problemCount,
+        contestUrl: directRedirectUrl,
       });
-      return { ...res, ctaText: "VIEW ASSESSMENT" };
+      return { ...res, ctaText: "VIEW CONTEST" };
     }
 
-    case "ASSESSMENT_UPDATED": {
-      const res = generateAssessmentUpdatedEmail({
-        recipientName,
-        assessmentName: resourceTitle,
-        updatedBy: event.assignedBy,
-        changes: event.changes || event.changeSummary,
-        assessmentUrl: directRedirectUrl,
-      });
-      return { ...res, ctaText: "VIEW UPDATED ASSESSMENT" };
-    }
-
-    case "ASSESSMENT_SCHEDULE_CHANGED":
-    case "ASSESSMENT_DEADLINE_CHANGED": {
-      const res = generateAssessmentDeadlineChangedEmail({
-        recipientName,
-        assessmentName: resourceTitle,
-        previousDeadline: event.previousDeadline,
-        newDeadline: event.newDeadline || event.dueDate || "Updated Deadline",
-        assessmentUrl: directRedirectUrl,
-      });
-      return { ...res, ctaText: "VIEW ASSESSMENT" };
-    }
-
+    // 12. ASSIGNMENT EMAIL TEMPLATE (Section 13)
     case "ASSIGNMENT_ASSIGNED":
     case "ASSIGNMENT_PUBLISHED":
     case "ASSIGNMENT_CREATED": {
@@ -340,90 +457,151 @@ function resolveEmailTemplate(
         recipientName,
         assignmentName: resourceTitle,
         courseName: event.courseName,
+        batchName: primaryBatchName,
+        assignedDate: event.assignedDate,
+        dueDate: event.dueDate || event.deadline,
+        totalMarks: event.totalMarks,
+        assignmentUrl: directRedirectUrl,
         trainerName: event.trainerName || event.assignedBy,
-        maxMarks: event.totalMarks,
-        dueDate: event.dueDate || "See portal",
-        assignmentUrl: directRedirectUrl,
       });
       return { ...res, ctaText: "VIEW ASSIGNMENT" };
     }
 
-    case "ASSIGNMENT_UPDATED": {
-      const res = generateAssignmentUpdatedEmail({
+    // 13. PROJECT EMAIL TEMPLATE (Section 14)
+    case "PROJECT_ASSIGNED": {
+      const res = generateProjectAssignedEmail({
         recipientName,
-        assignmentName: resourceTitle,
-        updatedBy: event.assignedBy,
-        changes: event.changes || event.changeSummary,
-        assignmentUrl: directRedirectUrl,
+        projectName: event.projectName || resourceTitle,
+        courseName: event.courseName,
+        batchName: primaryBatchName,
+        assignedBy: event.assignedBy,
+        trainerName: event.trainerName,
+        startDate: event.startDate,
+        deadline: event.deadline || event.dueDate,
+        projectUrl: directRedirectUrl,
       });
-      return { ...res, ctaText: "VIEW UPDATED ASSIGNMENT" };
+      return { ...res, ctaText: "VIEW PROJECT" };
     }
 
-    case "ASSIGNMENT_DEADLINE_CHANGED": {
-      const res = generateAssignmentDeadlineChangedEmail({
+    // 14. DEADLINE REMINDER EMAIL TEMPLATE (Section 15)
+    case "DEADLINE_REMINDER":
+    case "ASSIGNMENT_REMINDER":
+    case "ASSIGNMENT_DEADLINE_CHANGED":
+    case "ASSESSMENT_DEADLINE_CHANGED": {
+      const res = generateDeadlineReminderEmail({
         recipientName,
-        assignmentName: resourceTitle,
-        previousDeadline: event.previousDeadline,
-        newDeadline: event.newDeadline || event.dueDate || "Updated Cutoff",
-        assignmentUrl: directRedirectUrl,
+        activityName: event.activityName || resourceTitle,
+        activityType: event.activityType || event.resourceType || "Academic Activity",
+        courseName: event.courseName,
+        batchName: primaryBatchName,
+        deadline: event.deadline || event.newDeadline || event.dueDate || "Approaching Cutoff",
+        activityUrl: directRedirectUrl,
       });
-      return { ...res, ctaText: "VIEW ASSIGNMENT" };
+      return { ...res, ctaText: "CONTINUE ACTIVITY" };
     }
 
-    case "ASSIGNMENT_REMINDER": {
-      const res = generateAssignmentReminderEmail({
+    // 15. RESULTS PUBLISHED EMAIL TEMPLATE (Section 16)
+    case "RESULT_PUBLISHED": {
+      const res = generateResultPublishedEmail({
         recipientName,
-        assignmentName: resourceTitle,
-        deadline: event.dueDate || "Approaching Cutoff",
-        assignmentUrl: directRedirectUrl,
+        assessmentName: resourceTitle,
+        courseName: event.courseName,
+        batchName: primaryBatchName,
+        publishedDate: event.publishedDate,
+        resultUrl: directRedirectUrl,
+        score: event.score,
+        totalMarks: event.totalMarks,
+        percentage: event.percentage,
       });
-      return { ...res, ctaText: "SUBMIT ASSIGNMENT" };
+      return { ...res, ctaText: "VIEW MY RESULTS" };
     }
 
+    // 16. FEEDBACK EMAIL TEMPLATE (Section 17)
+    case "FEEDBACK_PUBLISHED": {
+      const res = generateFeedbackEmail({
+        recipientName,
+        activityName: event.activityName || resourceTitle,
+        courseName: event.courseName,
+        batchName: primaryBatchName,
+        trainerName: event.trainerName || event.assignedBy,
+        evaluatorName: event.evaluatorName,
+        evaluationDate: event.evaluationDate,
+        feedbackUrl: directRedirectUrl,
+      });
+      return { ...res, ctaText: "VIEW FEEDBACK" };
+    }
+
+    // 17. STUDY MATERIAL EMAIL TEMPLATE (Section 18)
+    case "STUDY_MATERIAL_PUBLISHED": {
+      const res = generateStudyMaterialEmail({
+        recipientName,
+        resourceName: event.resourceName || resourceTitle,
+        courseName: event.courseName,
+        moduleName: event.moduleName,
+        batchName: primaryBatchName,
+        trainerName: event.trainerName || event.assignedBy,
+        materialUrl: directRedirectUrl,
+      });
+      return { ...res, ctaText: "ACCESS STUDY MATERIAL" };
+    }
+
+    // 18. ANNOUNCEMENT EMAIL TEMPLATE (Section 19)
     case "ANNOUNCEMENT_PUBLISHED":
     case "ANNOUNCEMENT_CREATED": {
       const res = generateAnnouncementEmail({
         recipientName,
         announcementTitle: event.title || resourceTitle,
-        announcementMessage: event.customMessage || "An important institutional update has been released.",
-        publishedBy: event.assignedBy,
+        announcementDescription: event.customMessage,
+        batchName: primaryBatchName,
+        authorName: event.assignedBy,
+        publishedDate: event.publishedDate,
         announcementUrl: directRedirectUrl,
       });
-      return { ...res, ctaText: "VIEW ANNOUNCEMENT" };
+      return { ...res, ctaText: "READ ANNOUNCEMENT" };
     }
 
+    // 19. BATCH ALLOCATION EMAIL TEMPLATE (Section 20)
+    case "BATCH_ALLOCATED":
+    case "STUDENT_ADDED_TO_BATCH":
     case "BATCH_UPDATED": {
-      const res = generateBatchUpdatedEmail({
+      const res = generateBatchAllocationEmail({
         recipientName,
         batchName: event.batchName || resourceTitle,
-        changes: event.changes || event.changeSummary,
-        batchUrl: directRedirectUrl,
-      });
-      return { ...res, ctaText: "VIEW BATCH" };
-    }
-
-    case "STUDENT_ADDED_TO_BATCH": {
-      const res = generateStudentAddedToBatchEmail({
-        recipientName,
-        batchName: event.batchName || resourceTitle,
-        programName: event.courseName,
+        programmeName: event.programmeName || event.programName || event.courseName,
+        institutionName: event.institutionName,
         trainerName: event.trainerName || event.assignedBy,
-        batchUrl: directRedirectUrl,
+        startDate: event.startDate,
+        dashboardUrl: directRedirectUrl,
       });
-      return { ...res, ctaText: "VIEW BATCH" };
+      return { ...res, ctaText: "OPEN STUDENT DASHBOARD" };
     }
 
-    case "RESULT_PUBLISHED": {
-      const res = generateResultPublishedEmail({
+    // 20. COURSE UPDATE EMAIL TEMPLATE (Section 21)
+    case "COURSE_UPDATED": {
+      const res = generateCourseUpdatedEmail({
         recipientName,
-        assessmentName: resourceTitle,
-        score: event.score ?? "Completed",
-        totalMarks: event.totalMarks ?? 100,
-        percentage: event.percentage ?? 100,
-        status: "Passed",
-        resultUrl: directRedirectUrl,
+        courseName: event.courseName || resourceTitle,
+        batchName: primaryBatchName,
+        updateDescription: event.updateDescription || event.changeSummary || event.changes,
+        updatedBy: event.assignedBy || event.trainerName,
+        updatedDate: event.updatedDate,
+        courseUrl: directRedirectUrl,
       });
-      return { ...res, ctaText: "VIEW RESULT" };
+      return { ...res, ctaText: "VIEW COURSE UPDATE" };
+    }
+
+    // Operational System Events
+    case "CODELAB_PUBLISHED":
+    case "CODELAB_CREATED": {
+      const res = generateCodingPracticePublishedEmail({
+        recipientName,
+        practiceName: resourceTitle,
+        courseName: event.courseName,
+        difficulty: event.difficulty,
+        batchName: primaryBatchName,
+        practiceUrl: directRedirectUrl,
+      });
+      return { ...res, ctaText: "OPEN CODE LAB" };
     }
 
     case "CERTIFICATE_GENERATED": {
@@ -442,7 +620,7 @@ function resolveEmailTemplate(
         studentName: event.studentName || "Student",
         assignmentName: resourceTitle,
         courseName: event.courseName,
-        batchName: event.batchName,
+        batchName: primaryBatchName,
         submissionUrl: directRedirectUrl,
       });
       return { ...res, ctaText: "REVIEW SUBMISSION" };
@@ -453,7 +631,7 @@ function resolveEmailTemplate(
         trainerName: recipientName,
         studentName: event.studentName || "Student",
         assessmentName: resourceTitle,
-        batchName: event.batchName,
+        batchName: primaryBatchName,
         score: event.score,
         submissionUrl: directRedirectUrl,
       });
@@ -464,7 +642,7 @@ function resolveEmailTemplate(
       const res = generateStudentWelcomeEmail({
         studentName: recipientName,
         studentEmail: event.recipientEmails?.[0] || "",
-        batchName: event.batchName,
+        batchName: primaryBatchName,
         programName: event.courseName,
         dashboardUrl: directRedirectUrl,
       });
@@ -496,19 +674,6 @@ function resolveEmailTemplate(
       return { ...res, ctaText: "VERIFY EMAIL ADDRESS" };
     }
 
-    case "LIVE_CLASS_SCHEDULED": {
-      const res = generateLiveClassScheduledEmail({
-        recipientName,
-        classTitle: resourceTitle,
-        trainerName: event.trainerName || event.assignedBy,
-        scheduledTime: event.dueDate,
-        duration: event.duration,
-        platform: event.category,
-        liveClassUrl: directRedirectUrl,
-      });
-      return { ...res, ctaText: "JOIN LIVE CLASS" };
-    }
-
     default: {
       const res = buildMncEmailLayout({
         recipientName,
@@ -526,7 +691,7 @@ function resolveEmailTemplate(
 
 /**
  * Main Central Event Dispatcher for Sensilearn LMS.
- * Handles recipient resolution, deduplication, template selection, and non-blocking delivery.
+ * Handles recipient resolution, deduplication, batch filtering, template selection, and non-blocking delivery.
  */
 export async function dispatchLMSEvent(event: LMSEventPayload): Promise<{
   success: boolean;
@@ -534,7 +699,7 @@ export async function dispatchLMSEvent(event: LMSEventPayload): Promise<{
   dispatched: number;
   skippedDraft?: boolean;
 }> {
-  // CRITICAL RULE 12: Draft vs Published check
+  // CRITICAL RULE: Draft vs Published check (no emails for unassigned drafts)
   if (event.isDraft || event.status === "draft") {
     console.log(`[Notification Hub] Skipped notification for draft item (${event.eventType}: ${event.title || event.name})`);
     return { success: true, totalRecipients: 0, dispatched: 0, skippedDraft: true };
@@ -546,15 +711,21 @@ export async function dispatchLMSEvent(event: LMSEventPayload): Promise<{
     : getAbsoluteUrl(event.targetUrl);
 
   try {
-    // 1. Resolve Target Profiles
+    // 1. Resolve Target Profiles with strict deduplication
     const recipientMap = new Map<string, any>(); // Key: email or user_id for strict deduplication
 
-    // Case A: Specific User IDs
+    // Case A: Specific User IDs (Individual assignment or targeted test participants)
     if (event.recipientUserIds && event.recipientUserIds.length > 0) {
-      const { data } = await adminClient
+      let query = adminClient
         .from("profiles")
-        .select("id, user_id, first_name, last_name, email, role")
+        .select("id, user_id, first_name, last_name, email, role, institution_id")
         .in("id", event.recipientUserIds);
+
+      if (event.institutionId) {
+        query = query.eq("institution_id", event.institutionId);
+      }
+
+      const { data } = await query;
       (data || []).forEach((u) => {
         const key = (u.email || u.user_id || u.id).toLowerCase();
         recipientMap.set(key, u);
@@ -565,10 +736,16 @@ export async function dispatchLMSEvent(event: LMSEventPayload): Promise<{
     if (event.recipientEmails && event.recipientEmails.length > 0) {
       const cleanEmails = event.recipientEmails.map((e) => e.trim().toLowerCase()).filter(isValidEmail);
       if (cleanEmails.length > 0) {
-        const { data } = await adminClient
+        let query = adminClient
           .from("profiles")
-          .select("id, user_id, first_name, last_name, email, role")
+          .select("id, user_id, first_name, last_name, email, role, institution_id")
           .in("email", cleanEmails);
+
+        if (event.institutionId) {
+          query = query.eq("institution_id", event.institutionId);
+        }
+
+        const { data } = await query;
         (data || []).forEach((u) => {
           recipientMap.set(u.email.toLowerCase(), u);
         });
@@ -583,51 +760,87 @@ export async function dispatchLMSEvent(event: LMSEventPayload): Promise<{
 
     // Case C: Role targeting
     if (event.targetRole === "trainer") {
-      const { data } = await adminClient
+      let query = adminClient
         .from("profiles")
-        .select("id, user_id, first_name, last_name, email, role")
-        .eq("role", "trainer")
-        .limit(500);
+        .select("id, user_id, first_name, last_name, email, role, institution_id")
+        .eq("role", "trainer");
+
+      if (event.institutionId) {
+        query = query.eq("institution_id", event.institutionId);
+      }
+
+      const { data } = await query.limit(500);
       (data || []).forEach((u) => {
         const key = (u.email || u.user_id || u.id).toLowerCase();
         recipientMap.set(key, u);
       });
     } else if (event.targetRole === "all") {
-      const { data } = await adminClient
+      let query = adminClient
         .from("profiles")
-        .select("id, user_id, first_name, last_name, email, role")
-        .or("role.eq.student,role.eq.trainer,role.is.null")
-        .limit(1000);
+        .select("id, user_id, first_name, last_name, email, role, institution_id")
+        .or("role.eq.student,role.eq.trainer,role.is.null");
+
+      if (event.institutionId) {
+        query = query.eq("institution_id", event.institutionId);
+      }
+
+      const { data } = await query.limit(1000);
       (data || []).forEach((u) => {
         const key = (u.email || u.user_id || u.id).toLowerCase();
         recipientMap.set(key, u);
       });
     } else if (event.isCommon) {
-      // All active students
-      const { data } = await adminClient
+      // All active students, isolated by institution if provided
+      let query = adminClient
         .from("profiles")
-        .select("id, user_id, first_name, last_name, email, role")
+        .select("id, user_id, first_name, last_name, email, role, institution_id")
         .eq("role", "student")
-        .eq("status", "active")
-        .limit(1000);
+        .eq("status", "active");
+
+      if (event.institutionId) {
+        query = query.eq("institution_id", event.institutionId);
+      }
+
+      const { data } = await query.limit(1000);
       (data || []).forEach((u) => {
         const key = (u.email || u.user_id || u.id).toLowerCase();
         recipientMap.set(key, u);
       });
-    } else if (event.batchId || event.batchName) {
-      // Batch-specific recipients
-      const filterConditions = [];
-      if (event.batchId) filterConditions.push(`batch_id.eq.${event.batchId}`);
-      if (event.batchName) {
-        filterConditions.push(`batch.eq.${event.batchName}`);
-        filterConditions.push(`batch_name.eq.${event.batchName}`);
+    }
+
+    // Case D: Single Batch or Multiple Batches Resolution
+    const allBatchIds: string[] = [];
+    if (event.batchId) allBatchIds.push(event.batchId);
+    if (event.batchIds && Array.isArray(event.batchIds)) {
+      allBatchIds.push(...event.batchIds.filter(Boolean));
+    }
+
+    const allBatchNames: string[] = [];
+    if (event.batchName) allBatchNames.push(event.batchName);
+    if (event.batchNames && Array.isArray(event.batchNames)) {
+      allBatchNames.push(...event.batchNames.filter(Boolean));
+    }
+
+    if (allBatchIds.length > 0 || allBatchNames.length > 0) {
+      const filterConditions: string[] = [];
+      allBatchIds.forEach((bId) => {
+        filterConditions.push(`batch_id.eq.${bId}`);
+      });
+      allBatchNames.forEach((bName) => {
+        filterConditions.push(`batch.eq.${bName}`);
+        filterConditions.push(`batch_name.eq.${bName}`);
+      });
+
+      let query = adminClient
+        .from("profiles")
+        .select("id, user_id, first_name, last_name, email, role, institution_id")
+        .or(filterConditions.join(","));
+
+      if (event.institutionId) {
+        query = query.eq("institution_id", event.institutionId);
       }
 
-      const { data: batchProfiles } = await adminClient
-        .from("profiles")
-        .select("id, user_id, first_name, last_name, email, role")
-        .or(filterConditions.join(","))
-        .limit(500);
+      const { data: batchProfiles } = await query.limit(1000);
 
       (batchProfiles || []).forEach((u) => {
         const key = (u.email || u.user_id || u.id).toLowerCase();
@@ -678,7 +891,7 @@ export async function dispatchLMSEvent(event: LMSEventPayload): Promise<{
           : (u.email ? u.email.split("@")[0] : (u.role === "trainer" ? "Trainer" : "Student"));
       const recipientEmail = u.email || "";
 
-      // Build template
+      // Build personalized dynamic template
       const template = resolveEmailTemplate(
         event.eventType,
         recipientName,
@@ -767,6 +980,9 @@ export async function dispatchBatchNotification(
     isDraft: options.isDraft,
     batchId: options.batchId,
     batchName: options.batchName,
+    batchIds: options.batchIds,
+    batchNames: options.batchNames,
+    institutionId: options.institutionId,
     recipientUserIds: options.studentIds || options.trainerIds,
     isCommon: options.isCommon,
     targetRole: options.targetRole,
@@ -842,6 +1058,6 @@ export async function dispatchTrainerNotification(options: {
     resourceType: options.resourceType,
     resourceId: options.resourceId,
     targetUrl: options.targetUrl,
-    assignedBy: options.assignedBy || "SensiGroup Administrator",
+    assignedBy: options.assignedBy || "SensiLearn Administrator",
   });
 }

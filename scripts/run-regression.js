@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require("fs");
 const path = require("path");
-const ts = require("d:/LMS/enterprise-lms/node_modules/typescript");
+const ts = require("typescript");
 
-const srcRoot = path.resolve("d:/LMS/enterprise-lms/src");
+const srcRoot = path.resolve(__dirname, "../src");
 
 require.extensions[".ts"] = function(module, filename) {
   let source = fs.readFileSync(filename, "utf8");
@@ -48,4 +49,3 @@ runRegressionTests().then((success) => {
   console.error("Unhandled regression test error:", err);
   process.exit(1);
 });
-

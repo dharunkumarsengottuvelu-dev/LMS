@@ -1309,7 +1309,7 @@ export function PracticeRunnerEngine({
         {/* ── COLUMN 1: LEFT QUESTION CONTENT PANEL ── */}
         <div className={cn(
           "w-full rounded-xl border border-slate-200/90 dark:border-zinc-800 bg-white dark:bg-[#18181B] shadow-2xs flex flex-col overflow-hidden shrink-0",
-          "lg:w-[32%] lg:min-w-[300px] lg:max-w-[440px] lg:h-full",
+          "lg:w-[32%] lg:min-w-[300px] lg:max-w-[440px] 2xl:max-w-[560px] 3xl:max-w-[680px] lg:h-full",
           isDescriptionOpen ? "lg:flex" : "hidden",
           mobileTab !== "problem" && "hidden lg:flex"
         )}>
@@ -1610,7 +1610,7 @@ export function PracticeRunnerEngine({
         {isPaletteOpen ? (
           <div className={cn(
             "w-full rounded-xl border border-slate-200/90 dark:border-zinc-800 bg-white dark:bg-[#18181B] shadow-2xs flex flex-col p-4 shrink-0 overflow-hidden",
-            "lg:w-[22%] lg:min-w-[220px] lg:max-w-[280px] lg:h-full lg:sticky lg:top-0",
+            "lg:w-[22%] lg:min-w-[220px] lg:max-w-[280px] 2xl:max-w-[340px] 3xl:max-w-[400px] lg:h-full lg:sticky lg:top-0",
             mobileTab !== "palette" && "hidden lg:flex"
           )}>
             {/* STATIC PINNED TOP: Header & Stats Legend (Never scrolls) */}
@@ -1692,7 +1692,7 @@ export function PracticeRunnerEngine({
                           {grpAnswered}/{group.questions.length}
                         </span>
                       </div>
-                    <div className="grid grid-cols-5 gap-2">
+                    <div className="grid grid-cols-5 2xl:grid-cols-6 gap-2">
                       {group.questions.map(({ question: q, globalIndex }) => {
                         const isActive = globalIndex === currentQuestionIndex;
                         const isMarked = markedForReview.has(q.id);

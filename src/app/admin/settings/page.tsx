@@ -32,7 +32,7 @@ export default function AdminSettingsPage() {
 
   // Organization Settings
   const [orgName, setOrgName] = useState("SensiLearn Technologies");
-  const [portalTitle, setPortalTitle] = useState("SensilLearn Enterprise LMS");
+  const [portalTitle, setPortalTitle] = useState("SensiLearn Enterprise LMS");
   const [supportEmail, setSupportEmail] = useState("support@sensilearn.com");
   const [contactPhone, setContactPhone] = useState("+91 80 4567 8900");
   const [timezone, setTimezone] = useState("Asia/Kolkata");

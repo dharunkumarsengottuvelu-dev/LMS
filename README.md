@@ -1,4 +1,4 @@
-# SensilLearn LMS (Enterprise Platform)
+# SensiLearn LMS (Enterprise Platform)
 
 An enterprise-grade, high-performance Learning Management System (LMS) built with **Next.js 16 (App Router)**, **TypeScript**, **Supabase (PostgreSQL & Auth)**, and an isolated **Jobe Code Execution Engine**. Designed for modern universities, training institutions, and enterprises to administer structured course tracks, manage cohorts, conduct live classes, and evaluate real-world technical assessments.
 
@@ -41,9 +41,9 @@ An enterprise-grade, high-performance Learning Management System (LMS) built wit
 
 ## Overview
 
-**SensilLearn LMS** is a unified digital learning and technical evaluation platform. It centralizes educational curricula, batch administration, academic partner coordination, interactive code labs, and real-time proctored assessments into an integrated, role-based platform.
+**SensiLearn LMS** is a unified digital learning and technical evaluation platform. It centralizes educational curricula, batch administration, academic partner coordination, interactive code labs, and real-time proctored assessments into an integrated, role-based platform.
 
-SensilLearn provides specialized portals tailored to four primary stakeholders: **Administrators**, **Trainers**, **Students**, and **Partner Institutions**, backed by multi-tenant batch isolation and fine-grained role-based access control.
+SensiLearn provides specialized portals tailored to four primary stakeholders: **Administrators**, **Trainers**, **Students**, and **Partner Institutions**, backed by multi-tenant batch isolation and fine-grained role-based access control.
 
 ---
 
@@ -70,7 +70,7 @@ Educational institutions and enterprise training organizations face several fric
 
 ## Solution
 
-SensilLearn consolidates these workflows into a cohesive ecosystem:
+SensiLearn consolidates these workflows into a cohesive ecosystem:
 - **Centralized Curriculum**: Courses organized into structured modules, lessons, and hands-on exercises.
 - **Institutional Visibility**: Dedicated Institution Portal for academic SPOCs to inspect real-time student benchmark metrics.
 - **Automated Grading Engine**: Submissions evaluated in seconds against public and hidden test cases.
@@ -221,7 +221,7 @@ enterprise-lms/
 
 ## Database Architecture
 
-SensilLearn runs on PostgreSQL via Supabase. Core entities include:
+SensiLearn runs on PostgreSQL via Supabase. Core entities include:
 
 - **`profiles`**: User identities with role metadata (`admin`, `trainer`, `student`, `institution`), institutional affiliation (`college`, `branch`), and student sequence identifier (`student_id`).
 - **`batches`**: Cohort definitions containing schedule, course track, trainer assignments, and JSON metadata linking partner institutions.
@@ -268,7 +268,7 @@ JOBE_TIMEOUT=10000
 # APPLICATION METADATA
 # =============================================================
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_APP_NAME=SensilLearn LMS
+NEXT_PUBLIC_APP_NAME=SensiLearn LMS
 NEXT_PUBLIC_APP_DESCRIPTION=Enterprise Learning Management System
 ```
 
@@ -384,7 +384,7 @@ The platform enforces strict server-side authorization:
 
 ## Coding Platform & Execution Engine
 
-SensilLearn integrates with the **Jobe Execution Sandbox** to run student code safely:
+SensiLearn integrates with the **Jobe Execution Sandbox** to run student code safely:
 1. Student writes code in the Monaco editor.
 2. Code is dispatched to `/api/code/run` or `/api/code/submit`.
 3. The server forwards the payload to the isolated Jobe service.
@@ -483,5 +483,5 @@ docker compose up -d --build
 
 ## License & Project Information
 
-**SensilLearn LMS** — Enterprise Learning & Technical Assessment Platform.  
+**SensiLearn LMS** — Enterprise Learning & Technical Assessment Platform.  
 Built for universities, technical institutions, and enterprise learning programs.

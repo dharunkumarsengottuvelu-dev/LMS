@@ -134,7 +134,7 @@ export default function StudentTrackDetailPage() {
   useEffect(() => {
     const title = track?.title || track?.name;
     if (title) {
-      document.title = `SensilLearn | ${title}`;
+      document.title = `SensiLearn | ${title}`;
     }
   }, [track?.title, track?.name]);
 

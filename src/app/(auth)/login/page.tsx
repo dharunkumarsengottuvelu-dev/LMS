@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import { useRouter } from "next/navigation";
@@ -91,11 +91,22 @@ function resolveRoleDestination(role: string, nextUrl: string | null): string {
   return nextUrl;
 }
 
+async function generateHashedNonce(): Promise<{ rawNonce: string; hashedNonce: string }> {
+  const rawNonce = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
+  const encoder = new TextEncoder();
+  const encodedNonce = encoder.encode(rawNonce);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encodedNonce);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashedNonce = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  return { rawNonce, hashedNonce };
+}
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isGsiLoaded, setIsGsiLoaded] = useState(false);
+  const rawNonceRef = useRef<string>("");
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createClient();
@@ -220,6 +231,30 @@ export default function LoginPage() {
     }
   }
 
+  const performOAuthRedirect = useCallback(async () => {
+    const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
+    const origin = typeof window !== "undefined" && window.location.origin
+      ? window.location.origin
+      : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn.com");
+    const callbackUrl = new URL("/api/auth/callback", origin);
+    if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
+      callbackUrl.searchParams.set("next", nextUrl);
+    }
+
+    console.log("[AUTH] Initiating Google OAuth with redirectTo:", callbackUrl.toString());
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: callbackUrl.toString(),
+        queryParams: {
+          prompt: "select_account",
+        },
+      },
+    });
+    if (error) throw error;
+  }, [supabase]);
+
   const handleGoogleCredentialResponse = useCallback(async (response: { credential?: string }) => {
     if (!response.credential) {
       setIsGoogleLoading(false);
@@ -231,9 +266,14 @@ export default function LoginPage() {
       const { data: authData, error } = await supabase.auth.signInWithIdToken({
         provider: "google",
         token: response.credential,
+        nonce: rawNonceRef.current || undefined,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.warn("[GSI] ID token exchange failed, falling back to OAuth redirect:", error.message);
+        await performOAuthRedirect();
+        return;
+      }
 
       if (authData.user) {
         const { data: profileData } = await supabase
@@ -271,20 +311,41 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Google authentication error";
-      toast({ title: "Google Sign-In Error", description: msg, variant: "destructive" });
-      setIsGoogleLoading(false);
+      console.warn("[GSI] Exception during ID token login, falling back to OAuth:", err);
+      try {
+        await performOAuthRedirect();
+      } catch (redirectErr: unknown) {
+        const msg = redirectErr instanceof Error ? redirectErr.message : "Google authentication error";
+        toast({ title: "Google Sign-In Error", description: msg, variant: "destructive" });
+        setIsGoogleLoading(false);
+      }
     }
-  }, [supabase, router, toast]);
+  }, [supabase, router, toast, performOAuthRedirect]);
 
   // Initialize Google Identity Services when script loads
   useEffect(() => {
     const clientId = process.env["NEXT_PUBLIC_GOOGLE_CLIENT_ID"];
     if (!clientId || typeof window === "undefined") return;
 
-    function initGsi() {
-      const googleObj = (window as unknown as { google?: { accounts?: { id?: { initialize: (c: unknown) => void } } } }).google;
-      if (googleObj?.accounts?.id) {
+    async function initGsi() {
+      const googleObj = (window as unknown as { google?: { accounts?: { id?: { initialize: (c: unknown) => void; prompt: (n?: unknown) => void } } } }).google;
+      if (!googleObj?.accounts?.id) return;
+
+      try {
+        const { rawNonce, hashedNonce } = await generateHashedNonce();
+        rawNonceRef.current = rawNonce;
+
+        googleObj.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleCredentialResponse,
+          nonce: hashedNonce,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+        try {
+          googleObj.accounts.id.prompt();
+        } catch {}
+      } catch {
         googleObj.accounts.id.initialize({
           client_id: clientId,
           callback: handleGoogleCredentialResponse,
@@ -298,30 +359,6 @@ export default function LoginPage() {
       initGsi();
     }
   }, [isGsiLoaded, handleGoogleCredentialResponse]);
-
-  async function performOAuthRedirect() {
-    const nextUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("next") : null;
-    const origin = typeof window !== "undefined" && window.location.origin
-      ? window.location.origin
-      : (process.env["NEXT_PUBLIC_APP_URL"] || "https://sensilearn-lms.vercel.app");
-    const callbackUrl = new URL("/api/auth/callback", origin);
-    if (nextUrl && nextUrl.startsWith("/") && !nextUrl.startsWith("/login") && !nextUrl.startsWith("/register")) {
-      callbackUrl.searchParams.set("next", nextUrl);
-    }
-
-    console.log("[AUTH] Initiating Google OAuth with redirectTo:", callbackUrl.toString());
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: callbackUrl.toString(),
-        queryParams: {
-          prompt: "select_account",
-        },
-      },
-    });
-    if (error) throw error;
-  }
 
   async function handleGoogleLogin() {
     setIsGoogleLoading(true);

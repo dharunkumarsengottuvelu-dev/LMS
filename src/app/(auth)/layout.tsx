@@ -3,8 +3,8 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: {
-    default: "SensilLearn",
-    template: "SensilLearn | %s",
+    default: "SensiLearn",
+    template: "SensiLearn | %s",
   },
 };
 
