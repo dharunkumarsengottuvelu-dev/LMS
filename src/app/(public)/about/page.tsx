@@ -1,16 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import {
-  Shield, BookOpen, Code2, BarChart3,
-  ClipboardList, FileText, Dumbbell, ArrowRight,
-  CheckCircle2, Target, Layers, Briefcase,
-  Brain, Laptop, Award, TrendingUp, Building2,
-  Compass, Zap
-} from "lucide-react";
+import { ArrowRight, CheckCircle2, Building2, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const team = [
   {
@@ -49,6 +44,7 @@ const falconCommitments = [
 ];
 
 export default function AboutPage() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   return (
     <div className="min-h-screen bg-background text-foreground antialiased selection:bg-primary/20">
 
@@ -73,16 +69,53 @@ export default function AboutPage() {
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-muted-foreground">
             <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
             <Link href="/courses" className="hover:text-foreground transition-colors">Courses</Link>
+            <Link href="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
             <Link href="/about" className="text-primary font-bold border-b-2 border-primary pb-0.5">About</Link>
+            <Link href="/contact" className="hover:text-foreground transition-colors">Contact</Link>
           </nav>
 
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" className="hidden sm:inline-flex rounded-xl font-semibold border-border" asChild>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <Button variant="outline" size="sm" className="rounded-xl font-semibold border-border text-xs px-2.5 sm:px-3" asChild>
               <Link href="/login">Sign In</Link>
             </Button>
-            <Button size="sm" className="bg-primary hover:bg-primary-hover text-white font-bold rounded-xl gap-1.5 shadow-md shadow-primary/20" asChild>
-              <Link href="/login">Get Started <ArrowRight className="h-4 w-4 ml-1" /></Link>
+            <Button size="sm" className="bg-primary hover:bg-primary-hover text-white font-bold rounded-xl gap-1.5 shadow-md shadow-primary/20 text-xs px-3 sm:px-4" asChild>
+              <Link href="/login">Get Started <ArrowRight className="h-4 w-4 ml-0.5 hidden sm:inline" /></Link>
             </Button>
+
+            {/* Mobile Sheet Trigger */}
+            <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+              <SheetTrigger className="md:hidden p-2 rounded-lg border border-border inline-flex items-center justify-center text-foreground hover:bg-accent">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation</span>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[340px] bg-background border-border p-6 flex flex-col justify-between">
+                <div className="space-y-6">
+                  <SheetHeader className="text-left pb-4 border-b border-border">
+                    <SheetTitle className="text-base font-bold text-foreground">
+                      SENSILEARN<span className="text-primary font-black">.</span>
+                    </SheetTitle>
+                    <p className="text-xs text-muted-foreground font-medium">Learning Technologies</p>
+                  </SheetHeader>
+
+                  <nav className="flex flex-col gap-3 text-sm font-semibold text-foreground">
+                    <Link href="/" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-accent">Home</Link>
+                    <Link href="/courses" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-accent">Courses</Link>
+                    <Link href="/pricing" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-accent">Pricing</Link>
+                    <Link href="/about" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg bg-primary/10 text-primary font-bold">About</Link>
+                    <Link href="/contact" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-accent">Contact</Link>
+                  </nav>
+                </div>
+
+                <div className="pt-6 border-t border-border space-y-2.5">
+                  <Button variant="outline" className="w-full justify-center text-xs font-semibold h-10 border-border" asChild>
+                    <Link href="/login">Sign In</Link>
+                  </Button>
+                  <Button className="w-full justify-center bg-primary hover:bg-primary-hover text-white text-xs font-semibold h-10" asChild>
+                    <Link href="/login">Get Started</Link>
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </header>

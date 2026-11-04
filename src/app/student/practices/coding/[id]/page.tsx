@@ -2233,6 +2233,7 @@ export default function StudentPracticeCodingRunnerPage() {
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
                     <span className="hidden sm:inline">Reset Code</span>
+                    <span className="sm:hidden">Reset</span>
                   </Button>
 
                   {/* Run Button */}

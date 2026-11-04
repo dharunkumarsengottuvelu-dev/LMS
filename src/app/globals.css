@@ -243,12 +243,34 @@ body {
   max-height: 100dvh;
 }
 
-/* Responsive Table Wrapper with Touch Momentum & Scroll Shadows */
-.responsive-table-container {
+/* Responsive Table Wrapper with Touch Momentum & Contained Horizontal Scrolling */
+.responsive-table-container,
+[data-slot="table-container"],
+.overflow-x-auto {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
   scrollbar-width: thin;
+}
+
+/* Zero-Hidden Guarantee: Prevent text truncation & force clean wrapping on dynamic content */
+.lms-content-wrap,
+[data-slot="card"] p,
+[data-slot="card"] h1,
+[data-slot="card"] h2,
+[data-slot="card"] h3,
+[data-slot="card"] h4 {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Modals & Drawers never cut off on small viewports */
+[data-slot="dialog-content"],
+[data-slot="sheet-content"] {
+  max-height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Responsive Container Max-Width Constraint */

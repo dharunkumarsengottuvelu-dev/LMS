@@ -2,15 +2,15 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { BookOpen, Search, Star, Clock, Users, ArrowRight, Code2, BarChart3, ClipboardList, Dumbbell, FileText } from "lucide-react";
+import { BookOpen, Search, Star, Clock, Users, ArrowRight, Code2, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-
-import { useLMSStore } from "@/lib/store/lms-store";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 export default function PublicCoursesPage() {
   const [search, setSearch] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [storeCourses, setStoreCourses] = useState<any[]>([]);
 
   React.useEffect(() => {
@@ -52,8 +52,8 @@ export default function PublicCoursesPage() {
 
       {/* ── Navbar ── */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#E5E7EB] h-[68px]">
-        <div className="max-w-[1280px] mx-auto px-6 h-full flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-3 shrink-0">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2563EB] to-indigo-600 flex items-center justify-center text-white font-black text-base shadow-md">
               S
             </div>
@@ -64,12 +64,54 @@ export default function PublicCoursesPage() {
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[#6B7280]">
             <Link href="/" className="hover:text-[#111827] transition-colors">Home</Link>
             <Link href="/courses" className="text-[#2563EB] font-bold border-b-2 border-[#2563EB] pb-0.5">Courses</Link>
+            <Link href="/pricing" className="hover:text-[#111827] transition-colors">Pricing</Link>
             <Link href="/about" className="hover:text-[#111827] transition-colors">About</Link>
+            <Link href="/contact" className="hover:text-[#111827] transition-colors">Contact</Link>
           </nav>
 
-          <Button className="h-[40px] px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg shadow-md" asChild>
-            <Link href="/login">Get Started <ArrowRight className="h-4 w-4 ml-1.5 inline" /></Link>
-          </Button>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <Button variant="ghost" size="sm" className="text-xs font-semibold text-[#4B5563] hover:text-[#111827] px-2.5 sm:px-3" asChild>
+              <Link href="/login">Sign In</Link>
+            </Button>
+            <Button size="sm" className="h-[38px] px-3.5 sm:px-5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs sm:text-sm font-semibold rounded-lg shadow-md" asChild>
+              <Link href="/login">Get Started <ArrowRight className="h-4 w-4 ml-1 inline hidden sm:inline" /></Link>
+            </Button>
+
+            {/* Mobile Sheet Trigger */}
+            <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+              <SheetTrigger className="md:hidden p-2 rounded-lg border border-slate-200 inline-flex items-center justify-center text-slate-700 hover:bg-slate-100">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation</span>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[340px] bg-white border-slate-200 p-6 flex flex-col justify-between">
+                <div className="space-y-6">
+                  <SheetHeader className="text-left pb-4 border-b border-slate-100">
+                    <SheetTitle className="text-base font-bold text-slate-900">
+                      SENSILEARN<span className="text-[#2563EB]">.</span>
+                    </SheetTitle>
+                    <p className="text-xs text-slate-500 font-medium">Learning Technologies</p>
+                  </SheetHeader>
+
+                  <nav className="flex flex-col gap-3 text-sm font-semibold text-slate-700">
+                    <Link href="/" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Home</Link>
+                    <Link href="/courses" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg bg-blue-50 text-blue-600 font-bold">Courses</Link>
+                    <Link href="/pricing" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Pricing</Link>
+                    <Link href="/about" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">About</Link>
+                    <Link href="/contact" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50">Contact</Link>
+                  </nav>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100 space-y-2.5">
+                  <Button variant="outline" className="w-full justify-center text-xs font-semibold h-10 border-slate-200" asChild>
+                    <Link href="/login">Sign In</Link>
+                  </Button>
+                  <Button className="w-full justify-center bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold h-10" asChild>
+                    <Link href="/login">Get Started</Link>
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </header>
 

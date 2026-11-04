@@ -1,36 +1,74 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Shield, Zap, Globe, Users, ArrowRight } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { CheckCircle2, Menu } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 export default function PublicPricingPage() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   return (
     <div className="min-h-screen bg-white dark:bg-[#09090B] pt-24 pb-16">
       {/* Top Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-[#18181B]/80 backdrop-blur-md border-b border-[#E5E7EB] dark:border-[#27272A]">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-2 shrink-0">
             <span className="font-extrabold text-xl text-[#111827] dark:text-[#FAFAFA] tracking-tight">
               SENSILEARN<span className="text-[#2563EB] font-black">.</span>
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-[#4B5563] dark:text-[#A1A1AA]">
+            <Link href="/" className="hover:text-[#111827] dark:hover:text-[#FAFAFA]">Home</Link>
             <Link href="/courses" className="hover:text-[#111827] dark:hover:text-[#FAFAFA]">Courses</Link>
             <Link href="/pricing" className="text-[#2563EB] font-bold">Pricing</Link>
             <Link href="/about" className="hover:text-[#111827] dark:hover:text-[#FAFAFA]">About</Link>
             <Link href="/contact" className="hover:text-[#111827] dark:hover:text-[#FAFAFA]">Contact</Link>
           </nav>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <Button variant="ghost" size="sm" className="text-xs sm:text-sm px-2.5 sm:px-3" asChild>
               <Link href="/login">Sign in</Link>
             </Button>
-            <Button size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold" asChild>
+            <Button size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-bold text-xs sm:text-sm px-3 sm:px-4" asChild>
               <Link href="/register">Get started free</Link>
             </Button>
+
+            {/* Mobile Sheet Trigger */}
+            <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+              <SheetTrigger className="md:hidden p-2 rounded-lg border border-slate-200 dark:border-zinc-800 inline-flex items-center justify-center text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation</span>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[340px] bg-white dark:bg-[#18181B] border-slate-200 dark:border-zinc-800 p-6 flex flex-col justify-between">
+                <div className="space-y-6">
+                  <SheetHeader className="text-left pb-4 border-b border-slate-100 dark:border-zinc-800">
+                    <SheetTitle className="text-base font-bold text-slate-900 dark:text-white">
+                      SENSILEARN<span className="text-[#2563EB]">.</span>
+                    </SheetTitle>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Learning Technologies</p>
+                  </SheetHeader>
+
+                  <nav className="flex flex-col gap-3 text-sm font-semibold text-slate-700 dark:text-zinc-200">
+                    <Link href="/" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800">Home</Link>
+                    <Link href="/courses" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800">Courses</Link>
+                    <Link href="/pricing" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold">Pricing</Link>
+                    <Link href="/about" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800">About</Link>
+                    <Link href="/contact" onClick={() => setIsMenuOpen(false)} className="px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800">Contact</Link>
+                  </nav>
+                </div>
+
+                <div className="pt-6 border-t border-slate-100 dark:border-zinc-800 space-y-2.5">
+                  <Button variant="outline" className="w-full justify-center text-xs font-semibold h-10 border-slate-200 dark:border-zinc-800" asChild>
+                    <Link href="/login">Sign in</Link>
+                  </Button>
+                  <Button className="w-full justify-center bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold h-10" asChild>
+                    <Link href="/register">Get started free</Link>
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </header>

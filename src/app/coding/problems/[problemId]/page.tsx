@@ -1266,7 +1266,7 @@ export default function ProblemSolvingWorkspace() {
             </span>
 
             {allProblems.length > 1 && (
-              <div className="hidden md:flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 border border-slate-200 shrink-0">
+              <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 border border-slate-200 shrink-0">
                 <button
                   type="button"
                   disabled={currentProblemIndex <= 0}
@@ -1335,6 +1335,7 @@ export default function ProblemSolvingWorkspace() {
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
             <span className="hidden sm:inline">Reset Code</span>
+            <span className="sm:hidden">Reset</span>
           </Button>
 
           {/* Run Button */}

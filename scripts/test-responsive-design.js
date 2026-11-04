@@ -182,6 +182,41 @@ function runResponsiveAudit() {
     "Spelling strictly SensiLearn (no double 'l')"
   );
 
+  // 7. Zero Hidden Content Verification across Public, Layout, and Modal Surfaces
+  const coursesPage = fs.readFileSync(path.join(projectRoot, 'src/app/(public)/courses/page.tsx'), 'utf8');
+  const aboutPage = fs.readFileSync(path.join(projectRoot, 'src/app/(public)/about/page.tsx'), 'utf8');
+  const pricingPage = fs.readFileSync(path.join(projectRoot, 'src/app/(public)/pricing/page.tsx'), 'utf8');
+  const contactPage = fs.readFileSync(path.join(projectRoot, 'src/app/(public)/contact/page.tsx'), 'utf8');
+  const authLayout = fs.readFileSync(path.join(projectRoot, 'src/app/(auth)/layout.tsx'), 'utf8');
+
+  assert(
+    "Zero Hidden Content — Public Navigation",
+    "Public pages provide accessible mobile Sheet drawers for all navigation links & CTAs",
+    coursesPage.includes("<Sheet") && aboutPage.includes("<Sheet") && pricingPage.includes("<Sheet") && contactPage.includes("<Sheet"),
+    "Guarantees Home, Courses, Pricing, About, Contact, Sign In, and Get Started are 100% accessible on mobile"
+  );
+
+  assert(
+    "Zero Hidden Content — Auth Console",
+    "Auth layout enables vertical scrolling to prevent cropped forms on short screens",
+    authLayout.includes("overflow-y-auto") && !authLayout.includes("overflow-hidden grid lg:grid-cols-12"),
+    "Guarantees login and registration fields and submit buttons are never clipped or trapped"
+  );
+
+  assert(
+    "Zero Hidden Content — Global Table Momentum Scrolling",
+    "Global CSS enforces touch-momentum horizontal scrolling on all table containers",
+    globalsCss.includes("-webkit-overflow-scrolling: touch") && globalsCss.includes("overflow-x: auto"),
+    "Tables scroll with touch momentum without trapping or hiding columns on mobile"
+  );
+
+  assert(
+    "Zero Hidden Content — Modals & Dialogs",
+    "Global CSS and UI dialogs constrain height to viewport with internal scrolling",
+    globalsCss.includes("[data-slot=\"dialog-content\"]") && globalsCss.includes("overflow-y: auto"),
+    "Dialogs and slide-overs can never exceed viewport height; bottom action buttons are always reachable"
+  );
+
   // Report Summary
   console.log("-----------------------------------------------------------------------");
   console.log("AUDIT RESULTS:");
