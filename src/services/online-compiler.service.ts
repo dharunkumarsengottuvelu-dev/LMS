@@ -1,10 +1,51 @@
 import https from "node:https";
+import http from "node:http";
 import type { NormalizedExecutionResult } from "./jobe/types";
+import { adaptCodeForExecution } from "@/lib/compiler/code-adapter";
+import { isInfrastructureFailure } from "@/lib/compiler/comparator";
+
+/**
+ * Maps our internal language IDs to Judge0 CE language IDs.
+ * Judge0 CE provides fast, isolated, standard containerized execution with standard REST API.
+ * https://ce.judge0.com/languages
+ */
+const JUDGE0_LANGUAGE_MAP: Record<string, number> = {
+  c: 103, // C (GCC 14.1.0)
+  cpp: 105, // C++ (GCC 14.1.0)
+  "c++": 105,
+  python: 100, // Python (3.12.5)
+  python3: 100,
+  py: 100,
+  java: 91, // Java (JDK 17.0.6)
+  javascript: 102, // JavaScript (Node.js 22.08.0)
+  nodejs: 102,
+  js: 102,
+  typescript: 101, // TypeScript (5.6.2)
+  ts: 101,
+  go: 107, // Go (1.23.5)
+  rust: 108, // Rust (1.85.0)
+  php: 98, // PHP (8.3.11)
+  csharp: 51, // C# (Mono 6.6.0.161)
+  cs: 51,
+  kotlin: 111, // Kotlin (2.1.10)
+  kt: 111,
+  ruby: 72, // Ruby (2.7.0)
+  rb: 72,
+  swift: 83, // Swift (5.2.3)
+  scala: 112, // Scala (3.4.2)
+  dart: 90, // Dart (2.19.2)
+  bash: 46, // Bash (5.0.0)
+  sh: 46,
+  r: 99, // R (4.4.1)
+  lua: 64, // Lua (5.3.5)
+  perl: 85, // Perl (5.28.1)
+  pl: 85,
+  sql: 82, // SQL (SQLite 3.27.2)
+};
 
 /**
  * Maps our internal language IDs to Wandbox compiler IDs.
- * Wandbox is a free, reliable online code execution sandbox.
- * https://wandbox.org/api/list.json for full compiler list.
+ * Used as secondary/fallback sandbox engine.
  */
 const WANDBOX_COMPILER_MAP: Record<string, string> = {
   python: "cpython-3.14.0",
@@ -35,6 +76,165 @@ const WANDBOX_COMPILER_MAP: Record<string, string> = {
 };
 
 /**
+ * Detects whether an execution failure was caused by memory exhaustion.
+ */
+function isMemoryError(errStr: string): boolean {
+  const lower = (errStr || "").toLowerCase();
+  return (
+    lower.includes("outofmemoryerror") ||
+    lower.includes("heap out of memory") ||
+    lower.includes("memoryerror") ||
+    lower.includes("bad_alloc") ||
+    lower.includes("std::bad_alloc") ||
+    lower.includes("allocation failed") ||
+    lower.includes("fatal error: ineffective mark-compacts")
+  );
+}
+
+// Persistent keep-alive HTTPS agent to eliminate TCP & TLS handshake overhead on every execution
+const compilerHttpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 30000,
+});
+
+/**
+ * Normalizes raw Judge0 response into our standard NormalizedExecutionResult.
+ */
+function normalizeJudge0Response(
+  parsed: Record<string, any>,
+  startTime: number
+): NormalizedExecutionResult {
+  const elapsed =
+    parsed.time !== undefined && parsed.time !== null
+      ? String(parsed.time)
+      : ((Date.now() - startTime) / 1000).toFixed(2);
+  const memoryKb = parsed.memory ? Number(parsed.memory) : 256000;
+  const stdout = (parsed.stdout || "").trimEnd();
+  const stderr = (parsed.stderr || "").trimEnd();
+  const compileOutput = (parsed.compile_output || "").trimEnd();
+  const statusId = parsed.status?.id;
+  const statusDesc = parsed.status?.description || "";
+
+  // 1. Detect infrastructure failures (e.g. OCI runtime errors, crun clone failures)
+  if (
+    isInfrastructureFailure(stderr) ||
+    isInfrastructureFailure(compileOutput) ||
+    isInfrastructureFailure(parsed.message || "")
+  ) {
+    return {
+      stdout: "",
+      stderr: "The remote execution sandbox is temporarily overloaded. Please retry in a few moments.",
+      compile_output: "",
+      message: "Infrastructure Error",
+      status: { id: 13, description: "Internal Error" },
+      outcome: 20,
+      time: elapsed,
+      memory: 0,
+    };
+  }
+
+  // 2. Compilation Error (status 6)
+  if (statusId === 6 || (compileOutput && !stdout && statusId !== 3)) {
+    const errText = compileOutput || stderr || "Compilation Failed";
+    return {
+      stdout: "",
+      stderr: errText,
+      compile_output: errText,
+      message: "Compilation Error",
+      status: { id: 6, description: "Compilation Error" },
+      outcome: 11,
+      time: elapsed,
+      memory: memoryKb,
+    };
+  }
+
+  // 3. Time Limit Exceeded (status 5)
+  if (statusId === 5) {
+    return {
+      stdout,
+      stderr: stderr || "Time Limit Exceeded: Process execution took longer than permitted time limit.",
+      compile_output: compileOutput,
+      message: "Time Limit Exceeded",
+      status: { id: 5, description: "Time Limit Exceeded" },
+      outcome: 13,
+      time: elapsed,
+      memory: memoryKb,
+    };
+  }
+
+  // 4. Memory Limit Exceeded (status 4)
+  if (statusId === 4 || isMemoryError(stderr)) {
+    return {
+      stdout,
+      stderr: stderr || "Memory Limit Exceeded: Process exhausted allowed memory bounds.",
+      compile_output: compileOutput,
+      message: "Memory Limit Exceeded",
+      status: { id: 4, description: "Memory Limit Exceeded" },
+      outcome: 17,
+      time: elapsed,
+      memory: memoryKb,
+    };
+  }
+
+  // 5. Accepted (status 3)
+  if (statusId === 3) {
+    return {
+      stdout,
+      stderr,
+      compile_output: compileOutput,
+      message: "Accepted",
+      status: { id: 3, description: "Accepted" },
+      outcome: 15,
+      time: elapsed,
+      memory: memoryKb,
+    };
+  }
+
+  // 6. Runtime Error (status 7..12)
+  if (statusId >= 7 && statusId <= 12) {
+    return {
+      stdout,
+      stderr: stderr || parsed.message || "Runtime Error",
+      compile_output: compileOutput,
+      message: statusDesc || "Runtime Error",
+      status: { id: 11, description: statusDesc || "Runtime Error" },
+      outcome: 12,
+      time: elapsed,
+      memory: memoryKb,
+    };
+  }
+
+  // 7. Internal / System Error
+  if (statusId === 13 || statusId === 14) {
+    return {
+      stdout,
+      stderr: stderr || "Internal execution error occurred.",
+      compile_output: compileOutput,
+      message: "Internal Error",
+      status: { id: 13, description: "Internal Error" },
+      outcome: 20,
+      time: elapsed,
+      memory: memoryKb,
+    };
+  }
+
+  // Fallback status resolution
+  const isSuccess = !stderr && !compileOutput;
+  return {
+    stdout,
+    stderr,
+    compile_output: compileOutput,
+    message: isSuccess ? "Accepted" : "Runtime Error",
+    status: { id: isSuccess ? 3 : 7, description: isSuccess ? "Accepted" : "Runtime Error" },
+    outcome: isSuccess ? 15 : 12,
+    time: elapsed,
+    memory: memoryKb,
+  };
+}
+
+/**
  * Normalizes raw Wandbox response into our standard NormalizedExecutionResult.
  */
 function normalizeWandboxResponse(
@@ -47,6 +247,21 @@ function normalizeWandboxResponse(
   const programErr = (parsed.program_error || "").trim();
   const lowerErr = `${programErr} ${programOut}`.toLowerCase();
   const signal = String(parsed.signal || "").toUpperCase();
+
+  // CRITICAL: Filter out Wandbox container / OCI / crun failures so they are NEVER
+  // reported as student compilation errors
+  if (isInfrastructureFailure(compileErr) || isInfrastructureFailure(programErr)) {
+    return {
+      stdout: "",
+      stderr: "Online execution sandbox temporarily overloaded. Please retry in a few moments.",
+      compile_output: "",
+      message: "Infrastructure Error",
+      status: { id: 13, description: "Internal Error" },
+      outcome: 20,
+      time: elapsed,
+      memory: 0,
+    };
+  }
 
   // Compilation failed
   if (compileErr && !programOut && parsed.status !== "0") {
@@ -137,17 +352,164 @@ function normalizeWandboxResponse(
 }
 
 /**
- * Performs an HTTPS POST request to Wandbox and returns the NormalizedExecutionResult.
- * Works in any Node.js environment including serverless (Vercel, AWS Lambda).
+ * Performs an HTTPS/HTTP POST request to Judge0 CE and returns NormalizedExecutionResult.
  */
-// Persistent keep-alive agent to eliminate TCP & TLS handshake overhead on every execution
-const compilerHttpsAgent = new https.Agent({
-  keepAlive: true,
-  maxSockets: 50,
-  maxFreeSockets: 10,
-  timeout: 30000,
-});
+function executeOnJudge0(
+  languageId: number,
+  code: string,
+  stdin: string,
+  timeoutMs: number,
+  compilerOptions?: string
+): Promise<NormalizedExecutionResult> {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const rawUrl = process.env.JUDGE0_URL || "https://ce.judge0.com";
+    const baseUrl = rawUrl.replace(/\/+$/, "");
 
+    let hostname = "ce.judge0.com";
+    let pathname = "/submissions?base64_encoded=false&wait=true";
+    let isHttps = true;
+    let port: number | undefined = undefined;
+
+    try {
+      const parsed = new URL(baseUrl);
+      hostname = parsed.hostname;
+      port = parsed.port ? parseInt(parsed.port, 10) : undefined;
+      isHttps = parsed.protocol === "https:";
+      const prefix = parsed.pathname.replace(/\/+$/, "");
+      pathname = `${prefix}/submissions?base64_encoded=false&wait=true`;
+    } catch {
+      // Fall back to ce.judge0.com
+    }
+
+    const timeLimitSec = Math.max(Math.ceil(timeoutMs / 1000), 2);
+    const payloadObj: Record<string, any> = {
+      language_id: languageId,
+      source_code: code,
+      stdin: stdin || "",
+      cpu_time_limit: timeLimitSec,
+      wall_time_limit: timeLimitSec * 2,
+      memory_limit: 256000,
+    };
+    if (compilerOptions) {
+      payloadObj.compiler_options = compilerOptions;
+    }
+    const payload = JSON.stringify(payloadObj);
+    const httpTransportTimeoutMs = Math.max(timeoutMs + 30000, 60000);
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Content-Length": String(Buffer.byteLength(payload)),
+      "User-Agent": "SensiLearn-LMS-Judge/2.0",
+      "Accept": "application/json",
+    };
+
+    if (process.env.JUDGE0_API_KEY) {
+      headers["X-Auth-Token"] = process.env.JUDGE0_API_KEY;
+      headers["X-RapidAPI-Key"] = process.env.JUDGE0_API_KEY;
+    }
+    if (process.env.JUDGE0_HOST) {
+      headers["X-RapidAPI-Host"] = process.env.JUDGE0_HOST;
+    }
+
+    const httpModule = isHttps ? https : http;
+    const req = httpModule.request(
+      {
+        hostname,
+        port,
+        path: pathname,
+        method: "POST",
+        agent: isHttps ? compilerHttpsAgent : undefined,
+        headers,
+        timeout: httpTransportTimeoutMs,
+      },
+      (res: any) => {
+        let data = "";
+        res.on("data", (c: Buffer) => {
+          data += c;
+        });
+        res.on("end", () => {
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+          if (res.statusCode === 429) {
+            return resolve({
+              stdout: "",
+              stderr: "The code execution service is temporarily rate limited. Please retry in a few moments.",
+              compile_output: "",
+              message: "Provider Rate Limit",
+              status: { id: 13, description: "Provider Rate Limit" },
+              outcome: 21,
+              time: elapsed,
+              memory: 0,
+            });
+          }
+
+          if (res.statusCode && res.statusCode >= 500) {
+            return resolve({
+              stdout: "",
+              stderr: `Execution service error (HTTP ${res.statusCode}).`,
+              compile_output: "",
+              message: "Provider Error",
+              status: { id: 13, description: "Provider Error" },
+              outcome: 20,
+              time: elapsed,
+              memory: 0,
+            });
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+            resolve(normalizeJudge0Response(parsed, startTime));
+          } catch {
+            resolve({
+              stdout: "",
+              stderr: `Invalid response from code execution service: ${data.slice(0, 300)}`,
+              compile_output: "",
+              message: "Execution Error",
+              status: { id: 13, description: "Internal Error" },
+              outcome: 20,
+              time: elapsed,
+              memory: 0,
+            });
+          }
+        });
+      }
+    );
+
+    req.on("error", (err: Error) => {
+      resolve({
+        stdout: "",
+        stderr: `Code execution service unreachable: ${err.message}`,
+        compile_output: "",
+        message: "Infrastructure Error",
+        status: { id: 13, description: "Infrastructure Error" },
+        outcome: 20,
+        time: "0.00",
+        memory: 0,
+      });
+    });
+
+    req.on("timeout", () => {
+      req.destroy();
+      resolve({
+        stdout: "",
+        stderr: "Compiler infrastructure timeout: The remote execution service did not respond within deadline.",
+        compile_output: "",
+        message: "Infrastructure Error",
+        status: { id: 13, description: "Infrastructure Error" },
+        outcome: 20,
+        time: "0.00",
+        memory: 0,
+      });
+    });
+
+    req.write(payload);
+    req.end();
+  });
+}
+
+/**
+ * Performs an HTTPS POST request to Wandbox and returns NormalizedExecutionResult.
+ */
 function executeOnWandbox(
   compiler: string,
   code: string,
@@ -166,9 +528,6 @@ function executeOnWandbox(
       payloadObj.compiler_option_raw = compilerOptionRaw;
     }
     const payload = JSON.stringify(payloadObj);
-
-    // Transport deadline: Remote compilation (up to 15s) + execution (up to 15s) + network latency/queue buffer (30s)
-    // NEVER bind the network socket timeout directly to the student CPU execution limit!
     const httpTransportTimeoutMs = Math.max(timeoutMs + 30000, 60000);
 
     const req = https.request(
@@ -179,8 +538,8 @@ function executeOnWandbox(
         agent: compilerHttpsAgent,
         headers: {
           "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(payload),
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+          "Content-Length": String(Buffer.byteLength(payload)),
+          "User-Agent": "SensiLearn-LMS-Sandbox/2.0",
           "Accept": "application/json, text/plain, */*",
         },
         timeout: httpTransportTimeoutMs,
@@ -208,7 +567,7 @@ function executeOnWandbox(
           if (res.statusCode && res.statusCode >= 500) {
             return resolve({
               stdout: "",
-              stderr: `Execution service error (HTTP ${res.statusCode}). The compiler provider is temporarily unavailable.`,
+              stderr: `Execution service error (HTTP ${res.statusCode}).`,
               compile_output: "",
               message: "Provider Error",
               status: { id: 13, description: "Provider Error" },
@@ -252,10 +611,9 @@ function executeOnWandbox(
 
     req.on("timeout", () => {
       req.destroy();
-      // Transport timeout must be classified as Infrastructure Error, NEVER as student Time Limit Exceeded!
       resolve({
         stdout: "",
-        stderr: "Compiler infrastructure timeout: The remote execution service did not respond within the network deadline. Please retry.",
+        stderr: "Compiler infrastructure timeout: The remote execution service did not respond within deadline.",
         compile_output: "",
         message: "Infrastructure Error",
         status: { id: 13, description: "Infrastructure Error" },
@@ -271,14 +629,14 @@ function executeOnWandbox(
 }
 
 /**
- * Pre-process Java code for Wandbox JDK:
+ * Pre-processes Java code for sandboxed execution:
  * - Strips package declarations (not supported in sandbox)
- * - Ensures at least one public class exists
+ * - Ensures a Main class exists with public static void main
+ * - Renames arbitrary class containing main() to Main for Judge0/standard JDK runners
  */
 function preprocessJavaForSandbox(code: string): string {
-  // Remove package declarations
   let src = code.replace(/^\s*package\s+[^;]+;/gm, "");
-  
+
   // Auto-inject standard utility imports if missing
   if (!src.includes("import java.util")) {
     src = `import java.util.*;\nimport java.io.*;\n${src}`;
@@ -286,18 +644,27 @@ function preprocessJavaForSandbox(code: string): string {
 
   const anyClassMatch = src.match(/\bclass\s+([A-Za-z0-9_]+)/);
   if (!anyClassMatch) {
-    src = `import java.util.*;\nimport java.io.*;\nclass Main {\n  public static void main(String[] args) throws Exception {\n    ${src}\n  }\n}`;
-  } else {
-    // In Wandbox sandbox, filename is fixed as prog.java.
-    // Removing top-level 'public' modifier allows any class name (Main, Solution, Program) to compile cleanly in prog.java.
-    src = src.replace(/\bpublic\s+(?:final\s+|abstract\s+|static\s+)*class\b/g, "class");
+    src = `import java.util.*;\nimport java.io.*;\npublic class Main {\n  public static void main(String[] args) throws Exception {\n    ${src}\n  }\n}`;
+  } else if (!/\bclass\s+Main\b/.test(src)) {
+    // If no Main class exists, find class that has main method and rename to Main
+    const classWithMain = src.match(/(?:public\s+)?class\s+([A-Za-z0-9_]+)\s*\{[\s\S]*?public\s+static\s+void\s+main/);
+    if (classWithMain && classWithMain[1] && classWithMain[1] !== "Main") {
+      const origClass = classWithMain[1];
+      const re = new RegExp(`\\bclass\\s+${origClass}\\b`, "g");
+      src = src.replace(re, "class Main");
+    } else {
+      // Replace the first class with Main
+      src = src.replace(/\bclass\s+([A-Za-z0-9_]+)\b/, "class Main");
+    }
+    // Make sure Main has public modifier
+    src = src.replace(/\bclass\s+Main\b/, "public class Main");
   }
+
   return src;
 }
 
 /**
- * Pre-process TypeScript: strip type annotations so it runs as plain JS on Node.js.
- * This is a best-effort basic transform — for complex TS, the server should have tsc or use Jobe.
+ * Pre-processes TypeScript: strip type annotations so it runs as plain JS on Node.js.
  */
 function preprocessTypeScriptForNode(code: string): string {
   return code
@@ -311,22 +678,16 @@ function preprocessTypeScriptForNode(code: string): string {
 }
 
 /**
- * Online Compiler Service — Universal serverless-safe code execution via Wandbox.
+ * Online Compiler Service — Universal resilient multi-provider code execution engine.
  * 
- * This service works in ANY deployment environment:
- * - Local development (no compilers needed)
- * - Vercel serverless functions
- * - AWS Lambda
- * - Any cloud function environment
- * 
- * It uses the free Wandbox.org API as the execution backend.
+ * Multi-Tier Failover Architecture:
+ * - Tier 1: High-Speed Isolated Judge0 CE (supports 70+ languages, C17/23, C++20, Java 17+, Python 3.12+, Node 22+)
+ * - Tier 2: Wandbox Sandbox Runner (with OCI container error interception)
+ * - Self-Healing: Automatic circuit breaking and provider switching if an upstream container runtime fails
  */
-import { adaptCodeForExecution } from "@/lib/compiler/code-adapter";
-
 export class OnlineCompilerService {
   /**
-   * Executes code online using Wandbox.
-   * Automatically maps language to the best available Wandbox compiler.
+   * Executes code online with multi-provider failover.
    */
   public static async execute(
     language: string,
@@ -336,9 +697,10 @@ export class OnlineCompilerService {
     version?: string
   ): Promise<NormalizedExecutionResult> {
     const lang = (language || "").toLowerCase().trim();
-    const compiler = WANDBOX_COMPILER_MAP[lang];
+    const judge0Id = JUDGE0_LANGUAGE_MAP[lang];
+    const wandboxCompiler = WANDBOX_COMPILER_MAP[lang];
 
-    if (!compiler) {
+    if (!judge0Id && !wandboxCompiler) {
       return {
         stdout: "",
         stderr: `Language '${language}' is not supported by the online execution engine.`,
@@ -351,31 +713,7 @@ export class OnlineCompilerService {
       };
     }
 
-    // Determine compiler options for C / C++ standards
-    let compilerOptionRaw: string | undefined;
-    if (lang === "cpp" || lang === "c++") {
-      const v = (version || "").toLowerCase().trim();
-      if (v === "c++23" || v === "23") {
-        compilerOptionRaw = "-std=c++23";
-      } else if (v === "c++17" || v === "17") {
-        compilerOptionRaw = "-std=c++17";
-      } else {
-        compilerOptionRaw = "-std=c++20";
-      }
-    } else if (lang === "c") {
-      const v = (version || "").toLowerCase().trim();
-      if (v === "c23" || v === "23") {
-        compilerOptionRaw = "-std=c23";
-      } else if (v === "c11" || v === "11") {
-        compilerOptionRaw = "-std=c11";
-      } else {
-        compilerOptionRaw = "-std=c17";
-      }
-    }
-
-    // Adapt user code so missing main/wrappers are cleanly handled
     let processedCode = adaptCodeForExecution(lang, code);
-
     if (lang === "java") {
       processedCode = preprocessJavaForSandbox(processedCode);
     }
@@ -385,6 +723,69 @@ export class OnlineCompilerService {
       .replace(/\\n/g, "\n")
       .replace(/\r\n/g, "\n");
 
-    return executeOnWandbox(compiler, processedCode, cleanStdin, timeoutMs, compilerOptionRaw);
+    // ── Tier 1: High-Performance Judge0 CE ─────────────────────────────────────
+    if (judge0Id) {
+      try {
+        let compilerOptions: string | undefined;
+        if (lang === "c") {
+          const v = (version || "").toLowerCase().trim();
+          if (v === "c23" || v === "23") compilerOptions = "-std=c23";
+          else if (v === "c11" || v === "11") compilerOptions = "-std=c11";
+          else compilerOptions = "-std=c17";
+        } else if (lang === "cpp" || lang === "c++") {
+          const v = (version || "").toLowerCase().trim();
+          if (v === "c++23" || v === "23") compilerOptions = "-std=c++23";
+          else if (v === "c++17" || v === "17") compilerOptions = "-std=c++17";
+          else compilerOptions = "-std=c++20";
+        }
+
+        const j0Result = await executeOnJudge0(judge0Id, processedCode, cleanStdin, timeoutMs, compilerOptions);
+
+        // If execution succeeded or returned genuine student errors (compile error, runtime error, TLE), return it!
+        // ONLY failover if outcome is 20 (Infrastructure Error) or 21 (Rate Limit)
+        if (j0Result.outcome !== 20 && j0Result.outcome !== 21) {
+          return j0Result;
+        }
+      } catch {
+        // Fall through to Tier 2
+      }
+    }
+
+    // ── Tier 2: Wandbox Sandbox Fallback ────────────────────────────────────────
+    if (wandboxCompiler) {
+      try {
+        let compilerOptionRaw: string | undefined;
+        if (lang === "cpp" || lang === "c++") {
+          const v = (version || "").toLowerCase().trim();
+          if (v === "c++23" || v === "23") compilerOptionRaw = "-std=c++23";
+          else if (v === "c++17" || v === "17") compilerOptionRaw = "-std=c++17";
+          else compilerOptionRaw = "-std=c++20";
+        } else if (lang === "c") {
+          const v = (version || "").toLowerCase().trim();
+          if (v === "c23" || v === "23") compilerOptionRaw = "-std=c23";
+          else if (v === "c11" || v === "11") compilerOptionRaw = "-std=c11";
+          else compilerOptionRaw = "-std=c17";
+        }
+
+        const wbResult = await executeOnWandbox(wandboxCompiler, processedCode, cleanStdin, timeoutMs, compilerOptionRaw);
+        if (wbResult.outcome !== 20 && wbResult.outcome !== 21) {
+          return wbResult;
+        }
+      } catch {
+        // Fall through to error
+      }
+    }
+
+    // Both tiers exhausted by infrastructure errors or rate limits
+    return {
+      stdout: "",
+      stderr: "The remote code execution sandbox is temporarily overloaded. Please retry in a few moments.",
+      compile_output: "",
+      message: "Infrastructure Unavailable",
+      status: { id: 13, description: "Internal Error" },
+      outcome: 20,
+      time: "0.00",
+      memory: 0,
+    };
   }
 }

@@ -1,6 +1,7 @@
 import type { CodingLanguage } from "@/types/coding";
 import { JOBE_OUTCOME_DESCRIPTION } from "@/types/coding";
 import { getErrorMessage } from "@/lib/utils";
+import { isInfrastructureFailure } from "@/lib/compiler/comparator";
 import { getJobeConfig, mapLanguageToJobeId, type JobeConfig } from "./config";
 import type {
   JobeRunSpecPayload,
@@ -187,9 +188,14 @@ export class JobeService {
       clearTimeout(timeoutId);
 
       if (response.ok) {
-        JobeService.isJobeAvailable = true;
         const jobeResult = (await response.json()) as JobeRunResult;
-        return this.normalizeResult(jobeResult);
+        if (isInfrastructureFailure(jobeResult.cmpinfo) || isInfrastructureFailure(jobeResult.stderr)) {
+          JobeService.isJobeAvailable = false;
+          JobeService.lastJobeCheck = Date.now();
+        } else {
+          JobeService.isJobeAvailable = true;
+          return this.normalizeResult(jobeResult);
+        }
       }
       
       JobeService.isJobeAvailable = false;

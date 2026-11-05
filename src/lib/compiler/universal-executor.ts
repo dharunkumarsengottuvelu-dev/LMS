@@ -5,7 +5,7 @@ import os from "node:os";
 import cp from "node:child_process";
 
 import { getLanguageDefinition, type SourceFileInfo } from "./language-registry";
-import { sanitizeCompilerOutput, type StandardExecutionStatus } from "./comparator";
+import { sanitizeCompilerOutput, isInfrastructureFailure, type StandardExecutionStatus } from "./comparator";
 import { OnlineCompilerService } from "@/services/online-compiler.service";
 import { adaptCodeForExecution } from "./code-adapter";
 import { ExecutionMetricsTracker, type ExecutionTimings } from "./execution-tracker";
@@ -256,6 +256,7 @@ export class UniversalExecutor {
       for (const c of candidates) {
         if (c && fs.existsSync(/*turbopackIgnore: true*/ c)) return c;
       }
+      return "python";
     }
     return "python3";
   }
@@ -430,7 +431,7 @@ export class UniversalExecutor {
   ): Promise<UniversalExecutionResult> {
     const pyCmd = this.resolvePythonCommand();
     const res = await this.executeProcessRunner(pyCmd, [sourceInfo.filename], tempDir, stdin, timeoutMs, sourceInfo.filename, "python", 18000);
-    if (res.stderr && res.stderr.includes("Python was not found")) {
+    if (res.stderr && (res.stderr.includes("Python was not found") || res.stderr.includes("cannot be accessed by the system"))) {
       return { ...res, outcome: 20 };
     }
     return res;
@@ -830,13 +831,14 @@ export class UniversalExecutor {
     const raw = await OnlineCompilerService.execute(language, code, stdin, timeoutMs, version);
     const sanitizedErr = sanitizeCompilerOutput(raw.stderr || "", filename);
     const sanitizedComp = sanitizeCompilerOutput(raw.compile_output || "", filename);
-    const isOk = raw.outcome === 15 || raw.status?.id === 3;
-    const isCompileErr = raw.outcome === 11 || raw.status?.id === 6;
-    const isTimeout = raw.outcome === 13 || raw.status?.id === 5 || raw.message === "Time Limit Exceeded";
-    const isMemory = raw.outcome === 17 || raw.status?.id === 4 || isMemoryError(sanitizedErr);
-    const isOutputLimit = raw.outcome === 18 || raw.status?.id === 14;
-    const isBusy = raw.outcome === 21 || raw.message === "Provider Rate Limit";
-    const isInfraError = raw.outcome === 20 || raw.status?.id === 13 || raw.message === "Infrastructure Error" || raw.message === "Provider Error";
+    const hasInfraSignature = isInfrastructureFailure(sanitizedErr) || isInfrastructureFailure(sanitizedComp) || isInfrastructureFailure(raw.message);
+    const isInfraError = raw.outcome === 20 || raw.status?.id === 13 || raw.message === "Infrastructure Error" || raw.message === "Provider Error" || hasInfraSignature;
+    const isTimeout = !isInfraError && (raw.outcome === 13 || raw.status?.id === 5 || raw.message === "Time Limit Exceeded");
+    const isMemory = !isInfraError && (raw.outcome === 17 || raw.status?.id === 4 || isMemoryError(sanitizedErr));
+    const isOutputLimit = !isInfraError && (raw.outcome === 18 || raw.status?.id === 14);
+    const isBusy = !isInfraError && (raw.outcome === 21 || raw.message === "Provider Rate Limit");
+    const isCompileErr = !isInfraError && (raw.outcome === 11 || raw.status?.id === 6);
+    const isOk = !isInfraError && !isCompileErr && (raw.outcome === 15 || raw.status?.id === 3);
 
     let statusDesc: StandardExecutionStatus = "ACCEPTED";
     if (isTimeout) statusDesc = "TIME_LIMIT_EXCEEDED";

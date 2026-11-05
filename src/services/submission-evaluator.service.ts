@@ -6,7 +6,7 @@ import type {
   SubmitCodeInput,
 } from "@/types/coding";
 import { UniversalExecutor } from "@/lib/compiler/universal-executor";
-import { compareOutput, normalizeTestInput, normalizeExpectedOutput } from "@/lib/compiler/comparator";
+import { compareOutput, isInfrastructureFailure, normalizeTestInput, normalizeExpectedOutput } from "@/lib/compiler/comparator";
 import { SQLExecutionService } from "@/services/sql-execution.service";
 import { SubmissionService } from "@/services/submission.service";
 
@@ -162,7 +162,12 @@ export class SubmissionEvaluatorService {
           passed = isSuccessStatus && compareOutput(trimmedActual, expectedOutput, "WHITESPACE_NORMALIZED");
 
           if (!passed) {
-            if (hasCompileError) {
+            const isInfra = res.status?.description === "SYSTEM_ERROR" || res.outcome === 20 || res.outcome === 21 || isInfrastructureFailure(res.compile_output) || isInfrastructureFailure(res.stderr);
+            if (isInfra) {
+              resError = isInfrastructureFailure(res.stderr) || isInfrastructureFailure(res.compile_output)
+                ? "The code execution service is temporarily busy. Please retry in a moment."
+                : (res.stderr || res.message || "Infrastructure Error: The compiler service encountered a temporary error.");
+            } else if (hasCompileError) {
               resError = res.compile_output.trim();
             } else if (res.status?.description === "TIME_LIMIT_EXCEEDED" || res.outcome === 13) {
               resError = `Time Limit Exceeded: Execution time exceeded ${(execTimeoutMs / 1000).toFixed(1)} seconds limit.`;
@@ -170,8 +175,6 @@ export class SubmissionEvaluatorService {
               resError = "Output Limit Exceeded: Output exceeded maximum allowed 256 KB buffer.";
             } else if (res.status?.description === "MEMORY_LIMIT_EXCEEDED" || res.outcome === 17) {
               resError = "Memory Limit Exceeded: Memory allocation exceeded permitted boundaries (256 MB limit).";
-            } else if (res.status?.description === "SYSTEM_ERROR" || res.outcome === 20 || res.outcome === 21) {
-              resError = res.stderr || res.message || "Infrastructure Error: The compiler service encountered a temporary error.";
             } else if (hasStderr) {
               resError = res.stderr.trim();
             } else if (!isSuccessStatus && res.message && res.message !== "Accepted") {
@@ -222,9 +225,10 @@ export class SubmissionEvaluatorService {
       const firstRes = testResults[0];
       const hasCompileError = Boolean(
         firstRes?.error &&
+        !isInfrastructureFailure(firstRes.error) &&
         (firstRes.error.toLowerCase().includes("compilation") ||
          firstRes.error.toLowerCase().includes("syntaxerror") ||
-         firstRes.error.toLowerCase().includes("error:"))
+         (firstRes.error.toLowerCase().includes("error:") && !firstRes.error.toLowerCase().includes("infrastructure")))
       );
 
       // If compilation failed on first test case, short-circuit all remaining test cases instantly

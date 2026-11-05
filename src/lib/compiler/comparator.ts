@@ -58,6 +58,31 @@ export function sanitizeCompilerOutput(raw: string, filename?: string): string {
 }
 
 /**
+ * Detects whether an execution error message represents an underlying host, container,
+ * or OCI runtime failure (e.g. crun fork limits, OCI runtime errors, missing host binaries)
+ * rather than a genuine student code compilation or runtime error.
+ */
+export function isInfrastructureFailure(err: string | null | undefined): boolean {
+  if (!err) return false;
+  const lower = String(err).toLowerCase();
+  return (
+    lower.includes("oci runtime error") ||
+    lower.includes("crun:") ||
+    lower.includes("runc:") ||
+    lower.includes("resource temporarily unavailable") ||
+    lower.includes("clone: resource temporarily unavailable") ||
+    lower.includes("cannot allocate memory") ||
+    lower.includes("fork: retry: resource temporarily unavailable") ||
+    lower.includes("fork failed") ||
+    lower.includes("failed to clone") ||
+    lower.includes("container init failed") ||
+    lower.includes("transport endpoint is not connected") ||
+    lower.includes("docker-engine") ||
+    lower.includes("containerd")
+  );
+}
+
+/**
  * Normalizes string for whitespace-insensitive output comparison:
  * - Converts CRLF (\r\n) to LF (\n)
  * - Trims trailing whitespace on each line

@@ -355,7 +355,7 @@ export class LocalCompilerService {
         });
       });
 
-      comp.on("error", () => this.executeWandboxGcc(lang, code, stdin, timeoutMs).then(resolve));
+      comp.on("error", () => OnlineCompilerService.execute(lang, code, stdin, timeoutMs).then(resolve));
     });
   }
 
@@ -365,61 +365,7 @@ export class LocalCompilerService {
     stdin: string,
     timeoutMs: number
   ): Promise<NormalizedExecutionResult> {
-    return new Promise((resolve) => {
-      const httpsModule = getHttps();
-      if (!httpsModule) return resolve(errResult("HTTPS module unavailable"));
-
-      const startTime = Date.now();
-      const compiler = lang === "c" ? "gcc-13.2.0-c" : "gcc-13.2.0";
-      const payload = JSON.stringify({ compiler, code, stdin: stdin || "" });
-
-      const httpTransportTimeoutMs = Math.max(timeoutMs + 30000, 60000);
-
-      const req = httpsModule.request({
-        hostname: "wandbox.org",
-        path: "/api/compile.json",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(payload),
-        },
-        timeout: httpTransportTimeoutMs,
-      }, (res: any) => {
-        let data = "";
-        res.on("data", (c: any) => { data += c; });
-        res.on("end", () => {
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-          if (res.statusCode === 429) {
-            return resolve(errResult("Provider rate limit reached. Please retry in a few moments.", 13, "Provider Rate Limit", 21));
-          }
-          if (res.statusCode && res.statusCode >= 500) {
-            return resolve(errResult(`Execution provider error (HTTP ${res.statusCode}).`, 13, "Provider Error", 20));
-          }
-          try {
-            const parsed = JSON.parse(data);
-            const compileErr = (parsed.compiler_error || "").trim();
-            const programOut = (parsed.program_output || parsed.program_message || "").trim();
-            const programErr = (parsed.program_error || "").trim();
-            if (compileErr && !programOut && parsed.status !== "0") {
-              return resolve({
-                stdout: "", stderr: compileErr, compile_output: compileErr,
-                message: "Compilation Error", status: { id: 6, description: "Compilation Error" },
-                outcome: 11, time: elapsed, memory: 256000,
-              });
-            }
-            const ok = parsed.status === "0";
-            resolve(runResult(ok, programOut, programErr, elapsed, 256000, compileErr));
-          } catch {
-            resolve(errResult("Wandbox response parse error", 13, "Infrastructure Error", 20));
-          }
-        });
-      });
-
-      req.on("error", (err: Error) => resolve(errResult(`Provider unreachable: ${err.message}`, 13, "Infrastructure Error", 20)));
-      req.on("timeout", () => { req.destroy(); resolve(errResult("Compiler server took longer than expected to respond.", 13, "Infrastructure Error", 20)); });
-      req.write(payload);
-      req.end();
-    });
+    return OnlineCompilerService.execute(lang, code, stdin, timeoutMs);
   }
 }
 
