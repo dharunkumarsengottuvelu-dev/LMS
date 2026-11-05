@@ -322,6 +322,7 @@ export default function StudentPracticeCodingRunnerPage() {
 
   // Palette & Description panel visibility toggle states
   const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(true);
+  const [isMobilePaletteOpen, setIsMobilePaletteOpen] = useState<boolean>(false);
   const [isDescriptionOpen, setIsDescriptionOpen] = useState<boolean>(true);
 
   // Active coding problem
@@ -548,7 +549,7 @@ export default function StudentPracticeCodingRunnerPage() {
       editorRef.current?.layout();
     }, 120);
     return () => clearTimeout(timer);
-  }, [isBottomMinimized, isDescriptionOpen, isPaletteOpen]);
+  }, [isBottomMinimized, isDescriptionOpen, isPaletteOpen, isMobilePaletteOpen]);
 
   // Student progress per problem
   const [solvedProblemIds, setSolvedProblemIds] = useState<Set<string>>(new Set());
@@ -1238,6 +1239,7 @@ export default function StudentPracticeCodingRunnerPage() {
     setExecutionType("run");
     setIsBottomMinimized(false);
     setBottomTab("testresult");
+    setMobileTab("output");
     setConsoleOutput("Compiling and executing against sample test cases...\n");
     if (!solvedProblemIds.has(currentProblem.id)) {
       setInProgressProblemIds((prev) => new Set(prev).add(currentProblem.id));
@@ -1367,6 +1369,7 @@ export default function StudentPracticeCodingRunnerPage() {
     setExecutionError(null);
     setIsBottomMinimized(false);
     setBottomTab("testresult");
+    setMobileTab("output");
     setConsoleOutput(`Running solution with custom input...\nInput:\n${customInputText || "(None)"}\n`);
     if (!solvedProblemIds.has(currentProblem.id)) {
       setInProgressProblemIds((prev) => new Set(prev).add(currentProblem.id));
@@ -1441,6 +1444,7 @@ export default function StudentPracticeCodingRunnerPage() {
     setExecutionType("submit");
     setIsBottomMinimized(false);
     setBottomTab("testresult");
+    setMobileTab("output");
     setConsoleOutput("Submitting solution to practice evaluation engine...\n");
 
     try {
@@ -1643,6 +1647,10 @@ export default function StudentPracticeCodingRunnerPage() {
     setExecutionError(null);
     setConsoleOutput("");
     setBottomTab("testcase");
+    setIsMobilePaletteOpen(false);
+    if (mobileTab === "output") {
+      setMobileTab("editor");
+    }
     setCurrentIdx(idx);
 
     const targetProb = problems[idx];
@@ -2311,16 +2319,16 @@ export default function StudentPracticeCodingRunnerPage() {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setIsPaletteOpen((prev) => !prev)}
+              onClick={() => setIsMobilePaletteOpen((prev) => !prev)}
               className="h-7 px-2 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-md flex items-center gap-1"
             >
               <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
-              <span>{isPaletteOpen ? "Hide Grid" : "Grid"}</span>
+              <span>{isMobilePaletteOpen ? "Hide Grid" : "Grid"}</span>
             </Button>
           </div>
 
           {/* Collapsible Mobile Question Grid */}
-          {isPaletteOpen && (
+          {isMobilePaletteOpen && (
             <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-2">
               <div className="flex items-center justify-between text-[11px] text-slate-600 px-1">
                 <span className="flex items-center gap-1">
@@ -2346,7 +2354,7 @@ export default function StudentPracticeCodingRunnerPage() {
                       type="button"
                       onClick={() => {
                         handleSelectQuestion(idx);
-                        // On smaller screens, keep or toggle as convenient
+                        setIsMobilePaletteOpen(false);
                       }}
                       className={cn(
                         "h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer border",
@@ -2374,7 +2382,10 @@ export default function StudentPracticeCodingRunnerPage() {
                 <Button
                   type="button"
                   size="sm"
-                  onClick={handleOpenReviewSubmit}
+                  onClick={() => {
+                    setIsMobilePaletteOpen(false);
+                    handleOpenReviewSubmit();
+                  }}
                   className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
@@ -3425,7 +3436,8 @@ export default function StudentPracticeCodingRunnerPage() {
           >
             {/* Bottom Panel Tabs: Testcase | Test Result | Console + Minimize/Expand Button */}
             <div className="h-9.5 border-b border-slate-200 px-3 sm:px-4 flex items-center justify-between shrink-0 bg-white select-none">
-              <div className="flex items-center gap-4 sm:gap-5 h-full">
+              {/* Desktop Sub-tabs (hidden on mobile since top switcher handles it) */}
+              <div className="hidden lg:flex items-center gap-4 sm:gap-5 h-full">
                 <button
                   type="button"
                   onClick={() => {
@@ -3473,11 +3485,23 @@ export default function StudentPracticeCodingRunnerPage() {
                 </button>
               </div>
 
-              {/* Minimize / Expand Toggle Button */}
+              {/* Mobile View Title (< lg) */}
+              <div className="lg:hidden flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-600 inline-block" />
+                <span className="text-xs font-bold text-slate-800">
+                  {mobileTab === "custom_input"
+                    ? "Custom Input"
+                    : mobileTab === "testcases"
+                    ? `Sample Test Cases (${systemTestCases.length})`
+                    : "Execution Results"}
+                </span>
+              </div>
+
+              {/* Minimize / Expand Toggle Button (Desktop only) */}
               <button
                 type="button"
                 onClick={() => setIsBottomMinimized((prev) => !prev)}
-                className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 py-1 px-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                className="hidden lg:flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 py-1 px-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                 title={isBottomMinimized ? "Expand testcase panel" : "Minimize testcase panel"}
               >
                 {isBottomMinimized ? (
@@ -3504,7 +3528,10 @@ export default function StudentPracticeCodingRunnerPage() {
               {bottomTab === "testcase" && (
                 <div className="space-y-4">
                   {/* Custom Input */}
-                  <div className="space-y-2">
+                  <div className={cn(
+                    "space-y-2",
+                    mobileTab === "testcases" ? "hidden lg:block" : "block"
+                  )}>
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-slate-800 text-xs">Custom Input</span>
                       <Button
@@ -3532,7 +3559,10 @@ export default function StudentPracticeCodingRunnerPage() {
                   </div>
 
                   {/* System Test Cases (Strictly Read-Only, No Add/Delete Case) */}
-                  <div className="space-y-3 pt-3 border-t border-slate-100">
+                  <div className={cn(
+                    "space-y-3 pt-3 border-t border-slate-100",
+                    mobileTab === "custom_input" ? "hidden lg:block" : "block"
+                  )}>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-800">
                         Sample Test Cases ({systemTestCases.length})
@@ -3689,50 +3719,66 @@ export default function StudentPracticeCodingRunnerPage() {
                               </span>
                             </div>
 
-                            <div className="space-y-2 text-xs font-mono">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                <div className="min-w-0">
-                                  <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold mb-1">
-                                    Input:
-                                  </span>
-                                  <pre className="p-2.5 bg-white rounded-lg border border-slate-200 text-slate-800 whitespace-pre-wrap break-all min-h-[38px] max-h-48 overflow-y-auto font-mono text-xs shadow-2xs leading-relaxed">
-                                    {r.input && r.input.trim() ? r.input : "No input"}
-                                  </pre>
-                                </div>
-                                <div className="min-w-0">
-                                  <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold mb-1">
-                                    Expected Output:
-                                  </span>
-                                  <pre className="p-2.5 bg-white rounded-lg border border-slate-200 text-slate-800 whitespace-pre-wrap break-all min-h-[38px] max-h-48 overflow-y-auto font-mono text-xs shadow-2xs leading-relaxed">
-                                    {r.expected_output && r.expected_output.trim() ? r.expected_output : "(No output)"}
-                                  </pre>
-                                </div>
-                              </div>
-                              <div className="min-w-0">
-                                <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold mb-1">
-                                  Actual Output:
-                                </span>
-                                <pre className={cn(
-                                  "p-2.5 bg-white rounded-lg border font-mono text-xs whitespace-pre-wrap break-all min-h-[38px] max-h-48 overflow-y-auto shadow-2xs leading-relaxed",
-                                  r.passed ? "border-slate-200 text-slate-800" : "border-rose-200 text-rose-900 bg-rose-50/20"
-                                )}>
-                                  {r.actual_output && r.actual_output.trim() && r.actual_output !== "Error: Output mismatch" && r.actual_output !== "Mismatch (Hidden Test Case)"
-                                    ? r.actual_output
-                                    : (r.passed ? "Match" : "(No output produced)")}
-                                </pre>
-                              </div>
-                            </div>
+                            {(() => {
+                              const hasDedicatedError = Boolean(r.error && r.error !== "Accepted");
+                              const isDuplicatedError =
+                                hasDedicatedError &&
+                                Boolean(
+                                  r.actual_output &&
+                                  r.error &&
+                                  (r.actual_output.trim() === r.error.trim() ||
+                                   r.actual_output.includes(r.error.trim().slice(0, 40)))
+                                );
 
-                            {r.error && r.error !== "Accepted" && (
-                              <div className="p-2.5 bg-rose-50/90 border border-rose-200 rounded-lg space-y-1">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block font-sans">
-                                  Error / Diagnostic:
-                                </span>
-                                <pre className="text-xs text-rose-800 font-mono whitespace-pre-wrap break-all">
-                                  {r.error}
-                                </pre>
-                              </div>
-                            )}
+                              return (
+                                <div className="space-y-2 text-xs font-mono">
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                                    <div className="min-w-0">
+                                      <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold mb-1">
+                                        Input:
+                                      </span>
+                                      <pre className="p-2.5 bg-white rounded-lg border border-slate-200 text-slate-800 whitespace-pre-wrap break-all min-h-[38px] max-h-48 overflow-y-auto font-mono text-xs shadow-2xs leading-relaxed">
+                                        {r.input && r.input.trim() ? r.input : "No input"}
+                                      </pre>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold mb-1">
+                                        Expected Output:
+                                      </span>
+                                      <pre className="p-2.5 bg-white rounded-lg border border-slate-200 text-slate-800 whitespace-pre-wrap break-all min-h-[38px] max-h-48 overflow-y-auto font-mono text-xs shadow-2xs leading-relaxed">
+                                        {r.expected_output && r.expected_output.trim() ? r.expected_output : "(No output)"}
+                                      </pre>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <span className="text-[10px] text-slate-500 block uppercase font-sans font-semibold mb-1">
+                                        Actual Output:
+                                      </span>
+                                      <pre className={cn(
+                                        "p-2.5 bg-white rounded-lg border font-mono text-xs whitespace-pre-wrap break-all min-h-[38px] max-h-48 overflow-y-auto shadow-2xs leading-relaxed",
+                                        r.passed ? "border-slate-200 text-slate-800" : "border-rose-200 text-rose-900 bg-rose-50/20"
+                                      )}>
+                                        {isDuplicatedError
+                                          ? "(Execution error - see diagnostic below)"
+                                          : r.actual_output && r.actual_output.trim() && r.actual_output !== "Error: Output mismatch" && r.actual_output !== "Mismatch (Hidden Test Case)"
+                                          ? r.actual_output
+                                          : (r.passed ? "Match" : "(No output produced)")}
+                                      </pre>
+                                    </div>
+                                  </div>
+
+                                  {hasDedicatedError && (
+                                    <div className="p-2.5 bg-rose-50/90 border border-rose-200 rounded-lg space-y-1">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block font-sans">
+                                        Error / Diagnostic:
+                                      </span>
+                                      <pre className="text-xs text-rose-800 font-mono whitespace-pre-wrap break-all max-h-40 overflow-y-auto leading-relaxed">
+                                        {r.error}
+                                      </pre>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         ))}
 
@@ -3886,42 +3932,48 @@ export default function StudentPracticeCodingRunnerPage() {
           3. BOTTOM NAVIGATION BAR (Only for normal coding workspace)
       ══════════════════════════════════════════════════════════════════════ */}
       {!isReviewSubmitOpen && (
-        <footer className="min-h-13 py-2 sm:py-0 bg-white border-t border-slate-200/90 px-3 sm:px-6 flex flex-wrap items-center justify-between gap-2 shrink-0 shadow-2xs z-20 sticky bottom-0">
+        <footer className="h-12 bg-white border-t border-slate-200/90 px-3 sm:px-6 flex items-center justify-between gap-2 shrink-0 shadow-2xs z-20 sticky bottom-0">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handlePrev}
             disabled={currentIdx === 0}
-            className="h-8 px-3 sm:px-4 text-xs font-semibold rounded-lg border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer disabled:opacity-40"
+            className="hidden lg:inline-flex h-8 px-3 sm:px-4 text-xs font-semibold rounded-lg border-slate-200 text-slate-700 hover:bg-slate-100 shadow-2xs cursor-pointer disabled:opacity-40"
           >
             <ArrowLeft className="w-3.5 h-3.5 mr-1 sm:mr-1.5" /> Previous
           </Button>
 
-          <span className="text-xs sm:text-sm font-bold text-slate-800">
+          <span className="hidden lg:inline-block text-xs sm:text-sm font-bold text-slate-800">
             {currentIdx + 1} / {problems.length}
           </span>
 
-          <div className="flex items-center gap-2 ml-auto sm:ml-0">
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleNext}
-              disabled={currentIdx >= problems.length - 1}
-              className="h-8 px-3.5 sm:px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-40"
-            >
-              Next <span className="ml-1">→</span>
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleOpenReviewSubmit}
-              className="h-8 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1.5"
-            >
-              <CheckCheck className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Complete Practice</span>
-              <span className="sm:hidden">Complete</span>
-            </Button>
+          <div className="flex items-center gap-2 w-full lg:w-auto justify-between lg:justify-end">
+            <span className="lg:hidden text-xs font-bold text-slate-700">
+              Q{currentIdx + 1} of {problems.length}
+            </span>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleNext}
+                disabled={currentIdx >= problems.length - 1}
+                className="hidden lg:inline-flex h-8 px-3.5 sm:px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-40"
+              >
+                Next <span className="ml-1">→</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleOpenReviewSubmit}
+                className="h-8 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs cursor-pointer flex items-center gap-1.5"
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Complete Practice</span>
+                <span className="sm:hidden">Complete</span>
+              </Button>
+            </div>
           </div>
         </footer>
       )}
