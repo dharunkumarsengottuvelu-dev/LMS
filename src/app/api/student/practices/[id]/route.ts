@@ -414,11 +414,47 @@ export async function GET(
             const combinedCoding = Array.isArray(rawCombinedCoding)
               ? rawCombinedCoding.map((cq: any) => {
                   if (!cq || typeof cq !== "object") return cq;
-                  const { hidden_test_cases, hiddenTestCases, ...safeCq } = cq;
-                  if (Array.isArray(safeCq.test_cases)) {
-                    safeCq.test_cases = safeCq.test_cases.filter((tc: any) => !tc.is_hidden && !tc.isHidden);
-                  }
-                  return safeCq;
+
+                  // Extract hidden cases from all possible locations
+                  const rawHidden = (Array.isArray(cq.hidden_test_cases) && cq.hidden_test_cases.length > 0)
+                    ? cq.hidden_test_cases
+                    : (Array.isArray(cq.hiddenTestCases) && cq.hiddenTestCases.length > 0)
+                    ? cq.hiddenTestCases
+                    : (Array.isArray(cq.test_cases) ? cq.test_cases.filter((tc: any) => tc.is_hidden || tc.isHidden) : []);
+
+                  // Mask hidden test cases: inputs & expected outputs are NOT leaked to the client
+                  const safeHidden = rawHidden.map((tc: any, hIdx: number) => ({
+                    id: tc.id || `tc_hidden_${hIdx + 1}`,
+                    name: tc.name || `Hidden Test Case ${hIdx + 1}`,
+                    input: "",
+                    output: "",
+                    expected_output: "",
+                    expectedOutput: "",
+                    is_hidden: true,
+                    isHidden: true,
+                  }));
+
+                  // Public / sample test cases
+                  const safePublic = (Array.isArray(cq.sample_test_cases) && cq.sample_test_cases.length > 0)
+                    ? cq.sample_test_cases
+                    : (Array.isArray(cq.sampleTestCases) && cq.sampleTestCases.length > 0)
+                    ? cq.sampleTestCases
+                    : (Array.isArray(cq.test_cases) ? cq.test_cases.filter((tc: any) => !tc.is_hidden && !tc.isHidden) : []);
+
+                  const safeTestCases = [
+                    ...safePublic.map((tc: any) => ({ ...tc, is_hidden: false, isHidden: false })),
+                    ...safeHidden,
+                  ];
+
+                  return {
+                    ...cq,
+                    sample_test_cases: safePublic,
+                    sampleTestCases: safePublic,
+                    hidden_test_cases: safeHidden,
+                    hiddenTestCases: safeHidden,
+                    test_cases: safeTestCases,
+                    testCases: safeTestCases,
+                  };
                 })
               : [];
             const directMcqs = m.mcqQuestions?.length || m.mcqs?.length || 0;

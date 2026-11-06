@@ -14,6 +14,8 @@ import {
   ColumnDefinition,
   CODING_LANGUAGES,
   CodingLanguageMode,
+  resolvePublicTestCase,
+  resolveHiddenTestCase,
 } from "./template-configs";
 import { safeParseSpreadsheet, downloadExcelWorkbook, downloadSpreadsheetFile } from "@/lib/excel-security";
 import { isCompilerSupportedLanguage, normalizeLanguageId, COMPILER_SUPPORTED_LANGUAGE_IDS } from "@/lib/compiler/coding-language-mode";
@@ -375,21 +377,41 @@ export function BulkUploadComponent({
         testcase_2_input: ["testcase2input", "testcase2", "tc2input"],
         testcase_2_output: ["testcase2output", "testcase2expectedoutput", "tc2output"],
         testcase_3_input: ["testcase3input", "testcase3", "tc3input"],
-        testcase_3_output: ["testcase3output", "testcase3expectedoutput", "tc3output"],
-        testcase_4_input: ["testcase4input", "testcase4", "tc4input"],
-        testcase_4_output: ["testcase4output", "testcase4expectedoutput", "tc4output"],
-        testcase_5_input: ["testcase5input", "testcase5", "tc5input"],
-        testcase_5_output: ["testcase5output", "testcase5expectedoutput", "tc5output"],
-        hidden_testcase_input: ["hiddentestcaseinput", "hiddentestcase1input", "hiddeninput", "h1input", "hiddentestcase1"],
-        hidden_testcase_output: ["hiddentestcaseoutput", "hiddentestcase1output", "hiddenoutput", "h1output", "hiddentestcase1output"],
-        hidden_testcase_2_input: ["hiddentestcase2input", "hiddeninput2", "h2input", "hiddentestcase2"],
-        hidden_testcase_2_output: ["hiddentestcase2output", "hiddenoutput2", "h2output", "hiddentestcase2expectedoutput"],
-        hidden_testcase_3_input: ["hiddentestcase3input", "hiddeninput3", "h3input", "hiddentestcase3"],
-        hidden_testcase_3_output: ["hiddentestcase3output", "hiddenoutput3", "h3output", "hiddentestcase3expectedoutput"],
-        hidden_testcase_4_input: ["hiddentestcase4input", "hiddeninput4", "h4input", "hiddentestcase4"],
-        hidden_testcase_4_output: ["hiddentestcase4output", "hiddenoutput4", "h4output", "hiddentestcase4expectedoutput"],
-        hidden_testcase_5_input: ["hiddentestcase5input", "hiddeninput5", "h5input", "hiddentestcase5"],
-        hidden_testcase_5_output: ["hiddentestcase5output", "hiddenoutput5", "h5output", "hiddentestcase5expectedoutput"],
+        testcase_3_output: ["testcase3output", "testcase3expectedoutput", "tc3output", "testcase3expected", "testcase_3_expected_output"],
+        testcase_4_input: ["testcase4input", "testcase4", "tc4input", "testcase4in", "testcase_4_input"],
+        testcase_4_output: ["testcase4output", "testcase4expectedoutput", "tc4output", "testcase4expected", "testcase_4_expected_output"],
+        testcase_5_input: ["testcase5input", "testcase5", "tc5input", "testcase5in", "testcase_5_input"],
+        testcase_5_output: ["testcase5output", "testcase5expectedoutput", "tc5output", "testcase5expected", "testcase_5_expected_output"],
+        testcase_6_input: ["testcase6input", "testcase6", "tc6input", "testcase6in", "testcase_6_input"],
+        testcase_6_output: ["testcase6output", "testcase6expectedoutput", "tc6output", "testcase6expected", "testcase_6_expected_output"],
+        testcase_7_input: ["testcase7input", "testcase7", "tc7input", "testcase7in", "testcase_7_input"],
+        testcase_7_output: ["testcase7output", "testcase7expectedoutput", "tc7output", "testcase7expected", "testcase_7_expected_output"],
+        testcase_8_input: ["testcase8input", "testcase8", "tc8input", "testcase8in", "testcase_8_input"],
+        testcase_8_output: ["testcase8output", "testcase8expectedoutput", "tc8output", "testcase8expected", "testcase_8_expected_output"],
+        testcase_9_input: ["testcase9input", "testcase9", "tc9input", "testcase9in", "testcase_9_input"],
+        testcase_9_output: ["testcase9output", "testcase9expectedoutput", "tc9output", "testcase9expected", "testcase_9_expected_output"],
+        testcase_10_input: ["testcase10input", "testcase10", "tc10input", "testcase10in", "testcase_10_input"],
+        testcase_10_output: ["testcase10output", "testcase10expectedoutput", "tc10output", "testcase10expected", "testcase_10_expected_output"],
+        hidden_testcase_input: ["hiddentestcaseinput", "hiddentestcase1input", "hiddeninput", "hiddeninput1", "h1input", "hiddentestcase1", "hidden1input", "hiddentestcase_1_input", "hidden_test_case_1_input", "hidden_test_case_input"],
+        hidden_testcase_output: ["hiddentestcaseoutput", "hiddentestcase1output", "hiddenoutput", "hiddenoutput1", "h1output", "hiddentestcase1output", "hidden1output", "hiddentestcase_1_output", "hidden_test_case_1_output", "hidden_test_case_output"],
+        hidden_testcase_2_input: ["hiddentestcase2input", "hiddeninput2", "h2input", "hiddentestcase2", "hidden2input", "hiddentestcase_2_input", "hidden_test_case_2_input"],
+        hidden_testcase_2_output: ["hiddentestcase2output", "hiddenoutput2", "h2output", "hiddentestcase2expectedoutput", "hidden2output", "hiddentestcase_2_output", "hidden_test_case_2_output"],
+        hidden_testcase_3_input: ["hiddentestcase3input", "hiddeninput3", "h3input", "hiddentestcase3", "hidden3input", "hiddentestcase_3_input", "hidden_test_case_3_input"],
+        hidden_testcase_3_output: ["hiddentestcase3output", "hiddenoutput3", "h3output", "hiddentestcase3expectedoutput", "hidden3output", "hiddentestcase_3_output", "hidden_test_case_3_output"],
+        hidden_testcase_4_input: ["hiddentestcase4input", "hiddeninput4", "h4input", "hiddentestcase4", "hidden4input", "hiddentestcase_4_input", "hidden_test_case_4_input"],
+        hidden_testcase_4_output: ["hiddentestcase4output", "hiddenoutput4", "h4output", "hiddentestcase4expectedoutput", "hidden4output", "hiddentestcase_4_output", "hidden_test_case_4_output"],
+        hidden_testcase_5_input: ["hiddentestcase5input", "hiddeninput5", "h5input", "hiddentestcase5", "hidden5input", "hiddentestcase_5_input", "hidden_test_case_5_input"],
+        hidden_testcase_5_output: ["hiddentestcase5output", "hiddenoutput5", "h5output", "hiddentestcase5expectedoutput", "hidden5output", "hiddentestcase_5_output", "hidden_test_case_5_output"],
+        hidden_testcase_6_input: ["hiddentestcase6input", "hiddeninput6", "h6input", "hiddentestcase6", "hidden6input", "hiddentestcase_6_input", "hidden_test_case_6_input"],
+        hidden_testcase_6_output: ["hiddentestcase6output", "hiddenoutput6", "h6output", "hiddentestcase6expectedoutput", "hidden6output", "hiddentestcase_6_output", "hidden_test_case_6_output"],
+        hidden_testcase_7_input: ["hiddentestcase7input", "hiddeninput7", "h7input", "hiddentestcase7", "hidden7input", "hiddentestcase_7_input", "hidden_test_case_7_input"],
+        hidden_testcase_7_output: ["hiddentestcase7output", "hiddenoutput7", "h7output", "hiddentestcase7expectedoutput", "hidden7output", "hiddentestcase_7_output", "hidden_test_case_7_output"],
+        hidden_testcase_8_input: ["hiddentestcase8input", "hiddeninput8", "h8input", "hiddentestcase8", "hidden8input", "hiddentestcase_8_input", "hidden_test_case_8_input"],
+        hidden_testcase_8_output: ["hiddentestcase8output", "hiddenoutput8", "h8output", "hiddentestcase8expectedoutput", "hidden8output", "hiddentestcase_8_output", "hidden_test_case_8_output"],
+        hidden_testcase_9_input: ["hiddentestcase9input", "hiddeninput9", "h9input", "hiddentestcase9", "hidden9input", "hiddentestcase_9_input", "hidden_test_case_9_input"],
+        hidden_testcase_9_output: ["hiddentestcase9output", "hiddenoutput9", "h9output", "hiddentestcase9expectedoutput", "hidden9output", "hiddentestcase_9_output", "hidden_test_case_9_output"],
+        hidden_testcase_10_input: ["hiddentestcase10input", "hiddeninput10", "h10input", "hiddentestcase10", "hidden10input", "hiddentestcase_10_input", "hidden_test_case_10_input"],
+        hidden_testcase_10_output: ["hiddentestcase10output", "hiddenoutput10", "h10output", "hiddentestcase10expectedoutput", "hidden10output", "hiddentestcase_10_output", "hidden_test_case_10_output"],
         starterCode: ["startercode", "startercodeboilerplate", "boilerplate", "template", "starter"],
         language: ["language", "languages", "lang", "programminglanguage", "codinglanguage", "compiler", "targetlanguage", "lockedlanguage"],
         allowed_languages: ["allowedlanguages", "allowed_languages", "supportedlanguages", "availablelanguages", "languagesallowed", "langs"],
@@ -613,6 +635,7 @@ export function BulkUploadComponent({
 
           // 5. Test cases validation (at least 1 public and 1 hidden testcase)
           const hasPublic = Boolean(
+            resolvePublicTestCase(mappedRow, 1) ||
             mappedRow.sample_input ||
             mappedRow.sample_output ||
             mappedRow.testcase_1_output ||
@@ -620,6 +643,7 @@ export function BulkUploadComponent({
             mappedRow.testcase_2_output
           );
           const hasHidden = Boolean(
+            resolveHiddenTestCase(mappedRow, 1) ||
             mappedRow.hidden_testcase_output ||
             mappedRow.hidden_testcase_input ||
             mappedRow.hidden_testcase_1_output ||

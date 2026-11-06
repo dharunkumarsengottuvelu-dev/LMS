@@ -376,3 +376,50 @@ export function extractSampleTestCases(problem: any): NormalizedTestCase[] {
   ];
 }
 
+/**
+ * Extracts hidden test cases from any question format created by Admin or Trainer.
+ */
+export function extractHiddenTestCases(problem: any): NormalizedTestCase[] {
+  if (!problem) return [];
+  const starter = (typeof problem.starter_code === "object" && problem.starter_code !== null)
+    ? problem.starter_code
+    : {};
+
+  // 1. Direct hidden_test_cases
+  const directHidden =
+    Array.isArray(problem.hidden_test_cases) && problem.hidden_test_cases.length > 0
+      ? problem.hidden_test_cases
+      : Array.isArray(problem.hiddenTestCases) && problem.hiddenTestCases.length > 0
+      ? problem.hiddenTestCases
+      : Array.isArray(starter.hidden_test_cases) && starter.hidden_test_cases.length > 0
+      ? starter.hidden_test_cases
+      : Array.isArray(starter.hiddenTestCases) && starter.hiddenTestCases.length > 0
+      ? starter.hiddenTestCases
+      : [];
+
+  if (directHidden.length > 0) {
+    return directHidden.map((tc: any, idx: number) => ({
+      ...normalizeTestCase(tc, idx),
+      is_hidden: true,
+      isHidden: true,
+    }));
+  }
+
+  // 2. Direct test_cases filtering for hidden
+  const allCases =
+    Array.isArray(problem.test_cases) && problem.test_cases.length > 0
+      ? problem.test_cases
+      : Array.isArray(problem.testCases) && problem.testCases.length > 0
+      ? problem.testCases
+      : Array.isArray(starter.test_cases) && starter.test_cases.length > 0
+      ? starter.test_cases
+      : [];
+
+  const hiddenCases = allCases.filter((tc: any) => tc.is_hidden || tc.isHidden || tc.hidden);
+  return hiddenCases.map((tc: any, idx: number) => ({
+    ...normalizeTestCase(tc, idx),
+    is_hidden: true,
+    isHidden: true,
+  }));
+}
+

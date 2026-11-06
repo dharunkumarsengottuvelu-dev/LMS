@@ -26,21 +26,156 @@ export interface ModuleTemplateConfig {
   mapGroupedPayload?: (grouped: { groupKey: string; rows: Record<string, any>[] }[], indexOffset?: number) => any[];
 }
 
+export function resolvePublicTestCase(row: Record<string, any>, i: number): { input: string; output: string } | null {
+  const inputCandidates = [
+    row[`testcase_${i}_input`],
+    row[`testcase${i}_input`],
+    row[`test_case_${i}_input`],
+    row[`test_case${i}_input`],
+    row[`tc_${i}_input`],
+    row[`tc${i}_input`],
+    row[`tc${i}input`],
+    row[`input_${i}`],
+    row[`input${i}`],
+    row[`testcase_${i}`],
+    row[`testcase${i}`],
+    row[`test_case_${i}`],
+    ...(i === 1 ? [
+      row.testcase_input,
+      row.test_case_input,
+      row.sample_input,
+      row.sampleInput,
+      row.tc1_input,
+      row.tc1input,
+    ] : [])
+  ];
+
+  const outputCandidates = [
+    row[`testcase_${i}_output`],
+    row[`testcase${i}_output`],
+    row[`test_case_${i}_output`],
+    row[`test_case${i}_output`],
+    row[`tc_${i}_output`],
+    row[`tc${i}_output`],
+    row[`tc${i}output`],
+    row[`output_${i}`],
+    row[`output${i}`],
+    row[`testcase_${i}_expected_output`],
+    row[`test_case_${i}_expected_output`],
+    ...(i === 1 ? [
+      row.testcase_output,
+      row.test_case_output,
+      row.sample_output,
+      row.sampleOutput,
+      row.tc1_output,
+      row.tc1output,
+      row.testcase_expected_output,
+      row.test_case_expected_output,
+    ] : [])
+  ];
+
+  const inp = inputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
+  const out = outputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
+
+  if (inp !== undefined || out !== undefined) {
+    return { input: String(inp ?? "").trim(), output: String(out ?? "").trim() };
+  }
+  return null;
+}
+
+export function resolveHiddenTestCase(row: Record<string, any>, h: number): { input: string; output: string } | null {
+  const inputCandidates = [
+    row[`hidden_testcase_${h}_input`],
+    row[`hidden_testcase${h}_input`],
+    row[`hidden_test_case_${h}_input`],
+    row[`hidden_test_case${h}_input`],
+    row[`hidden_test_${h}_input`],
+    row[`hidden_test${h}_input`],
+    row[`hiddentestcase_${h}_input`],
+    row[`hiddentestcase${h}_input`],
+    row[`hiddentestcase${h}input`],
+    row[`hidden_input_${h}`],
+    row[`hidden_input${h}`],
+    row[`hidden${h}_input`],
+    row[`hidden${h}Input`],
+    row[`hidden${h}input`],
+    row[`h${h}_input`],
+    row[`h${h}input`],
+    row[`hidden_testcase_${h}`],
+    row[`hidden_testcase${h}`],
+    row[`hidden_test_case_${h}`],
+    ...(h === 1 ? [
+      row.hidden_testcase_input,
+      row.hidden_test_case_input,
+      row.hiddentestcaseinput,
+      row.hidden_input,
+      row.hiddenInput,
+      row.hiddeninput,
+      row.hidden_testcase,
+      row.hidden_test_case,
+      row.hiddentestcase,
+      row.h1_input,
+      row.h1input,
+    ] : [])
+  ];
+
+  const outputCandidates = [
+    row[`hidden_testcase_${h}_output`],
+    row[`hidden_testcase${h}_output`],
+    row[`hidden_test_case_${h}_output`],
+    row[`hidden_test_case${h}_output`],
+    row[`hidden_test_${h}_output`],
+    row[`hidden_test${h}_output`],
+    row[`hiddentestcase_${h}_output`],
+    row[`hiddentestcase${h}_output`],
+    row[`hiddentestcase${h}output`],
+    row[`hidden_output_${h}`],
+    row[`hidden_output${h}`],
+    row[`hidden${h}_output`],
+    row[`hidden${h}Output`],
+    row[`hidden${h}output`],
+    row[`h${h}_output`],
+    row[`h${h}output`],
+    row[`hidden_testcase_${h}_expected_output`],
+    row[`hidden_test_case_${h}_expected_output`],
+    row[`hidden_testcase${h}_expected_output`],
+    ...(h === 1 ? [
+      row.hidden_testcase_output,
+      row.hidden_test_case_output,
+      row.hiddentestcaseoutput,
+      row.hidden_output,
+      row.hiddenOutput,
+      row.hiddenoutput,
+      row.hidden_testcase_expected_output,
+      row.hidden_test_case_expected_output,
+      row.h1_output,
+      row.h1output,
+    ] : [])
+  ];
+
+  const inp = inputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
+  const out = outputCandidates.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
+
+  if (inp !== undefined || out !== undefined) {
+    return { input: String(inp ?? "").trim(), output: String(out ?? "").trim() };
+  }
+  return null;
+}
+
 function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parentModuleId: string) {
   const publicTestCases: any[] = [];
   const hiddenTestCases: any[] = [];
 
   // 1. Explicit Public Test Cases (1 to 10)
   for (let i = 1; i <= 10; i++) {
-    const tcIn = row[`testcase_${i}_input`] ?? row[`testcase${i}_input`] ?? row[`test_case_${i}_input`] ?? (i === 1 ? row.testcase_input : undefined);
-    const tcOut = row[`testcase_${i}_output`] ?? row[`testcase${i}_output`] ?? row[`test_case_${i}_output`] ?? (i === 1 ? row.testcase_output : undefined);
-    if ((tcIn !== undefined && String(tcIn).trim() !== "") || (tcOut !== undefined && String(tcOut).trim() !== "")) {
+    const res = resolvePublicTestCase(row, i);
+    if (res) {
       publicTestCases.push({
         id: `tc_${Date.now()}_${i}_${qIdx}`,
         name: `Test Case ${i}`,
-        input: String(tcIn ?? "").trim(),
-        expected_output: String(tcOut ?? "").trim(),
-        expectedOutput: String(tcOut ?? "").trim(),
+        input: res.input,
+        expected_output: res.output,
+        expectedOutput: res.output,
         is_hidden: false,
         isSample: i === 1,
       });
@@ -63,19 +198,14 @@ function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parent
 
   // 2. Hidden Test Cases (1 to 10)
   for (let h = 1; h <= 10; h++) {
-    const hIn = h === 1
-      ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input ?? row.hidden_input ?? row.hiddenInput)
-      : (row[`hidden_testcase_${h}_input`] ?? row[`hidden_input_${h}`] ?? row[`hidden${h}Input`]);
-    const hOut = h === 1
-      ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output ?? row.hidden_output ?? row.hiddenOutput)
-      : (row[`hidden_testcase_${h}_output`] ?? row[`hidden_output_${h}`] ?? row[`hidden${h}Output`]);
-    if ((hIn !== undefined && String(hIn).trim() !== "") || (hOut !== undefined && String(hOut).trim() !== "")) {
+    const res = resolveHiddenTestCase(row, h);
+    if (res) {
       hiddenTestCases.push({
         id: `tc_hid_${Date.now()}_${h}_${qIdx}`,
         name: `Hidden Test Case ${h}`,
-        input: String(hIn ?? "").trim(),
-        expected_output: String(hOut ?? "").trim(),
-        expectedOutput: String(hOut ?? "").trim(),
+        input: res.input,
+        expected_output: res.output,
+        expectedOutput: res.output,
         is_hidden: true,
       });
     }
@@ -115,7 +245,10 @@ function parsePracticeQuestionRow(row: Record<string, any>, qIdx: number, parent
     templates: starterTemplates,
     starterCode: starterCodeStr,
     publicTestCases,
+    sampleTestCases: publicTestCases,
+    sample_test_cases: publicTestCases,
     hiddenTestCases,
+    hidden_test_cases: hiddenTestCases,
     test_cases: combinedCases,
     testCases: combinedCases,
   };
@@ -2246,23 +2379,21 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
       const secName = String(row.sectionName || row.section || "Coding Challenges").trim();
       const testCases: any[] = [];
       for (let i = 1; i <= 10; i++) {
-        const inp = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`];
-        const out = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`];
-        const trimmedInp = String(inp || "").trim();
-        const trimmedOut = String(out || "").trim();
-        if (trimmedInp !== "" || trimmedOut !== "") {
-          testCases.push({ id: testCases.length + 1, input: trimmedInp, output: trimmedOut, isHidden: false });
+        const res = resolvePublicTestCase(row, i);
+        if (res) {
+          testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: false, is_hidden: false });
         }
       }
       for (let h = 1; h <= 10; h++) {
-        const hIn = h === 1 ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input) : row[`hidden_testcase_${h}_input`];
-        const hOut = h === 1 ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output) : row[`hidden_testcase_${h}_output`];
-        const trimmedHIn = String(hIn || "").trim();
-        const trimmedHOut = String(hOut || "").trim();
-        if (trimmedHIn !== "" || trimmedHOut !== "") {
-          testCases.push({ id: testCases.length + 1, input: trimmedHIn, output: trimmedHOut, isHidden: true });
+        const res = resolveHiddenTestCase(row, h);
+        if (res) {
+          testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: true, is_hidden: true });
         }
       }
+
+      const finalCases = testCases.length > 0 ? testCases : [{ id: "tc_1", input: "1", output: "1", expected_output: "1", isHidden: false, is_hidden: false }];
+      const sampleCases = finalCases.filter(tc => !tc.is_hidden);
+      const hiddenCases = finalCases.filter(tc => tc.is_hidden);
 
       return {
         id: `cp_bulk_${Date.now()}_${idx}`,
@@ -2278,7 +2409,12 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         inputFormat: String(row.input_format || "").trim(),
         outputFormat: String(row.output_format || "").trim(),
         starterCode: String(row.starterCode || "").trim(),
-        testCases: testCases.length > 0 ? testCases : [{ id: "tc_1", input: "1", output: "1", expected_output: "1", isHidden: false }],
+        testCases: finalCases,
+        test_cases: finalCases,
+        sample_test_cases: sampleCases,
+        sampleTestCases: sampleCases,
+        hidden_test_cases: hiddenCases,
+        hiddenTestCases: hiddenCases,
       };
     },
     mapGroupedPayload: (grouped, indexOffset = 0) => {
@@ -2288,23 +2424,21 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
         const questions = rows.map((r, qIdx) => {
           const testCases: any[] = [];
           for (let i = 1; i <= 10; i++) {
-            const inp = r[`testcase_${i}_input`] ?? r[`test_case_${i}_input`];
-            const out = r[`testcase_${i}_output`] ?? r[`test_case_${i}_output`];
-            const trimmedInp = String(inp || "").trim();
-            const trimmedOut = String(out || "").trim();
-            if (trimmedInp !== "" || trimmedOut !== "") {
-              testCases.push({ id: testCases.length + 1, input: trimmedInp, output: trimmedOut, isHidden: false });
+            const res = resolvePublicTestCase(r, i);
+            if (res) {
+              testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: false, is_hidden: false });
             }
           }
           for (let h = 1; h <= 10; h++) {
-            const hIn = h === 1 ? (r.hidden_testcase_input ?? r.hidden_testcase_1_input) : r[`hidden_testcase_${h}_input`];
-            const hOut = h === 1 ? (r.hidden_testcase_output ?? r.hidden_testcase_1_output) : r[`hidden_testcase_${h}_output`];
-            const trimmedHIn = String(hIn || "").trim();
-            const trimmedHOut = String(hOut || "").trim();
-            if (trimmedHIn !== "" || trimmedHOut !== "") {
-              testCases.push({ id: testCases.length + 1, input: trimmedHIn, output: trimmedHOut, isHidden: true });
+            const res = resolveHiddenTestCase(r, h);
+            if (res) {
+              testCases.push({ id: testCases.length + 1, input: res.input, output: res.output, expected_output: res.output, isHidden: true, is_hidden: true });
             }
           }
+
+          const finalCases = testCases.length > 0 ? testCases : [{ id: "tc_1", input: "1", output: "1", expected_output: "1", isHidden: false, is_hidden: false }];
+          const sampleCases = finalCases.filter(tc => !tc.is_hidden);
+          const hiddenCases = finalCases.filter(tc => tc.is_hidden);
 
           return {
             id: `cp_bulk_${Date.now()}_${gIdx}_${qIdx}`,
@@ -2320,7 +2454,12 @@ export const TEMPLATE_CONFIGS: Record<string, ModuleTemplateConfig> = {
             inputFormat: String(r.input_format || "").trim(),
             outputFormat: String(r.output_format || "").trim(),
             starterCode: String(r.starterCode || "").trim(),
-            testCases: testCases.length > 0 ? testCases : [{ id: "tc_1", input: "1", output: "1", expected_output: "1", isHidden: false }],
+            testCases: finalCases,
+            test_cases: finalCases,
+            sample_test_cases: sampleCases,
+            sampleTestCases: sampleCases,
+            hidden_test_cases: hiddenCases,
+            hiddenTestCases: hiddenCases,
           };
         });
 
@@ -3418,30 +3557,28 @@ export function getMixedQuestionsTemplateConfig(options?: CodingTemplateOptions)
 
       // Coding Problem
       const testCases: any[] = [];
-      for (let i = 1; i <= 5; i++) {
-        const tcIn = row[`testcase_${i}_input`] ?? row[`testcase${i}_input`];
-        const tcOut = row[`testcase_${i}_output`] ?? row[`testcase${i}_output`];
-        if (tcIn !== undefined || tcOut !== undefined) {
+      for (let i = 1; i <= 10; i++) {
+        const res = resolvePublicTestCase(row, i);
+        if (res) {
           testCases.push({
             id: `tc_${Date.now()}_${i}_${idx}`,
-            input: String(tcIn || "").trim(),
-            output: String(tcOut || "").trim(),
-            expected_output: String(tcOut || "").trim(),
-            expectedOutput: String(tcOut || "").trim(),
+            input: res.input,
+            output: res.output,
+            expected_output: res.output,
+            expectedOutput: res.output,
             is_hidden: false,
           });
         }
       }
-      for (let h = 1; h <= 5; h++) {
-        const hIn = h === 1 ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input) : row[`hidden_testcase_${h}_input`];
-        const hOut = h === 1 ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output) : row[`hidden_testcase_${h}_output`];
-        if (hIn !== undefined || hOut !== undefined) {
+      for (let h = 1; h <= 10; h++) {
+        const res = resolveHiddenTestCase(row, h);
+        if (res) {
           testCases.push({
             id: `tc_h_${Date.now()}_${h}_${idx}`,
-            input: String(hIn || "").trim(),
-            output: String(hOut || "").trim(),
-            expected_output: String(hOut || "").trim(),
-            expectedOutput: String(hOut || "").trim(),
+            input: res.input,
+            output: res.output,
+            expected_output: res.output,
+            expectedOutput: res.output,
             is_hidden: true,
           });
         }
@@ -4185,34 +4322,28 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
     const testCases: any[] = [];
     if (qType === "coding") {
       for (let i = 1; i <= 10; i++) {
-        const inp = row[`testcase_${i}_input`] ?? row[`test_case_${i}_input`];
-        const out = row[`testcase_${i}_output`] ?? row[`test_case_${i}_output`];
-        const trimmedInp = String(inp || "").trim();
-        const trimmedOut = String(out || "").trim();
-        if (trimmedInp !== "" || trimmedOut !== "") {
+        const res = resolvePublicTestCase(row, i);
+        if (res) {
           testCases.push({
             id: testCases.length + 1,
-            input: trimmedInp,
-            output: trimmedOut,
+            input: res.input,
+            output: res.output,
+            expected_output: res.output,
             isHidden: false,
+            is_hidden: false,
           });
         }
       }
       for (let h = 1; h <= 10; h++) {
-        const hIn = h === 1
-          ? (row.hidden_testcase_input ?? row.hidden_testcase_1_input)
-          : row[`hidden_testcase_${h}_input`];
-        const hOut = h === 1
-          ? (row.hidden_testcase_output ?? row.hidden_testcase_1_output)
-          : row[`hidden_testcase_${h}_output`];
-        const trimmedHIn = String(hIn || "").trim();
-        const trimmedHOut = String(hOut || "").trim();
-        if (trimmedHIn !== "" || trimmedHOut !== "") {
+        const res = resolveHiddenTestCase(row, h);
+        if (res) {
           testCases.push({
             id: testCases.length + 1,
-            input: trimmedHIn,
-            output: trimmedHOut,
+            input: res.input,
+            output: res.output,
+            expected_output: res.output,
             isHidden: true,
+            is_hidden: true,
           });
         }
       }
@@ -4287,34 +4418,28 @@ export function getAssessmentQuestionsTemplateConfig(options?: CodingTemplateOpt
         const testCases: any[] = [];
         if (qType === "coding") {
           for (let i = 1; i <= 10; i++) {
-            const inp = r[`testcase_${i}_input`] ?? r[`test_case_${i}_input`];
-            const out = r[`testcase_${i}_output`] ?? r[`test_case_${i}_output`];
-            const trimmedInp = String(inp || "").trim();
-            const trimmedOut = String(out || "").trim();
-            if (trimmedInp !== "" || trimmedOut !== "") {
+            const res = resolvePublicTestCase(r, i);
+            if (res) {
               testCases.push({
                 id: testCases.length + 1,
-                input: trimmedInp,
-                output: trimmedOut,
+                input: res.input,
+                output: res.output,
+                expected_output: res.output,
                 isHidden: false,
+                is_hidden: false,
               });
             }
           }
           for (let h = 1; h <= 10; h++) {
-            const hIn = h === 1
-              ? (r.hidden_testcase_input ?? r.hidden_testcase_1_input)
-              : r[`hidden_testcase_${h}_input`];
-            const hOut = h === 1
-              ? (r.hidden_testcase_output ?? r.hidden_testcase_1_output)
-              : r[`hidden_testcase_${h}_output`];
-            const trimmedHIn = String(hIn || "").trim();
-            const trimmedHOut = String(hOut || "").trim();
-            if (trimmedHIn !== "" || trimmedHOut !== "") {
+            const res = resolveHiddenTestCase(r, h);
+            if (res) {
               testCases.push({
                 id: testCases.length + 1,
-                input: trimmedHIn,
-                output: trimmedHOut,
+                input: res.input,
+                output: res.output,
+                expected_output: res.output,
                 isHidden: true,
+                is_hidden: true,
               });
             }
           }

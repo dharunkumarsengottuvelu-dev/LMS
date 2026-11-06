@@ -94,25 +94,60 @@ export async function POST(request: NextRequest) {
 
       if (!testCases || testCases.length === 0) {
         // Fallback: search in practice_tracks
-        const { data: tracks } = await supabase.from("practice_tracks").select("tags");
+        const { data: tracks } = await supabase.from("practice_tracks").select("id, sub_modules, tags");
         (tracks || []).forEach((t: any) => {
-          if (t.tags && t.tags[0]) {
+          let subModules: any[] = [];
+          if (Array.isArray(t.sub_modules)) {
+            subModules = t.sub_modules;
+          } else if (typeof t.sub_modules === "string") {
             try {
-              const meta = JSON.parse(t.tags[0]);
-              (meta.subModules || []).forEach((sm: any) => {
-                const candidates = [
-                  ...(sm.codingQuestions || []),
-                  ...((sm.modules || []).flatMap((m: any) => m.codingQuestions || []))
-                ];
-                candidates.forEach((cq: any) => {
-                  if (cq.id === problem_id || `${sm.id}_${cq.id}` === problem_id) {
-                    const rawCases = cq.sample_test_cases || cq.sampleTestCases || cq.publicTestCases || cq.test_cases || [];
-                    testCases = rawCases;
-                  }
-                });
-              });
+              subModules = JSON.parse(t.sub_modules);
+            } catch {
+              subModules = [];
+            }
+          } else if (t.tags && t.tags[0]) {
+            try {
+              const meta = typeof t.tags[0] === "string" ? JSON.parse(t.tags[0]) : t.tags[0];
+              subModules = meta.subModules || meta.sub_modules || [];
             } catch {}
           }
+
+          (subModules || []).forEach((sm: any) => {
+            const candidates = [
+              ...(sm.codingQuestions || []),
+              ...((sm.modules || []).flatMap((m: any) => m.codingQuestions || [])),
+            ];
+            candidates.forEach((cq: any) => {
+              const isMatch =
+                cq.id === problem_id ||
+                cq.slug === problem_id ||
+                `${sm.id}_${cq.id}` === problem_id ||
+                (body.problem_title && cq.title && cq.title.trim().toLowerCase() === String(body.problem_title).trim().toLowerCase()) ||
+                (problem_id && cq.title && cq.title.trim().toLowerCase() === String(problem_id).trim().toLowerCase());
+
+              if (isMatch) {
+                const starter = typeof cq.starter_code === "object" && cq.starter_code !== null ? cq.starter_code : {};
+                const direct = Array.isArray(cq.test_cases) ? cq.test_cases : (Array.isArray(starter.test_cases) ? starter.test_cases : []);
+                const sample = Array.isArray(cq.sample_test_cases) ? cq.sample_test_cases : (Array.isArray(cq.sampleTestCases) ? cq.sampleTestCases : (Array.isArray(starter.sample_test_cases) ? starter.sample_test_cases : []));
+                const hidden = Array.isArray(cq.hidden_test_cases) ? cq.hidden_test_cases : (Array.isArray(cq.hiddenTestCases) ? cq.hiddenTestCases : (Array.isArray(starter.hidden_test_cases) ? starter.hidden_test_cases : []));
+
+                const allCases = direct.length > 0
+                  ? direct
+                  : [
+                      ...sample.map((tc: any) => ({ ...tc, is_hidden: false, isHidden: false })),
+                      ...hidden.map((tc: any) => ({ ...tc, is_hidden: true, isHidden: true })),
+                    ];
+
+                testCases = includeHidden
+                  ? allCases
+                  : allCases.filter((tc: any) => !tc.is_hidden && !tc.isHidden);
+
+                if ((!testCases || testCases.length === 0) && allCases.length > 0) {
+                  testCases = allCases;
+                }
+              }
+            });
+          });
         });
       }
 
@@ -121,10 +156,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const finalTestCases = testCases as any[];
+
     // Fast evaluation: evaluate test case 0 first to fail-fast on compilation errors,
     // then evaluate remaining test cases in parallel chunks with deduplication
     const execTimeoutMs = resolveExecutionTimeoutMs(problem?.difficulty, body.timeout_ms || problem?.time_limit_ms);
-    const testResults: TestCaseResult[] = new Array(testCases.length);
+    const testResults: TestCaseResult[] = new Array(finalTestCases.length);
     const executionCache = new Map<string, {
       trimmedActual: string;
       execTime: number;
@@ -261,8 +298,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1: Run first test case to verify compilation
-    if (testCases.length > 0) {
-      await evaluateSingleTestCase(testCases[0], 0);
+    if (finalTestCases.length > 0) {
+      await evaluateSingleTestCase(finalTestCases[0], 0);
 
       const firstRes = testResults[0];
       const hasCompileError = Boolean(
@@ -275,12 +312,12 @@ export async function POST(request: NextRequest) {
 
       // If compilation failed on first test case, short-circuit all remaining test cases instantly
       if (hasCompileError && firstRes?.error) {
-        for (let i = 1; i < testCases.length; i++) {
-          await evaluateSingleTestCase(testCases[i], i, firstRes.error);
+        for (let i = 1; i < finalTestCases.length; i++) {
+          await evaluateSingleTestCase(finalTestCases[i], i, firstRes.error);
         }
       } else {
         // Step 2: Run remaining test cases in parallel chunks of 3
-        const remaining = testCases.slice(1);
+        const remaining = finalTestCases.slice(1);
         const CHUNK_SIZE = 3;
         for (let i = 0; i < remaining.length; i += CHUNK_SIZE) {
           const chunk = remaining.slice(i, i + CHUNK_SIZE);

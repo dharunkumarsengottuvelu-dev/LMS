@@ -61,6 +61,7 @@ import {
   normalizeTestInput,
   normalizeExpectedOutput,
   extractSampleTestCases,
+  extractHiddenTestCases,
 } from "@/lib/compiler/comparator";
 import { EditorialViewer } from "@/components/coding/editorial-viewer";
 import { COMPILER_SUPPORTED_LANGUAGE_IDS, getLanguageDisplayName } from "@/lib/compiler/coding-language-mode";
@@ -207,6 +208,7 @@ function normalizeProblem(p: any, index: number) {
   }
   const templates = p.templates || starter.templates || {};
   const sampleCases = extractSampleTestCases(p);
+  const hiddenCases = extractHiddenTestCases(p);
   const examples =
     Array.isArray(p.example_cases) && p.example_cases.length > 0
       ? p.example_cases
@@ -216,11 +218,17 @@ function normalizeProblem(p: any, index: number) {
       ? starter.example_cases
       : [];
 
-  const allDirectCases =
-    (Array.isArray(p.test_cases) && p.test_cases.length > 0 ? p.test_cases : null) ||
-    (Array.isArray(p.testCases) && p.testCases.length > 0 ? p.testCases : null) ||
-    (Array.isArray(starter.test_cases) && starter.test_cases.length > 0 ? starter.test_cases : null) ||
-    sampleCases;
+  const combinedCases = [
+    ...sampleCases.map((tc: any, i: number) => ({ ...tc, is_hidden: false, isHidden: false })),
+    ...hiddenCases.map((tc: any, i: number) => ({ ...tc, is_hidden: true, isHidden: true })),
+  ];
+
+  const allDirectCases = combinedCases.length > 0
+    ? combinedCases
+    : (Array.isArray(p.test_cases) && p.test_cases.length > 0 ? p.test_cases : null) ||
+      (Array.isArray(p.testCases) && p.testCases.length > 0 ? p.testCases : null) ||
+      (Array.isArray(starter.test_cases) && starter.test_cases.length > 0 ? starter.test_cases : null) ||
+      sampleCases;
 
   const rawAllowed = p.allowed_languages || p.allowedLanguages || starter.allowed_languages || starter.allowedLanguages;
   let parsedAllowed: string[] | undefined = undefined;
@@ -265,7 +273,10 @@ function normalizeProblem(p: any, index: number) {
     defaultLanguage: defLang,
     sample_test_cases: sampleCases,
     sampleTestCases: sampleCases,
+    hidden_test_cases: hiddenCases,
+    hiddenTestCases: hiddenCases,
     test_cases: allDirectCases,
+    testCases: allDirectCases,
   };
 }
 
@@ -1219,14 +1230,39 @@ export default function StudentPracticeCodingRunnerPage() {
         : Array.isArray(starter.test_cases) && starter.test_cases.length > 0
         ? starter.test_cases
         : [];
-    return directTc;
+    if (directTc.length > 0) return directTc;
+    const sample = currentProblem.sample_test_cases || currentProblem.sampleTestCases || starter.sample_test_cases || [];
+    const hidden = currentProblem.hidden_test_cases || currentProblem.hiddenTestCases || starter.hidden_test_cases || [];
+    if (sample.length > 0 || hidden.length > 0) {
+      return [
+        ...sample.map((tc: any) => ({ ...tc, is_hidden: false, isHidden: false })),
+        ...hidden.map((tc: any) => ({ ...tc, is_hidden: true, isHidden: true })),
+      ];
+    }
+    return [];
   }, [currentProblem]);
+
+  const hiddenTestCasesCount = useMemo(() => {
+    if (!currentProblem) return 0;
+    const directExtracted = extractHiddenTestCases(currentProblem);
+    if (directExtracted.length > 0) return directExtracted.length;
+    const rawHidden = (Array.isArray(currentProblem.hidden_test_cases) && currentProblem.hidden_test_cases.length > 0)
+      ? currentProblem.hidden_test_cases
+      : (Array.isArray(currentProblem.hiddenTestCases) && currentProblem.hiddenTestCases.length > 0)
+      ? currentProblem.hiddenTestCases
+      : (allTestCases.filter((tc: any) => tc.is_hidden || tc.isHidden));
+    return rawHidden.length;
+  }, [currentProblem, allTestCases]);
 
   // ─── 3. SYSTEM TEST CASES (READ-ONLY) ───────────────────────────────────────
   const systemTestCases = useMemo(() => {
     if (!currentProblem) return [];
     return extractSampleTestCases(currentProblem);
   }, [currentProblem]);
+
+  const totalTestCasesCount = useMemo(() => {
+    return systemTestCases.length + hiddenTestCasesCount;
+  }, [systemTestCases.length, hiddenTestCasesCount]);
 
   // ─── 4. RUN CODE (AGAINST SAMPLE CASES ONLY — NO HIDDEN TESTS) ─────────────
   const handleRunCode = async () => {
@@ -2482,7 +2518,7 @@ export default function StudentPracticeCodingRunnerPage() {
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Test Cases</span>
               <span className="text-[10px] px-1.5 py-0.2 bg-slate-200/80 rounded font-bold text-slate-700">
-                {systemTestCases.length}
+                {totalTestCasesCount > 0 ? totalTestCasesCount : systemTestCases.length}
               </span>
             </button>
           </div>
@@ -3592,6 +3628,18 @@ export default function StudentPracticeCodingRunnerPage() {
                         </div>
                       </div>
                     ))}
+                    {/* Hidden Test Cases indicator (Read-Only anti-cheat info) */}
+                    {hiddenTestCasesCount > 0 && (
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                        <div className="flex items-center gap-2 font-semibold text-slate-700">
+                          <Lock className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Hidden Test Cases ({hiddenTestCasesCount})</span>
+                        </div>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 bg-slate-200/70 text-slate-600 rounded-md">
+                          Evaluated on Submit
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -3644,8 +3692,12 @@ export default function StudentPracticeCodingRunnerPage() {
                   {runResults && runResults.length > 0 ? (() => {
                     const visibleResults = runResults.filter((r) => !r.is_hidden);
                     const hiddenResults = runResults.filter((r) => r.is_hidden);
+                    const totalHidden = hiddenResults.length > 0 ? hiddenResults.length : hiddenTestCasesCount;
+                    const passedHidden = hiddenResults.filter((r) => r.passed).length;
                     const allVisiblePassed = visibleResults.length > 0 && visibleResults.every((r) => r.passed);
-                    const allHiddenPassed = hiddenResults.length === 0 || hiddenResults.every((r) => r.passed);
+                    const allHiddenPassed = hiddenResults.length > 0
+                      ? hiddenResults.every((r) => r.passed)
+                      : (hiddenTestCasesCount === 0);
                     const isSubmit = executionType === "submit";
 
                     return (
@@ -3664,7 +3716,7 @@ export default function StudentPracticeCodingRunnerPage() {
                           <span className="font-bold text-xs flex items-center gap-2">
                             {isSubmit ? (
                               allVisiblePassed && allHiddenPassed ? (
-                                <><CheckCircle2 className="w-4 h-4 text-emerald-600" /><span className="text-emerald-800">Accepted — All test cases passed</span></>
+                                <><CheckCircle2 className="w-4 h-4 text-emerald-600" /><span className="text-emerald-800">Accepted — All {visibleResults.length + hiddenResults.length} test cases passed ({visibleResults.length} sample + {hiddenResults.length} hidden)</span></>
                               ) : (
                                 <><XCircle className="w-4 h-4 text-rose-600" /><span className="text-rose-800">Failed — Some test cases did not pass</span></>
                               )
@@ -3678,8 +3730,8 @@ export default function StudentPracticeCodingRunnerPage() {
                           </span>
                           <span className="text-slate-500 font-medium text-xs">
                             {isSubmit
-                              ? `${visibleResults.filter((r) => r.passed).length}/${visibleResults.length} visible passed`
-                              : `${visibleResults.filter((r) => r.passed).length}/${visibleResults.length} passed`}
+                              ? `${visibleResults.filter((r) => r.passed).length + passedHidden}/${visibleResults.length + totalHidden} passed`
+                              : `${visibleResults.filter((r) => r.passed).length}/${visibleResults.length} sample passed`}
                           </span>
                         </div>
 
@@ -3779,33 +3831,122 @@ export default function StudentPracticeCodingRunnerPage() {
                           </div>
                         ))}
 
-                        {/* Hidden test cases — safe summary shown ONLY after Submit */}
-                        {isSubmit && (
-                          <div className={cn(
-                            "p-3 rounded-xl border flex items-center justify-between text-xs",
-                            allHiddenPassed
-                              ? "bg-emerald-50/30 border-emerald-200"
-                              : "bg-rose-50/30 border-rose-200"
-                          )}>
-                            <div className="flex items-center gap-2 font-semibold">
-                              <Lock className={cn("w-3.5 h-3.5", allHiddenPassed ? "text-emerald-600" : "text-rose-600")} />
-                              <span className={allHiddenPassed ? "text-emerald-800" : "text-rose-800"}>
-                                Hidden Test Cases
+                        {/* Hidden test cases — safe summary + detailed individual test breakdown shown on Submit */}
+                        {isSubmit ? (
+                          <div className="space-y-2 pt-2 border-t border-slate-200">
+                            {/* Summary Card */}
+                            <div className={cn(
+                              "p-3 rounded-xl border flex items-center justify-between text-xs",
+                              hiddenResults.length > 0
+                                ? (allHiddenPassed
+                                    ? "bg-emerald-50/60 border-emerald-200"
+                                    : "bg-rose-50/60 border-rose-200")
+                                : (totalHidden > 0
+                                    ? "bg-slate-50 border-slate-200"
+                                    : "bg-slate-50 border-slate-200")
+                            )}>
+                              <div className="flex items-center gap-2 font-semibold">
+                                <Lock className={cn(
+                                  "w-3.5 h-3.5",
+                                  hiddenResults.length > 0
+                                    ? (allHiddenPassed ? "text-emerald-600" : "text-rose-600")
+                                    : "text-slate-500"
+                                )} />
+                                <span className={
+                                  hiddenResults.length > 0
+                                    ? (allHiddenPassed ? "text-emerald-800 font-bold" : "text-rose-800 font-bold")
+                                    : "text-slate-700 font-bold"
+                                }>
+                                  Hidden Test Cases ({totalHidden})
+                                </span>
+                              </div>
+                              <span className={cn(
+                                "px-2.5 py-0.5 rounded-lg text-[10px] font-bold border",
+                                hiddenResults.length > 0
+                                  ? (allHiddenPassed
+                                      ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                      : "bg-rose-100 text-rose-700 border-rose-200")
+                                  : (totalHidden > 0
+                                      ? "bg-slate-100 text-slate-700 border-slate-300"
+                                      : "bg-slate-100 text-slate-600 border-slate-200")
+                              )}>
+                                {hiddenResults.length === 0
+                                  ? (totalHidden > 0 ? `${totalHidden} hidden tests` : "No hidden tests")
+                                  : allHiddenPassed
+                                    ? `Passed (${hiddenResults.length}/${hiddenResults.length}) ✓`
+                                    : `${passedHidden}/${hiddenResults.length} Passed`}
                               </span>
                             </div>
-                            <span className={cn(
-                              "px-2 py-0.5 rounded-lg text-[10px] font-bold border",
-                              allHiddenPassed
-                                ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                                : "bg-rose-100 text-rose-700 border-rose-200"
-                            )}>
-                              {hiddenResults.length === 0
-                                ? "No hidden tests"
-                                : allHiddenPassed
-                                  ? `Passed (${hiddenResults.length}/${hiddenResults.length}) ✓`
-                                  : `${hiddenResults.filter((r) => r.passed).length}/${hiddenResults.length} Passed`}
-                            </span>
+
+                            {/* Detailed breakdown for each hidden test case */}
+                            {hiddenResults.length > 0 && (
+                              <div className="space-y-2 pt-1">
+                                {hiddenResults.map((hr, hIdx) => {
+                                  const isPass = Boolean(hr.passed);
+                                  return (
+                                    <div
+                                      key={hr.test_case_id || hIdx}
+                                      className={cn(
+                                        "p-3 rounded-xl border space-y-2 transition-colors shadow-2xs",
+                                        isPass
+                                          ? "bg-emerald-50/40 border-emerald-200 text-emerald-900"
+                                          : "bg-rose-50/40 border-rose-200 text-rose-900"
+                                      )}
+                                    >
+                                      <div className="flex items-center justify-between font-bold text-xs">
+                                        <div className="flex items-center gap-2">
+                                          <span className="flex items-center gap-1.5">
+                                            {isPass ? (
+                                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                            ) : (
+                                              <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                                            )}
+                                            Hidden Test Case {hIdx + 1}
+                                          </span>
+                                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                            Hidden
+                                          </span>
+                                        </div>
+                                        <span className={cn(
+                                          "text-[11px] font-bold px-2 py-0.5 rounded-md",
+                                          isPass
+                                            ? "text-emerald-700 bg-emerald-100/60"
+                                            : "text-rose-700 bg-rose-100/60"
+                                        )}>
+                                          {isPass ? "PASSED" : "FAILED"}
+                                        </span>
+                                      </div>
+
+                                      {/* Error / Diagnostic if failed */}
+                                      {!isPass && (
+                                        <div className="p-2.5 bg-rose-50/90 border border-rose-200 rounded-lg space-y-1">
+                                          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block font-sans">
+                                            Error / Diagnostic:
+                                          </span>
+                                          <pre className="text-xs text-rose-800 font-mono whitespace-pre-wrap break-all max-h-36 overflow-y-auto leading-relaxed">
+                                            {hr.error || (hr.actual_output ? `Output mismatch: Your code produced "${hr.actual_output}".` : "Test case evaluation failed. Check output logic and constraints.")}
+                                          </pre>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
+                        ) : (
+                          /* On Run (which only executes sample cases), show hidden tests indicator */
+                          totalHidden > 0 && (
+                            <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/80 flex items-center justify-between text-xs shadow-2xs">
+                              <div className="flex items-center gap-2 font-semibold text-slate-700">
+                                <Lock className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Hidden Test Cases ({totalHidden})</span>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-200/70 text-slate-600 border border-slate-300">
+                                Will be evaluated on Submit
+                              </span>
+                            </div>
+                          )
                         )}
                       </div>
                     );

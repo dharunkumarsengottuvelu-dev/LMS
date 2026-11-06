@@ -2446,9 +2446,39 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       } else {
         // Coding Problem
         const starterCode = item.starter_code || item.starterCode || item.templates || {};
-        const testCases = Array.isArray(item.test_cases) ? item.test_cases : (Array.isArray(item.testCases) ? item.testCases : []);
-        const sampleCases = item.sample_test_cases || testCases.filter((tc: any) => !tc.is_hidden && !tc.isHidden);
-        const hiddenCases = item.hidden_test_cases || testCases.filter((tc: any) => tc.is_hidden || tc.isHidden);
+        const rawPublic = (Array.isArray(item.sample_test_cases) && item.sample_test_cases.length > 0)
+          ? item.sample_test_cases
+          : (Array.isArray(item.sampleTestCases) && item.sampleTestCases.length > 0)
+          ? item.sampleTestCases
+          : (Array.isArray(item.publicTestCases) && item.publicTestCases.length > 0 ? item.publicTestCases : []);
+
+        const rawHidden = (Array.isArray(item.hidden_test_cases) && item.hidden_test_cases.length > 0)
+          ? item.hidden_test_cases
+          : (Array.isArray(item.hiddenTestCases) && item.hiddenTestCases.length > 0 ? item.hiddenTestCases : []);
+
+        let baseCases: any[] = Array.isArray(item.test_cases) && item.test_cases.length > 0
+          ? item.test_cases
+          : (Array.isArray(item.testCases) && item.testCases.length > 0 ? item.testCases : []);
+
+        if (baseCases.length === 0 && (rawPublic.length > 0 || rawHidden.length > 0)) {
+          baseCases = [
+            ...rawPublic.map((tc: any) => ({ ...tc, is_hidden: false, isHidden: false })),
+            ...rawHidden.map((tc: any) => ({ ...tc, is_hidden: true, isHidden: true })),
+          ];
+        }
+
+        const sampleCases = rawPublic.length > 0
+          ? rawPublic.map((tc: any) => ({ ...tc, is_hidden: false, isHidden: false }))
+          : baseCases.filter((tc: any) => !tc.is_hidden && !tc.isHidden);
+
+        const hiddenCases = rawHidden.length > 0
+          ? rawHidden.map((tc: any) => ({ ...tc, is_hidden: true, isHidden: true }))
+          : baseCases.filter((tc: any) => tc.is_hidden || tc.isHidden);
+
+        const testCases = [
+          ...sampleCases.map((tc: any) => ({ ...tc, is_hidden: false, isHidden: false })),
+          ...hiddenCases.map((tc: any) => ({ ...tc, is_hidden: true, isHidden: true })),
+        ];
 
         const allowedLangs = item.allowed_languages || item.allowedLanguages || (typeof starterCode === "object" && starterCode !== null ? starterCode.allowed_languages || starterCode.allowedLanguages : undefined);
         const defLang = item.default_language || item.defaultLanguage || item.language || (typeof starterCode === "object" && starterCode !== null ? starterCode.default_language || starterCode.defaultLanguage || starterCode.language : undefined);
@@ -2476,6 +2506,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             allowed_languages: allowedLangs,
             default_language: defLang,
             templates,
+            test_cases: testCases,
+            sample_test_cases: sampleCases,
+            hidden_test_cases: hiddenCases,
           } : {
             scope: "practice",
             assessment_id: activeMod.id,
@@ -2484,6 +2517,9 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             allowed_languages: allowedLangs,
             default_language: defLang,
             templates,
+            test_cases: testCases,
+            sample_test_cases: sampleCases,
+            hidden_test_cases: hiddenCases,
           },
           allowed_languages: allowedLangs,
           allowedLanguages: allowedLangs,
@@ -2493,8 +2529,11 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           language_mode: langMode,
           templates,
           test_cases: testCases,
+          testCases: testCases,
           sample_test_cases: sampleCases,
+          sampleTestCases: sampleCases,
           hidden_test_cases: hiddenCases,
+          hiddenTestCases: hiddenCases,
           status: "published",
           scope: "practice",
           assessment_id: activeMod.id,
