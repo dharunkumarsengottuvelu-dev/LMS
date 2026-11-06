@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
 import { dispatchLMSEvent } from "@/lib/notifications/dispatcher";
+import { isPracticeAssessment } from "@/lib/module-isolation";
 
 export async function GET(
   request: NextRequest,
@@ -32,7 +33,7 @@ export async function GET(
       .eq("id", id)
       .maybeSingle();
 
-    if (error || !assessment) {
+    if (error || !assessment || isPracticeAssessment(assessment)) {
       return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
     }
 
@@ -262,6 +263,10 @@ export async function POST(
       .select("*")
       .eq("id", id)
       .maybeSingle();
+
+    if (!assessment || isPracticeAssessment(assessment)) {
+      return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
+    }
 
     let meta: any = {};
     if (assessment?.tags && assessment.tags[0]) {

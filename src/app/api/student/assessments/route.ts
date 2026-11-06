@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
+import { extractPracticeIds, isPracticeAssessment } from "@/lib/module-isolation";
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,9 +27,10 @@ export async function GET(request: NextRequest) {
         .order("created_at", { ascending: false }) as any,
       adminClient
         .from("practice_tracks")
-        .select("id, title, tags, assigned_batches, assigned_students, is_common, sub_modules, created_at")
-        .order("created_at", { ascending: false }) as any,
+        .select("id, sub_modules, tags") as any,
     ]);
+
+    const practiceIdSet = extractPracticeIds(dbTracks || []);
 
     // 2. Fetch attempts for student with specific columns
     const { data: attempts } = await adminClient
@@ -45,8 +47,10 @@ export async function GET(request: NextRequest) {
 
     const mappedAssessments: any[] = [];
 
-    // Filter dbAssessments
+    // Filter dbAssessments - Strict module isolation: never include practice items
     (dbAssessments || []).forEach((a: any) => {
+      if (isPracticeAssessment(a, practiceIdSet)) return;
+
       let meta: any = {};
       if (a.tags && a.tags[0]) {
         try {
@@ -87,65 +91,6 @@ export async function GET(request: NextRequest) {
           isCommon,
           assignedBatches,
           my_attempts: attemptsMap.get(a.id) || [],
-        });
-      }
-    });
-
-    // 3. Process practice tracks sub-modules if authorized (already fetched concurrently above)
-    (dbTracks || []).forEach((t: any) => {
-      let meta: any = {};
-      if (t.tags && t.tags[0]) {
-        try {
-          meta = JSON.parse(t.tags[0]);
-        } catch {}
-      }
-
-      const assignedBatches =
-        t.assigned_batches ||
-        meta.assignedBatches ||
-        meta.assigned_batches ||
-        [];
-
-      const assignedStudents =
-        t.assigned_students ||
-        meta.assignedStudents ||
-        meta.assigned_students ||
-        [];
-
-      const isCommon =
-        t.is_common !== undefined
-          ? t.is_common
-          : meta.isCommon !== undefined
-          ? meta.isCommon
-          : assignedBatches.length === 0 && assignedStudents.length === 0;
-
-      const isTrackVisible = isContentVisibleToStudent(
-        {
-          is_common: isCommon,
-          assigned_batches: assignedBatches,
-          assigned_students: assignedStudents,
-        },
-        batchContext
-      );
-
-      if (isTrackVisible) {
-        const subModules = meta.subModules || t.sub_modules || [];
-        subModules.forEach((sm: any) => {
-          if (!mappedAssessments.some((it) => it.id === sm.id)) {
-            const smAttempts = attemptsMap.get(sm.id) || [];
-            mappedAssessments.push({
-              id: sm.id,
-              title: sm.title,
-              description: `${t.title} • ${sm.description || "Practice Module"}`,
-              type: sm.type || "coding",
-              duration_minutes: typeof sm.durationMinutes === "number" ? sm.durationMinutes : (typeof sm.duration_minutes === "number" ? sm.duration_minutes : 0),
-              total_marks: sm.totalMarks || sm.total_marks || 100,
-              trackId: t.id,
-              isCommon,
-              assignedBatches,
-              my_attempts: smAttempts,
-            });
-          }
         });
       }
     });

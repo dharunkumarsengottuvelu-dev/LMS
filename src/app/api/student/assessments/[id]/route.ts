@@ -258,6 +258,7 @@ export async function POST(
       await (adminClient.from("assessments") as any).insert({
         id: assessmentUUID,
         title: body.title || "Practice Assessment Module",
+        description: "Practice module assessment",
         type: body.type || "coding",
         total_marks: totalMarks,
         passing_marks: Math.floor(totalMarks / 2),
@@ -268,6 +269,8 @@ export async function POST(
         shuffle_questions: false,
         negative_marking: false,
         negative_marks_per_wrong: 0,
+        is_common: false,
+        tags: [JSON.stringify({ source_module: "practice", module: "practice", isPractice: true })],
       });
     }
 

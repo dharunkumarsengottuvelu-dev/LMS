@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { authenticateAdminSession } from "@/app/api/admin/_auth";
 import { getErrorMessage } from "@/lib/utils";
 import { dispatchBatchNotification, dispatchLMSEvent } from "@/lib/notifications/dispatcher";
+import { extractPracticeIds, isPracticeAssessment } from "@/lib/module-isolation";
 
 export async function GET() {
   try {
@@ -13,14 +14,29 @@ export async function GET() {
     ]);
     if (errorResponse) return errorResponse;
 
-    const { data: assessmentsData, error: assessmentsError } = await adminClient
-      .from("assessments")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [
+      { data: assessmentsData, error: assessmentsError },
+      { data: practiceTracksData },
+    ] = await Promise.all([
+      adminClient
+        .from("assessments")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      adminClient
+        .from("practice_tracks")
+        .select("id, sub_modules, tags"),
+    ]);
 
     if (assessmentsError) {
       throw assessmentsError;
     }
+
+    const practiceIdSet = extractPracticeIds(practiceTracksData || []);
+
+    // Strict Module Isolation: Filter out all practice modules and practice placeholders
+    const authenticTests = (assessmentsData || []).filter(
+      (a: any) => !isPracticeAssessment(a, practiceIdSet)
+    );
 
     // Fetch batch_members for student counts
     const { data: batchMembersData } = await adminClient
@@ -52,7 +68,7 @@ export async function GET() {
       };
     });
 
-    const mappedTests = (assessmentsData || []).map((a: any) => {
+    const mappedTests = (authenticTests || []).map((a: any) => {
       let meta: any = {};
       if (a.tags && a.tags[0]) {
         try {
@@ -139,6 +155,9 @@ export async function POST(request: NextRequest) {
       test.isCommon !== undefined ? test.isCommon : assignedBatches.length === 0;
 
     const meta = {
+      source_module: "test",
+      module: "test",
+      is_test: true,
       isCommon,
       assignedBatches: isCommon ? [] : assignedBatches,
       instructions: test.instructions || test.description || "",

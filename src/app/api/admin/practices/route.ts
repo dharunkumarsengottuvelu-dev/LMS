@@ -1155,9 +1155,17 @@ export async function POST(request: NextRequest) {
       const status = body.status === "inactive" ? "inactive" : "active";
       const displayOrder = typeof body.display_order === "number" ? body.display_order : (typeof body.displayOrder === "number" ? body.displayOrder : existingMod.display_order);
 
-      const mcqQuestions = Array.isArray(body.mcqQuestions) ? body.mcqQuestions : existingMod.mcqQuestions || [];
-      const codingQuestions = Array.isArray(body.codingQuestions) ? body.codingQuestions : existingMod.codingQuestions || [];
-      const questionCount = mcqQuestions.length + codingQuestions.length || body.questionCount || existingMod.questionCount || 0;
+      const mcqQuestions = Array.isArray(body.mcqQuestions)
+        ? body.mcqQuestions
+        : Array.isArray(body.mcq_questions)
+        ? body.mcq_questions
+        : existingMod.mcqQuestions || [];
+      const codingQuestions = Array.isArray(body.codingQuestions)
+        ? body.codingQuestions
+        : Array.isArray(body.coding_questions)
+        ? body.coding_questions
+        : existingMod.codingQuestions || [];
+      const questionCount = mcqQuestions.length + codingQuestions.length;
 
       const totalMarks = typeof body.totalMarks === "number" ? body.totalMarks : (typeof body.total_marks === "number" ? body.total_marks : (existingMod.totalMarks ?? 100));
       if (isNaN(totalMarks) || totalMarks < 1) {

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getErrorMessage } from "@/lib/utils";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
+import { extractPracticeIds, isPracticeAssessment } from "@/lib/module-isolation";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,15 +21,25 @@ export async function GET(request: NextRequest) {
     // 1. Resolve student batch context
     const batchContext = await getStudentBatchAccess(adminClient, user);
 
-    // 2. Fetch all scheduled/active assessments
-    const { data: assessmentsData, error } = await adminClient
-      .from("assessments")
-      .select("*")
-      .order("created_at", { ascending: false });
+    // 2. Concurrently fetch scheduled/active assessments and practice tracks for module isolation
+    const [
+      { data: assessmentsData, error },
+      { data: practiceTracksData },
+    ] = await Promise.all([
+      adminClient
+        .from("assessments")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      adminClient
+        .from("practice_tracks")
+        .select("id, sub_modules, tags"),
+    ]);
 
     if (error) {
       console.error("Failed to query assessments:", error);
     }
+
+    const practiceIdSet = extractPracticeIds(practiceTracksData || []);
 
     // 3. Fetch student attempts from all submission & attempt tables
     const studentIds = Array.from(new Set([
@@ -118,6 +129,9 @@ export async function GET(request: NextRequest) {
     const mappedTests: any[] = [];
 
     (assessmentsData || []).forEach((a: any) => {
+      // Strict Module Isolation: Practice questions and modules must never appear in Tests
+      if (isPracticeAssessment(a, practiceIdSet)) return;
+
       let meta: any = {};
       if (a.tags && a.tags[0]) {
         try {

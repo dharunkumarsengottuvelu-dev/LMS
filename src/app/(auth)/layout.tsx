@@ -89,7 +89,7 @@ export default function AuthLayout({
         </div>
 
         {/* Centered Form Surface */}
-        <div className="w-full max-w-[420px] flex items-center justify-center">
+        <div className="w-full max-w-[420px] sm:max-w-[480px] lg:max-w-[520px] flex items-center justify-center">
           {children}
         </div>
       </div>

@@ -46,13 +46,14 @@ async function ensureAssessmentExists(
       await (adminClient.from("assessments") as any).insert({
         id: assessmentId,
         title: title || `Practice Assessment ${assessmentId.slice(0, 8)}`,
-        description: description || "Auto-synced practice module placeholder",
+        description: description || "Practice module assessment",
         type: "mixed",
         status: "active",
         duration_minutes: 60,
         pass_percentage: 40,
         total_marks: 100,
-        is_common: true,
+        is_common: false,
+        tags: [JSON.stringify({ source_module: "practice", module: "practice", isPractice: true })],
       });
     }
   } catch (err) {
@@ -987,64 +988,6 @@ export async function POST(
       );
     } catch (err) {
       console.warn("Could not upsert into student_practice_submissions:", err);
-    }
-
-    // Auto-sync any coding problems solved in this practice attempt to coding_submissions
-    // so they are marked as Completed / Solved in Code Lab challenges
-    if (targetModule && Array.isArray(targetModule.codingQuestions)) {
-      for (const cq of targetModule.codingQuestions) {
-        const cqId = cq.id;
-        const ans = baseEvaluationAnswers[cqId] || baseEvaluationAnswers[`coding_${cqId}`];
-        const isSolvedInPractice = ans?.status === "solved" || (ans?.score && ans.score > 0) || Boolean(ans?.code && ans?.code.trim().length > 10);
-        if (isSolvedInPractice) {
-          try {
-            const problemUUID = toDeterministicUUID(cqId);
-            // Ensure problem exists in coding_problems table
-            const { data: existingProb } = await adminClient
-              .from("coding_problems")
-              .select("id")
-              .eq("id", problemUUID)
-              .maybeSingle();
-
-            if (!existingProb) {
-              await (adminClient.from("coding_problems") as any).insert({
-                id: problemUUID,
-                title: cq.title || `Problem ${cqId}`,
-                slug: `prob-${String(cq.title || cqId).toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
-                description: cq.description || "Practice problem",
-                created_by: studentProfileId,
-                status: "published",
-              });
-            }
-
-            // Upsert accepted submission into coding_submissions
-            const { data: existingSub } = await adminClient
-              .from("coding_submissions")
-              .select("id")
-              .eq("problem_id", problemUUID)
-              .or(`student_id.eq.${studentProfileId},student_id.eq.${user.id}`)
-              .eq("status", "accepted")
-              .maybeSingle();
-
-            if (!existingSub) {
-              await (adminClient.from("coding_submissions") as any).insert([
-                {
-                  problem_id: problemUUID,
-                  student_id: studentProfileId,
-                  language: ans.language || "c",
-                  source_code: ans.code || "// Completed in Practice module",
-                  status: "accepted",
-                  passed_test_cases: cq.test_cases?.length || 1,
-                  total_test_cases: cq.test_cases?.length || 1,
-                  created_at: new Date().toISOString(),
-                },
-              ]);
-            }
-          } catch (syncErr) {
-            console.warn("Sync practice coding submission to Code Lab notice:", syncErr);
-          }
-        }
-      }
     }
 
     return NextResponse.json(

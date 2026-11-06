@@ -1881,8 +1881,8 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         if (!activeMod) throw new Error("Module not found for this question.");
 
         const resolvedHierarchy = resolveHierarchyForModule(activeMod.id);
-        const parentMainId = activeMod.main_module_id || currentMainModule?.id || resolvedHierarchy.mainModule?.id;
-        const parentSubId = activeMod.submodule_id || currentSubmodule?.id || resolvedHierarchy.submodule?.id;
+        const parentMainId = activeMod.main_module_id || currentMainModule?.id || selectedMainModuleId || resolvedHierarchy.mainModule?.id;
+        const parentSubId = activeMod.submodule_id || currentSubmodule?.id || selectedSubmoduleId || resolvedHierarchy.submodule?.id;
         if (!parentMainId || !parentSubId) throw new Error("Parent module hierarchy not found.");
 
         const isCurrentActive = activeMod.id === currentModule?.id || activeMod.id === selectedModuleId;
@@ -1928,6 +1928,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             codingQuestions: updatedCodings,
             questionCount: remainingTotalCount,
           });
+          setSelectedViewQuestionKeys([]);
         }
 
         // Optimistically update tracks in memory so tree reflects it immediately
@@ -1967,8 +1968,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             mcqSectionTitle: activeMod.mcqSectionTitle || "Section 1: MCQs",
             codingSectionTitle: activeMod.codingSectionTitle || "Section 2: Coding",
             mcqQuestions: updatedMcqs,
+            mcq_questions: updatedMcqs,
             codingQuestions: updatedCodings,
+            coding_questions: updatedCodings,
             totalMarks,
+            total_marks: totalMarks,
+            questionCount: remainingTotalCount,
+            question_count: remainingTotalCount,
           }),
         });
 
@@ -2031,6 +2037,22 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       } else if (deleteTarget.type === "bulk_questions") {
         const { keys } = deleteTarget;
         if (viewingQuestionsModule) {
+          const resolvedHierarchy = resolveHierarchyForModule(viewingQuestionsModule.id);
+          const parentMainId =
+            viewingQuestionsModule.main_module_id ||
+            currentMainModule?.id ||
+            selectedMainModuleId ||
+            resolvedHierarchy.mainModule?.id;
+          const parentSubId =
+            viewingQuestionsModule.submodule_id ||
+            currentSubmodule?.id ||
+            selectedSubmoduleId ||
+            resolvedHierarchy.submodule?.id;
+
+          if (!parentMainId || !parentSubId) {
+            throw new Error("Parent module hierarchy not found. Please refresh and try again.");
+          }
+
           const mcqIndicesToDelete = keys
             .filter((k) => k.startsWith("mcq_"))
             .map((k) => Number(k.replace("mcq_", "")))
@@ -2040,6 +2062,10 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             .filter((k) => k.startsWith("coding_"))
             .map((k) => Number(k.replace("coding_", "")))
             .sort((a, b) => b - a);
+
+          const deletedCodingProblems = codingIndicesToDelete
+            .map((idx) => (viewingQuestionsModule.codingQuestions || [])[idx])
+            .filter((p) => p && p.id);
 
           let updatedMcqs = [...(viewingQuestionsModule.mcqQuestions || [])];
           mcqIndicesToDelete.forEach((idx) => {
@@ -2074,14 +2100,48 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
             questionCount: remainingTotalCount,
           };
 
+          // Optimistically update viewingQuestionsModule immediately
+          setViewingQuestionsModule(updatedModule);
+          setSelectedViewQuestionKeys([]);
+
+          // Optimistically update tracks in memory so tree reflects it immediately
+          setTracks((prevTracks) => {
+            return prevTracks.map((main) => {
+              if (main.id !== parentMainId) return main;
+              return {
+                ...main,
+                submodules: (main.submodules || []).map((sub) => {
+                  if (sub.id !== parentSubId) return sub;
+                  return {
+                    ...sub,
+                    modules: (sub.modules || []).map((mod) => {
+                      if (mod.id !== viewingQuestionsModule.id) return mod;
+                      return {
+                        ...mod,
+                        mcqQuestions: updatedMcqs,
+                        codingQuestions: updatedCodings,
+                        questionCount: remainingTotalCount,
+                      };
+                    }),
+                  };
+                }),
+              };
+            });
+          });
+
+          if (currentModule?.id === viewingQuestionsModule.id || selectedModuleId === viewingQuestionsModule.id) {
+            setMcqList(updatedMcqs);
+            setCodingList(updatedCodings);
+          }
+
           const res = await fetch("/api/admin/practices", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               action: "update_module",
               id: viewingQuestionsModule.id,
-              main_module_id: viewingQuestionsModule.main_module_id,
-              submodule_id: viewingQuestionsModule.submodule_id,
+              main_module_id: parentMainId,
+              submodule_id: parentSubId,
               name: viewingQuestionsModule.name || viewingQuestionsModule.title,
               title: viewingQuestionsModule.name || viewingQuestionsModule.title,
               description: viewingQuestionsModule.description,
@@ -2089,9 +2149,13 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               status: viewingQuestionsModule.status,
               display_order: viewingQuestionsModule.display_order,
               duration_minutes: viewingQuestionsModule.durationMinutes,
-              total_marks: viewingQuestionsModule.totalMarks,
+              total_marks: totalMarks,
+              totalMarks,
               question_count: remainingTotalCount,
+              questionCount: remainingTotalCount,
+              mcqQuestions: updatedMcqs,
               mcq_questions: updatedMcqs,
+              codingQuestions: updatedCodings,
               coding_questions: updatedCodings,
             }),
           });
@@ -2099,8 +2163,14 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           const data = await res.json();
           if (!res.ok || !data.success) throw new Error(data.error || "Failed to update module questions");
 
-          setViewingQuestionsModule(updatedModule);
-          setSelectedViewQuestionKeys([]);
+          if (deletedCodingProblems.length > 0) {
+            await Promise.all(
+              deletedCodingProblems.map((p) =>
+                fetch(`/api/admin/coding?id=${encodeURIComponent(p.id)}`, { method: "DELETE" }).catch(() => null)
+              )
+            );
+          }
+
           toast({ title: "Questions Deleted", description: `Successfully deleted ${keys.length} question(s).` });
           setDeleteTarget(null);
           await fetchData();
