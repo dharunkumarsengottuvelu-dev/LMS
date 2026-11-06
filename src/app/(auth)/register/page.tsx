@@ -27,7 +27,7 @@ import { useLMSStore } from "@/lib/store/lms-store";
 // CURATED TAMIL NADU COLLEGES & HIGHER EDUCATION INSTITUTIONS (PURE TEXT)
 // ============================================================================
 
-export const TAMIL_NADU_COLLEGES = [
+const TAMIL_NADU_COLLEGES = [
   "Sri Shanmugha College of Engineering and Technology (SSCET), Salem",
   "Anna University - CEG Campus, Chennai",
   "Anna University - MIT Campus, Chromepet, Chennai",
@@ -125,7 +125,7 @@ export const TAMIL_NADU_COLLEGES = [
   "Ethiraj College for Women, Chennai",
 ];
 
-export const COMMON_DEPARTMENTS = [
+const COMMON_DEPARTMENTS = [
   "Computer Science & Engineering (CSE)",
   "Artificial Intelligence & Data Science (AI & DS)",
   "Information Technology (IT)",
@@ -145,7 +145,7 @@ export const COMMON_DEPARTMENTS = [
   "Other Department / Major",
 ];
 
-export const DEGREE_OPTIONS = [
+const DEGREE_OPTIONS = [
   "B.E. / B.Tech",
   "M.E. / M.Tech",
   "MCA",
@@ -156,14 +156,14 @@ export const DEGREE_OPTIONS = [
   "Other Degree",
 ];
 
-export const ACADEMIC_YEARS = [
+const ACADEMIC_YEARS = [
   "1st Year",
   "2nd Year",
   "3rd Year",
   "4th Year",
 ];
 
-export const SEMESTERS = [
+const SEMESTERS = [
   "Semester 1",
   "Semester 2",
   "Semester 3",
@@ -174,7 +174,7 @@ export const SEMESTERS = [
   "Semester 8",
 ];
 
-export const GRADUATION_YEARS = [
+const GRADUATION_YEARS = [
   "2024",
   "2025",
   "2026",

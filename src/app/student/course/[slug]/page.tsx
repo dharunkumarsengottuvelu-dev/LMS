@@ -48,7 +48,7 @@ import {
   Sparkles
 } from "lucide-react";
 
-export interface VideoPlayerConfig {
+interface VideoPlayerConfig {
   type: "direct" | "iframe" | "empty";
   src: string;
 }

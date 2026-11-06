@@ -22,7 +22,7 @@ type UserRole = "admin" | "manager" | "trainer" | "student" | "institution";
 type UserStatus = "active" | "pending" | "suspended";
 type UserType = "employee" | "student" | "institution";
 
-export interface AdminBatchDetail {
+interface AdminBatchDetail {
   id: string;
   name: string;
   batchName: string;
