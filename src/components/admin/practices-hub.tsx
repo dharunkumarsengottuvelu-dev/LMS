@@ -14,7 +14,7 @@ import { BulkUploadModal } from "@/components/admin/bulk-upload";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { CodingProblemsService } from "@/services/coding-problems.service";
-import { cn } from "@/lib/utils";
+import { cn, formatCleanProblemTitle } from "@/lib/utils";
 import {
   calculateEqualWeights,
   calculateQuestionWeightsSum,
@@ -314,6 +314,55 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
   const [selectedMainModuleId, setSelectedMainModuleId] = useState<string | null>(null);
   const [selectedSubmoduleId, setSelectedSubmoduleId] = useState<string | null>(null);
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+
+  // Synchronize hierarchy navigation state to URL query parameters for reload persistence
+  const updateUrlHierarchy = (
+    lvl: NavigationLevel,
+    mId?: string | null,
+    sId?: string | null,
+    modId?: string | null
+  ) => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (lvl && lvl !== "main_modules") params.set("level", lvl);
+    else params.delete("level");
+
+    if (mId) params.set("mainId", mId);
+    else if (mId === null) params.delete("mainId");
+
+    if (sId) params.set("subId", sId);
+    else if (sId === null) params.delete("subId");
+
+    if (modId) params.set("modId", modId);
+    else if (modId === null) params.delete("modId");
+
+    const qs = params.toString();
+    const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, "", newUrl);
+  };
+
+  // Restore navigation hierarchy from URL on initial mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const mId = params.get("mainId");
+    const sId = params.get("subId");
+    const modId = params.get("modId");
+    const lvl = params.get("level") as NavigationLevel | null;
+
+    if (mId) setSelectedMainModuleId(mId);
+    if (sId) setSelectedSubmoduleId(sId);
+    if (modId) setSelectedModuleId(modId);
+    if (lvl) {
+      setActiveLevel(lvl);
+    } else if (modId) {
+      setActiveLevel("module_editor");
+    } else if (sId) {
+      setActiveLevel("modules");
+    } else if (mId) {
+      setActiveLevel("submodules");
+    }
+  }, []);
 
   // Modal Dialogs
   const [showMainModuleModal, setShowMainModuleModal] = useState<boolean>(false);
@@ -1534,6 +1583,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
     setIsEditingBannerPassingMarks(false);
     setBannerPassingMarksInput("");
     setActiveLevel("module_editor");
+    updateUrlHierarchy("module_editor", mainId || selectedMainModuleId, subId || selectedSubmoduleId, m.id);
   };
 
   const handleToggleBannerPassingMarks = async (enabled: boolean) => {
@@ -2338,7 +2388,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
         const newProblem = {
           ...item,
           id: item.id || `cp-${Date.now()}-${idx}`,
-          title: item.title || `Coding Challenge ${idx + 1}`,
+          title: formatCleanProblemTitle(item.title || `Coding Challenge ${idx + 1}`),
           slug: item.slug || `prob-${Date.now()}-${idx}`,
           description: item.description || item.title || "",
           difficulty: (item.difficulty || "medium").toLowerCase(),
@@ -2350,10 +2400,21 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
           memory_limit_mb: Number(item.memory_limit_mb) || 256,
           starter_code: typeof starterCode === "object" && starterCode !== null ? {
             ...starterCode,
+            scope: "practice",
+            assessment_id: activeMod.id,
+            module_id: activeMod.id,
             allowed_languages: allowedLangs,
             default_language: defLang,
             templates,
-          } : starterCode,
+          } : {
+            scope: "practice",
+            assessment_id: activeMod.id,
+            module_id: activeMod.id,
+            code: starterCode || "",
+            allowed_languages: allowedLangs,
+            default_language: defLang,
+            templates,
+          },
           allowed_languages: allowedLangs,
           allowedLanguages: allowedLangs,
           default_language: defLang,
@@ -2454,6 +2515,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   onClick: () => {
                     setSelectedMainModuleId(null);
                     setActiveLevel("main_modules");
+                    updateUrlHierarchy("main_modules", null, null, null);
                   },
                 }
               : activeLevel === "modules"
@@ -2462,12 +2524,17 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   onClick: () => {
                     setSelectedSubmoduleId(null);
                     setActiveLevel("submodules");
+                    updateUrlHierarchy("submodules", selectedMainModuleId, null, null);
                   },
                 }
               : activeLevel === "module_editor"
               ? {
                   label: "Back to Modules",
-                  onClick: () => setActiveLevel("modules"),
+                  onClick: () => {
+                    setSelectedModuleId(null);
+                    setActiveLevel("modules");
+                    updateUrlHierarchy("modules", selectedMainModuleId, selectedSubmoduleId, null);
+                  },
                 }
               : undefined
           }
@@ -2681,6 +2748,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         onClick={() => {
                           setSelectedMainModuleId(m.id);
                           setActiveLevel("submodules");
+                          updateUrlHierarchy("submodules", m.id, null, null);
                         }}
                         className="h-8.5 px-3.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs whitespace-nowrap"
                       >
@@ -2861,6 +2929,7 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         onClick={() => {
                           setSelectedSubmoduleId(sm.id);
                           setActiveLevel("modules");
+                          updateUrlHierarchy("modules", selectedMainModuleId, sm.id, null);
                         }}
                         className="h-8.5 px-3.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-2xs whitespace-nowrap"
                       >

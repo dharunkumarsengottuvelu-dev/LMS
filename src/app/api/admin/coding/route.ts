@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authenticateAdminSession } from "@/app/api/admin/_auth";
 import { dispatchLMSEvent } from "@/lib/notifications/dispatcher";
+import { formatCleanProblemTitle } from "@/lib/utils";
 import type { CodingProblem, TestCase } from "@/types/coding";
 
 // GET /api/admin/coding - Fetch coding problems from Supabase DB scoped to Code Lab or Practice
@@ -48,8 +49,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: pError.message }, { status: 500 });
     }
 
-    // 3. Scope separation (Option 1 with toggle support):
-    // - "codelab": problems created for Code Lab + practice problems explicitly toggled on for Code Lab
+    // 3. Strict scope separation & module isolation:
+    // - "codelab": problems explicitly created for Code Lab / Challenges
     // - "practice": problems created for Practice tracks
     // - "all": all problems
     const dbProblems = (rawProblems || []).filter((p: any) => {
@@ -63,14 +64,20 @@ export async function GET(request: NextRequest) {
         (p as any).isCodeLab === true ||
         (p as any).scope === "codelab" ||
         (p as any).scope === "both";
-      const isPractice = extra.scope === "practice" || !!extra.module_id || practiceProblemIds.has(p.id);
+      const isPractice =
+        extra.scope === "practice" ||
+        (p as any).scope === "practice" ||
+        Boolean(extra.module_id) ||
+        Boolean(extra.assessment_id) ||
+        practiceProblemIds.has(p.id);
 
       if (scopeParam === "practice") {
         return isPractice || extra.scope === "both";
       }
       if (scopeParam === "codelab") {
-        if (isExplicitCodeLab) return true;
-        return !isPractice && extra.scope !== "practice";
+        // Strict isolation: only explicitly assigned/created Challenge problems appear in Challenges.
+        // Practice problems NEVER appear in Challenges.
+        return isExplicitCodeLab && !isPractice;
       }
       // "all": return all problems
       return true;
@@ -152,7 +159,7 @@ export async function GET(request: NextRequest) {
       return {
         id: p.id,
         problem_number: extra.problem_number ? Number(extra.problem_number) : (idx + 1),
-        title: p.title,
+        title: formatCleanProblemTitle(p.title),
         slug: p.slug,
         description: p.description,
         difficulty: p.difficulty,
@@ -229,6 +236,7 @@ export async function POST(request: NextRequest) {
       const chunkResults = await Promise.all(
         chunk.map(async (problem: any) => {
           if (!problem || !problem.title) return null;
+          const cleanProblemTitle = formatCleanProblemTitle(problem.title);
 
           // Only treat as existing record if it's a real UUID (36-char standard format)
           const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -315,7 +323,7 @@ export async function POST(request: NextRequest) {
               .upsert([
                 {
                   id: problemId,
-                  title: problem.title,
+                  title: cleanProblemTitle,
                   slug,
                   description: problem.description,
                   difficulty: (problem.difficulty || "easy").toLowerCase(),
@@ -337,7 +345,7 @@ export async function POST(request: NextRequest) {
               .from("coding_problems")
               .insert([
                 {
-                  title: problem.title,
+                  title: cleanProblemTitle,
                   slug,
                   description: problem.description,
                   difficulty: (problem.difficulty || "easy").toLowerCase(),

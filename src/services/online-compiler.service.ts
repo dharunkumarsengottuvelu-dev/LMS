@@ -76,6 +76,43 @@ const WANDBOX_COMPILER_MAP: Record<string, string> = {
 };
 
 /**
+ * Maps our internal language IDs to Piston languages.
+ * Piston provides an ultra-reliable, isolated execution engine
+ * used as Tier 2 resilience to eliminate OCI/crun container failures.
+ */
+const PISTON_LANGUAGE_MAP: Record<string, { language: string; version?: string }> = {
+  c: { language: "c" },
+  cpp: { language: "c++" },
+  "c++": { language: "c++" },
+  python: { language: "python" },
+  python3: { language: "python" },
+  py: { language: "python" },
+  java: { language: "java" },
+  javascript: { language: "javascript" },
+  nodejs: { language: "javascript" },
+  js: { language: "javascript" },
+  typescript: { language: "typescript" },
+  ts: { language: "typescript" },
+  go: { language: "go" },
+  rust: { language: "rust" },
+  php: { language: "php" },
+  csharp: { language: "csharp" },
+  cs: { language: "csharp" },
+  kotlin: { language: "kotlin" },
+  kt: { language: "kotlin" },
+  ruby: { language: "ruby" },
+  rb: { language: "ruby" },
+  bash: { language: "bash" },
+  sh: { language: "bash" },
+  r: { language: "r" },
+  lua: { language: "lua" },
+  perl: { language: "perl" },
+  pl: { language: "perl" },
+  swift: { language: "swift" },
+  scala: { language: "scala" },
+};
+
+/**
  * Detects whether an execution failure was caused by memory exhaustion.
  */
 function isMemoryError(errStr: string): boolean {
@@ -121,7 +158,8 @@ function normalizeJudge0Response(
   if (
     isInfrastructureFailure(stderr) ||
     isInfrastructureFailure(compileOutput) ||
-    isInfrastructureFailure(parsed.message || "")
+    isInfrastructureFailure(parsed.message || "") ||
+    isInfrastructureFailure(stdout)
   ) {
     return {
       stdout: "",
@@ -249,8 +287,13 @@ function normalizeWandboxResponse(
   const signal = String(parsed.signal || "").toUpperCase();
 
   // CRITICAL: Filter out Wandbox container / OCI / crun failures so they are NEVER
-  // reported as student compilation errors
-  if (isInfrastructureFailure(compileErr) || isInfrastructureFailure(programErr)) {
+  // reported as student compilation errors or output
+  if (
+    isInfrastructureFailure(compileErr) ||
+    isInfrastructureFailure(programErr) ||
+    isInfrastructureFailure(programOut) ||
+    isInfrastructureFailure(lowerErr)
+  ) {
     return {
       stdout: "",
       stderr: "Online execution sandbox temporarily overloaded. Please retry in a few moments.",
@@ -678,11 +721,205 @@ function preprocessTypeScriptForNode(code: string): string {
 }
 
 /**
+ * Performs an HTTPS POST request to Piston CE and returns NormalizedExecutionResult.
+ * High-reliability fallback that never suffers from crun/OCI fork limitations.
+ */
+function executeOnPiston(
+  pistonLang: { language: string; version?: string },
+  code: string,
+  stdin: string,
+  timeoutMs: number
+): Promise<NormalizedExecutionResult> {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const payload = JSON.stringify({
+      language: pistonLang.language,
+      version: pistonLang.version || "*",
+      files: [{ content: code }],
+      stdin: stdin || "",
+      run_timeout: Math.max(Math.ceil(timeoutMs), 3000),
+    });
+    const httpTransportTimeoutMs = Math.max(timeoutMs + 20000, 35000);
+
+    const req = https.request(
+      {
+        hostname: "emkc.org",
+        path: "/api/v2/piston/execute",
+        method: "POST",
+        agent: compilerHttpsAgent,
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": String(Buffer.byteLength(payload)),
+          "User-Agent": "SensiLearn-LMS-Piston/2.0",
+        },
+        timeout: httpTransportTimeoutMs,
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk: Buffer) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+          if (res.statusCode === 429) {
+            return resolve({
+              stdout: "",
+              stderr: "Execution service temporarily rate limited.",
+              compile_output: "",
+              message: "Provider Rate Limit",
+              status: { id: 13, description: "Provider Rate Limit" },
+              outcome: 21,
+              time: elapsed,
+              memory: 0,
+            });
+          }
+          if (res.statusCode && res.statusCode >= 500) {
+            return resolve({
+              stdout: "",
+              stderr: `Piston execution service error (HTTP ${res.statusCode}).`,
+              compile_output: "",
+              message: "Provider Error",
+              status: { id: 13, description: "Provider Error" },
+              outcome: 20,
+              time: elapsed,
+              memory: 0,
+            });
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+            const compile = parsed.compile || {};
+            const run = parsed.run || {};
+
+            const compileOut = (compile.stdout || "").trimEnd();
+            const compileErr = (compile.stderr || compile.output || "").trimEnd();
+            const runOut = (run.stdout || "").trimEnd();
+            const runErr = (run.stderr || "").trimEnd();
+            const allOutput = `${runOut} ${runErr} ${compileErr}`;
+
+            if (
+              isInfrastructureFailure(allOutput) ||
+              isInfrastructureFailure(compileErr) ||
+              isInfrastructureFailure(runErr) ||
+              isInfrastructureFailure(runOut)
+            ) {
+              return resolve({
+                stdout: "",
+                stderr: "Sandbox execution overloaded. Please retry in a few moments.",
+                compile_output: "",
+                message: "Infrastructure Error",
+                status: { id: 13, description: "Internal Error" },
+                outcome: 20,
+                time: elapsed,
+                memory: 0,
+              });
+            }
+
+            if (compile.code && compile.code !== 0) {
+              const errText = compileErr || compileOut || "Compilation Error";
+              return resolve({
+                stdout: "",
+                stderr: errText,
+                compile_output: errText,
+                message: "Compilation Error",
+                status: { id: 6, description: "Compilation Error" },
+                outcome: 11,
+                time: elapsed,
+                memory: 256000,
+              });
+            }
+
+            if (run.signal === "SIGKILL" || run.signal === "SIGXCPU" || run.code === 137) {
+              return resolve({
+                stdout: runOut,
+                stderr: runErr || "Time Limit Exceeded: Process execution took longer than permitted time limit.",
+                compile_output: compileErr,
+                message: "Time Limit Exceeded",
+                status: { id: 5, description: "Time Limit Exceeded" },
+                outcome: 13,
+                time: elapsed,
+                memory: 256000,
+              });
+            }
+
+            if (run.code && run.code !== 0) {
+              return resolve({
+                stdout: runOut,
+                stderr: runErr || `Runtime Error (exit code ${run.code})`,
+                compile_output: compileErr,
+                message: "Runtime Error",
+                status: { id: 7, description: "Runtime Error" },
+                outcome: 12,
+                time: elapsed,
+                memory: 256000,
+              });
+            }
+
+            return resolve({
+              stdout: runOut,
+              stderr: runErr,
+              compile_output: compileErr,
+              message: "Accepted",
+              status: { id: 3, description: "Accepted" },
+              outcome: 15,
+              time: elapsed,
+              memory: 256000,
+            });
+          } catch {
+            resolve({
+              stdout: "",
+              stderr: `Piston parse error: ${data.slice(0, 200)}`,
+              compile_output: "",
+              message: "Execution Error",
+              status: { id: 13, description: "Internal Error" },
+              outcome: 20,
+              time: elapsed,
+              memory: 0,
+            });
+          }
+        });
+      }
+    );
+
+    req.on("error", (err: Error) => {
+      resolve({
+        stdout: "",
+        stderr: `Piston unreachable: ${err.message}`,
+        compile_output: "",
+        message: "Infrastructure Error",
+        status: { id: 13, description: "Infrastructure Error" },
+        outcome: 20,
+        time: "0.00",
+        memory: 0,
+      });
+    });
+
+    req.on("timeout", () => {
+      req.destroy();
+      resolve({
+        stdout: "",
+        stderr: "Piston infrastructure timeout.",
+        compile_output: "",
+        message: "Infrastructure Error",
+        status: { id: 13, description: "Infrastructure Error" },
+        outcome: 20,
+        time: "0.00",
+        memory: 0,
+      });
+    });
+
+    req.write(payload);
+    req.end();
+  });
+}
+
+/**
  * Online Compiler Service — Universal resilient multi-provider code execution engine.
  * 
  * Multi-Tier Failover Architecture:
  * - Tier 1: High-Speed Isolated Judge0 CE (supports 70+ languages, C17/23, C++20, Java 17+, Python 3.12+, Node 22+)
- * - Tier 2: Wandbox Sandbox Runner (with OCI container error interception)
+ * - Tier 2: Resilient Piston CE Sandbox
+ * - Tier 3: Wandbox Sandbox Runner (with OCI container error interception)
  * - Self-Healing: Automatic circuit breaking and provider switching if an upstream container runtime fails
  */
 export class OnlineCompilerService {
@@ -698,9 +935,10 @@ export class OnlineCompilerService {
   ): Promise<NormalizedExecutionResult> {
     const lang = (language || "").toLowerCase().trim();
     const judge0Id = JUDGE0_LANGUAGE_MAP[lang];
+    const pistonLang = PISTON_LANGUAGE_MAP[lang];
     const wandboxCompiler = WANDBOX_COMPILER_MAP[lang];
 
-    if (!judge0Id && !wandboxCompiler) {
+    if (!judge0Id && !pistonLang && !wandboxCompiler) {
       return {
         stdout: "",
         stderr: `Language '${language}' is not supported by the online execution engine.`,
@@ -751,7 +989,19 @@ export class OnlineCompilerService {
       }
     }
 
-    // ── Tier 2: Wandbox Sandbox Fallback ────────────────────────────────────────
+    // ── Tier 2: Resilient Piston Sandbox ──────────────────────────────────────
+    if (pistonLang) {
+      try {
+        const pistonResult = await executeOnPiston(pistonLang, processedCode, cleanStdin, timeoutMs);
+        if (pistonResult.outcome !== 20 && pistonResult.outcome !== 21) {
+          return pistonResult;
+        }
+      } catch {
+        // Fall through to Tier 3
+      }
+    }
+
+    // ── Tier 3: Wandbox Sandbox Fallback ────────────────────────────────────────
     if (wandboxCompiler) {
       try {
         let compilerOptionRaw: string | undefined;
@@ -776,7 +1026,7 @@ export class OnlineCompilerService {
       }
     }
 
-    // Both tiers exhausted by infrastructure errors or rate limits
+    // All tiers exhausted by infrastructure errors or rate limits
     return {
       stdout: "",
       stderr: "The remote code execution sandbox is temporarily overloaded. Please retry in a few moments.",

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -12,16 +12,50 @@ import { CodingAssignmentsService, type CodingAssignment } from "@/services/codi
 import { CodingLeaderboardService, type LeaderboardEntry } from "@/services/coding-leaderboard.service";
 import { CodingDiscussService, type CodingDiscussPost } from "@/services/coding-discuss.service";
 import { SubmissionService } from "@/services/submission.service";
+import { formatCleanProblemTitle } from "@/lib/utils";
 import type { ExtendedCodingProblem } from "@/data/coding-problems-data";
 import type { CodingSubmission } from "@/types/coding";
 import { toast } from "sonner";
 import { ArrowLeft, Check } from "lucide-react";
 
-export default function CodingDashboardPage() {
+function CodingDashboardContent() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<string>("problems");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
+  const searchParams = useSearchParams();
+
+  const tabParam = searchParams.get("tab") || "problems";
+  const qParam = searchParams.get("q") || "";
+  const diffParam = searchParams.get("difficulty") || "all";
+
+  const [activeTab, setActiveTab] = useState<string>(tabParam);
+  const [searchQuery, setSearchQuery] = useState(qParam);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>(diffParam);
+
+  // Synchronize state with URL parameters for page reload / bookmarking persistence
+  const updateUrlParams = (newTab: string, newQ: string, newDiff: string) => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams();
+    if (newTab && newTab !== "problems") params.set("tab", newTab);
+    if (newQ && newQ.trim()) params.set("q", newQ.trim());
+    if (newDiff && newDiff !== "all") params.set("difficulty", newDiff);
+    const qs = params.toString();
+    const newUrl = qs ? `/coding?${qs}` : "/coding";
+    window.history.replaceState(null, "", newUrl);
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    updateUrlParams(tab, searchQuery, selectedDifficulty);
+  };
+
+  const handleSearchChange = (q: string) => {
+    setSearchQuery(q);
+    updateUrlParams(activeTab, q, selectedDifficulty);
+  };
+
+  const handleDifficultyChange = (diff: string) => {
+    setSelectedDifficulty(diff);
+    updateUrlParams(activeTab, searchQuery, diff);
+  };
 
   const [problems, setProblems] = useState<ExtendedCodingProblem[]>(() => {
     return CodingProblemsService.getAllProblems() as ExtendedCodingProblem[];
@@ -50,12 +84,17 @@ export default function CodingDashboardPage() {
         setProblems(problemList);
       }
 
+      // Module Isolation: Only consider submissions for problems that belong to the Challenges module
+      const challengeProblemIds = new Set(problemList.map((p) => p.id));
+
       // 1. Immediately sync with local cached submissions and drafts
-      const cachedSubs = SubmissionService.getStudentSubmissions();
-      if (cachedSubs && cachedSubs.length > 0) {
+      const cachedSubs = (SubmissionService.getStudentSubmissions() || []).filter((s) =>
+        challengeProblemIds.has(s.problem_id)
+      );
+      if (cachedSubs.length > 0) {
         CodingProgressService.syncWithSubmissions(cachedSubs, problemList);
       }
-      setSubmissions(cachedSubs || []);
+      setSubmissions(cachedSubs);
       setInProgressItems(CodingProgressService.getInProgressProblems(problemList));
       setSolvedItems(CodingProgressService.getSolvedProblems(problemList));
 
@@ -66,12 +105,11 @@ export default function CodingDashboardPage() {
           SubmissionService.fetchStudentSubmissions(),
         ]);
         setLeaderboard(leads);
-        if (subs && subs.length > 0) {
-          setSubmissions(subs);
-          CodingProgressService.syncWithSubmissions(subs, problemList);
-          setInProgressItems(CodingProgressService.getInProgressProblems(problemList));
-          setSolvedItems(CodingProgressService.getSolvedProblems(problemList));
-        }
+        const relevantDbSubs = (subs || []).filter((s) => challengeProblemIds.has(s.problem_id));
+        setSubmissions(relevantDbSubs);
+        CodingProgressService.syncWithSubmissions(relevantDbSubs, problemList);
+        setInProgressItems(CodingProgressService.getInProgressProblems(problemList));
+        setSolvedItems(CodingProgressService.getSolvedProblems(problemList));
       } catch (e) {
         console.error("Error refreshing coding data:", e);
       }
@@ -181,7 +219,7 @@ export default function CodingDashboardPage() {
       </div>
 
       {/* Main 7 Dashboard Navigation Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
         <div className="border-b border-slate-200 bg-white rounded-xl p-1 shadow-xs">
           <TabsList className="bg-transparent h-auto p-0 flex flex-wrap gap-1">
             <TabsTrigger
@@ -226,7 +264,7 @@ export default function CodingDashboardPage() {
                 <Input
                   placeholder="Search problems or tags..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="h-9 text-xs bg-slate-50/70 border-slate-200 rounded-lg focus:bg-white"
                 />
               </div>
@@ -235,7 +273,7 @@ export default function CodingDashboardPage() {
                 {["all", "easy", "medium", "hard"].map((diff) => (
                   <button
                     key={diff}
-                    onClick={() => setSelectedDifficulty(diff)}
+                    onClick={() => handleDifficultyChange(diff)}
                     className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize transition-all cursor-pointer ${
                       selectedDifficulty === diff
                         ? "bg-slate-900 text-white shadow-xs"
@@ -298,7 +336,7 @@ export default function CodingDashboardPage() {
                                   href={`/coding/problems/${prob.id}`}
                                   className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors text-xs sm:text-sm line-clamp-1"
                                 >
-                                  {prob.title}
+                                  {formatCleanProblemTitle(prob.title)}
                                 </Link>
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   {(prob.topic_tags || []).slice(0, 4).map((tag: string) => (
@@ -387,7 +425,7 @@ export default function CodingDashboardPage() {
                           In Progress
                         </span>
                       </div>
-                      <h3 className="font-semibold text-slate-900 text-xs sm:text-sm">{problem.title}</h3>
+                      <h3 className="font-semibold text-slate-900 text-xs sm:text-sm">{formatCleanProblemTitle(problem.title)}</h3>
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         Language: {state.language.toUpperCase()} • Last saved:{" "}
                         {new Date(state.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -439,7 +477,7 @@ export default function CodingDashboardPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono font-semibold text-slate-400" title={problem.id}>#{getProblemNumber(problem)}</span>
-                        <h4 className="font-semibold text-slate-900 text-xs sm:text-sm">{problem.title}</h4>
+                        <h4 className="font-semibold text-slate-900 text-xs sm:text-sm">{formatCleanProblemTitle(problem.title)}</h4>
                         <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded capitalize bg-slate-100 text-slate-700">
                           {problem.difficulty}
                         </span>
@@ -498,7 +536,7 @@ export default function CodingDashboardPage() {
                         <tr key={sub.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="py-3 px-3 font-semibold text-slate-900">
                             <Link href={`/coding/problems/${sub.problem_id}`} className="hover:text-blue-600">
-                              {prob ? prob.title : `Problem #${sub.problem_id}`}
+                              {formatCleanProblemTitle(prob ? prob.title : (sub as any).problem_title || (sub.problem_id ? `Problem #${sub.problem_id}` : "Coding Problem"))}
                             </Link>
                           </td>
                           <td className="py-3 px-3">
@@ -603,5 +641,19 @@ export default function CodingDashboardPage() {
 
       </Tabs>
     </div>
+  );
+}
+
+export default function CodingDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-5 text-center text-slate-500 text-sm">
+          Loading Challenges Workspace...
+        </div>
+      }
+    >
+      <CodingDashboardContent />
+    </Suspense>
   );
 }

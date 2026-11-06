@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loading } from "@/components/ui/loading";
-import { cn } from "@/lib/utils";
+import { cn, formatCleanProblemTitle } from "@/lib/utils";
 import { PageHeader } from "@/components/layouts/page-header";
 import { Search, Plus, UploadCloud } from "lucide-react";
 import {
@@ -41,6 +41,52 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+
+  // Read URL query parameters on initial mount for bookmark and reload persistence
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
+    const diff = params.get("difficulty");
+    const cat = params.get("category");
+    const mode = params.get("mode") as "list" | "create" | "edit" | null;
+    if (q) setSearchQuery(q);
+    if (diff) setSelectedDifficulty(diff);
+    if (cat) setSelectedCategory(cat);
+    if (mode && ["list", "create", "edit"].includes(mode)) setViewMode(mode);
+  }, []);
+
+  const updateUrlParams = (mode: string, q: string, diff: string, cat: string) => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams();
+    if (mode !== "list") params.set("mode", mode);
+    if (q.trim()) params.set("q", q.trim());
+    if (diff !== "all") params.set("difficulty", diff);
+    if (cat !== "all") params.set("category", cat);
+    const qs = params.toString();
+    const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, "", newUrl);
+  };
+
+  const handleModeChange = (mode: "list" | "create" | "edit") => {
+    setViewMode(mode);
+    updateUrlParams(mode, searchQuery, selectedDifficulty, selectedCategory);
+  };
+
+  const handleSearchChange = (q: string) => {
+    setSearchQuery(q);
+    updateUrlParams(viewMode, q, selectedDifficulty, selectedCategory);
+  };
+
+  const handleDifficultyChange = (diff: string) => {
+    setSelectedDifficulty(diff);
+    updateUrlParams(viewMode, searchQuery, diff, selectedCategory);
+  };
+
+  const handleCategoryChange = (cat: string) => {
+    setSelectedCategory(cat);
+    updateUrlParams(viewMode, searchQuery, selectedDifficulty, cat);
+  };
 
   // Delete modal state
   const [problemToDelete, setProblemToDelete] = useState<CodingProblem | null>(null);
@@ -195,11 +241,11 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
           initialProblem={editingProblem}
           onCancel={() => {
             setEditingProblem(null);
-            setViewMode("list");
+            handleModeChange("list");
           }}
           onSave={() => {
             setEditingProblem(null);
-            setViewMode("list");
+            handleModeChange("list");
             refreshProblems();
           }}
         />
@@ -225,7 +271,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
             <Button
               onClick={() => {
                 setEditingProblem(null);
-                setViewMode("create");
+                handleModeChange("create");
               }}
               className="h-[44px] bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold gap-2 px-5 rounded-xl shrink-0 shadow-sm text-xs"
             >
@@ -242,13 +288,13 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
           <Input
             placeholder="Search problems by title, slug, ID, or tags..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10 h-10 text-xs bg-[#F9FAFB] dark:bg-[#09090B] border-none shadow-none focus-visible:ring-0 w-full rounded-lg"
           />
         </div>
 
         <div className="flex items-center w-full md:w-auto shrink-0 gap-2 border-t md:border-t-0 md:border-l border-[#E5E7EB] dark:border-[#27272A] pt-3 md:pt-0 md:pl-4">
-          <Select value={selectedDifficulty} onValueChange={(val) => setSelectedDifficulty(val || "all")}>
+          <Select value={selectedDifficulty} onValueChange={(val) => handleDifficultyChange(val || "all")}>
             <SelectTrigger className="h-10 text-xs w-full md:w-[150px] bg-transparent border-none shadow-none focus:ring-0">
               <SelectValue placeholder="All Difficulties" />
             </SelectTrigger>
@@ -260,7 +306,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
             </SelectContent>
           </Select>
 
-          <Select value={selectedCategory} onValueChange={(val) => setSelectedCategory(val || "all")}>
+          <Select value={selectedCategory} onValueChange={(val) => handleCategoryChange(val || "all")}>
             <SelectTrigger className="h-10 text-xs w-full md:w-[170px] bg-transparent border-none shadow-none focus:ring-0">
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
@@ -276,9 +322,9 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
               variant="ghost"
               size="sm"
               onClick={() => {
-                setSearchQuery("");
-                setSelectedDifficulty("all");
-                setSelectedCategory("all");
+                handleSearchChange("");
+                handleDifficultyChange("all");
+                handleCategoryChange("all");
               }}
               className="h-9 px-2 text-xs text-slate-500 hover:text-slate-900"
             >
@@ -385,7 +431,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
                       <td className="py-3.5 px-4 align-middle">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-slate-900 text-xs whitespace-nowrap">
-                            {prob.title}
+                            {formatCleanProblemTitle(prob.title)}
                           </span>
                         </div>
                       </td>
@@ -465,7 +511,7 @@ export function CodingManagementHub({ role = "admin" }: CodingManagementHubProps
               Delete Coding Problem
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500 mt-1">
-              Are you sure you want to delete <strong>{problemToDelete?.title}</strong>? Students will no longer be able to access or submit solutions for this problem.
+              Are you sure you want to delete <strong>{formatCleanProblemTitle(problemToDelete?.title)}</strong>? Students will no longer be able to access or submit solutions for this problem.
             </DialogDescription>
           </DialogHeader>
 

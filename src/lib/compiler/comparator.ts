@@ -78,7 +78,8 @@ export function isInfrastructureFailure(err: string | null | undefined): boolean
     lower.includes("container init failed") ||
     lower.includes("transport endpoint is not connected") ||
     lower.includes("docker-engine") ||
-    lower.includes("containerd")
+    lower.includes("containerd") ||
+    lower.includes("no space left on device")
   );
 }
 

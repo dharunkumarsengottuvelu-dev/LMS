@@ -53,6 +53,26 @@ export default function StudentTestsPage() {
   const [testsData, setTestsData] = useState<ScheduledTest[]>([]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab && ["all", "live", "upcoming", "completed"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, []);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (val && val !== "all") params.set("tab", val);
+    else params.delete("tab");
+    const qs = params.toString();
+    const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, "", newUrl);
+  };
+
+  useEffect(() => {
     async function loadTests() {
       try {
         const res = await fetch("/api/student/tests");
@@ -199,7 +219,7 @@ export default function StudentTestsPage() {
         localStorage.removeItem(`lms_practice_session_${selectedLobbyTest.id}_submitted`);
         localStorage.removeItem(`lms_completed_assessment_${selectedLobbyTest.id}`);
         localStorage.removeItem("lms_proctoring_violations");
-      } catch {}
+      } catch { }
     }
 
     if (selectedLobbyTest?.proctoring?.webcamTracking && !referencePhoto) {
@@ -220,9 +240,8 @@ export default function StudentTestsPage() {
 
     toast({
       title: "Entering Exam Environment",
-      description: `Starting ${selectedLobbyTest.title}... ${
-        selectedLobbyTest?.proctoring?.enabled ? "Live Face Monitoring Stream Active." : "Standard Mode."
-      }`,
+      description: `Starting ${selectedLobbyTest.title}... ${selectedLobbyTest?.proctoring?.enabled ? "Live Face Monitoring Stream Active." : "Standard Mode."
+        }`,
     });
     router.push(`/student/tests/${selectedLobbyTest.id}`);
   };
@@ -260,7 +279,7 @@ export default function StudentTestsPage() {
       </div>
 
       {/* 2. Tabs Filter */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-6">
         <div className="w-full overflow-x-auto no-scrollbar pb-1 -mx-1 px-1 sm:mx-0 sm:px-0">
           <TabsList className="bg-slate-100 dark:bg-zinc-800/70 p-1.5 h-11 sm:h-12 rounded-2xl border border-slate-200/80 dark:border-zinc-800 w-max min-w-full sm:w-fit flex gap-1 sm:gap-1.5 shrink-0">
             <TabsTrigger
@@ -295,9 +314,8 @@ export default function StudentTestsPage() {
             {filteredTests.map((test) => (
               <Card
                 key={test.id}
-                className={`bg-white dark:bg-[#18181B] border shadow-sm rounded-2xl overflow-hidden flex flex-col justify-between transition-all ${
-                  test.status === "completed" ? "border-[#16A34A]/30" : "border-[#E5E7EB] dark:border-[#27272A]"
-                }`}
+                className={`bg-white dark:bg-[#18181B] border shadow-sm rounded-2xl overflow-hidden flex flex-col justify-between transition-all ${test.status === "completed" ? "border-[#16A34A]/30" : "border-[#E5E7EB] dark:border-[#27272A]"
+                  }`}
               >
                 <CardHeader className="p-6 space-y-3">
                   <div className="flex items-center justify-between gap-2">

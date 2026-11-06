@@ -209,8 +209,14 @@ export class UniversalExecutor {
               break;
           }
 
-          // If local execution failed due to missing local compiler binary (ENOENT), seamlessly fallback to Online Sandbox
-          if (result.outcome === 20 || result.status.id === 13) {
+          // If local execution failed due to missing local compiler binary (ENOENT) or infrastructure error, seamlessly fallback to Online Sandbox
+          if (
+            result.outcome === 20 ||
+            result.status.id === 13 ||
+            isInfrastructureFailure(result.stderr) ||
+            isInfrastructureFailure(result.compile_output) ||
+            isInfrastructureFailure(result.stdout)
+          ) {
             result = await this.executeOnline(langDef.id, adaptedCode, cleanStdin, effectiveTimeout, sourceInfo.filename, version);
           }
 

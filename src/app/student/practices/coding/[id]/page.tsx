@@ -54,7 +54,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn, formatCleanProblemTitle } from "@/lib/utils";
 import type { CodingLanguage } from "@/types/coding";
 import { registerMonacoCompletions, getDefaultTabSizeForLanguage } from "@/lib/monaco-completions";
 import {
@@ -2089,7 +2089,7 @@ export default function StudentPracticeCodingRunnerPage() {
       {/* ══════════════════════════════════════════════════════════════════════
           1. TOP ACTION HEADER (CLEAN PRACTICE HEADER — NO LMS/ASSESSMENT BLOAT)
       ══════════════════════════════════════════════════════════════════════ */}
-      <header className="min-h-14 py-2 sm:py-0 bg-white border-b border-slate-200/90 px-3 sm:px-6 flex flex-wrap items-center justify-between gap-2.5 shrink-0 shadow-2xs z-20">
+      <header className="min-h-14 h-14 bg-white border-b border-slate-200/90 px-3 sm:px-6 flex items-center justify-between gap-2.5 shrink-0 shadow-2xs z-20">
         {isReviewSubmitOpen ? (
           <>
             {/* Left: ← Back to Practice / Review & Submit */}
@@ -2161,12 +2161,9 @@ export default function StudentPracticeCodingRunnerPage() {
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                 <span className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[130px] sm:max-w-[240px] md:max-w-[340px]">
                   {(() => {
-                    const raw = (currentProblem.title || "").trim();
+                    const clean = formatCleanProblemTitle(currentProblem.title);
                     const qNum = currentIdx + 1;
-                    if (!raw) return `Question ${qNum}`;
-                    if (/^question\s*#?\d+/i.test(raw)) return raw;
-                    if (/^#?\d+[:.\s-]+/i.test(raw)) return raw.startsWith("#") ? raw : `#${raw}`;
-                    return `#${qNum}. ${raw}`;
+                    return `#${qNum}. ${clean}`;
                   })()}
                 </span>
 
@@ -2622,7 +2619,7 @@ export default function StudentPracticeCodingRunnerPage() {
                           QUESTION {item.index + 1}
                         </span>
                         <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                          {item.problem.title}
+                          {formatCleanProblemTitle(item.problem.title)}
                         </h3>
                         {item.problem.difficulty && (
                           <span
@@ -2869,7 +2866,7 @@ export default function StudentPracticeCodingRunnerPage() {
                 {/* Title & Stats */}
                 <div className="space-y-2">
                   <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
-                    {currentIdx + 1}. {currentProblem.title}
+                    {currentIdx + 1}. {formatCleanProblemTitle(currentProblem.title)}
                   </h1>
                   <div className="flex items-center gap-2 pt-0.5">
                     <span

@@ -49,6 +49,26 @@ export default function StudentAssessmentsPage() {
   const [assessments, setAssessments] = useState<ScheduledAssessment[]>([]);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab && ["all", "live", "upcoming", "completed"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, []);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (val && val !== "all") params.set("tab", val);
+    else params.delete("tab");
+    const qs = params.toString();
+    const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
+    window.history.replaceState(null, "", newUrl);
+  };
+
   // Modals for distinct card actions
   const [selectedLobbyTest, setSelectedLobbyTest] = useState<ScheduledAssessment | null>(null);
   const [isLobbyOpen, setIsLobbyOpen] = useState(false);
@@ -260,7 +280,7 @@ export default function StudentAssessmentsPage() {
       </div>
 
       {/* Tabs Filter */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-6">
         <div className="w-full overflow-x-auto no-scrollbar pb-1 -mx-1 px-1 sm:mx-0 sm:px-0">
           <TabsList className="bg-slate-100 dark:bg-zinc-800/80 p-1.5 rounded-2xl h-11 sm:h-12 w-max min-w-full sm:w-fit border border-slate-200/80 dark:border-zinc-700/80 flex gap-1 sm:gap-1.5 shrink-0">
             <TabsTrigger

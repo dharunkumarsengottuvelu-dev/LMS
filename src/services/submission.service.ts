@@ -13,6 +13,7 @@ const LOCAL_STORAGE_SUBMISSIONS_KEY = "lms_coding_submissions_v1";
 const LEGACY_LOCAL_STORAGE_SUBMISSIONS_KEY = "edunexus_coding_submissions_v1";
 
 import { createClient } from "@/lib/supabase/client";
+import { formatCleanProblemTitle } from "@/lib/utils";
 
 export class SubmissionService {
   private static submissionsMemoryStore: CodingSubmission[] = [];
@@ -130,11 +131,13 @@ export class SubmissionService {
 
         if (!existingProblem) {
           const createdBy = profileId || "dc010d4a-e983-4a05-a3cb-40390e99629c";
+          const cleanTitle = formatCleanProblemTitle((submission as any).problem_title || submission.problem_id);
           await (adminClient.from("coding_problems") as any).insert({
             id: problemUUID,
-            title: `Problem ${submission.problem_id}`,
-            slug: `prob-${submission.problem_id.toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
-            description: "Coding challenge problem",
+            title: cleanTitle,
+            slug: `prob-${cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+            description: "Coding problem",
+            starter_code: { scope: (submission as any).scope || "practice" },
             created_by: createdBy,
             status: "published",
           });

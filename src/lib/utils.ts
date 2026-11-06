@@ -31,6 +31,48 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * Normalizes and formats problem titles across LMS modules.
+ * Strips unwanted prefixes ("Problem problem-...", "prob-..."),
+ * removes internal numeric timestamps/hashes (-1793861699005-0),
+ * converts kebab/snake-case to clean Title Case, and preserves human titles.
+ */
+export function formatCleanProblemTitle(rawTitle?: string | null): string {
+  if (!rawTitle) return "Coding Problem";
+  let t = String(rawTitle).trim();
+
+  // 1. Remove "Problem " prefix if followed by problem- / prob- or slug
+  t = t.replace(/^problem\s+(?=problem-|prob-|[a-z0-9_-]+)/i, "");
+
+  // 2. Remove leading "problem-" or "prob-"
+  t = t.replace(/^(problem|prob)-+/i, "");
+
+  // 3. Remove trailing timestamps or numeric suffixes (e.g. -1793861699005-0, -1793867322447-1)
+  t = t.replace(/-\d{10,}(-\d+)?$/i, "");
+  // Remove hash/random suffix if it contains digits and letters (e.g. -mv7v3vsx or -1a2b3c4d)
+  t = t.replace(/-(?=[a-z0-9]*\d)[a-z0-9]{6,}$/i, "");
+
+  // 4. If it was slug-formatted with dashes or underscores, convert to spaces
+  if (t.includes("-") || t.includes("_")) {
+    t = t.replace(/[-_]+/g, " ");
+  }
+
+  // 5. Title Case words
+  const words = t.split(/\s+/).filter(Boolean);
+  const minorWords = new Set(["a", "an", "the", "and", "but", "or", "for", "nor", "on", "at", "to", "by", "of", "in"]);
+  t = words
+    .map((w, idx) => {
+      const lower = w.toLowerCase();
+      if (idx > 0 && minorWords.has(lower)) {
+        return lower;
+      }
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+
+  return t || String(rawTitle).trim();
+}
+
 export function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return `${text.slice(0, maxLength)}...`;
