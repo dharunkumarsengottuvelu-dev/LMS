@@ -2,11 +2,29 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
-import { SensiLearnLiveClassroom } from "@/components/live-classroom/sensilearn-live-classroom";
 import { Loading } from "@/components/ui/loading";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const SensiLearnLiveClassroom = dynamic(
+  () =>
+    import("@/components/live-classroom/sensilearn-live-classroom").then(
+      (m) => m.SensiLearnLiveClassroom
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <Loading
+        fullScreen
+        size="lg"
+        text="Loading Classroom Engine..."
+        subtext="Initializing real-time audio and video hardware..."
+      />
+    ),
+  }
+);
 
 export default function StudentLiveClassRoomPage() {
   const params = useParams();
