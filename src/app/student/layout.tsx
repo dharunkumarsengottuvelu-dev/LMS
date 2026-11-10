@@ -1,5 +1,5 @@
 import { StudentLayoutWrapper } from "@/components/layouts/student-layout-wrapper";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthenticatedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
@@ -16,7 +16,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const { currentPath, fullOriginalPath } = getOriginalRequestPath(headersList, "/student/dashboard");
 
   const supabase = await createClient();
-  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  const { data: { user }, error: authErr } = await getAuthenticatedUser();
 
   if (!user) {
     const nextTarget = fullOriginalPath || "/student/dashboard";

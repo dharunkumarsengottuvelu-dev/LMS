@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getAuthenticatedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { StudentDashboardClient } from "./dashboard-client";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
@@ -17,7 +17,7 @@ async function getStudentData() {
 
   try {
     supabase = await createClient();
-    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const { data: authData, error: authError } = await getAuthenticatedUser();
     if (authError) {
       console.warn("[Dashboard] AUTH ERROR:", authError.message);
     }

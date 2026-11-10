@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "./database.types";
@@ -79,3 +80,12 @@ export async function createAdminClient() {
     }
   );
 }
+
+/**
+ * Request-scoped memoized authentication lookup.
+ * Eliminates duplicate network calls to Supabase Auth within the same request lifecycle (e.g. Layout + Page).
+ */
+export const getAuthenticatedUser = cache(async () => {
+  const supabase = await createClient();
+  return await supabase.auth.getUser();
+});
