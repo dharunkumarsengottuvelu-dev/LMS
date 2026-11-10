@@ -146,20 +146,38 @@ export class InstitutionPerformanceService {
   }): Promise<InstitutionBatchItem[]> {
     const adminClient = createAdminClient();
 
-    // 1. Query all batches
-    const { data: batchesData, error: bErr } = await adminClient
-      .from("batches")
-      .select("id, name, batch_name, code, description, trainer_id, start_date, status, created_at")
-      .order("created_at", { ascending: false });
+    // Parallel fetch of batches, batch_members, studentProfiles, trainers, and institution_batches
+    const [
+      batchesRes,
+      batchMembersRes,
+      studentProfilesRes,
+      trainersRes,
+      ibRes,
+    ] = await Promise.all([
+      adminClient
+        .from("batches")
+        .select("id, name, batch_name, code, description, trainer_id, start_date, status, created_at")
+        .order("created_at", { ascending: false }),
+      adminClient.from("batch_members").select("batch_id, user_id"),
+      adminClient.from("profiles").select("id, user_id, batch_id, college").eq("role", "student"),
+      adminClient.from("profiles").select("id, first_name, last_name, email").eq("role", "trainer"),
+      (async () => {
+        try {
+          return await adminClient.from("institution_batches").select("batch_id").eq("institution_id", institutionInfo.institutionId);
+        } catch {
+          return { data: [], error: null };
+        }
+      })(),
+    ]);
 
-    if (bErr || !batchesData) {
+    const batchesData = batchesRes.data;
+    if (batchesRes.error || !batchesData) {
       return [];
     }
 
-    // 2. Query batch_members mapping
-    const { data: batchMembersData } = await adminClient
-      .from("batch_members")
-      .select("batch_id, user_id");
+    const batchMembersData = batchMembersRes.data;
+    const studentProfiles = studentProfilesRes.data;
+    const trainersData = trainersRes.data;
 
     const batchStudentSet = new Map<string, Set<string>>();
     (batchMembersData || []).forEach((bm: any) => {
@@ -167,12 +185,6 @@ export class InstitutionPerformanceService {
       set.add(bm.user_id);
       batchStudentSet.set(bm.batch_id, set);
     });
-
-    // Also include profiles.batch_id mapping
-    const { data: studentProfiles } = await adminClient
-      .from("profiles")
-      .select("id, user_id, batch_id, college")
-      .eq("role", "student");
 
     const collegeStudentIds = new Set<string>();
     (studentProfiles || []).forEach((sp: any) => {
@@ -188,31 +200,16 @@ export class InstitutionPerformanceService {
       }
     });
 
-    // 3. Fetch trainer names
-    const { data: trainersData } = await adminClient
-      .from("profiles")
-      .select("id, first_name, last_name, email")
-      .eq("role", "trainer");
-
     const trainerMap = new Map<string, string>();
     (trainersData || []).forEach((t: any) => {
       const tName = `${t.first_name || ""} ${t.last_name || ""}`.trim() || t.email?.split("@")[0] || "Lead Trainer";
       trainerMap.set(t.id, tName);
     });
 
-    // 4. Try querying institution_batches table if it exists
     let mappedBatchIdsFromTable = new Set<string>();
-    try {
-      const { data: ibData } = await adminClient
-        .from("institution_batches")
-        .select("batch_id")
-        .eq("institution_id", institutionInfo.institutionId);
-
-      if (ibData && ibData.length > 0) {
-        ibData.forEach((r: any) => mappedBatchIdsFromTable.add(r.batch_id));
-      }
-    } catch {
-      // Table may not exist yet, fallback to college & code matching
+    const ibData = (ibRes as any)?.data;
+    if (ibData && ibData.length > 0) {
+      ibData.forEach((r: any) => mappedBatchIdsFromTable.add(r.batch_id));
     }
 
     // Filter batches strictly for this institution
@@ -900,13 +897,16 @@ export class InstitutionPerformanceService {
       };
     }
 
+    const batchResults = await Promise.all(
+      batches.map((b) => this.getBatchPerformance(b.id))
+    );
+
     let totalStudents = 0;
     const allPerfRows: StudentBatchPerformanceRow[] = [];
 
-    for (const b of batches) {
-      const { students } = await this.getBatchPerformance(b.id);
-      totalStudents += students.length;
-      allPerfRows.push(...students);
+    for (const res of batchResults) {
+      totalStudents += res.students.length;
+      allPerfRows.push(...res.students);
     }
 
     const studentsWithPerf = allPerfRows.filter((s) => s.overall !== null);

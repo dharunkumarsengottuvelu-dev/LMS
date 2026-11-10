@@ -95,14 +95,32 @@ export async function GET(request: NextRequest) {
     // Sort Main Modules by display_order
     authorizedTracks.sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0));
 
-    // 4. Calculate student progress for authorized tracks
+    // 4. Calculate student progress for authorized tracks (Parallelized)
     const studentFilter = `student_id.eq.${batchContext.profileId},student_id.eq.${batchContext.studentUserId},student_id.eq.${user.id}`;
 
-    const { data: submissions } = await adminClient
-      .from("coding_submissions")
-      .select("problem_id, status")
-      .or(studentFilter) as any;
+    const [submissionsRes, attemptsRes, practiceSubsRes] = await Promise.all([
+      adminClient
+        .from("coding_submissions")
+        .select("problem_id, status")
+        .or(studentFilter) as any,
+      adminClient
+        .from("assessment_attempts")
+        .select("id, assessment_id, status, score, total_marks, answers, created_at")
+        .or(studentFilter)
+        .order("created_at", { ascending: true }) as any,
+      (async () => {
+        try {
+          return await adminClient
+            .from("student_practice_submissions")
+            .select("module_id, status")
+            .or(studentFilter) as any;
+        } catch {
+          return { data: [], error: null };
+        }
+      })(),
+    ]);
 
+    const submissions = submissionsRes?.data;
     const completedProblemIds = new Set<string>();
     (submissions || []).forEach((sub: any) => {
       if (sub.status === "accepted" || sub.status === "passed") {
@@ -110,12 +128,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    const { data: attempts } = await adminClient
-      .from("assessment_attempts")
-      .select("id, assessment_id, status, score, total_marks, answers, created_at")
-      .or(studentFilter)
-      .order("created_at", { ascending: true }) as any;
-
+    const attempts = attemptsRes?.data;
     const moduleAttemptsMap = new Map<string, any[]>();
     (attempts || []).forEach((att: any) => {
       if (att.assessment_id) {
@@ -126,17 +139,12 @@ export async function GET(request: NextRequest) {
     });
 
     const practiceSubmissionsSet = new Set<string>();
-    try {
-      const { data: practiceSubs } = await adminClient
-        .from("student_practice_submissions")
-        .select("module_id, status")
-        .or(studentFilter) as any;
-      (practiceSubs || []).forEach((ps: any) => {
-        if (ps.status === "completed" || ps.status === "passed") {
-          practiceSubmissionsSet.add(ps.module_id);
-        }
-      });
-    } catch {}
+    const practiceSubs = (practiceSubsRes as any)?.data;
+    (practiceSubs || []).forEach((ps: any) => {
+      if (ps.status === "completed" || ps.status === "passed") {
+        practiceSubmissionsSet.add(ps.module_id);
+      }
+    });
 
     // 5. Structure the dynamic 3-level hierarchy: Main Module -> Submodule -> Module
     const mappedTracks = authorizedTracks.map((track: any) => {
