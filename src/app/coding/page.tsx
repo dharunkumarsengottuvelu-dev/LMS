@@ -115,9 +115,15 @@ function CodingDashboardContent() {
       }
     };
 
+    let lastFocusRefresh = Date.now();
     refreshData();
-    window.addEventListener("focus", refreshData);
-    return () => window.removeEventListener("focus", refreshData);
+    const handleFocus = () => {
+      if (Date.now() - lastFocusRefresh < 60000) return;
+      lastFocusRefresh = Date.now();
+      refreshData();
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
   const stats = useMemo(() => {

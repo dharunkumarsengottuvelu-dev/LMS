@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,20 +9,36 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CodingProblemCreator } from "@/components/admin/coding-problem-creator";
 import { PageHeader } from "@/components/layouts/page-header";
-import { BulkUploadModal } from "@/components/admin/bulk-upload";
 import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { CodingProblemsService } from "@/services/coding-problems.service";
 import { cn, formatCleanProblemTitle } from "@/lib/utils";
+
+const CodingProblemCreator = dynamic(
+  () => import("@/components/admin/coding-problem-creator").then((m) => m.CodingProblemCreator),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="p-8 text-center text-sm font-semibold text-slate-500 animate-pulse">
+        Loading coding problem editor...
+      </div>
+    ),
+  }
+);
+
+const BulkUploadModal = dynamic(
+  () => import("@/components/admin/bulk-upload").then((m) => m.BulkUploadModal),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 import {
   calculateEqualWeights,
   calculateQuestionWeightsSum,
   validateModuleMarks,
   getQuestionWeight,
-  calculateSubmoduleTotalMarks,
-  calculateMainModuleTotalMarks,
 } from "@/lib/practice-progress";
 import { parseCsv } from "@/lib/excel-security";
 import { 
@@ -547,7 +564,12 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
       )
       .subscribe();
 
-    const handleFocus = () => fetchData();
+    let lastFocusFetch = Date.now();
+    const handleFocus = () => {
+      if (Date.now() - lastFocusFetch < 60000) return;
+      lastFocusFetch = Date.now();
+      fetchData();
+    };
     window.addEventListener("focus", handleFocus);
 
     return () => {
@@ -2782,7 +2804,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                   0
                 );
                 const isActive = m.status === "active";
-                const totalMarks = calculateMainModuleTotalMarks(m);
 
                 return (
                   <Card
@@ -2840,9 +2861,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                         </span>
                         <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
                           <strong className="text-slate-900 dark:text-white">{totalModCount}</strong> Modules
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
-                          Total Marks: <strong className="text-slate-900 dark:text-white">{totalMarks}</strong>
                         </span>
                         <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
                           Batch: <strong className="text-slate-900 dark:text-white">{m.isCommon ? "All Batches" : `${m.assignedBatches?.length || 0} Assigned`}</strong>
@@ -2969,7 +2987,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
               {currentMainModule.submodules.map((sm) => {
                 const modCount = sm.modules?.length || 0;
                 const isActive = sm.status === "active";
-                const totalMarks = calculateSubmoduleTotalMarks(sm);
 
                 return (
                   <Card
@@ -3024,9 +3041,6 @@ export function PracticesHub({ role = "admin" }: { role?: "admin" | "trainer" })
                       <div className="flex items-center gap-2.5 flex-wrap text-[11px] text-slate-600 dark:text-zinc-400 pt-0.5">
                         <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
                           Modules: <strong className="text-slate-900 dark:text-white">{modCount}</strong>
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800/80 font-medium text-slate-700 dark:text-zinc-300">
-                          Total Marks: <strong className="text-slate-900 dark:text-white">{totalMarks}</strong>
                         </span>
                       </div>
                     </div>
