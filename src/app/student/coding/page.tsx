@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronLeft, ChevronRight, Flag, CheckCircle2, XCircle, Code2,
   Loader2, Server, RefreshCw, Clock, BarChart2, X, PanelRightOpen, PanelRightClose
@@ -8,7 +9,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CodeEditor } from "@/components/coding/code-editor";
+import dynamic from "next/dynamic";
+
+const CodeEditor = dynamic(
+  () => import("@/components/coding/code-editor").then((m) => m.CodeEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-white dark:bg-[#18181B] text-slate-500 gap-3">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+        <span className="text-xs font-medium">Loading Code Studio...</span>
+      </div>
+    ),
+  }
+);
 import { StudentTopNav } from "@/components/layouts/student-top-nav";
 import { useToast } from "@/hooks/use-toast";
 import { getErrorMessage } from "@/lib/utils";
@@ -23,6 +37,7 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 };
 
 export default function StudentCodingIDEPage() {
+  const router = useRouter();
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answeredIds, setAnsweredIds] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,7 +56,7 @@ export default function StudentCodingIDEPage() {
     const params = new URLSearchParams(window.location.search);
     const trackId = params.get("track");
     if (!trackId) {
-      window.location.replace("/coding");
+      router.replace("/coding");
       return;
     }
 

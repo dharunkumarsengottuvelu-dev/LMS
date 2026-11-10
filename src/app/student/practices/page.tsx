@@ -48,6 +48,7 @@ export default function StudentPracticesPage() {
       }
     }
 
+    let lastFetchTime = Date.now();
     loadTracks();
 
     // Supabase Realtime subscription for live track updates from database
@@ -58,12 +59,18 @@ export default function StudentPracticesPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "practice_tracks" },
         () => {
+          lastFetchTime = Date.now();
           loadTracks();
         }
       )
       .subscribe();
 
-    const handleFocus = () => loadTracks();
+    // Throttle window focus refetch: at most once every 60 seconds
+    const handleFocus = () => {
+      if (Date.now() - lastFetchTime < 60000) return;
+      lastFetchTime = Date.now();
+      loadTracks();
+    };
     window.addEventListener("focus", handleFocus);
     return () => {
       supabase.removeChannel(channel);
@@ -107,12 +114,24 @@ export default function StudentPracticesPage() {
       {/* ─── MAIN MODULES LIST ─────────────────────────────────────────── */}
       <div className="space-y-4">
         {isLoading ? (
-          <Loading
-            fullScreen
-            text="Loading practice modules..."
-            subtext="Please wait while we prepare your challenges."
-            size="lg"
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Card key={i} className="bg-white dark:bg-[#18181B] border border-slate-200/90 dark:border-zinc-800 rounded-xl p-5 space-y-4 animate-pulse">
+                <div className="flex items-center justify-between">
+                  <div className="h-4 w-24 bg-slate-200 dark:bg-zinc-800 rounded" />
+                  <div className="h-4 w-16 bg-slate-200 dark:bg-zinc-800 rounded-full" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-5 w-3/4 bg-slate-200 dark:bg-zinc-800 rounded" />
+                  <div className="h-3.5 w-full bg-slate-100 dark:bg-zinc-800/60 rounded" />
+                </div>
+                <div className="pt-2 border-t border-slate-100 dark:border-zinc-800/80 flex items-center justify-between">
+                  <div className="h-3.5 w-24 bg-slate-200 dark:bg-zinc-800 rounded" />
+                  <div className="h-8 w-24 bg-slate-200 dark:bg-zinc-800 rounded-lg" />
+                </div>
+              </Card>
+            ))}
+          </div>
         ) : filteredTracks.length === 0 ? (
           <Card className="bg-white dark:bg-[#18181B] border border-slate-200/80 dark:border-zinc-800 p-12 text-center rounded-xl shadow-2xs">
             <div className="max-w-md mx-auto space-y-2">

@@ -63,8 +63,19 @@ import {
   extractSampleTestCases,
   extractHiddenTestCases,
 } from "@/lib/compiler/comparator";
-import { EditorialViewer } from "@/components/coding/editorial-viewer";
 import { COMPILER_SUPPORTED_LANGUAGE_IDS, getLanguageDisplayName } from "@/lib/compiler/coding-language-mode";
+
+const EditorialViewer = dynamic(
+  () => import("@/components/coding/editorial-viewer").then((m) => m.EditorialViewer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="p-8 text-center text-xs text-slate-500 animate-pulse">
+        Loading editorial...
+      </div>
+    ),
+  }
+);
 
 // Lazy load Monaco editor in Pure Light ("vs") theme
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {

@@ -20,7 +20,20 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { CodeEditor } from "@/components/coding/code-editor";
+import dynamic from "next/dynamic";
+
+const CodeEditor = dynamic(
+  () => import("@/components/coding/code-editor").then((m) => m.CodeEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-white dark:bg-[#18181B] text-slate-500 gap-3">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+        <span className="text-xs font-medium">Loading Code Studio...</span>
+      </div>
+    ),
+  }
+);
 import { formatSourceCode } from "@/lib/compiler/code-formatter";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -1141,9 +1154,7 @@ export function PracticeRunnerEngine({
               variant="outline"
               size="sm"
               onClick={() => {
-                if (typeof window !== "undefined") {
-                  window.location.href = isAssessment ? "/student/assessments" : "/student/practices";
-                }
+                router.push(isAssessment ? "/student/assessments" : "/student/practices");
               }}
               className="text-xs font-semibold rounded-xl"
             >

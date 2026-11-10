@@ -224,12 +224,29 @@ export default function StudentTrackDetailPage() {
 
   if (loading && !track) {
     return (
-      <Loading
-        text="Loading practice track..."
-        subtext="Please wait while we prepare your modules."
-        fullScreen
-        size="lg"
-      />
+      <div className="w-full space-y-6 pb-12 font-sans animate-pulse">
+        <div className="h-9 w-40 bg-slate-200 dark:bg-zinc-800 rounded-lg" />
+        <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/90 dark:border-zinc-800 p-6 space-y-4">
+          <div className="h-4 w-24 bg-slate-200 dark:bg-zinc-800 rounded" />
+          <div className="h-8 w-64 bg-slate-200 dark:bg-zinc-800 rounded" />
+          <div className="h-4 w-96 bg-slate-100 dark:bg-zinc-800/60 rounded" />
+          <div className="flex gap-4 pt-2">
+            <div className="h-5 w-28 bg-slate-200 dark:bg-zinc-800 rounded" />
+            <div className="h-5 w-28 bg-slate-200 dark:bg-zinc-800 rounded" />
+          </div>
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/90 dark:border-zinc-800 p-5 space-y-3">
+              <div className="flex justify-between items-center">
+                <div className="h-6 w-48 bg-slate-200 dark:bg-zinc-800 rounded" />
+                <div className="h-6 w-20 bg-slate-200 dark:bg-zinc-800 rounded" />
+              </div>
+              <div className="h-4 w-full bg-slate-100 dark:bg-zinc-800/60 rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
     );
   }
 
