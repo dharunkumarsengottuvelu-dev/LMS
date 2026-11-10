@@ -103,42 +103,33 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
     setIsMounted(true);
     async function loadData() {
       try {
-        const [cRes, pRes, aRes, lRes, cdRes, sRes] = await Promise.all([
-          fetch("/api/student/courses"),
-          fetch("/api/student/practices"),
-          fetch("/api/student/tests"),
-          fetch("/api/student/live-classes"),
-          fetch("/api/admin/coding").catch(() => null),
+        // Fast path: Only fetch live session status and submission state if datasets were already hydrated by SSR.
+        // Fall back to fetching missing sets only if initial SSR arrays were empty.
+        const tasks: Promise<any>[] = [
+          fetch("/api/student/live-classes").catch(() => null),
           fetch("/api/code/submissions").catch(() => null),
-        ]);
-        if (cRes.ok) {
-          const cData = await cRes.json();
-          if (Array.isArray(cData.courses)) setStoreCourses(cData.courses);
-        }
-        if (pRes.ok) {
-          const pData = await pRes.json();
-          if (Array.isArray(pData.tracks)) setStoreTracks(pData.tracks);
-        }
-        if (aRes.ok) {
-          const aData = await aRes.json();
-          if (Array.isArray(aData.tests)) setStoreAssessments(aData.tests);
-        }
-        if (lRes.ok) {
+        ];
+
+        const needCourses = storeCourses.length === 0;
+        const needTracks = storeTracks.length === 0;
+        const needTests = storeAssessments.length === 0;
+        const needCoding = codingProblems.length === 0;
+
+        if (needCourses) tasks.push(fetch("/api/student/courses").catch(() => null));
+        if (needTracks) tasks.push(fetch("/api/student/practices").catch(() => null));
+        if (needTests) tasks.push(fetch("/api/student/tests").catch(() => null));
+        if (needCoding) tasks.push(fetch("/api/admin/coding").catch(() => null));
+
+        const results = await Promise.all(tasks);
+        const lRes = results[0];
+        const sRes = results[1];
+
+        if (lRes && lRes.ok) {
           const lData = await lRes.json();
           if (Array.isArray(lData.liveNow)) setLiveNowClasses(lData.liveNow);
           if (lData.stats) setLiveStats(lData.stats);
         }
-        if (cdRes && cdRes.ok) {
-          const cdData = await cdRes.json();
-          if (Array.isArray(cdData.problems)) {
-            const sorted = [...cdData.problems].sort((a: any, b: any) => {
-              const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
-              const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
-              return tB - tA;
-            });
-            setCodingProblems(sorted);
-          }
-        }
+
         if (sRes && sRes.ok) {
           const sData = await sRes.json();
           if (Array.isArray(sData.submissions)) {
@@ -150,6 +141,43 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
               }
             });
             setSolvedProblemIds(solved);
+          }
+        }
+
+        let nextIdx = 2;
+        if (needCourses) {
+          const cRes = results[nextIdx++];
+          if (cRes && cRes.ok) {
+            const cData = await cRes.json();
+            if (Array.isArray(cData.courses)) setStoreCourses(cData.courses);
+          }
+        }
+        if (needTracks) {
+          const pRes = results[nextIdx++];
+          if (pRes && pRes.ok) {
+            const pData = await pRes.json();
+            if (Array.isArray(pData.tracks)) setStoreTracks(pData.tracks);
+          }
+        }
+        if (needTests) {
+          const aRes = results[nextIdx++];
+          if (aRes && aRes.ok) {
+            const aData = await aRes.json();
+            if (Array.isArray(aData.tests)) setStoreAssessments(aData.tests);
+          }
+        }
+        if (needCoding) {
+          const cdRes = results[nextIdx++];
+          if (cdRes && cdRes.ok) {
+            const cdData = await cdRes.json();
+            if (Array.isArray(cdData.problems)) {
+              const sorted = [...cdData.problems].sort((a: any, b: any) => {
+                const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return tB - tA;
+              });
+              setCodingProblems(sorted);
+            }
           }
         }
       } catch (err) {

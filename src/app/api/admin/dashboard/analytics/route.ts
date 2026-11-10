@@ -12,10 +12,17 @@ export async function GET(request: NextRequest) {
     }
 
     const analytics = await DashboardAnalyticsService.getAnalytics();
-    return NextResponse.json({
-      success: true,
-      data: analytics,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: analytics,
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("Dashboard Analytics API error:", error);
     return NextResponse.json(

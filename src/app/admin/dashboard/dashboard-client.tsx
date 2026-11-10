@@ -1,15 +1,38 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell
-} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { DashboardAnalyticsPayload } from "@/services/dashboard-analytics.service";
+
+const ChartSkeleton = ({ height = 260 }: { height?: number }) => (
+  <div style={{ height }} className="w-full flex items-center justify-center bg-muted/20 animate-pulse rounded-lg text-xs text-muted-foreground">
+    Loading telemetry chart...
+  </div>
+);
+
+const EnrollmentTrendChart = dynamic(
+  () => import("@/components/admin/dashboard-charts").then((m) => m.EnrollmentTrendChart),
+  { ssr: false, loading: () => <ChartSkeleton height={260} /> }
+);
+
+const ResourceDistributionChart = dynamic(
+  () => import("@/components/admin/dashboard-charts").then((m) => m.ResourceDistributionChart),
+  { ssr: false, loading: () => <ChartSkeleton height={180} /> }
+);
+
+const SevenDayActivityChart = dynamic(
+  () => import("@/components/admin/dashboard-charts").then((m) => m.SevenDayActivityChart),
+  { ssr: false, loading: () => <ChartSkeleton height={260} /> }
+);
+
+const ProgressTrendChart = dynamic(
+  () => import("@/components/admin/dashboard-charts").then((m) => m.ProgressTrendChart),
+  { ssr: false, loading: () => <ChartSkeleton height={170} /> }
+);
 
 interface DashboardData {
   stats: {
@@ -184,35 +207,7 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
             </Badge>
           </CardHeader>
           <CardContent className="p-6 pt-4">
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorEnrollments" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-                <XAxis dataKey="day" tick={{ fontSize: 12, fill: "#6B7280" }} tickLine={false} axisLine={{ stroke: "#E5E7EB" }} />
-                <YAxis tick={{ fontSize: 12, fill: "#6B7280" }} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: "#FFFFFF",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05)",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="enrollments"
-                  stroke="#2563EB"
-                  strokeWidth={2}
-                  fill="url(#colorEnrollments)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <EnrollmentTrendChart trendData={trendData} />
           </CardContent>
         </Card>
 
@@ -228,31 +223,7 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
             </Badge>
           </CardHeader>
           <CardContent className="p-6 pt-0 flex-1 flex flex-col justify-center">
-            <ResponsiveContainer width="100%" height={180}>
-              <PieChart>
-                <Pie
-                  data={statDistributionData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {statDistributionData.map((_, index) => (
-                    <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "#FFFFFF",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <ResourceDistributionChart data={statDistributionData} colors={PIE_COLORS} />
             <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-border">
               {statDistributionData.map((item, i) => (
                 <div key={item.name} className="flex items-center gap-2 text-xs">
@@ -464,53 +435,7 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
           </CardHeader>
 
           <CardContent className="p-6 pt-2">
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart
-                data={activity?.sevenDayActivity ?? []}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="colorActivity" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-                <XAxis
-                  dataKey="day"
-                  tick={{ fontSize: 12, fill: "#6B7280" }}
-                  tickLine={false}
-                  axisLine={{ stroke: "#E5E7EB" }}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tick={{ fontSize: 12, fill: "#6B7280" }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "#FFFFFF",
-                    border: "1px solid #E5E7EB",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.05)",
-                  }}
-                  formatter={(val: any) => [val, selectedChartMetric === "activeStudents" ? "Active Students" : selectedChartMetric === "codingSubmissions" ? "Coding Submissions" : selectedChartMetric === "testAttempts" ? "Test Attempts" : "Lessons Completed"]}
-                  labelFormatter={(label, payload) => {
-                    const item = payload?.[0]?.payload;
-                    return item?.date ? `${label} (${item.date})` : label;
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey={selectedChartMetric}
-                  stroke="#2563EB"
-                  strokeWidth={2.5}
-                  fill="url(#colorActivity)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <SevenDayActivityChart data={activity?.sevenDayActivity ?? []} selectedMetric={selectedChartMetric} />
 
             {/* Quick 7-Day Stats Footer */}
             <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground font-mono">
@@ -820,32 +745,7 @@ export function AdminDashboardClient({ data }: { data: DashboardData }) {
                 </Badge>
               </CardHeader>
               <CardContent className="p-5 pt-2">
-                <ResponsiveContainer width="100%" height={170}>
-                  <AreaChart
-                    data={engagement?.sevenDayProgressTrend ?? []}
-                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                  >
-                    <defs>
-                      <linearGradient id="colorProgress" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-                    <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#6B7280" }} tickLine={false} axisLine={{ stroke: "#E5E7EB" }} />
-                    <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} tickLine={false} axisLine={false} />
-                    <Tooltip
-                      contentStyle={{
-                        background: "#FFFFFF",
-                        border: "1px solid #E5E7EB",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                      }}
-                      formatter={(val: any) => [`${val}%`, "Avg Progress"]}
-                    />
-                    <Area type="monotone" dataKey="avgProgress" stroke="#10B981" strokeWidth={2} fill="url(#colorProgress)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <ProgressTrendChart data={engagement?.sevenDayProgressTrend ?? []} />
               </CardContent>
             </Card>
           </div>
