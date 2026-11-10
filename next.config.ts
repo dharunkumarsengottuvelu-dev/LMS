@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   // Enable React strict mode for better dev experience
   reactStrictMode: true,
 
+  // Enable HTTP response compression (gzip/brotli)
+  compress: true,
+
   // Standalone output — required for Docker deployment
   // Disable it on Vercel to fix the build error
   output: process.env.VERCEL ? undefined : "standalone",
@@ -109,6 +112,15 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        source: "/(images|icons|fonts)/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
+      },
     ];
   },
 
@@ -123,7 +135,9 @@ const nextConfig: NextConfig = {
       "@radix-ui/react-select",
       "@radix-ui/react-avatar",
       "@radix-ui/react-slot",
-      "@radix-ui/react-tooltip"
+      "@radix-ui/react-tooltip",
+      "@radix-ui/react-dropdown-menu",
+      "date-fns",
     ],
   },
 

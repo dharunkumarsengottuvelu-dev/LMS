@@ -63,7 +63,22 @@ export const viewport: Viewport = {
   ],
 };
 
+import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { GlobalErrorListener } from "@/components/providers/global-error-listener";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-sans-next",
+  display: "swap",
+});
+
+const jetBrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-mono-next",
+  display: "swap",
+});
 
 export default function RootLayout({
   children,
@@ -71,19 +86,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
+      className={`${plusJakartaSans.variable} ${jetBrainsMono.variable}`}
+    >
+      <head />
       <body className="font-sans antialiased">
         <GlobalErrorListener />
         <ThemeProvider
