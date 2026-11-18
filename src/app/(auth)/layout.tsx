@@ -38,7 +38,7 @@ export default function AuthLayout({
         {/* Top Brand Mark (Left-Aligned Grid) */}
         <div className="relative z-10">
           <SensilearnLogo
-            size="lg"
+            size="md"
             variant="full"
             color="white"
             tagline="SENSI Group"
