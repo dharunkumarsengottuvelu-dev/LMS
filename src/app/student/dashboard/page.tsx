@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { StudentDashboardClient } from "./dashboard-client";
 import { getStudentBatchAccess, isContentVisibleToStudent } from "@/lib/auth/batch-access";
 import { getTopicThumbnail } from "@/lib/utils";
+import { extractPracticeIds, isPracticeAssessment } from "@/lib/module-isolation";
 
 export const metadata: Metadata = { title: "Student Dashboard" };
 export const dynamic = "force-dynamic";
@@ -239,8 +240,86 @@ async function getStudentData() {
     })
     .slice(0, 6);
 
+  const practiceIdSet = extractPracticeIds(tracksData || []);
+
+  const authenticAssessments = (testsData || [])
+    .filter((a: any) => {
+      // Strict Module Isolation: Practice questions and modules must never appear in Assessments/Evaluations
+      if (isPracticeAssessment(a, practiceIdSet)) return false;
+      return true;
+    })
+    .map((a: any) => {
+      let meta: any = {};
+      if (a.tags && a.tags[0]) {
+        try { meta = JSON.parse(a.tags[0]); } catch {}
+      }
+
+      const rawAssignedBatches =
+        a.assigned_batches ||
+        meta.assignedBatches ||
+        meta.assigned_batches ||
+        (a.course_id ? [a.course_id] : []);
+
+      const assignedBatches = Array.isArray(rawAssignedBatches)
+        ? rawAssignedBatches
+        : rawAssignedBatches
+        ? [rawAssignedBatches]
+        : [];
+
+      const isCommon =
+        a.is_common === true ||
+        meta.isCommon === true ||
+        String(a.is_common) === "true" ||
+        String(meta.isCommon) === "true" ||
+        assignedBatches.length === 0 ||
+        assignedBatches.includes("Common (All Batches)") ||
+        assignedBatches.includes("all") ||
+        assignedBatches.includes("common");
+
+      const isVisible = isCommon || isContentVisibleToStudent(
+        {
+          is_common: isCommon,
+          assigned_batches: assignedBatches,
+          assigned_students: meta.assignedStudents || [],
+        },
+        batchContext
+      );
+
+      if (!isVisible) return null;
+
+      let scheduledDisplay = "Available Now";
+      if (meta.scheduleMode === "open" || (!meta.date && !meta.startDate && !a.scheduled_at && !a.available_from)) {
+        scheduledDisplay = "Open Window (On-Demand)";
+      } else if (meta.scheduleMode === "window" && (meta.startDate || meta.endDate)) {
+        scheduledDisplay = `Window: ${meta.startDate || "Any"} to ${meta.endDate || "Open"}`;
+      } else if (meta.date) {
+        scheduledDisplay = `${meta.date}${meta.startTime ? ` • ${meta.startTime}` : ""}`;
+      } else if (a.scheduled_at || a.available_from) {
+        scheduledDisplay = new Date(a.scheduled_at || a.available_from).toLocaleString();
+      }
+
+      const isLive = (a.status === "active" || meta.status === "live" || meta.scheduleMode === "open") && a.status !== "draft";
+
+      return {
+        id: a.id,
+        title: a.title,
+        type: a.type === "coding" ? "Coding Assessment" : "Proctored Exam",
+        duration: a.duration_minutes || a.duration || meta.duration || 60,
+        scheduledAt: scheduledDisplay,
+        status: isLive ? "live" : "upcoming",
+        is_common: isCommon,
+        assigned_batches: assignedBatches,
+        proctoring: {
+          enabled: Boolean(
+            meta.secWebcam || meta.secFullscreen || meta.secTabSwitch || meta.secCopyPaste
+          ),
+        },
+      };
+    })
+    .filter(Boolean);
+
   console.log(
-    `[Dashboard] dashboard data resolved: ${rawCourses.length} courses, ${rawTracks.length} tracks, ${testsData.length} tests, ${notificationsData.length} notifications, ${filteredCoding.length} coding problems`
+    `[Dashboard] dashboard data resolved: ${rawCourses.length} courses, ${rawTracks.length} tracks, ${authenticAssessments.length} authentic tests, ${notificationsData.length} notifications, ${filteredCoding.length} coding problems`
   );
   console.log("[Dashboard] initialization completed");
 
@@ -250,8 +329,8 @@ async function getStudentData() {
     initialTracks: rawTracks,
     initialCodingProblems: filteredCoding,
     enrollments: rawCourses as any,
-    assessments: (testsData || []) as any,
-    tests: (testsData || []) as any,
+    assessments: (authenticAssessments || []) as any,
+    tests: (authenticAssessments || []) as any,
     assignments: [],
     notifications: (notificationsData || []) as any,
     certificates: [],

@@ -7,6 +7,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
+import {
+  ScrollReveal,
+  StaggerContainer,
+  ScrollCard,
+} from "@/components/ui/scroll-reveal";
 
 export default function PublicPricingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -15,11 +21,12 @@ export default function PublicPricingPage() {
       {/* Top Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-[#18181B]/80 backdrop-blur-md border-b border-[#E5E7EB] dark:border-[#27272A]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <span className="font-extrabold text-xl text-[#111827] dark:text-[#FAFAFA] tracking-tight">
-              SENSILEARN<span className="text-[#2563EB] font-black">.</span>
-            </span>
-          </Link>
+          <SensilearnLogo
+            size="md"
+            theme="auto"
+            href="/"
+            priority
+          />
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-[#4B5563] dark:text-[#A1A1AA]">
             <Link href="/" className="hover:text-[#111827] dark:hover:text-[#FAFAFA]">Home</Link>
             <Link href="/courses" className="hover:text-[#111827] dark:hover:text-[#FAFAFA]">Courses</Link>
@@ -44,10 +51,11 @@ export default function PublicPricingPage() {
               <SheetContent side="right" className="w-[300px] sm:w-[340px] bg-white dark:bg-[#18181B] border-slate-200 dark:border-zinc-800 p-6 flex flex-col justify-between">
                 <div className="space-y-6">
                   <SheetHeader className="text-left pb-4 border-b border-slate-100 dark:border-zinc-800">
-                    <SheetTitle className="text-base font-bold text-slate-900 dark:text-white">
-                      SENSILEARN<span className="text-[#2563EB]">.</span>
-                    </SheetTitle>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Learning Technologies</p>
+                    <SensilearnLogo
+                      size="sm"
+                      variant="mark"
+                      href="/"
+                    />
                   </SheetHeader>
 
                   <nav className="flex flex-col gap-3 text-sm font-semibold text-slate-700 dark:text-zinc-200">
@@ -74,7 +82,7 @@ export default function PublicPricingPage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-6 space-y-12">
-        <div className="text-center space-y-4 max-w-3xl mx-auto">
+        <ScrollReveal className="text-center space-y-4 max-w-3xl mx-auto">
           <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/30 font-bold px-3 py-1">
             TRANSPARENT ENTERPRISE PRICING
           </Badge>
@@ -84,12 +92,12 @@ export default function PublicPricingPage() {
           <p className="text-base text-[#6B7280] dark:text-[#A1A1AA]">
             Scale enterprise learning with automated proctoring, live coding judge, customized assessments, and dedicated account support.
           </p>
-        </div>
+        </ScrollReveal>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Starter Plan */}
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+          <ScrollCard index={0} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 shadow-sm flex flex-col justify-between">
             <div className="space-y-4">
               <span className="text-xs font-bold uppercase text-[#6B7280] tracking-wider">Starter Team</span>
               <div className="flex items-baseline gap-1">
@@ -111,10 +119,10 @@ export default function PublicPricingPage() {
                 </Button>
               </Link>
             </div>
-          </Card>
+          </ScrollCard>
 
           {/* Pro Enterprise Plan */}
-          <Card className="bg-[#2563EB]/5 dark:bg-[#18181B] border-2 border-[#2563EB] rounded-2xl p-6 shadow-lg relative flex flex-col justify-between">
+          <ScrollCard index={1} className="bg-[#2563EB]/5 dark:bg-[#18181B] border-2 border-[#2563EB] rounded-2xl p-6 shadow-lg relative flex flex-col justify-between">
             <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#2563EB] text-white text-[10px] uppercase font-bold px-3 py-0.5">
               MOST POPULAR
             </Badge>
@@ -140,10 +148,10 @@ export default function PublicPricingPage() {
                 </Button>
               </Link>
             </div>
-          </Card>
+          </ScrollCard>
 
           {/* Custom Plan */}
-          <Card className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+          <ScrollCard index={2} className="bg-white dark:bg-[#18181B] border border-[#E5E7EB] dark:border-[#27272A] rounded-2xl p-6 shadow-sm flex flex-col justify-between">
             <div className="space-y-4">
               <span className="text-xs font-bold uppercase text-[#6B7280] tracking-wider">Custom Enterprise</span>
               <div className="flex items-baseline gap-1">
@@ -163,9 +171,28 @@ export default function PublicPricingPage() {
                 </Button>
               </Link>
             </div>
-          </Card>
-        </div>
+          </ScrollCard>
+        </StaggerContainer>
       </div>
+
+      {/* ── Footer ── */}
+      <footer className="mt-20 py-10 px-6 border-t border-[#E5E7EB] dark:border-[#27272A] bg-white dark:bg-[#09090B]">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-[#6B7280] dark:text-[#A1A1AA]">
+          <SensilearnLogo
+            size="sm"
+            variant="mark"
+            href="/"
+          />
+          <p>© {new Date().getFullYear()} SensiLearn. All rights reserved.</p>
+          <div className="flex items-center gap-6">
+            <Link href="/" className="hover:text-[#111827] dark:hover:text-white transition-colors">Home</Link>
+            <Link href="/courses" className="hover:text-[#111827] dark:hover:text-white transition-colors">Courses</Link>
+            <Link href="/pricing" className="hover:text-[#111827] dark:hover:text-white transition-colors">Pricing</Link>
+            <Link href="/about" className="hover:text-[#111827] dark:hover:text-white transition-colors">About</Link>
+            <Link href="/login" className="hover:text-[#111827] dark:hover:text-white transition-colors">Sign In</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

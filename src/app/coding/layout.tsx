@@ -3,10 +3,7 @@ import { CodingLayoutWrapper } from "@/components/layouts/coding-layout-wrapper"
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
-  title: {
-    template: "SensiLearn | %s",
-    default: "SensiLearn | Coding",
-  },
+  title: "Coding",
   description: "Problem solving experience on SensiLearn",
 };
 

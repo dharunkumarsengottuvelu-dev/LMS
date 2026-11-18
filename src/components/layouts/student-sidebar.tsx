@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { getInitials } from "@/lib/utils";
 import { useStudentNotifications } from "@/lib/notifications";
 import { studentNavigation } from "@/config/navigation";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 
 export function StudentSidebar() {
   const pathname = usePathname();
@@ -32,13 +33,14 @@ export function StudentSidebar() {
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white dark:bg-[#18181B] border-r border-[#E5E7EB] dark:border-[#27272A]">
       {/* 72px Top Header */}
-      <div className="flex items-center gap-3 px-6 h-[72px] border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0">
-        <div>
-          <p className="font-extrabold text-xl text-[#111827] dark:text-[#FAFAFA] tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>
-            SENSILEARN<span className="text-[#2563EB] font-black">.</span>
-          </p>
-          <p className="text-xs text-[#6B7280] dark:text-[#A1A1AA]">Student Portal</p>
-        </div>
+      <div className="flex items-center px-6 h-[72px] border-b border-[#E5E7EB] dark:border-[#27272A] shrink-0">
+        <SensilearnLogo
+          size="md"
+          subtitle="Student Portal"
+          theme="auto"
+          href="/student/dashboard"
+          priority
+        />
       </div>
 
       {/* Navigation list */}

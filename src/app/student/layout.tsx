@@ -8,7 +8,7 @@ import { SessionTimeout } from "@/components/providers/session-timeout";
 import { getOriginalRequestPath } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: { template: "SensiLearn | %s", default: "SensiLearn | Student Dashboard" },
+  title: "Student Dashboard",
 };
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {

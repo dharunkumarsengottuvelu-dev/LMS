@@ -6,6 +6,13 @@ import { ArrowRight, CheckCircle2, Building2, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
+import {
+  ScrollReveal,
+  StaggerContainer,
+  StaggerItem,
+  ScrollCard,
+} from "@/components/ui/scroll-reveal";
 
 const team = [
   {
@@ -51,20 +58,12 @@ export default function AboutPage() {
       {/* ── Navbar ── */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-b border-border h-[72px]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary via-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-primary/25 group-hover:scale-105 transition-transform duration-200">
-              S
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg text-foreground tracking-tight">SENSILEARN</span>
-                <Badge variant="outline" className="hidden sm:inline-flex bg-primary/10 text-primary border-primary/20 text-[10px] font-extrabold px-2 py-0.5 tracking-wider">
-                  LEARNING TECHNOLOGIES
-                </Badge>
-              </div>
-              <span className="text-[10px] text-muted-foreground font-semibold hidden sm:block tracking-tight">Part of SENSI Group</span>
-            </div>
-          </Link>
+          <SensilearnLogo
+            size="md"
+            variant="mark"
+            href="/"
+            priority
+          />
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-muted-foreground">
             <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
@@ -91,10 +90,11 @@ export default function AboutPage() {
               <SheetContent side="right" className="w-[300px] sm:w-[340px] bg-background border-border p-6 flex flex-col justify-between">
                 <div className="space-y-6">
                   <SheetHeader className="text-left pb-4 border-b border-border">
-                    <SheetTitle className="text-base font-bold text-foreground">
-                      SENSILEARN<span className="text-primary font-black">.</span>
-                    </SheetTitle>
-                    <p className="text-xs text-muted-foreground font-medium">Learning Technologies</p>
+                    <SensilearnLogo
+                      size="sm"
+                      variant="mark"
+                      href="/"
+                    />
                   </SheetHeader>
 
                   <nav className="flex flex-col gap-3 text-sm font-semibold text-foreground">
@@ -122,9 +122,9 @@ export default function AboutPage() {
 
       {/* ── Hero ── */}
       <section className="pt-36 pb-20 px-4 sm:px-6 lg:px-8 text-center bg-gradient-to-b from-primary/10 via-background to-background border-b border-border">
-        <div className="max-w-4xl mx-auto space-y-6">
+        <ScrollReveal className="max-w-4xl mx-auto space-y-6">
           <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-bold tracking-widest px-3.5 py-1">
-            ABOUT SENSILEARN LEARNING TECHNOLOGIES
+            ABOUT SENSILEARN
           </Badge>
           <h1 className="text-4xl sm:text-6xl font-black leading-[1.1] tracking-tight text-foreground">
             Transforming Theory Into{" "}
@@ -133,23 +133,23 @@ export default function AboutPage() {
             </span>
           </h1>
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            SensiLearn is a next-generation learning and technology-driven training platform under <strong>SENSI Group of Companies</strong>, built to bridge academic education and real-world career readiness.
+            SensiLearn is a next-generation learning and technology-driven training platform, built to bridge academic education and real-world career readiness.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-xs font-semibold text-muted-foreground">
-            {["Outcome-Oriented", "Hands-On Practice", "Measurable Progress", "SENSI Group Company"].map((t) => (
+            {["Outcome-Oriented", "Hands-On Practice", "Measurable Progress", "Enterprise Standards"].map((t) => (
               <div key={t} className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 <span>{t}</span>
               </div>
             ))}
           </div>
-        </div>
+        </ScrollReveal>
       </section>
 
       {/* ── Leadership & Founder ── */}
       <section className="py-24 px-4 sm:px-6 lg:px-8 bg-card border-b border-border">
         <div className="max-w-6xl mx-auto space-y-16">
-          <div className="text-center space-y-3">
+          <ScrollReveal className="text-center space-y-3">
             <Badge className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 text-xs font-bold tracking-widest px-3 py-1">
               LEADERSHIP &amp; TEAM
             </Badge>
@@ -157,11 +157,11 @@ export default function AboutPage() {
             <p className="text-muted-foreground text-base max-w-xl mx-auto font-medium">
               Driven by a shared mission to empower learners and build future-ready talent.
             </p>
-          </div>
+          </ScrollReveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {team.map((member) => (
-              <div key={member.name} className="bg-background border border-border rounded-2xl p-7 space-y-5 hover:border-primary/40 hover:shadow-lg transition-all">
+          <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {team.map((member, idx) => (
+              <ScrollCard key={member.name} index={idx} className="bg-background border border-border rounded-2xl p-7 space-y-5 hover:border-primary/40 hover:shadow-lg transition-all">
                 <div className="flex items-center gap-4">
                   <div
                     className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-md"
@@ -189,26 +189,26 @@ export default function AboutPage() {
                     </span>
                   ))}
                 </div>
-              </div>
+              </ScrollCard>
             ))}
-          </div>
+          </StaggerContainer>
         </div>
       </section>
 
       {/* ── Commitments ── */}
       <section className="py-24 px-4 sm:px-6 lg:px-8 bg-background border-b border-border">
         <div className="max-w-6xl mx-auto space-y-14">
-          <div className="text-center space-y-3">
+          <ScrollReveal className="text-center space-y-3">
             <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-bold tracking-widest px-3 py-1">OUR COMMITMENT</Badge>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">Creating Meaningful Learning Experiences</h2>
             <p className="text-muted-foreground text-base max-w-xl mx-auto">
               Our core principles that define how every course, practice drill, and assessment is engineered.
             </p>
-          </div>
+          </ScrollReveal>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {falconCommitments.map((c) => (
-              <div key={c.name} className="p-6 rounded-2xl bg-card border border-border hover:border-primary/40 transition-all space-y-3">
+          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {falconCommitments.map((c, idx) => (
+              <ScrollCard key={c.name} index={idx} className="p-6 rounded-2xl bg-card border border-border hover:border-primary/40 transition-all space-y-3">
                 <div className="flex items-center gap-3">
                   <span className="w-9 h-9 rounded-xl bg-primary text-white font-black text-sm flex items-center justify-center shadow-sm">
                     {c.letter}
@@ -216,41 +216,40 @@ export default function AboutPage() {
                   <h3 className="text-lg font-bold text-foreground">{c.name}</h3>
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed">{c.desc}</p>
-              </div>
+              </ScrollCard>
             ))}
-          </div>
+          </StaggerContainer>
         </div>
       </section>
 
-      {/* ── SENSI Group Ecosystem Banner ── */}
+      {/* ── Learning Ecosystem Banner ── */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-indigo-900/10 via-primary/10 to-background border-b border-border">
-        <div className="max-w-4xl mx-auto text-center space-y-6">
+        <ScrollReveal className="max-w-4xl mx-auto text-center space-y-6">
           <div className="w-16 h-16 rounded-2xl bg-primary text-white flex items-center justify-center mx-auto shadow-md">
             <Building2 className="h-8 w-8" />
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
-            Part of SENSI Group of Companies
+            A Comprehensive Learning Ecosystem
           </h2>
           <p className="text-base text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-            SensiLearn Learning Technologies operates under the SENSI Group of Companies umbrella. Together, we are committed to shaping the future of technology, practical education, and continuous capability development across global industries.
+            SensiLearn brings learning, practice, coding, assessment, and performance analytics together to shape the future of practical education and career capability.
           </p>
           <div className="pt-2">
             <Button className="h-[48px] px-8 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl shadow-md" asChild>
-              <Link href="/login">Explore the Ecosystem <ArrowRight className="h-4 w-4 ml-2" /></Link>
+              <Link href="/login">Explore the Platform <ArrowRight className="h-4 w-4 ml-2" /></Link>
             </Button>
           </div>
-        </div>
+        </ScrollReveal>
       </section>
 
       {/* ── Footer ── */}
       <footer className="py-10 px-4 sm:px-6 lg:px-8 bg-card">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-muted-foreground">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-white font-black text-sm">S</div>
-            <span className="font-extrabold text-sm text-foreground">SensiLearn Learning Technologies</span>
-            <span className="text-muted-foreground">• SENSI Group</span>
+            <SensilearnLogo size="xs" variant="mark" href="/" />
+            <span className="font-extrabold text-sm text-foreground">SensiLearn</span>
           </div>
-          <p>© {new Date().getFullYear()} SensiLearn Learning Technologies. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} SensiLearn. All rights reserved.</p>
           <div className="flex items-center gap-6 font-semibold">
             <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
             <Link href="/courses" className="hover:text-foreground transition-colors">Courses</Link>

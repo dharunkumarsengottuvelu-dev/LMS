@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { normalizeError } from "@/lib/utils";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 
 export default function ErrorBoundary({
   error,
@@ -19,6 +20,7 @@ export default function ErrorBoundary({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
+      <SensilearnLogo size="md" href="/" className="mb-6" />
       <div className="p-4 rounded-full bg-red-500/10 text-red-500 mb-4">
         <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path

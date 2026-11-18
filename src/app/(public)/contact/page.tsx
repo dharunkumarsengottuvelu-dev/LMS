@@ -25,7 +25,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 import { useToast } from "@/hooks/use-toast";
+import {
+  ScrollReveal,
+  StaggerContainer,
+  ScrollCard,
+} from "@/components/ui/scroll-reveal";
 
 function InstagramIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -86,19 +92,12 @@ export default function PublicContactPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
           
           {/* Brand Mark */}
-          <Link href="/" className="flex items-center group">
-            <div className="flex flex-col">
-              <span className="font-extrabold text-xl text-slate-900 tracking-tight leading-none">
-                SENSILEARN<span className="text-[#2563EB]">.</span>
-              </span>
-              <span className="text-[10px] text-slate-500 font-medium tracking-tight mt-1 leading-none">
-                Learning Technologies
-              </span>
-              <span className="text-[6.5px] text-slate-400/80 font-medium tracking-wider uppercase mt-0.5 leading-none">
-                SENSI Group
-              </span>
-            </div>
-          </Link>
+          <SensilearnLogo
+            size="md"
+            variant="mark"
+            href="/"
+            priority
+          />
 
           {/* Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold text-slate-600">
@@ -128,11 +127,11 @@ export default function PublicContactPage() {
               <SheetContent side="right" className="w-[300px] sm:w-[340px] bg-white border-slate-200 p-6 flex flex-col justify-between">
                 <div className="space-y-6">
                   <SheetHeader className="text-left pb-4 border-b border-slate-100">
-                    <SheetTitle className="text-base font-bold text-slate-900">
-                      SENSILEARN<span className="text-[#2563EB]">.</span>
-                    </SheetTitle>
-                    <p className="text-xs text-slate-500 font-medium">Learning Technologies</p>
-                    <p className="text-[6.5px] text-slate-400/80 font-medium tracking-wider uppercase">SENSI Group</p>
+                    <SensilearnLogo
+                      size="sm"
+                      variant="mark"
+                      href="/"
+                    />
                   </SheetHeader>
 
                   <nav className="flex flex-col gap-3 text-sm font-semibold text-slate-700">
@@ -167,7 +166,7 @@ export default function PublicContactPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           
           {/* Header Banner */}
-          <div className="text-center space-y-4 max-w-2xl mx-auto">
+          <ScrollReveal className="text-center space-y-4 max-w-2xl mx-auto">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200/80 text-[11px] font-bold text-[#2563EB] tracking-wider uppercase">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Enterprise Support &amp; Sales</span>
@@ -180,57 +179,61 @@ export default function PublicContactPage() {
             <p className="text-sm sm:text-base text-slate-500 font-medium leading-relaxed">
               Have questions about enterprise deployment, proctoring features, custom learning programs, or institutional onboarding? We&apos;re here to help.
             </p>
-          </div>
+          </ScrollReveal>
 
           {/* Luxury Quick Connect Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 max-w-2xl mx-auto">
+          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 max-w-2xl mx-auto">
             {/* Direct Email Card */}
-            <a
-              href="https://mail.google.com/mail/?view=cm&fs=1&to=sensigroup.info@gmail.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Compose email to sensigroup.info@gmail.com in Gmail"
-              className="p-5 rounded-2xl border border-slate-200 bg-white hover:border-blue-400/80 hover:shadow-[0_8px_24px_-4px_rgba(37,99,235,0.12)] transition-all duration-200 flex items-center justify-between group cursor-pointer"
-            >
-              <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-12 h-12 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Mail className="h-6 w-6" />
+            <ScrollCard index={0}>
+              <a
+                href="https://mail.google.com/mail/?view=cm&fs=1&to=sensigroup.info@gmail.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Compose email to sensigroup.info@gmail.com in Gmail"
+                className="p-5 rounded-2xl border border-slate-200 bg-white hover:border-blue-400/80 hover:shadow-[0_8px_24px_-4px_rgba(37,99,235,0.12)] transition-all duration-200 flex items-center justify-between group cursor-pointer h-full"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Mail className="h-6 w-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Direct Email</p>
+                    <p className="text-xs sm:text-sm font-bold text-slate-900 truncate group-hover:text-[#2563EB] transition-colors mt-0.5 font-mono">
+                      sensigroup.info@gmail.com
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Direct Email</p>
-                  <p className="text-xs sm:text-sm font-bold text-slate-900 truncate group-hover:text-[#2563EB] transition-colors mt-0.5 font-mono">
-                    sensigroup.info@gmail.com
-                  </p>
-                </div>
-              </div>
-              <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-[#2563EB] transition-colors shrink-0 ml-2" />
-            </a>
+                <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-[#2563EB] transition-colors shrink-0 ml-2" />
+              </a>
+            </ScrollCard>
 
             {/* Instagram Card */}
-            <a
-              href="https://www.instagram.com/sensilearn?mdxt=M3RqeTUxMHpmeTF6"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Visit @sensilearn on Instagram"
-              className="p-5 rounded-2xl border border-slate-200 bg-white hover:border-pink-400/80 hover:shadow-[0_8px_24px_-4px_rgba(225,48,108,0.14)] transition-all duration-200 flex items-center justify-between group cursor-pointer"
-            >
-              <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-12 h-12 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <InstagramIcon className="h-6 w-6" />
+            <ScrollCard index={1}>
+              <a
+                href="https://www.instagram.com/sensilearn?mdxt=M3RqeTUxMHpmeTF6"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Visit @sensilearn on Instagram"
+                className="p-5 rounded-2xl border border-slate-200 bg-white hover:border-pink-400/80 hover:shadow-[0_8px_24px_-4px_rgba(225,48,108,0.14)] transition-all duration-200 flex items-center justify-between group cursor-pointer h-full"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-12 h-12 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <InstagramIcon className="h-6 w-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Instagram</p>
+                    <p className="text-xs sm:text-sm font-bold text-slate-900 truncate group-hover:text-pink-600 transition-colors mt-0.5">
+                      @sensilearn
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Instagram</p>
-                  <p className="text-xs sm:text-sm font-bold text-slate-900 truncate group-hover:text-pink-600 transition-colors mt-0.5">
-                    @sensilearn
-                  </p>
-                </div>
-              </div>
-              <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-pink-600 transition-colors shrink-0 ml-2" />
-            </a>
-          </div>
+                <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-pink-600 transition-colors shrink-0 ml-2" />
+              </a>
+            </ScrollCard>
+          </StaggerContainer>
 
           {/* Enterprise Form Card */}
-          <div className="max-w-2xl mx-auto">
+          <ScrollReveal delay={0.1} className="max-w-2xl mx-auto">
             <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-10 shadow-sm space-y-6">
               {submitted ? (
                 <div className="text-center py-12 space-y-4">
@@ -316,7 +319,7 @@ export default function PublicContactPage() {
                 </form>
               )}
             </div>
-          </div>
+          </ScrollReveal>
 
         </div>
       </main>
@@ -331,19 +334,16 @@ export default function PublicContactPage() {
             
             {/* Brand Column (2 cols) */}
             <div className="lg:col-span-2 space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-xl text-slate-900 tracking-tight">
-                  SENSILEARN<span className="text-[#2563EB]">.</span>
-                </span>
-              </div>
+              <SensilearnLogo
+                size="md"
+                variant="mark"
+                href="/"
+              />
               <p className="text-xs font-semibold text-slate-700">
-                SensiLearn Learning Technologies
+                SensiLearn
               </p>
               <p className="text-xs text-slate-500 max-w-sm leading-relaxed font-medium">
                 Learn • Build • Lead
-              </p>
-              <p className="text-xs text-[#2563EB] font-medium pt-1">
-                Part of SENSI Group of Companies
               </p>
 
               {/* Direct Contact & Social Links (Expanding Luxury Pill Buttons) */}
@@ -422,10 +422,10 @@ export default function PublicContactPage() {
 
           </div>
 
-          {/* Copyright & Leadership */}
+          {/* Copyright & Attribution */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-            <p>© {new Date().getFullYear()} SensiLearn Learning Technologies (SENSI Group). All rights reserved.</p>
-            <p className="font-medium text-slate-700">Founder &amp; CEO: Dharunkumar S</p>
+            <p>© {new Date().getFullYear()} SensiLearn. All rights reserved.</p>
+            <p className="font-medium text-slate-700">by SENSI GROUP LLP</p>
           </div>
 
         </div>

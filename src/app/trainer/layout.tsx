@@ -7,7 +7,7 @@ import type { Metadata } from "next";
 import { getOriginalRequestPath } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: { template: "SensiLearn | %s", default: "SensiLearn | Trainer Dashboard" },
+  title: "Trainer Dashboard",
 };
 
 export default async function TrainerLayout({ children }: { children: React.ReactNode }) {

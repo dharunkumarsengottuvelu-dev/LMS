@@ -7,10 +7,7 @@ import type { Metadata } from "next";
 import { getOriginalRequestPath } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: {
-    template: "SensiLearn | %s",
-    default: "SensiLearn | Institution Dashboard",
-  },
+  title: "Institution Dashboard",
   description: "Academic and learner performance portal for partner institutions.",
 };
 

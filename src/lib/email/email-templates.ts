@@ -73,7 +73,7 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
 
   const currentYear = new Date().getFullYear();
   const appOrigin = getAppOrigin();
-  const logoUrl = `${appOrigin}/apple-touch-icon.png`;
+  const logoUrl = `${appOrigin}/sensilearn-logo-mark.png`;
 
   // Render detail fields table
   const detailsHtml =
@@ -125,7 +125,7 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
     `--------------------------------------------------`,
     `Support: sensigroup.info@gmail.com | sensilearn.com`,
     `This is an automated notification from the Sensilearn LMS platform. Please do not reply directly to this email.`,
-    `© ${currentYear} Sensilearn Learning Technologies. All rights reserved.`,
+    `© ${currentYear} SensiLearn. All rights reserved.`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -187,14 +187,11 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
                 <table role="presentation" style="border-collapse: collapse;">
                   <tr>
                     <td style="padding-right: 12px; vertical-align: middle;">
-                      <img src="${logoUrl}" alt="Sensilearn Logo" width="32" height="32" style="display: block; border-radius: 6px; background-color: #132B5C;" onerror="this.style.display='none'" />
+                      <img src="${logoUrl}" alt="Sensilearn Logo" width="48" height="26" style="display: block; border: 0;" onerror="this.style.display='none'" />
                     </td>
                     <td style="vertical-align: middle;">
                       <div style="font-size: 18px; font-weight: 800; color: #FFFFFF; letter-spacing: -0.3px; line-height: 1.2;">
-                        SENSILEARN<span style="color: #2563EB;">.</span>
-                      </div>
-                      <div style="font-size: 11px; font-weight: 500; color: #94A3B8; letter-spacing: 0.2px; line-height: 1.2;">
-                        Learning Technologies
+                        SensiLearn
                       </div>
                     </td>
                   </tr>
@@ -281,7 +278,7 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
       <tr>
         <td style="padding: 24px 36px; background-color: #F8FAFC; border-top: 1px solid #E2E8F0; text-align: center;">
           <div style="font-size: 12px; font-weight: 700; color: #0A1F44; letter-spacing: 0.2px; margin-bottom: 4px;">
-            SENSILEARN LEARNING TECHNOLOGIES
+            SENSILEARN
           </div>
           <div style="font-size: 11px; color: #64748B; margin-bottom: 8px;">
             Learning &bull; Assessment &bull; Growth
@@ -293,7 +290,7 @@ export function buildMncEmailLayout(options: MasterEmailOptions): { subject: str
             This is an automated notification from the Sensilearn LMS platform. Please do not reply directly to this email.
           </p>
           <p style="margin: 0; font-size: 11px; color: #94A3B8;">
-            &copy; ${currentYear} Sensilearn Learning Technologies. All rights reserved.
+            &copy; ${currentYear} SensiLearn. All rights reserved.
           </p>
         </td>
       </tr>
@@ -1090,7 +1087,7 @@ export function generateStudentWelcomeEmail(options: {
     title: "Welcome to Sensilearn LMS",
     subject: "Welcome to Sensilearn LMS",
     preheader: "Your Sensilearn account has been created",
-    message: `Welcome to the Sensilearn Learning Technologies platform. Your student account is active and you have been provisioned access to your technical courses, practice labs, and coding environments.`,
+    message: `Welcome to the SensiLearn platform. Your student account is active and you have been provisioned access to your technical courses, practice labs, and coding environments.`,
     details: [
       { label: "Student Name", value: options.studentName },
       { label: "Registered Email", value: options.studentEmail },
@@ -1115,7 +1112,7 @@ export function generateTrainerWelcomeEmail(options: {
     title: "Welcome to Sensilearn – Trainer Account Created",
     subject: "Welcome to Sensilearn – Trainer Account Created",
     preheader: "Your faculty account is active",
-    message: `Welcome to Sensilearn Learning Technologies. Your trainer account has been provisioned with elevated academic management privileges to oversee batches, create assessments, and host live classes.`,
+    message: `Welcome to SensiLearn. Your trainer account has been provisioned with elevated academic management privileges to oversee batches, create assessments, and host live classes.`,
     details: [
       { label: "Trainer Name", value: options.trainerName },
       { label: "Work Email", value: options.trainerEmail },

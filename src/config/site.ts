@@ -19,7 +19,7 @@ export interface SiteConfig {
 
 export const siteConfig: SiteConfig = {
   name: process.env["NEXT_PUBLIC_APP_NAME"] || "SensiLearn LMS",
-  companyName: process.env["NEXT_PUBLIC_COMPANY_NAME"] || "SensiLearn Learning Technologies",
+  companyName: process.env["NEXT_PUBLIC_COMPANY_NAME"] || "SensiLearn",
   description:
     process.env["NEXT_PUBLIC_APP_DESCRIPTION"] ||
     "Enterprise Learning Platform — Focused. Adaptive. Curated. Next-Gen.",

@@ -978,3 +978,90 @@ p, span, div {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* ============================================================
+   WORLD-CLASS ENTERPRISE SCROLL ANIMATION SYSTEM
+   Inspired by Linear, Apple, Stripe & Microsoft
+   - Opacity: 0 -> 1
+   - TranslateY: 16px -> 0
+   - Duration: 550ms
+   - Easing: cubic-bezier(0.22, 1, 0.36, 1)
+   - Stagger Step: 60ms
+   ============================================================ */
+
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes enterpriseReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes enterpriseFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes enterpriseScaleIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.98) translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.enterprise-scroll-reveal {
+  animation: enterpriseReveal 550ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.enterprise-fade-in {
+  animation: enterpriseFadeIn 550ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: opacity;
+}
+
+.enterprise-scale-in {
+  animation: enterpriseScaleIn 550ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* 60ms Stagger Sequence System */
+.enterprise-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.enterprise-stagger > *:nth-child(2) { animation-delay: 60ms; }
+.enterprise-stagger > *:nth-child(3) { animation-delay: 120ms; }
+.enterprise-stagger > *:nth-child(4) { animation-delay: 180ms; }
+.enterprise-stagger > *:nth-child(5) { animation-delay: 240ms; }
+.enterprise-stagger > *:nth-child(6) { animation-delay: 300ms; }
+.enterprise-stagger > *:nth-child(7) { animation-delay: 360ms; }
+.enterprise-stagger > *:nth-child(8) { animation-delay: 420ms; }
+.enterprise-stagger > *:nth-child(9) { animation-delay: 480ms; }
+.enterprise-stagger > *:nth-child(10) { animation-delay: 540ms; }
+
+/* Accessible Performance Mode (Reduced Motion) */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+  .enterprise-scroll-reveal,
+  .enterprise-fade-in,
+  .enterprise-scale-in,
+  .enterprise-stagger > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

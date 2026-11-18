@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Home, ArrowLeft } from "lucide-react";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 
 export default function NotFoundPage() {
   const router = useRouter();
@@ -18,7 +19,8 @@ export default function NotFoundPage() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-6">
-      <div className="text-center space-y-6 max-w-md">
+      <div className="text-center space-y-6 max-w-md flex flex-col items-center">
+        <SensilearnLogo size="md" href="/" priority />
         <div
           className="text-9xl font-black gradient-text"
           style={{ fontFamily: "Sora, sans-serif" }}

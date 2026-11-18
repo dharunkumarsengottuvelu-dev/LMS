@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: {
-    template: "SensiLearn | %s",
-    default: "SensiLearn | Code Playground",
-  },
+  title: "Code Playground",
 };
 
 export default function IDELayout({ children }: { children: React.ReactNode }) {

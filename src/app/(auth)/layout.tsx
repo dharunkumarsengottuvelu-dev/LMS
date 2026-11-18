@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 
 export const metadata: Metadata = {
-  title: {
-    default: "SensiLearn",
-    template: "SensiLearn | %s",
-  },
+  title: "Sign In",
 };
 
 export default function AuthLayout({
@@ -39,14 +37,15 @@ export default function AuthLayout({
 
         {/* Top Brand Mark (Left-Aligned Grid) */}
         <div className="relative z-10">
-          <Link href="/" className="inline-flex flex-col">
-            <span className="font-bold text-2xl tracking-tight text-white leading-none">
-              SENSILEARN<span className="text-[#2563EB]">.</span>
-            </span>
-            <span className="text-xs text-slate-400 font-normal tracking-wide mt-2">
-              Learning Technologies
-            </span>
-          </Link>
+          <SensilearnLogo
+            size="lg"
+            variant="full"
+            color="white"
+            tagline="SENSI Group"
+            theme="dark"
+            href="/"
+            priority
+          />
         </div>
 
         {/* Hero Narrative (Left-Aligned Grid, Single Axis) */}
@@ -65,7 +64,7 @@ export default function AuthLayout({
         {/* Bottom Status / Institutional Standard (Left-Aligned Grid) */}
         <div className="relative z-10 pt-6 border-t border-white/10 flex items-center justify-between text-xs text-slate-400 font-normal">
           <span>Enterprise Learning Platform</span>
-          <span className="text-slate-500">Institutional Edition</span>
+          <span className="text-blue-400 font-semibold tracking-wide">SENSI Group</span>
         </div>
       </div>
 
@@ -77,14 +76,14 @@ export default function AuthLayout({
         
         {/* Mobile Header */}
         <div className="lg:hidden w-full max-w-[420px] flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
-          <Link href="/" className="inline-flex flex-col">
-            <span className="font-bold text-xl tracking-tight text-slate-900 leading-none">
-              SENSILEARN<span className="text-[#2563EB]">.</span>
-            </span>
-            <span className="text-[10px] text-slate-500 font-normal mt-0.5">
-              Learning Technologies
-            </span>
-          </Link>
+          <SensilearnLogo
+            size="sm"
+            variant="full"
+            tagline="SENSI Group"
+            theme="light"
+            href="/"
+            priority
+          />
           <span className="text-xs text-slate-500 font-medium">Enterprise Access</span>
         </div>
 

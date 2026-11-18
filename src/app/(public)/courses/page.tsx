@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
+import {
+  ScrollReveal,
+  StaggerContainer,
+  ScrollCard,
+} from "@/components/ui/scroll-reveal";
 
 export default function PublicCoursesPage() {
   const [search, setSearch] = useState("");
@@ -53,13 +59,12 @@ export default function PublicCoursesPage() {
       {/* ── Navbar ── */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-[#E5E7EB] h-[68px]">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between gap-3">
-          <Link href="/" className="flex items-center gap-3 shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2563EB] to-indigo-600 flex items-center justify-center text-white font-black text-base shadow-md">
-              S
-            </div>
-            <span className="font-extrabold text-base text-[#111827] tracking-tight">SENSILEARN</span>
-            <span className="hidden sm:inline text-[10px] font-semibold text-[#6B7280] bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 rounded-full tracking-widest">LEARNING TECH</span>
-          </Link>
+          <SensilearnLogo
+            size="md"
+            variant="mark"
+            href="/"
+            priority
+          />
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[#6B7280]">
             <Link href="/" className="hover:text-[#111827] transition-colors">Home</Link>
@@ -86,10 +91,11 @@ export default function PublicCoursesPage() {
               <SheetContent side="right" className="w-[300px] sm:w-[340px] bg-white border-slate-200 p-6 flex flex-col justify-between">
                 <div className="space-y-6">
                   <SheetHeader className="text-left pb-4 border-b border-slate-100">
-                    <SheetTitle className="text-base font-bold text-slate-900">
-                      SENSILEARN<span className="text-[#2563EB]">.</span>
-                    </SheetTitle>
-                    <p className="text-xs text-slate-500 font-medium">Learning Technologies</p>
+                    <SensilearnLogo
+                      size="sm"
+                      variant="mark"
+                      href="/"
+                    />
                   </SheetHeader>
 
                   <nav className="flex flex-col gap-3 text-sm font-semibold text-slate-700">
@@ -117,7 +123,7 @@ export default function PublicCoursesPage() {
 
       {/* ── Hero ── */}
       <section className="pt-36 pb-16 px-6 text-center bg-gradient-to-b from-[#EFF6FF] to-white">
-        <div className="max-w-[1280px] mx-auto space-y-5">
+        <ScrollReveal className="max-w-[1280px] mx-auto space-y-5">
           <Badge className="bg-[#2563EB]/10 text-[#2563EB] border-[#2563EB]/20 text-xs font-bold tracking-widest px-3 py-1">COURSE CATALOG</Badge>
           <h1 className="text-4xl md:text-5xl font-black tracking-tight text-[#111827]">
             Courses Built for <span className="bg-gradient-to-r from-[#2563EB] via-[#1D4ED8] to-[#16A34A] bg-clip-text text-transparent">Your Role</span>
@@ -134,16 +140,20 @@ export default function PublicCoursesPage() {
               className="pl-11 h-[48px] text-sm rounded-xl border-[#E5E7EB] bg-white text-[#111827] placeholder:text-[#9CA3AF] focus-visible:ring-[#2563EB] shadow-sm"
             />
           </div>
-        </div>
+        </ScrollReveal>
       </section>
 
       {/* ── Courses Grid ── */}
       <section className="py-16 px-6 bg-white">
-        <div className="max-w-[1280px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((course) => {
+        <StaggerContainer className="max-w-[1280px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map((course, idx) => {
             const Icon = course.icon;
             return (
-              <div key={course.id} className="group bg-white border border-[#E5E7EB] hover:border-[#2563EB]/30 hover:shadow-lg rounded-2xl p-6 space-y-4 transition-all duration-200 flex flex-col">
+              <ScrollCard
+                key={course.id}
+                index={idx}
+                className="group bg-white border border-[#E5E7EB] hover:border-[#2563EB]/30 hover:shadow-lg rounded-2xl p-6 space-y-4 transition-all duration-200 flex flex-col"
+              >
                 {/* Header */}
                 <div className="flex items-start justify-between">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: `${course.color}12`, border: `1px solid ${course.color}25` }}>
@@ -183,10 +193,10 @@ export default function PublicCoursesPage() {
                     </Button>
                   </Link>
                 </div>
-              </div>
+              </ScrollCard>
             );
           })}
-        </div>
+        </StaggerContainer>
 
         {filtered.length === 0 && (
           <div className="text-center py-20 text-[#9CA3AF]">
@@ -199,15 +209,12 @@ export default function PublicCoursesPage() {
       {/* ── Footer ── */}
       <footer className="py-10 px-6 border-t border-[#E5E7EB] bg-white">
         <div className="max-w-[1280px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-[#6B7280]">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2563EB] to-indigo-600 flex items-center justify-center text-white font-bold text-sm">S</div>
-            <div className="flex flex-col">
-              <span className="font-bold text-sm text-[#111827] leading-none">SENSILEARN</span>
-              <span className="text-[10px] text-[#9CA3AF] mt-1 leading-none">Learning Technologies</span>
-              <span className="text-[6.5px] text-[#9CA3AF]/80 uppercase tracking-wider mt-0.5 leading-none">SENSI Group</span>
-            </div>
-          </div>
-          <p>© {new Date().getFullYear()} SensiLearn Learning Technologies. All rights reserved.</p>
+          <SensilearnLogo
+            size="sm"
+            variant="mark"
+            href="/"
+          />
+          <p>© {new Date().getFullYear()} SensiLearn. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <Link href="/" className="hover:text-[#111827] transition-colors">Home</Link>
             <Link href="/courses" className="hover:text-[#111827] transition-colors">Courses</Link>

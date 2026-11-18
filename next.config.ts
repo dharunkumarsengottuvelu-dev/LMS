@@ -126,6 +126,7 @@ const nextConfig: NextConfig = {
 
   // Experimental features & compiler performance optimizations
   experimental: {
+    agentUpgrade: "security",
     cpus: 1,
     optimizePackageImports: [
       "lucide-react",

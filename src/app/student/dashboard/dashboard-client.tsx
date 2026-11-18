@@ -15,6 +15,12 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/types";
+import { isPracticeAssessment } from "@/lib/module-isolation";
+import {
+  ScrollReveal,
+  StaggerContainer,
+  ScrollCard,
+} from "@/components/ui/scroll-reveal";
 
 interface StudentDashboardData {
   profile: UserProfile | null;
@@ -70,7 +76,10 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
 
   const [storeCourses, setStoreCourses] = useState<any[]>((data as any).initialCourses || (data as any).enrollments || []);
   const [storeTracks, setStoreTracks] = useState<any[]>((data as any).initialTracks || []);
-  const [storeAssessments, setStoreAssessments] = useState<any[]>((data as any).initialAssessments || (data as any).assessments || data.tests || []);
+  const [storeAssessments, setStoreAssessments] = useState<any[]>(() => {
+    const raw = (data as any).initialAssessments || (data as any).assessments || data.tests || [];
+    return Array.isArray(raw) ? raw.filter((t: any) => !isPracticeAssessment(t)) : [];
+  });
   const [codingProblems, setCodingProblems] = useState<any[]>((data as any).initialCodingProblems || []);
   const [solvedProblemIds, setSolvedProblemIds] = useState<Set<string>>(new Set());
   const [liveNowClasses, setLiveNowClasses] = useState<any[]>([]);
@@ -80,10 +89,18 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   // Safe event-driven progress subscriber
   const progressVersion = useCourseProgressVersion();
 
-  // Dynamic Upcoming & Live Proctored Evaluations
+  // Dynamic Upcoming & Live Proctored Evaluations (Strict Module Isolation: Only authentic assessments)
   const upcomingEvents = useMemo(() => {
     return storeAssessments
-      .filter((test: any) => test.status !== "completed" && test.status !== "submitted")
+      .filter((test: any) => {
+        if (!test) return false;
+        if (test.status === "completed" || test.status === "submitted") return false;
+        // Never allow practice modules or practice questions into assessments
+        if (isPracticeAssessment(test)) return false;
+        const desc = String(test.description || "").toLowerCase();
+        if (desc.includes("practice module") || desc.includes("practice assessment")) return false;
+        return true;
+      })
       .map((test: any) => {
         const isLive = test.status === "live" || test.status === "active";
         return {
@@ -163,7 +180,10 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
           const aRes = results[nextIdx++];
           if (aRes && aRes.ok) {
             const aData = await aRes.json();
-            if (Array.isArray(aData.tests)) setStoreAssessments(aData.tests);
+            if (Array.isArray(aData.tests)) {
+              const authentic = aData.tests.filter((t: any) => !isPracticeAssessment(t));
+              setStoreAssessments(authentic);
+            }
           }
         }
         if (needCoding) {
@@ -249,7 +269,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
   return (
     <div className="space-y-6 w-full pb-12">
       {/* 1. Welcome Banner Header - Compact Enterprise MNC Card */}
-      <div className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-5 shadow-2xs overflow-visible">
+      <ScrollReveal className="bg-white dark:bg-[#18181B] rounded-xl border border-slate-200/80 dark:border-zinc-800 p-4 sm:p-5 shadow-2xs overflow-visible">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5">
           <div className="flex-1 min-w-0">
             <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
@@ -270,21 +290,29 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
             </Button>
           </div>
         </div>
-      </div>
+      </ScrollReveal>
 
       {/* 2. Statistics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-up stagger-1">
-        <StatCard value={enrichedPracticeTracks.length} label="Active Practice Tracks" href="/student/practices" badgeText="Assigned" />
-        <StatCard value={displayCompletedCount} label="Completed Modules" href="/student/practices" badgeText="Verified" />
-        <StatCard value={activeCourses.length} label="Enrolled Courses" href="/student/my-courses" badgeText="Catalog" />
-        <StatCard value={displayUnreadNotifications} label="Unread Notifications" href="/student/notifications" badgeText={displayUnreadNotifications > 0 ? "New Alerts" : "Updated"} />
-      </div>
+      <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <ScrollCard index={0} className="h-full">
+          <StatCard value={enrichedPracticeTracks.length} label="Active Practice Tracks" href="/student/practices" badgeText="Assigned" />
+        </ScrollCard>
+        <ScrollCard index={1} className="h-full">
+          <StatCard value={displayCompletedCount} label="Completed Modules" href="/student/practices" badgeText="Verified" />
+        </ScrollCard>
+        <ScrollCard index={2} className="h-full">
+          <StatCard value={activeCourses.length} label="Enrolled Courses" href="/student/my-courses" badgeText="Catalog" />
+        </ScrollCard>
+        <ScrollCard index={3} className="h-full">
+          <StatCard value={displayUnreadNotifications} label="Unread Notifications" href="/student/notifications" badgeText={displayUnreadNotifications > 0 ? "New Alerts" : "Updated"} />
+        </ScrollCard>
+      </StaggerContainer>
 
       {/* 3. Main Workspace Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fade-up stagger-2">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* LEFT COLUMN: Continue Learning & Practices (8 cols) */}
-        <div className="lg:col-span-8 space-y-6">
+        <ScrollReveal className="lg:col-span-8 space-y-6">
           <Card className="bg-card border-border shadow-card">
             <CardHeader className="p-6 pb-4 border-b border-border flex flex-row items-center justify-between">
               <div>
@@ -413,10 +441,10 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
               )}
             </CardContent>
           </Card>
-        </div>
+        </ScrollReveal>
 
         {/* RIGHT COLUMN: Upcoming Evaluations & Quick Launch (4 cols) */}
-        <div className="lg:col-span-4 space-y-6">
+        <ScrollReveal delay={0.06} className="lg:col-span-4 space-y-6">
           
           {/* Active Live Class Alert Card if Live Now */}
           {liveNowClasses.length > 0 && (
@@ -455,6 +483,11 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
                 <div className="flex flex-col items-center justify-center p-6 text-center bg-background rounded-xl border border-border border-dashed">
                   <Clock className="h-8 w-8 text-muted-foreground opacity-50 mb-2" />
                   <p className="text-xs text-muted-foreground">No upcoming evaluations scheduled.</p>
+                  <Button variant="ghost" size="sm" className="mt-2 text-xs text-[#2563EB] hover:text-[#1D4ED8]" asChild>
+                    <Link href="/student/assessments">
+                      View Assessments <ArrowRight className="h-3 w-3 ml-1" />
+                    </Link>
+                  </Button>
                 </div>
               ) : (
                 upcomingEvents.map((evt: any) => (
@@ -592,7 +625,7 @@ export function StudentDashboardClient({ data }: { data: StudentDashboardData })
               </div>
             )}
           </Card>
-        </div>
+        </ScrollReveal>
 
       </div>
     </div>

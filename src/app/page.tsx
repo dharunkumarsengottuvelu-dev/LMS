@@ -35,6 +35,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
+import {
+  ScrollReveal,
+  StaggerContainer,
+  StaggerItem,
+  ScrollCard,
+} from "@/components/ui/scroll-reveal";
 
 function InstagramIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -1048,19 +1055,12 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
           
           {/* Brand Mark */}
-          <Link href="/" className="flex items-center group">
-            <div className="flex flex-col">
-              <span className="font-extrabold text-xl text-slate-900 tracking-tight leading-none">
-                SENSILEARN<span className="text-[#2563EB]">.</span>
-              </span>
-              <span className="text-[10px] text-slate-500 font-medium tracking-tight mt-1 leading-none">
-                Learning Technologies
-              </span>
-              <span className="text-[6.5px] text-slate-400/80 font-medium tracking-wider uppercase mt-0.5 leading-none">
-                SENSI Group
-              </span>
-            </div>
-          </Link>
+          <SensilearnLogo
+            size="md"
+            variant="mark"
+            href="/"
+            priority
+          />
 
           {/* Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold text-slate-600">
@@ -1089,11 +1089,11 @@ export default function LandingPage() {
               <SheetContent side="right" className="w-[300px] sm:w-[340px] bg-white border-slate-200 p-6 flex flex-col justify-between">
                 <div className="space-y-6">
                   <SheetHeader className="text-left pb-4 border-b border-slate-100">
-                    <SheetTitle className="text-base font-bold text-slate-900">
-                      SENSILEARN<span className="text-[#2563EB]">.</span>
-                    </SheetTitle>
-                    <p className="text-xs text-slate-500 font-medium">Learning Technologies</p>
-                    <p className="text-[6.5px] text-slate-400/80 font-medium tracking-wider uppercase">SENSI Group</p>
+                    <SensilearnLogo
+                      size="sm"
+                      variant="mark"
+                      href="/"
+                    />
                   </SheetHeader>
 
                   <nav className="flex flex-col gap-3 text-sm font-semibold text-slate-700">
@@ -1131,38 +1131,44 @@ export default function LandingPage() {
         <div className="relative max-w-5xl mx-auto text-center space-y-8">
           
           {/* Eyebrow */}
-          <div>
+          <ScrollReveal delay={0.0}>
             <span className="text-xs sm:text-sm font-bold tracking-widest text-[#2563EB] uppercase">
-              SENSILEARN LEARNING TECHNOLOGIES
+              SENSILEARN PLATFORM
             </span>
-          </div>
+          </ScrollReveal>
 
           {/* Main Headline */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.12]">
-            BUILD SKILLS. PROVE POTENTIAL.{" "}
-            <span className="text-[#2563EB] animate-text-shimmer">
-              SHAPE THE FUTURE.
-            </span>
-          </h1>
+          <ScrollReveal delay={0.06}>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.12]">
+              BUILD SKILLS. PROVE POTENTIAL.{" "}
+              <span className="text-[#2563EB] animate-text-shimmer">
+                SHAPE THE FUTURE.
+              </span>
+            </h1>
+          </ScrollReveal>
 
           {/* Supporting Statement */}
-          <p className="text-base sm:text-lg lg:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
-            An intelligent learning ecosystem built to transform how institutions, educators, and learners learn, practice, assess, and grow.
-          </p>
+          <ScrollReveal delay={0.12}>
+            <p className="text-base sm:text-lg lg:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed font-normal">
+              An intelligent learning ecosystem built to transform how institutions, educators, and learners learn, practice, assess, and grow.
+            </p>
+          </ScrollReveal>
 
           {/* Action CTAs */}
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-            <Button size="lg" className="h-12 px-7 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg shadow-xs transition-colors" asChild>
-              <Link href="/login">
-                Explore SensiLearn <ArrowRight className="h-4 w-4 ml-2" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="h-12 px-7 border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-semibold rounded-lg transition-colors" asChild>
-              <Link href="#approach">
-                See How It Works
-              </Link>
-            </Button>
-          </div>
+          <ScrollReveal delay={0.18}>
+            <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+              <Button size="lg" className="h-12 px-7 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-semibold rounded-lg shadow-xs transition-colors" asChild>
+                <Link href="/login">
+                  Explore SensiLearn <ArrowRight className="h-4 w-4 ml-2" />
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" className="h-12 px-7 border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-semibold rounded-lg transition-colors" asChild>
+                <Link href="#approach">
+                  See How It Works
+                </Link>
+              </Button>
+            </div>
+          </ScrollReveal>
 
         </div>
       </section>
@@ -1172,14 +1178,14 @@ export default function LandingPage() {
           3. TRUST / POSITIONING STRIP
           ────────────────────────────────────────────────────────── */}
       <section className="py-12 bg-slate-50 border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-2.5">
+        <ScrollReveal className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-2.5">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
             ONE CONNECTED LEARNING ECOSYSTEM
           </span>
           <p className="text-sm sm:text-base text-slate-800 font-medium max-w-2xl mx-auto">
             Learning, practice, coding, assessment, and performance — connected in one platform.
           </p>
-        </div>
+        </ScrollReveal>
       </section>
 
 
@@ -1189,7 +1195,7 @@ export default function LandingPage() {
       <section id="approach" className="py-20 bg-white border-b border-slate-200 overflow-hidden">
         <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6 lg:px-8">
           
-          <div className="text-center space-y-3 max-w-3xl mx-auto">
+          <ScrollReveal className="text-center space-y-3 max-w-3xl mx-auto">
             <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB]">THE APPROACH</span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               A Connected Path from Learning to Capability
@@ -1197,7 +1203,7 @@ export default function LandingPage() {
             <p className="text-sm text-slate-600">
               SensiLearn connects every stage of technical development into an unbroken, measurable pipeline.
             </p>
-          </div>
+          </ScrollReveal>
 
         </div>
 
@@ -1286,7 +1292,7 @@ export default function LandingPage() {
       <section id="why-sensilearn" ref={whySensiLearnRef} className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50 border-b border-slate-200 overflow-hidden">
         <div className="max-w-6xl mx-auto space-y-10">
           
-          <div className="text-center space-y-3 max-w-3xl mx-auto">
+          <ScrollReveal className="text-center space-y-3 max-w-3xl mx-auto">
             <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB]">WHY SENSILEARN</span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               ONE PLATFORM. COMPLETE LEARNING JOURNEY.
@@ -1294,10 +1300,12 @@ export default function LandingPage() {
             <p className="text-sm text-slate-600">
               Designed around demonstrable capability, not superficial course completion.
             </p>
-          </div>
+          </ScrollReveal>
 
           {/* Circular 3D Movable Carousel */}
-          <WhySensiLearnCircular3DCarousel />
+          <ScrollReveal delay={0.08}>
+            <WhySensiLearnCircular3DCarousel />
+          </ScrollReveal>
 
         </div>
       </section>
@@ -1309,7 +1317,7 @@ export default function LandingPage() {
       <section id="platform" className="py-20 px-4 sm:px-6 lg:px-8 bg-white border-b border-slate-200 overflow-hidden">
         <div className="max-w-6xl mx-auto space-y-10">
           
-          <div className="text-center space-y-3 max-w-3xl mx-auto">
+          <ScrollReveal className="text-center space-y-3 max-w-3xl mx-auto">
             <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB]">WHAT WE DO</span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               EVERYTHING YOUR LEARNING ECOSYSTEM NEEDS
@@ -1317,10 +1325,12 @@ export default function LandingPage() {
             <p className="text-sm text-slate-600">
               Comprehensive capabilities that consolidate education management, evaluation, and code execution.
             </p>
-          </div>
+          </ScrollReveal>
 
           {/* 3D Kinetic Expanding Horizon Deck (Zero Icons) */}
-          <WhatWeDoHorizonDeck />
+          <ScrollReveal delay={0.08}>
+            <WhatWeDoHorizonDeck />
+          </ScrollReveal>
 
         </div>
       </section>
@@ -1332,15 +1342,17 @@ export default function LandingPage() {
       <section id="how-it-works" className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50 border-b border-slate-200 overflow-hidden">
         <div className="max-w-6xl mx-auto space-y-10">
           
-          <div className="text-center space-y-3 max-w-3xl mx-auto">
+          <ScrollReveal className="text-center space-y-3 max-w-3xl mx-auto">
             <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB]">HOW IT WORKS</span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               A Clear, Systematic Learning Workflow
             </h2>
-          </div>
+          </ScrollReveal>
 
           {/* Kinetic Flow Conduit Stepper */}
-          <HowItWorksConduit />
+          <ScrollReveal delay={0.08}>
+            <HowItWorksConduit />
+          </ScrollReveal>
 
         </div>
       </section>
@@ -1352,7 +1364,7 @@ export default function LandingPage() {
       <section id="ecosystem" className="py-20 px-4 sm:px-6 lg:px-8 bg-white border-b border-slate-200 overflow-hidden">
         <div className="max-w-5xl mx-auto space-y-10">
           
-          <div className="text-center space-y-3 max-w-3xl mx-auto">
+          <ScrollReveal className="text-center space-y-3 max-w-3xl mx-auto">
             <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB]">ONE ECOSYSTEM</span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               ONE ECOSYSTEM. MULTIPLE ROLES. ONE SHARED GOAL.
@@ -1360,10 +1372,12 @@ export default function LandingPage() {
             <p className="text-sm text-slate-600">
               Clear responsibilities and shared visibility across the entire institution.
             </p>
-          </div>
+          </ScrollReveal>
 
           {/* 3D Spatial Perspective Role Deck */}
-          <EcosystemSpatialDeck />
+          <ScrollReveal delay={0.08}>
+            <EcosystemSpatialDeck />
+          </ScrollReveal>
 
         </div>
       </section>
@@ -1389,9 +1403,9 @@ export default function LandingPage() {
         />
 
         {/* Foreground Content */}
-        <div className="relative z-10 max-w-4xl mx-auto text-center space-y-6">
+        <ScrollReveal className="relative z-10 max-w-4xl mx-auto text-center space-y-6">
           <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider text-blue-300 bg-blue-950/70 border border-blue-700/50 backdrop-blur-md uppercase shadow-xs">
-            SENSILEARN LEARNING TECHNOLOGIES
+            SENSILEARN PLATFORM
           </span>
 
           <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
@@ -1399,7 +1413,7 @@ export default function LandingPage() {
           </h2>
 
           <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed font-normal">
-            Bring learning, practice, coding, assessment and performance together with SensiLearn Learning Technologies.
+            Bring learning, practice, coding, assessment and performance together with SensiLearn.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
@@ -1414,7 +1428,7 @@ export default function LandingPage() {
               </Link>
             </Button>
           </div>
-        </div>
+        </ScrollReveal>
       </section>
 
 
@@ -1428,19 +1442,16 @@ export default function LandingPage() {
             
             {/* Brand Column (2 cols) */}
             <div className="lg:col-span-2 space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-xl text-slate-900 tracking-tight">
-                  SENSILEARN<span className="text-[#2563EB]">.</span>
-                </span>
-              </div>
+              <SensilearnLogo
+                size="md"
+                variant="mark"
+                href="/"
+              />
               <p className="text-xs font-semibold text-slate-700">
-                SensiLearn Learning Technologies
+                SensiLearn
               </p>
               <p className="text-xs text-slate-500 max-w-sm leading-relaxed font-medium">
                 Learn • Build • Lead
-              </p>
-              <p className="text-xs text-[#2563EB] font-medium pt-1">
-                Part of SENSI Group of Companies
               </p>
 
               {/* Direct Contact & Social Links (Expanding Luxury Pill Buttons) */}
@@ -1519,10 +1530,10 @@ export default function LandingPage() {
 
           </div>
 
-          {/* Copyright & Leadership */}
+          {/* Copyright & Attribution */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-            <p>© {new Date().getFullYear()} SensiLearn Learning Technologies (SENSI Group). All rights reserved.</p>
-            <p className="font-medium text-slate-700">Founder &amp; CEO: Dharunkumar S</p>
+            <p>© {new Date().getFullYear()} SensiLearn. All rights reserved.</p>
+            <p className="font-medium text-slate-700">by SENSI GROUP LLP</p>
           </div>
 
         </div>

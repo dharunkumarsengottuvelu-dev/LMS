@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "SensiLearn | Batches",
+  title: "Batches",
 };
 export const dynamic = "force-dynamic";
 

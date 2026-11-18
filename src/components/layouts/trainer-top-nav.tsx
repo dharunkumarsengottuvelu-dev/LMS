@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NotificationBellDropdown } from "@/components/notifications/notification-bell-dropdown";
 import { trainerNavigation } from "@/config/navigation";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 
 export function TrainerTopNav() {
   const pathname = usePathname();
@@ -36,14 +37,17 @@ export function TrainerTopNav() {
       <div className="lms-page-container h-full flex items-center justify-between gap-4">
         {/* Brand Logo */}
         <div className="flex items-center shrink-0">
-          <Link href="/trainer/dashboard" suppressHydrationWarning className="flex items-center gap-2.5 shrink-0 group">
-            <span className="font-extrabold text-xl tracking-tight text-foreground">
-              SENSILEARN<span className="text-[#2563EB] font-black">.</span>
-            </span>
-            <Badge variant="outline" className="hidden sm:inline-flex bg-[#2563EB]/5 text-[#2563EB] border-[#2563EB]/20 text-[10px] font-bold px-2 py-0.5">
-              TRAINER
-            </Badge>
-          </Link>
+          <SensilearnLogo
+            size="md"
+            theme="auto"
+            href="/trainer/dashboard"
+            priority
+            badge={
+              <Badge variant="outline" className="hidden sm:inline-flex bg-[#2563EB]/5 text-[#2563EB] border-[#2563EB]/20 text-[10px] font-bold px-2 py-0.5">
+                TRAINER
+              </Badge>
+            }
+          />
         </div>
 
         {/* Centered Desktop Nav Links */}
@@ -85,12 +89,14 @@ export function TrainerTopNav() {
             </SheetTrigger>
             <SheetContent side="right" className="w-[280px] sm:w-[320px] bg-background border-l border-border p-6">
               <SheetHeader className="text-left pb-4 border-b border-border">
-                <SheetTitle className="flex items-center gap-2.5">
-                  <span className="font-extrabold text-xl text-foreground">
-                    SENSILEARN<span className="text-[#2563EB] font-black">.</span>
-                  </span>
-                  <Badge variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] text-[9px] font-bold border-[#2563EB]/30">TRAINER</Badge>
-                </SheetTitle>
+                <SensilearnLogo
+                  size="sm"
+                  theme="auto"
+                  href="/trainer/dashboard"
+                  badge={
+                    <Badge variant="outline" className="bg-[#2563EB]/10 text-[#2563EB] text-[9px] font-bold border-[#2563EB]/30">TRAINER</Badge>
+                  }
+                />
               </SheetHeader>
 
               <nav className="flex flex-col gap-1.5 pt-6">

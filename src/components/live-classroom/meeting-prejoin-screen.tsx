@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { DeviceInfo, MeetingLifecycle } from "@/hooks/use-sensilearn-meeting-engine";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 
 interface MeetingPrejoinScreenProps {
   meetingTitle: string;
@@ -190,7 +191,8 @@ export function MeetingPrejoinScreen({
         {/* RIGHT CARD: Session Info & Dynamic Lifecycle Action Area */}
         <div className="lg:col-span-5 flex flex-col justify-between bg-white border border-[#DADCE0] p-6 sm:p-7 rounded-3xl shadow-sm space-y-6">
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <SensilearnLogo size="sm" theme="light" />
               <Badge className="bg-[#E8F0FE] text-[#1A73E8] border border-[#D2E3FC] text-[10px] font-bold px-2.5 py-0.5 uppercase tracking-wide">
                 {isHost ? "HOST ROOM" : "STUDENT CLASSROOM"}
               </Badge>

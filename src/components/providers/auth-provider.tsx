@@ -1,10 +1,40 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { getSafeUser, getSafeSession, isProxyUser } from "@/lib/auth/safe-auth";
 import type { UserProfile } from "@/types";
+import { SensilearnLoader } from "@/components/brand/sensilearn-loader";
+
+function AuthSessionLoader({ loading }: { loading: boolean }) {
+  const [initialRestoreDone, setInitialRestoreDone] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setInitialRestoreDone(true);
+    }
+  }, [loading]);
+
+  // Safety fallback: if network hangs, dismiss loader after 3.5s to prevent infinite block
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setInitialRestoreDone(true);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (initialRestoreDone) return null;
+
+  return (
+    <SensilearnLoader
+      isLoading={loading}
+      variant="fullscreen"
+      ariaLabel="Initializing Sensilearn"
+      onFinish={() => setInitialRestoreDone(true)}
+    />
+  );
+}
 
 interface AuthContextType {
   user: User | null;
@@ -263,6 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{ user, session, profile, loading, signOut, refreshProfile }}
     >
+      <AuthSessionLoader loading={loading} />
       {children}
     </AuthContext.Provider>
   );

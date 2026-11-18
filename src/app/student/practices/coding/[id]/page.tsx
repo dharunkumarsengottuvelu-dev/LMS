@@ -37,6 +37,7 @@ import {
   PanelRightOpen,
 } from "lucide-react";
 import { Loading } from "@/components/ui/loading";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -2141,6 +2142,7 @@ export default function StudentPracticeCodingRunnerPage() {
           <>
             {/* Left: ← Back to Practice / Review & Submit */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 max-w-full">
+              <SensilearnLogo variant="mark" size="xs" href="/student/practices" className="shrink-0" />
               <button
                 type="button"
                 onClick={() => setIsReviewSubmitOpen(false)}
@@ -2193,6 +2195,7 @@ export default function StudentPracticeCodingRunnerPage() {
           <>
             {/* Left: ← Back to Practice / #1. Title [Easy] */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 max-w-full">
+              <SensilearnLogo variant="mark" size="xs" href="/student/practices" className="shrink-0" />
               <button
                 type="button"
                 onClick={handleBackToPractice}

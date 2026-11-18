@@ -32,6 +32,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { Loading } from "@/components/ui/loading";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -1233,6 +1234,7 @@ export default function ProblemSolvingWorkspace() {
       <header className="h-14 bg-white border-b border-slate-200/90 px-3 sm:px-6 flex items-center justify-between shrink-0 shadow-2xs z-20 gap-2 overflow-hidden">
         {/* Left: ← Back to Challenges / #1. Title [Difficulty] */}
         <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+          <SensilearnLogo variant="mark" size="xs" href="/coding" className="shrink-0" />
           <button
             type="button"
             onClick={() => {

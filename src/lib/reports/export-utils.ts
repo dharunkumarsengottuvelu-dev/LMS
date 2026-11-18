@@ -31,7 +31,7 @@ export async function exportReportToExcel(
   });
 
   const summaryAoa: any[][] = [
-    ["SENSILEARN LEARNING TECHNOLOGIES • SENSI GROUP"],
+    ["SENSILEARN ENTERPRISE LMS"],
     ["Enterprise Student Performance & Analytics Executive Summary"],
     [],
     ["REPORT METADATA", ""],
@@ -281,7 +281,7 @@ export function exportReportToCSV(
 
 /**
  * Generates and downloads a clean, professional enterprise PDF
- * formatted with official SENSI Group / SensiLearn header and styled table.
+ * formatted with official SensiLearn header and styled table.
  */
 export async function exportReportToPDF(
   summary: ReportSummary,
@@ -447,7 +447,7 @@ export async function exportReportToPDF(
   <div class="header-bar">
     <div>
       <h1 class="brand-title">SENSILEARN</h1>
-      <p class="brand-subtitle">Learning Technologies • SENSI Group</p>
+      <p class="brand-subtitle">Enterprise LMS &amp; Analytics Engine</p>
       <div class="report-title">Student Performance & Enterprise Analytics Report</div>
       <div style="font-size: 10px; color: #4B5563; margin-top: 2px;">
         Scope: <strong>${summary.scope}</strong> • Filter: <strong>${summary.filtersApplied.status.toUpperCase()}</strong> • Range: <strong>${summary.filtersApplied.dateRange.toUpperCase()}</strong>
@@ -535,7 +535,7 @@ export async function exportReportToPDF(
   </table>
 
   <div class="footer">
-    <div>SensiLearn Learning Technologies • Enterprise Analytics Engine • Confidential</div>
+    <div>SensiLearn • Enterprise Analytics Engine • Confidential</div>
     <div>Report Document Generated: ${genDateFormatted} • All database records verified</div>
   </div>
 

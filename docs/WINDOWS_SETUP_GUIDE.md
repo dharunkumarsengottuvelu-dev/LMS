@@ -76,7 +76,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhY
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_APP_NAME=SensiLearn LMS
 NEXT_PUBLIC_APP_DESCRIPTION=Enterprise Learning Management System & Coding Platform
-NEXT_PUBLIC_COMPANY_NAME=SensiLearn Learning Technologies
+NEXT_PUBLIC_COMPANY_NAME=SensiLearn
 NEXT_PUBLIC_SUPPORT_EMAIL=support@sensilearn.com
 
 # =============================================================

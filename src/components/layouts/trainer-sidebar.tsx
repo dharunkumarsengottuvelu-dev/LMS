@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getInitials } from "@/lib/utils";
 import { trainerNavigation } from "@/config/navigation";
+import { SensilearnLogo } from "@/components/brand/sensilearn-logo";
 
 export function TrainerSidebar() {
   const pathname = usePathname();
@@ -23,13 +24,14 @@ export function TrainerSidebar() {
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-border">
-        <div>
-          <p className="font-extrabold text-xl tracking-tight" style={{ fontFamily: "Sora, sans-serif" }}>
-            SENSILEARN<span className="text-[#2563EB] font-black">.</span>
-          </p>
-          <p className="text-xs text-muted-foreground">Trainer Panel</p>
-        </div>
+      <div className="flex items-center px-4 py-5 border-b border-border">
+        <SensilearnLogo
+          size="md"
+          subtitle="Trainer Panel"
+          theme="auto"
+          href="/trainer/dashboard"
+          priority
+        />
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {trainerNavigation.map((item) => {

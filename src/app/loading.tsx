@@ -1,12 +1,5 @@
-import { Loading } from "@/components/ui/loading";
+import { SensilearnLoader } from "@/components/brand/sensilearn-loader";
 
 export default function GlobalRouteLoading() {
-  return (
-    <Loading
-      fullScreen
-      size="lg"
-      text="Loading..."
-      subtext="Please wait while we prepare your content."
-    />
-  );
+  return <SensilearnLoader variant="fullscreen" ariaLabel="Loading Sensilearn" />;
 }
