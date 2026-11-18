@@ -17,3 +17,19 @@ export function createAdminClient() {
     },
   });
 }
+
+
+
+// This client is used in the browser and triggers the Google Sign-In
+export function createBrowserClient() {
+  const proxyUrl = process.env.NEXT_PUBLIC_SUPABASE_PROXY_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!proxyUrl || !anonKey) {
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_PROXY_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
+  }
+
+  return createClient(proxyUrl, anonKey);
+}

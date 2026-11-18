@@ -60,6 +60,10 @@ const nextConfig: NextConfig = {
         source: "/auth/callback",
         destination: "/api/auth/callback",
       },
+      {
+        source: '/supabase-api/:path*',
+        destination: 'https://vdpokcnbslgzyufybxey.supabase.co/:path*',
+      },
     ];
   },
 
